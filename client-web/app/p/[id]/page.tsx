@@ -109,6 +109,7 @@ export default function BudgetPage() {
 
   const isAccepted = quote.status === 'accepted';
   const hasTax = taxAmount > 0; // ¿Tiene IVA?
+  console.log("Versión con IVA Activo 2.0");
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 font-sans">
