@@ -15,7 +15,7 @@ interface Quote {
   id: string;
   created_at: string;
   total_amount: number;
-  tax_rate: number; // <--- NUEVO CAMPO
+  tax_rate: number; // <--- Importante para saber si mostrar IVA
   status: string;
   client_name?: string;
   client_address?: string;
@@ -39,7 +39,7 @@ export default function BudgetPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Estados derivados para matemáticas
+  // Estados para cálculos visuales
   const [subtotal, setSubtotal] = useState(0);
   const [taxAmount, setTaxAmount] = useState(0);
 
@@ -57,20 +57,16 @@ export default function BudgetPage() {
         if (quoteError) throw quoteError;
         setQuote(quoteData);
 
-        // --- CÁLCULOS MATEMÁTICOS PARA LA VISTA ---
-        // 1. Calculamos el subtotal sumando los ítems
+        // --- CÁLCULOS ---
         const rawSubtotal = quoteData.quote_items.reduce((sum: number, item: any) => {
             return sum + (item.unit_price * item.quantity);
         }, 0);
-        
         setSubtotal(rawSubtotal);
 
-        // 2. Calculamos el IVA si corresponde
-        // Si hay tax_rate guardado, lo usamos. Si no, asumimos 0.
+        // Si la base de datos dice que tiene tasa (ej: 0.21), calculamos el monto
         const rate = quoteData.tax_rate || 0;
         setTaxAmount(rawSubtotal * rate);
-
-        // --- FIN CÁLCULOS ---
+        // ----------------
 
         if (quoteData.user_id) {
           const { data: profileData, error: profileError } = await supabase
@@ -108,29 +104,33 @@ export default function BudgetPage() {
   if (!quote) return null;
 
   const isAccepted = quote.status === 'accepted';
-  const hasTax = taxAmount > 0; // ¿Tiene IVA?
-  console.log("Versión con IVA Activo 2.0");
+  const hasTax = taxAmount > 0;
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 font-sans">
       <div className="max-w-2xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden ring-1 ring-black/5">
         
-        {/* HEADER */}
+        {/* --- HEADER --- */}
         <div className="bg-slate-900 text-white p-8 relative overflow-hidden">
           <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
             <div>
+              {/* TÍTULO NARANJA (Sin imagen rota) */}
               <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-orange-500 uppercase leading-none">
                 {technician?.business_name || 'URBANFIX'}
               </h1>
+              
               <div className="flex items-center mt-3 text-slate-400 text-sm font-medium">
                 <span className="bg-slate-800 p-1.5 rounded-md mr-2">👤</span>
                 {technician?.full_name}
               </div>
             </div>
+            
             <div className="mt-6 md:mt-0 md:text-right">
               <p className="text-xs text-slate-500 font-mono tracking-widest uppercase mb-1">Presupuesto</p>
               <p className="text-white font-mono text-sm opacity-80">#{quote.id.slice(0, 8).toUpperCase()}</p>
+              
               <div className={`mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide border ${isAccepted ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-yellow-500/20 border-yellow-500 text-yellow-400'}`}>
                 <span className={`w-2 h-2 rounded-full mr-2 ${isAccepted ? 'bg-green-400' : 'bg-yellow-400'}`}></span>
                 {isAccepted ? 'APROBADO' : 'PENDIENTE'}
@@ -139,7 +139,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        {/* INFO CLIENTE */}
+        {/* --- INFO CLIENTE --- */}
         <div className="p-8 border-b border-gray-100 bg-gray-50/50 flex flex-col sm:flex-row justify-between gap-6">
           <div>
             <h3 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Cliente</h3>
@@ -156,7 +156,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        {/* TABLA */}
+        {/* --- TABLA --- */}
         <div className="p-6 sm:p-8">
           <div className="overflow-hidden rounded-lg border border-gray-100">
             <table className="w-full text-left border-collapse">
@@ -184,7 +184,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        {/* --- SECCIÓN DE TOTALES ACTUALIZADA CON IVA --- */}
+        {/* --- TOTALES --- */}
         <div className="px-8 pb-8 flex flex-col items-end">
           <div className="w-full max-w-xs pt-4 border-t border-dashed border-gray-200">
             
@@ -194,7 +194,7 @@ export default function BudgetPage() {
               <span className="font-medium text-gray-700">${subtotal.toLocaleString('es-AR')}</span>
             </div>
 
-            {/* IVA (Solo si existe) */}
+            {/* IVA (Solo si existe y es mayor a 0) */}
             {hasTax && (
                 <div className="flex justify-between items-center py-1">
                     <span className="text-gray-500 text-sm">IVA (21%)</span>
@@ -212,7 +212,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        {/* ACCIONES */}
+        {/* --- ACCIONES --- */}
         <div className="border-t border-gray-100">
           {!isAccepted ? (
             <div className="p-10 bg-gray-50 text-center">
