@@ -19,35 +19,47 @@ export default function JobConfigScreen() {
   const params = route.params as { blueprint?: ServiceBlueprint, quote?: any };
   const { blueprint, quote } = params || {};
 
+  // HOOK COMPLETO: Traemos todas las funciones nuevas (updatePrice, applyTax, etc.)
   const { 
     items, setItems, updateQuantity, updatePrice, toggleItem, addItem, removeItem, 
-    discount, setDiscount, applyTax, setApplyTax, totals 
+    discount, setDiscount, applyTax, setApplyTax, totals,
+    clientName, setClientName, clientAddress, setClientAddress 
   } = useJobCalculator([]);
   
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false); 
   const [discountInput, setDiscountInput] = useState('');
   
+  // Estado para el Modal de Agregar
   const [isSelectorOpen, setSelectorOpen] = useState(false);
 
   const isEditMode = !!quote;
 
-  // 1. CARGA INICIAL
+  // 1. CARGA INICIAL DE DATOS
   useEffect(() => {
     if (isEditMode && quote) {
+      // --- MODO EDICIÓN: Cargar datos existentes ---
       const loadedItems: JobItem[] = (quote.quote_items || []).map((item: any, index: number) => ({
         id: item.id || `edit-${index}`, 
         name: item.description,
         price: item.unit_price,
         quantity: item.quantity,
         isActive: true,
-        type: 'material',
+        type: 'material', // Por defecto si no tenemos el tipo guardado
       }));
       setItems(loadedItems);
+      
+      // Restaurar datos del cliente y configuración
+      if (quote.client_name) setClientName(quote.client_name);
+      if (quote.client_address) setClientAddress(quote.client_address);
+      
+      // Restaurar IVA si existía (Si tax_rate > 0, activamos el switch)
       if (quote.tax_rate > 0) setApplyTax(true);
+
       setIsLoading(false);
 
     } else if (blueprint && blueprint.blueprint_components) {
+      // --- MODO NUEVO: Cargar desde Plantilla ---
       const mappedItems: JobItem[] = blueprint.blueprint_components.map((comp: any, index: number) => ({
         id: comp.item_id || `temp-${index}`,
         name: comp.master_items?.name || 'Material',
@@ -59,12 +71,18 @@ export default function JobConfigScreen() {
       setItems(mappedItems);
       setIsLoading(false);
     } else {
+      // --- MODO CERO: Hoja en blanco ---
       setIsLoading(false);
     }
   }, [blueprint, quote]);
 
-  // 2. GUARDAR
+  // 2. GUARDAR EN BASE DE DATOS
   const proceedToNextStep = async () => {
+    if (!clientName.trim()) {
+        Alert.alert("Falta información", "Por favor ingresa el nombre del cliente.");
+        return;
+    }
+
     try {
         setIsSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
@@ -72,33 +90,43 @@ export default function JobConfigScreen() {
 
         let targetQuoteId = '';
         
+        // Datos maestros del presupuesto
         const quoteData = {
             total_amount: totals.total,
             status: 'draft',
-            tax_rate: applyTax ? 0.21 : 0,
+            tax_rate: applyTax ? 0.21 : 0, // Guardamos si aplicó IVA
+            client_name: clientName,
+            client_address: clientAddress
         };
 
         if (isEditMode) {
-            await supabase.from('quotes').update(quoteData).eq('id', quote.id);
+            // ACTUALIZAR
+            const { error } = await supabase.from('quotes').update(quoteData).eq('id', quote.id);
+            if (error) throw error;
+            
+            // Borrar items viejos para reescribir los nuevos (Estrategia simple)
             await supabase.from('quote_items').delete().eq('quote_id', quote.id);
             targetQuoteId = quote.id;
         } else {
+            // CREAR
             const newQuote = await createQuote({
                 userId: user.id,
-                totalAmount: totals.total,
-                items: [], 
+                totalAmount: totals.total, // Este helper crea el quote base
+                items: [], // Pasamos array vacío al helper porque insertaremos manualmente abajo con los datos frescos
                 blueprintName: blueprint?.name || 'Trabajo a Medida'
             });
+            
             if (newQuote?.id) {
                 targetQuoteId = newQuote.id;
-                await supabase.from('quotes').update({ tax_rate: quoteData.tax_rate }).eq('id', targetQuoteId);
+                await supabase.from('quotes').update(quoteData).eq('id', targetQuoteId);
             }
         }
 
+        // INSERTAR ITEMS (Solo los activos)
         const newItems = items.filter(i => i.isActive).map(i => ({
             quote_id: targetQuoteId, 
             description: i.name, 
-            unit_price: i.price, 
+            unit_price: i.price, // Guardamos el precio EDITADO
             quantity: i.quantity
         }));
 
@@ -107,7 +135,7 @@ export default function JobConfigScreen() {
             if (itemsError) throw itemsError;
         }
 
-        navigation.goBack();
+        navigation.goBack(); // Volver a la lista
 
     } catch (e: any) {
         Alert.alert("Error al guardar", e.message || "Intenta nuevamente");
@@ -116,15 +144,18 @@ export default function JobConfigScreen() {
     }
   };
 
-  // 3. RENDER ITEM
+  // 3. RENDERIZADO DE FILA (ITEM)
   const renderItem = ({ item }: { item: JobItem }) => (
     <View style={[styles.itemRow, !item.isActive && styles.itemDisabled]}>
+      {/* Botón Borrar */}
       <TouchableOpacity onPress={() => removeItem(item.id)} style={{marginRight: 8}}>
          <Ionicons name="trash-outline" size={20} color="#CCC" />
       </TouchableOpacity>
       
       <View style={{ flex: 1 }}>
         <Text style={styles.itemName}>{item.name}</Text>
+        
+        {/* PRECIO EDITABLE */}
         <View style={styles.priceRow}>
             <Text style={styles.currency}>$</Text>
             <TextInput 
@@ -136,6 +167,7 @@ export default function JobConfigScreen() {
         </View>
       </View>
       
+      {/* Controles de Cantidad */}
       {item.isActive && (
         <View style={styles.qtyContainer}>
           <TouchableOpacity onPress={() => updateQuantity(item.id, -1)} style={styles.qtyBtn}>
@@ -148,6 +180,7 @@ export default function JobConfigScreen() {
         </View>
       )}
 
+      {/* Switch Activar/Desactivar */}
       <View style={{ marginLeft: 10 }}>
         <Switch
           trackColor={{ false: "#767577", true: COLORS.primary }}
@@ -183,24 +216,52 @@ export default function JobConfigScreen() {
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
             
+            // CABECERA: DATOS DEL CLIENTE
+            ListHeaderComponent={
+                <View style={styles.clientCard}>
+                    <Text style={styles.sectionTitle}>DATOS DEL CLIENTE</Text>
+                    <TextInput 
+                        style={styles.input}
+                        placeholder="Nombre del Cliente (Ej: Juan Pérez)"
+                        placeholderTextColor="#AAA"
+                        value={clientName}
+                        onChangeText={setClientName}
+                    />
+                    <View style={styles.divider} />
+                    <TextInput 
+                        style={styles.input}
+                        placeholder="Dirección (Opcional)"
+                        placeholderTextColor="#AAA"
+                        value={clientAddress}
+                        onChangeText={setClientAddress}
+                    />
+                </View>
+            }
+            
+            // Estado vacío
             ListEmptyComponent={
-                <View style={{alignItems:'center', marginTop: 50}}>
-                    <Text style={{color:'#999', marginBottom: 20}}>Comienza agregando materiales.</Text>
+                <View style={{alignItems:'center', marginTop: 30}}>
+                    <Text style={{color:'#999', marginBottom: 20}}>Agrega materiales para comenzar.</Text>
                     <TouchableOpacity style={styles.addBtnEmpty} onPress={() => setSelectorOpen(true)}>
-                        <Text style={{color: COLORS.primary, fontWeight:'bold'}}>+ AGREGAR PRIMER ÍTEM</Text>
+                        <Text style={{color: COLORS.primary, fontWeight:'bold'}}>+ AGREGAR ÍTEM</Text>
                     </TouchableOpacity>
                 </View>
             }
 
+            // Footer con Resumen y Botones
             ListFooterComponent={
-            items.length > 0 ? (
+              items.length > 0 ? (
                 <View>
+                    {/* Botón Agregar Más */}
                     <TouchableOpacity style={styles.addBtnRow} onPress={() => setSelectorOpen(true)}>
                         <Ionicons name="add" size={20} color={COLORS.primary} />
                         <Text style={styles.addBtnText}>Agregar Flete, Ayudante, etc.</Text>
                     </TouchableOpacity>
 
+                    {/* Resumen de Costos */}
                     <View style={styles.summaryContainer}>
+                        
+                        {/* Descuento */}
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Descuento ($)</Text>
                             <TextInput 
@@ -215,6 +276,7 @@ export default function JobConfigScreen() {
                             />
                         </View>
 
+                        {/* Switch IVA */}
                         <View style={styles.summaryRow}>
                             <Text style={styles.summaryLabel}>Aplicar IVA (21%)</Text>
                             <Switch
@@ -227,11 +289,13 @@ export default function JobConfigScreen() {
 
                         <View style={styles.divider} />
 
+                        {/* Subtotal */}
                         <View style={styles.summaryRow}>
                             <Text style={styles.subtotalLabel}>Subtotal</Text>
                             <Text style={styles.subtotalValue}>${totals.subtotal.toLocaleString('es-AR')}</Text>
                         </View>
                         
+                        {/* Muestra IVA si aplica */}
                         {applyTax && (
                             <View style={styles.summaryRow}>
                                 <Text style={styles.taxLabel}>IVA 21%</Text>
@@ -244,11 +308,12 @@ export default function JobConfigScreen() {
                         )}
                     </View>
                 </View>
-            ) : null
+              ) : null
             }
         />
       </KeyboardAvoidingView>
 
+      {/* FOOTER FLOTANTE (TOTAL FINAL) */}
       <View style={[styles.footer, totals.isRisk && { borderTopColor: COLORS.danger, borderTopWidth: 2 }]}>
         <View style={styles.totalRow}>
           <Text style={styles.totalLabel}>Total Final:</Text>
@@ -270,6 +335,7 @@ export default function JobConfigScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* MODAL SELECTOR */}
       <ItemSelector 
         visible={isSelectorOpen} 
         onClose={() => setSelectorOpen(false)}
@@ -284,6 +350,7 @@ export default function JobConfigScreen() {
   );
 }
 
+// ESTILOS LIMPIOS Y SIN DUPLICADOS
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   header: { backgroundColor: COLORS.secondary, paddingHorizontal: 20, paddingBottom: 20 },
@@ -307,13 +374,18 @@ const styles = StyleSheet.create({
       borderBottomColor: '#EEE', 
       minWidth: 80, 
       paddingVertical: 0,
-      color: COLORS.primary, 
+      color: COLORS.primary, // Solo una definición de color
       fontWeight: 'bold'
   },
 
   qtyContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F4F6F8', borderRadius: 8, padding: 4 },
   qtyBtn: { width: 28, height: 28, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 6 },
   qtyText: { marginHorizontal: 10, fontFamily: FONTS.title, fontSize: 14 },
+  
+  // Cliente Card
+  clientCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 16 },
+  sectionTitle: { fontSize: 12, fontFamily: FONTS.title, color: COLORS.textLight, marginBottom: 8, letterSpacing: 1 },
+  input: { fontSize: 16, fontFamily: FONTS.body, color: COLORS.text, paddingVertical: 8 },
   
   addBtnEmpty: { padding: 15, marginTop:20, borderWidth: 1, borderColor: COLORS.primary, borderRadius: 8, borderStyle:'dashed' },
   addBtnRow: { flexDirection: 'row', alignItems: 'center', justifyContent:'center', padding: 12, marginBottom: 20, borderWidth: 1, borderColor: '#DDD', borderRadius: 8, borderStyle: 'dashed', backgroundColor: '#FAFAFA' },

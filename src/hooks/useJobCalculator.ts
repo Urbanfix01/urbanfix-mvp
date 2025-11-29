@@ -12,10 +12,15 @@ export interface JobItem {
 
 export const useJobCalculator = (initialItems: JobItem[] = []) => {
   const [items, setItems] = useState<JobItem[]>(initialItems);
+  
+  // NUEVOS ESTADOS PARA EL CLIENTE
+  const [clientName, setClientName] = useState('');
+  const [clientAddress, setClientAddress] = useState('');
+  
   const [discount, setDiscount] = useState(0);
-  const [applyTax, setApplyTax] = useState(false); // <--- NUEVO: Estado del IVA
+  const [applyTax, setApplyTax] = useState(false);
 
-  // 1. Acciones Básicas
+  // Acciones
   const updateQuantity = (id: string, delta: number) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) {
@@ -26,7 +31,6 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     }));
   };
 
-  // 2. NUEVO: Actualizar Precio (Para Fletes/Otros)
   const updatePrice = (id: string, newPrice: number) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) return { ...item, price: newPrice };
@@ -57,23 +61,16 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     setItems(prev => prev.filter(i => i.id !== id));
   };
 
-  // 3. Cálculos Actualizados
+  // Cálculos
   const totals = useMemo(() => {
-    // A. Subtotal
     const subtotal = items.reduce((acc, item) => {
       return item.isActive ? acc + (item.price * item.quantity) : acc;
     }, 0);
 
-    // B. Descuentos
     const totalAfterDiscount = Math.max(0, subtotal - discount);
-    
-    // C. IVA (21%)
     const taxAmount = applyTax ? totalAfterDiscount * 0.21 : 0;
-
-    // D. Total Final
     const total = totalAfterDiscount + taxAmount;
     
-    // Regla de riesgo (sin contar IVA)
     const isRisk = discount > (subtotal * 0.15); 
 
     return { subtotal, taxAmount, total, isRisk };
@@ -82,15 +79,11 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
   return {
     items,
     setItems,
-    updateQuantity,
-    updatePrice, // <--- Exportamos
-    toggleItem,
-    addItem,
-    removeItem,
-    discount,
-    setDiscount,
-    applyTax,    // <--- Exportamos
-    setApplyTax, // <--- Exportamos
-    totals
+    // Exportamos los nuevos setters
+    clientName, setClientName,
+    clientAddress, setClientAddress,
+    // Resto igual
+    updateQuantity, updatePrice, toggleItem, addItem, removeItem,
+    discount, setDiscount, applyTax, setApplyTax, totals
   };
 };
