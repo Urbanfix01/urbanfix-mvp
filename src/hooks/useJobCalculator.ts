@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { MasterItem } from '../types/database';
 
 export interface JobItem {
   id: string;
@@ -6,24 +7,29 @@ export interface JobItem {
   price: number;
   quantity: number;
   isActive: boolean;
-  type: 'material' | 'labor' | 'consumable';
+  type: 'labor' | 'material' | 'consumable';
 }
 
-export const useJobCalculator = (initialItems: JobItem[]) => {
+export const useJobCalculator = (initialItems: JobItem[] = []) => {
   const [items, setItems] = useState<JobItem[]>(initialItems);
-  const [discount, setDiscount] = useState(0); // Nuevo: Descuento manual
-  
-  // MARGEN MÍNIMO DEL SISTEMA (Hardcoded por ahora, vendrá de DB)
-  // Si el precio final baja del 10% de ganancia sobre el costo, es RIESGO.
-  const MIN_SAFETY_MARGIN = 1.10; 
+  const [discount, setDiscount] = useState(0);
+  const [applyTax, setApplyTax] = useState(false); // <--- NUEVO: Estado del IVA
 
-  // Acciones
+  // 1. Acciones Básicas
   const updateQuantity = (id: string, delta: number) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) {
         const newQ = Math.max(1, item.quantity + delta);
         return { ...item, quantity: newQ };
       }
+      return item;
+    }));
+  };
+
+  // 2. NUEVO: Actualizar Precio (Para Fletes/Otros)
+  const updatePrice = (id: string, newPrice: number) => {
+    setItems(prev => prev.map(item => {
+      if (item.id === id) return { ...item, price: newPrice };
       return item;
     }));
   };
@@ -35,45 +41,56 @@ export const useJobCalculator = (initialItems: JobItem[]) => {
     }));
   };
 
-  // Cálculo Memoizado
-  const totals = useMemo(() => {
-    let rawCost = 0; // Costo puro (Materiales + Mano de obra base)
-
-    items.forEach(item => {
-      if (item.isActive) {
-        rawCost += item.price * item.quantity;
-      }
-    });
-
-    // Precio Sugerido (Sin descuento)
-    const suggestedTotal = rawCost; 
-
-    // Precio Final (Con descuento aplicado por el técnico)
-    const finalTotal = suggestedTotal - discount;
-
-    // EL CÁLCULO DE LA VERGÜENZA
-    // El "Costo Seguro" es el costo base * 1.10 (10% margen mínimo)
-    // Si cobramos menos que eso, estamos perdiendo plata o regalando trabajo.
-    // (Para este MVP, simularemos que el "Costo Seguro" es el 80% del sugerido)
-    const safeMinimum = suggestedTotal * 0.80; 
-    
-    const isRisk = finalTotal < safeMinimum;
-
-    return {
-      subtotal: suggestedTotal,
-      discount,
-      total: finalTotal,
-      safeMinimum, // Lo exponemos para mostrarlo en el modal si queremos
-      isRisk // La bandera roja
+  const addItem = (masterItem: MasterItem) => {
+    const newItem: JobItem = {
+      id: `${masterItem.id}-${Date.now()}`, 
+      name: masterItem.name,
+      price: masterItem.suggested_price,
+      quantity: 1,
+      isActive: true,
+      type: masterItem.type,
     };
-  }, [items, discount]);
+    setItems(prev => [...prev, newItem]);
+  };
+
+  const removeItem = (id: string) => {
+    setItems(prev => prev.filter(i => i.id !== id));
+  };
+
+  // 3. Cálculos Actualizados
+  const totals = useMemo(() => {
+    // A. Subtotal
+    const subtotal = items.reduce((acc, item) => {
+      return item.isActive ? acc + (item.price * item.quantity) : acc;
+    }, 0);
+
+    // B. Descuentos
+    const totalAfterDiscount = Math.max(0, subtotal - discount);
+    
+    // C. IVA (21%)
+    const taxAmount = applyTax ? totalAfterDiscount * 0.21 : 0;
+
+    // D. Total Final
+    const total = totalAfterDiscount + taxAmount;
+    
+    // Regla de riesgo (sin contar IVA)
+    const isRisk = discount > (subtotal * 0.15); 
+
+    return { subtotal, taxAmount, total, isRisk };
+  }, [items, discount, applyTax]);
 
   return {
     items,
     setItems,
     updateQuantity,
+    updatePrice, // <--- Exportamos
     toggleItem,
-    setDiscount, // Exponemos para usar en la UI
-    totals,
+    addItem,
+    removeItem,
+    discount,
+    setDiscount,
+    applyTax,    // <--- Exportamos
+    setApplyTax, // <--- Exportamos
+    totals
   };
 };

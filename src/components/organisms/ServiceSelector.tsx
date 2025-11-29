@@ -1,8 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-
-// NOTA EL CAMBIO AQUÍ: Usamos "../../" para subir dos niveles hasta 'src'
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
 import { useBlueprints } from '../../hooks/useBlueprints';
 import { ServiceBlueprint } from '../../types/database';
@@ -14,9 +12,9 @@ interface Props {
 }
 
 export default function ServiceSelector({ visible, onClose, onSelect }: Props) {
-  // Usamos el Hook que creamos antes para traer datos reales
   const { data: blueprints, isLoading, error } = useBlueprints();
 
+  // Renderiza cada tarjeta de combo (Punto y Toma, Aire, etc.)
   const renderItem = ({ item }: { item: ServiceBlueprint }) => (
     <TouchableOpacity 
       style={styles.itemCard} 
@@ -33,6 +31,29 @@ export default function ServiceSelector({ visible, onClose, onSelect }: Props) {
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={20} color="#BDC3C7" />
+    </TouchableOpacity>
+  );
+
+  // Renderiza el botón especial al final para crear desde cero
+  const renderFooter = () => (
+    <TouchableOpacity 
+      style={[styles.itemCard, styles.customCard]} 
+      onPress={() => onSelect({
+        id: 'custom',
+        name: 'Trabajo a Medida',
+        description: 'Empieza con un presupuesto vacío',
+        blueprint_components: [] // Lista vacía para empezar de cero
+      })}
+      activeOpacity={0.7}
+    >
+      <View style={[styles.iconBox, styles.customIconBox]}>
+        <Ionicons name="add" size={28} color="#FFF" />
+      </View>
+      <View style={{flex: 1}}>
+        <Text style={[styles.itemTitle, { color: COLORS.primary }]}>Trabajo a Medida</Text>
+        <Text style={styles.itemSub}>Crear presupuesto en blanco</Text>
+      </View>
+      <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
     </TouchableOpacity>
   );
 
@@ -55,7 +76,7 @@ export default function ServiceSelector({ visible, onClose, onSelect }: Props) {
           </View>
           <Text style={styles.subtitle}>¿Qué trabajo vas a realizar hoy?</Text>
 
-          {/* Lista de Servicios */}
+          {/* Lista */}
           {isLoading ? (
             <View style={styles.center}>
               <ActivityIndicator size="large" color={COLORS.primary} />
@@ -71,12 +92,13 @@ export default function ServiceSelector({ visible, onClose, onSelect }: Props) {
               data={blueprints}
               keyExtractor={(item) => item.id}
               renderItem={renderItem}
+              ListFooterComponent={renderFooter} // <--- AQUÍ ESTÁ LA MAGIA
               contentContainerStyle={{ paddingBottom: 40 }}
               showsVerticalScrollIndicator={false}
               ListEmptyComponent={
                 <View style={styles.center}>
-                  <Text style={{textAlign: 'center', color: '#999', fontFamily: FONTS.body}}>
-                    No hay plantillas configuradas en la base de datos.
+                  <Text style={{textAlign: 'center', color: '#999', fontFamily: FONTS.body, marginBottom: 20}}>
+                    No hay plantillas guardadas.
                   </Text>
                 </View>
               }
@@ -91,14 +113,14 @@ export default function ServiceSelector({ visible, onClose, onSelect }: Props) {
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)', // Fondo oscuro
+    backgroundColor: 'rgba(0,0,0,0.6)', 
     justifyContent: 'flex-end',
   },
   container: {
     backgroundColor: '#FFF',
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
-    height: '75%', // Ocupa 3/4 de pantalla
+    height: '75%', 
     padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: -2 },
@@ -130,8 +152,9 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 20,
   },
+  
   // Card Estilo
   itemCard: {
     flexDirection: 'row',
@@ -142,7 +165,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#F0F2F5',
-    // Sombra suave
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
@@ -168,5 +190,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: FONTS.body,
     color: COLORS.textLight,
+  },
+
+  // ESTILOS PARA EL BOTÓN "A MEDIDA"
+  customCard: {
+    borderStyle: 'dashed',
+    borderColor: COLORS.primary,
+    backgroundColor: '#FFFCF5', // Naranja casi blanco
+  },
+  customIconBox: {
+    backgroundColor: COLORS.primary, // Icono Naranja solido
   }
 });
