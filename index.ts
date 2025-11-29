@@ -1,8 +1,8 @@
 import { registerRootComponent } from 'expo';
 
+// Importamos el archivo que SÍ tiene los dibujos (.tsx)
 import App from './App';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
+// registerRootComponent llama a AppRegistry.registerComponent('main', () => App);
+// Esto asegura que el entorno esté configurado correctamente.
 registerRootComponent(App);
