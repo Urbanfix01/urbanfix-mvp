@@ -93,14 +93,12 @@ export default function BudgetPage() {
     <div className="min-h-screen bg-gray-100 py-8 px-4 sm:px-6 font-sans">
       <div className="max-w-2xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden ring-1 ring-black/5">
         
-        {/* --- HEADER PREMIUM --- */}
+        {/* --- HEADER --- */}
         <div className="bg-slate-900 text-white p-8 relative overflow-hidden">
-          {/* Decoración de fondo */}
           <div className="absolute top-[-20%] right-[-10%] w-64 h-64 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
 
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center relative z-10">
             <div>
-              {/* TÍTULO NARANJA (Reemplaza al Logo roto) */}
               <h1 className="text-3xl sm:text-4xl font-black tracking-tighter text-orange-500 uppercase leading-none">
                 {technician?.business_name || 'URBANFIX'}
               </h1>
@@ -117,6 +115,7 @@ export default function BudgetPage() {
               <p className="text-xs text-slate-500 font-mono tracking-widest uppercase mb-1">Presupuesto</p>
               <p className="text-white font-mono text-sm opacity-80">#{quote.id.slice(0, 8).toUpperCase()}</p>
               
+              {/* Badge del Header */}
               <div className={`mt-3 inline-flex items-center px-3 py-1 rounded-full text-xs font-bold tracking-wide border ${isAccepted ? 'bg-green-500/20 border-green-500 text-green-400' : 'bg-yellow-500/20 border-yellow-500 text-yellow-400'}`}>
                 <span className={`w-2 h-2 rounded-full mr-2 ${isAccepted ? 'bg-green-400' : 'bg-yellow-400'}`}></span>
                 {isAccepted ? 'APROBADO' : 'PENDIENTE'}
@@ -146,7 +145,7 @@ export default function BudgetPage() {
           </div>
         </div>
 
-        {/* --- TABLA LIMPIA --- */}
+        {/* --- TABLA --- */}
         <div className="p-6 sm:p-8">
           <div className="overflow-hidden rounded-lg border border-gray-100">
             <table className="w-full text-left border-collapse">
@@ -154,6 +153,7 @@ export default function BudgetPage() {
                 <tr className="text-gray-500 text-xs uppercase tracking-wider">
                   <th className="py-3 px-4 font-semibold">Descripción</th>
                   <th className="py-3 px-4 font-semibold text-center w-16">Cant.</th>
+                  <th className="py-3 px-4 font-semibold text-right">Unitario</th>
                   <th className="py-3 px-4 font-semibold text-right">Total</th>
                 </tr>
               </thead>
@@ -162,6 +162,7 @@ export default function BudgetPage() {
                   <tr key={item.id} className="hover:bg-gray-50/80 transition-colors">
                     <td className="py-4 px-4 font-medium text-gray-800">{item.description}</td>
                     <td className="py-4 px-4 text-center text-gray-500">{item.quantity}</td>
+                    <td className="py-4 px-4 text-right text-gray-500">${item.unit_price.toLocaleString('es-AR')}</td>
                     <td className="py-4 px-4 text-right font-bold text-gray-900">
                       ${(item.unit_price * item.quantity).toLocaleString('es-AR')}
                     </td>
@@ -175,20 +176,23 @@ export default function BudgetPage() {
         {/* --- TOTALES --- */}
         <div className="px-8 pb-8 flex flex-col items-end">
           <div className="w-full max-w-xs pt-4 border-t border-dashed border-gray-200">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm font-medium text-gray-500">Subtotal</span>
+              <span className="font-medium text-gray-700">${quote.total_amount.toLocaleString('es-AR')}</span>
+            </div>
             <div className="flex justify-between items-end">
-              <span className="text-sm font-medium text-gray-500 mb-1">Total a Pagar</span>
-              <span className="text-4xl font-black text-slate-900 tracking-tight">
+              <span className="text-xl font-bold text-gray-900">TOTAL</span>
+              <span className="text-4xl font-black text-orange-500 tracking-tight">
                 ${quote.total_amount.toLocaleString('es-AR')}
               </span>
             </div>
           </div>
         </div>
 
-        {/* --- ACCIONES --- */}
-        {/* Aquí la magia: Si está aprobado, mostramos un banner verde elegante. Si no, el botón negro. */}
-        <div className="bg-gray-50 p-8 border-t border-gray-100 text-center">
+        {/* --- ACCIONES (Aquí volvió el estilo VERDE GRANDE) --- */}
+        <div className="border-t border-gray-100">
           {!isAccepted ? (
-            <>
+            <div className="p-10 bg-gray-50 text-center">
               <button 
                 onClick={handleAccept}
                 className="w-full sm:w-auto bg-black hover:bg-slate-800 text-white text-lg font-bold py-4 px-12 rounded-xl shadow-xl shadow-orange-500/10 transform transition-all duration-200 active:scale-95"
@@ -196,26 +200,29 @@ export default function BudgetPage() {
                 ACEPTAR PRESUPUESTO
               </button>
               <p className="mt-4 text-xs text-gray-400 mx-auto max-w-sm">
-                Al aceptar, se notificará inmediatamente a {technician?.full_name} para coordinar el trabajo.
+                Al aceptar, notificas automáticamente a {technician?.full_name} para proceder con el trabajo.
               </p>
-            </>
+            </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-4">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-3">
-                <span className="text-2xl">✅</span>
+            // 👇 ESTE ES EL BLOQUE VERDE QUE QUERÍAS 👇
+            <div className="p-12 bg-green-50 text-center">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-6 shadow-sm">
+                <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth="3">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"></path>
+                </svg>
               </div>
-              <h3 className="text-green-700 font-bold text-xl">Confirmado</h3>
-              <p className="text-green-600/80 text-sm mt-1">Este trabajo ya está en marcha.</p>
+              <h3 className="text-green-800 font-bold text-2xl mb-2">¡Presupuesto Aceptado!</h3>
+              <p className="text-green-600 font-medium">Gracias por confiar en nosotros.</p>
             </div>
           )}
         </div>
 
       </div>
       
-      {/* Footer Branding Sutil */}
-      <div className="mt-12 mb-6 flex justify-center items-center opacity-60 grayscale hover:grayscale-0 transition-all">
-        <span className="text-xs text-gray-400 mr-2">Powered by</span>
-        <span className="text-sm font-black text-orange-500 tracking-wide">URBANFIX</span>
+      <div className="mt-12 text-center opacity-60 hover:opacity-100 transition-opacity">
+        <p className="text-gray-400 text-xs">
+          Documento generado digitalmente por <span className="font-bold text-orange-500">UrbanFix</span>
+        </p>
       </div>
     </div>
   );
