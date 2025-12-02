@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useParams } from 'next/navigation';
-import { Printer, Check, Building2, Phone, Mail, MapPin, Calendar } from 'lucide-react'; // Usamos lucide-react si está disponible, sino iconos SVG manuales abajo
 
 // --- CONFIGURACIÓN SUPABASE ---
 const supabase = createClient(
@@ -91,7 +90,7 @@ export default function QuotePage() {
   const { subtotal, tax, total } = calculateTotal();
   const isApproved = quote.status === 'approved';
 
-  // --- COMPONENTES DE UI INTERNOS (Iconos SVG para no depender de librerías externas en este archivo) ---
+  // --- COMPONENTES DE UI INTERNOS (Iconos SVG para no depender de librerías externas) ---
   const Icons = {
     Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
     Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
@@ -134,7 +133,7 @@ export default function QuotePage() {
                 <p className="font-bold text-lg text-white print:text-black tracking-tight">{profile?.full_name}</p>
                 <div className="space-y-1.5 text-sm font-medium opacity-90">
                     <div className="flex items-center gap-3"><Icons.Phone /> <span>{profile?.phone || 'Teléfono no disponible'}</span></div>
-                    {profile?.email && <div className="flex items-center gap-3"><Mail size={18} className="opacity-60"/> <span>{profile.email}</span></div>}
+                    {profile?.email && <div className="flex items-center gap-3"><Icons.Building /> <span>{profile.email}</span></div>}
                 </div>
               </div>
             </div>
