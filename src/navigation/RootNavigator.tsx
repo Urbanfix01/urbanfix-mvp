@@ -13,17 +13,19 @@ import LoginScreen from '../screens/auth/LoginScreen';
 
 // 2. Tabs Principales
 import JobsScreen from '../screens/tabs/JobsScreen';
+import AgendaScreen from '../screens/tabs/AgendaScreen';
 import CatalogScreen from '../screens/tabs/CatalogScreen';
 import ProfileScreen from '../screens/tabs/ProfileScreen';
 
 // 3. Flujo de Trabajos (Ciclo de Vida)
-import JobConfigScreen from '../screens/flow/JobConfigScreen'; // Editor
-import JobDetailScreen from '../screens/flow/JobDetailScreen'; // Detalle/Borrado
-import HistoryScreen from '../screens/flow/HistoryScreen';     // Historial Mensual
+import JobConfigScreen from '../screens/flow/JobConfigScreen';
+import JobDetailScreen from '../screens/flow/JobDetailScreen';
+import HistoryScreen from '../screens/flow/HistoryScreen';
+import MarcaScreen from '../screens/flow/MarcaScreen'; // <--- ✅ IMPORTACIÓN CRÍTICA
 
 // 4. Detalles y Configuración
-import ItemDetailScreen from '../screens/tabs/ItemDetailScreen'; // Detalle Material
-import EditProfileScreen from '../screens/settings/EditProfileScreen'; // Marca Personal
+import ItemDetailScreen from '../screens/tabs/ItemDetailScreen';
+import EditProfileScreen from '../screens/settings/EditProfileScreen'; 
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -45,14 +47,23 @@ function MainTabs() {
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any;
-          if (route.name === 'Trabajos') iconName = focused ? 'briefcase' : 'briefcase-outline';
-          else if (route.name === 'Catálogo') iconName = focused ? 'book' : 'book-outline';
-          else if (route.name === 'Perfil') iconName = focused ? 'person' : 'person-outline';
+          
+          if (route.name === 'Trabajos') {
+            iconName = focused ? 'briefcase' : 'briefcase-outline';
+          } else if (route.name === 'Agenda') {
+            iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Catálogo') {
+            iconName = focused ? 'book' : 'book-outline';
+          } else if (route.name === 'Perfil') {
+            iconName = focused ? 'person' : 'person-outline';
+          }
+          
           return <Ionicons name={iconName} size={size} color={color} />;
         },
       })}
     >
       <Tab.Screen name="Trabajos" component={JobsScreen} />
+      <Tab.Screen name="Agenda" component={AgendaScreen} /> 
       <Tab.Screen name="Catálogo" component={CatalogScreen} />
       <Tab.Screen name="Perfil" component={ProfileScreen} />
     </Tab.Navigator>
@@ -122,8 +133,19 @@ export default function RootNavigator() {
             <Stack.Screen 
               name="EditProfile" 
               component={EditProfileScreen} 
-              options={{ animation: 'slide_from_bottom' }} // Efecto de "subir"
+              options={{ animation: 'slide_from_bottom' }} 
             />
+
+            {/* 👇👇 ESTO ES LO QUE ARREGLA EL ERROR Y EL DISEÑO 👇👇 */}
+            <Stack.Screen 
+              name="MarcaScreen" 
+              component={MarcaScreen} 
+              options={{ 
+                headerShown: false, // CRÍTICO: Oculta la barra blanca para que se vea tu diseño azul
+                animation: 'slide_from_right'
+              }} 
+            />
+
           </>
         ) : (
           <Stack.Screen 

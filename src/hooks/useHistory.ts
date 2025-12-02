@@ -14,7 +14,7 @@ export const useHistory = () => {
         .from('quotes')
         .select('*')
         .eq('user_id', user.id)
-        .in('status', ['accepted', 'locked']) 
+        .in('status', ['completed'])
         .order('created_at', { ascending: false });
 
       if (error) throw error;

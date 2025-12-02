@@ -1,5 +1,8 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image, Platform } from 'react-native';
+import { 
+  View, Text, StyleSheet, TouchableOpacity, ScrollView, 
+  ActivityIndicator, Alert, Image, Platform, RefreshControl 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native'; 
 import { supabase } from '../../lib/supabase';
@@ -9,12 +12,16 @@ import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false); // Estado para pull-to-refresh
   const [profile, setProfile] = useState<any>(null);
   const [email, setEmail] = useState('');
 
-  const getProfile = async () => {
+  // Lógica de carga de datos
+  const getProfile = async (isSilent = false) => {
     try {
-      setLoading(true);
+      // Si es una carga silenciosa (refresh) no mostramos el spinner gigante
+      if (!isSilent) setLoading(true);
+      
       const { data: { user } } = await supabase.auth.getUser();
 
       if (!user) throw new Error('No user');
@@ -32,31 +39,38 @@ export default function ProfileScreen() {
       console.log('Error perfil:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
+  // 1. AUTO-REFRESH: Se ejecuta cada vez que la pantalla recibe el foco
   useFocusEffect(
-    useCallback(() => { getProfile(); }, [])
+    useCallback(() => { 
+      // Usamos isSilent=false solo si no tenemos perfil aun, para evitar parpadeos
+      getProfile(!!profile); 
+    }, [])
   );
 
-  // --- CORRECCIÓN AQUÍ: LOGOUT HÍBRIDO (WEB/MOBILE) ---
+  // 2. MANUAL REFRESH: Deslizar hacia abajo
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    getProfile(true);
+  }, []);
+
   const handleLogout = async () => {
     const performLogout = async () => {
         try {
             await supabase.auth.signOut();
-            // La navegación se maneja sola en RootNavigator al detectar el cambio de sesión
         } catch (error) {
             console.error("Error saliendo:", error);
         }
     };
 
     if (Platform.OS === 'web') {
-        // En Web usamos el confirm nativo del navegador
         if (window.confirm("¿Estás seguro que quieres cerrar sesión?")) {
             await performLogout();
         }
     } else {
-        // En Celular usamos la Alerta nativa
         Alert.alert("Cerrar Sesión", "¿Seguro?", [
             { text: "Cancelar", style: "cancel" },
             { text: "Salir", style: "destructive", onPress: performLogout }
@@ -69,7 +83,7 @@ export default function ProfileScreen() {
     return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   };
 
-  if (loading) return <View style={[styles.container, styles.center]}><ActivityIndicator color={COLORS.primary} /></View>;
+  if (loading && !profile) return <View style={[styles.container, styles.center]}><ActivityIndicator color={COLORS.primary} /></View>;
 
   const MenuOption = ({ icon, label, onPress, isNew }: any) => (
     <TouchableOpacity style={styles.menuOption} onPress={onPress}>
@@ -82,16 +96,24 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
+  // Helper para validar imágenes (evita errores con blobs viejos)
+  const isValidUrl = (url: string) => url && url.startsWith('http');
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Mi Perfil" subtitle="Configuración y cuenta" />
 
-      <ScrollView contentContainerStyle={styles.content}>
+      <ScrollView 
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />
+        }
+      >
         
         {/* BRAND CARD */}
         <View style={styles.brandCard}>
           <View style={styles.brandBanner}>
-            {profile?.company_logo_url ? (
+            {isValidUrl(profile?.company_logo_url) ? (
               <Image 
                 source={{ uri: profile.company_logo_url }} 
                 style={styles.bannerImage} 
@@ -107,7 +129,7 @@ export default function ProfileScreen() {
 
           <View style={styles.brandContent}>
             <View style={styles.avatarContainer}>
-              {profile?.avatar_url ? (
+              {isValidUrl(profile?.avatar_url) ? (
                 <Image source={{ uri: profile.avatar_url }} style={styles.avatarImage} />
               ) : (
                 <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
@@ -135,8 +157,9 @@ export default function ProfileScreen() {
             icon="person-outline" 
             label="Editar Marca y Datos" 
             onPress={() => {
+               // 3. CAMBIO CRÍTICO: Redirigimos a la pantalla que arreglamos
                // @ts-ignore
-               navigation.navigate('EditProfile', { profile });
+               navigation.navigate('MarcaScreen'); 
             }} 
           />
           <MenuOption icon="briefcase-outline" label="Suscripción" onPress={() => {}} />
@@ -160,7 +183,7 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>UrbanFix App v1.0.3</Text>
+        <Text style={styles.versionText}>UrbanFix App v1.2.0</Text>
       </ScrollView>
     </View>
   );

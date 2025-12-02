@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  ActivityIndicator, Alert, Share, StatusBar 
+  ActivityIndicator, Alert, Share, StatusBar, Platform 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
 
+// Tu URL real
 const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p';
 
 export default function JobDetailScreen() {
@@ -18,29 +19,40 @@ export default function JobDetailScreen() {
 
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [breakdown, setBreakdown] = useState({ subtotal: 0, tax: 0, total: 0 });
 
-  // 1. CARGAR DATOS COMPLETOS
+  // 1. CARGAR DATOS
   const fetchQuoteDetail = async () => {
     try {
       const { data, error } = await supabase
         .from('quotes')
-        .select('*, quote_items(*)') // Traemos la cabecera Y los items
+        .select('*, quote_items(*)')
         .eq('id', jobId)
         .single();
 
       if (error) throw error;
       setQuote(data);
+
+      // Calcular desglose
+      const rawSub = data.quote_items.reduce((acc: number, item: any) => acc + (item.unit_price * item.quantity), 0);
+      const taxRate = data.tax_rate || 0;
+      const taxVal = rawSub * taxRate;
+      
+      setBreakdown({
+        subtotal: rawSub,
+        tax: taxVal,
+        total: data.total_amount 
+      });
+
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "No se pudo cargar el presupuesto.");
-      navigation.goBack();
+      // En web a veces es mejor no forzar el goBack si falla la carga inicial para ver el error
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Usamos focus listener por si volvemos de editar y hay cambios
     const unsubscribe = navigation.addListener('focus', () => {
       setLoading(true);
       fetchQuoteDetail();
@@ -48,51 +60,85 @@ export default function JobDetailScreen() {
     return unsubscribe;
   }, [navigation, jobId]);
 
-// VERSIÓN "SIN MIEDO" (Directa, sin Alert)
+  // 2. ACCIÓN: BORRAR (HÍBRIDA WEB/MÓVIL)
   const handleDelete = async () => {
-    console.log("⚡ BOTÓN PRESIONADO DIRECTO");
+    const performDelete = async () => {
+        try {
+            // Intentamos borrar (La DB tiene Cascade, así que borrar quotes borra items)
+            const { error } = await supabase.from('quotes').delete().eq('id', jobId);
+            if (error) throw error;
+            navigation.goBack();
+        } catch (err: any) {
+            console.error("Error borrando:", err);
+            if (Platform.OS === 'web') {
+                alert("Error al borrar: " + err.message);
+            } else {
+                Alert.alert("Error", "No se pudo borrar el trabajo.");
+            }
+        }
+    };
 
-    try {
-      // Intentamos borrar. Gracias al SQL anterior, el CASCADE se encarga de los hijos.
-      const { error } = await supabase
-        .from('quotes')
-        .delete()
-        .eq('id', jobId);
-
-      if (error) {
-        console.error("❌ Error Supabase:", error);
-        alert("Error: " + error.message); // Usamos alert() nativo del navegador
-        return;
-      }
-
-      console.log("✅ BORRADO OK");
-      navigation.goBack();
-
-    } catch (err) {
-      console.error("❌ Error JS:", err);
+    // Lógica según Plataforma
+    if (Platform.OS === 'web') {
+        if (window.confirm("¿Estás seguro de borrar este trabajo permanentemente?")) {
+            await performDelete();
+        }
+    } else {
+        Alert.alert(
+            "¿Borrar Trabajo?", 
+            "Esta acción es irreversible.", 
+            [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Eliminar", style: "destructive", onPress: performDelete }
+            ]
+        );
     }
   };
 
-  // 3. ACCIÓN: EDITAR (Ir a la pantalla de Configuración)
   const handleEdit = () => {
     // @ts-ignore
     navigation.navigate('JobConfig', { quote }); 
   };
 
-  // 4. ACCIÓN: COMPARTIR
   const handleShare = async () => {
     const link = `${WEB_BASE_URL}/${jobId}`;
-    const message = `Presupuesto UrbanFix: ${link}`;
-    await Share.share({ message, url: link });
+    const message = `Hola ${quote.client_name || ''}, te envío el presupuesto: ${link}`;
+    
+    if (Platform.OS === 'web') {
+        // En web, copiamos al portapapeles porque Share nativo a veces falla
+        navigator.clipboard.writeText(message + "\n" + link);
+        alert("Enlace copiado al portapapeles");
+    } else {
+        await Share.share({ message, url: link });
+    }
   };
 
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
-  }
+  const handleFinalize = () => {
+    const performFinalize = async () => {
+        await supabase.from('quotes').update({ status: 'completed', completed_at: new Date() }).eq('id', jobId);
+        navigation.goBack();
+    };
+
+    if (Platform.OS === 'web') {
+        if(confirm("¿Marcar como Cobrado? Se moverá al Historial.")) performFinalize();
+    } else {
+        Alert.alert("¿Cobrar Trabajo?", "Se moverá al Historial como Finalizado.", [
+            { text: "Cancelar", style: "cancel" },
+            { text: "¡Cobrado!", onPress: performFinalize }
+        ]);
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    if (status === 'accepted') return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
+    if (status === 'completed') return { bg: '#DBEAFE', text: '#1E40AF', label: 'COBRADO' };
+    return { bg: '#FEF3C7', text: '#B45309', label: 'BORRADOR' };
+  };
+
+  if (loading) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={COLORS.primary}/></View>;
+  if (!quote) return <View style={styles.center}><Text>No se encontró el trabajo</Text></View>;
+
+  const statusStyle = getStatusColor(quote?.status);
 
   return (
     <View style={styles.container}>
@@ -105,125 +151,153 @@ export default function JobDetailScreen() {
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Detalle del Trabajo</Text>
-            <View style={{width: 24}} /> 
+            <Text style={styles.headerTitle}>Resumen del Trabajo</Text>
+            <TouchableOpacity onPress={handleEdit} style={styles.editHeaderBtn}>
+               <Ionicons name="pencil" size={20} color="#FFF" />
+            </TouchableOpacity>
           </View>
         </SafeAreaView>
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* RESUMEN CABECERA */}
-        <View style={styles.summaryCard}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.label}>FECHA</Text>
-            <View style={[styles.badge, quote?.status === 'accepted' ? styles.bgSuccess : styles.bgDraft]}>
-                <Text style={[styles.badgeText, quote?.status === 'accepted' ? styles.textSuccess : styles.textDraft]}>
-                    {quote?.status === 'accepted' ? 'APROBADO' : 'BORRADOR'}
-                </Text>
+        
+        {/* CLIENTE */}
+        <View style={styles.clientCard}>
+            <View style={styles.clientRow}>
+                <View style={styles.clientIcon}>
+                    <Ionicons name="person" size={24} color={COLORS.primary} />
+                </View>
+                <View style={{flex:1}}>
+                    <Text style={styles.label}>CLIENTE</Text>
+                    <Text style={styles.clientName}>{quote.client_name || 'Sin Nombre'}</Text>
+                </View>
+                <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                    <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+                </View>
             </View>
-          </View>
-          <Text style={styles.dateText}>{new Date(quote?.created_at).toLocaleDateString()}</Text>
-          
-          <View style={styles.divider} />
-          
-          <Text style={styles.labelCenter}>Total Presupuestado</Text>
-          <Text style={styles.totalAmount}>${quote?.total_amount?.toLocaleString('es-AR')}</Text>
+            
+            {quote.client_address && (
+                <View style={[styles.clientRow, { marginTop: 12 }]}>
+                    <View style={[styles.clientIcon, { backgroundColor: '#F3F4F6' }]}>
+                        <Ionicons name="location" size={20} color={COLORS.textLight} />
+                    </View>
+                    <View>
+                        <Text style={styles.label}>UBICACIÓN</Text>
+                        <Text style={styles.clientAddress}>{quote.client_address}</Text>
+                    </View>
+                </View>
+            )}
+            
+            <View style={styles.divider} />
+            <Text style={styles.dateText}>Creado el {new Date(quote.created_at).toLocaleDateString()}</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Desglose</Text>
+        {/* ITEMS */}
+        <Text style={styles.sectionTitle}>DETALLE DEL SERVICIO</Text>
+        <View style={styles.itemsContainer}>
+            {quote.quote_items && quote.quote_items.map((item: any, index: number) => (
+                <View key={item.id} style={[styles.itemRow, index !== quote.quote_items.length - 1 && styles.itemBorder]}>
+                    <View style={{flex: 1}}>
+                        <Text style={styles.itemDesc}>{item.description}</Text>
+                        <Text style={styles.itemMeta}>{item.quantity} x ${item.unit_price.toLocaleString('es-AR')}</Text>
+                    </View>
+                    <Text style={styles.itemTotal}>${(item.unit_price * item.quantity).toLocaleString('es-AR')}</Text>
+                </View>
+            ))}
+        </View>
 
-        {/* LISTA DE ÍTEMS (Solo Lectura) */}
-        {quote?.quote_items?.map((item: any) => (
-          <View key={item.id} style={styles.itemRow}>
-            <View style={styles.iconBox}>
-               <Ionicons name="cube-outline" size={20} color={COLORS.primary} />
+        {/* RESUMEN */}
+        <View style={styles.summaryCard}>
+            <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Subtotal</Text>
+                <Text style={styles.summaryValue}>${breakdown.subtotal.toLocaleString('es-AR')}</Text>
             </View>
-            <View style={{flex: 1}}>
-                <Text style={styles.itemDesc}>{item.description}</Text>
-                <Text style={styles.itemQty}>{item.quantity} u. x ${item.unit_price}</Text>
+            {breakdown.tax > 0 && (
+                <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>IVA (21%)</Text>
+                    <Text style={styles.summaryValue}>+ ${breakdown.tax.toLocaleString('es-AR')}</Text>
+                </View>
+            )}
+            <View style={styles.divider} />
+            <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>TOTAL A COBRAR</Text>
+                <Text style={styles.totalValue}>${breakdown.total.toLocaleString('es-AR')}</Text>
             </View>
-            <Text style={styles.itemTotal}>
-                ${(item.quantity * item.unit_price).toLocaleString('es-AR')}
-            </Text>
-          </View>
-        ))}
+        </View>
+
       </ScrollView>
 
-      {/* FOOTER DE ACCIONES (Aquí están tus botones perdidos) */}
+      {/* FOOTER */}
       <SafeAreaView edges={['bottom']} style={styles.footer}>
-        
-        {/* Botón BORRAR (Rojo) */}
-        <TouchableOpacity style={styles.circleBtnDanger} onPress={handleDelete}>
+        {/* Botón Borrar Arreglado */}
+        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
             <Ionicons name="trash-outline" size={24} color={COLORS.danger} />
-            <Text style={styles.miniLabelDanger}>Borrar</Text>
         </TouchableOpacity>
 
-        {/* Botón EDITAR (Azul/Gris) */}
-        <TouchableOpacity style={styles.circleBtn} onPress={handleEdit}>
-            <Ionicons name="create-outline" size={24} color={COLORS.primary} />
-            <Text style={styles.miniLabel}>Editar</Text>
+        <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+            <Text style={styles.shareText}>Compartir Link</Text>
+            <Ionicons name="share-social" size={20} color="#FFF" style={{marginLeft: 8}} />
         </TouchableOpacity>
 
-        {/* Botón COMPARTIR (Grande) */}
-        <TouchableOpacity style={styles.mainBtn} onPress={handleShare}>
-            <Ionicons name="share-social" size={20} color="#FFF" style={{marginRight: 8}} />
-            <Text style={styles.mainBtnText}>Compartir</Text>
-        </TouchableOpacity>
-        
+        {quote.status === 'accepted' && (
+             <TouchableOpacity style={styles.successBtn} onPress={handleFinalize}>
+                <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+             </TouchableOpacity>
+        )}
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  
   header: { backgroundColor: COLORS.secondary, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10 },
   headerTitle: { fontSize: 18, fontFamily: FONTS.title, color: '#FFF' },
-  backBtn: { padding: 4 },
-  
-  content: { padding: 20, paddingBottom: 100 },
-  
-  summaryCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 24, elevation: 2 },
-  rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  label: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.textLight, letterSpacing: 1 },
-  labelCenter: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight, textAlign: 'center', marginTop: 16 },
-  dateText: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text, marginTop: 4 },
-  divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 16 },
-  totalAmount: { fontSize: 32, fontFamily: FONTS.title, color: COLORS.primary, textAlign: 'center', marginTop: 4 },
-  
-  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4 },
-  bgSuccess: { backgroundColor: '#D1FAE5' },
-  bgDraft: { backgroundColor: '#F3F4F6' },
-  badgeText: { fontSize: 10, fontFamily: FONTS.title },
-  textSuccess: { color: '#065F46' },
-  textDraft: { color: '#4B5563' },
+  backBtn: { padding: 8 },
+  editHeaderBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 },
 
-  sectionTitle: { fontSize: 18, fontFamily: FONTS.title, color: COLORS.text, marginBottom: 12 },
-  
-  itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 12, borderRadius: 12, marginBottom: 8 },
-  iconBox: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#FFF5E0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  itemDesc: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text },
-  itemQty: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
-  itemTotal: { fontSize: 14, fontFamily: FONTS.title, color: COLORS.text },
+  content: { padding: 20, paddingBottom: 100 },
+
+  clientCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity:0.05, elevation: 2 },
+  clientRow: { flexDirection: 'row', alignItems: 'center' },
+  clientIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF5E0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  label: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.textLight, marginBottom: 2, letterSpacing: 0.5 },
+  clientName: { fontSize: 18, fontFamily: FONTS.title, color: COLORS.text },
+  clientAddress: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusText: { fontSize: 10, fontFamily: FONTS.title, fontWeight: 'bold' },
+  divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 16 },
+  dateText: { textAlign: 'right', fontSize: 12, color: COLORS.textLight, fontFamily: FONTS.body },
+
+  sectionTitle: { fontSize: 12, fontFamily: FONTS.title, color: COLORS.textLight, marginBottom: 8, letterSpacing: 1, marginLeft: 4 },
+  itemsContainer: { backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 20, shadowColor: "#000", shadowOpacity: 0.03, elevation: 1 },
+  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+  itemBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
+  itemDesc: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text, marginBottom: 4 },
+  itemMeta: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
+  itemTotal: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text },
+
+  summaryCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, shadowColor: "#000", shadowOpacity: 0.05, elevation: 2 },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  summaryLabel: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.textLight },
+  summaryValue: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
+  totalLabel: { fontSize: 12, fontFamily: FONTS.title, color: COLORS.text, letterSpacing: 1 },
+  totalValue: { fontSize: 24, fontFamily: FONTS.title, color: COLORS.primary },
 
   footer: { 
       position: 'absolute', bottom: 0, left: 0, right: 0, 
       backgroundColor: '#FFF', 
       flexDirection: 'row', alignItems: 'center', 
-      padding: 16, borderTopLeftRadius: 24, borderTopRightRadius: 24,
-      elevation: 20, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 10
+      padding: 16, paddingBottom: 30, 
+      borderTopWidth: 1, borderTopColor: '#F0F0F0',
+      justifyContent: 'space-between', gap: 12
   },
-  circleBtn: { alignItems: 'center', marginRight: 20, paddingHorizontal: 10 },
-  circleBtnDanger: { alignItems: 'center', marginRight: 20, paddingHorizontal: 10 },
-  miniLabel: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.primary, marginTop: 4 },
-  miniLabelDanger: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.danger, marginTop: 4 },
-  
-  mainBtn: { 
-      flex: 1, backgroundColor: COLORS.primary, 
-      borderRadius: 12, height: 50, 
-      flexDirection: 'row', justifyContent: 'center', alignItems: 'center' 
-  },
-  mainBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 }
+  deleteBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center' },
+  shareBtn: { flex: 1, height: 50, borderRadius: 12, backgroundColor: COLORS.secondary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  shareText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
+  successBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center' },
 });
