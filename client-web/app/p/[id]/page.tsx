@@ -58,15 +58,14 @@ export default function QuotePage() {
   const handleAccept = async () => {
     if (!confirm('¿Estás seguro de aceptar este presupuesto?')) return;
     
-    const { error } = await supabase
-      .from('quotes')
-      .update({ status: 'approved' })
-      .eq('id', quote.id);
+    // --- CAMBIO V1.2: Usamos la función RPC segura ---
+    const { error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
 
     if (!error) {
       alert('¡Presupuesto aceptado! El técnico ha sido notificado.');
       setQuote({ ...quote, status: 'approved' });
     } else {
+      console.error('Error aprobando:', error);
       alert('Error al actualizar. Intenta de nuevo.');
     }
   };
