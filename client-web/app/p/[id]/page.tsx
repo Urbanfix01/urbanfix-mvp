@@ -285,4 +285,4 @@ export default function QuotePage() {
       
     </div>
   );
-}
+};
