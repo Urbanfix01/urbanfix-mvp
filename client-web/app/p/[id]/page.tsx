@@ -26,7 +26,7 @@ export default function QuotePage() {
       // 1. Obtener cotización + perfil con JOIN explícito
       const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
-        .select(`*, profiles:user_id!fk_quotes_profiles (*)`) // Forzamos el uso de la FK correcta
+        .select(`*, profiles:user_id (*)`) // Forzamos el uso de la FK correcta
         .eq('id', quoteId)
         .single();
 
