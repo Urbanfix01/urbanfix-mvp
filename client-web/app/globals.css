@@ -2,7 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+/* --- ESTILOS DE PANTALLA --- */
 /* Un fondo base para que no sea blanco nuclear */
 body {
   background-color: #f9fafb; /* gray-50 */
+}
+
+/* --- ESTILOS DE IMPRESIÓN (PDF/CTRL+P) --- */
+@media print {
+  /* 1. Forzar al navegador a imprimir los colores de fondo (Header Azul, Badges, etc) */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important; /* El fondo general en papel mejor que sea blanco */
+  }
+
+  /* 2. Eliminar los márgenes predeterminados del navegador */
+  /* Esto permite que tu diseño controle el borde de la hoja A4 */
+  @page {
+    margin: 0mm;
+    size: auto; 
+  }
+
+  /* 3. Asegurar que todos los elementos respeten los colores forzados */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
 }
