@@ -3,16 +3,20 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useParams } from 'next/navigation';
-import dynamic from 'next/dynamic';
+import dynamic from 'next/dynamic'; // Solo importamos dynamic
 
-// --- IMPORTACIÓN DINÁMICA DEL PDF (Vital para Next.js) ---
-const PDFDownloadLink = dynamic(
-  () => import('@react-pdf/renderer').then((mod) => mod.PDFDownloadLink),
-  { ssr: false, loading: () => <p className="text-xs">...</p> }
+// --- IMPORTACIÓN DINÁMICA DEL BOTÓN AISLADO ---
+// Esto asegura que NADA del PDF se cargue en el servidor
+const PDFExportButton = dynamic(
+  () => import('../../../components/pdf/PDFExportButton'),
+  { 
+    ssr: false, // ¡Vital! Desactiva renderizado servidor para este componente
+    loading: () => <div className="h-14 w-14 bg-slate-100 rounded-xl animate-pulse" /> 
+  }
 );
 
-// Importamos tu plantilla (Asegúrate que la ruta sea correcta)
-import { QuoteDocument } from '../../../components/pdf/QuoteDocument';
+// --- ELIMINAMOS EL IMPORT DE QuoteDocument DE AQUÍ ---
+// (Ya no lo necesitamos porque está dentro de PDFExportButton)
 
 // --- CONFIGURACIÓN SUPABASE ---
 const supabase = createClient(
@@ -31,10 +35,8 @@ export default function QuotePage() {
   useEffect(() => {
     if (!params.id) return;
     
-    // 1. Carga Inicial
     fetchQuoteData(params.id as string);
 
-    // 2. REALTIME: Escuchar cambios en vivo
     const channel = supabase
       .channel('realtime-quote')
       .on(
@@ -46,7 +48,6 @@ export default function QuotePage() {
           filter: `id=eq.${params.id}`
         },
         (payload) => {
-          console.log('Cambio detectado:', payload);
           setQuote((prev: any) => ({ ...prev, ...payload.new }));
         }
       )
@@ -82,22 +83,19 @@ export default function QuotePage() {
     }
   };
 
-  // --- ACCIONES ---
   const handleAccept = async () => {
     if (!confirm('¿Confirmas la aceptación formal de este presupuesto?')) return;
     
-    // Llamada a la RPC blindada que creamos
     const { error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
 
     if (!error) {
-      setQuote({ ...quote, status: 'approved' }); // Optimistic update
+      setQuote({ ...quote, status: 'approved' });
     } else {
       console.error('Error RPC:', error);
       alert('Hubo un error al procesar la solicitud.');
     }
   };
 
-  // --- CÁLCULOS ---
   const calculateTotal = () => {
     if (!items.length) return { subtotal: 0, tax: 0, total: 0 };
     const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
@@ -109,13 +107,9 @@ export default function QuotePage() {
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
   const { subtotal, tax, total } = calculateTotal();
-  
-  // Normalización de estado (igual que en Mobile)
   const isApproved = ['approved', 'accepted', 'aprobado'].includes(quote.status?.toLowerCase());
 
-  // --- ICONOS SVG ---
   const Icons = {
-    Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
     Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
     Phone: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
     MapPin: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 mt-1"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
@@ -216,7 +210,7 @@ export default function QuotePage() {
           </div>
         </div>
 
-        {/* FOOTER & ACCIONES (Con PDF Real) */}
+        {/* FOOTER & ACCIONES */}
         <div className="bg-slate-50 px-12 py-10 border-t border-slate-200">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
              
@@ -228,21 +222,10 @@ export default function QuotePage() {
              {/* BOTONES */}
              <div className="flex items-center gap-4 w-full lg:w-auto font-bold justify-center">
                 
-                {/* 1. Botón Descargar PDF (Reemplaza a window.print) */}
-                <div className="h-14 w-14">
-                  <PDFDownloadLink
-                    document={<QuoteDocument quote={quote} items={items} profile={profile} />}
-                    fileName={`Presupuesto-${quote.id.slice(0,6).toUpperCase()}.pdf`}
-                    className="flex items-center justify-center w-full h-full bg-white border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all shadow-sm active:scale-95"
-                  >
-                    {/* @ts-ignore */}
-                    {({ loading: pdfLoading }) => 
-                      pdfLoading ? <span className="text-xs">...</span> : <Icons.Printer />
-                    }
-                  </PDFDownloadLink>
-                </div>
+                {/* 1. BOTÓN PDF AISLADO */}
+                <PDFExportButton quote={quote} items={items} profile={profile} />
 
-                {/* 2. Botón Aceptar */}
+                {/* 2. BOTÓN ACEPTAR */}
                 {!isApproved ? (
                   <button 
                     onClick={handleAccept}
@@ -253,7 +236,7 @@ export default function QuotePage() {
                 ) : (
                   <div className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-10 py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl cursor-default shadow-inner w-full sm:w-auto">
                     <div className="bg-green-600 rounded-full p-1 text-white">
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" strokeWidth="4"/></svg>
+                        <Icons.Check />
                     </div>
                     <span className="tracking-wide text-lg font-black">¡PRESUPUESTO APROBADO!</span>
                   </div>
