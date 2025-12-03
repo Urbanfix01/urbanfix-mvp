@@ -1,17 +1,20 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Evita que Webpack intente empaquetar esta librería, dejándola para el runtime de Node
+  // 1. Esto es lo único vital: Evita que el compilador rompa la librería
   serverExternalPackages: ["@react-pdf/renderer"],
-  
-  webpack: (config) => {
-    config.resolve.alias.canvas = false;
-    config.resolve.alias.encoding = false;
-    return config;
-  },
+
+  // 2. Imágenes (Supabase)
   images: {
-    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: '**', 
+      },
+    ],
   },
+  
+  // NOTA: Hemos borrado el bloque 'webpack' que causaba el conflicto con Turbopack
 };
 
 export default nextConfig;
