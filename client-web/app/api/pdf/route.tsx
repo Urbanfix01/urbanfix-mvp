@@ -2,10 +2,11 @@ import { NextResponse } from 'next/server';
 import { renderToStream } from '@react-pdf/renderer';
 import { QuoteDocument } from '../../../components/pdf/QuoteDocument';
 
-// Forzamos Node.js para tener acceso completo a buffers y streams
-export const runtime = 'nodejs';
+// Forzar Node.js es OBLIGATORIO para react-pdf
+export const runtime = 'nodejs'; 
 
 export async function POST(req: Request) {
+  // ... resto del código igual ...
   try {
     const body = await req.json();
     const { quote, items, profile } = body;

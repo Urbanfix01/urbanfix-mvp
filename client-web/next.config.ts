@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // 1. Esto le dice a Vercel: "Copia esta librería entera al servidor, la necesito"
+  // Indica a Next.js que este paquete debe ser tratado como externo en el servidor
   serverExternalPackages: ["@react-pdf/renderer"],
 
-  // 2. Configuración mínima para evitar errores de compilación
+  // Configuración de Webpack para manejar dependencias de node nativas
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     config.resolve.alias.encoding = false;
@@ -13,7 +13,10 @@ const nextConfig: NextConfig = {
 
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: '**' },
+      {
+        protocol: 'https',
+        hostname: '**', 
+      },
     ],
   },
 };
