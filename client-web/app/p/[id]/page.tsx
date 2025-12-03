@@ -3,6 +3,16 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
+
+// --- IMPORTACIÓN DINÁMICA DEL PDF (Vital para Next.js) ---
+const PDFDownloadLink = dynamic(
+  () => import('@react-pdf/renderer').then((mod) => mod.PDFDownloadLink),
+  { ssr: false, loading: () => <p className="text-xs">...</p> }
+);
+
+// Importamos tu plantilla (Asegúrate que la ruta sea correcta)
+import { QuoteDocument } from '../../../components/pdf/QuoteDocument';
 
 // --- CONFIGURACIÓN SUPABASE ---
 const supabase = createClient(
@@ -16,8 +26,6 @@ export default function QuotePage() {
   const [quote, setQuote] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
-  
-  // Estado para la imagen (fallback)
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
@@ -26,29 +34,25 @@ export default function QuotePage() {
     // 1. Carga Inicial
     fetchQuoteData(params.id as string);
 
-    // 2. SUSCRIPCIÓN REALTIME (La Magia de la Sincronización) ⚡️
+    // 2. REALTIME: Escuchar cambios en vivo
     const channel = supabase
       .channel('realtime-quote')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE', // Escuchamos actualizaciones
+          event: 'UPDATE',
           schema: 'public',
           table: 'quotes',
-          filter: `id=eq.${params.id}` // Solo de ESTE presupuesto
+          filter: `id=eq.${params.id}`
         },
         (payload) => {
-          // Si cambia el estado en la DB, actualizamos la UI al vuelo
           console.log('Cambio detectado:', payload);
           setQuote((prev: any) => ({ ...prev, ...payload.new }));
         }
       )
       .subscribe();
 
-    // Limpieza al salir
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [params.id]);
 
   const fetchQuoteData = async (quoteId: string) => {
@@ -79,19 +83,14 @@ export default function QuotePage() {
   };
 
   // --- ACCIONES ---
-  const handlePrint = () => {
-    window.print();
-  };
-
   const handleAccept = async () => {
     if (!confirm('¿Confirmas la aceptación formal de este presupuesto?')) return;
     
+    // Llamada a la RPC blindada que creamos
     const { error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
 
     if (!error) {
-      // Optimistic Update (Feedback instantáneo)
-      // Aunque el Realtime lo confirmará milisegundos después
-      setQuote({ ...quote, status: 'approved' });
+      setQuote({ ...quote, status: 'approved' }); // Optimistic update
     } else {
       console.error('Error RPC:', error);
       alert('Hubo un error al procesar la solicitud.');
@@ -110,9 +109,11 @@ export default function QuotePage() {
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
   const { subtotal, tax, total } = calculateTotal();
-  const isApproved = quote.status === 'approved';
+  
+  // Normalización de estado (igual que en Mobile)
+  const isApproved = ['approved', 'accepted', 'aprobado'].includes(quote.status?.toLowerCase());
 
-  // --- ICONOS SVG (Sin cambios) ---
+  // --- ICONOS SVG ---
   const Icons = {
     Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
     Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
@@ -122,12 +123,12 @@ export default function QuotePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 py-12 px-4 flex justify-center items-start print:bg-white print:p-0 font-sans antialiased">
-      <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden print:shadow-none print:max-w-none print:rounded-none ring-1 ring-slate-200/50 transition-all">
+    <div className="min-h-screen bg-slate-100 py-12 px-4 flex justify-center items-start font-sans antialiased">
+      <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden ring-1 ring-slate-200/50 transition-all">
         
         {/* HEADER */}
-        <div className="bg-[#0F172A] text-white p-12 print:bg-white print:text-black print:border-b-2 print:border-black relative overflow-hidden">
-          <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl print:hidden"></div>
+        <div className="bg-[#0F172A] text-white p-12 relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 relative z-10">
             <div className="flex-1 space-y-6">
               {profile?.company_logo_url && !imageError ? (
@@ -138,12 +139,12 @@ export default function QuotePage() {
                   className="h-14 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 
                 />
               ) : (
-                <h1 className="text-2xl font-black uppercase tracking-wider text-white print:text-black">
+                <h1 className="text-2xl font-black uppercase tracking-wider text-white">
                   {profile?.business_name || 'PRESUPUESTO'}
                 </h1>
               )}
-              <div className="space-y-3 text-slate-300 print:text-black">
-                <p className="font-bold text-lg text-white print:text-black tracking-tight">{profile?.full_name}</p>
+              <div className="space-y-3 text-slate-300">
+                <p className="font-bold text-lg text-white tracking-tight">{profile?.full_name}</p>
                 <div className="space-y-1.5 text-sm font-medium opacity-90">
                     <div className="flex items-center gap-3"><Icons.Phone /> <span>{profile?.phone || 'Teléfono no disponible'}</span></div>
                     {profile?.email && <p className="pl-8">{profile.email}</p>}
@@ -152,10 +153,10 @@ export default function QuotePage() {
             </div>
             <div className="text-left md:text-right space-y-4">
               <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 print:text-black mb-1.5">Referencia</p>
-                  <p className="font-mono text-2xl font-bold text-white print:text-black tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5">Referencia</p>
+                  <p className="font-mono text-2xl font-bold text-white tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
               </div>
-              <div className={`inline-flex items-center pl-1.5 pr-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border print:border-black ${isApproved ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border-amber-500/30'}`}>
+              <div className={`inline-flex items-center pl-1.5 pr-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isApproved ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border-amber-500/30'}`}>
                 <span className={`flex items-center justify-center w-5 h-5 mr-2 rounded-full ${isApproved ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black/60'}`}>{isApproved ? <Icons.Check /> : <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}</span>
                 {isApproved ? 'Aprobado' : 'Pendiente'}
               </div>
@@ -215,20 +216,33 @@ export default function QuotePage() {
           </div>
         </div>
 
-        {/* FOOTER */}
-        <div className="bg-slate-50 px-12 py-10 border-t border-slate-200 print:hidden">
+        {/* FOOTER & ACCIONES (Con PDF Real) */}
+        <div className="bg-slate-50 px-12 py-10 border-t border-slate-200">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
+             
+             {/* Términos */}
              <div className="text-xs text-slate-500 max-w-md text-center lg:text-left leading-relaxed opacity-80">
                Al aceptar, confirmas la contratación del servicio con <strong>{profile?.business_name}</strong> bajo los términos acordados.
              </div>
+
+             {/* BOTONES */}
              <div className="flex items-center gap-4 w-full lg:w-auto font-bold justify-center">
-                <button 
-                  onClick={handlePrint}
-                  className="p-4 bg-white border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all shadow-sm active:scale-95"
-                  title="Descargar PDF / Imprimir"
-                >
-                  <Icons.Printer />
-                </button>
+                
+                {/* 1. Botón Descargar PDF (Reemplaza a window.print) */}
+                <div className="h-14 w-14">
+                  <PDFDownloadLink
+                    document={<QuoteDocument quote={quote} items={items} profile={profile} />}
+                    fileName={`Presupuesto-${quote.id.slice(0,6).toUpperCase()}.pdf`}
+                    className="flex items-center justify-center w-full h-full bg-white border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all shadow-sm active:scale-95"
+                  >
+                    {/* @ts-ignore */}
+                    {({ loading: pdfLoading }) => 
+                      pdfLoading ? <span className="text-xs">...</span> : <Icons.Printer />
+                    }
+                  </PDFDownloadLink>
+                </div>
+
+                {/* 2. Botón Aceptar */}
                 {!isApproved ? (
                   <button 
                     onClick={handleAccept}
@@ -246,11 +260,6 @@ export default function QuotePage() {
                 )}
              </div>
           </div>
-        </div>
-
-        <div className="hidden print:flex justify-between items-center p-8 text-center border-t border-slate-200 mt-8 text-slate-400 font-mono text-[10px] uppercase tracking-widest">
-            <p>Ref: {quote.id}</p>
-            <p>Powered by UrbanFix</p>
         </div>
 
       </div>
