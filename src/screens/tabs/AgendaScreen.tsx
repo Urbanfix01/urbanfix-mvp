@@ -9,7 +9,7 @@ import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { EmptyState } from '../../components/molecules/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
 
-// ... (LocaleConfig igual que antes) ...
+// --- CONFIGURACIÓN DE IDIOMA ---
 LocaleConfig.locales['es'] = {
   monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   monthNamesShort: ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'],
@@ -26,13 +26,22 @@ export default function AgendaScreen() {
   
   const [selectedDate, setSelectedDate] = useState(TODAY);
   const [items, setItems] = useState<any>({}); 
-  const [unscheduledItems, setUnscheduledItems] = useState<any[]>([]); // NUEVO: Lista de pendientes
+  const [unscheduledItems, setUnscheduledItems] = useState<any[]>([]); 
   const [markedDates, setMarkedDates] = useState<any>({});
   const [loading, setLoading] = useState(true);
 
   // Estado para asignar fecha rápida
   const [targetJobId, setTargetJobId] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // --- FIX FECHA: Función para mostrar la fecha correcta sin restar horas ---
+  const formatDateForDisplay = (dateString: string) => {
+    // Rompemos el string "2025-12-01" en partes
+    const [year, month, day] = dateString.split('-').map(Number);
+    // Creamos la fecha localmente (Mes en JS es índice 0, por eso month - 1)
+    const localDate = new Date(year, month - 1, day);
+    return localDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+  };
 
   const loadItems = async () => {
     try {
@@ -52,26 +61,25 @@ export default function AgendaScreen() {
         const pendingList: any[] = [];
 
         data?.forEach((job) => {
-            // SI NO TIENE FECHA -> VA A LA LISTA DE "POR AGENDAR"
             if (!job.scheduled_date) {
                 pendingList.push(job);
                 return;
             }
 
-            const dateKey = job.scheduled_date; // Usamos la fecha real
+            const dateKey = job.scheduled_date; 
             
             if (!newItems[dateKey]) newItems[dateKey] = [];
             newItems[dateKey].push(job);
 
             newMarks[dateKey] = { 
                 marked: true, 
-                dotColor: job.status === 'draft' ? COLORS.primary : '#10B981' 
+                dotColor: job.status === 'draft' || job.status === 'pending' ? COLORS.primary : '#10B981' 
             };
         });
 
         setItems(newItems);
         setMarkedDates(newMarks);
-        setUnscheduledItems(pendingList); // Guardamos los sin fecha
+        setUnscheduledItems(pendingList);
 
     } catch (e) {
         console.error("Error agenda:", e);
@@ -87,12 +95,15 @@ export default function AgendaScreen() {
     if (Platform.OS === 'android') setShowDatePicker(false);
     
     if (date && targetJobId) {
-        const dateString = date.toISOString().split('T')[0];
+        // Obtenemos YYYY-MM-DD localmente para guardar en DB
+        const offset = date.getTimezoneOffset(); 
+        const localDate = new Date(date.getTime() - (offset*60*1000));
+        const dateString = localDate.toISOString().split('T')[0];
         
         // 1. Actualizar en DB
         await supabase.from('quotes').update({ scheduled_date: dateString }).eq('id', targetJobId);
         
-        // 2. Recargar todo para ver el cambio
+        // 2. Recargar todo
         setTargetJobId(null);
         setLoading(true);
         loadItems();
@@ -105,8 +116,6 @@ export default function AgendaScreen() {
   };
 
   // --- RENDERS ---
-
-  // Tarjeta de "Por Agendar"
   const renderUnscheduledItem = ({ item }: { item: any }) => (
     <TouchableOpacity style={styles.unscheduledCard} onPress={() => openScheduler(item.id)}>
         <View style={{flex:1}}>
@@ -120,12 +129,11 @@ export default function AgendaScreen() {
     </TouchableOpacity>
   );
 
-  // Tarjeta Normal (Agenda)
   const renderItem = ({ item }: { item: any }) => {
-    const isDraft = item.status === 'draft';
+    const isPending = item.status === 'draft' || item.status === 'pending';
     return (
       <TouchableOpacity 
-        style={[styles.itemCard, { borderLeftColor: isDraft ? COLORS.primary : '#10B981' }]}
+        style={[styles.itemCard, { borderLeftColor: isPending ? COLORS.primary : '#10B981' }]}
         onPress={() => {
              // @ts-ignore
              navigation.navigate('JobDetail', { jobId: item.id });
@@ -134,7 +142,7 @@ export default function AgendaScreen() {
         <View>
             <Text style={styles.itemTitle}>{item.client_name || 'Sin Nombre'}</Text>
             <Text style={styles.itemStatus}>
-                {isDraft ? 'Pendiente de aprobar' : 'Confirmado'}
+                {isPending ? 'Pendiente de aprobar' : 'Confirmado'}
             </Text>
         </View>
         <Text style={styles.itemPrice}>${item.total_amount?.toLocaleString('es-AR')}</Text>
@@ -180,8 +188,9 @@ export default function AgendaScreen() {
         />
 
         <View style={styles.listHeader}>
+            {/* AQUÍ ESTABA EL ERROR: Usamos la función corregida */}
             <Text style={styles.dateTitle}>
-                Agenda del {new Date(selectedDate).toLocaleDateString('es-ES', { day: 'numeric', month: 'long' })}
+                Agenda del {formatDateForDisplay(selectedDate)}
             </Text>
         </View>
 
@@ -199,7 +208,7 @@ export default function AgendaScreen() {
             />
         )}
 
-        {/* CALENDARIO MODAL (Solo visible al asignar) */}
+        {/* CALENDARIO MODAL */}
         {showDatePicker && (
              Platform.OS === 'ios' ? (
                 <Modal transparent animationType="fade">
@@ -253,7 +262,6 @@ const styles = StyleSheet.create({
   itemStatus: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
   itemPrice: { fontSize: 16, fontFamily: FONTS.title, color: COLORS.text },
 
-  // Modal iOS
   modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
   iosPickerContainer: { backgroundColor: 'white', borderRadius: 12, padding: 20, width: '90%' },
   closeModalBtn: { marginTop: 10, alignItems: 'center', padding: 10 }
