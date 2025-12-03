@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { pdf } from '@react-pdf/renderer';
-import { QuoteDocument } from './QuoteDocument';
 
 interface Props {
   quote: any;
@@ -17,29 +15,33 @@ const PDFExportButton = ({ quote, items, profile }: Props) => {
     try {
       setIsGenerating(true);
 
-      // 1. Generamos el documento "al vuelo" (On Demand)
-      // Esto evita que React intente renderizarlo antes de tiempo
-      const blob = await pdf(
-        <QuoteDocument quote={quote} items={items} profile={profile} />
-      ).toBlob();
+      // 1. Pedimos el PDF al servidor (API Route)
+      const response = await fetch('/api/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quote, items, profile }), // Enviamos los datos que ya tenemos
+      });
 
-      // 2. Creamos una URL temporal para el archivo
-      const url = URL.createObjectURL(blob);
+      if (!response.ok) throw new Error('Fallo en el servidor');
 
-      // 3. Forzamos la descarga creando un link invisible
+      // 2. Convertimos la respuesta en un archivo descargable (Blob)
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+
+      // 3. Truco del enlace invisible para descargar
       const link = document.createElement('a');
       link.href = url;
       link.download = `Presupuesto-${quote.id.slice(0, 6).toUpperCase()}.pdf`;
       document.body.appendChild(link);
       link.click();
-
+      
       // 4. Limpieza
       document.body.removeChild(link);
-      URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url);
 
     } catch (error) {
-      console.error('Error generando PDF:', error);
-      alert('Error al generar el PDF. Por favor intenta de nuevo.');
+      console.error('Error descarga:', error);
+      alert('No se pudo generar el documento. Intenta nuevamente.');
     } finally {
       setIsGenerating(false);
     }
@@ -53,21 +55,9 @@ const PDFExportButton = ({ quote, items, profile }: Props) => {
       title="Descargar PDF"
     >
       {isGenerating ? (
-        // Spinner de carga simple
         <div className="w-5 h-5 border-2 border-slate-600 border-t-transparent rounded-full animate-spin" />
       ) : (
-        // Icono de Impresora
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
+        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="6 9 6 2 18 2 18 9" />
           <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
           <rect x="6" y="14" width="12" height="8" />
