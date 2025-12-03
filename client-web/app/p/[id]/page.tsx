@@ -5,7 +5,6 @@ import { createClient } from '@supabase/supabase-js';
 import { useParams } from 'next/navigation';
 
 // --- CONFIGURACIÓN SUPABASE ---
-// Asegúrate de que estas variables estén en tu .env.local
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,17 +16,43 @@ export default function QuotePage() {
   const [quote, setQuote] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
-
-  // Estado auxiliar para controlar si la imagen falló al cargar
+  
+  // Estado para la imagen (fallback)
   const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
-    if (params.id) fetchQuoteData(params.id as string);
+    if (!params.id) return;
+    
+    // 1. Carga Inicial
+    fetchQuoteData(params.id as string);
+
+    // 2. SUSCRIPCIÓN REALTIME (La Magia de la Sincronización) ⚡️
+    const channel = supabase
+      .channel('realtime-quote')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE', // Escuchamos actualizaciones
+          schema: 'public',
+          table: 'quotes',
+          filter: `id=eq.${params.id}` // Solo de ESTE presupuesto
+        },
+        (payload) => {
+          // Si cambia el estado en la DB, actualizamos la UI al vuelo
+          console.log('Cambio detectado:', payload);
+          setQuote((prev: any) => ({ ...prev, ...payload.new }));
+        }
+      )
+      .subscribe();
+
+    // Limpieza al salir
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [params.id]);
 
   const fetchQuoteData = async (quoteId: string) => {
     try {
-      // Usamos la relación flexible (sin !fk...)
       const { data: quoteData, error: quoteError } = await supabase
         .from('quotes')
         .select(`*, profiles:user_id (*)`)
@@ -61,11 +86,11 @@ export default function QuotePage() {
   const handleAccept = async () => {
     if (!confirm('¿Confirmas la aceptación formal de este presupuesto?')) return;
     
-    // Invocamos la RPC que acabas de crear en SQL
     const { error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
 
     if (!error) {
-      // Feedback visual inmediato (Optimistic UI update)
+      // Optimistic Update (Feedback instantáneo)
+      // Aunque el Realtime lo confirmará milisegundos después
       setQuote({ ...quote, status: 'approved' });
     } else {
       console.error('Error RPC:', error);
@@ -82,16 +107,15 @@ export default function QuotePage() {
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><p className="text-slate-400 animate-pulse">Cargando...</p></div>;
-  if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible o inexistente.</div>;
+  if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
   const { subtotal, tax, total } = calculateTotal();
   const isApproved = quote.status === 'approved';
 
-  // --- ICONOS SVG ---
+  // --- ICONOS SVG (Sin cambios) ---
   const Icons = {
     Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
     Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-    Building: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>,
     Phone: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
     MapPin: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400 mt-1"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
     Calendar: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-slate-400"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
@@ -106,23 +130,18 @@ export default function QuotePage() {
           <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl print:hidden"></div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 relative z-10">
             <div className="flex-1 space-y-6">
-              
-              {/* --- LOGIC FIX START: Manejo robusto de imagen --- */}
               {profile?.company_logo_url && !imageError ? (
                 <img 
                   src={profile.company_logo_url} 
                   alt={profile?.business_name || "Logo"} 
-                  onError={() => setImageError(true)} // Si falla, activamos el flag
+                  onError={() => setImageError(true)}
                   className="h-14 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 
                 />
               ) : (
-                // Se muestra si NO hay URL O si la imagen dio error
                 <h1 className="text-2xl font-black uppercase tracking-wider text-white print:text-black">
                   {profile?.business_name || 'PRESUPUESTO'}
                 </h1>
               )}
-              {/* --- LOGIC FIX END --- */}
-
               <div className="space-y-3 text-slate-300 print:text-black">
                 <p className="font-bold text-lg text-white print:text-black tracking-tight">{profile?.full_name}</p>
                 <div className="space-y-1.5 text-sm font-medium opacity-90">
@@ -196,19 +215,13 @@ export default function QuotePage() {
           </div>
         </div>
 
-        {/* --- FOOTER & ACCIONES --- */}
+        {/* FOOTER */}
         <div className="bg-slate-50 px-12 py-10 border-t border-slate-200 print:hidden">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
-              
-             {/* Términos */}
              <div className="text-xs text-slate-500 max-w-md text-center lg:text-left leading-relaxed opacity-80">
                Al aceptar, confirmas la contratación del servicio con <strong>{profile?.business_name}</strong> bajo los términos acordados.
              </div>
-
-             {/* BOTONES */}
              <div className="flex items-center gap-4 w-full lg:w-auto font-bold justify-center">
-                
-                {/* 1. Botón Imprimir */}
                 <button 
                   onClick={handlePrint}
                   className="p-4 bg-white border border-slate-300 rounded-xl text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-all shadow-sm active:scale-95"
@@ -216,8 +229,6 @@ export default function QuotePage() {
                 >
                   <Icons.Printer />
                 </button>
-
-                {/* 2. Botón Aceptar */}
                 {!isApproved ? (
                   <button 
                     onClick={handleAccept}
@@ -237,7 +248,6 @@ export default function QuotePage() {
           </div>
         </div>
 
-        {/* FOOTER IMPRESIÓN */}
         <div className="hidden print:flex justify-between items-center p-8 text-center border-t border-slate-200 mt-8 text-slate-400 font-mono text-[10px] uppercase tracking-widest">
             <p>Ref: {quote.id}</p>
             <p>Powered by UrbanFix</p>
