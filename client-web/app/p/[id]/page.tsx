@@ -3,9 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useParams } from 'next/navigation';
-// Importamos el botón LIMPIO (que solo hace fetch)
+// ✅ IMPORTACIÓN LIMPIA: Solo importamos el botón que hace fetch a la API
 import PDFExportButton from '../../../components/pdf/PDFExportButton';
 
+// --- CONFIGURACIÓN SUPABASE ---
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -17,18 +18,31 @@ export default function QuotePage() {
   const [quote, setQuote] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  
+  // Estado para controlar errores de imagen en la vista web
+  const [imageError, setImageError] = useState(false);
 
   useEffect(() => {
     if (!params.id) return;
     
+    // 1. Carga Inicial
     fetchQuoteData(params.id as string);
 
+    // 2. REALTIME: Escuchar cambios en vivo (Si aprueban desde el móvil, se actualiza aquí)
     const channel = supabase
       .channel('realtime-quote')
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'quotes', filter: `id=eq.${params.id}` },
-        (payload) => setQuote((prev: any) => ({ ...prev, ...payload.new }))
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'quotes',
+          filter: `id=eq.${params.id}`
+        },
+        (payload) => {
+          console.log('Cambio detectado:', payload);
+          setQuote((prev: any) => ({ ...prev, ...payload.new }));
+        }
       )
       .subscribe();
 
@@ -62,13 +76,21 @@ export default function QuotePage() {
     }
   };
 
+  // --- ACCIONES ---
   const handleAccept = async () => {
     if (!confirm('¿Confirmas la aceptación formal de este presupuesto?')) return;
+    
     const { error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
-    if (!error) setQuote({ ...quote, status: 'approved' });
-    else alert('Hubo un error al procesar la solicitud.');
+
+    if (!error) {
+      setQuote({ ...quote, status: 'approved' }); // Optimistic update
+    } else {
+      console.error('Error RPC:', error);
+      alert('Hubo un error al procesar la solicitud.');
+    }
   };
 
+  // --- CÁLCULOS ---
   const calculateTotal = () => {
     if (!items.length) return { subtotal: 0, tax: 0, total: 0 };
     const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
@@ -80,9 +102,11 @@ export default function QuotePage() {
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
   const { subtotal, tax, total } = calculateTotal();
+  
+  // Normalización de estado (igual que en Mobile)
   const isApproved = ['approved', 'accepted', 'aprobado'].includes(quote.status?.toLowerCase());
 
-  // Iconos SVG simples
+  // --- ICONOS SVG ---
   const Icons = {
     Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
     Phone: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-60"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>,
@@ -96,12 +120,20 @@ export default function QuotePage() {
         
         {/* HEADER */}
         <div className="bg-[#0F172A] text-white p-12 relative overflow-hidden">
+          <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-10 relative z-10">
             <div className="flex-1 space-y-6">
-              {profile?.company_logo_url ? (
-                <img src={profile.company_logo_url} alt="Logo" className="h-14 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" />
+              {profile?.company_logo_url && !imageError ? (
+                <img 
+                  src={profile.company_logo_url} 
+                  alt={profile?.business_name || "Logo"} 
+                  onError={() => setImageError(true)}
+                  className="h-14 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 
+                />
               ) : (
-                <h1 className="text-2xl font-black uppercase tracking-wider text-white">{profile?.business_name || 'PRESUPUESTO'}</h1>
+                <h1 className="text-2xl font-black uppercase tracking-wider text-white">
+                  {profile?.business_name || 'PRESUPUESTO'}
+                </h1>
               )}
               <div className="space-y-3 text-slate-300">
                 <p className="font-bold text-lg text-white tracking-tight">{profile?.full_name}</p>
@@ -188,7 +220,7 @@ export default function QuotePage() {
              {/* BOTONES */}
              <div className="flex items-center gap-4 w-full lg:w-auto font-bold justify-center">
                 
-                {/* 1. BOTÓN PDF (Usando API) */}
+                {/* 1. BOTÓN PDF (Usando API Backend) */}
                 <PDFExportButton quote={quote} items={items} profile={profile} />
 
                 {/* 2. BOTÓN ACEPTAR */}

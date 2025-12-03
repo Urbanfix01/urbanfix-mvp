@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Evita el error ESM en el build
+  // Evita que Webpack intente empaquetar esta librería, dejándola para el runtime de Node
   serverExternalPackages: ["@react-pdf/renderer"],
   
   webpack: (config) => {
@@ -9,7 +9,9 @@ const nextConfig: NextConfig = {
     config.resolve.alias.encoding = false;
     return config;
   },
-  images: { remotePatterns: [{ protocol: 'https', hostname: '**' }] },
+  images: {
+    remotePatterns: [{ protocol: 'https', hostname: '**' }],
+  },
 };
 
 export default nextConfig;
