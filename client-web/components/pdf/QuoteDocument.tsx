@@ -1,18 +1,26 @@
 import React from 'react';
-import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
-// Registramos una fuente estándar para asegurar compatibilidad
-Font.register({
-  family: 'Helvetica',
-  fonts: [{ src: 'https://fonts.gstatic.com/s/helveticaneue/v1/1.ttf' }],
-});
+// NOTA: Hemos eliminado Font.register para máxima estabilidad en Vercel.
+// Usaremos la fuente por defecto para evitar errores de red/CORS en el servidor.
 
-// Estilos parecidos a CSS pero para PDF
 const styles = StyleSheet.create({
-  page: { padding: 40, fontFamily: 'Helvetica', fontSize: 10, color: '#333' },
+  page: { 
+    padding: 40, 
+    fontSize: 10, 
+    color: '#333',
+    // No definimos fontFamily para usar la default (Helvetica/Arial implícito)
+  },
   
   // Header
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#EEE', paddingBottom: 10 },
+  header: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 20, 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#EEE', 
+    paddingBottom: 10 
+  },
   logoSection: { width: '50%' },
   logo: { width: 60, height: 60, objectFit: 'contain', marginBottom: 10 },
   companyName: { fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase' },
@@ -25,7 +33,14 @@ const styles = StyleSheet.create({
   
   // Tabla
   table: { display: 'flex', width: 'auto', marginTop: 20, borderWidth: 1, borderColor: '#EEE' },
-  tableRow: { margin: 'auto', flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#EEE', minHeight: 25, alignItems: 'center' },
+  tableRow: { 
+    margin: 'auto', 
+    flexDirection: 'row', 
+    borderBottomWidth: 1, 
+    borderBottomColor: '#EEE', 
+    minHeight: 25, 
+    alignItems: 'center' 
+  },
   tableHeader: { backgroundColor: '#F9FAFB', fontWeight: 'bold' },
   tableCol1: { width: '50%', padding: 5 },
   tableCol2: { width: '15%', padding: 5, textAlign: 'center' },
@@ -37,10 +52,27 @@ const styles = StyleSheet.create({
   totalRow: { flexDirection: 'row', marginBottom: 5 },
   totalLabel: { width: 100, textAlign: 'right', paddingRight: 10, color: '#666' },
   totalValue: { width: 100, textAlign: 'right', fontWeight: 'bold' },
-  grandTotal: { fontSize: 14, marginTop: 5, borderTopWidth: 1, borderTopColor: '#333', paddingTop: 5 },
+  grandTotal: { 
+    fontSize: 14, 
+    marginTop: 5, 
+    borderTopWidth: 1, 
+    borderTopColor: '#333', 
+    paddingTop: 5 
+  },
 
   // Footer
-  footer: { position: 'absolute', bottom: 30, left: 40, right: 40, textAlign: 'center', fontSize: 8, color: '#999', borderTopWidth: 1, borderTopColor: '#EEE', paddingTop: 10 }
+  footer: { 
+    position: 'absolute', 
+    bottom: 30, 
+    left: 40, 
+    right: 40, 
+    textAlign: 'center', 
+    fontSize: 8, 
+    color: '#999', 
+    borderTopWidth: 1, 
+    borderTopColor: '#EEE', 
+    paddingTop: 10 
+  }
 });
 
 // Tipos de datos que recibe el PDF
@@ -51,8 +83,9 @@ interface Props {
 }
 
 export const QuoteDocument = ({ quote, items, profile }: Props) => {
-  // Cálculos al vuelo
-  const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+  // Cálculos de seguridad por si vienen nulos
+  const safeItems = items || [];
+  const subtotal = safeItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
   const tax = subtotal * 0.21;
   const total = subtotal + tax;
 
@@ -63,10 +96,10 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
         {/* HEADER: Datos del Técnico y Cliente */}
         <View style={styles.header}>
           <View style={styles.logoSection}>
-            {/* Si hay logo, lo intentamos mostrar. Si falla la URL, React-PDF lo ignora */}
-            {profile?.company_logo_url && (
+            {/* Solo renderizamos la imagen si existe la URL */}
+            {profile?.company_logo_url ? (
                <Image src={profile.company_logo_url} style={styles.logo} />
-            )}
+            ) : null}
             <Text style={styles.companyName}>{profile?.business_name || 'Servicio Técnico'}</Text>
             <Text>{profile?.full_name}</Text>
             <Text>{profile?.email}</Text>
@@ -77,14 +110,16 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
             <Text style={styles.title}>PRESUPUESTO</Text>
             
             <Text style={styles.label}>REFERENCIA</Text>
-            <Text style={styles.value}>#{quote.id.slice(0, 8).toUpperCase()}</Text>
+            <Text style={styles.value}>#{quote?.id?.slice(0, 8).toUpperCase() || '---'}</Text>
             
             <Text style={styles.label}>FECHA DE EMISIÓN</Text>
-            <Text style={styles.value}>{new Date(quote.created_at).toLocaleDateString('es-AR')}</Text>
+            <Text style={styles.value}>
+                {quote?.created_at ? new Date(quote.created_at).toLocaleDateString('es-AR') : new Date().toLocaleDateString('es-AR')}
+            </Text>
             
             <Text style={styles.label}>CLIENTE</Text>
-            <Text style={styles.value}>{quote.client_name}</Text>
-            <Text style={styles.value}>{quote.client_address}</Text>
+            <Text style={styles.value}>{quote?.client_name || 'Consumidor Final'}</Text>
+            <Text style={styles.value}>{quote?.client_address || ''}</Text>
           </View>
         </View>
 
@@ -99,7 +134,7 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
           </View>
 
           {/* Filas de Datos */}
-          {items.map((item, i) => (
+          {safeItems.map((item, i) => (
             <View key={i} style={styles.tableRow}>
               <Text style={styles.tableCol1}>{item.description}</Text>
               <Text style={styles.tableCol2}>{item.quantity}</Text>
