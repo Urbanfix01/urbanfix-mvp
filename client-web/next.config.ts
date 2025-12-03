@@ -1,15 +1,13 @@
 import type { NextConfig } from "next";
 
-// Forzando actualización de config
 const nextConfig: NextConfig = {
-  // Asegúrate de que esta línea esté aquí:
-  serverExternalPackages: ["@react-pdf/renderer"], 
-
+  // Configuración mínima para que React-PDF v3 no falle con Canvas
   webpack: (config) => {
     config.resolve.alias.canvas = false;
     config.resolve.alias.encoding = false;
     return config;
   },
+  
   images: {
     remotePatterns: [
       {
