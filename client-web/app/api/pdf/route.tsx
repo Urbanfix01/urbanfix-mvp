@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server';
 import { renderToStream } from '@react-pdf/renderer';
 import { QuoteDocument } from '../../../components/pdf/QuoteDocument';
 
-// ⚠️ ESTO ES LO QUE ARREGLA EL ERROR 500 EN VERCEL
-export const runtime = 'nodejs'; 
+export const runtime = 'nodejs'; // <--- ESTO EVITA EL ERROR 500
 
 export async function POST(req: Request) {
   try {
