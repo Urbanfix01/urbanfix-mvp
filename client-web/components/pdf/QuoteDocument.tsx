@@ -1,17 +1,12 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
-// NOTA: Hemos eliminado Font.register para máxima estabilidad en Vercel.
-// Usaremos la fuente por defecto para evitar errores de red/CORS en el servidor.
-
 const styles = StyleSheet.create({
   page: { 
     padding: 40, 
     fontSize: 10, 
     color: '#333',
-    // No definimos fontFamily para usar la default (Helvetica/Arial implícito)
   },
-  
   // Header
   header: { 
     flexDirection: 'row', 
@@ -82,35 +77,48 @@ interface Props {
   profile: any;
 }
 
+// Helper para evitar errores con toLocaleString en valores nulos
+const formatCurrency = (amount: any) => {
+    const num = Number(amount) || 0;
+    return `$${num.toLocaleString('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+};
+
 export const QuoteDocument = ({ quote, items, profile }: Props) => {
-  // Cálculos de seguridad por si vienen nulos
-  const safeItems = items || [];
-  const subtotal = safeItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+  // Cálculos de seguridad
+  const safeItems = Array.isArray(items) ? items : [];
+  const subtotal = safeItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unit_price || 0)), 0);
   const tax = subtotal * 0.21;
   const total = subtotal + tax;
+
+  // Validación estricta de imagen
+  const logoUrl = profile?.company_logo_url;
+  // Solo mostramos imagen si es un string válido y empieza con http (ignora file:// o blob:)
+  const hasLogo = logoUrl && typeof logoUrl === 'string' && logoUrl.startsWith('http');
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
         
-        {/* HEADER: Datos del Técnico y Cliente */}
+        {/* HEADER */}
         <View style={styles.header}>
           <View style={styles.logoSection}>
-            {/* Solo renderizamos la imagen si existe la URL */}
-            {profile?.company_logo_url ? (
-               <Image src={profile.company_logo_url} style={styles.logo} />
+            {/* Protección Anti-Crash para Imagen */}
+            {hasLogo ? (
+               <Image src={logoUrl} style={styles.logo} />
             ) : null}
-            <Text style={styles.companyName}>{profile?.business_name || 'Servicio Técnico'}</Text>
-            <Text>{profile?.full_name}</Text>
-            <Text>{profile?.email}</Text>
-            <Text>{profile?.phone}</Text>
+            
+            {/* Protección Anti-Crash para Textos (|| '') */}
+            <Text style={styles.companyName}>{profile?.business_name || 'SERVICIO TÉCNICO'}</Text>
+            <Text>{profile?.full_name || ''}</Text>
+            <Text>{profile?.email || ''}</Text>
+            <Text>{profile?.phone || ''}</Text>
           </View>
 
           <View style={styles.metaSection}>
             <Text style={styles.title}>PRESUPUESTO</Text>
             
             <Text style={styles.label}>REFERENCIA</Text>
-            <Text style={styles.value}>#{quote?.id?.slice(0, 8).toUpperCase() || '---'}</Text>
+            <Text style={styles.value}>#{quote?.id ? quote.id.slice(0, 8).toUpperCase() : '---'}</Text>
             
             <Text style={styles.label}>FECHA DE EMISIÓN</Text>
             <Text style={styles.value}>
@@ -125,7 +133,6 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
 
         {/* TABLA DE ÍTEMS */}
         <View style={styles.table}>
-          {/* Fila Encabezado */}
           <View style={[styles.tableRow, styles.tableHeader]}>
             <Text style={styles.tableCol1}>DESCRIPCIÓN</Text>
             <Text style={styles.tableCol2}>CANT.</Text>
@@ -133,13 +140,13 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
             <Text style={styles.tableCol4}>TOTAL</Text>
           </View>
 
-          {/* Filas de Datos */}
           {safeItems.map((item, i) => (
             <View key={i} style={styles.tableRow}>
-              <Text style={styles.tableCol1}>{item.description}</Text>
-              <Text style={styles.tableCol2}>{item.quantity}</Text>
-              <Text style={styles.tableCol3}>${item.unit_price?.toLocaleString('es-AR')}</Text>
-              <Text style={styles.tableCol4}>${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</Text>
+              {/* IMPORTANTE: Usamos || '' para evitar undefined */}
+              <Text style={styles.tableCol1}>{item.description || 'Ítem sin nombre'}</Text>
+              <Text style={styles.tableCol2}>{item.quantity || 1}</Text>
+              <Text style={styles.tableCol3}>{formatCurrency(item.unit_price)}</Text>
+              <Text style={styles.tableCol4}>{formatCurrency((item.quantity || 1) * (item.unit_price || 0))}</Text>
             </View>
           ))}
         </View>
@@ -149,15 +156,15 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
           <View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>${subtotal.toLocaleString('es-AR')}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>IVA (21%)</Text>
-              <Text style={styles.totalValue}>${tax.toLocaleString('es-AR')}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(tax)}</Text>
             </View>
             <View style={[styles.totalRow, styles.grandTotal]}>
               <Text style={styles.totalLabel}>TOTAL</Text>
-              <Text style={styles.totalValue}>${total.toLocaleString('es-AR')}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
             </View>
           </View>
         </View>
