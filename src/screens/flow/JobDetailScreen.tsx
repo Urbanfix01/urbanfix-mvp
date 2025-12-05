@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  ActivityIndicator, Alert, Share, StatusBar, Platform 
+  ActivityIndicator, Alert, Share, StatusBar, Platform, Linking 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,7 +46,6 @@ export default function JobDetailScreen() {
 
     } catch (error) {
       console.error(error);
-      // En web a veces es mejor no forzar el goBack si falla la carga inicial para ver el error
     } finally {
       setLoading(false);
     }
@@ -60,11 +59,41 @@ export default function JobDetailScreen() {
     return unsubscribe;
   }, [navigation, jobId]);
 
-  // 2. ACCIÓN: BORRAR (HÍBRIDA WEB/MÓVIL)
+  // 2. NUEVA FUNCIÓN: ABRIR MAPAS (GPS o Texto)
+  const openMap = () => {
+    if (!quote) return;
+
+    const lat = quote.location_lat;
+    const lng = quote.location_lng;
+    const label = encodeURIComponent(quote.client_name || 'Cliente');
+
+    if (lat && lng) {
+      // Esquema nativo para precisión GPS
+      const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
+      const latLng = `${lat},${lng}`;
+      const url = Platform.select({
+        ios: `${scheme}${label}@${latLng}`,
+        android: `${scheme}${latLng}(${label})`
+      });
+      
+      // Fallback web
+      const webUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+      
+      Linking.canOpenURL(url!).then(supported => {
+        if (supported) Linking.openURL(url!);
+        else Linking.openURL(webUrl);
+      });
+    } else {
+      // Fallback: búsqueda por texto si no hay GPS guardado
+      const address = encodeURIComponent(quote.client_address || '');
+      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${address}`);
+    }
+  };
+
+  // 3. ACCIONES EXISTENTES
   const handleDelete = async () => {
     const performDelete = async () => {
         try {
-            // Intentamos borrar (La DB tiene Cascade, así que borrar quotes borra items)
             const { error } = await supabase.from('quotes').delete().eq('id', jobId);
             if (error) throw error;
             navigation.goBack();
@@ -78,19 +107,12 @@ export default function JobDetailScreen() {
         }
     };
 
-    // Lógica según Plataforma
     if (Platform.OS === 'web') {
-        if (window.confirm("¿Estás seguro de borrar este trabajo permanentemente?")) {
-            await performDelete();
-        }
+        if (window.confirm("¿Estás seguro de borrar este trabajo permanentemente?")) await performDelete();
     } else {
         Alert.alert(
-            "¿Borrar Trabajo?", 
-            "Esta acción es irreversible.", 
-            [
-                { text: "Cancelar", style: "cancel" },
-                { text: "Eliminar", style: "destructive", onPress: performDelete }
-            ]
+            "¿Borrar Trabajo?", "Esta acción es irreversible.", 
+            [{ text: "Cancelar", style: "cancel" }, { text: "Eliminar", style: "destructive", onPress: performDelete }]
         );
     }
   };
@@ -105,7 +127,6 @@ export default function JobDetailScreen() {
     const message = `Hola ${quote.client_name || ''}, te envío el presupuesto: ${link}`;
     
     if (Platform.OS === 'web') {
-        // En web, copiamos al portapapeles porque Share nativo a veces falla
         navigator.clipboard.writeText(message + "\n" + link);
         alert("Enlace copiado al portapapeles");
     } else {
@@ -120,11 +141,10 @@ export default function JobDetailScreen() {
     };
 
     if (Platform.OS === 'web') {
-        if(confirm("¿Marcar como Cobrado? Se moverá al Historial.")) performFinalize();
+        if(confirm("¿Marcar como Cobrado?")) performFinalize();
     } else {
         Alert.alert("¿Cobrar Trabajo?", "Se moverá al Historial como Finalizado.", [
-            { text: "Cancelar", style: "cancel" },
-            { text: "¡Cobrado!", onPress: performFinalize }
+            { text: "Cancelar", style: "cancel" }, { text: "¡Cobrado!", onPress: performFinalize }
         ]);
     }
   };
@@ -161,7 +181,7 @@ export default function JobDetailScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         
-        {/* CLIENTE */}
+        {/* CLIENTE CARD */}
         <View style={styles.clientCard}>
             <View style={styles.clientRow}>
                 <View style={styles.clientIcon}>
@@ -176,15 +196,23 @@ export default function JobDetailScreen() {
                 </View>
             </View>
             
+            {/* UBICACIÓN SINCRONIZADA */}
             {quote.client_address && (
                 <View style={[styles.clientRow, { marginTop: 12 }]}>
                     <View style={[styles.clientIcon, { backgroundColor: '#F3F4F6' }]}>
                         <Ionicons name="location" size={20} color={COLORS.textLight} />
                     </View>
-                    <View>
+                    <View style={{ flex: 1, marginRight: 8 }}>
                         <Text style={styles.label}>UBICACIÓN</Text>
                         <Text style={styles.clientAddress}>{quote.client_address}</Text>
+                        {/* Pequeño indicador si es GPS preciso */}
+                        {quote.location_lat && <Text style={styles.gpsTag}>📍 GPS Exacto</Text>}
                     </View>
+                    
+                    {/* BOTÓN NUEVO: ABRIR MAPA */}
+                    <TouchableOpacity onPress={openMap} style={styles.mapBtn}>
+                        <Ionicons name="map-outline" size={22} color={COLORS.secondary} />
+                    </TouchableOpacity>
                 </View>
             )}
             
@@ -229,7 +257,6 @@ export default function JobDetailScreen() {
 
       {/* FOOTER */}
       <SafeAreaView edges={['bottom']} style={styles.footer}>
-        {/* Botón Borrar Arreglado */}
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
             <Ionicons name="trash-outline" size={24} color={COLORS.danger} />
         </TouchableOpacity>
@@ -267,6 +294,10 @@ const styles = StyleSheet.create({
   label: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.textLight, marginBottom: 2, letterSpacing: 0.5 },
   clientName: { fontSize: 18, fontFamily: FONTS.title, color: COLORS.text },
   clientAddress: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
+  gpsTag: { fontSize: 10, color: COLORS.success, marginTop: 2, fontWeight: 'bold' },
+  
+  mapBtn: { padding: 10, backgroundColor: '#EFF6FF', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontSize: 10, fontFamily: FONTS.title, fontWeight: 'bold' },
   divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 16 },
