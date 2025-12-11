@@ -18,6 +18,8 @@ export default function QuotePage() {
   const [quote, setQuote] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
+  const [addressInput, setAddressInput] = useState('');
+  const [addressSaving, setAddressSaving] = useState(false);
   
   // Estado para controlar errores de imagen
   const [imageError, setImageError] = useState(false);
@@ -69,6 +71,7 @@ export default function QuotePage() {
       setQuote(quoteData);
       setProfile(quoteData.profiles);
       setItems(itemsData || []);
+      setAddressInput(quoteData.client_address || '');
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
@@ -110,6 +113,32 @@ export default function QuotePage() {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || '')}`;
   };
 
+  // --- CONFIRMAR direccion ---
+  const handleConfirmAddress = async () => {
+    const cleanAddress = addressInput.trim();
+    if (!cleanAddress) {
+      alert('Ingresa una direccion valida.');
+      return;
+    }
+    try {
+      setAddressSaving(true);
+      const { error } = await supabase
+        .from('quotes')
+        .update({ client_address: cleanAddress })
+        .eq('id', quote.id);
+
+      if (error) throw error;
+
+      setQuote((prev: any) => (prev ? { ...prev, client_address: cleanAddress } : prev));
+      alert('Direccion confirmada.');
+    } catch (err) {
+      console.error('Error confirmando direccion:', err);
+      alert('No se pudo actualizar la direccion. Intenta nuevamente.');
+    } finally {
+      setAddressSaving(false);
+    }
+  };
+
   // --- CÁLCULOS ---
   const calculateTotal = () => {
     if (!items.length) return { subtotal: 0, tax: 0, total: 0 };
@@ -122,7 +151,9 @@ export default function QuotePage() {
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
   const { subtotal, tax, total } = calculateTotal();
-  const isApproved = ['approved', 'accepted', 'aprobado'].includes(quote.status?.toLowerCase());
+  const statusNormalized = (quote.status || '').toLowerCase();
+  const isApproved = ['approved', 'aprobado'].includes(statusNormalized);
+  const isPresented = ['accepted', 'presented', 'pending', 'pendiente'].includes(statusNormalized);
 
   // --- ICONOS SVG ---
   const Icons = {
@@ -155,13 +186,13 @@ export default function QuotePage() {
                   {profile?.business_name || profile?.full_name || 'PRESUPUESTO'}
                 </h1>
               )}
-              
+
               <div className="space-y-3 text-slate-300">
                 <p className="font-bold text-lg text-white tracking-tight">{profile?.business_name || profile?.full_name}</p>
                 <div className="space-y-2 text-sm font-medium opacity-90">
                     <div className="flex items-center gap-3">
                         <Icons.Phone /> 
-                        <span>{profile?.phone || 'Teléfono no disponible'}</span>
+                        <span>{profile?.phone || 'Telefono no disponible'}</span>
                     </div>
                     {profile?.email && (
                         <div className="flex items-center gap-3">
@@ -169,7 +200,6 @@ export default function QuotePage() {
                             <span>{profile.email}</span>
                         </div>
                     )}
-                    {/* 👇 NUEVO: DIRECCIÓN DEL TÉCNICO (Base Operativa) */}
                     {profile?.company_address && (
                         <div className="flex items-center gap-3 text-slate-400">
                              <Icons.MapPin />
@@ -185,9 +215,29 @@ export default function QuotePage() {
                   <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5">Referencia</p>
                   <p className="font-mono text-2xl font-bold text-white tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
               </div>
-              <div className={`inline-flex items-center pl-1.5 pr-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border ${isApproved ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30' : 'bg-amber-500/15 text-amber-300 border-amber-500/30'}`}>
-                <span className={`flex items-center justify-center w-5 h-5 mr-2 rounded-full ${isApproved ? 'bg-emerald-500 text-white' : 'bg-amber-500 text-black/60'}`}>{isApproved ? <Icons.Check /> : <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}</span>
-                {isApproved ? 'Aprobado' : 'Pendiente'}
+              <div
+                className={
+                  "inline-flex items-center pl-1.5 pr-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border " +
+                  (isApproved
+                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
+                    : isPresented
+                      ? "bg-blue-500/10 text-blue-100 border-blue-500/30"
+                      : "bg-amber-500/15 text-amber-300 border-amber-500/30")
+                }
+              >
+                <span
+                  className={
+                    "flex items-center justify-center w-5 h-5 mr-2 rounded-full " +
+                    (isApproved
+                      ? "bg-emerald-500 text-white"
+                      : isPresented
+                        ? "bg-blue-500 text-white"
+                        : "bg-amber-500 text-black/60")
+                  }
+                >
+                  {isApproved ? <Icons.Check /> : <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}
+                </span>
+                {isApproved ? 'Aprobado' : isPresented ? 'Presentado' : 'Pendiente'}
               </div>
             </div>
           </div>
@@ -200,20 +250,41 @@ export default function QuotePage() {
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Icons.MapPin /> Facturar a</p>
               <div>
                   <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
-                  {/* 👇 NUEVO: DIRECCIÓN CLIENTE CLICKEABLE CON MAPA */}
-                  {quote.client_address ? (
-                      <a 
-                        href={getGoogleMapsLink(quote.client_address, quote.location_lat, quote.location_lng)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-slate-600 text-base leading-relaxed max-w-md hover:text-blue-600 hover:underline flex items-start gap-1 group transition-colors"
+                  {/* direccion CLIENTE CLICKEABLE CON MAPA */}
+                  <div className="space-y-2">
+                    {quote.client_address ? (
+                        <a 
+                          href={getGoogleMapsLink(quote.client_address, quote.location_lat, quote.location_lng)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-slate-600 text-base leading-relaxed max-w-md hover:text-blue-600 hover:underline flex items-start gap-1 group transition-colors"
+                        >
+                           {quote.client_address}
+                           <span className="opacity-0 group-hover:opacity-100 transition-opacity"><Icons.ExternalLink /></span>
+                        </a>
+                    ) : (
+                        <p className="text-slate-400 italic">direccion no especificada</p>
+                    )}
+                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                      <input
+                        value={addressInput}
+                        onChange={(e) => setAddressInput(e.target.value)}
+                        placeholder="Confirma o corrige la direccion"
+                        className="w-full sm:max-w-md rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 transition"
+                      />
+                      <button
+                        onClick={handleConfirmAddress}
+                        disabled={addressSaving || !addressInput.trim()}
+                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${
+                          addressSaving || !addressInput.trim()
+                            ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
+                            : 'bg-blue-600 text-white hover:bg-blue-500 active:scale-[0.99]'
+                        }`}
                       >
-                         {quote.client_address}
-                         <span className="opacity-0 group-hover:opacity-100 transition-opacity"><Icons.ExternalLink /></span>
-                      </a>
-                  ) : (
-                      <p className="text-slate-400 italic">Dirección no especificada</p>
-                  )}
+                        {addressSaving ? 'Guardando...' : 'Confirmar direccion'}
+                      </button>
+                    </div>
+                  </div>
               </div>
             </div>
             <div className="md:text-right space-y-3">
@@ -299,3 +370,4 @@ export default function QuotePage() {
     </div>
   );
 }
+

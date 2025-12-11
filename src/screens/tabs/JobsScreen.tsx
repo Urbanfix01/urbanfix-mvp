@@ -18,6 +18,8 @@ export default function JobsScreen() {
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [jobs, setJobs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   // --- CARGA DE DATOS ---
   const fetchJobs = async () => {
@@ -51,12 +53,12 @@ export default function JobsScreen() {
   const stats = useMemo(() => {
     // Normalizamos para contar tanto 'pending' (nuevo) como 'draft' (viejo)
     const drafts = jobs.filter(j => 
-        ['pending', 'draft', 'pendiente'].includes(j.status?.toLowerCase())
+        ['pending', 'draft', 'pendiente', 'presented', 'accepted'].includes(j.status?.toLowerCase())
     ).length;
 
-    // Normalizamos para contar 'approved' (nuevo) y 'accepted' (viejo)
+    // Normalizamos para contar 'approved'
     const approved = jobs.filter(j => 
-        ['approved', 'accepted', 'aprobado'].includes(j.status?.toLowerCase())
+        ['approved', 'aprobado'].includes(j.status?.toLowerCase())
     ).length;
 
     // Suma segura (evita error si total_amount es null)
@@ -89,8 +91,12 @@ export default function JobsScreen() {
   const getStatusConfig = (status: string | null) => {
     const normalized = status?.toLowerCase().trim() || '';
 
+    if (['presented','accepted'].includes(normalized)) {
+        return { label: 'PRESENTADO', color: '#3B82F6', bg: '#DBEAFE' }; // Azul
+    }
+
     // CASO APROBADO (Verde)
-    if (['approved', 'accepted', 'aprobado'].includes(normalized)) {
+    if (['approved', 'aprobado'].includes(normalized)) {
         return { label: 'APROBADO', color: '#10B981', bg: '#D1FAE5' }; // Emerald
     }
 
@@ -103,23 +109,44 @@ export default function JobsScreen() {
     return { label: normalized.toUpperCase() || 'N/A', color: '#6B7280', bg: '#E5E7EB' };
   };
 
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
   // --- RENDER ITEM ---
   const renderItem = ({ item }: { item: any }) => {
     const status = getStatusConfig(item.status);
+    const isSelected = selectedIds.includes(item.id);
     
     return (
       <TouchableOpacity 
         style={styles.card}
         activeOpacity={0.7}
         onPress={() => {
-          // @ts-ignore
-          navigation.navigate('JobDetail', { jobId: item.id });
+          if (selectionMode) {
+            toggleSelect(item.id);
+          } else {
+            // @ts-ignore
+            navigation.navigate('JobDetail', { jobId: item.id });
+          }
+        }}
+        onLongPress={() => {
+          setSelectionMode(true);
+          toggleSelect(item.id);
         }}
       >
         {/* Borde lateral de color */}
         <View style={[styles.iconBar, { backgroundColor: status.color }]} />
         
         <View style={styles.cardContent}>
+            {selectionMode && (
+              <Ionicons 
+                name={isSelected ? "checkbox" : "square-outline"} 
+                size={22} 
+                color={isSelected ? COLORS.primary : '#CBD5E1'} 
+                style={{ marginRight: 8 }}
+              />
+            )}
             <View style={styles.rowBetween}>
                 <Text style={styles.clientName} numberOfLines={1}>
                     {item.client_name || `Presupuesto #${item.id.slice(0,4).toUpperCase()}`}
@@ -141,12 +168,14 @@ export default function JobsScreen() {
             </View>
         </View>
 
-        <TouchableOpacity 
-            style={styles.shareBtn}
-            onPress={() => handleShareJob(item.id, item.total_amount)}
-        >
-             <Ionicons name="paper-plane-outline" size={20} color={COLORS.textLight} />
-        </TouchableOpacity>
+        {!selectionMode && (
+          <TouchableOpacity 
+              style={styles.shareBtn}
+              onPress={() => handleShareJob(item.id, item.total_amount)}
+          >
+               <Ionicons name="paper-plane-outline" size={20} color={COLORS.textLight} />
+          </TouchableOpacity>
+        )}
       </TouchableOpacity>
     );
   };
@@ -198,9 +227,38 @@ export default function JobsScreen() {
             data={jobs}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
+            extraData={{ selectionMode, selectedIds }}
             contentContainerStyle={styles.listContent}
             ListHeaderComponent={
-                <Text style={styles.sectionTitle}>ÚLTIMOS MOVIMIENTOS</Text>
+                <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
+                  <Text style={styles.sectionTitle}>ÚLTIMOS MOVIMIENTOS</Text>
+                  <View style={{flexDirection:'row', gap:10}}>
+                    {selectionMode && (
+                      <TouchableOpacity 
+                        onPress={() => {
+                          setSelectionMode(false);
+                          setSelectedIds([]);
+                        }} 
+                        style={[styles.selectBtn, {backgroundColor:'#E5E7EB'}]}
+                      >
+                        <Text style={[styles.selectBtnText, {color:'#0F172A'}]}>Cancelar</Text>
+                      </TouchableOpacity>
+                    )}
+                    <TouchableOpacity 
+                      onPress={() => {
+                        if (selectionMode && selectedIds.length === 0) {
+                          setSelectionMode(false);
+                          return;
+                        }
+                        setSelectionMode(prev => !prev);
+                        if (!selectionMode) setSelectedIds([]);
+                      }} 
+                      style={styles.selectBtn}
+                    >
+                      <Text style={styles.selectBtnText}>{selectionMode ? 'Listo' : 'Seleccionar'}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
             }
             ListEmptyComponent={
                 <View style={styles.center}>
@@ -217,6 +275,26 @@ export default function JobsScreen() {
       <TouchableOpacity style={styles.fab} onPress={handleCreateJob}>
         <Ionicons name="add" size={32} color="#FFF" />
       </TouchableOpacity>
+
+      {selectionMode && selectedIds.length > 0 && (
+        <TouchableOpacity 
+          style={styles.bulkDeleteBar} 
+          onPress={async () => {
+            try {
+              const { error } = await supabase.from('quotes').delete().in('id', selectedIds);
+              if (error) throw error;
+              setJobs(prev => prev.filter(j => !selectedIds.includes(j.id)));
+              setSelectedIds([]);
+              setSelectionMode(false);
+            } catch (err) {
+              Alert.alert("Error", "No se pudieron borrar los presupuestos seleccionados.");
+            }
+          }}
+        >
+          <Ionicons name="trash" size={22} color="#FFF" />
+          <Text style={styles.bulkDeleteText}>Borrar {selectedIds.length} seleccionados</Text>
+        </TouchableOpacity>
+      )}
 
       <ServiceSelector 
         visible={selectorVisible}
@@ -287,4 +365,13 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
     shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 5,
   },
+  selectBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: COLORS.primary, borderRadius: 8 },
+  selectBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 12 },
+  bulkDeleteBar: { position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: COLORS.danger, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 12, borderRadius: 12, gap: 8 },
+  bulkDeleteText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 }
 });
+
+
+
+
+

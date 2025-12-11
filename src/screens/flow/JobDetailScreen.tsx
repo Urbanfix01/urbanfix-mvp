@@ -8,12 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
+import { formatCurrency } from '../../utils/number';
 
-// Tu URL real
 const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p';
 
 export default function JobDetailScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const route = useRoute();
   const { jobId } = route.params as { jobId: string };
 
@@ -21,7 +21,6 @@ export default function JobDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [breakdown, setBreakdown] = useState({ subtotal: 0, tax: 0, total: 0 });
 
-  // 1. CARGAR DATOS
   const fetchQuoteDetail = async () => {
     try {
       const { data, error } = await supabase
@@ -33,8 +32,7 @@ export default function JobDetailScreen() {
       if (error) throw error;
       setQuote(data);
 
-      // Calcular desglose
-      const rawSub = data.quote_items.reduce((acc: number, item: any) => acc + (item.unit_price * item.quantity), 0);
+      const rawSub = (data.quote_items || []).reduce((acc: number, item: any) => acc + (item.unit_price * item.quantity), 0);
       const taxRate = data.tax_rate || 0;
       const taxVal = rawSub * taxRate;
       
@@ -59,38 +57,6 @@ export default function JobDetailScreen() {
     return unsubscribe;
   }, [navigation, jobId]);
 
-  // 2. NUEVA FUNCIÓN: ABRIR MAPAS (GPS o Texto)
-  const openMap = () => {
-    if (!quote) return;
-
-    const lat = quote.location_lat;
-    const lng = quote.location_lng;
-    const label = encodeURIComponent(quote.client_name || 'Cliente');
-
-    if (lat && lng) {
-      // Esquema nativo para precisión GPS
-      const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
-      const latLng = `${lat},${lng}`;
-      const url = Platform.select({
-        ios: `${scheme}${label}@${latLng}`,
-        android: `${scheme}${latLng}(${label})`
-      });
-      
-      // Fallback web
-      const webUrl = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-      
-      Linking.canOpenURL(url!).then(supported => {
-        if (supported) Linking.openURL(url!);
-        else Linking.openURL(webUrl);
-      });
-    } else {
-      // Fallback: búsqueda por texto si no hay GPS guardado
-      const address = encodeURIComponent(quote.client_address || '');
-      Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${address}`);
-    }
-  };
-
-  // 3. ACCIONES EXISTENTES
   const handleDelete = async () => {
     const performDelete = async () => {
         try {
@@ -108,17 +74,22 @@ export default function JobDetailScreen() {
     };
 
     if (Platform.OS === 'web') {
-        if (window.confirm("¿Estás seguro de borrar este trabajo permanentemente?")) await performDelete();
+        if (window.confirm("¿Estás seguro de borrar este trabajo permanentemente?")) {
+            await performDelete();
+        }
     } else {
         Alert.alert(
-            "¿Borrar Trabajo?", "Esta acción es irreversible.", 
-            [{ text: "Cancelar", style: "cancel" }, { text: "Eliminar", style: "destructive", onPress: performDelete }]
+            "¿Borrar Trabajo?", 
+            "Esta acción es irreversible.", 
+            [
+                { text: "Cancelar", style: "cancel" },
+                { text: "Eliminar", style: "destructive", onPress: performDelete }
+            ]
         );
     }
   };
 
   const handleEdit = () => {
-    // @ts-ignore
     navigation.navigate('JobConfig', { quote }); 
   };
 
@@ -141,34 +112,113 @@ export default function JobDetailScreen() {
     };
 
     if (Platform.OS === 'web') {
-        if(confirm("¿Marcar como Cobrado?")) performFinalize();
+        if(confirm("¿Marcar como Cobrado? Se moverá al Historial.")) performFinalize();
     } else {
         Alert.alert("¿Cobrar Trabajo?", "Se moverá al Historial como Finalizado.", [
-            { text: "Cancelar", style: "cancel" }, { text: "¡Cobrado!", onPress: performFinalize }
+            { text: "Cancelar", style: "cancel" },
+            { text: "¡Cobrado!", onPress: performFinalize }
         ]);
     }
   };
 
   const getStatusColor = (status: string) => {
-    if (status === 'accepted') return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
-    if (status === 'completed') return { bg: '#DBEAFE', text: '#1E40AF', label: 'COBRADO' };
+    const normalized = (status || '').toLowerCase();
+    // En DB usamos 'accepted' para estado presentable (evita 400 de enum)
+    if (normalized === 'accepted') return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
+    if (normalized === 'completed') return { bg: '#E0F2FE', text: '#0369A1', label: 'COBRADO' };
     return { bg: '#FEF3C7', text: '#B45309', label: 'BORRADOR' };
+  };
+
+  const getStatusStep = (status: string) => {
+    const normalized = (status || '').toLowerCase();
+    if (normalized === 'completed') return 3;
+    if (['approved', 'aprobado'].includes(normalized)) return 2;
+    if (['presented', 'accepted'].includes(normalized)) return 1;
+    return 0; // draft / pending
+  };
+
+  const handleConfirmQuote = async () => {
+    try {
+      // Usamos 'accepted' para marcarlo como presentado y evitar errores de enum en DB
+      const { error } = await supabase.from('quotes').update({ status: 'accepted' }).eq('id', jobId);
+      if (error) throw error;
+      await fetchQuoteDetail();
+      handleShare();
+    } catch (err: any) {
+      Alert.alert("Error", "No se pudo confirmar el presupuesto.");
+    }
+  };
+
+  const getMapLinks = () => {
+    const hasCoords = quote?.location_lat && quote?.location_lng;
+    const address = quote?.client_address;
+    if (!hasCoords && !address) return null;
+
+    const query = hasCoords
+      ? `${quote.location_lat},${quote.location_lng}`
+      : encodeURIComponent(address);
+
+    return {
+      embed: `https://www.google.com/maps?q=${query}&output=embed`,
+      external: `https://www.google.com/maps?q=${query}`,
+    };
+  };
+
+  const renderMap = () => {
+    const links = getMapLinks();
+    if (!links) return null;
+    if (Platform.OS === 'web') {
+      return (
+        <View style={styles.mapContainer}>
+          <Text style={styles.sectionTitle}>UBICACION</Text>
+          <View style={styles.mapFrame}>
+            <iframe 
+              title="map-preview"
+              src={links.embed}
+              style={{ border: 0, width: '100%', height: '100%', borderRadius: 12 }}
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+            />
+          </View>
+        </View>
+      );
+    }
+    return (
+      <TouchableOpacity style={styles.mapButton} onPress={() => Linking.openURL(links.external)}>
+        <Ionicons name="location" size={18} color={COLORS.primary} />
+        <Text style={styles.mapButtonText}>Ver en Google Maps</Text>
+      </TouchableOpacity>
+    );
   };
 
   if (loading) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={COLORS.primary}/></View>;
   if (!quote) return <View style={styles.center}><Text>No se encontró el trabajo</Text></View>;
 
   const statusStyle = getStatusColor(quote?.status);
+  const stepIndex = getStatusStep(quote?.status);
+  const mapLinks = getMapLinks();
+  const steps = [
+    { title: 'Borrador', desc: 'Editando presupuesto' },
+    { title: 'Presentado', desc: 'Enviado al cliente' },
+    { title: 'Aprobado', desc: 'Cliente confirmó' },
+    { title: 'Cobrado', desc: 'Trabajo finalizado' },
+  ];
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
       
-      {/* HEADER */}
       <View style={styles.header}>
         <SafeAreaView edges={['top']}>
           <View style={styles.headerTop}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+            <TouchableOpacity
+              onPress={() => {
+                // Siempre volver al listado de trabajos
+                // @ts-ignore
+                navigation.navigate('Main', { screen: 'Trabajos' });
+              }}
+              style={styles.backBtn}
+            >
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Resumen del Trabajo</Text>
@@ -180,90 +230,120 @@ export default function JobDetailScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        
-        {/* CLIENTE CARD */}
-        <View style={styles.clientCard}>
-            <View style={styles.clientRow}>
-                <View style={styles.clientIcon}>
-                    <Ionicons name="person" size={24} color={COLORS.primary} />
+        <View>
+          {/* TIMELINE DE ESTADO */}
+          <View style={styles.timelineContainer}>
+            {steps.map((step, idx) => {
+              const active = idx <= stepIndex;
+              const isLast = idx === steps.length - 1;
+              return (
+                <View key={step.title} style={styles.timelineStep}>
+                  <View style={styles.timelineLineWrapper}>
+                    <View style={[styles.timelineDot, active && styles.timelineDotActive]} />
+                    {!isLast && <View style={[styles.timelineBar, active && styles.timelineBarActive]} />}
+                  </View>
+                  <View style={styles.timelineTextBox}>
+                    <Text style={[styles.timelineTitle, active && styles.timelineTitleActive]}>{step.title}</Text>
+                    <Text style={styles.timelineDesc}>{step.desc}</Text>
+                  </View>
                 </View>
-                <View style={{flex:1}}>
-                    <Text style={styles.label}>CLIENTE</Text>
-                    <Text style={styles.clientName}>{quote.client_name || 'Sin Nombre'}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
-                    <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
-                </View>
-            </View>
-            
-            {/* UBICACIÓN SINCRONIZADA */}
-            {quote.client_address && (
-                <View style={[styles.clientRow, { marginTop: 12 }]}>
-                    <View style={[styles.clientIcon, { backgroundColor: '#F3F4F6' }]}>
-                        <Ionicons name="location" size={20} color={COLORS.textLight} />
-                    </View>
-                    <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={styles.label}>UBICACIÓN</Text>
-                        <Text style={styles.clientAddress}>{quote.client_address}</Text>
-                        {/* Pequeño indicador si es GPS preciso */}
-                        {quote.location_lat && <Text style={styles.gpsTag}>📍 GPS Exacto</Text>}
-                    </View>
-                    
-                    {/* BOTÓN NUEVO: ABRIR MAPA */}
-                    <TouchableOpacity onPress={openMap} style={styles.mapBtn}>
-                        <Ionicons name="map-outline" size={22} color={COLORS.secondary} />
+              );
+            })}
+          </View>
+
+          {/* CLIENTE */}
+          <View style={styles.clientCard}>
+              <View style={styles.clientRow}>
+                  <View style={styles.clientIcon}>
+                      <Ionicons name="person" size={24} color={COLORS.primary} />
+                  </View>
+                  <View style={{flex:1}}>
+                      <Text style={styles.label}>CLIENTE</Text>
+                      <Text style={styles.clientName}>{quote.client_name || 'Sin Nombre'}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: statusStyle.bg }]}>
+                      <Text style={[styles.statusText, { color: statusStyle.text }]}>{statusStyle.label}</Text>
+                  </View>
+              </View>
+
+              <View style={[styles.clientRow, { marginTop: 12 }]}>
+                  <View style={[styles.clientIcon, { backgroundColor: '#F3F4F6' }]}>
+                      <Ionicons name="location" size={20} color={COLORS.textLight} />
+                  </View>
+                  <View style={{flex: 1}}>
+                      <Text style={styles.label}>UBICACION</Text>
+                      <Text style={styles.clientAddress}>{quote.client_address || 'Sin direccion'}</Text>
+                  </View>
+                  {mapLinks ? (
+                    <TouchableOpacity style={styles.mapChip} onPress={() => Linking.openURL(mapLinks.external)}>
+                      <Ionicons name="navigate" size={16} color={COLORS.primary} />
+                      <Text style={styles.mapChipText}>Ver en Maps</Text>
                     </TouchableOpacity>
-                </View>
-            )}
-            
-            <View style={styles.divider} />
-            <Text style={styles.dateText}>Creado el {new Date(quote.created_at).toLocaleDateString()}</Text>
-        </View>
+                  ) : null}
+              </View>
+              
+              <View style={styles.divider} />
+              <Text style={styles.dateText}>Creado el {new Date(quote.created_at).toLocaleDateString()}</Text>
+          </View>
 
-        {/* ITEMS */}
-        <Text style={styles.sectionTitle}>DETALLE DEL SERVICIO</Text>
-        <View style={styles.itemsContainer}>
-            {quote.quote_items && quote.quote_items.map((item: any, index: number) => (
-                <View key={item.id} style={[styles.itemRow, index !== quote.quote_items.length - 1 && styles.itemBorder]}>
-                    <View style={{flex: 1}}>
-                        <Text style={styles.itemDesc}>{item.description}</Text>
-                        <Text style={styles.itemMeta}>{item.quantity} x ${item.unit_price.toLocaleString('es-AR')}</Text>
-                    </View>
-                    <Text style={styles.itemTotal}>${(item.unit_price * item.quantity).toLocaleString('es-AR')}</Text>
-                </View>
-            ))}
-        </View>
+          {renderMap()}
 
-        {/* RESUMEN */}
-        <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>${breakdown.subtotal.toLocaleString('es-AR')}</Text>
-            </View>
-            {breakdown.tax > 0 && (
-                <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>IVA (21%)</Text>
-                    <Text style={styles.summaryValue}>+ ${breakdown.tax.toLocaleString('es-AR')}</Text>
-                </View>
-            )}
-            <View style={styles.divider} />
-            <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>TOTAL A COBRAR</Text>
-                <Text style={styles.totalValue}>${breakdown.total.toLocaleString('es-AR')}</Text>
-            </View>
-        </View>
+          {/* ITEMS */}
+          <Text style={styles.sectionTitle}>DETALLE DEL SERVICIO</Text>
+          <View style={styles.itemsContainer}>
+              {quote.quote_items && quote.quote_items.map((item: any, index: number) => (
+                  <View key={item.id} style={[styles.itemRow, index !== quote.quote_items.length - 1 && styles.itemBorder]}>
+                      <View style={{flex: 1}}>
+                          <Text style={styles.itemDesc}>{item.description}</Text>
+                          <Text style={styles.itemMeta}>{item.quantity} x ${formatCurrency(item.unit_price)}</Text>
+                      </View>
+                      <Text style={styles.itemTotal}>${formatCurrency(item.unit_price * item.quantity)}</Text>
+                  </View>
+              ))}
+          </View>
 
+          {/* RESUMEN */}
+          <View style={styles.summaryCard}>
+              <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Subtotal</Text>
+                  <Text style={styles.summaryValue}>${formatCurrency(breakdown.subtotal)}</Text>
+              </View>
+              {breakdown.tax > 0 ? (
+                  <View style={styles.summaryRow}>
+                      <Text style={styles.summaryLabel}>IVA (21%)</Text>
+                      <Text style={styles.summaryValue}>+ ${formatCurrency(breakdown.tax)}</Text>
+                  </View>
+              ) : null}
+              <View style={styles.divider} />
+              <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>TOTAL A COBRAR</Text>
+                  <Text style={styles.totalValue}>${formatCurrency(breakdown.total)}</Text>
+              </View>
+          </View>
+        </View>
       </ScrollView>
 
-      {/* FOOTER */}
       <SafeAreaView edges={['bottom']} style={styles.footer}>
         <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
             <Ionicons name="trash-outline" size={24} color={COLORS.danger} />
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
-            <Text style={styles.shareText}>Compartir Link</Text>
-            <Ionicons name="share-social" size={20} color="#FFF" style={{marginLeft: 8}} />
+        {quote.status === 'draft' && (
+          <TouchableOpacity style={styles.shareBtn} onPress={handleConfirmQuote}>
+              <Text style={styles.shareText}>Confirmar presupuesto</Text>
+              <Ionicons name="checkmark" size={20} color="#FFF" style={{marginLeft: 8}} />
+          </TouchableOpacity>
+        )}
+
+        {quote.status !== 'draft' && (
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+              <Text style={styles.shareText}>Compartir Link</Text>
+              <Ionicons name="share-social" size={20} color="#FFF" style={{marginLeft: 8}} />
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.successBtn} onPress={handleEdit}>
+            <Ionicons name="pencil" size={20} color="#FFF" />
         </TouchableOpacity>
 
         {quote.status === 'accepted' && (
@@ -288,16 +368,12 @@ const styles = StyleSheet.create({
 
   content: { padding: 20, paddingBottom: 100 },
 
-  clientCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity:0.05, elevation: 2 },
+  clientCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity: 0.05, elevation: 2 },
   clientRow: { flexDirection: 'row', alignItems: 'center' },
   clientIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF5E0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   label: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.textLight, marginBottom: 2, letterSpacing: 0.5 },
   clientName: { fontSize: 18, fontFamily: FONTS.title, color: COLORS.text },
   clientAddress: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
-  gpsTag: { fontSize: 10, color: COLORS.success, marginTop: 2, fontWeight: 'bold' },
-  
-  mapBtn: { padding: 10, backgroundColor: '#EFF6FF', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   statusText: { fontSize: 10, fontFamily: FONTS.title, fontWeight: 'bold' },
   divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 16 },
@@ -331,4 +407,21 @@ const styles = StyleSheet.create({
   shareBtn: { flex: 1, height: 50, borderRadius: 12, backgroundColor: COLORS.secondary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   shareText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   successBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center' },
+  mapContainer: { marginBottom: 20 },
+  mapFrame: { width: '100%', height: 200, borderRadius: 12, overflow: 'hidden', backgroundColor: '#F3F4F6', marginBottom: 12 },
+  mapButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10 },
+  mapButtonText: { color: COLORS.primary, fontFamily: FONTS.subtitle, fontSize: 14 },
+  mapChip: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: '#E0F2FE', marginLeft: 8 },
+  mapChipText: { color: COLORS.primary, fontFamily: FONTS.subtitle, fontSize: 12, marginLeft: 4 },
+  timelineContainer: { backgroundColor: '#FFF', borderRadius: 12, padding: 12, marginBottom: 16, gap: 12, shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 },
+  timelineStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  timelineLineWrapper: { alignItems: 'center', width: 20 },
+  timelineDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#E5E7EB', marginTop: 4 },
+  timelineDotActive: { backgroundColor: COLORS.primary },
+  timelineBar: { width: 2, flex: 1, backgroundColor: '#E5E7EB', marginTop: 2 },
+  timelineBarActive: { backgroundColor: COLORS.primary },
+  timelineTextBox: { flex: 1 },
+  timelineTitle: { fontFamily: FONTS.subtitle, fontSize: 14, color: COLORS.textLight },
+  timelineTitleActive: { color: COLORS.text, fontWeight: '700' },
+  timelineDesc: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textLight }
 });

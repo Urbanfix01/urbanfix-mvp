@@ -12,9 +12,10 @@ interface Props {
   apiKey: string;
   initialValue?: string;
   onPlaceSelected: (details: { address: string; lat: number; lng: number }) => void;
+  onError?: (err: any) => void;
 }
 
-export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected }: Props) => {
+export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected, onError }: Props) => {
   const inputContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,6 +27,7 @@ export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected }: Props) 
         // "libraries=places" y "v=weekly" son vitales para la Nueva API
         script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&v=weekly`;
         script.async = true;
+        script.onerror = (e) => onError?.(e);
         document.head.appendChild(script);
       }
 
@@ -75,6 +77,7 @@ export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected }: Props) 
             }
           } catch (e) {
             console.error("Error inicializando Places New API:", e);
+            onError?.(e);
           }
         }
       }, 100);

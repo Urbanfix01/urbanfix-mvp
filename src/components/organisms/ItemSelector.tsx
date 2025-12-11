@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, TextInput, ActivityIndicator } from 'react-native';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { 
+  View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, 
+  TextInput, ActivityIndicator, Keyboard 
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS } from '../../utils/theme';
 import { useMasterItems } from '../../hooks/useCatalog';
@@ -9,57 +12,88 @@ interface Props {
   visible: boolean;
   onClose: () => void;
   onSelect: (item: MasterItem) => void;
+  filterType?: 'labor' | 'material';
 }
 
-export default function ItemSelector({ visible, onClose, onSelect }: Props) {
+export default function ItemSelector({ visible, onClose, onSelect, filterType }: Props) {
   const { data: items, isLoading } = useMasterItems();
   const [search, setSearch] = useState('');
+  
+  // Ref para el input, para darle foco automático
+  const inputRef = useRef<TextInput>(null);
 
-  // Filtro local
-  const filteredItems = (items || []).filter(i => 
-    i.name.toLowerCase().includes(search.toLowerCase())
-  );
+  // --- 1. OPTIMIZACIÓN DE RENDIMIENTO ---
+  // Solo recalculamos el filtro si cambia 'items' o 'search'
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
+    const term = search.toLowerCase();
+    return items
+      .filter(i => !filterType || i.type === filterType)
+      .filter(i => i.name.toLowerCase().includes(term));
+  }, [items, search, filterType]);
 
-  // Acción para crear ítem custom
+  // --- 2. UX: AUTO-FOCUS AL ABRIR ---
+  useEffect(() => {
+    if (visible) {
+      setSearch(''); // Limpiar búsqueda anterior
+      // Pequeño delay para esperar que termine la animación del modal
+      setTimeout(() => {
+        inputRef.current?.focus();
+      }, 100);
+    }
+  }, [visible]);
+
   const handleCreateCustom = () => {
     if (!search.trim()) return;
 
     const customItem: MasterItem = {
-        id: `custom-${Date.now()}`, // ID temporal único
-        name: search.trim(),        // El nombre que escribiste
-        type: 'material',           // Por defecto material
-        suggested_price: 0,         // Precio 0 para que lo edites en la lista
+        id: `custom-${Date.now()}`,
+        name: search.trim(),
+        type: filterType || 'material',       
+        suggested_price: 0,
         source_ref: 'Manual'
     };
 
     onSelect(customItem);
-    setSearch('');
+    onClose(); // Cerrar modal automáticamente al seleccionar
+  };
+
+  const handleSelect = (item: MasterItem) => {
+      onSelect(item);
+      onClose(); // Cerrar modal automáticamente
   };
 
   const renderItem = ({ item }: { item: MasterItem }) => (
     <TouchableOpacity 
       style={styles.itemRow} 
-      onPress={() => {
-        onSelect(item);
-        setSearch(''); 
-      }}
+      onPress={() => handleSelect(item)}
     >
-      <View style={styles.iconBox}>
+      <View style={[styles.iconBox, item.type === 'labor' && { backgroundColor: '#E0F2FE' }]}>
         <Ionicons 
-          name={item.type === 'labor' ? "hand-left-outline" : "cube-outline"} 
-          size={20} color={COLORS.primary} 
+          name={item.type === 'labor' ? "hammer-outline" : "cube-outline"} 
+          size={20} 
+          color={item.type === 'labor' ? COLORS.secondary : COLORS.primary} 
         />
       </View>
       <View style={{flex: 1}}>
         <Text style={styles.itemName}>{item.name}</Text>
-        <Text style={styles.itemPrice}>${item.suggested_price.toLocaleString('es-AR')}</Text>
+        <Text style={styles.itemPrice}>
+            {item.suggested_price > 0 
+                ? `$${item.suggested_price.toLocaleString('es-AR')}` 
+                : 'Precio a definir'}
+        </Text>
       </View>
       <Ionicons name="add-circle" size={24} color={COLORS.success} />
     </TouchableOpacity>
   );
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal 
+      visible={visible} 
+      animationType="slide" 
+      presentationStyle="pageSheet"
+      onRequestClose={onClose} // Importante para Android (botón atrás físico)
+    >
       <View style={styles.container}>
         
         {/* Header Modal */}
@@ -72,17 +106,19 @@ export default function ItemSelector({ visible, onClose, onSelect }: Props) {
 
         {/* Buscador */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#999" style={{marginRight: 8}} />
+          <Ionicons name="search" size={20} color="#94A3B8" style={{marginRight: 8}} />
           <TextInput 
+            ref={inputRef}
             style={styles.input} 
-            placeholder="Buscar o crear nuevo..." 
+            placeholder="Buscar material o tarea..." 
+            placeholderTextColor="#94A3B8"
             value={search}
             onChangeText={setSearch}
-            autoFocus={false}
+            returnKeyType="search"
           />
           {search.length > 0 && (
              <TouchableOpacity onPress={() => setSearch('')}>
-                 <Ionicons name="close-circle" size={18} color="#CCC" />
+                 <Ionicons name="close-circle" size={18} color="#CBD5E1" />
              </TouchableOpacity>
           )}
         </View>
@@ -98,7 +134,9 @@ export default function ItemSelector({ visible, onClose, onSelect }: Props) {
             contentContainerStyle={{ padding: 16, paddingBottom: 50 }}
             keyboardShouldPersistTaps="handled"
             
-            // 👇 AQUÍ ESTÁ LA MAGIA: BOTÓN DE CREAR SI NO EXISTE
+            // --- 3. UX: OCULTAR TECLADO AL SCROLLEAR ---
+            keyboardDismissMode="on-drag" 
+
             ListFooterComponent={
                 search.length > 0 ? (
                     <TouchableOpacity style={styles.createBtn} onPress={handleCreateCustom}>
@@ -107,7 +145,7 @@ export default function ItemSelector({ visible, onClose, onSelect }: Props) {
                         </View>
                         <View style={{flex: 1}}>
                             <Text style={styles.createTitle}>Crear "{search}"</Text>
-                            <Text style={styles.createSub}>Agregar como ítem personalizado ($0)</Text>
+                            <Text style={styles.createSub}>Agregar manual (precio $0)</Text>
                         </View>
                         <Ionicons name="chevron-forward" size={20} color={COLORS.primary} />
                     </TouchableOpacity>
@@ -115,11 +153,13 @@ export default function ItemSelector({ visible, onClose, onSelect }: Props) {
             }
 
             ListEmptyComponent={
-                // Solo mostramos texto si no escribió nada, porque si escribió mostramos el botón de crear
                 search.length === 0 ? (
-                    <Text style={{textAlign: 'center', color: '#999', marginTop: 20}}>
-                        Escribe para buscar o crear un ítem nuevo.
-                    </Text>
+                    <View style={styles.emptyState}>
+                        <Ionicons name="search-outline" size={48} color="#E2E8F0" />
+                        <Text style={styles.emptyText}>
+                            Busca materiales o mano de obra{"\n"}para tu presupuesto.
+                        </Text>
+                    </View>
                 ) : null
             }
           />
@@ -130,26 +170,24 @@ export default function ItemSelector({ visible, onClose, onSelect }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F9F9F9' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#EEE' },
-  title: { fontFamily: FONTS.title, fontSize: 18, color: COLORS.text },
-  closeBtn: { padding: 8 },
-  closeText: { color: COLORS.primary, fontFamily: FONTS.subtitle, fontSize: 16 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  title: { fontSize: 17, fontWeight: '700', color: '#0F172A' },
+  closeBtn: { padding: 4 },
+  closeText: { color: COLORS.primary, fontWeight: '600', fontSize: 16 },
   
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', margin: 16, paddingHorizontal: 12, height: 44, borderRadius: 10, borderWidth: 1, borderColor: '#DDD' },
-  input: { flex: 1, height: '100%', fontFamily: FONTS.body, fontSize: 16 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', margin: 16, paddingHorizontal: 12, height: 46, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
+  input: { flex: 1, height: '100%', fontSize: 16, color: '#0F172A' },
 
-  itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 12, borderRadius: 12, marginBottom: 8, shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  iconBox: { width: 36, height: 36, borderRadius: 8, backgroundColor: '#FFF5E0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  itemName: { fontFamily: FONTS.subtitle, fontSize: 14, color: COLORS.text },
-  itemPrice: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 14, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#F1F5F9' },
+  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  itemName: { fontSize: 15, fontWeight: '600', color: '#1E293B', marginBottom: 2 },
+  itemPrice: { fontSize: 13, color: '#64748B' },
 
-  // Estilos del Botón Crear
-  createBtn: { 
-      flexDirection: 'row', alignItems: 'center', backgroundColor: '#E3F2FD', 
-      padding: 12, borderRadius: 12, marginTop: 10, 
-      borderWidth: 1, borderColor: COLORS.primary, borderStyle: 'dashed'
-  },
-  createTitle: { fontFamily: FONTS.subtitle, fontSize: 14, color: COLORS.primary },
-  createSub: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textLight }
+  createBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F0F9FF', padding: 12, borderRadius: 12, marginTop: 10, borderWidth: 1, borderColor: '#38BDF8', borderStyle: 'dashed' },
+  createTitle: { fontSize: 15, fontWeight: '700', color: '#0369A1' },
+  createSub: { fontSize: 12, color: '#0EA5E9' },
+
+  emptyState: { alignItems: 'center', marginTop: 60, paddingHorizontal: 40 },
+  emptyText: { textAlign: 'center', color: '#94A3B8', marginTop: 16, lineHeight: 22 }
 });

@@ -8,6 +8,8 @@ export interface JobItem {
   quantity: number;
   isActive: boolean;
   type: 'labor' | 'material' | 'consumable';
+  // Agregamos 'category' opcional para compatibilidad con la UI nueva
+  category?: 'labor' | 'material' | 'consumable';
 }
 
 export const useJobCalculator = (initialItems: JobItem[] = []) => {
@@ -17,7 +19,7 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
   const [clientName, setClientName] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   
-  // FECHA DE AGENDA
+  // FECHA
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
   
   // FINANCIEROS
@@ -35,15 +37,15 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     }));
   };
 
-  // 2. Actualizar Precio Manualmente
-  const updatePrice = (id: string, newPrice: number) => {
+  // 2. Actualizar Precio (RENOMBRADO para claridad en la UI)
+  const updateItemPrice = (id: string, newPrice: number) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) return { ...item, price: newPrice };
       return item;
     }));
   };
 
-  // 3. Activar/Desactivar Ítem
+  // 3. Activar/Desactivar
   const toggleItem = (id: string) => {
     setItems(prev => prev.map(item => {
       if (item.id === id) return { ...item, isActive: !item.isActive };
@@ -51,20 +53,39 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     }));
   };
 
-  // 4. Agregar Ítem
-  const addItem = (masterItem: MasterItem) => {
-    const newItem: JobItem = {
-      id: `${masterItem.id}-${Date.now()}`, 
-      name: masterItem.name,
-      price: masterItem.suggested_price,
-      quantity: 1,
-      isActive: true,
-      type: masterItem.type,
-    };
-    setItems(prev => [...prev, newItem]);
+  // 4. Agregar Ítem (MEJORADO: Acepta ítems personalizados)
+  const addItem = (item: any) => {
+    setItems(prev => {
+        // Determinamos el tipo: si viene de DB es 'type', si es manual 'category'
+        const itemType = item.category || item.type || 'labor';
+        const basePrice = item.price !== undefined ? item.price : (item.suggested_price || 0);
+
+        // Generamos un ID único si no existe
+        const newItemId = item.id && item.id.length > 5 ? item.id : `custom-${Date.now()}`;
+
+        // Verificamos si ya existe para sumar cantidad en lugar de duplicar
+        const existingIndex = prev.findIndex(i => i.name === item.name && i.type === itemType);
+
+        if (existingIndex >= 0) {
+            const newItems = [...prev];
+            newItems[existingIndex].quantity += 1;
+            return newItems;
+        }
+
+        const newItem: JobItem = {
+            id: newItemId,
+            name: item.name,
+            price: Number(basePrice),
+            quantity: 1,
+            isActive: true,
+            type: itemType,
+            category: itemType // Guardamos ambos por compatibilidad
+        };
+        return [...prev, newItem];
+    });
   };
 
-  // 5. Eliminar Ítem
+  // 5. Eliminar
   const removeItem = (id: string) => {
     setItems(prev => prev.filter(i => i.id !== id));
   };
@@ -79,21 +100,16 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     const taxAmount = applyTax ? totalAfterDiscount * 0.21 : 0;
     const total = totalAfterDiscount + taxAmount;
     
-    const isRisk = discount > (subtotal * 0.15); 
-
-    return { subtotal, taxAmount, total, isRisk };
+    return { subtotal, taxAmount, total };
   }, [items, discount, applyTax]);
 
   return {
-    items,
-    setItems,
-    // Cliente
+    items, setItems,
     clientName, setClientName,
     clientAddress, setClientAddress,
-    // Agenda (AQUÍ FALTABA LA COMA)
     scheduledDate, setScheduledDate,
     // Acciones
-    updateQuantity, updatePrice, toggleItem, addItem, removeItem,
+    updateQuantity, updateItemPrice, toggleItem, addItem, removeItem,
     // Dinero
     discount, setDiscount, applyTax, setApplyTax, totals
   };
