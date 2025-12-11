@@ -286,7 +286,17 @@ export default function JobConfigScreen() {
             if (itemsError) throw itemsError;
         }
 
-        navigation.navigate('JobDetail', { jobId: targetId }); 
+        navigation.navigate('JobDetail', { 
+            jobId: targetId,
+            quote: { 
+              ...(quote || {}), 
+              ...quoteData, 
+              id: targetId, 
+              client_address: clientAddress, 
+              location_lat: location.lat !== 0 ? location.lat : null,
+              location_lng: location.lng !== 0 ? location.lng : null,
+            } 
+        }); 
 
     } catch (e: any) {
         console.error(e);

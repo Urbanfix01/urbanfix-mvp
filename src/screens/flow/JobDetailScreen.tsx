@@ -15,7 +15,7 @@ const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p';
 export default function JobDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute();
-  const { jobId } = route.params as { jobId: string };
+  const { jobId, quote: initialQuote } = route.params as { jobId: string; quote?: any };
 
   const [quote, setQuote] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -50,12 +50,16 @@ export default function JobDetailScreen() {
   };
 
   useEffect(() => {
+    if (initialQuote) {
+      setQuote(initialQuote);
+      setLoading(false);
+    }
     const unsubscribe = navigation.addListener('focus', () => {
       setLoading(true);
       fetchQuoteDetail();
     });
     return unsubscribe;
-  }, [navigation, jobId]);
+  }, [navigation, jobId, initialQuote]);
 
   const handleDelete = async () => {
     const performDelete = async () => {
@@ -149,9 +153,11 @@ export default function JobDetailScreen() {
     }
   };
 
+  const clientAddress = quote?.client_address || initialQuote?.client_address || '';
+
   const getMapLinks = () => {
     const hasCoords = quote?.location_lat && quote?.location_lng;
-    const address = quote?.client_address;
+    const address = clientAddress;
     if (!hasCoords && !address) return null;
 
     const query = hasCoords
@@ -193,8 +199,7 @@ export default function JobDetailScreen() {
 
   if (loading) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={COLORS.primary}/></View>;
   if (!quote) return <View style={styles.center}><Text>No se encontró el trabajo</Text></View>;
-
-  const statusStyle = getStatusColor(quote?.status);
+\n  const statusStyle = getStatusColor(quote?.status); = getStatusColor(quote?.status);
   const stepIndex = getStatusStep(quote?.status);
   const mapLinks = getMapLinks();
   const steps = [
@@ -272,7 +277,7 @@ export default function JobDetailScreen() {
                   </View>
                   <View style={{flex: 1}}>
                       <Text style={styles.label}>UBICACION</Text>
-                      <Text style={styles.clientAddress}>{quote.client_address || 'Sin direccion'}</Text>
+                      <Text style={styles.clientAddress}>{clientAddress || 'Sin direccion'}</Text>
                   </View>
                   {mapLinks ? (
                     <TouchableOpacity style={styles.mapChip} onPress={() => Linking.openURL(mapLinks.external)}>
@@ -425,3 +430,8 @@ const styles = StyleSheet.create({
   timelineTitleActive: { color: COLORS.text, fontWeight: '700' },
   timelineDesc: { fontFamily: FONTS.body, fontSize: 12, color: COLORS.textLight }
 });
+
+
+
+
+
