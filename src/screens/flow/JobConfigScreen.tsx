@@ -356,7 +356,7 @@ export default function JobConfigScreen() {
                        <LocationAutocomplete apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} initialValue={clientAddress} onLocationSelect={handleLocationSelect} />
                    )}
                 </View>
-                {/* Campo manual para asegurar sincronizacion y permitir edicion directa */
+                {/* Campo manual para asegurar sincronizacion y permitir edicion directa */}
                 <TextInput
                     style={[styles.textInput, { marginTop: 10 }]}
                     placeholder="Confirma o corrige la direccion"
