@@ -11,12 +11,15 @@ declare global {
 interface Props {
   apiKey: string;
   initialValue?: string;
+  value?: string;
   onPlaceSelected: (details: { address: string; lat: number; lng: number }) => void;
+  onManualInput?: (text: string) => void;
   onError?: (err: any) => void;
 }
 
-export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected, onError }: Props) => {
+export const WebGoogleMaps = ({ apiKey, initialValue, value, onPlaceSelected, onManualInput, onError }: Props) => {
   const inputContainerRef = useRef<HTMLDivElement>(null);
+  const autocompleteRef = useRef<any>(null);
 
   useEffect(() => {
     const loadGoogleMaps = async () => {
@@ -45,9 +48,13 @@ export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected, onError }
                 
                 // Instanciar el Web Component oficial
                 const autocompleteComponent = new PlaceAutocompleteElement();
+                autocompleteRef.current = autocompleteComponent;
                 
                 // Configurar props del componente nativo de Google
-                (autocompleteComponent as any).placeholder = "Escribe la dirección de la obra...";
+                (autocompleteComponent as any).placeholder = "Escribe la direccion de la obra...";
+                if (value || initialValue) {
+                  (autocompleteComponent as any).value = value || initialValue || '';
+                }
                 
                 // Estilos CSS directos al Web Component
                 Object.assign(autocompleteComponent.style, {
@@ -73,6 +80,12 @@ export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected, onError }
                     });
                 });
 
+                // Entrada manual: sincronizamos el texto aunque no se elija una sugerencia
+                autocompleteComponent.addEventListener('input', (evt: any) => {
+                  const text = evt?.target?.value ?? '';
+                  onManualInput?.(text);
+                });
+
                 inputContainerRef.current.appendChild(autocompleteComponent);
             }
           } catch (e) {
@@ -85,6 +98,13 @@ export const WebGoogleMaps = ({ apiKey, initialValue, onPlaceSelected, onError }
 
     loadGoogleMaps();
   }, [apiKey]);
+
+  // Sincroniza el valor externo con el input del componente web
+  useEffect(() => {
+    if (autocompleteRef.current && (value || value === '')) {
+      autocompleteRef.current.value = value;
+    }
+  }, [value]);
 
   return (
     // Usamos div nativo de web envuelto en View compatible

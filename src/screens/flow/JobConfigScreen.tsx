@@ -332,6 +332,11 @@ export default function JobConfigScreen() {
                            <WebGoogleMaps 
                               apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
                               initialValue={clientAddress} 
+                              value={clientAddress}
+                              onManualInput={(text) => {
+                                setClientAddress(text);
+                                setLocation({ lat: 0, lng: 0 });
+                              }}
                               onPlaceSelected={handleLocationSelect}
                               onError={() => setDisableWebAutocomplete(true)}
                            />
@@ -351,6 +356,17 @@ export default function JobConfigScreen() {
                        <LocationAutocomplete apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} initialValue={clientAddress} onLocationSelect={handleLocationSelect} />
                    )}
                 </View>
+                {/* Campo manual para asegurar sincronizacion y permitir edicion directa */
+                <TextInput
+                    style={[styles.textInput, { marginTop: 10 }]}
+                    placeholder="Confirma o corrige la direccion"
+                    placeholderTextColor="#94A3B8"
+                    value={clientAddress}
+                    onChangeText={(text) => {
+                        setClientAddress(text);
+                        setLocation({ lat: 0, lng: 0 });
+                    }}
+                />
             </View>
         </View>
 
