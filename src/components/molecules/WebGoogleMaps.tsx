@@ -20,6 +20,7 @@ interface Props {
 export const WebGoogleMaps = ({ apiKey, initialValue, value, onPlaceSelected, onManualInput, onError }: Props) => {
   const inputContainerRef = useRef<HTMLDivElement>(null);
   const autocompleteRef = useRef<any>(null);
+  const lastValueRef = useRef<string>('');
 
   useEffect(() => {
     const loadGoogleMaps = async () => {
@@ -103,8 +104,23 @@ export const WebGoogleMaps = ({ apiKey, initialValue, value, onPlaceSelected, on
   useEffect(() => {
     if (autocompleteRef.current && (value || value === '')) {
       autocompleteRef.current.value = value;
+      lastValueRef.current = value;
     }
   }, [value]);
+
+  // Polling ligero para capturar escritura manual (el web component no emite siempre eventos de input)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (autocompleteRef.current) {
+        const current = autocompleteRef.current.value || '';
+        if (current !== lastValueRef.current) {
+          lastValueRef.current = current;
+          onManualInput?.(current);
+        }
+      }
+    }, 400);
+    return () => clearInterval(interval);
+  }, [onManualInput]);
 
   return (
     // Usamos div nativo de web envuelto en View compatible
