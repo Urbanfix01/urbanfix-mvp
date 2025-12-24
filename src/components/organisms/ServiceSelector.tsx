@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
 import { useBlueprints } from '../../hooks/useBlueprints';
@@ -116,18 +116,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.6)', 
     justifyContent: 'flex-end',
   },
-  container: {
-    backgroundColor: '#FFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    height: '75%', 
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    elevation: 20,
-  },
+  container: Platform.select({
+    web: {
+      backgroundColor: '#FFF',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      height: '75%',
+      padding: 20,
+      boxShadow: '0 -10px 24px rgba(0,0,0,0.2)',
+    },
+    default: {
+      backgroundColor: '#FFF',
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      height: '75%', 
+      padding: 20,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 10,
+      elevation: 20,
+    }
+  }),
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -156,21 +166,34 @@ const styles = StyleSheet.create({
   },
   
   // Card Estilo
-  itemCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#F0F2F5',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    elevation: 2,
-  },
+  itemCard: Platform.select({
+    web: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: '#F0F2F5',
+      boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+    },
+    default: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      padding: 16,
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      marginBottom: 12,
+      borderWidth: 1,
+      borderColor: '#F0F2F5',
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.03,
+      shadowRadius: 4,
+      elevation: 2,
+    }
+  }),
   iconBox: {
     width: 44,
     height: 44,

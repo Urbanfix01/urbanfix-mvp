@@ -19,6 +19,7 @@
     "@react-navigation/native": "^7.1.21",
     "@react-navigation/native-stack": "^7.6.4",
     "@react-pdf/renderer": "^4.3.1",
+    "@shopify/flash-list": "2.0.2",
     "@supabase/supabase-js": "^2.86.0",
     "@tanstack/react-query": "^5.90.11",
     "base64-arraybuffer": "^1.0.2",
@@ -45,6 +46,7 @@
     "react-native-web": "^0.21.0"
   },
   "devDependencies": {
+    "@types/google.maps": "^3.58.1",
     "@types/react": "~19.1.0",
     "typescript": "~5.9.2"
   },

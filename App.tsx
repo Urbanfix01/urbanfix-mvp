@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { View } from 'react-native';
+import { View, LogBox, Platform } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as SplashScreen from 'expo-splash-screen';
@@ -17,6 +17,14 @@ import RootNavigator from './src/navigation/RootNavigator';
 const queryClient = new QueryClient();
 
 SplashScreen.preventAutoHideAsync();
+
+// Silenciar warnings de RN Web sobre shadow* y pointerEvents deprecados
+if (Platform.OS === 'web') {
+  LogBox.ignoreLogs([
+    '"shadow*" style props are deprecated. Use "boxShadow".',
+    'props.pointerEvents is deprecated. Use style.pointerEvents',
+  ]);
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({

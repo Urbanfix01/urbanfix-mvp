@@ -1,11 +1,13 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
-  View, Text, StyleSheet, FlatList, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share 
+  View, Text, StyleSheet, TouchableOpacity, 
+  StatusBar, ActivityIndicator, Alert, Share, Platform 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { FlashList } from '@shopify/flash-list';
+import { useNavigation } from '@react-navigation/native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { COLORS, FONTS } from '../../utils/theme';
 import ServiceSelector from '../../components/organisms/ServiceSelector';
 import { ServiceBlueprint } from '../../types/database';
@@ -13,55 +15,44 @@ import { supabase } from '../../lib/supabase';
 
 const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p'; // Tu URL
 
+async function getQuotes() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('quotes')
+    .select('*')
+    .eq('user_id', user.id)
+    .neq('status', 'completed')
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return data || [];
+}
+
 export default function JobsScreen() {
   const navigation = useNavigation();
   const [selectorVisible, setSelectorVisible] = useState(false);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-  // --- CARGA DE DATOS ---
-  const fetchJobs = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+  const queryClient = useQueryClient();
+  const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<any[]>({
+    queryKey: ['quotes-list'],
+    queryFn: getQuotes,
+    staleTime: 60000,
+  });
 
-      const { data, error } = await supabase
-        .from('quotes')
-        .select('*')
-        .eq('user_id', user.id)
-        .neq('status', 'completed') // Ocultamos los finalizados de la lista principal
-        .order('created_at', { ascending: false }); 
-
-      if (error) throw error;
-      setJobs(data || []);
-    } catch (error) {
-      console.error("Error cargando trabajos:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useFocusEffect(
-    useCallback(() => {
-      fetchJobs();
-    }, [])
-  );
-
-  // --- FIX 1: ESTADÍSTICAS ROBUSTAS (Suma todo lo que sea similar) ---
+  // --- FIX 1: ESTADISTICAS ROBUSTAS (Suma todo lo que sea similar) ---
   const stats = useMemo(() => {
-    // Normalizamos para contar tanto 'pending' (nuevo) como 'draft' (viejo)
     const drafts = jobs.filter(j => 
         ['pending', 'draft', 'pendiente', 'presented', 'accepted'].includes(j.status?.toLowerCase())
     ).length;
 
-    // Normalizamos para contar 'approved'
     const approved = jobs.filter(j => 
         ['approved', 'aprobado'].includes(j.status?.toLowerCase())
     ).length;
 
-    // Suma segura (evita error si total_amount es null)
     const totalMoney = jobs.reduce((acc, j) => acc + (j.total_amount || 0), 0);
     
     return { drafts, approved, totalMoney };
@@ -79,10 +70,10 @@ export default function JobsScreen() {
   const handleShareJob = async (jobId: string, total: number) => {
     const link = `${WEB_BASE_URL}/${jobId}`;
     const safeTotal = (total || 0).toLocaleString('es-AR');
-    const message = `Hola! 👋 Te paso el presupuesto por $${safeTotal}: ${link}`;
+    const message = `Hola! Te paso el presupuesto por $${safeTotal}: ${link}`;
     try {
       await Share.share({ message, title: 'Presupuesto UrbanFix', url: link });
-    } catch (error) {
+    } catch (err) {
       Alert.alert("Error", "No se pudo compartir.");
     }
   };
@@ -95,17 +86,14 @@ export default function JobsScreen() {
         return { label: 'PRESENTADO', color: '#3B82F6', bg: '#DBEAFE' }; // Azul
     }
 
-    // CASO APROBADO (Verde)
     if (['approved', 'aprobado'].includes(normalized)) {
         return { label: 'APROBADO', color: '#10B981', bg: '#D1FAE5' }; // Emerald
     }
 
-    // CASO PENDIENTE (Naranja)
     if (['pending', 'draft', 'pendiente'].includes(normalized)) {
         return { label: 'PENDIENTE', color: '#F59E0B', bg: '#FFF7ED' }; // Amber
     }
 
-    // DEFAULT (Gris)
     return { label: normalized.toUpperCase() || 'N/A', color: '#6B7280', bg: '#E5E7EB' };
   };
 
@@ -127,7 +115,13 @@ export default function JobsScreen() {
             toggleSelect(item.id);
           } else {
             // @ts-ignore
-            navigation.navigate('JobDetail', { jobId: item.id });
+            navigation.navigate('JobDetail', { 
+              jobId: item.id,
+              quote: item,
+              client_address: item.client_address || item.address || item.location_address,
+              location_lat: item.location_lat,
+              location_lng: item.location_lng,
+            });
           }
         }}
         onLongPress={() => {
@@ -135,7 +129,6 @@ export default function JobsScreen() {
           toggleSelect(item.id);
         }}
       >
-        {/* Borde lateral de color */}
         <View style={[styles.iconBar, { backgroundColor: status.color }]} />
         
         <View style={styles.cardContent}>
@@ -161,7 +154,6 @@ export default function JobsScreen() {
                     {new Date(item.created_at).toLocaleDateString()}
                 </Text>
                 
-                {/* Badge de Estado Dinámico */}
                 <View style={[styles.badge, { backgroundColor: status.bg }]}>
                     <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
                 </View>
@@ -180,7 +172,6 @@ export default function JobsScreen() {
     );
   };
 
-  // --- MAIN RENDER ---
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
@@ -192,19 +183,16 @@ export default function JobsScreen() {
               <Text style={styles.headerTitle}>Resumen de Solicitudes</Text>
               
               <View style={styles.statsRow}>
-                  {/* Tarjeta 1: Pendientes */}
                   <View style={[styles.statCard, { borderLeftColor: '#F59E0B' }]}>
                       <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{stats.drafts}</Text>
                       <Text style={styles.statLabel}>PENDIENTES</Text>
                   </View>
 
-                  {/* Tarjeta 2: Aprobados */}
                   <View style={[styles.statCard, { borderLeftColor: '#10B981' }]}>
                       <Text style={[styles.statNumber, { color: '#10B981' }]}>{stats.approved}</Text>
                       <Text style={styles.statLabel}>APROBADOS</Text>
                   </View>
 
-                  {/* Tarjeta 3: Dinero */}
                   <View style={[styles.statCard, { borderLeftColor: '#374151' }]}>
                       <Text style={[styles.statNumber, { color: '#374151', fontSize: 18 }]}>
                         ${(stats.totalMoney/1000).toFixed(0)}k
@@ -218,20 +206,31 @@ export default function JobsScreen() {
       </View>
 
       {/* LISTA */}
-      {loading ? (
+      {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
+      ) : error ? (
+        <View style={styles.center}>
+          <Ionicons name="alert-circle-outline" size={48} color={COLORS.danger} />
+          <Text style={styles.emptyText}>No pudimos cargar tus trabajos.</Text>
+          <TouchableOpacity style={styles.selectBtn} onPress={() => refetch()}>
+            <Text style={styles.selectBtnText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
-        <FlatList
+        <FlashList
             data={jobs}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             extraData={{ selectionMode, selectedIds }}
             contentContainerStyle={styles.listContent}
+            estimatedItemSize={150}
+            onRefresh={refetch}
+            refreshing={isFetching && !isLoading}
             ListHeaderComponent={
                 <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-                  <Text style={styles.sectionTitle}>ÚLTIMOS MOVIMIENTOS</Text>
+                  <Text style={styles.sectionTitle}>ULTIMOS MOVIMIENTOS</Text>
                   <View style={{flexDirection:'row', gap:10}}>
                     {selectionMode && (
                       <TouchableOpacity 
@@ -271,7 +270,7 @@ export default function JobsScreen() {
         />
       )}
 
-      {/* FAB (Botón Flotante) */}
+      {/* FAB (Boton Flotante) */}
       <TouchableOpacity style={styles.fab} onPress={handleCreateJob}>
         <Ionicons name="add" size={32} color="#FFF" />
       </TouchableOpacity>
@@ -281,9 +280,9 @@ export default function JobsScreen() {
           style={styles.bulkDeleteBar} 
           onPress={async () => {
             try {
-              const { error } = await supabase.from('quotes').delete().in('id', selectedIds);
-              if (error) throw error;
-              setJobs(prev => prev.filter(j => !selectedIds.includes(j.id)));
+              const { error: deleteError } = await supabase.from('quotes').delete().in('id', selectedIds);
+              if (deleteError) throw deleteError;
+              await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
               setSelectedIds([]);
               setSelectionMode(false);
             } catch (err) {
@@ -310,30 +309,53 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 },
   
   // Header
-  header: {
-    backgroundColor: COLORS.secondary,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity:0.2, elevation: 8,
-    zIndex: 10
-  },
+  header: Platform.select({
+    web: {
+      backgroundColor: COLORS.secondary,
+      paddingBottom: 30,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      zIndex: 10,
+      boxShadow: '0 6px 12px rgba(0,0,0,0.2)',
+    },
+    default: {
+      backgroundColor: COLORS.secondary,
+      paddingBottom: 30,
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 24,
+      shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity:0.2, elevation: 8,
+      zIndex: 10
+    }
+  }),
   headerContent: { paddingHorizontal: 20, paddingTop: 10 },
   headerTitle: { fontSize: 22, fontFamily: FONTS.title, color: '#FFF', marginBottom: 20, textAlign: 'center' },
   
   // Stats Cards
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  statCard: {
-    flex: 1,
-    backgroundColor: '#FFF',
-    borderRadius: 8,
-    paddingVertical: 15,
-    paddingHorizontal: 5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderLeftWidth: 4, 
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, elevation: 3,
-  },
+  statCard: Platform.select({
+    web: {
+      flex: 1,
+      backgroundColor: '#FFF',
+      borderRadius: 8,
+      paddingVertical: 15,
+      paddingHorizontal: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderLeftWidth: 4,
+      boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
+    },
+    default: {
+      flex: 1,
+      backgroundColor: '#FFF',
+      borderRadius: 8,
+      paddingVertical: 15,
+      paddingHorizontal: 5,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderLeftWidth: 4, 
+      shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, elevation: 3,
+    }
+  }),
   statNumber: { fontSize: 24, fontFamily: FONTS.title, fontWeight: 'bold', marginBottom: 4 },
   statLabel: { fontSize: 9, fontFamily: FONTS.body, color: '#9CA3AF', fontWeight: 'bold', letterSpacing: 0.5 },
 
@@ -343,10 +365,16 @@ const styles = StyleSheet.create({
   emptyText: { textAlign: 'center', marginTop: 16, color: COLORS.textLight, fontFamily: FONTS.body },
 
   // Cards
-  card: {
-    backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
-    shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, elevation: 2,
-  },
+  card: Platform.select({
+    web: {
+      backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
+      boxShadow: '0 3px 8px rgba(0,0,0,0.08)',
+    },
+    default: {
+      backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
+      shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, elevation: 2,
+    }
+  }),
   iconBar: { width: 6, height: '100%' },
   cardContent: { flex: 1, padding: 16 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
@@ -360,18 +388,20 @@ const styles = StyleSheet.create({
   
   shareBtn: { padding: 16, justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: '#F3F4F6' },
 
-  fab: {
-    position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28,
-    backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
-    shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 5,
-  },
+  fab: Platform.select({
+    web: {
+      position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28,
+      backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
+      boxShadow: '0 8px 16px rgba(0,0,0,0.25)',
+    },
+    default: {
+      position: 'absolute', bottom: 24, right: 24, width: 56, height: 56, borderRadius: 28,
+      backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center',
+      shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 5,
+    }
+  }),
   selectBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: COLORS.primary, borderRadius: 8 },
   selectBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 12 },
   bulkDeleteBar: { position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: COLORS.danger, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 12, borderRadius: 12, gap: 8 },
   bulkDeleteText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 }
 });
-
-
-
-
-
