@@ -95,8 +95,18 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey }:
 };
 
 const styles = StyleSheet.create({
-  container: { zIndex: 100, marginBottom: 20 },
-  label: { fontSize: 12, fontFamily: 'Montserrat-Bold', marginBottom: 8, color: '#6B7280' },
+  container: { 
+    zIndex: 9999, // <--- ESTO ES LA CLAVE (Antes era 100)
+    marginBottom: 20,
+    elevation: 10, // Para que funcione en Android
+    position: 'relative', // Asegura que el absolute hijo se posicione respecto a esto
+  },
+  label: { 
+    fontSize: 12, 
+    fontFamily: 'Montserrat-Bold', 
+    marginBottom: 8, 
+    color: '#6B7280' 
+  },
   
   // Estilos Móvil
   input: {
@@ -111,20 +121,25 @@ const styles = StyleSheet.create({
   },
   listView: {
     position: 'absolute',
-    top: 65,
+    top: 60, // Ajustado para que pegue justo debajo del input
     width: '100%',
-    zIndex: 1000,
+    zIndex: 10000, // <--- Más alto que el container
     backgroundColor: 'white',
     borderRadius: 8,
-    elevation: 5,
+    elevation: 15, // Sombra fuerte en Android
     shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
   },
 
-  // Estilos Web (Simulando el input nativo)
+  // Estilos Web
   webContainer: {
     width: '100%',
+    zIndex: 9999, // <--- Importante también aquí
+    position: 'relative',
   },
   webInput: {
     width: '100%',
