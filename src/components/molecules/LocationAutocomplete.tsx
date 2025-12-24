@@ -96,10 +96,10 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey }:
 
 const styles = StyleSheet.create({
   container: { 
-    zIndex: 9999, // <--- ESTO ES LA CLAVE (Antes era 100)
+    zIndex: 9999, // <--- CLAVE: Asegura que el contenedor flote sobre lo demás
     marginBottom: 20,
-    elevation: 10, // Para que funcione en Android
-    position: 'relative', // Asegura que el absolute hijo se posicione respecto a esto
+    elevation: 10, // Para Android
+    position: 'relative', 
   },
   label: { 
     fontSize: 12, 
@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 60, // Ajustado para que pegue justo debajo del input
     width: '100%',
-    zIndex: 10000, // <--- Más alto que el container
+    zIndex: 10000, // <--- CLAVE: La lista debe ser lo más alto de todo
     backgroundColor: 'white',
     borderRadius: 8,
     elevation: 15, // Sombra fuerte en Android
