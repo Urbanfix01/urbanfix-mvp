@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+﻿import React, { useEffect, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, Switch 
@@ -40,6 +40,9 @@ export default function JobConfigScreen() {
   const [activeCategory, setActiveCategory] = useState<'labor' | 'material'>('labor');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
   const [disableWebAutocomplete, setDisableWebAutocomplete] = useState(false);
+  const [addressInput, setAddressInput] = useState('');
+  const [addressQuery, setAddressQuery] = useState('');
+  const addressDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   const hasLoadedData = useRef(false);
   const isEditMode = !!(quote && quote.id);
@@ -63,7 +66,10 @@ export default function JobConfigScreen() {
                 if (data) {
                     setClientName(data.client_name || '');
                     // Leemos SOLO la columna correcta
-                    setClientAddress(data.client_address || '');
+                    const initialAddress = data.client_address || '';
+                    setClientAddress(initialAddress);
+                    setAddressInput(initialAddress);
+                    setAddressQuery(initialAddress);
 
                     if (data.location_lat && data.location_lng) {
                         setLocation({ lat: data.location_lat, lng: data.location_lng });
@@ -112,6 +118,14 @@ export default function JobConfigScreen() {
     initData();
   }, [quote?.id, blueprint, isEditMode]);
 
+  useEffect(() => {
+    return () => {
+      if (addressDebounceRef.current) {
+        clearTimeout(addressDebounceRef.current);
+      }
+    };
+  }, []);
+
   // --- HANDLERS ---
   const handleAddItem = (item: any) => {
     const normalizedType = activeCategory;
@@ -127,6 +141,32 @@ export default function JobConfigScreen() {
   };
 
   const getItemType = (itm: any) => ((itm.category || itm.type || 'labor') as string).toLowerCase();
+
+  const handleAddressInputChange = (text: string) => {
+    setAddressInput(text);
+    setClientAddress(text);
+    setLocation({ lat: 0, lng: 0 });
+    if (addressDebounceRef.current) {
+      clearTimeout(addressDebounceRef.current);
+    }
+    if (text.trim().length === 0) {
+      setAddressQuery('');
+      return;
+    }
+    addressDebounceRef.current = setTimeout(() => {
+      setAddressQuery(text.trim());
+    }, 350);
+  };
+
+  const applySelectedAddress = (address: string, lat: number, lng: number) => {
+    if (addressDebounceRef.current) {
+      clearTimeout(addressDebounceRef.current);
+    }
+    setAddressInput(address);
+    setAddressQuery(address);
+    setClientAddress(address);
+    setLocation({ lat, lng });
+  };
 
   const normalizedItems = items.map(i => ({
       ...i,
@@ -210,19 +250,20 @@ export default function JobConfigScreen() {
   const taxAmount = applyTax ? subtotalAfterDiscount * 0.21 : 0;
   const totalWithTax = subtotalAfterDiscount + taxAmount;
   const hasActiveItems = normalizedItems.some(i => i.isActive);
+  const mapAddress = addressQuery || addressInput;
 
   // --- GUARDAR SIN ERRORES ---
   const proceedToNextStep = async () => {
     const cleanAddress = (clientAddress || '').trim();
 
-    if (!clientName.trim()) return Alert.alert("Atención", "Ingresa el nombre del cliente.");
-    if (!cleanAddress) return Alert.alert("Atención", "Ingresa la dirección.");
-    if (!hasActiveItems) return Alert.alert("Atención", "Agrega al menos un ítem.");
+    if (!clientName.trim()) return Alert.alert("Atencion", "Ingresa el nombre del cliente.");
+    if (!cleanAddress) return Alert.alert("Atencion", "Ingresa la direccion.");
+    if (!hasActiveItems) return Alert.alert("Atencion", "Agrega al menos un item.");
 
     try {
         setIsSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Sesión expirada");
+        if (!user) throw new Error("Sesion expirada");
 
         // --- CORRECCIÓN AQUÍ: Solo enviamos columnas que existen en tu tabla ---
         const quoteData = {
@@ -293,13 +334,13 @@ export default function JobConfigScreen() {
         
         {/* === ÚNICO BLOQUE DE CLIENTE Y DIRECCIÓN === */}
         <View style={styles.clientCard}>
-            <Text style={styles.cardHeader}>👤 DATOS DEL CLIENTE</Text>
+            <Text style={styles.cardHeader}>DATOS DEL CLIENTE</Text>
             
             <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Nombre Completo</Text>
                 <TextInput 
                     style={styles.textInput} 
-                    placeholder="Ej: Juan Pérez" 
+                    placeholder="Ej: Juan Perez" 
                     value={clientName} 
                     onChangeText={setClientName}
                     placeholderTextColor="#94A3B8"
@@ -307,14 +348,16 @@ export default function JobConfigScreen() {
             </View>
 
             <View style={[styles.inputContainer, { zIndex: 9000 }]}>
-                <Text style={styles.inputLabel}>Ubicación de la Obra</Text>
+                <Text style={styles.inputLabel}>Direccion de la obra</Text>
                 
                 {/* 1. INPUT MANUAL (Principal) */}
                 <TextInput
                     style={[styles.textInput, { marginBottom: 12, backgroundColor: '#FFF', fontWeight: 'bold' }]}
-                    placeholder="Escribe calle y altura (Ej: Húsares 1234)"
-                    value={clientAddress}
-                    onChangeText={(text) => setClientAddress(text)}
+                    placeholder="Escribe calle y altura (Ej: Husares 1234)"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    value={addressInput}
+                    onChangeText={handleAddressInputChange}
                     placeholderTextColor="#94A3B8"
                 />
 
@@ -322,34 +365,36 @@ export default function JobConfigScreen() {
                 <View style={{ height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' }}>
                     {isWeb && process.env.EXPO_PUBLIC_WEB_API_KEY && !disableWebAutocomplete ? (
                          <WebGoogleMaps 
-                            key={`map-${clientAddress}`}
+                            key={`map-${mapAddress}`}
                             apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
-                            initialValue={clientAddress} 
+                            initialValue={mapAddress} 
                             onPlaceSelected={(data) => {
-                                setClientAddress(data.address); 
-                                setLocation({ lat: data.lat, lng: data.lng });
+                                applySelectedAddress(data.address, data.lat, data.lng);
                             }}
                             onError={() => setDisableWebAutocomplete(true)}
                         />
                     ) : (
                          <LocationAutocomplete 
-                            key={`native-${clientAddress}`}
+                            key={`native-${mapAddress}`}
                             apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY}
-                            initialValue={clientAddress}
+                            initialValue={mapAddress}
                             onLocationSelect={(data) => {
-                                setClientAddress(data.address);
-                                setLocation({ lat: data.lat, lng: data.lng });
+                                applySelectedAddress(data.address, data.lat, data.lng);
                             }}
                          />
                     )}
                 </View>
-                <Text style={styles.helperText}>* Escribe la dirección exacta arriba para guardarla.</Text>
+                <Text style={styles.helperText}>
+                  {location.lat && location.lng
+                    ? 'Ubicacion confirmada en el mapa.'
+                    : 'Escribe una direccion y elige una sugerencia para fijar el punto.'}
+                </Text>
             </View>
         </View>
 
         {/* TARJETA COSTOS */}
         <View style={styles.costsCard}>
-            <Text style={styles.cardHeader}>💰 ÍTEMS DEL PRESUPUESTO</Text>
+            <Text style={styles.cardHeader}>ITEMS DEL PRESUPUESTO</Text>
             
             <View style={styles.tabsContainer}>
                 <TouchableOpacity onPress={() => setActiveCategory('labor')} style={[styles.tab, activeCategory === 'labor' && styles.activeTab]}>
@@ -478,3 +523,11 @@ const styles = StyleSheet.create({
   mainBtn: { flexDirection: 'row', backgroundColor: COLORS.primary, padding: 18, borderRadius: 14, justifyContent: 'center', alignItems: 'center', gap: 10, shadowColor: COLORS.primary, shadowOffset: {width:0, height:4}, shadowOpacity: 0.25, elevation: 6 },
   mainBtnText: { color: '#FFF', fontSize: 16, fontWeight: '800', letterSpacing: 0.5 }
 });
+
+
+
+
+
+
+
+

@@ -15,7 +15,20 @@ import { supabase } from '../../lib/supabase';
 
 const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p'; // Tu URL
 
-async function getQuotes() {
+type QuoteListItem = {
+  id: string;
+  client_name?: string | null;
+  client_address?: string | null;
+  address?: string | null;
+  location_address?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  total_amount?: number | null;
+  status?: string | null;
+  created_at: string;
+};
+
+async function getQuotes(): Promise<QuoteListItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
@@ -37,7 +50,7 @@ export default function JobsScreen() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   const queryClient = useQueryClient();
-  const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<any[]>({
+  const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes-list'],
     queryFn: getQuotes,
     staleTime: 60000,
@@ -45,13 +58,15 @@ export default function JobsScreen() {
 
   // --- FIX 1: ESTADISTICAS ROBUSTAS (Suma todo lo que sea similar) ---
   const stats = useMemo(() => {
-    const drafts = jobs.filter(j => 
-        ['pending', 'draft', 'pendiente', 'presented', 'accepted'].includes(j.status?.toLowerCase())
-    ).length;
+    const drafts = jobs.filter(j => {
+      const status = (j.status || '').toLowerCase();
+      return ['pending', 'draft', 'pendiente', 'presented', 'accepted'].includes(status);
+    }).length;
 
-    const approved = jobs.filter(j => 
-        ['approved', 'aprobado'].includes(j.status?.toLowerCase())
-    ).length;
+    const approved = jobs.filter(j => {
+      const status = (j.status || '').toLowerCase();
+      return ['approved', 'aprobado'].includes(status);
+    }).length;
 
     const totalMoney = jobs.reduce((acc, j) => acc + (j.total_amount || 0), 0);
     
@@ -67,7 +82,7 @@ export default function JobsScreen() {
     navigation.navigate('JobConfig', { blueprint });
   };
 
-  const handleShareJob = async (jobId: string, total: number) => {
+  const handleShareJob = async (jobId: string, total?: number | null) => {
     const link = `${WEB_BASE_URL}/${jobId}`;
     const safeTotal = (total || 0).toLocaleString('es-AR');
     const message = `Hola! Te paso el presupuesto por $${safeTotal}: ${link}`;
@@ -79,7 +94,7 @@ export default function JobsScreen() {
   };
 
   // --- FIX 2: NORMALIZADOR VISUAL DE ESTADOS ---
-  const getStatusConfig = (status: string | null) => {
+  const getStatusConfig = (status?: string | null) => {
     const normalized = status?.toLowerCase().trim() || '';
 
     if (['presented','accepted'].includes(normalized)) {
@@ -102,7 +117,7 @@ export default function JobsScreen() {
   };
 
   // --- RENDER ITEM ---
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = ({ item }: { item: QuoteListItem }) => {
     const status = getStatusConfig(item.status);
     const isSelected = selectedIds.includes(item.id);
     
