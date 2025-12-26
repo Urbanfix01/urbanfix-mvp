@@ -7,11 +7,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
-import * as Haptics from 'expo-haptics'; // 📦 Necesitarás instalar expo-haptics
+import * as Haptics from 'expo-haptics'; 
 
 // --- COMPONENTES ---
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import ItemSelector from '../../components/organisms/ItemSelector';
+// Asegúrate de que este import apunte a tu nuevo componente corregido
 import { ClientAddressForm } from '../../components/molecules/ClientAddressForm'; 
 
 // --- UTILS & HOOKS ---
@@ -27,7 +28,7 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
 
 const { width } = Dimensions.get('window');
 const IS_WEB = Platform.OS === 'web';
-const MAX_WEB_WIDTH = 800; // Ancho máximo para que se vea bien en monitor
+const MAX_WEB_WIDTH = 800;
 
 export default function JobConfigScreen() {
   const navigation = useNavigation<any>();
@@ -53,16 +54,53 @@ export default function JobConfigScreen() {
   const hasLoadedData = useRef(false);
   const isEditMode = !!(quote && quote.id);
 
-  // --- CARGA DE DATOS (Mantenemos tu lógica original, es correcta) ---
+  // --- CARGA DE DATOS ---
   useEffect(() => {
     if (hasLoadedData.current) return;
     const initData = async () => {
-        // ... (Tu lógica de carga existente se mantiene igual)
         try {
             if (isEditMode && quote?.id) {
-               // ... Tu código de fetch supabase existente ...
+                const { data, error } = await supabase.from('quotes').select('*').eq('id', quote.id).single();
+                if (error) throw error;
+
+                if (data) {
+                    setClientName(data.client_name || '');
+                    setClientAddress(data.client_address || ''); 
+                    if (data.location_lat && data.location_lng) {
+                        setLocation({ lat: data.location_lat, lng: data.location_lng });
+                    }
+                    setApplyTax(data.tax_rate > 0);
+                    
+                    const { data: itemsData } = await supabase.from('quote_items').select('*').eq('quote_id', quote.id);
+                    if (itemsData) {
+                        const mappedItems = itemsData.map((item: any) => ({
+                            id: item.id?.toString(),
+                            name: item.description || 'Item',
+                            price: Number(item.unit_price || 0),
+                            quantity: Number(item.quantity || 1),
+                            isActive: true,
+                            type: item?.metadata?.type || 'labor',
+                            category: item?.metadata?.category || item?.metadata?.type || 'labor'
+                        }));
+                        setItems(mappedItems);
+                    }
+                }
             } else if (blueprint) {
-               // ... Tu código de blueprint existente ...
+                // Lógica para cargar desde blueprint (sin cambios)
+                const mapped = blueprint.blueprint_components?.map((comp: any) => {
+                    const base = comp.master_items || {};
+                    const itemType = base.type || 'material';
+                    return {
+                        id: (base.id || comp.item_id || `new-${Date.now()}-${Math.random()}`).toString(),
+                        name: base.name || 'Item',
+                        price: Number(base.suggested_price || 0),
+                        quantity: Number(comp.quantity || 1),
+                        isActive: true,
+                        type: itemType,
+                        category: itemType
+                    };
+                });
+                if (mapped) setItems(mapped);
             }
             hasLoadedData.current = true;
         } catch (err) {
@@ -72,10 +110,8 @@ export default function JobConfigScreen() {
     initData();
   }, [quote?.id, blueprint, isEditMode]);
 
-  // --- HANDLERS INTELIGENTES ---
-
+  // --- HANDLERS ---
   const handleSmartInteraction = (type: 'light' | 'medium' | 'heavy' = 'light') => {
-    // Feedback háptico solo en móvil para dar sensación de "peso"
     if (!IS_WEB) {
         if (type === 'light') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         if (type === 'medium') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -85,9 +121,7 @@ export default function JobConfigScreen() {
 
   const handleAddItem = (item: any) => {
     handleSmartInteraction('medium');
-    // Animación fluida al agregar
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    
     const normalizedType = activeCategory;
     addItem({ 
       ...item, 
@@ -107,14 +141,69 @@ export default function JobConfigScreen() {
 
   const handleRemoveItem = (id: string) => {
     handleSmartInteraction('medium');
-    // Animación de colapso al borrar
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     removeItem(id);
   };
 
   const handleSave = async () => {
-      handleSmartInteraction('heavy');
-      await proceedToNextStep();
+      // Validaciones
+      if (!clientName.trim()) return Alert.alert("Falta información", "Ingresa el nombre del cliente.");
+      if (!clientAddress?.trim()) return Alert.alert("Falta información", "Ingresa la dirección.");
+      if (items.length === 0) return Alert.alert("Atención", "Agrega al menos un item.");
+
+      try {
+        setIsSaving(true);
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Sesión expirada");
+
+        // Datos listos para guardar
+        const quoteData = {
+            client_name: clientName,
+            client_address: clientAddress,
+            location_lat: location.lat || null,
+            location_lng: location.lng || null,
+            total_amount: totalWithTax,
+            tax_rate: applyTax ? 0.21 : 0,
+            status: quote?.status || 'draft',
+            user_id: user.id,
+            scheduled_date: params?.quote?.scheduled_date || null,
+        };
+
+        let targetId = quote?.id;
+
+        // Lógica de Upsert
+        if (isEditMode && targetId) {
+            const { error } = await supabase.from('quotes').update(quoteData).eq('id', targetId);
+            if (error) throw error;
+            await supabase.from('quote_items').delete().eq('quote_id', targetId);
+        } else {
+            const { data: newQuote, error } = await supabase.from('quotes').insert(quoteData).select().single();
+            if (error) throw error;
+            targetId = newQuote.id;
+        }
+
+        // Guardar items
+        if (items.length > 0) {
+            const itemsPayload = items.map(i => ({
+                quote_id: targetId,
+                description: i.name,
+                unit_price: i.price,
+                quantity: i.quantity,
+                metadata: { type: i.type, category: i.category }
+            }));
+            const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
+            if (itemsError) throw itemsError;
+        }
+
+        handleSmartInteraction('heavy');
+        await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+        navigation.navigate('JobDetail', { jobId: targetId });
+
+      } catch (e: any) {
+        Alert.alert("Error", e.message);
+      } finally {
+        setIsSaving(false);
+      }
   };
 
   // --- CÁLCULOS ---
@@ -125,16 +214,7 @@ export default function JobConfigScreen() {
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
   const totalWithTax = subtotalAfterDiscount + (applyTax ? subtotalAfterDiscount * 0.21 : 0);
 
-  // --- LÓGICA DE GUARDADO (Tu código original encapsulado) ---
-  const proceedToNextStep = async () => {
-    // ... (Tu lógica original de validación y Supabase va aquí)
-    // Solo asegúrate de usar setLocation, setClientName, etc.
-    // ...
-    // Al final del éxito:
-    // navigation.navigate('JobDetail', ...);
-  };
-
-  // --- RENDERIZADO DE LISTA ---
+  // --- RENDERIZADO DE ITEMS ---
   const renderItemList = (category: 'labor' | 'material') => {
     const filteredItems = normalizedItems.filter(i => {
         const type = (i.type || 'labor').toLowerCase();
@@ -144,9 +224,8 @@ export default function JobConfigScreen() {
     if (filteredItems.length === 0) {
         return (
             <View style={styles.emptyContainer}>
-                                <Ionicons name={category === 'labor' ? "hammer-outline" : "cube-outline"} size={48} color="#CBD5E1" />
-                <Text style={styles.emptyText}>No has agregado {category === 'labor' ? 'mano de obra' : 'materiales'}</Text>
-                <Text style={styles.emptySubText}>Toca el botón "+ Agregar" para comenzar</Text>
+                <Ionicons name={category === 'labor' ? "hammer-outline" : "cube-outline"} size={48} color="#CBD5E1" />
+                <Text style={styles.emptyText}>No hay {category === 'labor' ? 'mano de obra' : 'materiales'}</Text>
             </View>
         );
     }
@@ -171,7 +250,6 @@ export default function JobConfigScreen() {
                     <TextInput 
                         style={styles.priceInput}
                         keyboardType="numeric"
-                        // UX Upgrade: Seleccionar todo el texto al enfocar para editar rápido
                         selectTextOnFocus
                         value={(item.price * item.quantity).toString()}
                         onChangeText={(text) => {
@@ -194,119 +272,118 @@ export default function JobConfigScreen() {
     <View style={styles.mainContainer}>
         <ScreenHeader title={isEditMode ? "Editar Trabajo" : "Nuevo Presupuesto"} showBack />
         
-        {/* Contenedor centralizado para WEB */}
         <View style={styles.centerWebContainer}>
             <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined} 
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
                 style={{ flex: 1 }}
+                // Ajuste fino para que el teclado no tape el input de Google
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
             >
+                {/* 🔥 LA SOLUCIÓN ESTÁ AQUÍ: keyboardShouldPersistTaps="always" */}
                 <ScrollView 
                     contentContainerStyle={styles.scrollContent} 
                     showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="handled"
+                    keyboardShouldPersistTaps="always" 
                 >
-                    
-                    <ClientAddressForm 
-                        initialName={clientName}
-                        initialAddress={clientAddress}
-                        initialLocation={location}
-                        onClientNameChange={setClientName}
-                        onLocationChange={(addr, lat, lng) => {
-                            setClientAddress(addr);
-                            setLocation({ lat, lng });
-                        }}
-                    />
-
-                    <View style={styles.costsCard}>
-                        {/* Pestañas mejoradas visualmente */}
-                        <View style={styles.tabsWrapper}>
-                            <View style={styles.tabsContainer}>
-                                <TouchableOpacity 
-                                    onPress={() => {
-                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                        setActiveCategory('labor');
-                                    }} 
-                                    style={[styles.tab, activeCategory === 'labor' && styles.activeTab]}
-                                >
-                                    <Text style={[styles.tabText, activeCategory === 'labor' && styles.activeTabText]}>👷 Mano de Obra</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity 
-                                    onPress={() => {
-                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-                                        setActiveCategory('material');
-                                    }} 
-                                    style={[styles.tab, activeCategory === 'material' && styles.activeTab]}
-                                >
-                                    <Text style={[styles.tabText, activeCategory === 'material' && styles.activeTabText]}>🧱 Materiales</Text>
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-
-                        <View style={styles.listContainer}>
-                            {renderItemList(activeCategory)}
-                        </View>
-
-                        <TouchableOpacity 
-                            style={styles.addBlockBtn} 
-                            onPress={() => {
-                                handleSmartInteraction('light');
-                                setSelectorOpen(true);
+                    {/* ZIndex alto para que el autocompletar flote sobre todo */}
+                    <View style={{ zIndex: 2000 }}>
+                        <ClientAddressForm 
+                            initialName={clientName}
+                            initialAddress={clientAddress}
+                            initialLocation={location}
+                            onClientNameChange={setClientName}
+                            onLocationChange={(addr, lat, lng) => {
+                                setClientAddress(addr);
+                                setLocation({ lat, lng });
                             }}
-                        >
-                            <Ionicons name="add-circle" size={24} color={COLORS.primary} />
-                            <Text style={styles.addBlockText}>Agregar {activeCategory === 'labor' ? 'Item' : 'Material'}</Text>
-                        </TouchableOpacity>
+                        />
+                    </View>
 
-                        {/* Resumen Financiero */}
-                        <View style={styles.summaryBox}>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Subtotal</Text>
-                                <Text style={styles.summaryValue}>${formatCurrency(subtotal)}</Text>
+                    {/* ZIndex bajo para el resto */}
+                    <View style={{ zIndex: 1, marginTop: 10 }}>
+                        <View style={styles.costsCard}>
+                            <View style={styles.tabsWrapper}>
+                                <View style={styles.tabsContainer}>
+                                    <TouchableOpacity 
+                                        onPress={() => {
+                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                            setActiveCategory('labor');
+                                        }} 
+                                        style={[styles.tab, activeCategory === 'labor' && styles.activeTab]}
+                                    >
+                                        <Text style={[styles.tabText, activeCategory === 'labor' && styles.activeTabText]}>👷 Mano de Obra</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        onPress={() => {
+                                            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                            setActiveCategory('material');
+                                        }} 
+                                        style={[styles.tab, activeCategory === 'material' && styles.activeTab]}
+                                    >
+                                        <Text style={[styles.tabText, activeCategory === 'material' && styles.activeTabText]}>🧱 Materiales</Text>
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <View style={styles.summaryRow}>
-                                <Text style={styles.summaryLabel}>Descuento</Text>
-                                <View style={styles.discountInputContainer}>
-                                    <Text style={styles.currencyPrefix}>- $</Text>
-                                    <TextInput
-                                        style={styles.discountInput}
-                                        keyboardType="numeric"
-                                        placeholder="0"
-                                        selectTextOnFocus
-                                        value={discount.toString()}
-                                        onChangeText={(t) => setDiscount(parseFloat(t) || 0)}
+
+                            <View style={styles.listContainer}>
+                                {renderItemList(activeCategory)}
+                            </View>
+
+                            <TouchableOpacity 
+                                style={styles.addBlockBtn} 
+                                onPress={() => {
+                                    handleSmartInteraction('light');
+                                    setSelectorOpen(true);
+                                }}
+                            >
+                                <Ionicons name="add-circle" size={24} color={COLORS.primary} />
+                                <Text style={styles.addBlockText}>Agregar {activeCategory === 'labor' ? 'Item' : 'Material'}</Text>
+                            </TouchableOpacity>
+
+                            <View style={styles.summaryBox}>
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>Subtotal</Text>
+                                    <Text style={styles.summaryValue}>${formatCurrency(subtotal)}</Text>
+                                </View>
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>Descuento</Text>
+                                    <View style={styles.discountInputContainer}>
+                                        <Text style={styles.currencyPrefix}>- $</Text>
+                                        <TextInput
+                                            style={styles.discountInput}
+                                            keyboardType="numeric"
+                                            placeholder="0"
+                                            selectTextOnFocus
+                                            value={discount.toString()}
+                                            onChangeText={(t) => setDiscount(parseFloat(t) || 0)}
+                                        />
+                                    </View>
+                                </View>
+                                <View style={styles.summaryRow}>
+                                    <Text style={styles.summaryLabel}>IVA (21%)</Text>
+                                    <Switch 
+                                        value={applyTax} 
+                                        onValueChange={(v) => {
+                                            handleSmartInteraction('light');
+                                            setApplyTax(v);
+                                        }} 
+                                        trackColor={{ false: "#E2E8F0", true: COLORS.primary + "50" }}
+                                        thumbColor={applyTax ? COLORS.primary : '#f4f3f4'} 
                                     />
                                 </View>
-                            </View>
-                            <View style={styles.summaryRow}>
-                                <View style={{flexDirection:'row', alignItems:'center'}}>
-                                    <Text style={styles.summaryLabel}>Aplicar IVA (21%)</Text>
-                                    {/* Tooltip hint podría ir aquí */}
+                                <View style={styles.divider} />
+                                <View style={styles.totalRow}>
+                                    <Text style={styles.totalLabel}>TOTAL ESTIMADO</Text>
+                                    <Text style={styles.totalValue}>${formatCurrency(totalWithTax)}</Text>
                                 </View>
-                                <Switch 
-                                    value={applyTax} 
-                                    onValueChange={(v) => {
-                                        handleSmartInteraction('light');
-                                        setApplyTax(v);
-                                    }} 
-                                    trackColor={{ false: "#E2E8F0", true: COLORS.primary + "50" }}
-                                    thumbColor={applyTax ? COLORS.primary : '#f4f3f4'} 
-                                />
-                            </View>
-                            <View style={styles.divider} />
-                            <View style={styles.totalRow}>
-                                <Text style={styles.totalLabel}>TOTAL ESTIMADO</Text>
-                                <Text style={styles.totalValue}>${formatCurrency(totalWithTax)}</Text>
                             </View>
                         </View>
+                        
+                        <View style={{ height: 120 }} /> 
                     </View>
-                    
-                    {/* Espacio extra para que el footer no tape contenido al final del scroll */}
-                    <View style={{ height: 100 }} /> 
                 </ScrollView>
             </KeyboardAvoidingView>
 
-            {/* Footer Flotante Inteligente */}
             <View style={styles.footerOverlay}>
                 <View style={styles.footerContent}>
                     <View style={styles.footerInfo}>
@@ -341,8 +418,8 @@ const styles = StyleSheet.create({
     flex: 1, 
     width: '100%', 
     maxWidth: IS_WEB ? MAX_WEB_WIDTH : '100%', 
-    alignSelf: 'center', // Esto centra el contenido en Web
-    backgroundColor: IS_WEB ? '#FFF' : 'transparent', // En web da efecto de "hoja"
+    alignSelf: 'center', 
+    backgroundColor: IS_WEB ? '#FFF' : 'transparent', 
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: IS_WEB ? 0.1 : 0,
@@ -350,10 +427,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: { padding: 16 },
   
-  // Cards y Estilos Generales
   costsCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginTop: 16, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity:0.03, elevation: 1 },
   
-  // Tabs Estilo "Píldora"
   tabsWrapper: { marginBottom: 20 },
   tabsContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 4 },
   tab: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
@@ -361,7 +436,6 @@ const styles = StyleSheet.create({
   tabText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
   activeTabText: { color: COLORS.primary, fontWeight: '700' },
 
-  // Lista de Items
   listContainer: { marginBottom: 10 },
   itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 14 },
   itemInfo: { flex: 1, paddingRight: 10 },
@@ -370,23 +444,18 @@ const styles = StyleSheet.create({
   qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderRadius: 6, shadowColor:'#000', shadowOpacity:0.05, elevation:1 },
   qtyText: { fontSize: 14, fontWeight: '700', color: '#1E293B', minWidth: 20, textAlign: 'center' },
 
-  // Inputs y Precios
   itemActions: { alignItems: 'flex-end', gap: 8 },
   priceInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderRadius: 8, paddingHorizontal: 10, height: 40, borderWidth: 1, borderColor: '#E2E8F0', width: 110 },
   currencySymbol: { color: '#94A3B8', marginRight: 4, fontWeight: '600' },
   priceInput: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1E293B', textAlign: 'right', padding: 0 },
   deleteBtn: { padding: 6 },
   
-  // Empty State
   emptyContainer: { padding: 40, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#E2E8F0', borderRadius: 12, backgroundColor: '#FAFAFA', marginVertical: 10 },
   emptyText: { color: '#64748B', fontSize: 15, marginTop: 12, fontWeight: '600' },
-  emptySubText: { color: '#94A3B8', fontSize: 13, marginTop: 4 },
   
-  // Botón Agregar
   addBlockBtn: { flexDirection: 'row', backgroundColor: '#FFF', padding: 16, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginTop: 10, borderWidth: 1, borderColor: COLORS.primary, borderStyle: 'dashed' },
   addBlockText: { marginLeft: 8, color: COLORS.primary, fontWeight: '700', fontSize: 14 },
 
-  // Resumen
   summaryBox: { marginTop: 24, backgroundColor: '#F8FAFC', padding: 20, borderRadius: 12 },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   summaryLabel: { fontSize: 14, color: '#64748B' },
@@ -399,7 +468,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 16, fontWeight: '800', color: '#1E293B' },
   totalValue: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
 
-  // Footer Flotante
   footerOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFF', borderTopWidth: 1, borderTopColor: '#F1F5F9', padding: 16, paddingBottom: Platform.OS === 'ios' ? 24 : 16, elevation: 20, shadowColor: "#000", shadowOffset: {width:0, height:-4}, shadowOpacity: 0.1 },
   footerContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', maxWidth: MAX_WEB_WIDTH, alignSelf: 'center', width: '100%' },
   footerInfo: { flexDirection: 'column' },
