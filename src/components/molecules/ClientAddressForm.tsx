@@ -1,12 +1,13 @@
-// ClientAddressForm.tsx
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, StyleSheet, Platform } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TextInput, Platform } from 'react-native';
+import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '../../utils/theme'; // ⚠️ Revisa que esta ruta sea correcta en tu proyecto
-import { WebGoogleMaps } from '../../components/molecules/WebGoogleMaps';
-import { LocationAutocomplete } from '../../components/molecules/LocationAutocomplete';
+import { COLORS, FONTS } from '../../utils/theme';
 
-interface ClientAddressFormProps {
+// ⚠️ IMPORTANTE: Reemplaza esto con tu API KEY real de Google Cloud Console
+const GOOGLE_API_KEY = "TU_CLAVE_API_DE_GOOGLE_AQUI"; 
+
+interface Props {
   initialName: string;
   initialAddress: string;
   initialLocation: { lat: number; lng: number };
@@ -14,107 +15,183 @@ interface ClientAddressFormProps {
   onLocationChange: (address: string, lat: number, lng: number) => void;
 }
 
-export const ClientAddressForm = ({
-  initialName,
-  initialAddress,
-  initialLocation,
-  onClientNameChange,
-  onLocationChange
-}: ClientAddressFormProps) => {
-  // Estado local solo para la UI inmediata
-  const [addressInput, setAddressInput] = useState(initialAddress);
-  const [disableWebAutocomplete, setDisableWebAutocomplete] = useState(false);
+export const ClientAddressForm = ({ 
+  initialName, 
+  initialAddress, 
+  onClientNameChange, 
+  onLocationChange 
+}: Props) => {
   
-  const isWeb = Platform.OS === 'web';
-  const hasCoordinates = initialLocation.lat !== 0 && initialLocation.lng !== 0;
+  const ref = useRef<any>(null);
 
-  // Sincronización cuando vienen datos de la base de datos (Modo Edición)
+  // Efecto para pre-cargar la dirección si estamos en modo edición
   useEffect(() => {
-    setAddressInput(initialAddress);
+    if (initialAddress && ref.current) {
+      ref.current.setAddressText(initialAddress);
+    }
   }, [initialAddress]);
-
-  // Maneja cuando el usuario escribe a mano
-  const handleManualTyping = (text: string) => {
-    setAddressInput(text);
-    // Notificamos al padre solo el texto, reseteamos coordenadas porque ya no son seguras
-    onLocationChange(text, 0, 0); 
-  };
-
-  // Maneja cuando el usuario selecciona del mapa/autocompletado
-  const handlePlaceSelected = (data: { address: string, lat: number, lng: number }) => {
-    setAddressInput(data.address);
-    onLocationChange(data.address, data.lat, data.lng);
-  };
 
   return (
     <View style={styles.card}>
       <Text style={styles.cardHeader}>DATOS DEL CLIENTE</Text>
-      
-      {/* 1. Nombre */}
-      <View style={styles.inputContainer}>
-        <Text style={styles.inputLabel}>Nombre Completo</Text>
-        <TextInput 
-          style={styles.textInput} 
-          placeholder="Ej: Juan Perez" 
-          value={initialName} 
-          onChangeText={onClientNameChange}
-          placeholderTextColor="#94A3B8"
-        />
+
+      {/* Input de Nombre (Simple) */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Nombre Completo</Text>
+        <View style={styles.inputContainer}>
+          <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.icon} />
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: Juan Pérez"
+            placeholderTextColor="#CBD5E1"
+            value={initialName}
+            onChangeText={onClientNameChange}
+          />
+        </View>
       </View>
 
-      {/* 2. Dirección y Mapa */}
-      <View style={[styles.inputContainer, { zIndex: 9000 }]}>
-        <Text style={styles.inputLabel}>Dirección de la obra</Text>
+      {/* Input de Dirección (Inteligente con Google) */}
+      <View style={[styles.inputGroup, { zIndex: 10 }]}> 
+        <Text style={styles.label}>Dirección de la obra</Text>
         
-        <View style={styles.searchRow}>
-             <TextInput
-                style={[styles.textInput, styles.addressInput]}
-                placeholder="Escribe calle y altura..."
-                value={addressInput}
-                onChangeText={handleManualTyping}
-                placeholderTextColor="#94A3B8"
-             />
-             {hasCoordinates && (
-                 <Ionicons name="checkmark-circle" size={24} color={COLORS.primary} style={{marginLeft: 8}} />
-             )}
+        <GooglePlacesAutocomplete
+          ref={ref}
+          placeholder="Buscar calle y altura..."
+          fetchDetails={true} // Importante para obtener lat/lng
+          onPress={(data, details = null) => {
+            // 'details' contiene la geometría (lat/lng)
+            const address = data.description;
+            const lat = details?.geometry?.location?.lat || 0;
+            const lng = details?.geometry?.location?.lng || 0;
+            
+            onLocationChange(address, lat, lng);
+          }}
+          query={{
+            key: GOOGLE_API_KEY,
+            language: 'es',
+            components: 'country:ar', // Opcional: Restringir a Argentina (o tu país)
+          }}
+          
+          // Estilos personalizados para que se integre con tu diseño
+          styles={{
+            container: {
+              flex: 0,
+            },
+            textInputContainer: {
+              backgroundColor: '#F8FAFC',
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              borderRadius: 12,
+              paddingHorizontal: 8,
+              height: 50,
+              alignItems: 'center',
+            },
+            textInput: {
+              backgroundColor: 'transparent',
+              fontSize: 15,
+              color: '#1E293B',
+              marginTop: Platform.OS === 'ios' ? 0 : 5, // Ajuste fino para centrar texto
+              fontWeight: '500',
+            },
+            predefinedPlacesDescription: {
+              color: '#1faadb',
+            },
+            listView: {
+              backgroundColor: '#FFF',
+              borderRadius: 10,
+              marginTop: 5,
+              borderWidth: 1,
+              borderColor: '#E2E8F0',
+              elevation: 5, // Sombra en Android
+              shadowColor: '#000', // Sombra en iOS
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              zIndex: 1000,
+            },
+            row: {
+              padding: 13,
+              height: 50,
+              flexDirection: 'row',
+            },
+            separator: {
+              height: 0.5,
+              backgroundColor: '#c8c7cc',
+            },
+          }}
+          
+          // Icono de lupa a la izquierda
+          renderLeftButton={() => (
+             <Ionicons name="search" size={20} color="#94A3B8" style={{ marginLeft: 8, marginRight: 4 }} />
+          )}
+        />
+        
+        {/* Nota pequeña de ayuda */}
+        <View style={styles.helperContainer}>
+            <Ionicons name="information-circle-outline" size={14} color="#64748B" />
+            <Text style={styles.helperText}>Selecciona una opción de la lista para guardar el mapa.</Text>
         </View>
-
-        {/* MAPA: Aquí está el truco. Quitamos la 'key' dinámica para evitar parpadeos */}
-        <View style={styles.mapContainer}>
-            {isWeb && process.env.EXPO_PUBLIC_WEB_API_KEY && !disableWebAutocomplete ? (
-                <WebGoogleMaps 
-                    apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
-                    initialValue={addressInput} 
-                    onPlaceSelected={handlePlaceSelected}
-                    onError={() => setDisableWebAutocomplete(true)}
-                />
-            ) : (
-                <LocationAutocomplete 
-                    apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY}
-                    initialValue={addressInput}
-                    onLocationSelect={handlePlaceSelected}
-                />
-            )}
-        </View>
-
-        <Text style={styles.helperText}>
-          {hasCoordinates
-            ? '📍 Ubicación confirmada con GPS.'
-            : '⚠️ Selecciona una opción sugerida para guardar coordenadas exactas.'}
-        </Text>
       </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity:0.03, elevation: 2, zIndex: 2000 },
-  cardHeader: { fontSize: 13, color: '#64748B', letterSpacing: 1, marginBottom: 16, fontWeight: '700' },
-  inputContainer: { marginBottom: 16 },
-  inputLabel: { fontSize: 12, color: '#475569', marginBottom: 6, fontWeight: '600' },
-  textInput: { backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 12, fontSize: 15, color: '#1E293B' },
-  addressInput: { flex: 1, fontWeight: '600' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  mapContainer: { height: 200, borderRadius: 12, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0' },
-  helperText: { fontSize: 11, color: '#64748B', marginTop: 8, fontStyle: 'italic' }
+  card: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    elevation: 2,
+    zIndex: 2, // Importante para que el autocompletar flote sobre lo demás
+  },
+  cardHeader: {
+    fontSize: 13,
+    fontFamily: FONTS.title, // Asegúrate de tener esta fuente o usa 'System'
+    color: '#64748B',
+    letterSpacing: 1,
+    marginBottom: 16,
+    fontWeight: '700',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 50,
+  },
+  icon: {
+    marginRight: 10,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: '#1E293B',
+    fontWeight: '500',
+    height: '100%',
+  },
+  helperContainer: {
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginTop: 6, 
+    gap: 4 
+  },
+  helperText: {
+    fontSize: 11,
+    color: '#64748B',
+  }
 });
