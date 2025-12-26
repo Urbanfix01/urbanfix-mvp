@@ -2,6 +2,7 @@
   "expo": {
     "name": "UrbanFix",
     "slug": "UrbanFix",
+    "owner": "urbanfix",
     "scheme": "urbanfix",
     "version": "1.0.0",
     "orientation": "portrait",

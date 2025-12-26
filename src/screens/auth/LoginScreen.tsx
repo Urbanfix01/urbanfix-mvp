@@ -20,13 +20,16 @@ export default function AuthScreen() {
   const [businessName, setBusinessName] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState('');
 
   const getRedirectUrl = () => {
-    const useProxy = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
+    const isExpoGo = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
+    if (isExpoGo) {
+      return 'https://auth.expo.io/@urbanfix/UrbanFix';
+    }
     return AuthSession.makeRedirectUri({
       scheme: 'urbanfix',
       path: 'auth/callback',
-      useProxy,
     });
   };
 
@@ -42,6 +45,9 @@ export default function AuthScreen() {
       }
 
       const redirectTo = getRedirectUrl();
+      if (__DEV__) {
+        setDebugInfo(`redirectTo: ${redirectTo}`);
+      }
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -129,6 +135,9 @@ export default function AuthScreen() {
             <Text style={styles.dividerText}>o</Text>
             <View style={styles.dividerLine} />
           </View>
+          {!!debugInfo && __DEV__ && (
+            <Text style={styles.debugText}>{debugInfo}</Text>
+          )}
           
           {/* 🔥 CAMPOS EXTRA SOLO SI ES REGISTRO */}
           {!isLogin && (
@@ -207,6 +216,7 @@ const styles = StyleSheet.create({
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
   dividerText: { color: COLORS.textLight, fontFamily: FONTS.body },
+  debugText: { fontSize: 10, color: COLORS.textLight, textAlign: 'center' },
   button: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   switchBtn: { alignItems: 'center', marginTop: 16 },
