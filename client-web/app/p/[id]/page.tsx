@@ -91,17 +91,7 @@ export default function QuotePage() {
       setQuote({ ...quote, status: 'approved' }); // Optimistic update
     } else {
       console.error('Error RPC:', error);
-      // Fallback a update directo si el RPC falla (si la policy lo permite)
-      const { error: updateError } = await supabase
-        .from('quotes')
-        .update({ status: 'accepted' }) // Usamos 'accepted' para ser consistente con la app móvil
-        .eq('id', quote.id);
-        
-      if (!updateError) {
-         setQuote({ ...quote, status: 'accepted' });
-      } else {
-         alert('Hubo un error al procesar la solicitud.');
-      }
+      alert('No se pudo confirmar el presupuesto. Intenta nuevamente.');
     }
   };
 
@@ -152,8 +142,8 @@ export default function QuotePage() {
 
   const { subtotal, tax, total } = calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
-  const isApproved = ['approved', 'aprobado'].includes(statusNormalized);
-  const isPresented = ['accepted', 'presented', 'pending', 'pendiente'].includes(statusNormalized);
+  const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
+  const isPresented = ['presented', 'pending', 'pendiente'].includes(statusNormalized);
 
   // --- ICONOS SVG ---
   const Icons = {
@@ -165,24 +155,24 @@ export default function QuotePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 py-12 px-4 flex justify-center items-start font-sans antialiased">
+    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:py-10 md:py-12 flex justify-center items-start font-sans antialiased">
       <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden ring-1 ring-slate-200/50 transition-all">
         
         {/* HEADER (Técnico / Empresa) */}
-        <div className="bg-[#0F172A] text-white p-12 relative overflow-hidden">
+        <div className="bg-[#0F172A] text-white p-6 sm:p-10 md:p-12 relative overflow-hidden">
           <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
-          <div className="flex flex-col md:flex-row justify-between items-start gap-10 relative z-10">
-            <div className="flex-1 space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-8 md:gap-10 relative z-10">
+            <div className="flex-1 space-y-5 sm:space-y-6">
               {/* LOGO EMPRESA */}
               {profile?.company_logo_url && !imageError ? (
                 <img 
                   src={profile.company_logo_url} 
                   alt={profile?.business_name || "Logo"} 
                   onError={() => setImageError(true)}
-                  className="h-16 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 
+                  className="h-14 sm:h-16 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 
                 />
               ) : (
-                <h1 className="text-2xl font-black uppercase tracking-wider text-white">
+                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white">
                   {profile?.business_name || profile?.full_name || 'PRESUPUESTO'}
                 </h1>
               )}
@@ -213,7 +203,7 @@ export default function QuotePage() {
             <div className="text-left md:text-right space-y-4">
               <div>
                   <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5">Referencia</p>
-                  <p className="font-mono text-2xl font-bold text-white tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="font-mono text-xl sm:text-2xl font-bold text-white tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
               </div>
               <div
                 className={
@@ -244,12 +234,12 @@ export default function QuotePage() {
         </div>
 
         {/* INFO CLIENTE & FECHA */}
-        <div className="p-12 border-b border-slate-100 bg-slate-50/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+        <div className="p-6 sm:p-10 md:p-12 border-b border-slate-100 bg-slate-50/30">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
             <div className="space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Icons.MapPin /> Facturar a</p>
               <div>
-                  <h2 className="text-2xl font-bold text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
                   {/* direccion CLIENTE CLICKEABLE CON MAPA */}
                   <div className="space-y-2">
                     {quote.client_address ? (
@@ -257,7 +247,7 @@ export default function QuotePage() {
                           href={getGoogleMapsLink(quote.client_address, quote.location_lat, quote.location_lng)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-slate-600 text-base leading-relaxed max-w-md hover:text-blue-600 hover:underline flex items-start gap-1 group transition-colors"
+                          className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-md hover:text-blue-600 hover:underline flex items-start gap-1 group transition-colors"
                         >
                            {quote.client_address}
                            <span className="opacity-0 group-hover:opacity-100 transition-opacity"><Icons.ExternalLink /></span>
@@ -298,42 +288,65 @@ export default function QuotePage() {
         </div>
 
         {/* TABLA DE ÍTEMS */}
-        <div className="p-12 bg-white min-h-[350px]">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200">
-                <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider w-1/2">Descripción</th>
-                <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center w-1/6">Cant.</th>
-                <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-1/6">Unitario</th>
-                <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-1/6">Total</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm divide-y divide-slate-100">
-              {items.map((item, i) => (
-                <tr key={i} className="group hover:bg-slate-50/60 transition-colors">
-                  <td className="py-6 px-6 font-semibold text-slate-700">{item.description}</td>
-                  <td className="py-6 px-6 text-center text-slate-600 font-mono">{item.quantity}</td>
-                  <td className="py-6 px-6 text-right text-slate-600 font-mono tabular-nums">${item.unit_price?.toLocaleString('es-AR')}</td>
-                  <td className="py-6 px-6 text-right font-bold text-slate-900 font-mono tabular-nums bg-slate-50/30">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</td>
+        <div className="p-6 sm:p-10 md:p-12 bg-white min-h-[350px]">
+          <div className="hidden md:block">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50/80 border-b border-slate-200">
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider w-1/2">Descripción</th>
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center w-1/6">Cant.</th>
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-1/6">Unitario</th>
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-1/6">Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className="mt-12 flex justify-end">
-            <div className="w-full md:w-5/12 bg-slate-50 rounded-2xl p-8 space-y-4 border border-slate-200/60">
+              </thead>
+              <tbody className="text-sm divide-y divide-slate-100">
+                {items.map((item, i) => (
+                  <tr key={i} className="group hover:bg-slate-50/60 transition-colors">
+                    <td className="py-6 px-6 font-semibold text-slate-700">{item.description}</td>
+                    <td className="py-6 px-6 text-center text-slate-600 font-mono">{item.quantity}</td>
+                    <td className="py-6 px-6 text-right text-slate-600 font-mono tabular-nums">${item.unit_price?.toLocaleString('es-AR')}</td>
+                    <td className="py-6 px-6 text-right font-bold text-slate-900 font-mono tabular-nums bg-slate-50/30">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="md:hidden space-y-4">
+            {items.map((item, i) => (
+              <div key={i} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Cant.</p>
+                    <p className="mt-1 font-mono text-slate-700">{item.quantity}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Unitario</p>
+                    <p className="mt-1 font-mono text-slate-700">${item.unit_price?.toLocaleString('es-AR')}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Total</p>
+                    <p className="mt-1 font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8 sm:mt-12 flex justify-end">
+            <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
               <div className="flex justify-between text-sm font-medium text-slate-600"><span>Subtotal</span><span className="font-mono">${subtotal.toLocaleString('es-AR')}</span></div>
               {tax > 0 && (
                  <div className="flex justify-between text-sm font-medium text-slate-600"><span>IVA ({(quote.tax_rate * 100).toFixed(0)}%)</span><span className="font-mono">+ ${tax.toLocaleString('es-AR')}</span></div>
               )}
               <div className="border-t-2 border-slate-200 my-4 border-dashed"></div>
-              <div className="flex justify-between items-center"><span className="text-lg font-black text-slate-800">TOTAL</span><span className="text-3xl font-black text-slate-900 font-mono">${total.toLocaleString('es-AR')}</span></div>
+              <div className="flex justify-between items-center"><span className="text-lg font-black text-slate-800">TOTAL</span><span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">${total.toLocaleString('es-AR')}</span></div>
             </div>
           </div>
         </div>
 
         {/* FOOTER & ACCIONES */}
-        <div className="bg-slate-50 px-12 py-10 border-t border-slate-200">
-          <div className="flex flex-col lg:flex-row items-center justify-between gap-10">
+        <div className="bg-slate-50 px-6 sm:px-10 md:px-12 py-8 sm:py-10 border-t border-slate-200">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-10">
               
              {/* Términos */}
              <div className="text-xs text-slate-500 max-w-md text-center lg:text-left leading-relaxed opacity-80">
@@ -341,7 +354,7 @@ export default function QuotePage() {
              </div>
 
              {/* BOTONES */}
-             <div className="flex items-center gap-4 w-full lg:w-auto font-bold justify-center">
+             <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto font-bold justify-center">
                 
                 {/* 1. BOTÓN PDF (Tu componente existente) */}
                 <PDFExportButton quote={quote} items={items} profile={profile} />
@@ -350,16 +363,16 @@ export default function QuotePage() {
                 {!isApproved ? (
                   <button 
                     onClick={handleAccept}
-                    className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-10 py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg hover:shadow-emerald-500/40 transition-all active:scale-[0.98] w-full sm:w-auto"
+                    className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg hover:shadow-emerald-500/40 transition-all active:scale-[0.98] w-full sm:w-auto"
                   >
-                    <span className="tracking-wide text-lg">ACEPTAR PRESUPUESTO</span>
+                    <span className="tracking-wide text-base sm:text-lg">ACEPTAR PRESUPUESTO</span>
                   </button>
                 ) : (
-                  <div className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-10 py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl cursor-default shadow-inner w-full sm:w-auto">
+                  <div className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl cursor-default shadow-inner w-full sm:w-auto">
                     <div className="bg-green-600 rounded-full p-1 text-white">
                         <Icons.Check />
                     </div>
-                    <span className="tracking-wide text-lg font-black">¡PRESUPUESTO APROBADO!</span>
+                    <span className="tracking-wide text-base sm:text-lg font-black">¡PRESUPUESTO APROBADO!</span>
                   </div>
                 )}
              </div>

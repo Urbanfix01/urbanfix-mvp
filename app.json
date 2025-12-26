@@ -2,6 +2,7 @@
   "expo": {
     "name": "UrbanFix",
     "slug": "UrbanFix",
+    "scheme": "urbanfix",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -27,7 +28,8 @@
     },
     "plugins": [
       "expo-font",
-      "expo-router"
+      "expo-router",
+      "expo-web-browser"
     ],
     "extra": {
       "eas": {

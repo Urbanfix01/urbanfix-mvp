@@ -8,7 +8,7 @@ BEGIN
     status = 'approved',
     updated_at = NOW()
   WHERE id = quote_id
-  AND status = 'pending'; 
+  AND (status IS NULL OR status <> 'approved'); 
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

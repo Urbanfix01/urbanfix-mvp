@@ -60,12 +60,12 @@ export default function JobsScreen() {
   const stats = useMemo(() => {
     const drafts = jobs.filter(j => {
       const status = (j.status || '').toLowerCase();
-      return ['pending', 'draft', 'pendiente', 'presented', 'accepted'].includes(status);
+      return ['pending', 'draft', 'pendiente', 'presented'].includes(status);
     }).length;
 
     const approved = jobs.filter(j => {
       const status = (j.status || '').toLowerCase();
-      return ['approved', 'aprobado'].includes(status);
+      return ['approved', 'aprobado', 'accepted'].includes(status);
     }).length;
 
     const totalMoney = jobs.reduce((acc, j) => acc + (j.total_amount || 0), 0);
@@ -97,12 +97,12 @@ export default function JobsScreen() {
   const getStatusConfig = (status?: string | null) => {
     const normalized = status?.toLowerCase().trim() || '';
 
-    if (['presented','accepted'].includes(normalized)) {
-        return { label: 'PRESENTADO', color: '#3B82F6', bg: '#DBEAFE' }; // Azul
+    if (['approved', 'aprobado', 'accepted'].includes(normalized)) {
+        return { label: 'APROBADO', color: '#10B981', bg: '#D1FAE5' }; // Emerald
     }
 
-    if (['approved', 'aprobado'].includes(normalized)) {
-        return { label: 'APROBADO', color: '#10B981', bg: '#D1FAE5' }; // Emerald
+    if (['presented'].includes(normalized)) {
+        return { label: 'PRESENTADO', color: '#3B82F6', bg: '#DBEAFE' }; // Azul
     }
 
     if (['pending', 'draft', 'pendiente'].includes(normalized)) {

@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
+  Modal,
+  Pressable,
 } from 'react-native';
 // Librería para WEB
 import ReactGoogleAutocomplete from 'react-google-autocomplete';
@@ -37,8 +39,11 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [inputLayout, setInputLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [debugStatus, setDebugStatus] = useState<string>('');
   const abortRef = useRef<AbortController | null>(null);
   const sessionTokenRef = useRef<string | null>(null);
+  const dismissRef = useRef(false);
 
   // 1. Obtener API Key (Prioridad: Prop > Variable de Entorno)
   const envKey = Platform.OS === 'web'
@@ -47,12 +52,6 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
   const finalApiKey = apiKey || envKey;
 
   if (!finalApiKey) console.warn("⚠️ FALTA API KEY en LocationAutocomplete");
-
-  useEffect(() => {
-    if (Platform.OS !== 'web' && initialValue && nativeRef.current) {
-      nativeRef.current.setAddressText(initialValue);
-    }
-  }, [initialValue]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -74,6 +73,7 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = controller;
     setIsLoading(true);
+    setDebugStatus('');
 
     const timeoutId = setTimeout(async () => {
       try {
@@ -83,9 +83,16 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
         const res = await fetch(url, { signal: controller.signal });
         const data = await res.json();
         setPredictions(Array.isArray(data?.predictions) ? data.predictions : []);
+        if (data?.status && data.status !== 'OK') {
+          const err = data?.error_message ? ` - ${data.error_message}` : '';
+          setDebugStatus(`${data.status}${err}`);
+        } else {
+          setDebugStatus(`OK (${Array.isArray(data?.predictions) ? data.predictions.length : 0})`);
+        }
       } catch (error) {
         if ((error as any)?.name !== 'AbortError') {
           console.warn('Autocomplete error', error);
+          setDebugStatus('NETWORK_ERROR');
         }
       } finally {
         setIsLoading(false);
@@ -125,6 +132,7 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       console.warn('Place details error', error);
     } finally {
       setIsLoading(false);
+      dismissRef.current = true;
       setIsFocused(false);
     }
   };
@@ -133,6 +141,22 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     () => Platform.OS !== 'web' && isFocused && predictions.length > 0,
     [isFocused, predictions.length]
   );
+
+  useEffect(() => {
+    if (!shouldShowList) return;
+    const id = setTimeout(() => {
+      nativeRef.current?.focus();
+    }, 0);
+    return () => clearTimeout(id);
+  }, [shouldShowList]);
+
+  const measureInput = () => {
+    if (nativeRef.current?.measureInWindow) {
+      nativeRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
+        setInputLayout({ x, y, width, height });
+      });
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -179,26 +203,68 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
               placeholderTextColor="#9CA3AF"
               value={query}
               onChangeText={setQuery}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+              onFocus={() => {
+                setIsFocused(true);
+                measureInput();
+              }}
+              onBlur={() => {
+                setTimeout(() => {
+                  if (dismissRef.current) {
+                    dismissRef.current = false;
+                    setIsFocused(false);
+                    return;
+                  }
+                  if (predictions.length > 0) {
+                    nativeRef.current?.focus();
+                  } else {
+                    setIsFocused(false);
+                  }
+                }, 50);
+              }}
+              onLayout={measureInput}
             />
             {isLoading && <ActivityIndicator size="small" color="#9CA3AF" />}
           </View>
+          {!!debugStatus && <Text style={styles.debugText}>Places: {debugStatus}</Text>}
 
-          {shouldShowList && (
-            <View style={styles.listView}>
-              <FlatList
-                keyboardShouldPersistTaps="handled"
-                data={predictions}
-                keyExtractor={(item) => item.place_id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
-                    <Text style={styles.rowText}>{item.description}</Text>
-                  </TouchableOpacity>
-                )}
-              />
-            </View>
-          )}
+          <Modal
+            visible={shouldShowList}
+            transparent
+            animationType="fade"
+            onShow={() => nativeRef.current?.focus()}
+            onRequestClose={() => {
+              dismissRef.current = true;
+              setIsFocused(false);
+            }}
+          >
+            <Pressable
+              style={styles.modalBackdrop}
+              onPress={() => {
+                dismissRef.current = true;
+                setIsFocused(false);
+              }}
+            >
+              <Pressable
+                style={[
+                  styles.listView,
+                  inputLayout
+                    ? { top: inputLayout.y + inputLayout.height + 6, left: inputLayout.x, width: inputLayout.width }
+                    : { left: 16, right: 16, top: 0 },
+                ]}
+              >
+                <FlatList
+                  keyboardShouldPersistTaps="handled"
+                  data={predictions}
+                  keyExtractor={(item) => item.place_id}
+                  renderItem={({ item }) => (
+                    <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
+                      <Text style={styles.rowText}>{item.description}</Text>
+                    </TouchableOpacity>
+                  )}
+                />
+              </Pressable>
+            </Pressable>
+          </Modal>
         </View>
       )}
     </View>
@@ -247,8 +313,6 @@ const styles = StyleSheet.create({
   },
   listView: {
     position: 'absolute',
-    top: 60, // Ajustado para que pegue justo debajo del input
-    width: '100%',
     zIndex: 10000, // <--- CLAVE: La lista debe ser lo más alto de todo
     backgroundColor: 'white',
     borderRadius: 8,
@@ -259,6 +323,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    maxHeight: 260,
   },
   row: {
     paddingHorizontal: 12,
@@ -269,6 +334,14 @@ const styles = StyleSheet.create({
   rowText: {
     fontSize: 14,
     color: '#111827',
+  },
+  modalBackdrop: {
+    flex: 1,
+  },
+  debugText: {
+    marginTop: 6,
+    fontSize: 11,
+    color: '#6B7280',
   },
 
   // Estilos Web

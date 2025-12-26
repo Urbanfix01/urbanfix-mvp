@@ -279,26 +279,25 @@ export default function JobConfigScreen() {
                 // Ajuste fino para que el teclado no tape el input de Google
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
             >
+                <View style={styles.addressWrapper}>
+                    <ClientAddressForm 
+                        initialName={clientName}
+                        initialAddress={clientAddress}
+                        initialLocation={location}
+                        onClientNameChange={setClientName}
+                        onLocationChange={(addr, lat, lng) => {
+                            setClientAddress(addr);
+                            setLocation({ lat, lng });
+                        }}
+                    />
+                </View>
+
                 {/* 🔥 LA SOLUCIÓN ESTÁ AQUÍ: keyboardShouldPersistTaps="always" */}
                 <ScrollView 
                     contentContainerStyle={styles.scrollContent} 
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="always" 
                 >
-                    {/* ZIndex alto para que el autocompletar flote sobre todo */}
-                    <View style={{ zIndex: 2000 }}>
-                        <ClientAddressForm 
-                            initialName={clientName}
-                            initialAddress={clientAddress}
-                            initialLocation={location}
-                            onClientNameChange={setClientName}
-                            onLocationChange={(addr, lat, lng) => {
-                                setClientAddress(addr);
-                                setLocation({ lat, lng });
-                            }}
-                        />
-                    </View>
-
                     {/* ZIndex bajo para el resto */}
                     <View style={{ zIndex: 1, marginTop: 10 }}>
                         <View style={styles.costsCard}>
@@ -425,7 +424,15 @@ const styles = StyleSheet.create({
     shadowOpacity: IS_WEB ? 0.1 : 0,
     shadowRadius: 12,
   },
-  scrollContent: { padding: 16 },
+  scrollContent: { paddingHorizontal: 16, paddingBottom: 16 },
+  addressWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    zIndex: 9999,
+    elevation: 30,
+    position: 'relative',
+    overflow: 'visible',
+  },
   
   costsCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginTop: 16, shadowColor: '#000', shadowOffset: {width:0, height:2}, shadowOpacity:0.03, elevation: 1 },
   

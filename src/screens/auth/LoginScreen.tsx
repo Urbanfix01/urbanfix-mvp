@@ -1,7 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
+import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
+
+WebBrowser.maybeCompleteAuthSession();
 
 export default function AuthScreen() {
   // Estado para cambiar entre Login y Registro
@@ -15,6 +20,47 @@ export default function AuthScreen() {
   const [businessName, setBusinessName] = useState('');
   
   const [loading, setLoading] = useState(false);
+
+  const getRedirectUrl = () => {
+    const useProxy = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
+    return AuthSession.makeRedirectUri({
+      scheme: 'urbanfix',
+      path: 'auth/callback',
+      useProxy,
+    });
+  };
+
+  const handleGoogleAuth = async () => {
+    try {
+      if (Platform.OS === 'web') {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: getRedirectUrl() },
+        });
+        if (error) throw error;
+        return;
+      }
+
+      const redirectTo = getRedirectUrl();
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo,
+          skipBrowserRedirect: true,
+        },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error('No se pudo iniciar Google Sign-In');
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+      if (result.type === 'success' && result.url) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
+        if (exchangeError) throw exchangeError;
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    }
+  };
 
   async function handleAuth() {
     setLoading(true);
@@ -70,6 +116,19 @@ export default function AuthScreen() {
 
         {/* FORMULARIO */}
         <View style={styles.form}>
+          <TouchableOpacity 
+            style={styles.googleButton} 
+            onPress={handleGoogleAuth}
+            disabled={loading}
+          >
+            <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
+          </TouchableOpacity>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>o</Text>
+            <View style={styles.dividerLine} />
+          </View>
           
           {/* 🔥 CAMPOS EXTRA SOLO SI ES REGISTRO */}
           {!isLogin && (
@@ -143,6 +202,11 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 16, fontFamily: FONTS.body, color: COLORS.textLight, textAlign: 'center', marginBottom: 32 },
   form: { gap: 16 },
   input: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, fontSize: 16, fontFamily: FONTS.body, borderWidth: 1, borderColor: '#E0E0E0' },
+  googleButton: { backgroundColor: '#111827', padding: 16, borderRadius: 12, alignItems: 'center' },
+  googleButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.5 },
+  dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  dividerText: { color: COLORS.textLight, fontFamily: FONTS.body },
   button: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
   buttonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   switchBtn: { alignItems: 'center', marginTop: 16 },
