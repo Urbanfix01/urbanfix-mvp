@@ -157,7 +157,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur md:self-stretch md:flex md:flex-col md:justify-center">
+            <section className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur md:self-start">
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold text-white">Ingresa a tu cuenta</h2>
                 <p className="text-sm text-white/70">
