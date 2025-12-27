@@ -119,25 +119,6 @@ export default function Home() {
                 </a>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row sm:justify-center md:justify-start">
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center justify-center gap-2 rounded-full bg-[#F39C12] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 opacity-90"
-                >
-                  Android
-                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
-                </button>
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 backdrop-blur opacity-90"
-                >
-                  iOS
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
-                </button>
-              </div>
-
               <div className="rounded-3xl border border-white/10 bg-white/10 p-6 text-left shadow-2xl backdrop-blur">
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-white/60">
@@ -233,6 +214,25 @@ export default function Home() {
                 Si sos cliente, abre el link del presupuesto que te envio tu tecnico.
               </p>
             </section>
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:justify-start md:justify-start">
+              <button
+                type="button"
+                disabled
+                className="flex items-center justify-center gap-2 rounded-full bg-[#F39C12] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 opacity-90"
+              >
+                Android
+                <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
+              </button>
+              <button
+                type="button"
+                disabled
+                className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 backdrop-blur opacity-90"
+              >
+                iOS
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
+              </button>
+            </div>
           </div>
         </main>
       </div>
