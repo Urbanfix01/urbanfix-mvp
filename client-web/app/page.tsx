@@ -58,19 +58,6 @@ export default function Home() {
           </div>
         </main>
       </div>
-      <style jsx global>{`
-        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Literata:wght@400;600&display=swap');
-        :root {
-          --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
-          --font-body: 'Literata', Georgia, serif;
-        }
-        body {
-          font-family: var(--font-display);
-        }
-        p {
-          font-family: var(--font-body);
-        }
-      `}</style>
     </div>
   );
 }
