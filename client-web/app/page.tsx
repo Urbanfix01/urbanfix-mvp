@@ -81,16 +81,6 @@ export default function Home() {
         <main className="relative mx-auto w-full max-w-6xl px-6 py-16">
           <div className="grid min-h-screen items-center gap-10 md:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-7 text-center md:text-left">
-              <div className="flex items-center justify-center gap-3 md:justify-start">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
-                </div>
-                <div className="text-left">
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
-                  <p className="text-sm font-semibold text-white/80">Soluciones reales en obra</p>
-                </div>
-              </div>
-
               <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70">
                 Plataforma de presupuestos
               </div>
@@ -169,15 +159,6 @@ export default function Home() {
 
             <section className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur">
               <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
-                    <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
-                    <p className="text-sm font-semibold text-white/80">Acceso tecnicos</p>
-                  </div>
-                </div>
                 <h2 className="text-2xl font-bold text-white">Ingresa a tu cuenta</h2>
                 <p className="text-sm text-white/70">
                   Gestiona presupuestos desde la web con tu cuenta UrbanFix.
