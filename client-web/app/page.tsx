@@ -199,6 +199,12 @@ export default function Home() {
               >
                 Abrir presupuesto
               </button>
+              <a
+                href="/tecnicos"
+                className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+              >
+                Acceso tecnicos
+              </a>
               <p className="mt-4 text-xs text-white/60">
                 Si no tienes el link, pediselo a tu tecnico.
               </p>
