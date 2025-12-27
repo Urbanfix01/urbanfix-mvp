@@ -31,6 +31,12 @@ export default function Home() {
                 Politica de Privacidad
               </a>
               <a
+                href="https://urbanfixar.com/urbanfix"
+                className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
+              >
+                Que es UrbanFix
+              </a>
+              <a
                 href="https://urbanfixar.com/terminos"
                 className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white/90"
               >
