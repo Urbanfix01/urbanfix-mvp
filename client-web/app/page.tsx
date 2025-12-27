@@ -79,7 +79,7 @@ export default function Home() {
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/20 blur-3xl" />
 
         <main className="relative mx-auto w-full max-w-6xl px-6 py-16">
-          <div className="grid min-h-screen items-center gap-10 md:grid-cols-[1.1fr_0.9fr]">
+          <div className="grid min-h-screen items-start gap-10 md:grid-cols-[1.1fr_0.9fr]">
             <section className="space-y-7 text-center md:text-left">
               <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70">
                 Plataforma de presupuestos
@@ -87,7 +87,7 @@ export default function Home() {
 
               <div className="space-y-3">
                 <h1 className="text-5xl font-black leading-tight text-white md:text-6xl">
-                  UrbanFix
+                  <span className="text-[#F39C12]">Urban</span>Fix
                   <span className="block text-2xl font-semibold text-white/70 md:text-3xl">
                     Gestion clara para tecnicos en movimiento.
                   </span>
@@ -157,7 +157,7 @@ export default function Home() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur">
+            <section className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur md:self-stretch md:flex md:flex-col md:justify-center">
               <div className="space-y-4">
                 <h2 className="text-2xl font-bold text-white">Ingresa a tu cuenta</h2>
                 <p className="text-sm text-white/70">
