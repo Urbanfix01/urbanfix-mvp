@@ -80,17 +80,23 @@ export default function Home() {
 
         <main className="relative mx-auto w-full max-w-6xl px-6 py-16">
           <div className="grid min-h-screen items-start gap-10 md:grid-cols-[1.1fr_0.9fr]">
-            <section className="space-y-7 text-center md:text-left">
+            <section className="space-y-6 text-center md:text-left">
+              <div className="flex items-center justify-center gap-3 md:justify-start">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
+                  <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
+                </div>
+                <div className="text-3xl font-black tracking-tight text-white md:text-4xl">
+                  <span className="text-[#F39C12]">Urban</span>Fix
+                </div>
+              </div>
+
               <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70">
                 Plataforma de presupuestos
               </div>
 
               <div className="space-y-3">
-                <h1 className="text-5xl font-black leading-tight text-white md:text-6xl">
-                  <span className="text-[#F39C12]">Urban</span>Fix
-                  <span className="block text-2xl font-semibold text-white/70 md:text-3xl">
-                    Gestion clara para tecnicos en movimiento.
-                  </span>
+                <h1 className="text-3xl font-semibold leading-tight text-white/80 md:text-4xl">
+                  Gestion clara para tecnicos en movimiento.
                 </h1>
                 <p className="text-base text-white/70 md:text-lg">
                   Esta es la pagina para clientes y tecnicos. Si recibiste un presupuesto, abrilo desde el link que te
