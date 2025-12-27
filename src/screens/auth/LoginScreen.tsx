@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import Constants from 'expo-constants';
@@ -7,6 +8,8 @@ import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
 
 WebBrowser.maybeCompleteAuthSession();
+
+const logo = require('../../../assets/icon.png');
 
 export default function AuthScreen() {
   // Estado para cambiar entre Login y Registro
@@ -110,115 +113,182 @@ export default function AuthScreen() {
   }
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        <Text style={styles.title}>UrbanFix</Text>
-        <Text style={styles.subtitle}>
-          {isLogin ? 'Ingresa a tu cuenta' : 'Crea tu perfil profesional'}
-        </Text>
-
-        {/* FORMULARIO */}
-        <View style={styles.form}>
-          <TouchableOpacity 
-            style={styles.googleButton} 
-            onPress={handleGoogleAuth}
-            disabled={loading}
-          >
-            <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
-          </TouchableOpacity>
-
-          <View style={styles.dividerRow}>
-            <View style={styles.dividerLine} />
-            <Text style={styles.dividerText}>o</Text>
-            <View style={styles.dividerLine} />
+    <LinearGradient colors={['#0B1221', COLORS.secondary, '#0B1221']} style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="always">
+          <View style={styles.brandBlock}>
+            <View style={styles.logoWrap}>
+              <Image source={logo} style={styles.logo} />
+            </View>
+            <Text style={styles.brandTitle}>UrbanFix</Text>
+            <Text style={styles.brandTagline}>Gestion clara para tecnicos en movimiento</Text>
           </View>
-          {!!debugInfo && __DEV__ && (
-            <Text style={styles.debugText}>{debugInfo}</Text>
-          )}
-          
-          {/* 🔥 CAMPOS EXTRA SOLO SI ES REGISTRO */}
-          {!isLogin && (
-            <>
-              <TextInput
-                style={styles.input}
-                placeholder="Nombre Completo (ej: Carlos Gómez)"
-                value={fullName}
-                onChangeText={setFullName}
-                autoCapitalize="words"
-              />
-              <TextInput
-                style={styles.input}
-                placeholder="Nombre de tu Negocio (ej: ElectroFix)"
-                value={businessName}
-                onChangeText={setBusinessName}
-                autoCapitalize="words"
-              />
-            </>
-          )}
 
-          <TextInput
-            style={styles.input}
-            placeholder="Email"
-            value={email}
-            onChangeText={setEmail}
-            autoCapitalize="none"
-            keyboardType="email-address"
-          />
-          <TextInput
-            style={styles.input}
-            placeholder="Contraseña"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-          />
+          {/* FORMULARIO */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>{isLogin ? 'Ingresa a tu cuenta' : 'Crea tu perfil profesional'}</Text>
+            <Text style={styles.cardSubtitle}>Accede con Google o con tu correo.</Text>
 
-          <TouchableOpacity 
-            style={styles.button} 
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.buttonText}>
-                {isLogin ? 'INGRESAR' : 'REGISTRARSE'}
-              </Text>
+            <TouchableOpacity 
+              style={styles.googleButton} 
+              onPress={handleGoogleAuth}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
+            </TouchableOpacity>
+
+            <View style={styles.dividerRow}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>o</Text>
+              <View style={styles.dividerLine} />
+            </View>
+            {!!debugInfo && __DEV__ && (
+              <Text style={styles.debugText}>{debugInfo}</Text>
             )}
-          </TouchableOpacity>
+            
+            {/* 🔥 CAMPOS EXTRA SOLO SI ES REGISTRO */}
+            {!isLogin && (
+              <>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nombre Completo (ej: Carlos Gómez)"
+                  placeholderTextColor="#94A3B8"
+                  value={fullName}
+                  onChangeText={setFullName}
+                  autoCapitalize="words"
+                />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Nombre de tu Negocio (ej: ElectroFix)"
+                  placeholderTextColor="#94A3B8"
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  autoCapitalize="words"
+                />
+              </>
+            )}
 
-          {/* SWITCH LOGIN/REGISTER */}
-          <TouchableOpacity 
-            style={styles.switchBtn} 
-            onPress={() => setIsLogin(!isLogin)}
-          >
-            <Text style={styles.switchText}>
-              {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Ingresa'}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+            <TextInput
+              style={styles.input}
+              placeholder="Email"
+              placeholderTextColor="#94A3B8"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
+            <TextInput
+              style={styles.input}
+              placeholder="Contraseña"
+              placeholderTextColor="#94A3B8"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry
+            />
+
+            <TouchableOpacity 
+              onPress={handleAuth}
+              disabled={loading}
+              activeOpacity={0.85}
+            >
+              <LinearGradient colors={[COLORS.primary, '#F59E0B']} style={styles.button}>
+                {loading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {isLogin ? 'INGRESAR' : 'REGISTRARSE'}
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            {/* SWITCH LOGIN/REGISTER */}
+            <TouchableOpacity 
+              style={styles.switchBtn} 
+              onPress={() => setIsLogin(!isLogin)}
+            >
+              <Text style={styles.switchText}>
+                {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Ingresa'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg },
-  title: { fontSize: 32, fontFamily: FONTS.title, color: COLORS.primary, textAlign: 'center', marginBottom: 8 },
-  subtitle: { fontSize: 16, fontFamily: FONTS.body, color: COLORS.textLight, textAlign: 'center', marginBottom: 32 },
-  form: { gap: 16 },
-  input: { backgroundColor: '#FFF', padding: 16, borderRadius: 12, fontSize: 16, fontFamily: FONTS.body, borderWidth: 1, borderColor: '#E0E0E0' },
-  googleButton: { backgroundColor: '#111827', padding: 16, borderRadius: 12, alignItems: 'center' },
+  container: { flex: 1 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg, gap: 20 },
+  brandBlock: { alignItems: 'center', gap: 8 },
+  logoWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 6,
+  },
+  logo: { width: 44, height: 44, resizeMode: 'contain' },
+  brandTitle: { fontSize: 34, fontFamily: FONTS.title, color: '#FFF' },
+  brandTagline: { fontSize: 14, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.65)' },
+  card: {
+    gap: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  cardTitle: { fontSize: 18, fontFamily: FONTS.title, color: '#FFF' },
+  cardSubtitle: { fontSize: 13, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)' },
+  input: {
+    backgroundColor: 'rgba(15,23,42,0.7)',
+    padding: 16,
+    borderRadius: 14,
+    fontSize: 15,
+    fontFamily: FONTS.body,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    color: '#F8FAFC',
+  },
+  googleButton: {
+    backgroundColor: 'rgba(17,24,39,0.9)',
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
   googleButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.5 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
-  dividerText: { color: COLORS.textLight, fontFamily: FONTS.body },
-  debugText: { fontSize: 10, color: COLORS.textLight, textAlign: 'center' },
-  button: { backgroundColor: COLORS.primary, padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 8 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(148,163,184,0.25)' },
+  dividerText: { color: 'rgba(255,255,255,0.6)', fontFamily: FONTS.body },
+  debugText: { fontSize: 10, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
+  button: {
+    padding: 16,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 8,
+  },
   buttonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
-  switchBtn: { alignItems: 'center', marginTop: 16 },
-  switchText: { color: COLORS.primary, fontFamily: FONTS.subtitle }
+  switchBtn: { alignItems: 'center', marginTop: 8 },
+  switchText: { color: COLORS.primary, fontFamily: FONTS.subtitle },
 });
