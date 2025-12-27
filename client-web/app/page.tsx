@@ -10,6 +10,15 @@ export default function Home() {
 
         <main className="relative mx-auto flex min-h-screen w-full max-w-6xl flex-col items-center justify-center gap-10 px-6 py-16 text-center md:flex-row md:items-center md:text-left">
           <div className="max-w-xl space-y-6">
+            <div className="flex items-center justify-center gap-3 md:justify-start">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+                <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+              </div>
+              <div className="text-left">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
+                <p className="text-sm font-semibold text-white/80">Soluciones reales en obra</p>
+              </div>
+            </div>
             <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70">
               Plataforma de presupuestos
             </div>
@@ -42,6 +51,26 @@ export default function Home() {
               >
                 Terminos del Servicio
               </a>
+            </div>
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <button
+                type="button"
+                disabled
+                className="flex items-center justify-center gap-2 rounded-full bg-[#F59E0B] px-5 py-2 text-sm font-semibold text-white opacity-80"
+              >
+                <span className="text-lg">🤖</span>
+                Android
+                <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
+              </button>
+              <button
+                type="button"
+                disabled
+                className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 opacity-80"
+              >
+                <span className="text-lg">🍎</span>
+                iOS
+                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
+              </button>
             </div>
           </div>
 

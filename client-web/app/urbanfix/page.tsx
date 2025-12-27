@@ -18,6 +18,15 @@ export default function UrbanFixPage() {
             >
               Volver al inicio
             </a>
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15">
+                <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
+                <p className="text-sm font-semibold text-white/80">Gestion de presupuestos en obra</p>
+              </div>
+            </div>
             <h1 className="text-4xl font-black text-white sm:text-5xl">Que es UrbanFix</h1>
             <p className="text-base text-white/70 sm:text-lg">
               UrbanFix es una plataforma que ayuda a tecnicos, instaladores y equipos de mantenimiento a crear,
@@ -53,6 +62,24 @@ export default function UrbanFixPage() {
           </div>
 
           <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              disabled
+              className="flex items-center justify-center gap-2 rounded-full bg-[#F59E0B] px-5 py-2 text-xs font-semibold text-white opacity-80"
+            >
+              <span className="text-base">🤖</span>
+              Android
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
+            </button>
+            <button
+              type="button"
+              disabled
+              className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-2 text-xs font-semibold text-white/80 opacity-80"
+            >
+              <span className="text-base">🍎</span>
+              iOS
+              <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
+            </button>
             <a
               href="https://urbanfixar.com/privacidad"
               className="rounded-full border border-white/20 px-5 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
