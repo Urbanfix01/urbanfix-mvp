@@ -1,47 +1,74 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { supabase } from '../lib/supabase/supabase';
 
 export default function Home() {
   const router = useRouter();
-  const [linkValue, setLinkValue] = useState('');
-  const [codeValue, setCodeValue] = useState('');
-  const [error, setError] = useState('');
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [businessName, setBusinessName] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [checkingSession, setCheckingSession] = useState(true);
 
-  const parseQuoteId = (value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return '';
-    try {
-      const url = new URL(trimmed);
-      const parts = url.pathname.split('/').filter(Boolean);
-      const idx = parts.indexOf('p');
-      if (idx !== -1 && parts[idx + 1]) return parts[idx + 1];
-      return parts[parts.length - 1] || '';
-    } catch {
-      if (trimmed.startsWith('/p/')) return trimmed.slice(3);
-      if (trimmed.startsWith('p/')) return trimmed.slice(2);
-      return trimmed;
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      if (data.session) {
+        router.replace('/tecnicos');
+      } else {
+        setCheckingSession(false);
+      }
+    });
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (nextSession) {
+        router.replace('/tecnicos');
+      }
+    });
+    return () => {
+      mounted = false;
+      data.subscription.unsubscribe();
+    };
+  }, [router]);
+
+  const handleGoogleLogin = async () => {
+    setAuthError('');
+    const redirectTo = `${window.location.origin}/tecnicos`;
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo },
+    });
+    if (error) {
+      setAuthError(error.message);
     }
   };
 
-  const handleAccess = () => {
-    const candidate = linkValue || codeValue;
-    if (!candidate.trim()) {
-      setError('Ingresa el link o el codigo del presupuesto.');
-      return;
+  const handleEmailAuth = async () => {
+    setAuthError('');
+    try {
+      if (authMode === 'login') {
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) throw error;
+        router.push('/tecnicos');
+        return;
+      }
+      if (!fullName.trim() || !businessName.trim()) {
+        setAuthError('Completa tu nombre y el de tu negocio.');
+        return;
+      }
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { full_name: fullName, business_name: businessName } },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      setAuthError(error?.message || 'No pudimos iniciar sesion.');
     }
-    setError('');
-    if (candidate.trim().startsWith('http')) {
-      window.location.href = candidate.trim();
-      return;
-    }
-    const quoteId = parseQuoteId(candidate);
-    if (!quoteId) {
-      setError('No pudimos leer el link. Revisa el formato.');
-      return;
-    }
-    router.push(`/p/${quoteId}`);
   };
 
   return (
@@ -76,7 +103,7 @@ export default function Home() {
                   </span>
                 </h1>
                 <p className="text-base text-white/70 md:text-lg">
-                  Esta es la pagina de acceso para clientes. Si recibiste un presupuesto, abrilo desde el link que te
+                  Esta es la pagina para clientes y tecnicos. Si recibiste un presupuesto, abrilo desde el link que te
                   envio tu tecnico.
                 </p>
               </div>
@@ -148,22 +175,22 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
-                    <p className="text-sm font-semibold text-white/80">Acceso al presupuesto</p>
+                    <p className="text-sm font-semibold text-white/80">Acceso tecnicos</p>
                   </div>
                 </div>
-                <h2 className="text-2xl font-bold text-white">Ingresa a tu presupuesto</h2>
+                <h2 className="text-2xl font-bold text-white">Ingresa a tu cuenta</h2>
                 <p className="text-sm text-white/70">
-                  Accede con el link que te envio tu tecnico o pega el codigo.
+                  Gestiona presupuestos desde la web con tu cuenta UrbanFix.
                 </p>
               </div>
 
               <button
                 type="button"
-                disabled
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/70"
+                onClick={handleGoogleLogin}
+                disabled={checkingSession}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white disabled:opacity-60"
               >
                 Continuar con Google
-                <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
               </button>
 
               <div className="my-5 flex items-center gap-3 text-xs text-white/50">
@@ -172,41 +199,57 @@ export default function Home() {
                 <div className="h-px flex-1 bg-white/10" />
               </div>
 
+              {authMode === 'register' && (
+                <div className="space-y-3">
+                  <input
+                    value={fullName}
+                    onChange={(event) => setFullName(event.target.value)}
+                    placeholder="Nombre completo"
+                    className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
+                  />
+                  <input
+                    value={businessName}
+                    onChange={(event) => setBusinessName(event.target.value)}
+                    placeholder="Nombre del negocio"
+                    className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
+                  />
+                </div>
+              )}
+
               <div className="space-y-3">
-                <label className="text-xs uppercase tracking-[0.2em] text-white/50">Link del presupuesto</label>
                 <input
-                  value={linkValue}
-                  onChange={(event) => setLinkValue(event.target.value)}
-                  onKeyDown={(event) => event.key === 'Enter' && handleAccess()}
-                  placeholder="https://urbanfixar.com/p/..."
-                  className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
-                />
-                <label className="text-xs uppercase tracking-[0.2em] text-white/50">Codigo (opcional)</label>
-                <input
-                  value={codeValue}
-                  onChange={(event) => setCodeValue(event.target.value)}
-                  onKeyDown={(event) => event.key === 'Enter' && handleAccess()}
-                  placeholder="Ej: 8f7a2c..."
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="Correo"
                   className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
                 />
-                {error && <p className="text-xs text-[#F39C12]">{error}</p>}
+                <input
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  type="password"
+                  placeholder="Contrasena"
+                  className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
+                />
+                {authError && <p className="text-xs text-[#F39C12]">{authError}</p>}
               </div>
 
               <button
                 type="button"
-                onClick={handleAccess}
-                className="mt-5 w-full rounded-2xl bg-[#F39C12] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B]"
+                onClick={handleEmailAuth}
+                disabled={checkingSession}
+                className="mt-5 w-full rounded-2xl bg-[#F39C12] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B] disabled:opacity-60"
               >
-                Abrir presupuesto
+                {authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
               </button>
-              <a
-                href="/tecnicos"
-                className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+              <button
+                type="button"
+                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                className="mt-4 w-full text-sm text-white/70 hover:text-white"
               >
-                Acceso tecnicos
-              </a>
+                {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
+              </button>
               <p className="mt-4 text-xs text-white/60">
-                Si no tienes el link, pediselo a tu tecnico.
+                Si sos cliente, abre el link del presupuesto que te envio tu tecnico.
               </p>
             </section>
           </div>
