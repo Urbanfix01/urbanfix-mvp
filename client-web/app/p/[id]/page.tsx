@@ -130,17 +130,24 @@ export default function QuotePage() {
   };
 
   // --- CÁLCULOS ---
+  const normalizeTaxRate = (value: any) => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return parsed;
+  };
+
   const calculateTotal = () => {
-    if (!items.length) return { subtotal: 0, tax: 0, total: 0 };
+    if (!items.length) return { subtotal: 0, tax: 0, total: 0, taxRate: 0 };
     const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
-    const tax = subtotal * (quote?.tax_rate || 0.21); // Usar tax_rate del quote si existe
-    return { subtotal, tax, total: subtotal + tax };
+    const taxRate = normalizeTaxRate(quote?.tax_rate);
+    const tax = subtotal * taxRate;
+    return { subtotal, tax, total: subtotal + tax, taxRate };
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><p className="text-slate-400 animate-pulse">Cargando presupuesto...</p></div>;
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
-  const { subtotal, tax, total } = calculateTotal();
+  const { subtotal, tax, total, taxRate } = calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
   const isPresented = ['presented', 'pending', 'pendiente'].includes(statusNormalized);
@@ -336,7 +343,7 @@ export default function QuotePage() {
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
               <div className="flex justify-between text-sm font-medium text-slate-600"><span>Subtotal</span><span className="font-mono">${subtotal.toLocaleString('es-AR')}</span></div>
               {tax > 0 && (
-                 <div className="flex justify-between text-sm font-medium text-slate-600"><span>IVA ({(quote.tax_rate * 100).toFixed(0)}%)</span><span className="font-mono">+ ${tax.toLocaleString('es-AR')}</span></div>
+                 <div className="flex justify-between text-sm font-medium text-slate-600"><span>IVA ({(taxRate * 100).toFixed(0)}%)</span><span className="font-mono">+ ${tax.toLocaleString('es-AR')}</span></div>
               )}
               <div className="border-t-2 border-slate-200 my-4 border-dashed"></div>
               <div className="flex justify-between items-center"><span className="text-lg font-black text-slate-800">TOTAL</span><span className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">${total.toLocaleString('es-AR')}</span></div>
