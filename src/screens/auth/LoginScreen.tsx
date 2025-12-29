@@ -26,9 +26,12 @@ export default function AuthScreen() {
   const [debugInfo, setDebugInfo] = useState('');
 
   const getRedirectUrl = () => {
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      return window.location.origin;
+    }
     const isExpoGo = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
     if (isExpoGo) {
-      return 'https://auth.expo.io/@urbanfix/UrbanFix/--/auth/callback';
+      return AuthSession.makeRedirectUri({ useProxy: true });
     }
     return AuthSession.makeRedirectUri({
       scheme: 'urbanfix',
