@@ -28,7 +28,7 @@ export default function AuthScreen() {
   const getRedirectUrl = () => {
     const isExpoGo = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
     if (isExpoGo) {
-      return 'https://auth.expo.io/@urbanfix/UrbanFix';
+      return 'https://auth.expo.io/@urbanfix/UrbanFix/--/auth/callback';
     }
     return AuthSession.makeRedirectUri({
       scheme: 'urbanfix',
