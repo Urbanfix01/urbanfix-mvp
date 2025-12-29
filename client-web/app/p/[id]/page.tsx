@@ -150,7 +150,7 @@ export default function QuotePage() {
   const { subtotal, tax, total, taxRate } = calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
-  const isPresented = ['presented', 'pending', 'pendiente'].includes(statusNormalized);
+  const isPresented = ['presented', 'pending', 'pendiente', 'sent'].includes(statusNormalized);
 
   // --- ICONOS SVG ---
   const Icons = {

@@ -143,7 +143,7 @@ export default function JobDetailScreen() {
   };
 
   const handleConfirmQuote = async () => {
-      await supabase.from('quotes').update({ status: 'accepted' }).eq('id', jobId);
+      await supabase.from('quotes').update({ status: 'sent' }).eq('id', jobId);
       await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
       await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
   };
@@ -158,8 +158,9 @@ export default function JobDetailScreen() {
   // --- HELPERS UI ---
   const getStatusColor = (s: string) => {
       const st = (s || '').toLowerCase();
-      if (st === 'accepted') return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
-      if (st === 'completed') return { bg: '#DCFCE7', text: '#166534', label: 'COBRADO' }; // Verde para cobrado
+      if (['approved', 'accepted'].includes(st)) return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
+      if (st === 'sent') return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
+      if (st === 'completed') return { bg: '#DCFCE7', text: '#166534', label: 'COBRADO' };
       return { bg: '#FEF3C7', text: '#B45309', label: 'BORRADOR' };
   };
 
@@ -280,7 +281,7 @@ export default function JobDetailScreen() {
           </TouchableOpacity>
         )}
 
-        {quote.status === 'accepted' ? (
+        {['approved', 'accepted'].includes((quote.status || '').toLowerCase()) ? (
             <TouchableOpacity style={styles.successBtn} onPress={handleFinalize}>
                 <Ionicons name="checkmark-circle" size={24} color="#FFF" />
             </TouchableOpacity>

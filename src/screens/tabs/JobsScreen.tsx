@@ -60,7 +60,7 @@ export default function JobsScreen() {
   const stats = useMemo(() => {
     const drafts = jobs.filter(j => {
       const status = (j.status || '').toLowerCase();
-      return ['pending', 'draft', 'pendiente', 'presented'].includes(status);
+      return ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
     }).length;
 
     const approved = jobs.filter(j => {
@@ -101,7 +101,7 @@ export default function JobsScreen() {
         return { label: 'APROBADO', color: '#10B981', bg: '#D1FAE5' }; // Emerald
     }
 
-    if (['presented'].includes(normalized)) {
+    if (['presented', 'sent'].includes(normalized)) {
         return { label: 'PRESENTADO', color: '#3B82F6', bg: '#DBEAFE' }; // Azul
     }
 
