@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -26,6 +26,8 @@ import MarcaScreen from '../screens/flow/MarcaScreen'; // <--- ✅ IMPORTACIÓN 
 // 4. Detalles y Configuración
 import ItemDetailScreen from '../screens/tabs/ItemDetailScreen';
 import EditProfileScreen from '../screens/settings/EditProfileScreen'; 
+import NotificationsScreen from '../screens/tabs/NotificationsScreen';
+import { registerForPushNotificationsAsync, showLocalNotification } from '../utils/notifications';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -54,6 +56,8 @@ function MainTabs() {
             iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Catálogo') {
             iconName = focused ? 'book' : 'book-outline';
+          } else if (route.name === 'Notificaciones') {
+            iconName = focused ? 'notifications' : 'notifications-outline';
           } else if (route.name === 'Perfil') {
             iconName = focused ? 'person' : 'person-outline';
           }
@@ -65,6 +69,7 @@ function MainTabs() {
       <Tab.Screen name="Trabajos" component={JobsScreen} />
       <Tab.Screen name="Agenda" component={AgendaScreen} /> 
       <Tab.Screen name="Catálogo" component={CatalogScreen} />
+      <Tab.Screen name="Notificaciones" component={NotificationsScreen} />
       <Tab.Screen name="Perfil" component={ProfileScreen} />
     </Tab.Navigator>
   );
@@ -88,6 +93,49 @@ export default function RootNavigator() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session?.user || Platform.OS === 'web') return;
+    const upsertToken = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (!token) return;
+        await supabase.from('device_tokens').upsert(
+          {
+            user_id: session.user.id,
+            expo_push_token: token,
+            platform: Platform.OS,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'expo_push_token' }
+        );
+      } catch (err) {
+        console.warn('Push token error', err);
+      }
+    };
+    upsertToken();
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user) return;
+    const channel = supabase
+      .channel('notifications-local')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}` },
+        (payload) => {
+          const record = payload.new as { title?: string; body?: string };
+          if (record?.title && record?.body) {
+            showLocalNotification(record.title, record.body);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
 
   if (loading) {
     return (
