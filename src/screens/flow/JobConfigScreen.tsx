@@ -50,6 +50,10 @@ export default function JobConfigScreen() {
   const [isSelectorOpen, setSelectorOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<'labor' | 'material'>('labor');
   const [location, setLocation] = useState({ lat: 0, lng: 0 }); 
+  const [laborToolOpen, setLaborToolOpen] = useState(false);
+  const [selectedLaborTool, setSelectedLaborTool] = useState<'none' | 'ceiling_m2'>('none');
+  const [ceilingArea, setCeilingArea] = useState('');
+  const [ceilingRate, setCeilingRate] = useState('');
   
   const hasLoadedData = useRef(false);
   const isEditMode = !!(quote && quote.id);
@@ -110,6 +114,12 @@ export default function JobConfigScreen() {
     initData();
   }, [quote?.id, blueprint, isEditMode]);
 
+  useEffect(() => {
+    if (activeCategory !== 'labor') {
+      setLaborToolOpen(false);
+    }
+  }, [activeCategory]);
+
   // --- HANDLERS ---
   const handleSmartInteraction = (type: 'light' | 'medium' | 'heavy' = 'light') => {
     if (!IS_WEB) {
@@ -143,6 +153,37 @@ export default function JobConfigScreen() {
     handleSmartInteraction('medium');
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     removeItem(id);
+  };
+
+  const parseNumber = (value: string) => {
+    const normalized = value.replace(',', '.').trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  };
+
+  const ceilingAreaValue = parseNumber(ceilingArea);
+  const ceilingRateValue = parseNumber(ceilingRate);
+  const ceilingTotal = ceilingAreaValue * ceilingRateValue;
+
+  const handleAddCeilingCalculator = () => {
+    if (ceilingAreaValue <= 0 || ceilingRateValue <= 0) {
+      Alert.alert("Falta información", "Ingresa los m² y el precio por m².");
+      return;
+    }
+
+    addItem({
+      name: `Cielorraso ${ceilingAreaValue} m2`,
+      price: ceilingRateValue,
+      quantity: ceilingAreaValue,
+      category: 'labor',
+      type: 'labor',
+      isActive: true,
+    });
+
+    setCeilingArea('');
+    setCeilingRate('');
+    setSelectedLaborTool('none');
+    setLaborToolOpen(false);
   };
 
   const handleSave = async () => {
@@ -324,6 +365,104 @@ export default function JobConfigScreen() {
                                 </View>
                             </View>
 
+                            {activeCategory === 'labor' && (
+                                <>
+                                    <View style={styles.laborTools}>
+                                        <TouchableOpacity
+                                            style={styles.laborToolsHeader}
+                                            onPress={() => setLaborToolOpen(prev => !prev)}
+                                            activeOpacity={0.8}
+                                        >
+                                            <View>
+                                                <Text style={styles.laborToolsLabel}>Presupuestador (m2)</Text>
+                                                <Text style={styles.laborToolsHint}>Calculadora rapida para trabajos por m2</Text>
+                                            </View>
+                                            <View style={styles.laborToolsValue}>
+                                                <Text style={styles.laborToolsValueText}>
+                                                    {selectedLaborTool === 'ceiling_m2' ? 'Cielorraso' : 'Seleccionar'}
+                                                </Text>
+                                                <Ionicons
+                                                    name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
+                                                    size={18}
+                                                    color="#64748B"
+                                                />
+                                            </View>
+                                        </TouchableOpacity>
+
+                                        {laborToolOpen && (
+                                            <View style={styles.laborToolsMenu}>
+                                                <TouchableOpacity
+                                                    style={styles.laborToolsOption}
+                                                    onPress={() => {
+                                                        setSelectedLaborTool('ceiling_m2');
+                                                        setLaborToolOpen(false);
+                                                    }}
+                                                >
+                                                    <Text style={styles.laborToolsOptionText}>Cielorraso (m2)</Text>
+                                                </TouchableOpacity>
+                                                {selectedLaborTool !== 'none' && (
+                                                    <TouchableOpacity
+                                                        style={styles.laborToolsOption}
+                                                        onPress={() => {
+                                                            setSelectedLaborTool('none');
+                                                            setLaborToolOpen(false);
+                                                        }}
+                                                    >
+                                                        <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+
+                                    {selectedLaborTool === 'ceiling_m2' && (
+                                        <View style={styles.calculatorCard}>
+                                            <View style={styles.calculatorHeader}>
+                                                <Ionicons name="grid-outline" size={18} color={COLORS.primary} />
+                                                <Text style={styles.calculatorTitle}>Cielorraso por m2</Text>
+                                            </View>
+
+                                            <View style={styles.calculatorRow}>
+                                                <View style={styles.calculatorField}>
+                                                    <Text style={styles.calculatorLabel}>Metros cuadrados</Text>
+                                                    <TextInput
+                                                        style={styles.calculatorInput}
+                                                        placeholder="Ej: 24"
+                                                        keyboardType="decimal-pad"
+                                                        value={ceilingArea}
+                                                        onChangeText={setCeilingArea}
+                                                    />
+                                                </View>
+                                                <View style={styles.calculatorField}>
+                                                    <Text style={styles.calculatorLabel}>Precio por m2</Text>
+                                                    <TextInput
+                                                        style={styles.calculatorInput}
+                                                        placeholder="Ej: 4500"
+                                                        keyboardType="decimal-pad"
+                                                        value={ceilingRate}
+                                                        onChangeText={setCeilingRate}
+                                                    />
+                                                </View>
+                                            </View>
+
+                                            <View style={styles.calculatorTotalRow}>
+                                                <Text style={styles.calculatorTotalLabel}>Total estimado</Text>
+                                                <Text style={styles.calculatorTotalValue}>${formatCurrency(ceilingTotal)}</Text>
+                                            </View>
+
+                                            <TouchableOpacity
+                                                style={styles.calculatorAddBtn}
+                                                onPress={handleAddCeilingCalculator}
+                                                activeOpacity={0.9}
+                                            >
+                                                <Ionicons name="add-circle" size={20} color="#FFF" />
+                                                <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    )}
+                                </>
+                            )}
+
                             <View style={styles.listContainer}>
                                 {renderItemList(activeCategory)}
                             </View>
@@ -442,6 +581,29 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: '#FFF', shadowColor: '#000', shadowOpacity: 0.05, elevation: 2 },
   tabText: { fontSize: 13, color: '#64748B', fontWeight: '600' },
   activeTabText: { color: COLORS.primary, fontWeight: '700' },
+
+  laborTools: { backgroundColor: '#F8FAFC', borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12, overflow: 'hidden' },
+  laborToolsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12 },
+  laborToolsLabel: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  laborToolsHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
+  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  laborToolsValueText: { fontSize: 12, color: '#334155', fontWeight: '600' },
+  laborToolsMenu: { borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+  laborToolsOption: { paddingHorizontal: 12, paddingVertical: 10 },
+  laborToolsOptionText: { fontSize: 13, color: '#1E293B', fontWeight: '600' },
+
+  calculatorCard: { backgroundColor: '#FFF', borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14 },
+  calculatorHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  calculatorTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginLeft: 8 },
+  calculatorRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+  calculatorField: { flex: 1 },
+  calculatorLabel: { fontSize: 11, color: '#64748B', marginBottom: 6 },
+  calculatorInput: { height: 40, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', paddingHorizontal: 10, fontWeight: '700', color: '#0F172A' },
+  calculatorTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  calculatorTotalLabel: { fontSize: 12, color: '#64748B' },
+  calculatorTotalValue: { fontSize: 16, fontWeight: '800', color: COLORS.primary },
+  calculatorAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: COLORS.primary },
+  calculatorAddText: { color: '#FFF', fontWeight: '700' },
 
   listContainer: { marginBottom: 10 },
   itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 14 },

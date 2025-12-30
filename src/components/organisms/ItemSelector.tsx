@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   View, Text, StyleSheet, Modal, TouchableOpacity, FlatList, 
-  TextInput, ActivityIndicator, Keyboard 
+  TextInput, ActivityIndicator, Keyboard, ScrollView 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS } from '../../utils/theme';
@@ -15,9 +15,25 @@ interface Props {
   filterType?: 'labor' | 'material';
 }
 
+const CATEGORY_LABELS: Record<string, string> = {
+  electricidad: 'Electricidad',
+  plomeria: 'Plomeria',
+  albanileria: 'Albanileria',
+  gas: 'Gas',
+  agua_cloaca: 'Agua y Cloaca',
+  calefaccion: 'Calefaccion',
+  jornales: 'Jornales y Visitas',
+};
+
+const formatCategoryLabel = (value: string) => {
+  if (value === 'general') return 'General';
+  return CATEGORY_LABELS[value] || value.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+};
+
 export default function ItemSelector({ visible, onClose, onSelect, filterType }: Props) {
   const { data: items, isLoading } = useMasterItems();
   const [search, setSearch] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
   
   // Ref para el input, para darle foco automático
   const inputRef = useRef<TextInput>(null);
@@ -29,13 +45,29 @@ export default function ItemSelector({ visible, onClose, onSelect, filterType }:
     const term = search.toLowerCase();
     return items
       .filter(i => !filterType || i.type === filterType)
+      .filter(i => {
+        const categoryValue = i.source_ref ? i.source_ref : 'general';
+        return activeCategory === 'all' || categoryValue === activeCategory;
+      })
       .filter(i => i.name.toLowerCase().includes(term));
-  }, [items, search, filterType]);
+  }, [items, search, filterType, activeCategory]);
+
+  const categories = useMemo(() => {
+    const values = new Set<string>();
+    (items || []).forEach((item) => {
+      if (filterType && item.type !== filterType) return;
+      const category = item.source_ref ? item.source_ref : 'general';
+      values.add(category);
+    });
+    const sorted = Array.from(values).sort((a, b) => formatCategoryLabel(a).localeCompare(formatCategoryLabel(b)));
+    return ['all', ...sorted];
+  }, [items, filterType]);
 
   // --- 2. UX: AUTO-FOCUS AL ABRIR ---
   useEffect(() => {
     if (visible) {
       setSearch(''); // Limpiar búsqueda anterior
+      setActiveCategory('all');
       // Pequeño delay para esperar que termine la animación del modal
       setTimeout(() => {
         inputRef.current?.focus();
@@ -87,6 +119,18 @@ export default function ItemSelector({ visible, onClose, onSelect, filterType }:
     </TouchableOpacity>
   );
 
+  const CategoryChip = ({ label, value }: { label: string; value: string }) => {
+    const isActive = activeCategory === value;
+    return (
+      <TouchableOpacity
+        style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+        onPress={() => setActiveCategory(value)}
+      >
+        <Text style={[styles.categoryChipText, isActive && styles.categoryChipTextActive]}>{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
   return (
     <Modal 
       visible={visible} 
@@ -121,6 +165,23 @@ export default function ItemSelector({ visible, onClose, onSelect, filterType }:
                  <Ionicons name="close-circle" size={18} color="#CBD5E1" />
              </TouchableOpacity>
           )}
+        </View>
+
+        <View style={styles.categorySection}>
+          <Text style={styles.categoryLabel}>Categorias</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.categoryRow}
+          >
+            {categories.map((value) => (
+              <CategoryChip
+                key={value}
+                value={value}
+                label={value === 'all' ? 'Todas' : formatCategoryLabel(value)}
+              />
+            ))}
+          </ScrollView>
         </View>
 
         {/* Lista */}
@@ -178,6 +239,20 @@ const styles = StyleSheet.create({
   
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', margin: 16, paddingHorizontal: 12, height: 46, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
   input: { flex: 1, height: '100%', fontSize: 16, color: '#0F172A' },
+  categorySection: { paddingHorizontal: 16, marginBottom: 12 },
+  categoryLabel: { fontSize: 12, color: COLORS.textLight, marginBottom: 8, fontFamily: FONTS.subtitle },
+  categoryRow: { gap: 8 },
+  categoryChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFF',
+  },
+  categoryChipActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
+  categoryChipText: { fontSize: 12, color: '#475569', fontFamily: FONTS.body },
+  categoryChipTextActive: { color: '#FFF', fontFamily: FONTS.subtitle },
 
   itemRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 14, borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#F1F5F9' },
   iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#FFF7ED', justifyContent: 'center', alignItems: 'center', marginRight: 12 },

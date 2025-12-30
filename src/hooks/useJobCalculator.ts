@@ -59,6 +59,8 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
         // Determinamos el tipo: si viene de DB es 'type', si es manual 'category'
         const itemType = item.category || item.type || 'labor';
         const basePrice = item.price !== undefined ? item.price : (item.suggested_price || 0);
+        const rawQuantity = Number(item.quantity ?? 1);
+        const safeQuantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
 
         // Generamos un ID único si no existe
         const newItemId = item.id && item.id.length > 5 ? item.id : `custom-${Date.now()}`;
@@ -68,7 +70,7 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
 
         if (existingIndex >= 0) {
             const newItems = [...prev];
-            newItems[existingIndex].quantity += 1;
+            newItems[existingIndex].quantity += safeQuantity;
             return newItems;
         }
 
@@ -76,7 +78,7 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
             id: newItemId,
             name: item.name,
             price: Number(basePrice),
-            quantity: 1,
+            quantity: safeQuantity,
             isActive: true,
             type: itemType,
             category: itemType // Guardamos ambos por compatibilidad
