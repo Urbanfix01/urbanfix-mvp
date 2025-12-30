@@ -14,7 +14,7 @@ export default function UrbanFixPage() {
           <div className="grid items-start gap-10 md:grid-cols-[1.15fr_0.85fr]">
             <div className="space-y-6">
               <a
-                href="https://urbanfixar.com"
+                href="https://www.urbanfixar.com"
                 className="inline-flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-white/60 transition hover:text-white"
               >
                 Volver al inicio
@@ -54,13 +54,13 @@ export default function UrbanFixPage() {
                   <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
                 </button>
                 <a
-                  href="https://urbanfixar.com/privacidad"
+                  href="https://www.urbanfixar.com/privacidad"
                   className="rounded-full border border-white/20 px-5 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
                 >
                   Politica de Privacidad
                 </a>
                 <a
-                  href="https://urbanfixar.com/terminos"
+                  href="https://www.urbanfixar.com/terminos"
                   className="rounded-full border border-white/20 px-5 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
                 >
                   Terminos del Servicio

@@ -306,7 +306,7 @@ export default function TechniciansPage() {
                 Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.
               </p>
               <a
-                href="https://urbanfixar.com"
+                href="https://www.urbanfixar.com"
                 className="inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
               >
                 Volver al inicio

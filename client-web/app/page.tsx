@@ -106,19 +106,19 @@ export default function Home() {
 
               <div className="flex flex-wrap justify-center gap-3 md:justify-start">
                 <a
-                  href="https://urbanfixar.com/privacidad"
+                  href="https://www.urbanfixar.com/privacidad"
                   className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
                 >
                   Politica de Privacidad
                 </a>
                 <a
-                  href="https://urbanfixar.com/urbanfix"
+                  href="https://www.urbanfixar.com/urbanfix"
                   className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
                 >
                   Que es UrbanFix
                 </a>
                 <a
-                  href="https://urbanfixar.com/terminos"
+                  href="https://www.urbanfixar.com/terminos"
                   className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white/90"
                 >
                   Terminos del Servicio

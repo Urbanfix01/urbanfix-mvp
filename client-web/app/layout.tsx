@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://urbanfixar.com"),
+  metadataBase: new URL("https://www.urbanfixar.com"),
   title: {
     default: "UrbanFix | Gestion clara para tecnicos en movimiento",
     template: "%s | UrbanFix",
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: "UrbanFix | Gestion clara para tecnicos en movimiento",
     description:
       "Plataforma de presupuestos y gestion para tecnicos. Clientes reciben presupuestos por link y tecnicos gestionan desde la web.",
-    url: "https://urbanfixar.com",
+    url: "https://www.urbanfixar.com",
     siteName: "UrbanFix",
     locale: "es_AR",
     type: "website",

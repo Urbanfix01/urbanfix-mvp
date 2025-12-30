@@ -13,7 +13,7 @@ export default function TermsPage() {
         <div className="relative mx-auto w-full max-w-3xl space-y-8 rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur">
           <div className="space-y-3">
             <a
-              href="https://urbanfixar.com"
+              href="https://www.urbanfixar.com"
               className="text-xs uppercase tracking-[0.2em] text-white/60 transition hover:text-white"
             >
               Volver al inicio
