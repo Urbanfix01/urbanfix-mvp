@@ -129,6 +129,17 @@ export default function QuotePage() {
     }
   };
 
+  const getItemTypeBadge = (item: any) => {
+    const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
+    if (raw === 'material') {
+      return { label: 'Material', className: 'bg-amber-100 text-amber-800 border-amber-200' };
+    }
+    if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') {
+      return { label: 'Mano de obra', className: 'bg-sky-100 text-sky-800 border-sky-200' };
+    }
+    return null;
+  };
+
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -307,21 +318,42 @@ export default function QuotePage() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100">
-                {items.map((item, i) => (
+                {items.map((item, i) => {
+                  const typeBadge = getItemTypeBadge(item);
+                  return (
                   <tr key={i} className="group hover:bg-slate-50/60 transition-colors">
-                    <td className="py-6 px-6 font-semibold text-slate-700">{item.description}</td>
+                    <td className="py-6 px-6 font-semibold text-slate-700">
+                      <div className="flex flex-col gap-2">
+                        <span>{item.description}</span>
+                        {typeBadge && (
+                          <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
+                            {typeBadge.label}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-6 px-6 text-center text-slate-600 font-mono">{item.quantity}</td>
                     <td className="py-6 px-6 text-right text-slate-600 font-mono tabular-nums">${item.unit_price?.toLocaleString('es-AR')}</td>
                     <td className="py-6 px-6 text-right font-bold text-slate-900 font-mono tabular-nums bg-slate-50/30">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</td>
                   </tr>
-                ))}
+                );
+                })}
               </tbody>
             </table>
           </div>
           <div className="md:hidden space-y-4">
-            {items.map((item, i) => (
+            {items.map((item, i) => {
+              const typeBadge = getItemTypeBadge(item);
+              return (
               <div key={i} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
-                <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                <div className="flex flex-col gap-2">
+                  <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                  {typeBadge && (
+                    <span className={`inline-flex w-fit items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
+                      {typeBadge.label}
+                    </span>
+                  )}
+                </div>
                 <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
                   <div>
                     <p className="text-[10px] uppercase tracking-wider text-slate-400">Cant.</p>
@@ -337,7 +369,8 @@ export default function QuotePage() {
                   </div>
                 </div>
               </div>
-            ))}
+            );
+            })}
           </div>
           <div className="mt-8 sm:mt-12 flex justify-end">
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
