@@ -58,7 +58,7 @@ export default function TechniciansPage() {
   const [clientName, setClientName] = useState('');
   const [clientAddress, setClientAddress] = useState('');
   const [discount, setDiscount] = useState(0);
-  const [applyTax, setApplyTax] = useState(true);
+  const [applyTax, setApplyTax] = useState(false);
   const [items, setItems] = useState<ItemForm[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -108,7 +108,7 @@ export default function TechniciansPage() {
     setClientName('');
     setClientAddress('');
     setDiscount(0);
-    setApplyTax(true);
+    setApplyTax(false);
     setItems([]);
     setFormError('');
     setInfoMessage('');

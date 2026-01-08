@@ -140,6 +140,13 @@ export default function QuotePage() {
     return null;
   };
 
+  const normalizeItemType = (item: any) => {
+    const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
+    if (raw === 'material') return 'material';
+    if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') return 'labor';
+    return 'labor';
+  };
+
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -148,17 +155,23 @@ export default function QuotePage() {
   };
 
   const calculateTotal = () => {
-    if (!items.length) return { subtotal: 0, tax: 0, total: 0, taxRate: 0 };
-    const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+    if (!items.length) return { subtotal: 0, tax: 0, total: 0, taxRate: 0, laborSubtotal: 0, materialSubtotal: 0 };
+    const laborSubtotal = items
+      .filter((item) => normalizeItemType(item) === 'labor')
+      .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+    const materialSubtotal = items
+      .filter((item) => normalizeItemType(item) === 'material')
+      .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+    const subtotal = laborSubtotal + materialSubtotal;
     const taxRate = normalizeTaxRate(quote?.tax_rate);
     const tax = subtotal * taxRate;
-    return { subtotal, tax, total: subtotal + tax, taxRate };
+    return { subtotal, tax, total: subtotal + tax, taxRate, laborSubtotal, materialSubtotal };
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><p className="text-slate-400 animate-pulse">Cargando presupuesto...</p></div>;
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
-  const { subtotal, tax, total, taxRate } = calculateTotal();
+  const { subtotal, tax, total, taxRate, laborSubtotal, materialSubtotal } = calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
   const isPresented = ['presented', 'pending', 'pendiente', 'sent'].includes(statusNormalized);
@@ -374,6 +387,14 @@ export default function QuotePage() {
           </div>
           <div className="mt-8 sm:mt-12 flex justify-end">
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
+              <div className="flex justify-between text-sm font-medium text-slate-600">
+                <span>Mano de obra</span>
+                <span className="font-mono">${laborSubtotal.toLocaleString('es-AR')}</span>
+              </div>
+              <div className="flex justify-between text-sm font-medium text-slate-600">
+                <span>Materiales</span>
+                <span className="font-mono">${materialSubtotal.toLocaleString('es-AR')}</span>
+              </div>
               <div className="flex justify-between text-sm font-medium text-slate-600"><span>Subtotal</span><span className="font-mono">${subtotal.toLocaleString('es-AR')}</span></div>
               {tax > 0 && (
                  <div className="flex justify-between text-sm font-medium text-slate-600"><span>IVA ({(taxRate * 100).toFixed(0)}%)</span><span className="font-mono">+ ${tax.toLocaleString('es-AR')}</span></div>

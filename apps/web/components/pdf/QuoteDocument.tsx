@@ -84,10 +84,17 @@ const formatCurrency = (amount: any) => {
 };
 
 export const QuoteDocument = ({ quote, items, profile }: Props) => {
+  const normalizeTaxRate = (value: any) => {
+    const parsed = typeof value === 'number' ? value : Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+    return parsed;
+  };
+
   // Cálculos de seguridad
   const safeItems = Array.isArray(items) ? items : [];
   const subtotal = safeItems.reduce((acc, item) => acc + (Number(item.quantity || 0) * Number(item.unit_price || 0)), 0);
-  const tax = subtotal * 0.21;
+  const taxRate = normalizeTaxRate(quote?.tax_rate);
+  const tax = subtotal * taxRate;
   const total = subtotal + tax;
 
   // Validación estricta de imagen
@@ -158,10 +165,12 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
               <Text style={styles.totalLabel}>Subtotal</Text>
               <Text style={styles.totalValue}>{formatCurrency(subtotal)}</Text>
             </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>IVA (21%)</Text>
-              <Text style={styles.totalValue}>{formatCurrency(tax)}</Text>
-            </View>
+            {taxRate > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>IVA ({(taxRate * 100).toFixed(0)}%)</Text>
+                <Text style={styles.totalValue}>{formatCurrency(tax)}</Text>
+              </View>
+            )}
             <View style={[styles.totalRow, styles.grandTotal]}>
               <Text style={styles.totalLabel}>TOTAL</Text>
               <Text style={styles.totalValue}>{formatCurrency(total)}</Text>

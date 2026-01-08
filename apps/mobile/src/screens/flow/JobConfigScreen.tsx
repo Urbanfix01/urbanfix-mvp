@@ -55,12 +55,17 @@ export default function JobConfigScreen() {
   const [ceilingArea, setCeilingArea] = useState('');
   const [ceilingRate, setCeilingRate] = useState('');
   
-  const hasLoadedData = useRef(false);
+  const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
+  const initKey = isEditMode && quote?.id
+    ? `quote:${quote.id}`
+    : blueprint?.id
+      ? `blueprint:${blueprint.id}`
+      : `new:${route.key}`;
 
   // --- CARGA DE DATOS ---
   useEffect(() => {
-    if (hasLoadedData.current) return;
+    if (hasLoadedData.current === initKey) return;
     const initData = async () => {
         try {
             if (isEditMode && quote?.id) {
@@ -104,15 +109,35 @@ export default function JobConfigScreen() {
                         category: itemType
                     };
                 });
-                if (mapped) setItems(mapped);
+                setClientName('');
+                setClientAddress('');
+                setLocation({ lat: 0, lng: 0 });
+                setApplyTax(false);
+                setDiscount(0);
+                setSelectedLaborTool('none');
+                setLaborToolOpen(false);
+                setCeilingArea('');
+                setCeilingRate('');
+                setItems(mapped || []);
+            } else {
+                setClientName('');
+                setClientAddress('');
+                setLocation({ lat: 0, lng: 0 });
+                setApplyTax(false);
+                setDiscount(0);
+                setSelectedLaborTool('none');
+                setLaborToolOpen(false);
+                setCeilingArea('');
+                setCeilingRate('');
+                setItems([]);
             }
-            hasLoadedData.current = true;
+            hasLoadedData.current = initKey;
         } catch (err) {
             console.error("Error cargando datos:", err);
         }
     };
     initData();
-  }, [quote?.id, blueprint, isEditMode]);
+  }, [initKey, quote?.id, blueprint, isEditMode]);
 
   useEffect(() => {
     if (activeCategory !== 'labor') {
@@ -271,41 +296,49 @@ export default function JobConfigScreen() {
         );
     }
 
-    return filteredItems.map((item, index) => (
-        <View key={item.id || index} style={styles.itemCard}>
-            <View style={styles.itemInfo}>
-                <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
-                <View style={styles.quantityControls}>
-                    <TouchableOpacity style={styles.qtyBtn} onPress={() => handleUpdateQty(item.id, -1)}>
-                        <Ionicons name="remove" size={16} color={COLORS.primary} />
-                    </TouchableOpacity>
-                    <Text style={styles.qtyText}>{item.quantity}</Text>
-                    <TouchableOpacity style={styles.qtyBtn} onPress={() => handleUpdateQty(item.id, 1)}>
-                        <Ionicons name="add" size={16} color={COLORS.primary} />
+    return filteredItems.map((item, index) => {
+        const unitPrice = Number(item.price || 0);
+        const quantity = item.quantity || 0;
+        const totalPrice = unitPrice * quantity;
+        const itemName = item.name || '';
+        const isByArea = itemName.toLowerCase().includes('m2');
+        const unitLabel = isByArea ? 'Precio por m2' : 'Precio unitario';
+
+        return (
+            <View key={item.id || index} style={styles.itemCard}>
+                <View style={styles.itemInfo}>
+                    <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+                    <Text style={styles.itemMeta}>
+                        {unitLabel}: ${formatCurrency(unitPrice)} · Total: ${formatCurrency(totalPrice)}
+                    </Text>
+                    <View style={styles.quantityControls}>
+                        <TouchableOpacity style={styles.qtyBtn} onPress={() => handleUpdateQty(item.id, -1)}>
+                            <Ionicons name="remove" size={16} color={COLORS.primary} />
+                        </TouchableOpacity>
+                        <Text style={styles.qtyText}>{item.quantity}</Text>
+                        <TouchableOpacity style={styles.qtyBtn} onPress={() => handleUpdateQty(item.id, 1)}>
+                            <Ionicons name="add" size={16} color={COLORS.primary} />
+                        </TouchableOpacity>
+                    </View>
+                </View>
+                <View style={styles.itemActions}>
+                    <View style={styles.priceInputWrapper}>
+                        <Text style={styles.currencySymbol}>$</Text>
+                        <TextInput 
+                            style={styles.priceInput}
+                            keyboardType="numeric"
+                            selectTextOnFocus
+                            value={unitPrice ? unitPrice.toString() : ''}
+                            onChangeText={(text) => updateItemPrice(item.id, parseNumber(text))}
+                        />
+                    </View>
+                    <TouchableOpacity onPress={() => handleRemoveItem(item.id)} style={styles.deleteBtn}>
+                        <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
                     </TouchableOpacity>
                 </View>
             </View>
-            <View style={styles.itemActions}>
-                <View style={styles.priceInputWrapper}>
-                    <Text style={styles.currencySymbol}>$</Text>
-                    <TextInput 
-                        style={styles.priceInput}
-                        keyboardType="numeric"
-                        selectTextOnFocus
-                        value={(item.price * item.quantity).toString()}
-                        onChangeText={(text) => {
-                            const total = parseFloat(text.trim() || '0');
-                            const unit = total / (item.quantity || 1);
-                            updateItemPrice(item.id, unit);
-                        }}
-                    />
-                </View>
-                <TouchableOpacity onPress={() => handleRemoveItem(item.id)} style={styles.deleteBtn}>
-                    <Ionicons name="trash-outline" size={18} color={COLORS.danger} />
-                </TouchableOpacity>
-            </View>
-        </View>
-    ));
+        );
+    });
   };
 
   // --- UI PRINCIPAL ---
@@ -609,6 +642,7 @@ const styles = StyleSheet.create({
   itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFF', borderBottomWidth: 1, borderBottomColor: '#F1F5F9', paddingVertical: 14 },
   itemInfo: { flex: 1, paddingRight: 10 },
   itemName: { fontSize: 15, color: '#1E293B', fontWeight: '500', marginBottom: 6 },
+  itemMeta: { fontSize: 12, color: '#94A3B8', fontWeight: '600', marginBottom: 6 },
   quantityControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F8FAFC', alignSelf: 'flex-start', padding: 4, borderRadius: 8 },
   qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderRadius: 6, shadowColor:'#000', shadowOpacity:0.05, elevation:1 },
   qtyText: { fontSize: 14, fontWeight: '700', color: '#1E293B', minWidth: 20, textAlign: 'center' },

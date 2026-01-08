@@ -223,14 +223,15 @@ export default function Home() {
               </section>
 
               <div className="flex flex-col justify-center gap-3 sm:flex-row sm:justify-center">
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center justify-center gap-2 rounded-full bg-[#F39C12] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 opacity-90"
+                <a
+                  href="https://expo.dev/accounts/urbanfix/projects/UrbanFix/builds/526c63bb-c84a-47f3-b1b2-e618c5cdd710"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-full bg-[#F39C12] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B]"
                 >
                   Android
-                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
-                </button>
+                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Beta</span>
+                </a>
                 <button
                   type="button"
                   disabled
