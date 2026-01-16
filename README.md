@@ -53,6 +53,7 @@ Puntos clave:
   - `cd apps/web`
   - `npm install`
   - `npm run dev`
+  - (Opcional) Define `NEXT_PUBLIC_PUBLIC_WEB_URL` para forzar el dominio de los links publicos `/p/[id]`.
 - App:
   - `cd apps/mobile`
   - `npm install`
@@ -76,3 +77,4 @@ Cada vez que se agregue una funcion nueva, se cambie el flujo principal, o se mo
 - 2026-01-02 - IVA desactivado por defecto en el panel web de tecnicos.
 - 2026-01-02 - IVA reseteado en nuevos presupuestos desde la app movil.
 - 2026-01-02 - Subtotales separados por mano de obra y materiales en la vista de presupuesto web.
+- 2026-01-16 - Panel web: links publicos de presupuestos configurables y datos alineados con la app movil.

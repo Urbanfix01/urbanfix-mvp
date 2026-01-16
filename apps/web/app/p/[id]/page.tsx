@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { useParams } from 'next/navigation';
 // ✅ IMPORTACIÓN LIMPIA
@@ -131,7 +131,7 @@ export default function QuotePage() {
 
   const getItemTypeBadge = (item: any) => {
     const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
-    if (raw === 'material') {
+    if (raw === 'material' || raw === 'consumable') {
       return { label: 'Material', className: 'bg-amber-100 text-amber-800 border-amber-200' };
     }
     if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') {
@@ -142,10 +142,30 @@ export default function QuotePage() {
 
   const normalizeItemType = (item: any) => {
     const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
-    if (raw === 'material') return 'material';
+    if (raw === 'material' || raw === 'consumable') return 'material';
     if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') return 'labor';
     return 'labor';
   };
+
+  const getGroupTotal = (groupItems: any[]) =>
+    groupItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+
+  const groupedItems = useMemo(() => {
+    const laborItems: any[] = [];
+    const materialItems: any[] = [];
+    items.forEach((item) => {
+      const type = normalizeItemType(item);
+      if (type === 'material') {
+        materialItems.push(item);
+      } else {
+        laborItems.push(item);
+      }
+    });
+    return [
+      { key: 'labor', label: 'Mano de obra', items: laborItems },
+      { key: 'material', label: 'Materiales', items: materialItems },
+    ];
+  }, [items]);
 
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
@@ -320,6 +340,13 @@ export default function QuotePage() {
 
         {/* TABLA DE ÍTEMS */}
         <div className="p-6 sm:p-10 md:p-12 bg-white min-h-[350px]">
+          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Detalle</p>
+              <h3 className="text-lg sm:text-xl font-bold text-slate-900">Items del presupuesto</h3>
+            </div>
+            <span className="text-xs font-semibold text-slate-500">{items.length} items</span>
+          </div>
           <div className="hidden md:block">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -331,59 +358,89 @@ export default function QuotePage() {
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100">
-                {items.map((item, i) => {
-                  const typeBadge = getItemTypeBadge(item);
-                  return (
-                  <tr key={i} className="group hover:bg-slate-50/60 transition-colors">
-                    <td className="py-6 px-6 font-semibold text-slate-700">
-                      <div className="flex flex-col gap-2">
-                        <span>{item.description}</span>
-                        {typeBadge && (
-                          <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
-                            {typeBadge.label}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-6 px-6 text-center text-slate-600 font-mono">{item.quantity}</td>
-                    <td className="py-6 px-6 text-right text-slate-600 font-mono tabular-nums">${item.unit_price?.toLocaleString('es-AR')}</td>
-                    <td className="py-6 px-6 text-right font-bold text-slate-900 font-mono tabular-nums bg-slate-50/30">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</td>
-                  </tr>
-                );
-                })}
+                {groupedItems.map((group) =>
+                  group.items.length > 0 ? (
+                    <React.Fragment key={group.key}>
+                      <tr className="bg-slate-50/80">
+                        <td colSpan={4} className="py-3 px-6 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                          <div className="flex items-center justify-between">
+                            <span>{group.label}</span>
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              {group.items.length} items · ${getGroupTotal(group.items).toLocaleString('es-AR')}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                      {group.items.map((item: any, index: number) => {
+                        const typeBadge = getItemTypeBadge(item);
+                        const rowKey = item.id || `${group.key}-${index}`;
+                        return (
+                          <tr key={rowKey} className="group hover:bg-slate-50/60 transition-colors">
+                            <td className="py-6 px-6 font-semibold text-slate-700">
+                              <div className="flex flex-col gap-2">
+                                <span>{item.description}</span>
+                                {typeBadge && (
+                                  <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
+                                    {typeBadge.label}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-6 px-6 text-center text-slate-600 font-mono">{item.quantity}</td>
+                            <td className="py-6 px-6 text-right text-slate-600 font-mono tabular-nums">${item.unit_price?.toLocaleString('es-AR')}</td>
+                            <td className="py-6 px-6 text-right font-bold text-slate-900 font-mono tabular-nums bg-slate-50/30">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</td>
+                          </tr>
+                        );
+                      })}
+                    </React.Fragment>
+                  ) : null
+                )}
               </tbody>
             </table>
           </div>
-          <div className="md:hidden space-y-4">
-            {items.map((item, i) => {
-              const typeBadge = getItemTypeBadge(item);
-              return (
-              <div key={i} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
-                <div className="flex flex-col gap-2">
-                  <p className="text-sm font-semibold text-slate-800">{item.description}</p>
-                  {typeBadge && (
-                    <span className={`inline-flex w-fit items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
-                      {typeBadge.label}
+          <div className="md:hidden space-y-6">
+            {groupedItems.map((group) =>
+              group.items.length > 0 ? (
+                <div key={group.key} className="space-y-3">
+                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                    <span>{group.label}</span>
+                    <span className="text-[10px] font-semibold text-slate-400">
+                      {group.items.length} items · ${getGroupTotal(group.items).toLocaleString('es-AR')}
                     </span>
-                  )}
+                  </div>
+                  {group.items.map((item: any, index: number) => {
+                    const typeBadge = getItemTypeBadge(item);
+                    const rowKey = item.id || `${group.key}-${index}`;
+                    return (
+                      <div key={rowKey} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                        <div className="flex flex-col gap-2">
+                          <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                          {typeBadge && (
+                            <span className={`inline-flex w-fit items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
+                              {typeBadge.label}
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-slate-400">Cant.</p>
+                            <p className="mt-1 font-mono text-slate-700">{item.quantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase tracking-wider text-slate-400">Unitario</p>
+                            <p className="mt-1 font-mono text-slate-700">${item.unit_price?.toLocaleString('es-AR')}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] uppercase tracking-wider text-slate-400">Total</p>
+                            <p className="mt-1 font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Cant.</p>
-                    <p className="mt-1 font-mono text-slate-700">{item.quantity}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Unitario</p>
-                    <p className="mt-1 font-mono text-slate-700">${item.unit_price?.toLocaleString('es-AR')}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] uppercase tracking-wider text-slate-400">Total</p>
-                    <p className="mt-1 font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
-                  </div>
-                </div>
-              </div>
-            );
-            })}
+              ) : null
+            )}
           </div>
           <div className="mt-8 sm:mt-12 flex justify-end">
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">

@@ -8,6 +8,10 @@ type QuoteRow = {
   id: string;
   client_name: string | null;
   client_address: string | null;
+  address?: string | null;
+  location_address?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
   total_amount: number | null;
   tax_rate: number | null;
   status: string | null;
@@ -24,9 +28,27 @@ type ItemForm = {
 
 const TAX_RATE = 0.21;
 
+const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
+
+const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
+
+const getPublicBaseUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_PUBLIC_WEB_URL;
+  if (envUrl && envUrl.trim()) {
+    return normalizeBaseUrl(envUrl.trim());
+  }
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return DEFAULT_PUBLIC_WEB_URL;
+};
+
+const buildQuoteLink = (quoteId: string) => `${getPublicBaseUrl()}/p/${quoteId}`;
+
 const statusMap: Record<string, { label: string; className: string }> = {
   draft: { label: 'Borrador', className: 'bg-white/10 text-white/70' },
   sent: { label: 'Enviado', className: 'bg-sky-500/20 text-sky-200' },
+  presented: { label: 'Presentado', className: 'bg-sky-500/20 text-sky-200' },
   approved: { label: 'Aprobado', className: 'bg-emerald-500/20 text-emerald-200' },
   accepted: { label: 'Aceptado', className: 'bg-emerald-500/20 text-emerald-200' },
   pending: { label: 'Pendiente', className: 'bg-amber-500/20 text-amber-200' },
@@ -40,6 +62,9 @@ const toNumber = (value: string) => {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const getQuoteAddress = (quote: QuoteRow) =>
+  quote.client_address || quote.address || quote.location_address || '';
 
 export default function TechniciansPage() {
   const router = useRouter();
@@ -117,7 +142,7 @@ export default function TechniciansPage() {
   const loadQuote = async (quote: QuoteRow) => {
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
-    setClientAddress(quote.client_address || '');
+    setClientAddress(getQuoteAddress(quote));
     setApplyTax((quote.tax_rate || 0) > 0);
     setDiscount(0);
     setFormError('');
@@ -126,13 +151,17 @@ export default function TechniciansPage() {
       .from('quote_items')
       .select('*')
       .eq('quote_id', quote.id);
-    const mapped = (itemsData || []).map((item: any) => ({
-      id: item.id?.toString() || `item-${Math.random().toString(36).slice(2)}`,
-      description: item.description || '',
-      quantity: Number(item.quantity || 1),
-      unitPrice: Number(item.unit_price || 0),
-      type: (item?.metadata?.type || 'labor') as 'labor' | 'material',
-    }));
+    const mapped = (itemsData || []).map((item: any) => {
+      const rawType = (item?.metadata?.type || item?.metadata?.category || 'labor').toString().toLowerCase();
+      const normalizedType = rawType === 'material' || rawType === 'consumable' ? 'material' : 'labor';
+      return {
+        id: item.id?.toString() || `item-${Math.random().toString(36).slice(2)}`,
+        description: item.description || '',
+        quantity: Number(item.quantity || 1),
+        unitPrice: Number(item.unit_price || 0),
+        type: normalizedType as 'labor' | 'material',
+      };
+    });
     setItems(mapped);
   };
 
@@ -164,6 +193,7 @@ export default function TechniciansPage() {
   const totalBeforeTax = Math.max(0, subtotal - discount);
   const taxAmount = applyTax ? totalBeforeTax * TAX_RATE : 0;
   const total = totalBeforeTax + taxAmount;
+  const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
 
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
     if (!clientName.trim()) {
@@ -224,11 +254,32 @@ export default function TechniciansPage() {
     }
   };
 
-  const handleCopyLink = async () => {
-    if (!activeQuoteId) return;
-    const url = `${window.location.origin}/p/${activeQuoteId}`;
-    await navigator.clipboard.writeText(url);
-    setInfoMessage('Link copiado al portapapeles.');
+  const handleCopyLink = async (quoteId?: string) => {
+    const targetId = quoteId || activeQuoteId;
+    if (!targetId) return;
+    const url = buildQuoteLink(targetId);
+    try {
+      await navigator.clipboard.writeText(url);
+      setInfoMessage('Link copiado al portapapeles.');
+    } catch (error) {
+      setInfoMessage(`Link: ${url}`);
+    }
+  };
+
+  const handleOpenQuoteWindow = (quoteId?: string) => {
+    const targetId = quoteId || activeQuoteId;
+    if (!targetId) return;
+    const url = buildQuoteLink(targetId);
+    const windowRef = window.open(
+      url,
+      'quoteWindow',
+      'popup=yes,width=1200,height=800,noopener,noreferrer'
+    );
+    if (windowRef) {
+      windowRef.focus();
+    } else {
+      setInfoMessage(`Link: ${url}`);
+    }
   };
 
   const handleLogout = async () => {
@@ -464,7 +515,7 @@ export default function TechniciansPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-white/60">
-                      {quote.client_address || 'Sin direccion'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                      {getQuoteAddress(quote) || 'Sin direccion'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
                     </p>
                     <p className="mt-3 text-sm font-semibold text-white">
                       ${(quote.total_amount || 0).toLocaleString('es-AR')}
@@ -493,6 +544,26 @@ export default function TechniciansPage() {
                 </button>
               )}
             </div>
+
+            {activeQuoteId && (
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/70">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/50">Link publico</p>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    value={quoteLink}
+                    readOnly
+                    className="w-full rounded-xl border border-white/10 bg-[#101827] px-3 py-2 text-xs text-white/80 outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleOpenQuoteWindow()}
+                    className="inline-flex items-center justify-center rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
+                  >
+                    Abrir en ventana
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="mt-5 grid gap-4 md:grid-cols-2">
               <input
