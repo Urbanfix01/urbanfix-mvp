@@ -10,17 +10,20 @@ interface Props {
   initialLocation: { lat: number; lng: number };
   onClientNameChange: (text: string) => void;
   onLocationChange: (address: string, lat: number, lng: number) => void;
+  variant?: 'card' | 'inline';
 }
 
 export const ClientAddressForm = ({ 
   initialName, 
   initialAddress, 
   onClientNameChange, 
-  onLocationChange 
+  onLocationChange,
+  variant = 'card'
 }: Props) => {
+  const isInline = variant === 'inline';
   return (
-      <View style={styles.card}>
-      <Text style={styles.cardHeader}>DATOS DEL CLIENTE</Text>
+      <View style={[styles.card, isInline && styles.cardInline]}>
+      {!isInline && <Text style={styles.cardHeader}>DATOS DEL CLIENTE</Text>}
 
       {/* Input de Nombre (Simple) */}
       <View style={styles.inputGroup}>
@@ -51,28 +54,39 @@ export const ClientAddressForm = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    elevation: 2,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 3,
     zIndex: 2,
     position: 'relative',
     overflow: 'visible',
   },
+  cardInline: {
+    backgroundColor: 'transparent',
+    padding: 0,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+    marginBottom: 0,
+  },
   cardHeader: {
-    fontSize: 13,
+    fontSize: 12,
     fontFamily: FONTS.title || 'System',
-    color: '#64748B',
+    color: '#94A3B8',
     letterSpacing: 1,
     marginBottom: 16,
     fontWeight: '700',
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: 14,
   },
   addressGroup: {
     zIndex: 9999,
@@ -80,10 +94,11 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   label: {
-    fontSize: 14,
-    color: '#1E293B',
+    fontSize: 13,
+    color: '#0F172A',
     fontWeight: '600',
     marginBottom: 8,
+    fontFamily: FONTS.subtitle || 'System',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -101,9 +116,10 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#1E293B',
-    fontWeight: '500',
+    color: '#0F172A',
+    fontWeight: '600',
     height: '100%',
+    fontFamily: FONTS.body || 'System',
   },
   helperContainer: {
     flexDirection: 'row', 
