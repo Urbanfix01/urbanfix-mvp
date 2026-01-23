@@ -45,6 +45,14 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     }));
   };
 
+  // 2.1 Actualizar Nombre
+  const updateItemName = (id: string, newName: string) => {
+    setItems(prev => prev.map(item => {
+      if (item.id === id) return { ...item, name: newName };
+      return item;
+    }));
+  };
+
   // 3. Activar/Desactivar
   const toggleItem = (id: string) => {
     setItems(prev => prev.map(item => {
@@ -111,7 +119,7 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
     clientAddress, setClientAddress,
     scheduledDate, setScheduledDate,
     // Acciones
-    updateQuantity, updateItemPrice, toggleItem, addItem, removeItem,
+    updateQuantity, updateItemPrice, updateItemName, toggleItem, addItem, removeItem,
     // Dinero
     discount, setDiscount, applyTax, setApplyTax, totals
   };

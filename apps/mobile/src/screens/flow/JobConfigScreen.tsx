@@ -123,7 +123,7 @@ export default function JobConfigScreen() {
 
   // --- LÓGICA DE NEGOCIO ---
   const { 
-    items, setItems, addItem, removeItem, updateItemPrice, updateQuantity,
+    items, setItems, addItem, removeItem, updateItemName, updateItemPrice, updateQuantity,
     clientName, setClientName, clientAddress, setClientAddress,
     applyTax, setApplyTax, discount, setDiscount
   } = useJobCalculator([]);
@@ -482,18 +482,27 @@ export default function JobConfigScreen() {
         const unitPrice = item.price;
         const quantity = item.quantity;
         const totalPrice = unitPrice * quantity;
+        const itemId = item.id ? item.id.toString() : '';
         const itemName = item.name || '';
         const isByArea = itemName.toLowerCase().includes('m2');
         const unitLabel = isByArea ? 'Precio por m2' : 'Precio unitario';
         const accentColor = item.type === 'material' ? '#38BDF8' : COLORS.primary;
-        const itemId = item.id ? item.id.toString() : undefined;
         const priceDraft = itemId ? priceDrafts[itemId] : undefined;
         const displayPrice = priceDraft ?? (unitPrice ? unitPrice.toString() : '');
 
         return (
             <View key={item.id || index} style={[styles.itemCard, { borderLeftColor: accentColor }]}>
                 <View style={styles.itemInfo}>
-                    <Text style={styles.itemName} numberOfLines={2}>{item.name}</Text>
+                    <TextInput
+                        style={styles.itemNameInput}
+                        value={itemName}
+                        placeholder="Nombre del item"
+                        placeholderTextColor="#94A3B8"
+                        onChangeText={(text) => {
+                          if (!itemId) return;
+                          updateItemName(itemId, text);
+                        }}
+                    />
                     <Text style={styles.itemMeta}>
                         {unitLabel}: ${formatCurrency(unitPrice)} · Total: ${formatCurrency(totalPrice)}
                     </Text>
@@ -1166,6 +1175,18 @@ const styles = StyleSheet.create({
   itemCard: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderLeftWidth: 4, borderLeftColor: '#F59E0B', borderRadius: 12, padding: 12, marginBottom: 12, shadowColor: '#0F172A', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: {width:0, height:2}, elevation: 2 },
   itemInfo: { flex: 1, paddingRight: 8 },
   itemName: { fontSize: 15, color: '#0F172A', fontWeight: '700', marginBottom: 6 },
+  itemNameInput: {
+    fontSize: 15,
+    color: '#0F172A',
+    fontWeight: '700',
+    marginBottom: 6,
+    padding: 0,
+    borderWidth: 0,
+    backgroundColor: 'transparent',
+    outlineStyle: 'none',
+    outlineWidth: 0,
+    outlineColor: 'transparent',
+  },
   itemMeta: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 6 },
   quantityControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F8FAFC', alignSelf: 'flex-start', padding: 4, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' },
   qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderRadius: 6, borderWidth: 1 },
