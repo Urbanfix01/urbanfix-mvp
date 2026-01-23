@@ -17,6 +17,7 @@ export default function QuotePage() {
   const [loading, setLoading] = useState(true);
   const [quote, setQuote] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
+  const [attachments, setAttachments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [addressInput, setAddressInput] = useState('');
   const [addressSaving, setAddressSaving] = useState(false);
@@ -68,9 +69,20 @@ export default function QuotePage() {
 
       if (itemsError) throw itemsError;
 
+      const { data: attachmentsData, error: attachmentsError } = await supabase
+        .from('quote_attachments')
+        .select('*')
+        .eq('quote_id', quoteId)
+        .order('created_at', { ascending: false });
+
+      if (attachmentsError) {
+        console.error('Error cargando adjuntos:', attachmentsError);
+      }
+
       setQuote(quoteData);
       setProfile(quoteData.profiles);
       setItems(itemsData || []);
+      setAttachments(attachmentsData || []);
       setAddressInput(quoteData.client_address || '');
     } catch (error) {
       console.error('Error cargando datos:', error);
@@ -149,6 +161,11 @@ export default function QuotePage() {
 
   const getGroupTotal = (groupItems: any[]) =>
     groupItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
+
+  const isImageAttachment = (attachment: any) => {
+    if (attachment?.file_type && attachment.file_type.startsWith('image/')) return true;
+    return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment?.file_url || '');
+  };
 
   const groupedItems = useMemo(() => {
     const laborItems: any[] = [];
@@ -442,6 +459,46 @@ export default function QuotePage() {
               ) : null
             )}
           </div>
+          {attachments.length > 0 && (
+            <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/60 p-6 sm:p-8">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Adjuntos</p>
+                  <h3 className="text-lg font-bold text-slate-900">Archivos del trabajo</h3>
+                </div>
+                <span className="text-xs font-semibold text-slate-500">{attachments.length} archivos</span>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {attachments.map((file: any) => (
+                  <a
+                    key={file.id || file.file_url}
+                    href={file.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-slate-300"
+                  >
+                    <div className="aspect-video bg-slate-100">
+                      {isImageAttachment(file) ? (
+                        <img
+                          src={file.file_url}
+                          alt={file.file_name || 'Archivo adjunto'}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center text-xs font-semibold text-slate-400">
+                          Archivo adjunto
+                        </div>
+                      )}
+                    </div>
+                    <div className="px-4 py-3 text-xs font-semibold text-slate-700">
+                      {file.file_name || 'Archivo adjunto'}
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="mt-8 sm:mt-12 flex justify-end">
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
               <div className="flex justify-between text-sm font-medium text-slate-600">

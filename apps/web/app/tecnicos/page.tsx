@@ -26,6 +26,17 @@ type ItemForm = {
   type: 'labor' | 'material';
 };
 
+type AttachmentRow = {
+  id: string;
+  quote_id: string;
+  user_id?: string | null;
+  file_url: string;
+  file_name?: string | null;
+  file_type?: string | null;
+  file_size?: number | null;
+  created_at?: string | null;
+};
+
 const TAX_RATE = 0.21;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
@@ -66,6 +77,16 @@ const toNumber = (value: string) => {
 const getQuoteAddress = (quote: QuoteRow) =>
   quote.client_address || quote.address || quote.location_address || '';
 
+const sanitizeFileName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+const buildAttachmentPath = (userId: string, quoteId: string, fileName: string) =>
+  `${userId}/quotes/${quoteId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFileName(fileName)}`;
+
+const isImageAttachment = (attachment: AttachmentRow) => {
+  if (attachment.file_type && attachment.file_type.startsWith('image/')) return true;
+  return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment.file_url || '');
+};
+
 export default function TechniciansPage() {
   const router = useRouter();
   const [session, setSession] = useState<any>(null);
@@ -85,6 +106,8 @@ export default function TechniciansPage() {
   const [discount, setDiscount] = useState(0);
   const [applyTax, setApplyTax] = useState(false);
   const [items, setItems] = useState<ItemForm[]>([]);
+  const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
@@ -128,6 +151,19 @@ export default function TechniciansPage() {
     setQuotes((data as QuoteRow[]) || []);
   };
 
+  const fetchAttachments = async (quoteId: string) => {
+    const { data, error } = await supabase
+      .from('quote_attachments')
+      .select('*')
+      .eq('quote_id', quoteId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      setInfoMessage('No pudimos cargar los archivos adjuntos.');
+      return;
+    }
+    setAttachments((data as AttachmentRow[]) || []);
+  };
+
   const resetForm = () => {
     setActiveQuoteId(null);
     setClientName('');
@@ -135,6 +171,7 @@ export default function TechniciansPage() {
     setDiscount(0);
     setApplyTax(false);
     setItems([]);
+    setAttachments([]);
     setFormError('');
     setInfoMessage('');
   };
@@ -163,6 +200,7 @@ export default function TechniciansPage() {
       };
     });
     setItems(mapped);
+    await fetchAttachments(quote.id);
   };
 
   const handleAddItem = () => {
@@ -184,6 +222,61 @@ export default function TechniciansPage() {
 
   const handleRemoveItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    if (!activeQuoteId) {
+      setFormError('Guarda el presupuesto antes de adjuntar archivos.');
+      return;
+    }
+    if (!session?.user?.id) {
+      setFormError('Inicia sesion para subir archivos.');
+      return;
+    }
+    const imageFiles = files.filter(
+      (file) => (file.type && file.type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file.name)
+    );
+    if (!imageFiles.length) {
+      setFormError('Solo se permiten imagenes.');
+      return;
+    }
+
+    setUploadingAttachments(true);
+    setFormError('');
+    try {
+      const uploads = [];
+      for (const file of imageFiles) {
+        const storagePath = buildAttachmentPath(session.user.id, activeQuoteId, file.name);
+        const { error: uploadError } = await supabase.storage
+          .from('urbanfix-assets')
+          .upload(storagePath, file, {
+            contentType: file.type || 'application/octet-stream',
+            upsert: false,
+          });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
+        uploads.push({
+          quote_id: activeQuoteId,
+          user_id: session.user.id,
+          file_url: publicData.publicUrl,
+          file_name: file.name,
+          file_type: file.type || null,
+          file_size: file.size || null,
+        });
+      }
+      const { error: insertError } = await supabase.from('quote_attachments').insert(uploads);
+      if (insertError) throw insertError;
+      await fetchAttachments(activeQuoteId);
+      setInfoMessage('Archivos adjuntados.');
+    } catch (error) {
+      console.error('Error subiendo archivos:', error);
+      setFormError('No pudimos subir los archivos.');
+    } finally {
+      setUploadingAttachments(false);
+    }
   };
 
   const subtotal = useMemo(
@@ -643,6 +736,62 @@ export default function TechniciansPage() {
                 <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
                   Agrega items para calcular el total.
                 </div>
+              )}
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-white">Archivos del presupuesto</h3>
+                  <p className="text-xs text-white/50">Sube imagenes para que el cliente las vea.</p>
+                </div>
+                <label
+                  className={`inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white ${
+                    uploadingAttachments || !activeQuoteId ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
+                  }`}
+                >
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleAttachmentUpload}
+                    disabled={!activeQuoteId || uploadingAttachments}
+                    className="sr-only"
+                  />
+                  {uploadingAttachments ? 'Subiendo...' : 'Subir archivos'}
+                </label>
+              </div>
+              {attachments.length > 0 ? (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {attachments.map((file) => (
+                    <a
+                      key={file.id}
+                      href={file.file_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="group rounded-xl border border-white/10 bg-[#0B1220] p-3 transition hover:border-white/30"
+                    >
+                      <div className="aspect-video overflow-hidden rounded-lg bg-white/5">
+                        {isImageAttachment(file) ? (
+                          <img
+                            src={file.file_url}
+                            alt={file.file_name || 'Archivo adjunto'}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-xs text-white/50">
+                            Archivo adjunto
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-2 truncate text-xs text-white/70">
+                        {file.file_name || 'Archivo adjunto'}
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-white/50">Aun no hay archivos adjuntos.</p>
               )}
             </div>
 
