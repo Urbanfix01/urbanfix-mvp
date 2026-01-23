@@ -308,6 +308,14 @@ export default function JobConfigScreen() {
     if (typeof value === 'string') return parseNumber(value);
     return 0;
   };
+  const sanitizeNumeric = (value: unknown) => {
+    if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+    if (typeof value === 'string') {
+      const cleaned = value.replace(/[^\d,.-]/g, '');
+      return parseNumber(cleaned);
+    }
+    return 0;
+  };
 
   const selectedTool = LABOR_TOOLS.find((tool) => tool.key === selectedLaborTool) || null;
   const customUnit = customToolUnit === 'ml' ? 'ml' : 'm2';
@@ -419,15 +427,32 @@ export default function JobConfigScreen() {
   };
 
   // --- CÁLCULOS ---
-  const normalizedItems = items.map(i => ({
-    ...i,
-    isActive: i.isActive !== false,
-    type: (i.type || 'labor').toLowerCase(),
-  }));
-  const laborItems = normalizedItems.filter((i) => i.type !== 'material');
-  const materialItems = normalizedItems.filter((i) => i.type === 'material');
-  const laborTotal = laborItems.reduce((acc, i) => acc + (toNumber(i.price) * toNumber(i.quantity)), 0);
-  const materialTotal = materialItems.reduce((acc, i) => acc + (toNumber(i.price) * toNumber(i.quantity)), 0);
+  const normalizedItems = React.useMemo(
+    () =>
+      items.map((item) => {
+        const itemId = item.id ? item.id.toString() : '';
+        const hasDraft = itemId && Object.prototype.hasOwnProperty.call(priceDrafts, itemId);
+        const draftValue = hasDraft ? priceDrafts[itemId] : '';
+        const price = hasDraft ? sanitizeNumeric(draftValue) : sanitizeNumeric(item.price);
+        const quantity = sanitizeNumeric(item.quantity);
+        const rawType = item.type || item.category || 'labor';
+        const type = typeof rawType === 'string' ? rawType.toLowerCase() : 'labor';
+
+        return {
+          ...item,
+          price,
+          quantity,
+          isActive: item.isActive !== false,
+          type,
+        };
+      }),
+    [items, priceDrafts]
+  );
+  const activeItems = normalizedItems.filter((item) => item.isActive);
+  const laborItems = activeItems.filter((item) => item.type !== 'material');
+  const materialItems = activeItems.filter((item) => item.type === 'material');
+  const laborTotal = laborItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+  const materialTotal = materialItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const subtotal = laborTotal + materialTotal;
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
   const taxAmount = applyTax ? subtotalAfterDiscount * 0.21 : 0;
@@ -439,8 +464,8 @@ export default function JobConfigScreen() {
 
   // --- RENDERIZADO DE ITEMS ---
   const renderItemList = (category: 'labor' | 'material') => {
-    const filteredItems = normalizedItems.filter(i => {
-        const type = (i.type || 'labor').toLowerCase();
+    const filteredItems = normalizedItems.filter((item) => {
+        const type = item.type || 'labor';
         return type === category || (!type && category === 'labor');
     });
     
@@ -454,8 +479,8 @@ export default function JobConfigScreen() {
     }
 
     return filteredItems.map((item, index) => {
-        const unitPrice = toNumber(item.price);
-        const quantity = toNumber(item.quantity);
+        const unitPrice = item.price;
+        const quantity = item.quantity;
         const totalPrice = unitPrice * quantity;
         const itemName = item.name || '';
         const isByArea = itemName.toLowerCase().includes('m2');
