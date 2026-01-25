@@ -5,10 +5,6 @@
     "apps/*",
     "packages/*"
   ],
-  "dependencies": {
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
-  },
   "scripts": {
     "start": "npm run start:web",
     "dev:web": "npm --prefix apps/web run dev",
