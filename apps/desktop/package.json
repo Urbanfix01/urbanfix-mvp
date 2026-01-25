@@ -1,0 +1,27 @@
+{
+  "name": "urbanfix-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "dev": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^30.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.urbanfix.desktop",
+    "productName": "UrbanFix",
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis"
+    }
+  }
+}

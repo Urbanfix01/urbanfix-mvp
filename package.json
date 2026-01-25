@@ -14,6 +14,8 @@
     "start:mobile": "npm --prefix apps/mobile run start",
     "android": "npm --prefix apps/mobile run android",
     "ios": "npm --prefix apps/mobile run ios",
-    "web:expo": "npm --prefix apps/mobile run web"
+    "web:expo": "npm --prefix apps/mobile run web",
+    "start:desktop": "npm --prefix apps/desktop run dev",
+    "dist:desktop": "npm --prefix apps/desktop run dist:win"
   }
 }
