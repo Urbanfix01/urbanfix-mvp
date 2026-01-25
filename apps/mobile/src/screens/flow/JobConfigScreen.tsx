@@ -2,13 +2,14 @@
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, Switch,
-  LayoutAnimation, UIManager, useWindowDimensions 
+  LayoutAnimation, UIManager, useWindowDimensions, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQueryClient } from '@tanstack/react-query';
 import * as Haptics from 'expo-haptics'; 
+import * as ImagePicker from 'expo-image-picker';
 
 // --- COMPONENTES ---
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
@@ -49,6 +50,14 @@ type LaborTool = {
   unitLabel: string;
   quantityLabel: string;
   rateLabel: string;
+};
+
+type QuoteAttachmentItem = {
+  id: string;
+  name: string;
+  url?: string;
+  localUri?: string;
+  isUploading?: boolean;
 };
 
 const LABOR_TOOLS: LaborTool[] = [
@@ -140,9 +149,12 @@ export default function JobConfigScreen() {
   const [customToolName, setCustomToolName] = useState('');
   const [customToolUnit, setCustomToolUnit] = useState<'m2' | 'ml'>('m2');
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
+  const [attachments, setAttachments] = useState<QuoteAttachmentItem[]>([]);
+  const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   
   const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
+  const canUploadAttachments = isEditMode && !!quote?.id;
   const initKey = isEditMode && quote?.id
     ? `quote:${quote.id}`
     : blueprint?.id
@@ -180,6 +192,22 @@ export default function JobConfigScreen() {
                         setItems(mappedItems);
                         setPriceDrafts({});
                     }
+
+                    const { data: attachmentsData } = await supabase
+                        .from('quote_attachments')
+                        .select('*')
+                        .eq('quote_id', quote.id)
+                        .order('created_at', { ascending: false });
+                    if (attachmentsData) {
+                        const mappedAttachments = attachmentsData.map((item: any) => ({
+                            id: item.id?.toString() || `remote-${Date.now()}`,
+                            name: item.file_name || 'Imagen',
+                            url: item.file_url,
+                        }));
+                        setAttachments(mappedAttachments);
+                    } else {
+                        setAttachments([]);
+                    }
                 }
             } else if (blueprint) {
                 // Lógica para cargar desde blueprint (sin cambios)
@@ -209,6 +237,7 @@ export default function JobConfigScreen() {
                 setCustomToolUnit('m2');
                 setItems(mapped || []);
                 setPriceDrafts({});
+                setAttachments([]);
             } else {
                 setClientName('');
                 setClientAddress('');
@@ -223,6 +252,7 @@ export default function JobConfigScreen() {
                 setCustomToolUnit('m2');
                 setItems([]);
                 setPriceDrafts({});
+                setAttachments([]);
             }
             hasLoadedData.current = initKey;
         } catch (err) {
@@ -365,6 +395,109 @@ export default function JobConfigScreen() {
     setLaborToolOpen(false);
   };
 
+  const updateAttachment = (id: string, patch: Partial<QuoteAttachmentItem>) => {
+    setAttachments((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  };
+
+  const buildAttachmentFilePath = (userId: string, quoteId: string, fileName: string) => {
+    const cleanName = fileName.replace(/\s+/g, '_');
+    return `${userId}/quotes/${quoteId}/${Date.now()}_${cleanName}`;
+  };
+
+  const uploadAttachmentItems = async (
+    quoteId: string,
+    userId: string,
+    items: QuoteAttachmentItem[]
+  ) => {
+    if (!items.length) return true;
+
+    setAttachmentsUploading(true);
+    try {
+      for (const item of items) {
+        if (!item.localUri) continue;
+        updateAttachment(item.id, { isUploading: true });
+
+        const response = await fetch(item.localUri);
+        const blob = await response.blob();
+        const fileName = item.name || `imagen_${Date.now()}.jpg`;
+        const filePath = buildAttachmentFilePath(userId, quoteId, fileName);
+        const contentType = blob.type || 'image/jpeg';
+
+        const { error: uploadError } = await supabase.storage
+          .from('urbanfix-assets')
+          .upload(filePath, blob, {
+            contentType,
+            upsert: true,
+          });
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from('urbanfix-assets').getPublicUrl(filePath);
+        const publicUrl = data.publicUrl;
+
+        const { error: insertError } = await supabase.from('quote_attachments').insert({
+          quote_id: quoteId,
+          user_id: userId,
+          file_url: publicUrl,
+          file_name: fileName,
+          file_type: contentType,
+          file_size: blob.size || null,
+        });
+
+        if (insertError) throw insertError;
+
+        updateAttachment(item.id, { url: publicUrl, isUploading: false });
+      }
+      return true;
+    } catch (error) {
+      console.error('Error subiendo adjuntos:', error);
+      Alert.alert('Error', 'No pudimos subir las imagenes.');
+      return false;
+    } finally {
+      setAttachmentsUploading(false);
+    }
+  };
+
+  const handlePickAttachments = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso denegado', 'Necesitamos acceso a la galeria.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.7,
+    });
+
+    if (result.canceled) return;
+    const assets = result.assets || [];
+    if (!assets.length) return;
+
+    const stamp = Date.now();
+    const drafts: QuoteAttachmentItem[] = assets.map((asset, index) => ({
+      id: `local-${stamp}-${index}`,
+      name: asset.fileName || `imagen_${stamp}_${index}.jpg`,
+      localUri: asset.uri,
+      isUploading: canUploadAttachments,
+    }));
+
+    setAttachments((prev) => [...drafts, ...prev]);
+
+    if (canUploadAttachments && quote?.id) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Alert.alert('Sesion expirada', 'Vuelve a iniciar sesion.');
+        setAttachments((prev) =>
+          prev.map((item) => (drafts.some((draft) => draft.id === item.id) ? { ...item, isUploading: false } : item))
+        );
+        return;
+      }
+      await uploadAttachmentItems(quote.id, user.id, drafts);
+    }
+  };
+
   const handleSave = async () => {
       // Validaciones
       if (!clientName.trim()) return Alert.alert("Falta información", "Ingresa el nombre del cliente.");
@@ -413,6 +546,11 @@ export default function JobConfigScreen() {
             }));
             const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
             if (itemsError) throw itemsError;
+        }
+
+        const pendingAttachments = attachments.filter((item) => item.localUri && !item.url);
+        if (pendingAttachments.length > 0 && targetId) {
+          await uploadAttachmentItems(targetId, user.id, pendingAttachments);
         }
 
         handleSmartInteraction('heavy');
@@ -736,6 +874,60 @@ export default function JobConfigScreen() {
                     <View style={{ zIndex: 1, marginTop: 12 }}>
                         <View style={[styles.contentGrid, isWideLayout && styles.contentGridWide]}>
                             <View style={styles.mainColumn}>
+                                <View style={styles.panel}>
+                                    <View style={styles.panelHeader}>
+                                        <View style={styles.panelHeaderLeft}>
+                                            <Text style={styles.panelEyebrow}>ADJUNTOS</Text>
+                                            <Text style={styles.panelTitle}>Imagenes del trabajo</Text>
+                                            <Text style={styles.panelHint}>Subi fotos para compartir con el cliente.</Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={[styles.attachmentsAction, attachmentsUploading && styles.attachmentsActionDisabled]}
+                                            onPress={handlePickAttachments}
+                                            disabled={attachmentsUploading}
+                                        >
+                                            {attachmentsUploading ? (
+                                                <ActivityIndicator size="small" color={COLORS.primary} />
+                                            ) : (
+                                                <Ionicons name="cloud-upload-outline" size={18} color={COLORS.primary} />
+                                            )}
+                                            <Text style={styles.attachmentsActionText}>Agregar</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                    <View style={styles.attachmentsGrid}>
+                                        {attachments.length === 0 ? (
+                                            <TouchableOpacity style={styles.attachmentsEmpty} onPress={handlePickAttachments}>
+                                                <Ionicons name="image-outline" size={28} color="#94A3B8" />
+                                                <Text style={styles.attachmentsEmptyText}>Toca para subir imagenes</Text>
+                                            </TouchableOpacity>
+                                        ) : (
+                                            attachments.map((item) => {
+                                                const previewUri = item.url || item.localUri;
+                                                return (
+                                                    <View key={item.id} style={styles.attachmentTile}>
+                                                        {previewUri ? (
+                                                            <Image source={{ uri: previewUri }} style={styles.attachmentImage} />
+                                                        ) : (
+                                                            <View style={styles.attachmentPlaceholder}>
+                                                                <Ionicons name="image-outline" size={24} color="#CBD5E1" />
+                                                            </View>
+                                                        )}
+                                                        {item.isUploading && (
+                                                            <View style={styles.attachmentOverlay}>
+                                                                <ActivityIndicator color="#FFF" />
+                                                            </View>
+                                                        )}
+                                                    </View>
+                                                );
+                                            })
+                                        )}
+                                    </View>
+                                    <Text style={styles.attachmentsNote}>
+                                        {canUploadAttachments
+                                          ? 'Se suben al instante.'
+                                          : 'Se suben al guardar el presupuesto.'}
+                                    </Text>
+                                </View>
                                 <View style={styles.panel}>
                                     <View style={styles.panelHeader}>
                                         <View style={styles.panelHeaderLeft}>
@@ -1124,6 +1316,18 @@ const styles = StyleSheet.create({
   sideColumn: { width: 340, flexShrink: 0, gap: 16 },
   
   costsCard: { backgroundColor: '#F8FAFC', borderRadius: 16, padding: 16, borderWidth: 1, borderColor: '#E2E8F0' },
+
+  attachmentsAction: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
+  attachmentsActionDisabled: { opacity: 0.6 },
+  attachmentsActionText: { fontSize: 12, color: COLORS.primary, fontWeight: '700' },
+  attachmentsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  attachmentTile: { width: 86, height: 86, borderRadius: 12, overflow: 'hidden', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0' },
+  attachmentImage: { width: '100%', height: '100%' },
+  attachmentPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  attachmentOverlay: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', alignItems: 'center', justifyContent: 'center' },
+  attachmentsEmpty: { width: '100%', minHeight: 96, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', borderStyle: 'dashed', backgroundColor: '#F8FAFC', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  attachmentsEmptyText: { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  attachmentsNote: { marginTop: 8, fontSize: 11, color: '#94A3B8', fontWeight: '600' },
   
   tabsWrapper: { marginBottom: 12 },
   tabsContainer: { flexDirection: 'row', backgroundColor: '#F1F5F9', borderRadius: 14, padding: 4, borderWidth: 1, borderColor: '#E2E8F0' },
