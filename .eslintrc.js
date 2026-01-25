@@ -1,5 +1,13 @@
+let baseExtends = 'universe';
+
+try {
+  require.resolve('eslint-config-universe');
+} catch (_error) {
+  baseExtends = 'next/core-web-vitals';
+}
+
 module.exports = {
-  extends: 'universe',
+  extends: baseExtends,
   root: true,
   rules: {
     // Aquí agregaremos reglas custom si hacen falta.
