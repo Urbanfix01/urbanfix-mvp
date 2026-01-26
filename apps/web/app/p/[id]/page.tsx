@@ -47,10 +47,63 @@ export default function QuotePage() {
           setQuote((prev: any) => ({ ...prev, ...payload.new }));
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'quote_items',
+          filter: `quote_id=eq.${params.id}`
+        },
+        () => {
+          fetchQuoteItems(params.id as string);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'quote_attachments',
+          filter: `quote_id=eq.${params.id}`
+        },
+        () => {
+          fetchQuoteAttachments(params.id as string);
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [params.id]);
+
+  const fetchQuoteItems = async (quoteId: string) => {
+    const { data, error } = await supabase
+      .from('quote_items')
+      .select('*')
+      .eq('quote_id', quoteId);
+
+    if (error) {
+      console.error('Error cargando items:', error);
+      return;
+    }
+
+    setItems(data || []);
+  };
+
+  const fetchQuoteAttachments = async (quoteId: string) => {
+    const { data, error } = await supabase
+      .from('quote_attachments')
+      .select('*')
+      .eq('quote_id', quoteId)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error cargando adjuntos:', error);
+      return;
+    }
+
+    setAttachments(data || []);
+  };
 
   const fetchQuoteData = async (quoteId: string) => {
     try {
@@ -62,28 +115,11 @@ export default function QuotePage() {
 
       if (quoteError) throw quoteError;
 
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('quote_items')
-        .select('*')
-        .eq('quote_id', quoteId);
-
-      if (itemsError) throw itemsError;
-
-      const { data: attachmentsData, error: attachmentsError } = await supabase
-        .from('quote_attachments')
-        .select('*')
-        .eq('quote_id', quoteId)
-        .order('created_at', { ascending: false });
-
-      if (attachmentsError) {
-        console.error('Error cargando adjuntos:', attachmentsError);
-      }
-
       setQuote(quoteData);
       setProfile(quoteData.profiles);
-      setItems(itemsData || []);
-      setAttachments(attachmentsData || []);
       setAddressInput(quoteData.client_address || '');
+
+      await Promise.all([fetchQuoteItems(quoteId), fetchQuoteAttachments(quoteId)]);
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
@@ -223,14 +259,14 @@ export default function QuotePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:py-10 md:py-12 flex justify-center items-start font-sans antialiased">
+    <div className="min-h-screen bg-slate-100 py-6 pb-24 px-3 sm:px-4 sm:py-10 sm:pb-10 md:py-12 flex justify-center items-start font-sans antialiased">
       <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden ring-1 ring-slate-200/50 transition-all">
         
         {/* HEADER (Técnico / Empresa) */}
-        <div className="bg-[#0F172A] text-white p-6 sm:p-10 md:p-12 relative overflow-hidden">
+        <div className="bg-[#0F172A] text-white p-5 sm:p-10 md:p-12 relative overflow-hidden">
           <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-8 md:gap-10 relative z-10">
-            <div className="flex-1 space-y-5 sm:space-y-6">
+            <div className="flex-1 space-y-4 sm:space-y-6">
               {/* LOGO EMPRESA */}
               {profile?.company_logo_url && !imageError ? (
                 <img 
@@ -240,7 +276,7 @@ export default function QuotePage() {
                   className="h-14 sm:h-16 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 
                 />
               ) : (
-                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-wider text-white">
+                <h1 className="text-lg sm:text-2xl font-black uppercase tracking-wider text-white">
                   {profile?.business_name || profile?.full_name || 'PRESUPUESTO'}
                 </h1>
               )}
@@ -268,10 +304,10 @@ export default function QuotePage() {
               </div>
             </div>
 
-            <div className="text-left md:text-right space-y-4">
+            <div className="w-full md:w-auto text-left md:text-right space-y-3 md:space-y-4">
               <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5">Referencia</p>
-                  <p className="font-mono text-xl sm:text-2xl font-bold text-white tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
+                  <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-1.5">Referencia</p>
+                  <p className="font-mono text-lg sm:text-2xl font-bold text-white tracking-widest">#{quote.id.slice(0, 8).toUpperCase()}</p>
               </div>
               <div
                 className={
@@ -302,12 +338,12 @@ export default function QuotePage() {
         </div>
 
         {/* INFO CLIENTE & FECHA */}
-        <div className="p-6 sm:p-10 md:p-12 border-b border-slate-100 bg-slate-50/30">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-10">
+        <div className="p-5 sm:p-10 md:p-12 border-b border-slate-100 bg-slate-50/30">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-10">
             <div className="space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Icons.MapPin /> Facturar a</p>
               <div>
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
+                  <h2 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
                   {/* direccion CLIENTE CLICKEABLE CON MAPA */}
                   <div className="space-y-2">
                     {quote.client_address ? (
@@ -333,7 +369,7 @@ export default function QuotePage() {
                       <button
                         onClick={handleConfirmAddress}
                         disabled={addressSaving || !addressInput.trim()}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center gap-2 ${
+                        className={`w-full sm:w-auto px-4 py-2 rounded-lg text-sm font-semibold transition flex items-center justify-center gap-2 ${
                           addressSaving || !addressInput.trim()
                             ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
                             : 'bg-blue-600 text-white hover:bg-blue-500 active:scale-[0.99]'
@@ -345,7 +381,7 @@ export default function QuotePage() {
                   </div>
               </div>
             </div>
-            <div className="md:text-right space-y-3">
+            <div className="text-left md:text-right space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 md:justify-end"><Icons.Calendar /> Emisión</p>
               <div>
                   <p className="text-slate-900 font-bold text-xl">{new Date(quote.created_at).toLocaleDateString('es-AR')}</p>
@@ -356,13 +392,13 @@ export default function QuotePage() {
         </div>
 
         {/* TABLA DE ÍTEMS */}
-        <div className="p-6 sm:p-10 md:p-12 bg-white min-h-[350px]">
+        <div className="p-5 sm:p-10 md:p-12 bg-white min-h-[350px]">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Detalle</p>
               <h3 className="text-lg sm:text-xl font-bold text-slate-900">Items del presupuesto</h3>
             </div>
-            <span className="text-xs font-semibold text-slate-500">{items.length} items</span>
+            <span className="text-[11px] sm:text-xs font-semibold text-slate-500">{items.length} items</span>
           </div>
           <div className="hidden md:block">
             <table className="w-full text-left border-collapse">
@@ -438,7 +474,7 @@ export default function QuotePage() {
                             </span>
                           )}
                         </div>
-                        <div className="mt-3 grid grid-cols-3 gap-3 text-xs">
+                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-slate-400">Cant.</p>
                             <p className="mt-1 font-mono text-slate-700">{item.quantity}</p>
@@ -447,9 +483,9 @@ export default function QuotePage() {
                             <p className="text-[10px] uppercase tracking-wider text-slate-400">Unitario</p>
                             <p className="mt-1 font-mono text-slate-700">${item.unit_price?.toLocaleString('es-AR')}</p>
                           </div>
-                          <div className="text-right">
+                          <div className="col-span-2 flex items-center justify-between rounded-lg bg-white/80 px-3 py-2">
                             <p className="text-[10px] uppercase tracking-wider text-slate-400">Total</p>
-                            <p className="mt-1 font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
+                            <p className="font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
                           </div>
                         </div>
                       </div>
@@ -520,7 +556,7 @@ export default function QuotePage() {
         </div>
 
         {/* FOOTER & ACCIONES */}
-        <div className="bg-slate-50 px-6 sm:px-10 md:px-12 py-8 sm:py-10 border-t border-slate-200">
+        <div className="bg-slate-50 px-5 sm:px-10 md:px-12 py-6 sm:py-10 border-t border-slate-200">
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6 sm:gap-10">
               
              {/* Términos */}
@@ -529,7 +565,7 @@ export default function QuotePage() {
              </div>
 
              {/* BOTONES */}
-             <div className="flex flex-col sm:flex-row items-center gap-4 w-full lg:w-auto font-bold justify-center">
+             <div className="hidden sm:flex sm:flex-row items-center gap-4 w-full lg:w-auto font-bold justify-center">
                 
                 {/* 1. BOTÓN PDF (Tu componente existente) */}
                 <PDFExportButton quote={quote} items={items} profile={profile} />
@@ -551,6 +587,30 @@ export default function QuotePage() {
                   </div>
                 )}
              </div>
+          </div>
+        </div>
+
+        {/* BARRA DE ACCIONES FIJA EN MÓVIL */}
+        <div className="fixed bottom-0 left-0 right-0 z-30 sm:hidden">
+          <div className="border-t border-slate-200/80 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-3">
+              <PDFExportButton quote={quote} items={items} profile={profile} />
+              {!isApproved ? (
+                <button
+                  onClick={handleAccept}
+                  className="flex-1 flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98]"
+                >
+                  <span className="tracking-wide">ACEPTAR</span>
+                </button>
+              ) : (
+                <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3.5 text-sm font-semibold text-green-800 shadow-inner">
+                  <div className="rounded-full bg-green-600 p-1 text-white">
+                    <Icons.Check />
+                  </div>
+                  <span className="tracking-wide">APROBADO</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

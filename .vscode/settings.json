@@ -1,0 +1,7 @@
+{
+  "css.validate": false,
+  "scss.validate": false,
+  "files.associations": {
+    "**/supabase/migrations/*.sql": "postgresql"
+  }
+}

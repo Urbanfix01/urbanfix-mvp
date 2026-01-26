@@ -289,6 +289,7 @@ export default function TechniciansPage() {
   const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
 
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
+    if (isSaving) return;
     if (!clientName.trim()) {
       setFormError('Ingresa el nombre del cliente.');
       return;
@@ -318,9 +319,10 @@ export default function TechniciansPage() {
 
       let quoteId = activeQuoteId;
       if (quoteId) {
-        const { error } = await supabase.from('quotes').update(quotePayload).eq('id', quoteId);
-        if (error) throw error;
-        await supabase.from('quote_items').delete().eq('quote_id', quoteId);
+        const { error: updateError } = await supabase.from('quotes').update(quotePayload).eq('id', quoteId);
+        if (updateError) throw updateError;
+        const { error: deleteError } = await supabase.from('quote_items').delete().eq('quote_id', quoteId);
+        if (deleteError) throw deleteError;
       } else {
         const { data, error } = await supabase.from('quotes').insert(quotePayload).select().single();
         if (error) throw error;
