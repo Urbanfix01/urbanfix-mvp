@@ -391,6 +391,46 @@ export default function QuotePage() {
           </div>
         </div>
 
+        {/* RESUMEN RAPIDO (MÓVIL) */}
+        <div className="sm:hidden px-5 pb-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Resumen</p>
+              <p className="text-[11px] font-semibold text-slate-500">{items.length} items</p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Mano de obra</p>
+                <p className="mt-1 font-mono font-semibold text-slate-900">
+                  ${laborSubtotal.toLocaleString('es-AR')}
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Materiales</p>
+                <p className="mt-1 font-mono font-semibold text-slate-900">
+                  ${materialSubtotal.toLocaleString('es-AR')}
+                </p>
+              </div>
+              <div className="col-span-2 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
+                <span className="text-[10px] uppercase tracking-wider text-slate-400">Subtotal</span>
+                <span className="font-mono text-slate-800">${subtotal.toLocaleString('es-AR')}</span>
+              </div>
+              {tax > 0 && (
+                <div className="col-span-2 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
+                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
+                    IVA ({(taxRate * 100).toFixed(0)}%)
+                  </span>
+                  <span className="font-mono text-slate-800">+ ${tax.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+              <div className="col-span-2 flex items-center justify-between rounded-xl bg-slate-900 px-3 py-2 text-white">
+                <span className="text-[10px] uppercase tracking-wider text-white/70">Total</span>
+                <span className="font-mono text-base font-bold">${total.toLocaleString('es-AR')}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* TABLA DE ÍTEMS */}
         <div className="p-5 sm:p-10 md:p-12 bg-white min-h-[350px]">
           <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -593,23 +633,29 @@ export default function QuotePage() {
         {/* BARRA DE ACCIONES FIJA EN MÓVIL */}
         <div className="fixed bottom-0 left-0 right-0 z-30 sm:hidden">
           <div className="border-t border-slate-200/80 bg-white/95 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-4xl items-center gap-3 px-4 py-3">
-              <PDFExportButton quote={quote} items={items} profile={profile} />
-              {!isApproved ? (
-                <button
-                  onClick={handleAccept}
-                  className="flex-1 flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98]"
-                >
-                  <span className="tracking-wide">ACEPTAR</span>
-                </button>
-              ) : (
-                <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3.5 text-sm font-semibold text-green-800 shadow-inner">
-                  <div className="rounded-full bg-green-600 p-1 text-white">
-                    <Icons.Check />
+            <div className="mx-auto w-full max-w-4xl px-4 py-3">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-slate-600">
+                <span>Total</span>
+                <span className="font-mono text-slate-900">${total.toLocaleString('es-AR')}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-3">
+                <PDFExportButton quote={quote} items={items} profile={profile} />
+                {!isApproved ? (
+                  <button
+                    onClick={handleAccept}
+                    className="flex-1 flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98]"
+                  >
+                    <span className="tracking-wide">ACEPTAR</span>
+                  </button>
+                ) : (
+                  <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3.5 text-sm font-semibold text-green-800 shadow-inner">
+                    <div className="rounded-full bg-green-600 p-1 text-white">
+                      <Icons.Check />
+                    </div>
+                    <span className="tracking-wide">APROBADO</span>
                   </div>
-                  <span className="tracking-wide">APROBADO</span>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
         </div>
