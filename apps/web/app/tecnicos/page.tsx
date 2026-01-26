@@ -87,7 +87,7 @@ const extractQuoteId = (value: string) => {
 };
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
+  draft: { label: 'Computo', className: 'bg-slate-100 text-slate-600' },
   sent: { label: 'Enviado', className: 'bg-sky-100 text-sky-700' },
   presented: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   approved: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-700' },
@@ -106,6 +106,24 @@ const approvedStatuses = new Set(['approved', 'accepted']);
 const draftStatuses = new Set(['draft', 'borrador']);
 const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
 const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
+
+const normalizeStatusValue = (status?: string | null) => {
+  const normalized = (status || '').toLowerCase();
+  if (!normalized) return 'draft';
+  if (normalized === 'accepted') return 'approved';
+  if (normalized === 'finalizado') return 'completed';
+  if (normalized === 'cobrado' || normalized === 'cobrados' || normalized === 'pagado' || normalized === 'pagados')
+    return 'paid';
+  if (normalized === 'presented' || normalized === 'sent' || normalized === 'pending') return normalized;
+  if (normalized === 'approved' || normalized === 'completed' || normalized === 'paid' || normalized === 'draft')
+    return normalized;
+  if (draftStatuses.has(normalized)) return 'draft';
+  if (pendingStatuses.has(normalized)) return 'pending';
+  if (approvedStatuses.has(normalized)) return 'approved';
+  if (completedStatuses.has(normalized)) return 'completed';
+  if (paidStatuses.has(normalized)) return 'paid';
+  return 'draft';
+};
 
 const toNumber = (value: string) => {
   const normalized = value.replace(',', '.');
@@ -180,6 +198,16 @@ export default function TechniciansPage() {
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF' },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM' },
   ] as const;
+
+  const statusOptions = [
+    { value: 'draft', label: 'Computo' },
+    { value: 'pending', label: 'Pendiente' },
+    { value: 'sent', label: 'Enviado' },
+    { value: 'presented', label: 'Presentado' },
+    { value: 'approved', label: 'Aprobado' },
+    { value: 'completed', label: 'Finalizado' },
+    { value: 'paid', label: 'Cobrado' },
+  ];
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -423,6 +451,22 @@ export default function TechniciansPage() {
   const handleShowQuotes = (filter: 'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid') => {
     setQuoteFilter(filter);
     setActiveTab('presupuestos');
+  };
+
+  const handleStatusChange = async (quoteId: string, nextStatus: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .update({ status: nextStatus })
+        .eq('id', quoteId)
+        .select('id, status')
+        .single();
+      if (error) throw error;
+      setQuotes((prev) => prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote)));
+    } catch (error: any) {
+      console.error('Error actualizando estado:', error);
+      alert(error?.message || 'No pudimos actualizar el estado.');
+    }
   };
 
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
@@ -931,8 +975,8 @@ export default function TechniciansPage() {
                           ? 'Pendientes'
                           : quoteFilter === 'approved'
                             ? 'Aprobados'
-                            : quoteFilter === 'draft'
-                              ? 'Borrador'
+                          : quoteFilter === 'draft'
+                              ? 'Computo'
                               : quoteFilter === 'completed'
                                 ? 'Finalizados'
                                 : 'Cobrados'}
@@ -946,7 +990,7 @@ export default function TechniciansPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {[
                     { key: 'all', label: 'Todos' },
-                    { key: 'draft', label: 'Borrador' },
+                    { key: 'draft', label: 'Computo' },
                     { key: 'pending', label: 'Pendientes' },
                     { key: 'approved', label: 'Aprobados' },
                     { key: 'completed', label: 'Finalizados' },
@@ -981,25 +1025,38 @@ export default function TechniciansPage() {
                       label: (quote.status || 'N/A').toUpperCase(),
                       className: 'bg-slate-100 text-slate-600',
                     };
-                    return (
-                      <button
-                        key={quote.id}
-                        type="button"
-                        onClick={() => handleViewQuote(quote)}
-                        className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                          activeQuoteId === quote.id
-                            ? 'border-slate-300 bg-slate-50 shadow-sm'
-                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <p className="text-sm font-semibold text-slate-900">
-                            {quote.client_name || 'Presupuesto'}
-                          </p>
-                          <span className={`rounded-full px-3 py-1 text-[10px] font-semibold ${info.className}`}>
-                            {info.label}
-                          </span>
-                        </div>
+                      return (
+                        <button
+                          key={quote.id}
+                          type="button"
+                          onClick={() => handleViewQuote(quote)}
+                          className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                            activeQuoteId === quote.id
+                              ? 'border-slate-300 bg-slate-50 shadow-sm'
+                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {quote.client_name || 'Presupuesto'}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className={`rounded-full px-3 py-1 text-[10px] font-semibold ${info.className}`}>
+                                {info.label}
+                              </span>
+                              <select
+                                value={normalizeStatusValue(quote.status)}
+                                onChange={(event) => handleStatusChange(quote.id, event.target.value)}
+                                className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 outline-none hover:border-slate-300"
+                              >
+                                {statusOptions.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
                         <p className="mt-1 text-xs text-slate-500">
                           {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
                           {new Date(quote.created_at).toLocaleDateString('es-AR')}
