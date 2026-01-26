@@ -23,6 +23,7 @@ export default function QuotePage() {
   const [profile, setProfile] = useState<any>(null);
   const [addressInput, setAddressInput] = useState('');
   const [addressSaving, setAddressSaving] = useState(false);
+  const [accepting, setAccepting] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
   const [revisionMode, setRevisionMode] = useState(false);
@@ -159,16 +160,21 @@ export default function QuotePage() {
   // --- ACCIONES ---
   const handleAccept = async () => {
     if (!confirm('¿Confirmas la aceptación formal de este presupuesto?')) return;
-    
-    // Usamos RPC o Update directo según tus políticas RLS (aquí asumo RPC por tu código anterior)
-    // Si no tienes RPC configurado para update publico, esto podría requerir ajustes en Supabase
-    const { error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
-
-    if (!error) {
-      setQuote({ ...quote, status: 'approved' }); // Optimistic update
-    } else {
-      console.error('Error RPC:', error);
-      alert('No se pudo confirmar el presupuesto. Intenta nuevamente.');
+    if (accepting) return;
+    try {
+      setAccepting(true);
+      const { data, error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
+      if (error) throw error;
+      if (data && data.id) {
+        setQuote(data);
+      } else {
+        await fetchQuoteData(quote.id);
+      }
+    } catch (err: any) {
+      console.error('Error RPC:', err);
+      alert(err?.message || 'No se pudo confirmar el presupuesto. Intenta nuevamente.');
+    } finally {
+      setAccepting(false);
     }
   };
 
@@ -368,6 +374,20 @@ export default function QuotePage() {
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
   const isPresented = ['presented', 'pending', 'pendiente', 'sent'].includes(statusNormalized);
+  const isCompleted = ['completed', 'completado'].includes(statusNormalized);
+  const isRejected = ['rejected', 'rechazado'].includes(statusNormalized);
+  const roadmapSteps = [
+    { key: 'draft', label: 'Borrador' },
+    { key: 'sent', label: 'Enviado' },
+    { key: 'approved', label: 'Aprobado' },
+    { key: 'completed', label: 'Finalizado' },
+  ];
+  const roadmapIndex = (() => {
+    if (isCompleted) return 3;
+    if (isApproved) return 2;
+    if (isPresented) return 1;
+    return 0;
+  })();
 
   // --- ICONOS SVG ---
   const Icons = {
@@ -497,6 +517,40 @@ export default function QuotePage() {
               </div>
             </div>
           </div>
+
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Roadmap</p>
+              <span
+                className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+                  isRejected ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
+                }`}
+              >
+                {isRejected ? 'Rechazado' : roadmapSteps[roadmapIndex]?.label || 'Borrador'}
+              </span>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-4">
+              {roadmapSteps.map((step, index) => {
+                const isActive = index === roadmapIndex;
+                const isDone = index < roadmapIndex || (isCompleted && index === roadmapSteps.length - 1);
+                return (
+                  <div
+                    key={step.key}
+                    className={`rounded-xl border px-3 py-3 text-xs font-semibold uppercase tracking-wide ${
+                      isDone
+                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : isActive
+                          ? 'border-slate-300 bg-slate-100 text-slate-700'
+                          : 'border-slate-200 bg-white text-slate-400'
+                    }`}
+                  >
+                    {step.label}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-10">
             <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5 space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Icons.MapPin /> Facturar a</p>
@@ -804,9 +858,16 @@ export default function QuotePage() {
                   {!isApproved ? (
                     <button 
                       onClick={handleAccept}
-                      className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg hover:shadow-emerald-500/40 transition-all active:scale-[0.98] w-full sm:w-auto"
+                      disabled={accepting}
+                      className={`flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 rounded-xl shadow-lg transition-all active:scale-[0.98] w-full sm:w-auto ${
+                        accepting
+                          ? 'bg-emerald-300 text-white/80 cursor-not-allowed'
+                          : 'bg-emerald-600 text-white hover:bg-emerald-500 hover:shadow-emerald-500/40'
+                      }`}
                     >
-                      <span className="tracking-wide text-base sm:text-lg">ACEPTAR PRESUPUESTO</span>
+                      <span className="tracking-wide text-base sm:text-lg">
+                        {accepting ? 'ACEPTANDO...' : 'ACEPTAR PRESUPUESTO'}
+                      </span>
                     </button>
                   ) : (
                     <div className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl cursor-default shadow-inner w-full sm:w-auto">
@@ -847,9 +908,14 @@ export default function QuotePage() {
                   {!isApproved ? (
                     <button
                       onClick={handleAccept}
-                      className="flex-1 flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98]"
+                      disabled={accepting}
+                      className={`flex-1 flex items-center justify-center gap-3 rounded-xl px-4 py-3.5 text-sm font-semibold shadow-lg transition-all active:scale-[0.98] ${
+                        accepting
+                          ? 'bg-emerald-300 text-white/80 cursor-not-allowed'
+                          : 'bg-emerald-600 text-white shadow-emerald-500/40'
+                      }`}
                     >
-                      <span className="tracking-wide">ACEPTAR</span>
+                      <span className="tracking-wide">{accepting ? 'ACEPTANDO...' : 'ACEPTAR'}</span>
                     </button>
                   ) : (
                     <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3.5 text-sm font-semibold text-green-800 shadow-inner">

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Sora } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 
 type QuoteRow = {
@@ -41,6 +41,20 @@ const TAX_RATE = 0.21;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
+
+const themeStyles = {
+  '--ui-bg': '#F5F4F0',
+  '--ui-card': '#FFFFFF',
+  '--ui-ink': '#0F172A',
+  '--ui-muted': '#64748B',
+  '--ui-accent': '#111827',
+  '--ui-accent-soft': '#F5B942',
+} as React.CSSProperties;
+
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 
 const getPublicBaseUrl = () => {
@@ -56,17 +70,42 @@ const getPublicBaseUrl = () => {
 
 const buildQuoteLink = (quoteId: string) => `${getPublicBaseUrl()}/p/${quoteId}`;
 
-const statusMap: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Borrador', className: 'bg-white/10 text-white/70' },
-  sent: { label: 'Enviado', className: 'bg-sky-500/20 text-sky-200' },
-  presented: { label: 'Presentado', className: 'bg-sky-500/20 text-sky-200' },
-  approved: { label: 'Aprobado', className: 'bg-emerald-500/20 text-emerald-200' },
-  accepted: { label: 'Aceptado', className: 'bg-emerald-500/20 text-emerald-200' },
-  pending: { label: 'Pendiente', className: 'bg-amber-500/20 text-amber-200' },
-  rejected: { label: 'Rechazado', className: 'bg-rose-500/20 text-rose-200' },
-  locked: { label: 'Bloqueado', className: 'bg-slate-500/20 text-slate-200' },
-  completed: { label: 'Completado', className: 'bg-indigo-500/20 text-indigo-200' },
+const isUuid = (value: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
+
+const extractQuoteId = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return '';
+  const match = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (match) return match[0];
+  if (trimmed.includes('/p/')) {
+    const [, tail] = trimmed.split('/p/');
+    const clean = tail?.split(/[?#]/)[0] || '';
+    return clean;
+  }
+  return trimmed;
 };
+
+const statusMap: Record<string, { label: string; className: string }> = {
+  draft: { label: 'Borrador', className: 'bg-slate-100 text-slate-600' },
+  sent: { label: 'Enviado', className: 'bg-sky-100 text-sky-700' },
+  presented: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
+  approved: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-700' },
+  accepted: { label: 'Aceptado', className: 'bg-emerald-100 text-emerald-700' },
+  pending: { label: 'Pendiente', className: 'bg-amber-100 text-amber-700' },
+  paid: { label: 'Cobrado', className: 'bg-emerald-50 text-emerald-700' },
+  cobrado: { label: 'Cobrado', className: 'bg-emerald-50 text-emerald-700' },
+  rejected: { label: 'Rechazado', className: 'bg-rose-100 text-rose-700' },
+  locked: { label: 'Bloqueado', className: 'bg-slate-200 text-slate-600' },
+  completed: { label: 'Completado', className: 'bg-indigo-100 text-indigo-700' },
+  finalizado: { label: 'Finalizado', className: 'bg-indigo-100 text-indigo-700' },
+};
+
+const pendingStatuses = new Set(['pending', 'sent', 'presented']);
+const approvedStatuses = new Set(['approved', 'accepted']);
+const draftStatuses = new Set(['draft', 'borrador']);
+const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
+const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
 
 const toNumber = (value: string) => {
   const normalized = value.replace(',', '.');
@@ -98,7 +137,6 @@ const buildItemsSignature = (items: ItemForm[]) =>
   );
 
 export default function TechniciansPage() {
-  const router = useRouter();
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -124,6 +162,24 @@ export default function TechniciansPage() {
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
+  const [activeTab, setActiveTab] = useState<
+    'lobby' | 'presupuestos' | 'visualizador' | 'agenda' | 'perfil' | 'precios'
+  >('lobby');
+  const [viewerInput, setViewerInput] = useState('');
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerError, setViewerError] = useState('');
+  const [quoteFilter, setQuoteFilter] = useState<'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid'>(
+    'all'
+  );
+
+  const navItems = [
+    { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB' },
+    { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR' },
+    { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI' },
+    { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG' },
+    { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF' },
+    { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM' },
+  ] as const;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -192,6 +248,7 @@ export default function TechniciansPage() {
   };
 
   const loadQuote = async (quote: QuoteRow) => {
+    setActiveTab('presupuestos');
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
     setClientAddress(getQuoteAddress(quote));
@@ -306,6 +363,67 @@ export default function TechniciansPage() {
   const taxAmount = applyTax ? totalBeforeTax * TAX_RATE : 0;
   const total = totalBeforeTax + taxAmount;
   const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
+  const quoteStats = useMemo(() => {
+    const totals = quotes.reduce(
+      (acc, quote) => {
+        const status = (quote.status || '').toLowerCase();
+        if (status === 'draft') acc.draft += 1;
+        if (pendingStatuses.has(status)) acc.pending += 1;
+        if (approvedStatuses.has(status)) acc.approved += 1;
+        acc.amount += quote.total_amount || 0;
+        return acc;
+      },
+      { draft: 0, pending: 0, approved: 0, amount: 0 }
+    );
+    return {
+      total: quotes.length,
+      ...totals,
+    };
+  }, [quotes]);
+  const recentQuotes = useMemo(() => quotes.slice(0, 3), [quotes]);
+  const filteredQuotes = useMemo(() => {
+    if (quoteFilter === 'pending') {
+      return quotes.filter((quote) => pendingStatuses.has((quote.status || '').toLowerCase()));
+    }
+    if (quoteFilter === 'approved') {
+      return quotes.filter((quote) => approvedStatuses.has((quote.status || '').toLowerCase()));
+    }
+    if (quoteFilter === 'draft') {
+      return quotes.filter((quote) => draftStatuses.has((quote.status || '').toLowerCase()));
+    }
+    if (quoteFilter === 'completed') {
+      return quotes.filter((quote) => completedStatuses.has((quote.status || '').toLowerCase()));
+    }
+    if (quoteFilter === 'paid') {
+      return quotes.filter((quote) => paidStatuses.has((quote.status || '').toLowerCase()));
+    }
+    return quotes;
+  }, [quotes, quoteFilter]);
+
+  const handleOpenViewer = () => {
+    const id = extractQuoteId(viewerInput);
+    if (!id || !isUuid(id)) {
+      setViewerError('Ingresa un ID valido o pega un link correcto.');
+      setViewerUrl(null);
+      return;
+    }
+    setViewerError('');
+    setViewerUrl(buildQuoteLink(id));
+  };
+
+  const handleViewQuote = (quote: QuoteRow) => {
+    const nextUrl = buildQuoteLink(quote.id);
+    setActiveQuoteId(quote.id);
+    setViewerInput(nextUrl);
+    setViewerUrl(nextUrl);
+    setViewerError('');
+    setActiveTab('visualizador');
+  };
+
+  const handleShowQuotes = (filter: 'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid') => {
+    setQuoteFilter(filter);
+    setActiveTab('presupuestos');
+  };
 
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
     if (savingRef.current || isSaving) return;
@@ -470,8 +588,11 @@ export default function TechniciansPage() {
 
   if (loadingSession) {
     return (
-      <div className="min-h-screen bg-[#0A0F1E] text-white flex items-center justify-center">
-        <div className="rounded-2xl border border-white/10 bg-white/10 px-6 py-4 text-sm text-white/70">
+      <div
+        style={themeStyles}
+        className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+      >
+        <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
           Cargando...
         </div>
       </div>
@@ -480,53 +601,56 @@ export default function TechniciansPage() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-[#0A0F1E] text-white">
+      <div
+        style={themeStyles}
+        className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+      >
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.35),_transparent_55%)]" />
-          <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F39C12]/20 blur-3xl" />
-          <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/20 blur-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]" />
+          <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl" />
+          <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl" />
 
           <main className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-6 text-center md:text-left">
               <div className="flex items-center justify-center gap-3 md:justify-start">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg shadow-slate-200/60">
                   <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
-                  <p className="text-sm font-semibold text-white/80">Panel tecnico</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
+                  <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
                 </div>
               </div>
-              <h1 className="text-5xl font-black text-white md:text-6xl">Acceso para tecnicos</h1>
-              <p className="text-base text-white/70 md:text-lg">
+              <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Acceso para tecnicos</h1>
+              <p className="text-base text-slate-600 md:text-lg">
                 Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.
               </p>
               <a
                 href="https://www.urbanfixar.com"
-                className="inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
+                className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
               >
                 Volver al inicio
               </a>
             </div>
 
-            <div className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur">
+            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
               <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-white">Ingresa a tu cuenta</h2>
-                <p className="text-sm text-white/70">Accede con Google o con tu correo.</p>
+                <h2 className="text-2xl font-bold text-slate-900">Ingresa a tu cuenta</h2>
+                <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
               </div>
 
               <button
                 type="button"
                 onClick={handleGoogleLogin}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white"
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
               >
                 Continuar con Google
               </button>
 
-              <div className="my-5 flex items-center gap-3 text-xs text-white/50">
-                <div className="h-px flex-1 bg-white/10" />
+              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                <div className="h-px flex-1 bg-slate-200" />
                 o
-                <div className="h-px flex-1 bg-white/10" />
+                <div className="h-px flex-1 bg-slate-200" />
               </div>
 
               {authMode === 'register' && (
@@ -535,13 +659,13 @@ export default function TechniciansPage() {
                     value={fullName}
                     onChange={(event) => setFullName(event.target.value)}
                     placeholder="Nombre completo"
-                    className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   />
                   <input
                     value={businessName}
                     onChange={(event) => setBusinessName(event.target.value)}
                     placeholder="Nombre del negocio"
-                    className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   />
                 </div>
               )}
@@ -551,23 +675,23 @@ export default function TechniciansPage() {
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   placeholder="Correo"
-                  className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
                 <input
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   type="password"
                   placeholder="Contrasena"
-                  className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
               </div>
 
-              {authError && <p className="mt-4 text-xs text-[#F39C12]">{authError}</p>}
+              {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
 
               <button
                 type="button"
                 onClick={handleEmailAuth}
-                className="mt-5 w-full rounded-2xl bg-[#F39C12] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B]"
+                className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
               >
                 {authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
               </button>
@@ -575,7 +699,7 @@ export default function TechniciansPage() {
               <button
                 type="button"
                 onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                className="mt-4 w-full text-sm text-white/70 hover:text-white"
+                className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
               >
                 {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
               </button>
@@ -587,325 +711,432 @@ export default function TechniciansPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white">
+    <div
+      style={themeStyles}
+      className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+    >
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.35),_transparent_55%)]" />
-        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F39C12]/20 blur-3xl" />
-        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/20 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
+        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
+        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <header className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-6 pt-10 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
-              <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+        <header className="relative mx-auto mt-8 w-full max-w-6xl rounded-3xl border border-slate-200 bg-white/80 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 ring-1 ring-slate-200 shadow-lg shadow-slate-200/40">
+                <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
+                <p className="text-sm font-semibold text-slate-800">
+                  {profile?.business_name || 'Panel tecnico'}
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
-              <p className="text-sm font-semibold text-white/80">
-                {profile?.business_name || 'Panel tecnico'}
-              </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  resetForm();
+                  setActiveTab('presupuestos');
+                }}
+                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+              >
+                Nuevo presupuesto
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+              >
+                Cerrar sesion
+              </button>
             </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={resetForm}
-              className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
-            >
-              Nuevo presupuesto
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
-            >
-              Cerrar sesion
-            </button>
-          </div>
-        </header>
 
-        <main className="relative mx-auto grid w-full max-w-6xl gap-8 px-6 pb-16 pt-8 lg:grid-cols-[0.9fr_1.1fr]">
-          <section className="rounded-3xl border border-white/12 bg-white/10 p-6 shadow-2xl backdrop-blur">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-white">Presupuestos</h2>
-              <span className="rounded-full bg-[#0EA5E9]/20 px-3 py-1 text-[10px] font-semibold text-[#7DD3FC]">
-                {quotes.length} activos
-              </span>
-            </div>
-            <div className="mt-5 space-y-3">
-              {quotes.length === 0 && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-                  Aun no tienes presupuestos. Crea el primero desde el panel.
-                </div>
-              )}
-              {quotes.map((quote) => {
-                const info = statusMap[quote.status || ''] || {
-                  label: (quote.status || 'N/A').toUpperCase(),
-                  className: 'bg-white/10 text-white/70',
-                };
+          <div className="mt-4 rounded-full border border-slate-200 bg-slate-50/90 p-2 shadow-sm backdrop-blur">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {navItems.map((item) => {
+                const isActive = activeTab === item.key;
                 return (
                   <button
-                    key={quote.id}
+                    key={item.key}
                     type="button"
-                    onClick={() => loadQuote(quote)}
-                    className={`w-full rounded-2xl border border-white/10 px-4 py-3 text-left transition ${
-                      activeQuoteId === quote.id ? 'bg-white/15' : 'bg-white/5 hover:bg-white/10'
+                    onClick={() => {
+                      setActiveTab(item.key);
+                      if (item.key === 'presupuestos') setQuoteFilter('all');
+                    }}
+                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                      isActive
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'bg-white text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                     }`}
                   >
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-white">
-                        {quote.client_name || 'Presupuesto'}
-                      </p>
-                      <span className={`rounded-full px-3 py-1 text-[10px] font-semibold ${info.className}`}>
-                        {info.label}
-                      </span>
-                    </div>
-                    <p className="mt-1 text-xs text-white/60">
-                      {getQuoteAddress(quote) || 'Sin direccion'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
-                    </p>
-                    <p className="mt-3 text-sm font-semibold text-white">
-                      ${(quote.total_amount || 0).toLocaleString('es-AR')}
-                    </p>
+                    {item.label}
                   </button>
                 );
               })}
+              <span className="ml-auto hidden shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-slate-500 sm:inline-flex">
+                {quotes.length} activos
+              </span>
             </div>
-          </section>
+          </div>
+        </header>
 
-          <section className="rounded-3xl border border-white/12 bg-white/10 p-6 shadow-2xl backdrop-blur">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="text-xl font-semibold text-white">
-                  {activeQuoteId ? 'Editar presupuesto' : 'Nuevo presupuesto'}
-                </h2>
-                <p className="text-sm text-white/60">Completa los datos y guarda.</p>
-              </div>
-              {activeQuoteId && (
-                <button
-                  type="button"
-                  onClick={() => handleCopyLink()}
-                  className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
-                >
-                  Copiar link
-                </button>
-              )}
-            </div>
+        <main className="relative mx-auto w-full max-w-6xl px-6 pb-16 pt-6">
+          <section className="space-y-6">
+            {activeTab === 'lobby' && (
+              <div className="space-y-6">
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Total presupuestos</p>
+                      <button
+                        type="button"
+                        onClick={() => handleShowQuotes('all')}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                      >
+                        Ver
+                      </button>
+                    </div>
+                    <p className="mt-3 text-2xl font-semibold text-slate-900">{quoteStats.total}</p>
+                    <p className="mt-1 text-xs text-slate-500">Activos en tu cuenta</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pendientes</p>
+                      <button
+                        type="button"
+                        onClick={() => handleShowQuotes('pending')}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                      >
+                        Ver
+                      </button>
+                    </div>
+                    <p className="mt-3 text-2xl font-semibold text-amber-600">{quoteStats.pending}</p>
+                    <p className="mt-1 text-xs text-slate-500">En espera de respuesta</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Aprobados</p>
+                      <button
+                        type="button"
+                        onClick={() => handleShowQuotes('approved')}
+                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                      >
+                        Ver
+                      </button>
+                    </div>
+                    <p className="mt-3 text-2xl font-semibold text-emerald-600">{quoteStats.approved}</p>
+                    <p className="mt-1 text-xs text-slate-500">Listos para ejecutar</p>
+                  </div>
+                </div>
 
-            {activeQuoteId && (
-              <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-xs text-white/70">
-                <p className="text-[10px] uppercase tracking-[0.2em] text-white/50">Link publico</p>
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    value={quoteLink}
-                    readOnly
-                    className="w-full rounded-xl border border-white/10 bg-[#101827] px-3 py-2 text-xs text-white/80 outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => handleOpenQuoteWindow()}
-                    className="inline-flex items-center justify-center rounded-xl border border-white/20 px-3 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
-                  >
-                    Abrir en ventana
-                  </button>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Facturacion estimada</p>
+                    <p className="mt-3 text-2xl font-semibold text-slate-900">
+                      ${quoteStats.amount.toLocaleString('es-AR')}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Suma de todos los presupuestos activos.</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          resetForm();
+                          setActiveTab('presupuestos');
+                        }}
+                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                      >
+                        Crear presupuesto
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('visualizador')}
+                        className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                      >
+                        Abrir visualizador
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ultimos presupuestos</p>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('presupuestos')}
+                        className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                      >
+                        Ver todos
+                      </button>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {recentQuotes.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
+                          Todavia no hay presupuestos cargados.
+                        </div>
+                      )}
+                      {recentQuotes.map((quote) => (
+                        <button
+                          key={quote.id}
+                          type="button"
+                          onClick={() => loadQuote(quote)}
+                          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-100"
+                        >
+                          <div>
+                            <p className="font-semibold text-slate-800">{quote.client_name || 'Presupuesto'}</p>
+                            <p className="text-xs text-slate-500">
+                              {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-900">
+                            ${(quote.total_amount || 0).toLocaleString('es-AR')}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {navItems
+                    .filter((item) => item.key !== 'lobby')
+                    .map((item) => (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => setActiveTab(item.key)}
+                        className="rounded-3xl border border-slate-200 bg-white px-4 py-5 text-left shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">{item.hint}</p>
+                      </button>
+                    ))}
                 </div>
               </div>
             )}
 
-            <div className="mt-5 grid gap-4 md:grid-cols-2">
-              <input
-                value={clientName}
-                onChange={(event) => setClientName(event.target.value)}
-                placeholder="Nombre del cliente"
-                className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
-              />
-              <input
-                value={clientAddress}
-                onChange={(event) => setClientAddress(event.target.value)}
-                placeholder="Direccion del trabajo"
-                className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
-              />
-            </div>
-
-            <div className="mt-6 flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-white">Items</h3>
-              <button
-                type="button"
-                onClick={handleAddItem}
-                className="rounded-full border border-white/20 px-3 py-1 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
-              >
-                Agregar item
-              </button>
-            </div>
-
-            <div className="mt-4 space-y-3">
-              {items.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <div className="grid gap-3 md:grid-cols-[1.4fr_0.6fr_0.6fr_0.6fr_auto]">
-                    <input
-                      value={item.description}
-                      onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
-                      placeholder="Descripcion del item"
-                      className="w-full rounded-xl border border-white/10 bg-[#101827] px-3 py-2 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
-                    />
-                    <input
-                      value={item.quantity}
-                      onChange={(event) => handleItemUpdate(item.id, { quantity: toNumber(event.target.value) })}
-                      type="number"
-                      min="1"
-                      step="1"
-                      placeholder="Cant."
-                      className="w-full rounded-xl border border-white/10 bg-[#101827] px-3 py-2 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
-                    />
-                    <input
-                      value={item.unitPrice}
-                      onChange={(event) => handleItemUpdate(item.id, { unitPrice: toNumber(event.target.value) })}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      placeholder="Precio"
-                      className="w-full rounded-xl border border-white/10 bg-[#101827] px-3 py-2 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
-                    />
-                    <select
-                      value={item.type}
-                      onChange={(event) =>
-                        handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
-                      }
-                      className="w-full rounded-xl border border-white/10 bg-[#101827] px-3 py-2 text-sm text-white outline-none"
-                    >
-                      <option value="labor">Mano de obra</option>
-                      <option value="material">Material</option>
-                    </select>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="rounded-xl border border-white/15 px-3 py-2 text-xs text-white/70 hover:text-white"
-                    >
-                      Quitar
-                    </button>
+            {activeTab === 'presupuestos' && (
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-lg font-semibold text-slate-900">Presupuestos</h2>
+                    <p className="text-xs text-slate-500">Listado y estado actual de tus presupuestos.</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {quoteFilter !== 'all' && (
+                      <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
+                        {quoteFilter === 'pending'
+                          ? 'Pendientes'
+                          : quoteFilter === 'approved'
+                            ? 'Aprobados'
+                            : quoteFilter === 'draft'
+                              ? 'Borrador'
+                              : quoteFilter === 'completed'
+                                ? 'Finalizados'
+                                : 'Cobrados'}
+                      </span>
+                    )}
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
+                      {filteredQuotes.length} activos
+                    </span>
                   </div>
                 </div>
-              ))}
-              {items.length === 0 && (
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/60">
-                  Agrega items para calcular el total.
-                </div>
-              )}
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-white">Archivos del presupuesto</h3>
-                  <p className="text-xs text-white/50">Sube imagenes para que el cliente las vea.</p>
-                </div>
-                <label
-                  className={`inline-flex items-center justify-center rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white/80 transition hover:border-white/50 hover:text-white ${
-                    uploadingAttachments || !activeQuoteId ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'
-                  }`}
-                >
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleAttachmentUpload}
-                    disabled={!activeQuoteId || uploadingAttachments}
-                    className="sr-only"
-                  />
-                  {uploadingAttachments ? 'Subiendo...' : 'Subir archivos'}
-                </label>
-              </div>
-              {attachments.length > 0 ? (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  {attachments.map((file) => (
-                    <a
-                      key={file.id}
-                      href={file.file_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="group rounded-xl border border-white/10 bg-[#0B1220] p-3 transition hover:border-white/30"
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    { key: 'all', label: 'Todos' },
+                    { key: 'draft', label: 'Borrador' },
+                    { key: 'pending', label: 'Pendientes' },
+                    { key: 'approved', label: 'Aprobados' },
+                    { key: 'completed', label: 'Finalizados' },
+                    { key: 'paid', label: 'Cobrados' },
+                  ].map((filter) => (
+                    <button
+                      key={filter.key}
+                      type="button"
+                      onClick={() =>
+                        setQuoteFilter(
+                          filter.key as 'all' | 'draft' | 'pending' | 'approved' | 'completed' | 'paid'
+                        )
+                      }
+                      className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                        quoteFilter === filter.key
+                          ? 'border-slate-900 bg-slate-900 text-white'
+                          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                      }`}
                     >
-                      <div className="aspect-video overflow-hidden rounded-lg bg-white/5">
-                        {isImageAttachment(file) ? (
-                          <img
-                            src={file.file_url}
-                            alt={file.file_name || 'Archivo adjunto'}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-full items-center justify-center text-xs text-white/50">
-                            Archivo adjunto
-                          </div>
-                        )}
-                      </div>
-                      <div className="mt-2 truncate text-xs text-white/70">
-                        {file.file_name || 'Archivo adjunto'}
-                      </div>
-                    </a>
+                      {filter.label}
+                    </button>
                   ))}
                 </div>
-              ) : (
-                <p className="mt-3 text-xs text-white/50">Aun no hay archivos adjuntos.</p>
-              )}
-            </div>
+                <div className="mt-5 space-y-3">
+                  {filteredQuotes.length === 0 && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      Aun no tienes presupuestos. Crea el primero desde el panel.
+                    </div>
+                  )}
+                  {filteredQuotes.map((quote) => {
+                    const info = statusMap[quote.status || ''] || {
+                      label: (quote.status || 'N/A').toUpperCase(),
+                      className: 'bg-slate-100 text-slate-600',
+                    };
+                    return (
+                      <button
+                        key={quote.id}
+                        type="button"
+                        onClick={() => handleViewQuote(quote)}
+                        className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                          activeQuoteId === quote.id
+                            ? 'border-slate-300 bg-slate-50 shadow-sm'
+                            : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {quote.client_name || 'Presupuesto'}
+                          </p>
+                          <span className={`rounded-full px-3 py-1 text-[10px] font-semibold ${info.className}`}>
+                            {info.label}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                          {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                        </p>
+                        <p className="mt-3 text-sm font-semibold text-slate-900">
+                          ${(quote.total_amount || 0).toLocaleString('es-AR')}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
 
-            <div className="mt-6 grid gap-4 md:grid-cols-[1fr_1fr]">
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                <div className="flex items-center justify-between">
-                  <span>Subtotal</span>
-                  <span>${subtotal.toLocaleString('es-AR')}</span>
+            {activeTab === 'visualizador' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Visualizador</p>
+                    <h2 className="text-xl font-semibold text-slate-900">Presupuesto publico</h2>
+                    <p className="text-sm text-slate-500">
+                      Pega el link o el ID para ver el presupuesto tal como lo ve el cliente.
+                    </p>
+                  </div>
+                  {activeQuoteId && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextUrl = buildQuoteLink(activeQuoteId);
+                        setViewerInput(nextUrl);
+                        setViewerUrl(nextUrl);
+                        setViewerError('');
+                      }}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Usar presupuesto activo
+                    </button>
+                  )}
                 </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={applyTax}
-                      onChange={(event) => setApplyTax(event.target.checked)}
-                    />
-                    IVA 21%
-                  </label>
-                  <span>${taxAmount.toLocaleString('es-AR')}</span>
-                </div>
-                <div className="mt-3 flex items-center justify-between">
-                  <span>Descuento</span>
+
+                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <input
-                    value={discount}
-                    onChange={(event) => setDiscount(toNumber(event.target.value))}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    className="w-28 rounded-lg border border-white/10 bg-[#101827] px-2 py-1 text-right text-xs text-white outline-none"
+                    value={viewerInput}
+                    onChange={(event) => {
+                      setViewerInput(event.target.value);
+                      if (viewerError) setViewerError('');
+                    }}
+                    placeholder="Pega el link o ID del presupuesto"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   />
+                  <button
+                    type="button"
+                    onClick={handleOpenViewer}
+                    className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  >
+                    Visualizar
+                  </button>
+                  {viewerUrl && (
+                    <button
+                      type="button"
+                      onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')}
+                      className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Abrir en pestaña
+                    </button>
+                  )}
                 </div>
-                <div className="mt-4 border-t border-white/10 pt-3 text-base font-semibold text-white">
-                  Total: ${total.toLocaleString('es-AR')}
-                </div>
+                {viewerError && <p className="mt-3 text-xs text-amber-600">{viewerError}</p>}
+                {viewerUrl && (
+                  <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                    <iframe title="Visualizador de presupuesto" src={viewerUrl} className="h-[720px] w-full" />
+                  </div>
+                )}
               </div>
+            )}
 
-              <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-white/70">
-                <p className="text-sm text-white/60">
-                  Al enviar el presupuesto, el cliente podra verlo desde el link y aceptarlo.
-                </p>
-                {formError && <p className="mt-3 text-xs text-[#F39C12]">{formError}</p>}
-                {infoMessage && <p className="mt-3 text-xs text-emerald-200">{infoMessage}</p>}
-                <div className="mt-4 flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleSave('draft')}
-                    disabled={isSaving}
-                    className="rounded-2xl border border-white/20 px-4 py-3 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
-                  >
-                    Guardar borrador
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleSave('sent')}
-                    disabled={isSaving}
-                    className="rounded-2xl bg-[#F39C12] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B]"
-                  >
-                    Enviar al cliente
-                  </button>
+            {activeTab === 'agenda' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Agenda</p>
+                <h2 className="text-xl font-semibold text-slate-900">Calendario de trabajos</h2>
+                <p className="text-sm text-slate-500">Esta seccion estara disponible pronto.</p>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  {['Instalaciones', 'Relevamientos'].map((label) => (
+                    <div key={label} className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5">
+                      <p className="text-sm font-semibold text-slate-800">{label}</p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Aun no hay eventos programados. Podras cargar turnos desde aqui.
+                      </p>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {activeTab === 'perfil' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil</p>
+                <h2 className="text-xl font-semibold text-slate-900">Datos del negocio</h2>
+                <p className="text-sm text-slate-500">Revisa la informacion principal de tu cuenta.</p>
+                <div className="mt-6 grid gap-4 md:grid-cols-2">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Nombre</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{profile?.full_name || 'Sin completar'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Negocio</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">
+                      {profile?.business_name || 'Sin completar'}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Telefono</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{profile?.phone || 'Sin completar'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Email</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-800">{profile?.email || 'Sin completar'}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'precios' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios</p>
+                <h2 className="text-xl font-semibold text-slate-900">Mano de obra</h2>
+                <p className="text-sm text-slate-500">
+                  Define valores base para agilizar los presupuestos. Esta seccion estara disponible pronto.
+                </p>
+                <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6">
+                  <p className="text-sm font-semibold text-slate-800">Lista de precios en construccion</p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Agregaremos una tabla editable con rubros, precios por hora y categorias.
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
         </main>
       </div>
