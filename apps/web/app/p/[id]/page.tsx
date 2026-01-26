@@ -374,15 +374,18 @@ export default function QuotePage() {
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
   const isPresented = ['presented', 'pending', 'pendiente', 'sent'].includes(statusNormalized);
-  const isCompleted = ['completed', 'completado'].includes(statusNormalized);
+  const isCompleted = ['completed', 'completado', 'finalizado', 'finalizados'].includes(statusNormalized);
+  const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(statusNormalized);
   const isRejected = ['rejected', 'rechazado'].includes(statusNormalized);
   const roadmapSteps = [
-    { key: 'draft', label: 'Borrador' },
+    { key: 'draft', label: 'Computo' },
     { key: 'sent', label: 'Enviado' },
     { key: 'approved', label: 'Aprobado' },
     { key: 'completed', label: 'Finalizado' },
+    { key: 'paid', label: 'Cobrado' },
   ];
   const roadmapIndex = (() => {
+    if (isPaid) return 4;
     if (isCompleted) return 3;
     if (isApproved) return 2;
     if (isPresented) return 1;

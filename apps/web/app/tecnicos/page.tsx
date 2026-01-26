@@ -189,6 +189,7 @@ export default function TechniciansPage() {
   const [quoteFilter, setQuoteFilter] = useState<'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid'>(
     'all'
   );
+  const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
 
   const navItems = [
     { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB' },
@@ -459,13 +460,45 @@ export default function TechniciansPage() {
         .from('quotes')
         .update({ status: nextStatus })
         .eq('id', quoteId)
-        .select('id, status')
-        .single();
+        .select('id, status');
       if (error) throw error;
-      setQuotes((prev) => prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote)));
+      if (!data || data.length === 0) {
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
+      }
+      setQuotes((prev) =>
+        prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data[0].status } : quote))
+      );
     } catch (error: any) {
       console.error('Error actualizando estado:', error);
       alert(error?.message || 'No pudimos actualizar el estado.');
+    }
+  };
+
+  const handleDeleteQuote = async (quote: QuoteRow) => {
+    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+    try {
+      setDeletingQuoteId(quote.id);
+      const { error: itemsError } = await supabase.from('quote_items').delete().eq('quote_id', quote.id);
+      if (itemsError) throw itemsError;
+      const { error: attachmentsError } = await supabase.from('quote_attachments').delete().eq('quote_id', quote.id);
+      if (attachmentsError) throw attachmentsError;
+      const { error: quoteError } = await supabase.from('quotes').delete().eq('id', quote.id);
+      if (quoteError) throw quoteError;
+
+      setQuotes((prev) => prev.filter((item) => item.id !== quote.id));
+      if (activeQuoteId === quote.id) {
+        setActiveQuoteId(null);
+        setViewerUrl(null);
+        setViewerInput('');
+        setViewerError('');
+      }
+    } catch (error: any) {
+      console.error('Error eliminando presupuesto:', error);
+      alert(error?.message || 'No pudimos eliminar el presupuesto.');
+    } finally {
+      setDeletingQuoteId(null);
     }
   };
 
@@ -1046,6 +1079,7 @@ export default function TechniciansPage() {
                               </span>
                               <select
                                 value={normalizeStatusValue(quote.status)}
+                                onClick={(event) => event.stopPropagation()}
                                 onChange={(event) => handleStatusChange(quote.id, event.target.value)}
                                 className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 outline-none hover:border-slate-300"
                               >
@@ -1055,6 +1089,21 @@ export default function TechniciansPage() {
                                   </option>
                                 ))}
                               </select>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  handleDeleteQuote(quote);
+                                }}
+                                disabled={deletingQuoteId === quote.id}
+                                className={`rounded-full border px-3 py-1 text-[10px] font-semibold transition ${
+                                  deletingQuoteId === quote.id
+                                    ? 'border-rose-200 bg-rose-50 text-rose-300 cursor-not-allowed'
+                                    : 'border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:text-rose-700'
+                                }`}
+                              >
+                                {deletingQuoteId === quote.id ? 'Eliminando...' : 'Eliminar'}
+                              </button>
                             </div>
                           </div>
                         <p className="mt-1 text-xs text-slate-500">
