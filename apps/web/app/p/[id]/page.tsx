@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../../../lib/supabase/supabase';
 import { useParams } from 'next/navigation';
+import { Manrope } from 'next/font/google';
 // ✅ IMPORTACIÓN LIMPIA
 import PDFExportButton from '../../../components/pdf/PDFExportButton';
 
 // --- CONFIGURACIÓN SUPABASE ---
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+
+const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+});
 
 export default function QuotePage() {
   const params = useParams();
@@ -21,6 +23,10 @@ export default function QuotePage() {
   const [profile, setProfile] = useState<any>(null);
   const [addressInput, setAddressInput] = useState('');
   const [addressSaving, setAddressSaving] = useState(false);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
+  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
+  const [revisionMode, setRevisionMode] = useState(false);
+  const [requestingRevision, setRequestingRevision] = useState(false);
   
   // Estado para controlar errores de imagen
   const [imageError, setImageError] = useState(false);
@@ -75,6 +81,29 @@ export default function QuotePage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [params.id]);
+
+  useEffect(() => {
+    setSelectedItemIds((prev) => {
+      const next = new Set<string>();
+      items.forEach((item) => {
+        const id = item?.id?.toString();
+        if (id && prev.has(id)) {
+          next.add(id);
+        }
+      });
+      return next;
+    });
+    setRevisionNotes((prev) => {
+      const next: Record<string, string> = {};
+      items.forEach((item) => {
+        const id = item?.id?.toString();
+        if (id && prev[id]) {
+          next[id] = prev[id];
+        }
+      });
+      return next;
+    });
+  }, [items]);
 
   const fetchQuoteItems = async (quoteId: string) => {
     const { data, error } = await supabase
@@ -177,6 +206,60 @@ export default function QuotePage() {
     }
   };
 
+  const handleRequestRevision = async () => {
+    if (!quote?.id) return;
+    if (selectedItems.length === 0) {
+      alert('Selecciona los items que deseas revisar.');
+      return;
+    }
+    const missingNote = selectedItems.find((item) => !getItemNote(item).trim());
+    if (missingNote) {
+      alert('Agrega una breve descripcion para cada item seleccionado.');
+      return;
+    }
+    if (!confirm('¿Enviar solicitud de revision al tecnico?')) return;
+    try {
+      setRequestingRevision(true);
+      const itemsPayload = selectedItems.map((item) => ({
+        id: item.id,
+        description: item.description,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total: Number(item.quantity) * Number(item.unit_price),
+        type: normalizeItemType(item),
+        note: getItemNote(item).trim(),
+      }));
+      const { error } = await supabase.rpc('request_quote_revision', {
+        quote_id: quote.id,
+        items: itemsPayload,
+      });
+      if (error) throw error;
+      setSelectedItemIds(new Set());
+      setRevisionNotes({});
+      setRevisionMode(false);
+      alert('Solicitud enviada.');
+    } catch (err) {
+      console.error('Error solicitando revision:', err);
+      alert((err as any)?.message || 'No se pudo enviar la solicitud. Intenta nuevamente.');
+    } finally {
+      setRequestingRevision(false);
+    }
+  };
+
+  const handleToggleRevisionMode = () => {
+    if (revisionMode) {
+      setRevisionMode(false);
+      setSelectedItemIds(new Set());
+      setRevisionNotes({});
+      return;
+    }
+    setRevisionMode(true);
+    if (typeof window !== 'undefined') {
+      const el = document.getElementById('items-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   const getItemTypeBadge = (item: any) => {
     const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
     if (raw === 'material' || raw === 'consumable') {
@@ -193,6 +276,38 @@ export default function QuotePage() {
     if (raw === 'material' || raw === 'consumable') return 'material';
     if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') return 'labor';
     return 'labor';
+  };
+
+  const getItemId = (item: any) => (item?.id ? item.id.toString() : '');
+
+  const isItemSelected = (item: any) => {
+    const id = getItemId(item);
+    return id ? selectedItemIds.has(id) : false;
+  };
+
+  const toggleItemSelection = (item: any) => {
+    const id = getItemId(item);
+    if (!id) return;
+    setSelectedItemIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const getItemNote = (item: any) => {
+    const id = getItemId(item);
+    return id ? revisionNotes[id] || '' : '';
+  };
+
+  const setItemNote = (item: any, value: string) => {
+    const id = getItemId(item);
+    if (!id) return;
+    setRevisionNotes((prev) => ({ ...prev, [id]: value }));
   };
 
   const getGroupTotal = (groupItems: any[]) =>
@@ -219,6 +334,11 @@ export default function QuotePage() {
       { key: 'material', label: 'Materiales', items: materialItems },
     ];
   }, [items]);
+
+  const selectedItems = useMemo(
+    () => items.filter((item) => isItemSelected(item)),
+    [items, selectedItemIds]
+  );
 
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
@@ -259,11 +379,11 @@ export default function QuotePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 py-6 pb-24 px-3 sm:px-4 sm:py-10 sm:pb-10 md:py-12 flex justify-center items-start font-sans antialiased">
+    <div className={`${manrope.className} min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-slate-200 py-6 pb-24 px-3 sm:px-4 sm:py-10 sm:pb-10 md:py-12 flex justify-center items-start antialiased`}>
       <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden ring-1 ring-slate-200/50 transition-all">
         
         {/* HEADER (Técnico / Empresa) */}
-        <div className="bg-[#0F172A] text-white p-5 sm:p-10 md:p-12 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white p-5 sm:p-10 md:p-12 relative overflow-hidden border-b border-white/5">
           <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
           <div className="flex flex-col md:flex-row justify-between items-start gap-8 md:gap-10 relative z-10">
             <div className="flex-1 space-y-4 sm:space-y-6">
@@ -339,8 +459,46 @@ export default function QuotePage() {
 
         {/* INFO CLIENTE & FECHA */}
         <div className="p-5 sm:p-10 md:p-12 border-b border-slate-100 bg-slate-50/30">
+          <div className="mb-6 rounded-2xl border border-slate-200 bg-white p-4 sm:p-5 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Resumen</p>
+              <p className="text-[11px] font-semibold text-slate-500">{items.length} items</p>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-3 text-xs">
+              <div className="flex-1 min-w-[140px] rounded-xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Mano de obra</p>
+                <p className="mt-1 font-mono font-semibold text-slate-900">
+                  ${laborSubtotal.toLocaleString('es-AR')}
+                </p>
+              </div>
+              <div className="flex-1 min-w-[140px] rounded-xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Materiales</p>
+                <p className="mt-1 font-mono font-semibold text-slate-900">
+                  ${materialSubtotal.toLocaleString('es-AR')}
+                </p>
+              </div>
+              <div className="flex-1 min-w-[140px] rounded-xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] uppercase tracking-wider text-slate-400">Subtotal</p>
+                <p className="mt-1 font-mono font-semibold text-slate-900">
+                  ${subtotal.toLocaleString('es-AR')}
+                </p>
+              </div>
+              {tax > 0 && (
+                <div className="flex-1 min-w-[140px] rounded-xl bg-slate-50 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-slate-400">
+                    IVA ({(taxRate * 100).toFixed(0)}%)
+                  </p>
+                  <p className="mt-1 font-mono font-semibold text-slate-900">+ ${tax.toLocaleString('es-AR')}</p>
+                </div>
+              )}
+              <div className="flex-[1.4] min-w-[180px] rounded-xl bg-slate-900 px-3 py-2 text-white">
+                <p className="text-[10px] uppercase tracking-wider text-white/70">Total</p>
+                <p className="mt-1 font-mono text-base font-bold">${total.toLocaleString('es-AR')}</p>
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-10">
-            <div className="space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5 space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Icons.MapPin /> Facturar a</p>
               <div>
                   <h2 className="text-lg sm:text-2xl font-bold text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
@@ -381,7 +539,7 @@ export default function QuotePage() {
                   </div>
               </div>
             </div>
-            <div className="text-left md:text-right space-y-3">
+            <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 sm:p-5 text-left md:text-right space-y-3">
               <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 md:justify-end"><Icons.Calendar /> Emisión</p>
               <div>
                   <p className="text-slate-900 font-bold text-xl">{new Date(quote.created_at).toLocaleDateString('es-AR')}</p>
@@ -391,63 +549,48 @@ export default function QuotePage() {
           </div>
         </div>
 
-        {/* RESUMEN RAPIDO (MÓVIL) */}
-        <div className="sm:hidden px-5 pb-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Resumen</p>
-              <p className="text-[11px] font-semibold text-slate-500">{items.length} items</p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Mano de obra</p>
-                <p className="mt-1 font-mono font-semibold text-slate-900">
-                  ${laborSubtotal.toLocaleString('es-AR')}
-                </p>
-              </div>
-              <div className="rounded-xl bg-slate-50 px-3 py-2">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Materiales</p>
-                <p className="mt-1 font-mono font-semibold text-slate-900">
-                  ${materialSubtotal.toLocaleString('es-AR')}
-                </p>
-              </div>
-              <div className="col-span-2 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
-                <span className="text-[10px] uppercase tracking-wider text-slate-400">Subtotal</span>
-                <span className="font-mono text-slate-800">${subtotal.toLocaleString('es-AR')}</span>
-              </div>
-              {tax > 0 && (
-                <div className="col-span-2 flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2">
-                  <span className="text-[10px] uppercase tracking-wider text-slate-400">
-                    IVA ({(taxRate * 100).toFixed(0)}%)
-                  </span>
-                  <span className="font-mono text-slate-800">+ ${tax.toLocaleString('es-AR')}</span>
-                </div>
-              )}
-              <div className="col-span-2 flex items-center justify-between rounded-xl bg-slate-900 px-3 py-2 text-white">
-                <span className="text-[10px] uppercase tracking-wider text-white/70">Total</span>
-                <span className="font-mono text-base font-bold">${total.toLocaleString('es-AR')}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* TABLA DE ÍTEMS */}
-        <div className="p-5 sm:p-10 md:p-12 bg-white min-h-[350px]">
-          <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div id="items-section" className="p-5 sm:p-10 md:p-12 bg-white min-h-[350px]">
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Detalle</p>
               <h3 className="text-lg sm:text-xl font-bold text-slate-900">Items del presupuesto</h3>
             </div>
-            <span className="text-[11px] sm:text-xs font-semibold text-slate-500">{items.length} items</span>
+            <div className="flex flex-wrap items-center gap-3 text-[11px] sm:text-xs font-semibold text-slate-500">
+              <span>{items.length} items</span>
+              {revisionMode && <span>{selectedItemIds.size} seleccionados</span>}
+              {revisionMode && (
+                <button
+                  type="button"
+                  onClick={handleRequestRevision}
+                  disabled={selectedItemIds.size === 0 || requestingRevision}
+                  className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
+                    selectedItemIds.size === 0 || requestingRevision
+                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      : 'bg-slate-900 text-white hover:bg-slate-800'
+                  }`}
+                >
+                  {requestingRevision ? 'Enviando...' : 'Enviar revision'}
+                </button>
+              )}
+            </div>
           </div>
+          {revisionMode && (
+            <p className="mb-4 text-xs text-slate-500">
+              Selecciona los items que deseas revisar y escribe una breve descripcion para cada uno.
+            </p>
+          )}
           <div className="hidden md:block">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50/80 border-b border-slate-200">
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider w-1/2">Descripción</th>
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center w-1/6">Cant.</th>
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-1/6">Unitario</th>
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-1/6">Total</th>
+                  {revisionMode && (
+                    <th className="py-5 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[7%] text-center">Revisar</th>
+                  )}
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider w-[43%]">Descripción</th>
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center w-[16%]">Cant.</th>
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-[17%]">Unitario</th>
+                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-[17%]">Total</th>
                 </tr>
               </thead>
               <tbody className="text-sm divide-y divide-slate-100">
@@ -455,7 +598,7 @@ export default function QuotePage() {
                   group.items.length > 0 ? (
                     <React.Fragment key={group.key}>
                       <tr className="bg-slate-50/80">
-                        <td colSpan={4} className="py-3 px-6 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                        <td colSpan={revisionMode ? 5 : 4} className="py-3 px-6 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
                           <div className="flex items-center justify-between">
                             <span>{group.label}</span>
                             <span className="text-[10px] font-semibold text-slate-400">
@@ -469,6 +612,18 @@ export default function QuotePage() {
                         const rowKey = item.id || `${group.key}-${index}`;
                         return (
                           <tr key={rowKey} className="group hover:bg-slate-50/60 transition-colors">
+                            {revisionMode && (
+                              <td className="py-6 px-3 text-center">
+                                <input
+                                  type="checkbox"
+                                  checked={isItemSelected(item)}
+                                  onChange={() => toggleItemSelection(item)}
+                                  disabled={!getItemId(item)}
+                                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                                  aria-label="Seleccionar item para revision"
+                                />
+                              </td>
+                            )}
                             <td className="py-6 px-6 font-semibold text-slate-700">
                               <div className="flex flex-col gap-2">
                                 <span>{item.description}</span>
@@ -476,6 +631,15 @@ export default function QuotePage() {
                                   <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
                                     {typeBadge.label}
                                   </span>
+                                )}
+                                {revisionMode && isItemSelected(item) && (
+                                  <textarea
+                                    value={getItemNote(item)}
+                                    onChange={(event) => setItemNote(item, event.target.value)}
+                                    placeholder="Describe la revision de este item..."
+                                    rows={2}
+                                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                                  />
                                 )}
                               </div>
                             </td>
@@ -506,12 +670,28 @@ export default function QuotePage() {
                     const rowKey = item.id || `${group.key}-${index}`;
                     return (
                       <div key={rowKey} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
-                        <div className="flex flex-col gap-2">
-                          <p className="text-sm font-semibold text-slate-800">{item.description}</p>
-                          {typeBadge && (
-                            <span className={`inline-flex w-fit items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
-                              {typeBadge.label}
-                            </span>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex flex-col gap-2">
+                            <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                            {typeBadge && (
+                              <span className={`inline-flex w-fit items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
+                                {typeBadge.label}
+                              </span>
+                            )}
+                          </div>
+                          {revisionMode && (
+                            <button
+                              type="button"
+                              onClick={() => toggleItemSelection(item)}
+                              disabled={!getItemId(item)}
+                              className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
+                                isItemSelected(item)
+                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                  : 'border-slate-200 bg-white text-slate-600'
+                              } ${!getItemId(item) ? 'cursor-not-allowed opacity-60' : 'hover:border-slate-300'}`}
+                            >
+                              {isItemSelected(item) ? 'Seleccionado' : 'Revisar'}
+                            </button>
                           )}
                         </div>
                         <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
@@ -528,6 +708,15 @@ export default function QuotePage() {
                             <p className="font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
                           </div>
                         </div>
+                        {revisionMode && isItemSelected(item) && (
+                          <textarea
+                            value={getItemNote(item)}
+                            onChange={(event) => setItemNote(item, event.target.value)}
+                            placeholder="Describe la revision de este item..."
+                            rows={2}
+                            className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
+                          />
+                        )}
                       </div>
                     );
                   })}
@@ -575,7 +764,7 @@ export default function QuotePage() {
               </div>
             </div>
           )}
-          <div className="mt-8 sm:mt-12 flex justify-end">
+          <div className="mt-8 sm:mt-12 hidden sm:flex justify-end">
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
               <div className="flex justify-between text-sm font-medium text-slate-600">
                 <span>Mano de obra</span>
@@ -610,22 +799,36 @@ export default function QuotePage() {
                 {/* 1. BOTÓN PDF (Tu componente existente) */}
                 <PDFExportButton quote={quote} items={items} profile={profile} />
 
-                {/* 2. BOTÓN ACEPTAR */}
-                {!isApproved ? (
-                  <button 
-                    onClick={handleAccept}
-                    className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg hover:shadow-emerald-500/40 transition-all active:scale-[0.98] w-full sm:w-auto"
-                  >
-                    <span className="tracking-wide text-base sm:text-lg">ACEPTAR PRESUPUESTO</span>
-                  </button>
-                ) : (
-                  <div className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl cursor-default shadow-inner w-full sm:w-auto">
-                    <div className="bg-green-600 rounded-full p-1 text-white">
-                        <Icons.Check />
+                <div className="flex w-full sm:w-auto flex-col gap-2">
+                  {/* 2. BOTÓN ACEPTAR */}
+                  {!isApproved ? (
+                    <button 
+                      onClick={handleAccept}
+                      className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 shadow-lg hover:shadow-emerald-500/40 transition-all active:scale-[0.98] w-full sm:w-auto"
+                    >
+                      <span className="tracking-wide text-base sm:text-lg">ACEPTAR PRESUPUESTO</span>
+                    </button>
+                  ) : (
+                    <div className="flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 bg-green-100 text-green-800 border border-green-200 rounded-xl cursor-default shadow-inner w-full sm:w-auto">
+                      <div className="bg-green-600 rounded-full p-1 text-white">
+                          <Icons.Check />
+                      </div>
+                      <span className="tracking-wide text-base sm:text-lg font-black">¡PRESUPUESTO APROBADO!</span>
                     </div>
-                    <span className="tracking-wide text-base sm:text-lg font-black">¡PRESUPUESTO APROBADO!</span>
-                  </div>
-                )}
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleToggleRevisionMode}
+                    disabled={requestingRevision}
+                    className={`w-full rounded-xl border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${
+                      revisionMode
+                        ? 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        : 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
+                    } ${requestingRevision ? 'cursor-not-allowed opacity-60' : ''}`}
+                  >
+                    {revisionMode ? 'Cancelar revision' : 'Solicitar revision'}
+                  </button>
+                </div>
              </div>
           </div>
         </div>
@@ -638,23 +841,37 @@ export default function QuotePage() {
                 <span>Total</span>
                 <span className="font-mono text-slate-900">${total.toLocaleString('es-AR')}</span>
               </div>
-              <div className="mt-2 flex items-center gap-3">
-                <PDFExportButton quote={quote} items={items} profile={profile} />
-                {!isApproved ? (
-                  <button
-                    onClick={handleAccept}
-                    className="flex-1 flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98]"
-                  >
-                    <span className="tracking-wide">ACEPTAR</span>
-                  </button>
-                ) : (
-                  <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3.5 text-sm font-semibold text-green-800 shadow-inner">
-                    <div className="rounded-full bg-green-600 p-1 text-white">
-                      <Icons.Check />
+              <div className="mt-2 flex flex-col gap-2">
+                <div className="flex items-center gap-3">
+                  <PDFExportButton quote={quote} items={items} profile={profile} />
+                  {!isApproved ? (
+                    <button
+                      onClick={handleAccept}
+                      className="flex-1 flex items-center justify-center gap-3 rounded-xl bg-emerald-600 px-4 py-3.5 text-sm font-semibold text-white shadow-lg shadow-emerald-500/40 transition-all active:scale-[0.98]"
+                    >
+                      <span className="tracking-wide">ACEPTAR</span>
+                    </button>
+                  ) : (
+                    <div className="flex-1 flex items-center justify-center gap-2 rounded-xl border border-green-200 bg-green-100 px-4 py-3.5 text-sm font-semibold text-green-800 shadow-inner">
+                      <div className="rounded-full bg-green-600 p-1 text-white">
+                        <Icons.Check />
+                      </div>
+                      <span className="tracking-wide">APROBADO</span>
                     </div>
-                    <span className="tracking-wide">APROBADO</span>
-                  </div>
-                )}
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleToggleRevisionMode}
+                  disabled={requestingRevision}
+                  className={`w-full rounded-xl border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${
+                    revisionMode
+                      ? 'border-slate-300 bg-slate-100 text-slate-700'
+                      : 'border-slate-900 bg-slate-900 text-white'
+                  } ${requestingRevision ? 'cursor-not-allowed opacity-60' : ''}`}
+                >
+                  {revisionMode ? 'Cancelar revision' : 'Solicitar revision'}
+                </button>
               </div>
             </div>
           </div>

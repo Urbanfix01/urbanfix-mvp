@@ -24,6 +24,41 @@ async function getQuoteById(id: string) {
   return data;
 }
 
+type RevisionRequest = {
+  id: string;
+  created_at: string;
+  data: {
+    quote_id?: string;
+    client_name?: string;
+    requested_at?: string;
+    items?: Array<{
+      id?: string;
+      description?: string;
+      quantity?: number;
+      unit_price?: number;
+      total?: number;
+      type?: string;
+      note?: string;
+    }>;
+  };
+};
+
+async function getRevisionRequests(quoteId: string): Promise<RevisionRequest[]> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return [];
+
+  const { data, error } = await supabase
+    .from('notifications')
+    .select('id, created_at, data')
+    .eq('user_id', user.id)
+    .eq('type', 'quote_revision_request')
+    .eq('data->>quote_id', quoteId)
+    .order('created_at', { ascending: false });
+
+  if (error) throw error;
+  return (data as RevisionRequest[]) || [];
+}
+
 export default function JobDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute();
@@ -35,6 +70,13 @@ export default function JobDetailScreen() {
     queryKey: ['quote', jobId],
     queryFn: () => getQuoteById(jobId),
     staleTime: 60000,
+  });
+
+  const { data: revisionRequests = [] } = useQuery({
+    queryKey: ['quote-revision-requests', jobId],
+    queryFn: () => getRevisionRequests(jobId),
+    enabled: !!jobId,
+    staleTime: 30000,
   });
 
   const { processedQuote: quote, breakdown } = useMemo(() => {
@@ -225,6 +267,46 @@ export default function JobDetailScreen() {
         {/* MAPA GOOGLE */}
         {renderMapSection()}
 
+        {/* REVISIONES SOLICITADAS */}
+        {revisionRequests.length > 0 && (
+          <View style={styles.revisionCard}>
+            <Text style={styles.sectionTitle}>REVISIONES SOLICITADAS</Text>
+            {revisionRequests.map((request) => {
+              const items = request.data?.items || [];
+              return (
+                <View key={request.id} style={styles.revisionBlock}>
+                  <Text style={styles.revisionTitle}>
+                    {request.data?.client_name
+                      ? `Cliente: ${request.data.client_name}`
+                      : 'Solicitud del cliente'}
+                  </Text>
+                  <Text style={styles.revisionDate}>
+                    {new Date(request.created_at).toLocaleString()}
+                  </Text>
+                  {items.length > 0 ? (
+                    items.map((item, index) => (
+                      <View
+                        key={item.id || `${request.id}-${index}`}
+                        style={[styles.revisionItem, index === 0 && styles.revisionItemFirst]}
+                      >
+                        <Text style={styles.revisionItemText}>{item.description || 'Item'}</Text>
+                        <Text style={styles.revisionItemMeta}>
+                          {item.quantity || 0} x ${formatCurrency(item.unit_price || 0)}
+                        </Text>
+                        {item.note ? (
+                          <Text style={styles.revisionItemNote}>{item.note}</Text>
+                        ) : null}
+                      </View>
+                    ))
+                  ) : (
+                    <Text style={styles.revisionEmpty}>Sin items detallados.</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        )}
+
         {/* ITEMS */}
         <Text style={styles.sectionTitle}>DETALLE DEL SERVICIO</Text>
         <View style={styles.itemsContainer}>
@@ -325,6 +407,18 @@ const styles = StyleSheet.create({
   mapIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#34A853', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   mapBtnTitle: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text },
   mapBtnSubtitle: { fontSize: 12, color: COLORS.textLight },
+
+  // REVISIONES
+  revisionCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  revisionBlock: { marginTop: 12, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 12, backgroundColor: '#F8FAFC' },
+  revisionTitle: { fontSize: 13, fontFamily: FONTS.title, color: COLORS.text },
+  revisionDate: { marginTop: 4, fontSize: 11, color: COLORS.textLight },
+  revisionItem: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
+  revisionItemFirst: { marginTop: 8, paddingTop: 0, borderTopWidth: 0 },
+  revisionItemText: { fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
+  revisionItemMeta: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+  revisionItemNote: { marginTop: 6, fontSize: 12, color: COLORS.text, backgroundColor: '#FFFFFF', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' },
+  revisionEmpty: { marginTop: 8, fontSize: 12, color: COLORS.textLight },
 
   // ITEMS
   itemsContainer: { backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 20, elevation: 1 },

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabase/supabase';
 
@@ -87,6 +87,16 @@ const isImageAttachment = (attachment: AttachmentRow) => {
   return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment.file_url || '');
 };
 
+const buildItemsSignature = (items: ItemForm[]) =>
+  JSON.stringify(
+    items.map((item) => ({
+      description: item.description.trim(),
+      quantity: Number(item.quantity) || 0,
+      unitPrice: Number(item.unitPrice) || 0,
+      type: item.type,
+    }))
+  );
+
 export default function TechniciansPage() {
   const router = useRouter();
   const [session, setSession] = useState<any>(null);
@@ -111,6 +121,9 @@ export default function TechniciansPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
+  const savingRef = useRef(false);
+  const lastSavedItemsSignatureRef = useRef('');
+  const lastSavedItemsCountRef = useRef(0);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -174,6 +187,8 @@ export default function TechniciansPage() {
     setAttachments([]);
     setFormError('');
     setInfoMessage('');
+    lastSavedItemsSignatureRef.current = '';
+    lastSavedItemsCountRef.current = 0;
   };
 
   const loadQuote = async (quote: QuoteRow) => {
@@ -200,6 +215,10 @@ export default function TechniciansPage() {
       };
     });
     setItems(mapped);
+    lastSavedItemsSignatureRef.current = buildItemsSignature(
+      mapped.filter((item) => item.description.trim())
+    );
+    lastSavedItemsCountRef.current = mapped.filter((item) => item.description.trim()).length;
     await fetchAttachments(quote.id);
   };
 
@@ -289,20 +308,26 @@ export default function TechniciansPage() {
   const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
 
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
-    if (isSaving) return;
+    if (savingRef.current || isSaving) return;
+    savingRef.current = true;
     if (!clientName.trim()) {
       setFormError('Ingresa el nombre del cliente.');
+      savingRef.current = false;
       return;
     }
     if (!clientAddress.trim()) {
       setFormError('Ingresa la direccion del trabajo.');
+      savingRef.current = false;
       return;
     }
     const cleanedItems = items.filter((item) => item.description.trim());
     if (cleanedItems.length === 0) {
       setFormError('Agrega al menos un item.');
+      savingRef.current = false;
       return;
     }
+    const itemsSignature = buildItemsSignature(cleanedItems);
+    const shouldSyncItems = !activeQuoteId || itemsSignature !== lastSavedItemsSignatureRef.current;
 
     setIsSaving(true);
     setFormError('');
@@ -317,12 +342,18 @@ export default function TechniciansPage() {
         user_id: session.user.id,
       };
 
+      const isEditing = Boolean(activeQuoteId);
       let quoteId = activeQuoteId;
       if (quoteId) {
-        const { error: updateError } = await supabase.from('quotes').update(quotePayload).eq('id', quoteId);
+        const { data: updatedRows, error: updateError } = await supabase
+          .from('quotes')
+          .update(quotePayload)
+          .eq('id', quoteId)
+          .select('id');
         if (updateError) throw updateError;
-        const { error: deleteError } = await supabase.from('quote_items').delete().eq('quote_id', quoteId);
-        if (deleteError) throw deleteError;
+        if (!updatedRows || updatedRows.length === 0) {
+          throw new Error('No pudimos actualizar el presupuesto. Revisa permisos o politicas de seguridad.');
+        }
       } else {
         const { data, error } = await supabase.from('quotes').insert(quotePayload).select().single();
         if (error) throw error;
@@ -330,22 +361,41 @@ export default function TechniciansPage() {
         setActiveQuoteId(quoteId);
       }
 
-      const itemsPayload = cleanedItems.map((item) => ({
-        quote_id: quoteId,
-        description: item.description,
-        unit_price: item.unitPrice,
-        quantity: item.quantity,
-        metadata: { type: item.type },
-      }));
-      const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
-      if (itemsError) throw itemsError;
+      if (shouldSyncItems && quoteId) {
+        if (isEditing) {
+          const { data: deletedRows, error: deleteError } = await supabase
+            .from('quote_items')
+            .delete()
+            .eq('quote_id', quoteId)
+            .select('id');
+          if (deleteError) throw deleteError;
+          if (lastSavedItemsCountRef.current > 0 && (deletedRows?.length || 0) === 0) {
+            throw new Error(
+              'No pudimos reemplazar los items del presupuesto. Revisa permisos o politicas de seguridad.'
+            );
+          }
+        }
+
+        const itemsPayload = cleanedItems.map((item) => ({
+          quote_id: quoteId,
+          description: item.description,
+          unit_price: item.unitPrice,
+          quantity: item.quantity,
+          metadata: { type: item.type },
+        }));
+        const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
+        if (itemsError) throw itemsError;
+      }
 
       await fetchQuotes();
       setInfoMessage(nextStatus === 'sent' ? 'Presupuesto enviado.' : 'Borrador guardado.');
+      lastSavedItemsSignatureRef.current = itemsSignature;
+      lastSavedItemsCountRef.current = cleanedItems.length;
     } catch (error: any) {
       setFormError(error?.message || 'No pudimos guardar el presupuesto.');
     } finally {
       setIsSaving(false);
+      savingRef.current = false;
     }
   };
 
