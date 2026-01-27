@@ -1,249 +1,139 @@
-'use client';
+import { Sora } from 'next/font/google';
 
-import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { supabase } from '../lib/supabase/supabase';
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
 
-export default function Home() {
-  const router = useRouter();
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
-  const [businessName, setBusinessName] = useState('');
-  const [authError, setAuthError] = useState('');
-  const [checkingSession, setCheckingSession] = useState(true);
+const highlights = [
+  {
+    title: 'Presupuestos claros',
+    description: 'Comparte presupuestos en minutos y manten todo ordenado para tu cliente.',
+  },
+  {
+    title: 'Seguimiento por estados',
+    description: 'Controla cada presupuesto desde computo hasta cobrado con una vista simple.',
+  },
+  {
+    title: 'Adjuntos y respaldo',
+    description: 'Agrega fotos y deja todo documentado en el mismo lugar.',
+  },
+];
 
-  useEffect(() => {
-    let mounted = true;
-    supabase.auth.getSession().then(({ data }) => {
-      if (!mounted) return;
-      if (data.session) {
-        router.replace('/tecnicos');
-      } else {
-        setCheckingSession(false);
-      }
-    });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (nextSession) {
-        router.replace('/tecnicos');
-      }
-    });
-    return () => {
-      mounted = false;
-      data.subscription.unsubscribe();
-    };
-  }, [router]);
+const quickSteps = [
+  'Recibi el link de tu tecnico.',
+  'Abri el presupuesto desde tu celular.',
+  'Revisa items, totales y confirma.',
+];
 
-  const handleGoogleLogin = async () => {
-    setAuthError('');
-    const redirectTo = `${window.location.origin}/tecnicos`;
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo },
-    });
-    if (error) {
-      setAuthError(error.message);
-    }
-  };
-
-  const handleEmailAuth = async () => {
-    setAuthError('');
-    try {
-      if (authMode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        router.push('/tecnicos');
-        return;
-      }
-      if (!fullName.trim() || !businessName.trim()) {
-        setAuthError('Completa tu nombre y el de tu negocio.');
-        return;
-      }
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName, business_name: businessName } },
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos iniciar sesion.');
-    }
-  };
-
+export default function HomePage() {
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white">
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.35),_transparent_55%)]" />
-        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F39C12]/20 blur-3xl" />
-        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/20 blur-3xl" />
+    <div className={sora.className}>
+      <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.25),_transparent_55%)]" />
+          <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-[#F5B942]/30 blur-3xl" />
+          <div className="absolute -right-20 bottom-10 h-72 w-72 rounded-full bg-[#94A3B8]/25 blur-3xl" />
 
-        <main className="relative mx-auto w-full max-w-6xl px-6 py-16">
-          <div className="grid min-h-screen items-start gap-10 md:grid-cols-[1.1fr_0.9fr]">
-            <section className="space-y-6 text-center md:text-left">
-              <div className="flex items-center justify-center gap-3 md:justify-start">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
+          <main className="relative mx-auto w-full max-w-6xl px-6 py-12">
+            <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
                   <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
                 </div>
-                <div className="text-3xl font-black tracking-tight text-white md:text-4xl">
-                  <span className="text-[#F39C12]">Urban</span>Fix
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
+                  <p className="text-sm font-semibold text-slate-700">Plataforma de presupuestos</p>
                 </div>
               </div>
-
-              <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.2em] text-white/70">
-                Plataforma de presupuestos
-              </div>
-
-              <div className="space-y-3">
-                <h1 className="text-3xl font-semibold leading-tight text-white/80 md:text-4xl">
-                  Gestion clara para tecnicos en movimiento.
-                </h1>
-                <p className="text-base text-white/70 md:text-lg">
-                  Esta es la pagina para clientes y tecnicos. Si recibiste un presupuesto, abrilo desde el link que te
-                  envio tu tecnico.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap justify-center gap-3 md:justify-start">
+              <div className="flex flex-wrap items-center gap-3">
                 <a
-                  href="https://www.urbanfixar.com/privacidad"
-                  className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
+                  href="/tecnicos"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
-                  Politica de Privacidad
+                  Acceso tecnico
                 </a>
                 <a
-                  href="https://www.urbanfixar.com/urbanfix"
-                  className="rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 transition hover:border-white/50 hover:text-white"
+                  href="/urbanfix"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
                   Que es UrbanFix
                 </a>
-                <a
-                  href="https://www.urbanfixar.com/terminos"
-                  className="rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-white/90"
-                >
-                  Terminos del Servicio
-                </a>
+              </div>
+            </header>
+
+            <section className="mt-8 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Gestion clara</p>
+                <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
+                  Gestion clara para tecnicos en movimiento.
+                </h1>
+                <p className="mt-4 text-sm text-slate-600">
+                  UrbanFix conecta tecnicos y clientes con presupuestos rapidos, estados claros y un detalle
+                  profesional listo para compartir.
+                </p>
+                <div className="mt-6 flex flex-wrap gap-3">
+                  <a
+                    href="/privacidad"
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Politica de privacidad
+                  </a>
+                  <a
+                    href="/terminos"
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Terminos del servicio
+                  </a>
+                </div>
+                <div className="mt-8 grid gap-4 sm:grid-cols-3">
+                  {highlights.map((item) => (
+                    <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                      <p className="mt-2 text-xs text-slate-500">{item.description}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="rounded-3xl border border-white/10 bg-white/10 p-6 text-left shadow-2xl backdrop-blur">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-white/60">
-                    Acceso rapido
-                    <span className="rounded-full bg-[#0EA5E9]/20 px-3 py-1 text-[10px] font-semibold text-[#7DD3FC]">
-                      Clientes
-                    </span>
-                  </div>
-                  <p className="text-sm text-white/80">
-                    El presupuesto se abre desde un link personalizado. Si aun no lo recibiste, solicitale el enlace a
-                    tu tecnico.
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso rapido</p>
+                  <h2 className="mt-2 text-lg font-semibold text-slate-900">Clientes</h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Si recibiste un presupuesto, abrilo desde el link que te envio tu tecnico.
                   </p>
-                  <div className="rounded-2xl bg-white/10 p-4 text-sm text-white/70">
-                    Tip: Guarda el link en favoritos para revisar el detalle y aceptar el trabajo cuando lo necesites.
+                  <ul className="mt-4 space-y-2 text-xs text-slate-500">
+                    {quickSteps.map((step, index) => (
+                      <li key={step} className="flex items-center gap-2">
+                        <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[10px] text-white">
+                          {index + 1}
+                        </span>
+                        {step}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">App movil</p>
+                  <h2 className="mt-2 text-lg font-semibold text-slate-900">UrbanFix en tu bolsillo</h2>
+                  <p className="mt-2 text-sm text-slate-600">
+                    La app esta en camino para que puedas gestionar presupuestos desde cualquier lugar.
+                  </p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
+                      Android beta
+                    </span>
+                    <span className="rounded-full border border-slate-300 px-3 py-1 text-[10px] font-semibold text-slate-500">
+                      iOS proximamente
+                    </span>
                   </div>
                 </div>
               </div>
             </section>
-
-            <div className="space-y-6">
-              <section className="rounded-3xl border border-white/12 bg-white/10 p-8 shadow-2xl backdrop-blur md:self-start">
-                <div className="space-y-4">
-                  <h2 className="text-2xl font-bold text-white">Ingresa a tu cuenta</h2>
-                  <p className="text-sm text-white/70">
-                    Gestiona presupuestos desde la web con tu cuenta UrbanFix.
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={checkingSession}
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-white/80 transition hover:border-white/40 hover:text-white disabled:opacity-60"
-                >
-                  Continuar con Google
-                </button>
-
-                <div className="my-5 flex items-center gap-3 text-xs text-white/50">
-                  <div className="h-px flex-1 bg-white/10" />
-                  o
-                  <div className="h-px flex-1 bg-white/10" />
-                </div>
-
-                {authMode === 'register' && (
-                  <div className="space-y-3">
-                    <input
-                      value={fullName}
-                      onChange={(event) => setFullName(event.target.value)}
-                      placeholder="Nombre completo"
-                      className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
-                    />
-                    <input
-                      value={businessName}
-                      onChange={(event) => setBusinessName(event.target.value)}
-                      placeholder="Nombre del negocio"
-                      className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#F39C12]/60"
-                    />
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <input
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Correo"
-                    className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
-                  />
-                  <input
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    type="password"
-                    placeholder="Contrasena"
-                    className="w-full rounded-2xl border border-white/10 bg-[#101827] px-4 py-3 text-sm text-white outline-none transition focus:border-[#0EA5E9]/60"
-                  />
-                  {authError && <p className="text-xs text-[#F39C12]">{authError}</p>}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleEmailAuth}
-                  disabled={checkingSession}
-                  className="mt-5 w-full rounded-2xl bg-[#F39C12] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B] disabled:opacity-60"
-                >
-                  {authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
-                  className="mt-4 w-full text-sm text-white/70 hover:text-white"
-                >
-                  {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
-                </button>
-                <p className="mt-4 text-xs text-white/60">
-                  Si sos cliente, abre el link del presupuesto que te envio tu tecnico.
-                </p>
-              </section>
-
-              <div className="flex flex-col justify-center gap-3 sm:flex-row sm:justify-center">
-                <a
-                  href="https://expo.dev/accounts/urbanfix/projects/UrbanFix/builds/526c63bb-c84a-47f3-b1b2-e618c5cdd710"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-center gap-2 rounded-full bg-[#F39C12] px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-orange-500/30 transition hover:bg-[#F59E0B]"
-                >
-                  Android
-                  <span className="rounded-full bg-black/20 px-2 py-0.5 text-[10px] uppercase tracking-wide">Beta</span>
-                </a>
-                <button
-                  type="button"
-                  disabled
-                  className="flex items-center justify-center gap-2 rounded-full border border-white/20 px-5 py-2 text-sm font-semibold text-white/80 backdrop-blur opacity-90"
-                >
-                  iOS
-                  <span className="rounded-full bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide">Proximamente</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </main>
+          </main>
+        </div>
       </div>
     </div>
   );

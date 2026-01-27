@@ -88,7 +88,7 @@ const extractQuoteId = (value: string) => {
 
 const statusMap: Record<string, { label: string; className: string }> = {
   draft: { label: 'Computo', className: 'bg-slate-100 text-slate-600' },
-  sent: { label: 'Enviado', className: 'bg-sky-100 text-sky-700' },
+  sent: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   presented: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   approved: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-700' },
   accepted: { label: 'Aceptado', className: 'bg-emerald-100 text-emerald-700' },
@@ -97,7 +97,7 @@ const statusMap: Record<string, { label: string; className: string }> = {
   cobrado: { label: 'Cobrado', className: 'bg-emerald-50 text-emerald-700' },
   rejected: { label: 'Rechazado', className: 'bg-rose-100 text-rose-700' },
   locked: { label: 'Bloqueado', className: 'bg-slate-200 text-slate-600' },
-  completed: { label: 'Completado', className: 'bg-indigo-100 text-indigo-700' },
+  completed: { label: 'Finalizado', className: 'bg-indigo-100 text-indigo-700' },
   finalizado: { label: 'Finalizado', className: 'bg-indigo-100 text-indigo-700' },
 };
 
@@ -111,10 +111,11 @@ const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
   if (!normalized) return 'draft';
   if (normalized === 'accepted') return 'approved';
+  if (normalized === 'sent') return 'presented';
   if (normalized === 'finalizado') return 'completed';
   if (normalized === 'cobrado' || normalized === 'cobrados' || normalized === 'pagado' || normalized === 'pagados')
     return 'paid';
-  if (normalized === 'presented' || normalized === 'sent' || normalized === 'pending') return normalized;
+  if (normalized === 'presented' || normalized === 'pending') return normalized;
   if (normalized === 'approved' || normalized === 'completed' || normalized === 'paid' || normalized === 'draft')
     return normalized;
   if (draftStatuses.has(normalized)) return 'draft';
@@ -203,7 +204,6 @@ export default function TechniciansPage() {
   const statusOptions = [
     { value: 'draft', label: 'Computo' },
     { value: 'pending', label: 'Pendiente' },
-    { value: 'sent', label: 'Enviado' },
     { value: 'presented', label: 'Presentado' },
     { value: 'approved', label: 'Aprobado' },
     { value: 'completed', label: 'Finalizado' },
@@ -456,17 +456,16 @@ export default function TechniciansPage() {
 
   const handleStatusChange = async (quoteId: string, nextStatus: string) => {
     try {
-      const { data, error } = await supabase
-        .from('quotes')
-        .update({ status: nextStatus })
-        .eq('id', quoteId)
-        .select('id, status');
+      const { data, error } = await supabase.rpc('update_quote_status', {
+        quote_id: quoteId,
+        next_status: nextStatus,
+      });
       if (error) throw error;
-      if (!data || data.length === 0) {
+      if (!data || !data.id) {
         throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
       }
       setQuotes((prev) =>
-        prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data[0].status } : quote))
+        prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote))
       );
     } catch (error: any) {
       console.error('Error actualizando estado:', error);

@@ -1,59 +1,74 @@
-'use client';
+import { Sora } from 'next/font/google';
 
-import React from 'react';
+const sora = Sora({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+});
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-[#0A0F1E] text-white">
-      <div className="relative overflow-hidden px-6 py-16">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(37,99,235,0.35),_transparent_55%)]" />
-        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F97316]/20 blur-3xl" />
-        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/20 blur-3xl" />
+    <div className={sora.className}>
+      <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.25),_transparent_55%)]" />
+          <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-[#F5B942]/30 blur-3xl" />
+          <div className="absolute -right-20 bottom-10 h-72 w-72 rounded-full bg-[#94A3B8]/25 blur-3xl" />
 
-        <div className="relative mx-auto w-full max-w-3xl space-y-8 rounded-3xl border border-white/10 bg-white/10 p-8 shadow-2xl backdrop-blur">
-          <div className="space-y-3">
-            <a
-              href="https://www.urbanfixar.com"
-              className="text-xs uppercase tracking-[0.2em] text-white/60 transition hover:text-white"
-            >
-              Volver al inicio
-            </a>
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/15 shadow-lg shadow-black/30">
-                <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+          <main className="relative mx-auto w-full max-w-4xl px-6 py-12">
+            <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
+                  <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
+                </div>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
+                  <p className="text-sm font-semibold text-slate-700">Politica de privacidad</p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-white/60">UrbanFix</p>
-                <p className="text-sm font-semibold text-white/80">Politica de Privacidad</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <a
+                  href="/urbanfix"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Que es UrbanFix
+                </a>
+                <a
+                  href="/"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  Volver al inicio
+                </a>
               </div>
-            </div>
-            <h1 className="text-3xl font-black text-white sm:text-4xl">Politica de Privacidad</h1>
-            <p className="text-sm text-white/60">Ultima actualizacion: 26/12/2025</p>
-          </div>
+            </header>
 
-          <section className="space-y-4 text-sm leading-relaxed text-white/70">
-            <p>
-              En UrbanFix respetamos tu privacidad. Esta politica describe como recopilamos y usamos la informacion
-              cuando utilizas nuestros servicios.
-            </p>
-            <p>
-              Datos que podemos solicitar: nombre, correo electronico, telefono, direccion del servicio y detalles
-              necesarios para generar presupuestos. No vendemos ni compartimos tu informacion con terceros no
-              autorizados.
-            </p>
-            <p>
-              Usamos proveedores externos como Google y Supabase para autenticacion y almacenamiento seguro. Tus
-              datos solo se utilizan para operar el servicio y mejorar la experiencia.
-            </p>
-            <p>
-              Puedes solicitar la actualizacion o eliminacion de tus datos escribiendo a soporte.urbanfix@gmail.com.
-            </p>
-          </section>
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Politica</p>
+              <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Politica de privacidad</h1>
+              <p className="mt-2 text-xs text-slate-500">Ultima actualizacion: 26/12/2025</p>
 
-          <section className="rounded-2xl bg-white/10 p-4 text-sm text-white/70">
-            <p className="font-semibold text-white">Contacto</p>
-            <p>Email: soporte.urbanfix@gmail.com</p>
-          </section>
+              <div className="mt-6 space-y-4 text-sm leading-relaxed text-slate-600">
+                <p>
+                  En UrbanFix respetamos tu privacidad. Esta politica describe como recopilamos y usamos la
+                  informacion cuando utilizas nuestros servicios.
+                </p>
+                <p>
+                  Datos que podemos solicitar: nombre, correo electronico, telefono, direccion del servicio y
+                  detalles necesarios para generar presupuestos. No vendemos ni compartimos tu informacion con
+                  terceros no autorizados.
+                </p>
+                <p>
+                  Usamos proveedores externos como Google y Supabase para autenticacion y almacenamiento seguro.
+                  Tus datos solo se utilizan para operar el servicio y mejorar la experiencia.
+                </p>
+                <p>Puedes solicitar la actualizacion o eliminacion de tus datos escribiendo a INFO@URBANFIXAR.COM.</p>
+              </div>
+            </section>
+
+            <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
+              <p className="mt-2 font-semibold text-slate-900">INFO@URBANFIXAR.COM</p>
+            </section>
+          </main>
         </div>
       </div>
     </div>
