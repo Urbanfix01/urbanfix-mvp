@@ -192,6 +192,13 @@ const resolveLogoPresentation = (ratio: number, shape?: string | null) => {
   return { frame: 'rounded-2xl', img: 'object-contain', padding: 'p-1' };
 };
 
+const resolveLogoAspect = (ratio: number, shape?: string | null) => {
+  const normalized = (shape || 'auto').toLowerCase();
+  if (!Number.isFinite(ratio) || ratio <= 0) return 1;
+  if (normalized === 'round' || normalized === 'square') return 1;
+  return ratio;
+};
+
 const isImageAttachment = (attachment: AttachmentRow) => {
   if (attachment.file_type && attachment.file_type.startsWith('image/')) return true;
   return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment.file_url || '');

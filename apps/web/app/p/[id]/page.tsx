@@ -347,6 +347,42 @@ export default function QuotePage() {
   const isCompleted = ['completed', 'completado', 'finalizado', 'finalizados'].includes(statusNormalized);
   const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(statusNormalized);
   const isRejected = ['rejected', 'rechazado'].includes(statusNormalized);
+  const createdAt = quote?.created_at ? new Date(quote.created_at) : null;
+  const validityDays = 15;
+  const expiresAt = createdAt
+    ? new Date(createdAt.getTime() + validityDays * 24 * 60 * 60 * 1000)
+    : null;
+  const isAccepted = isApproved || isCompleted || isPaid;
+  const isExpired = Boolean(expiresAt && Date.now() > expiresAt.getTime() && !isAccepted && !isRejected);
+  const statusLabel = isExpired
+    ? 'Presupuesto desestimado'
+    : isRejected
+      ? 'Rechazado'
+      : isPaid
+        ? 'Cobrado'
+        : isCompleted
+          ? 'Finalizado'
+          : isApproved
+            ? 'Aprobado'
+            : isPresented
+              ? 'Presentado'
+              : 'Pendiente';
+  const statusPillClass =
+    isExpired || isRejected
+      ? 'bg-rose-500/15 text-rose-200 border-rose-500/30'
+      : isAccepted
+        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+        : isPresented
+          ? 'bg-blue-500/10 text-blue-100 border-blue-500/30'
+          : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
+  const statusIconClass =
+    isExpired || isRejected
+      ? 'bg-rose-500 text-white'
+      : isAccepted
+        ? 'bg-emerald-500 text-white'
+        : isPresented
+          ? 'bg-blue-500 text-white'
+          : 'bg-amber-500 text-black/60';
   const roadmapSteps = [
     { key: 'draft', label: 'Computo' },
     { key: 'sent', label: 'Enviado' },
@@ -425,26 +461,13 @@ export default function QuotePage() {
               <div
                 className={
                   "inline-flex items-center pl-1.5 pr-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider border " +
-                  (isApproved
-                    ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-                    : isPresented
-                      ? "bg-blue-500/10 text-blue-100 border-blue-500/30"
-                      : "bg-amber-500/15 text-amber-300 border-amber-500/30")
+                  statusPillClass
                 }
               >
-                <span
-                  className={
-                    "flex items-center justify-center w-5 h-5 mr-2 rounded-full " +
-                    (isApproved
-                      ? "bg-emerald-500 text-white"
-                      : isPresented
-                        ? "bg-blue-500 text-white"
-                        : "bg-amber-500 text-black/60")
-                  }
-                >
-                  {isApproved ? <Icons.Check /> : <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}
+                <span className={"flex items-center justify-center w-5 h-5 mr-2 rounded-full " + statusIconClass}>
+                  {isAccepted ? <Icons.Check /> : <div className="w-2 h-2 bg-current rounded-full animate-pulse" />}
                 </span>
-                {isApproved ? 'Aprobado' : isPresented ? 'Presentado' : 'Pendiente'}
+                {statusLabel}
               </div>
             </div>
           </div>
