@@ -63,7 +63,7 @@ export default function QuotePage() {
           filter: `quote_id=eq.${params.id}`
         },
         () => {
-          fetchQuoteItems(params.id as string);
+          fetchQuoteData(params.id as string);
         }
       )
       .on(
@@ -75,7 +75,7 @@ export default function QuotePage() {
           filter: `quote_id=eq.${params.id}`
         },
         () => {
-          fetchQuoteAttachments(params.id as string);
+          fetchQuoteData(params.id as string);
         }
       )
       .subscribe();
@@ -106,50 +106,20 @@ export default function QuotePage() {
     });
   }, [items]);
 
-  const fetchQuoteItems = async (quoteId: string) => {
-    const { data, error } = await supabase
-      .from('quote_items')
-      .select('*')
-      .eq('quote_id', quoteId);
-
-    if (error) {
-      console.error('Error cargando items:', error);
-      return;
-    }
-
-    setItems(data || []);
-  };
-
-  const fetchQuoteAttachments = async (quoteId: string) => {
-    const { data, error } = await supabase
-      .from('quote_attachments')
-      .select('*')
-      .eq('quote_id', quoteId)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error cargando adjuntos:', error);
-      return;
-    }
-
-    setAttachments(data || []);
+  const fetchQuoteBundle = async (quoteId: string) => {
+    const { data, error } = await supabase.rpc('get_public_quote_bundle', { quote_id: quoteId });
+    if (error) throw error;
+    const bundle = data as any;
+    setQuote(bundle?.quote || null);
+    setProfile(bundle?.profile || null);
+    setItems(Array.isArray(bundle?.items) ? bundle.items : []);
+    setAttachments(Array.isArray(bundle?.attachments) ? bundle.attachments : []);
+    setAddressInput(bundle?.quote?.client_address || '');
   };
 
   const fetchQuoteData = async (quoteId: string) => {
     try {
-      const { data: quoteData, error: quoteError } = await supabase
-        .from('quotes')
-        .select(`*, profiles:user_id (*)`)
-        .eq('id', quoteId)
-        .single();
-
-      if (quoteError) throw quoteError;
-
-      setQuote(quoteData);
-      setProfile(quoteData.profiles);
-      setAddressInput(quoteData.client_address || '');
-
-      await Promise.all([fetchQuoteItems(quoteId), fetchQuoteAttachments(quoteId)]);
+      await fetchQuoteBundle(quoteId);
     } catch (error) {
       console.error('Error cargando datos:', error);
     } finally {
@@ -411,9 +381,9 @@ export default function QuotePage() {
           <div className="flex flex-col md:flex-row justify-between items-start gap-8 md:gap-10 relative z-10">
             <div className="flex-1 space-y-4 sm:space-y-6">
               {/* LOGO EMPRESA */}
-              {profile?.company_logo_url && !imageError ? (
+              {(profile?.avatar_url || profile?.company_logo_url) && !imageError ? (
                 <img 
-                  src={profile.company_logo_url} 
+                  src={profile?.avatar_url || profile?.company_logo_url} 
                   alt={profile?.business_name || "Logo"} 
                   onError={() => setImageError(true)}
                   className="h-14 sm:h-16 w-auto object-contain bg-white/95 p-2 rounded-xl shadow-sm" 

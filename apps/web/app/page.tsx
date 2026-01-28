@@ -1,4 +1,5 @@
 import { Sora } from 'next/font/google';
+import AuthHashHandler from '../components/AuthHashHandler';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -30,6 +31,7 @@ export default function HomePage() {
   return (
     <div className={sora.className}>
       <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
+        <AuthHashHandler />
         <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.25),_transparent_55%)]" />
           <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-[#F5B942]/30 blur-3xl" />

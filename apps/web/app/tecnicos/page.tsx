@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sora } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
+import AuthHashHandler from '../../components/AuthHashHandler';
 
 type QuoteRow = {
   id: string;
@@ -15,6 +16,8 @@ type QuoteRow = {
   total_amount: number | null;
   tax_rate: number | null;
   status: string | null;
+  start_date?: string | null;
+  end_date?: string | null;
   created_at: string;
 };
 
@@ -37,7 +40,28 @@ type AttachmentRow = {
   created_at?: string | null;
 };
 
+type NotificationRow = {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  data?: any;
+  read_at?: string | null;
+  created_at?: string | null;
+};
+
+type MasterItemRow = {
+  id: string;
+  name: string;
+  type: 'labor' | 'material';
+  suggested_price: number | null;
+  category: string | null;
+  source_ref?: string | null;
+};
+
 const TAX_RATE = 0.21;
+const PROFIT_MARGIN = 0.3;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 
@@ -106,6 +130,19 @@ const approvedStatuses = new Set(['approved', 'accepted']);
 const draftStatuses = new Set(['draft', 'borrador']);
 const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
 const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
+const readyToScheduleStatuses = new Set(['approved', 'accepted']);
+const billingStatuses = new Set([
+  'approved',
+  'accepted',
+  'paid',
+  'cobrado',
+  'cobrados',
+  'pagado',
+  'pagados',
+  'completed',
+  'completado',
+  'finalizado',
+]);
 
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
@@ -140,6 +177,21 @@ const sanitizeFileName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_
 const buildAttachmentPath = (userId: string, quoteId: string, fileName: string) =>
   `${userId}/quotes/${quoteId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFileName(fileName)}`;
 
+const resolveLogoPresentation = (ratio: number, shape?: string | null) => {
+  const normalized = (shape || 'auto').toLowerCase();
+  let mode = normalized;
+  if (mode === 'auto') {
+    mode = ratio >= 1.3 || ratio <= 0.75 ? 'rect' : 'square';
+  }
+  if (mode === 'round') {
+    return { frame: 'rounded-full', img: 'object-cover', padding: '' };
+  }
+  if (mode === 'rect') {
+    return { frame: 'rounded-xl', img: 'object-contain', padding: 'p-2' };
+  }
+  return { frame: 'rounded-2xl', img: 'object-contain', padding: 'p-1' };
+};
+
 const isImageAttachment = (attachment: AttachmentRow) => {
   if (attachment.file_type && attachment.file_type.startsWith('image/')) return true;
   return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment.file_url || '');
@@ -154,6 +206,44 @@ const buildItemsSignature = (items: ItemForm[]) =>
       type: item.type,
     }))
   );
+
+const formatDateLocal = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const parseDateLocal = (value?: string | null) => {
+  if (!value) return null;
+  const [year, month, day] = value.split('-').map((part) => Number(part));
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+};
+
+const addDays = (date: Date, days: number) => {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+const translateProfileError = (message: string) => {
+  if (!message) return 'No pudimos guardar los cambios.';
+  const lower = message.toLowerCase();
+  if (lower.includes("could not find the 'email' column")) {
+    return "No se encontro la columna 'email' en perfiles. Ejecuta la migracion y reintenta.";
+  }
+  if (lower.includes('row-level security') || lower.includes('permission denied')) {
+    return 'No se pudo guardar. Revisa permisos o politicas de seguridad.';
+  }
+  if (lower.includes('duplicate key')) {
+    return 'Ya existe un perfil con esos datos.';
+  }
+  if (lower.includes('not null')) {
+    return 'Faltan campos obligatorios en el perfil.';
+  }
+  return 'No pudimos guardar los cambios.';
+};
 
 export default function TechniciansPage() {
   const [session, setSession] = useState<any>(null);
@@ -178,11 +268,43 @@ export default function TechniciansPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
+  const [profileForm, setProfileForm] = useState({
+    fullName: '',
+    businessName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+    coverageArea: '',
+    workingHours: '',
+    specialties: '',
+    certifications: '',
+    taxId: '',
+    taxStatus: '',
+    paymentMethod: '',
+    bankAlias: '',
+    defaultCurrency: 'ARS',
+    defaultTaxRate: 0.21,
+    defaultDiscount: 0,
+    avatarUrl: '',
+    logoShape: 'auto',
+  });
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileMessage, setProfileMessage] = useState('');
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoRatio, setLogoRatio] = useState(1);
+  const [notifications, setNotifications] = useState<NotificationRow[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [notificationsError, setNotificationsError] = useState('');
+  const [masterItems, setMasterItems] = useState<MasterItemRow[]>([]);
+  const [loadingMasterItems, setLoadingMasterItems] = useState(false);
+  const [masterSearch, setMasterSearch] = useState('');
+  const [masterCategory, setMasterCategory] = useState('all');
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
   const [activeTab, setActiveTab] = useState<
-    'lobby' | 'presupuestos' | 'visualizador' | 'agenda' | 'perfil' | 'precios'
+    'lobby' | 'nuevo' | 'presupuestos' | 'visualizador' | 'agenda' | 'perfil' | 'precios' | 'historial' | 'notificaciones'
   >('lobby');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -191,12 +313,19 @@ export default function TechniciansPage() {
     'all'
   );
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
+  const [scheduleSavingId, setScheduleSavingId] = useState<string | null>(null);
+  const [scheduleMessage, setScheduleMessage] = useState('');
+  const [agendaView, setAgendaView] = useState<'list' | 'calendar'>('list');
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date());
+  const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
   const navItems = [
     { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB' },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR' },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI' },
     { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG' },
+    { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO' },
+    { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI' },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF' },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM' },
   ] as const;
@@ -232,21 +361,129 @@ export default function TechniciansPage() {
         .eq('id', session.user.id)
         .single();
       setProfile(profileData || null);
-      await fetchQuotes();
+      await fetchQuotes(session.user.id);
+      await fetchNotifications(session.user.id);
+      await fetchMasterItems();
     };
     load();
   }, [session?.user?.id]);
 
-  const fetchQuotes = async () => {
+  useEffect(() => {
+    if (!profile) return;
+    setProfileForm({
+      fullName: profile.full_name || '',
+      businessName: profile.business_name || '',
+      email: profile.email || session?.user?.email || '',
+      phone: profile.phone || '',
+      address: profile.address || '',
+      city: profile.city || '',
+      coverageArea: profile.coverage_area || '',
+      workingHours: profile.working_hours || '',
+      specialties: profile.specialties || '',
+      certifications: profile.certifications || '',
+      taxId: profile.tax_id || '',
+      taxStatus: profile.tax_status || '',
+      paymentMethod: profile.payment_method || '',
+      bankAlias: profile.bank_alias || '',
+      defaultCurrency: profile.default_currency || 'ARS',
+      defaultTaxRate: Number(profile.default_tax_rate ?? 0.21),
+      defaultDiscount: Number(profile.default_discount ?? 0),
+      avatarUrl: profile.avatar_url || '',
+      logoShape: profile.logo_shape || 'auto',
+    });
+  }, [profile, session?.user?.email]);
+
+  useEffect(() => {
+    if (!profile?.avatar_url) return;
+    setLogoRatio(1);
+  }, [profile?.avatar_url]);
+
+  const fetchQuotes = async (userId?: string) => {
+    if (!userId) return;
     const { data, error } = await supabase
       .from('quotes')
       .select('*')
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) {
       setInfoMessage('No pudimos cargar los presupuestos.');
       return;
     }
     setQuotes((data as QuoteRow[]) || []);
+  };
+
+  const fetchNotifications = async (userId?: string) => {
+    if (!userId) return;
+    setLoadingNotifications(true);
+    setNotificationsError('');
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (error) {
+      setNotificationsError('No pudimos cargar las notificaciones.');
+      setLoadingNotifications(false);
+      return;
+    }
+    setNotifications((data as NotificationRow[]) || []);
+    setLoadingNotifications(false);
+  };
+
+  const handleScheduleUpdate = async (quoteId: string, startDate: string, endDate: string) => {
+    setScheduleSavingId(quoteId);
+    setScheduleMessage('');
+    try {
+      const { data, error } = await supabase
+        .from('quotes')
+        .update({
+          start_date: startDate || null,
+          end_date: endDate || null,
+        })
+        .eq('id', quoteId)
+        .select();
+      if (error) throw error;
+      const updated = data && data.length > 0 ? data[0] : null;
+      if (!updated) {
+        setScheduleMessage('No se pudo actualizar el trabajo. Revisa permisos.');
+        return;
+      }
+      setQuotes((prev) => prev.map((quote) => (quote.id === quoteId ? { ...quote, ...updated } : quote)));
+      setScheduleMessage('Fechas guardadas.');
+    } catch (error: any) {
+      console.error('Error guardando fechas:', error);
+      setScheduleMessage(error?.message || 'No pudimos guardar las fechas.');
+    } finally {
+      setScheduleSavingId(null);
+    }
+  };
+
+  const handleCalendarDrop = (targetDate: Date, jobId: string) => {
+    const job = approvedJobs.find((item) => item.id === jobId);
+    if (!job) return;
+    const start = parseDateLocal(job.start_date) || targetDate;
+    const end = parseDateLocal(job.end_date) || targetDate;
+    const diffDays = Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
+    const newStart = targetDate;
+    const newEnd = addDays(targetDate, diffDays);
+    handleScheduleUpdate(job.id, formatDateLocal(newStart), formatDateLocal(newEnd));
+  };
+
+  const fetchMasterItems = async () => {
+    setLoadingMasterItems(true);
+    const { data, error } = await supabase
+      .from('master_items')
+      .select('id,name,type,suggested_price,category,source_ref')
+      .eq('type', 'labor')
+      .order('category', { ascending: true })
+      .order('name', { ascending: true });
+    if (error) {
+      console.error('Error cargando master items:', error);
+      setLoadingMasterItems(false);
+      return;
+    }
+    setMasterItems((data as MasterItemRow[]) || []);
+    setLoadingMasterItems(false);
   };
 
   const fetchAttachments = async (quoteId: string) => {
@@ -276,8 +513,26 @@ export default function TechniciansPage() {
     lastSavedItemsCountRef.current = 0;
   };
 
-  const loadQuote = async (quote: QuoteRow) => {
-    setActiveTab('presupuestos');
+  const startNewQuote = () => {
+    resetForm();
+    setItems([
+      {
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        description: '',
+        quantity: 1,
+        unitPrice: 0,
+        type: 'labor',
+      },
+    ]);
+    setActiveTab('nuevo');
+  };
+
+  const startEditQuote = async (quote: QuoteRow) => {
+    await loadQuote(quote, 'nuevo');
+  };
+
+  const loadQuote = async (quote: QuoteRow, targetTab: 'presupuestos' | 'nuevo' = 'presupuestos') => {
+    setActiveTab(targetTab);
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
     setClientAddress(getQuoteAddress(quote));
@@ -306,6 +561,20 @@ export default function TechniciansPage() {
     );
     lastSavedItemsCountRef.current = mapped.filter((item) => item.description.trim()).length;
     await fetchAttachments(quote.id);
+  };
+
+  const addMasterItemToQuote = (item: MasterItemRow) => {
+    setActiveTab('nuevo');
+    setItems((prev) => [
+      ...prev,
+      {
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        description: item.name,
+        quantity: 1,
+        unitPrice: Number(item.suggested_price || 0),
+        type: item.type === 'material' ? 'material' : 'labor',
+      },
+    ]);
   };
 
   const handleAddItem = () => {
@@ -384,6 +653,14 @@ export default function TechniciansPage() {
     }
   };
 
+  const laborSubtotal = useMemo(
+    () => items.reduce((acc, item) => acc + (item.type === 'labor' ? item.quantity * item.unitPrice : 0), 0),
+    [items]
+  );
+  const materialSubtotal = useMemo(
+    () => items.reduce((acc, item) => acc + (item.type === 'material' ? item.quantity * item.unitPrice : 0), 0),
+    [items]
+  );
   const subtotal = useMemo(
     () => items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0),
     [items]
@@ -398,11 +675,15 @@ export default function TechniciansPage() {
         const status = (quote.status || '').toLowerCase();
         if (status === 'draft') acc.draft += 1;
         if (pendingStatuses.has(status)) acc.pending += 1;
-        if (approvedStatuses.has(status)) acc.approved += 1;
+        if (approvedStatuses.has(status)) {
+          acc.approved += 1;
+          acc.approvedAmount += quote.total_amount || 0;
+          acc.profitAmount += (quote.total_amount || 0) * PROFIT_MARGIN;
+        }
         acc.amount += quote.total_amount || 0;
         return acc;
       },
-      { draft: 0, pending: 0, approved: 0, amount: 0 }
+      { draft: 0, pending: 0, approved: 0, amount: 0, approvedAmount: 0, profitAmount: 0 }
     );
     return {
       total: quotes.length,
@@ -410,6 +691,172 @@ export default function TechniciansPage() {
     };
   }, [quotes]);
   const recentQuotes = useMemo(() => quotes.slice(0, 3), [quotes]);
+  const activeQuote = useMemo(
+    () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
+    [quotes, activeQuoteId]
+  );
+  const financeSeries = useMemo(() => {
+    const now = new Date();
+    const points: { key: string; label: string; quotes: number; approved: number; profit: number }[] = [];
+    for (let i = 5; i >= 0; i -= 1) {
+      const point = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${point.getFullYear()}-${point.getMonth() + 1}`;
+      const label = point.toLocaleDateString('es-AR', { month: 'short' });
+      points.push({ key, label, quotes: 0, approved: 0, profit: 0 });
+    }
+    quotes.forEach((quote) => {
+      const created = new Date(quote.created_at);
+      const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
+      const bucket = points.find((item) => item.key === key);
+      if (!bucket) return;
+      bucket.quotes += quote.total_amount || 0;
+      if (approvedStatuses.has((quote.status || '').toLowerCase())) {
+        bucket.approved += quote.total_amount || 0;
+        bucket.profit += (quote.total_amount || 0) * PROFIT_MARGIN;
+      }
+    });
+    return points;
+  }, [quotes]);
+  const maxFinanceValue = useMemo(
+    () =>
+      Math.max(
+        1,
+        ...financeSeries.map((item) => Math.max(item.quotes || 0, item.approved || 0, item.profit || 0))
+      ),
+    [financeSeries]
+  );
+  const financeChart = useMemo(() => {
+    const width = 240;
+    const height = 80;
+    const padding = 6;
+    const step = financeSeries.length > 1 ? (width - padding * 2) / (financeSeries.length - 1) : 0;
+    const buildPath = (key: 'quotes' | 'approved' | 'profit') =>
+      financeSeries
+        .map((item, index) => {
+          const value = item[key] || 0;
+          const x = padding + index * step;
+          const y = height - padding - (value / maxFinanceValue) * (height - padding * 2);
+          return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
+        })
+        .join(' ');
+    const buildPoints = (key: 'quotes' | 'approved' | 'profit') =>
+      financeSeries.map((item, index) => {
+        const value = item[key] || 0;
+        return {
+          x: padding + index * step,
+          y: height - padding - (value / maxFinanceValue) * (height - padding * 2),
+        };
+      });
+    return {
+      width,
+      height,
+      quotesPath: buildPath('quotes'),
+      approvedPath: buildPath('approved'),
+      profitPath: buildPath('profit'),
+      quotesPoints: buildPoints('quotes'),
+      approvedPoints: buildPoints('approved'),
+      profitPoints: buildPoints('profit'),
+    };
+  }, [financeSeries, maxFinanceValue]);
+  const billingMonthlySeries = useMemo(() => {
+    const now = new Date();
+    const points: { key: string; label: string; total: number }[] = [];
+    for (let i = 11; i >= 0; i -= 1) {
+      const point = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = `${point.getFullYear()}-${point.getMonth() + 1}`;
+      const label = point.toLocaleDateString('es-AR', { month: 'short' });
+      points.push({ key, label, total: 0 });
+    }
+    quotes.forEach((quote) => {
+      const status = (quote.status || '').toLowerCase();
+      if (!billingStatuses.has(status)) return;
+      const created = new Date(quote.created_at);
+      const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
+      const bucket = points.find((item) => item.key === key);
+      if (!bucket) return;
+      bucket.total += quote.total_amount || 0;
+    });
+    return points;
+  }, [quotes]);
+  const billingYearSeries = useMemo(() => {
+    const map = new Map<number, number>();
+    quotes.forEach((quote) => {
+      const status = (quote.status || '').toLowerCase();
+      if (!billingStatuses.has(status)) return;
+      const year = new Date(quote.created_at).getFullYear();
+      map.set(year, (map.get(year) || 0) + (quote.total_amount || 0));
+    });
+    return Array.from(map.entries())
+      .sort((a, b) => b[0] - a[0])
+      .map(([year, total]) => ({ year, total }));
+  }, [quotes]);
+  const maxMonthlyBilling = useMemo(
+    () => Math.max(1, ...billingMonthlySeries.map((item) => item.total || 0)),
+    [billingMonthlySeries]
+  );
+  const billingTotals = useMemo(() => {
+    const total = billingMonthlySeries.reduce((sum, item) => sum + (item.total || 0), 0);
+    const average = billingMonthlySeries.length ? total / billingMonthlySeries.length : 0;
+    return { total, average };
+  }, [billingMonthlySeries]);
+  const unreadNotifications = useMemo(
+    () => notifications.filter((item) => !item.read_at).length,
+    [notifications]
+  );
+  const masterCategories = useMemo(() => {
+    const set = new Set<string>();
+    masterItems.forEach((item) => {
+      if (item.category) set.add(item.category);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [masterItems]);
+  const filteredMasterItems = useMemo(() => {
+    const search = masterSearch.trim().toLowerCase();
+    return masterItems.filter((item) => {
+      const matchesSearch = !search || item.name.toLowerCase().includes(search);
+      const matchesCategory = masterCategory === 'all' || item.category === masterCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [masterItems, masterSearch, masterCategory]);
+  const approvedJobs = useMemo(
+    () => quotes.filter((quote) => readyToScheduleStatuses.has((quote.status || '').toLowerCase())),
+    [quotes]
+  );
+  const logoPresentation = useMemo(
+    () => resolveLogoPresentation(logoRatio, profile?.logo_shape),
+    [logoRatio, profile?.logo_shape]
+  );
+  const logoPreviewPresentation = useMemo(
+    () => resolveLogoPresentation(logoRatio, profileForm.logoShape),
+    [logoRatio, profileForm.logoShape]
+  );
+  const calendarLabel = useMemo(
+    () =>
+      calendarCursor.toLocaleDateString('es-AR', {
+        month: 'long',
+        year: 'numeric',
+      }),
+    [calendarCursor]
+  );
+  const calendarDays = useMemo(() => {
+    const year = calendarCursor.getFullYear();
+    const month = calendarCursor.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const mondayOffset = (firstDay.getDay() + 6) % 7;
+    const start = new Date(year, month, 1 - mondayOffset);
+    const endOffset = 6 - ((lastDay.getDay() + 6) % 7);
+    const end = new Date(year, month + 1, endOffset);
+    const days: Date[] = [];
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      days.push(new Date(d));
+    }
+    return days;
+  }, [calendarCursor]);
+  const jobsWithoutDates = useMemo(
+    () => approvedJobs.filter((quote) => !quote.start_date || !quote.end_date),
+    [approvedJobs]
+  );
   const filteredQuotes = useMemo(() => {
     if (quoteFilter === 'pending') {
       return quotes.filter((quote) => pendingStatuses.has((quote.status || '').toLowerCase()));
@@ -438,6 +885,7 @@ export default function TechniciansPage() {
     }
     setViewerError('');
     setViewerUrl(buildQuoteLink(id));
+    setActiveQuoteId(id);
   };
 
   const handleViewQuote = (quote: QuoteRow) => {
@@ -473,21 +921,105 @@ export default function TechniciansPage() {
     }
   };
 
+  const handleProfileSave = async () => {
+    if (!session?.user?.id) return;
+    setProfileSaving(true);
+    setProfileMessage('');
+    try {
+      const payload = {
+        id: session.user.id,
+        full_name: profileForm.fullName,
+        business_name: profileForm.businessName,
+        email: profileForm.email || session.user.email,
+        phone: profileForm.phone,
+        address: profileForm.address,
+        city: profileForm.city,
+        coverage_area: profileForm.coverageArea,
+        working_hours: profileForm.workingHours,
+        specialties: profileForm.specialties,
+        certifications: profileForm.certifications,
+        tax_id: profileForm.taxId,
+        tax_status: profileForm.taxStatus,
+        payment_method: profileForm.paymentMethod,
+        bank_alias: profileForm.bankAlias,
+        default_currency: profileForm.defaultCurrency,
+        default_tax_rate: toNumber(String(profileForm.defaultTaxRate)),
+        default_discount: toNumber(String(profileForm.defaultDiscount)),
+        avatar_url: profileForm.avatarUrl,
+        logo_shape: profileForm.logoShape,
+      };
+      const { data, error } = await supabase.from('profiles').upsert(payload).select().single();
+      if (error) throw error;
+      setProfile(data);
+      setProfileMessage('Perfil actualizado.');
+    } catch (error: any) {
+      console.error('Error guardando perfil:', error);
+      setProfileMessage(translateProfileError(error?.message || ''));
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!session?.user?.id) {
+      setProfileMessage('Inicia sesion para subir un logo.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setProfileMessage('Solo se permiten imagenes.');
+      return;
+    }
+    setUploadingLogo(true);
+    setProfileMessage('');
+    try {
+      const storagePath = `${session.user.id}/profile/${Date.now()}-${sanitizeFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
+        contentType: file.type || 'application/octet-stream',
+        upsert: true,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
+      const publicUrl = publicData.publicUrl;
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', session.user.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProfile(data);
+      setProfileForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
+      setProfileMessage('Logo actualizado.');
+    } catch (error: any) {
+      console.error('Error subiendo logo:', error);
+      setProfileMessage('No pudimos subir el logo.');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
+
+  const handleLogoLoaded = (event: React.SyntheticEvent<HTMLImageElement>) => {
+    const img = event.currentTarget;
+    if (!img?.naturalWidth || !img?.naturalHeight) return;
+    const ratio = img.naturalWidth / img.naturalHeight;
+    if (!Number.isFinite(ratio)) return;
+    setLogoRatio(ratio);
+  };
+
   const handleDeleteQuote = async (quote: QuoteRow) => {
     if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
       return;
     }
-    try {
-      setDeletingQuoteId(quote.id);
-      const { error: itemsError } = await supabase.from('quote_items').delete().eq('quote_id', quote.id);
-      if (itemsError) throw itemsError;
-      const { error: attachmentsError } = await supabase.from('quote_attachments').delete().eq('quote_id', quote.id);
-      if (attachmentsError) throw attachmentsError;
-      const { error: quoteError } = await supabase.from('quotes').delete().eq('id', quote.id);
-      if (quoteError) throw quoteError;
+      try {
+        setDeletingQuoteId(quote.id);
+        const { error } = await supabase.rpc('delete_quote', { p_quote_id: quote.id });
+        if (error) throw error;
 
-      setQuotes((prev) => prev.filter((item) => item.id !== quote.id));
-      if (activeQuoteId === quote.id) {
+        setQuotes((prev) => prev.filter((item) => item.id !== quote.id));
+        if (activeQuoteId === quote.id) {
         setActiveQuoteId(null);
         setViewerUrl(null);
         setViewerInput('');
@@ -498,6 +1030,63 @@ export default function TechniciansPage() {
       alert(error?.message || 'No pudimos eliminar el presupuesto.');
     } finally {
       setDeletingQuoteId(null);
+    }
+  };
+
+  const handleMarkNotificationRead = async (notif: NotificationRow) => {
+    if (!session?.user?.id || notif.read_at) return;
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', notif.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setNotifications((prev) => prev.map((item) => (item.id === notif.id ? { ...item, ...data } : item)));
+    } catch (error) {
+      console.error('Error marcando notificacion:', error);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    if (!session?.user?.id) return;
+    const unreadIds = notifications.filter((item) => !item.read_at).map((item) => item.id);
+    if (unreadIds.length === 0) return;
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .in('id', unreadIds)
+        .select();
+      if (error) throw error;
+      const updated = (data as NotificationRow[]) || [];
+      setNotifications((prev) =>
+        prev.map((item) => updated.find((u) => u.id === item.id) || item)
+      );
+    } catch (error) {
+      console.error('Error marcando notificaciones:', error);
+    }
+  };
+
+  const handleOpenNotification = async (notif: NotificationRow) => {
+    await handleMarkNotificationRead(notif);
+    const quoteId = notif?.data?.quote_id;
+    if (!quoteId) return;
+    try {
+      const { data, error } = await supabase.from('quotes').select('*').eq('id', quoteId).single();
+      if (error || !data) {
+        const nextUrl = buildQuoteLink(quoteId);
+        setViewerInput(nextUrl);
+        setViewerUrl(nextUrl);
+        setViewerError('');
+        setActiveTab('visualizador');
+        return;
+      }
+      await loadQuote(data as QuoteRow);
+      setActiveTab('presupuestos');
+    } catch (error) {
+      console.error('Error abriendo presupuesto:', error);
     }
   };
 
@@ -581,7 +1170,7 @@ export default function TechniciansPage() {
         if (itemsError) throw itemsError;
       }
 
-      await fetchQuotes();
+      await fetchQuotes(session?.user?.id);
       setInfoMessage(nextStatus === 'sent' ? 'Presupuesto enviado.' : 'Borrador guardado.');
       lastSavedItemsSignatureRef.current = itemsSignature;
       lastSavedItemsCountRef.current = cleanedItems.length;
@@ -650,38 +1239,52 @@ export default function TechniciansPage() {
           setAuthError('Completa tu nombre y el de tu negocio.');
           return;
         }
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName, business_name: businessName } },
-        });
-        if (error) throw error;
+          const { data: signUpData, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: { data: { full_name: fullName, business_name: businessName } },
+          });
+          if (error) throw error;
+          if (signUpData?.user?.id) {
+            const { error: profileError } = await supabase.from('profiles').upsert({
+              id: signUpData.user.id,
+              full_name: fullName,
+              business_name: businessName,
+              email,
+            });
+            if (profileError) throw profileError;
+          }
+        }
+      } catch (error: any) {
+        setAuthError(error?.message || 'No pudimos iniciar sesion.');
       }
-    } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos iniciar sesion.');
-    }
   };
 
   if (loadingSession) {
     return (
-      <div
-        style={themeStyles}
-        className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
-      >
-        <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
-          Cargando...
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+        >
+          <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
+            Cargando...
+          </div>
         </div>
-      </div>
+      </>
     );
   }
 
   if (!session?.user) {
     return (
-      <div
-        style={themeStyles}
-        className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
-      >
-        <div className="relative overflow-hidden">
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        >
+          <div className="relative overflow-hidden">
           <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]" />
           <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl" />
           <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl" />
@@ -689,8 +1292,21 @@ export default function TechniciansPage() {
           <main className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-6 text-center md:text-left">
               <div className="flex items-center justify-center gap-3 md:justify-start">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white ring-1 ring-slate-200 shadow-lg shadow-slate-200/60">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                <div
+                  className={`flex h-14 w-14 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                    profile?.avatar_url ? 'bg-white' : 'bg-white'
+                  }`}
+                >
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Logo de empresa"
+                      onLoad={handleLogoLoaded}
+                      className={`h-full w-full ${logoPresentation.img}`}
+                    />
+                  ) : (
+                    <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                  )}
                 </div>
                 <div className="text-left">
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
@@ -782,7 +1398,8 @@ export default function TechniciansPage() {
             </div>
           </main>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
@@ -791,6 +1408,7 @@ export default function TechniciansPage() {
       style={themeStyles}
       className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
+      <AuthHashHandler />
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
@@ -798,9 +1416,22 @@ export default function TechniciansPage() {
 
         <header className="relative mx-auto mt-8 w-full max-w-6xl rounded-3xl border border-slate-200 bg-white/80 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 ring-1 ring-slate-200 shadow-lg shadow-slate-200/40">
-                <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+              <div className="flex items-center gap-3">
+              <div
+                className={`flex h-12 w-12 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                  profile?.avatar_url ? 'bg-white' : 'bg-slate-900'
+                }`}
+              >
+                {profile?.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt="Logo de empresa"
+                    onLoad={handleLogoLoaded}
+                    className={`h-full w-full ${logoPresentation.img}`}
+                  />
+                ) : (
+                  <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+                )}
               </div>
               <div>
                 <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
@@ -810,16 +1441,13 @@ export default function TechniciansPage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  resetForm();
-                  setActiveTab('presupuestos');
-                }}
-                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-              >
-                Nuevo presupuesto
-              </button>
+                <button
+                  type="button"
+                  onClick={startNewQuote}
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Nuevo presupuesto
+                </button>
               <button
                 type="button"
                 onClick={handleLogout}
@@ -832,9 +1460,9 @@ export default function TechniciansPage() {
 
           <div className="mt-4 rounded-full border border-slate-200 bg-slate-50/90 p-2 shadow-sm backdrop-blur">
             <div className="flex items-center gap-2 overflow-x-auto">
-              {navItems.map((item) => {
-                const isActive = activeTab === item.key;
-                return (
+                {navItems.map((item) => {
+                  const isActive = activeTab === item.key || (activeTab === 'nuevo' && item.key === 'presupuestos');
+                  return (
                   <button
                     key={item.key}
                     type="button"
@@ -848,7 +1476,14 @@ export default function TechniciansPage() {
                         : 'bg-white text-slate-600 hover:bg-slate-200 hover:text-slate-900'
                     }`}
                   >
-                    {item.label}
+                    <span className="inline-flex items-center gap-2">
+                      {item.label}
+                      {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                        <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          {unreadNotifications}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 );
               })}
@@ -859,7 +1494,7 @@ export default function TechniciansPage() {
           </div>
         </header>
 
-        <main className="relative mx-auto w-full max-w-6xl px-6 pb-16 pt-6">
+        <main className="relative mx-auto w-full max-w-6xl px-6 pb-28 pt-6">
           <section className="space-y-6">
             {activeTab === 'lobby' && (
               <div className="space-y-6">
@@ -911,28 +1546,106 @@ export default function TechniciansPage() {
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Facturacion estimada</p>
-                    <p className="mt-3 text-2xl font-semibold text-slate-900">
-                      ${quoteStats.amount.toLocaleString('es-AR')}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-500">Suma de todos los presupuestos activos.</p>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          resetForm();
-                          setActiveTab('presupuestos');
-                        }}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                      >
-                        Crear presupuesto
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('visualizador')}
-                        className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                      >
-                        Abrir visualizador
-                      </button>
+                    <div className="mt-4 space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                            <span className="h-2 w-2 rounded-full bg-slate-900" />
+                            Total
+                          </div>
+                          <p className="mt-3 text-xl font-semibold text-slate-900">
+                            ${quoteStats.amount.toLocaleString('es-AR')}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Presupuestos activos.</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                            <span className="h-2 w-2 rounded-full bg-amber-500" />
+                            Aprobado
+                          </div>
+                          <p className="mt-3 text-xl font-semibold text-amber-600">
+                            ${quoteStats.approvedAmount.toLocaleString('es-AR')}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Monto confirmado.</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Ganancia
+                          </div>
+                          <p className="mt-3 text-xl font-semibold text-emerald-600">
+                            ${quoteStats.profitAmount.toLocaleString('es-AR')}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Estimacion proyectada.</p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Tendencia 6 meses</p>
+                          <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
+                            <span className="inline-flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-slate-900" />
+                              Presupuestos
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-amber-500" />
+                              Aprobados
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Ganancias
+                            </span>
+                          </div>
+                        </div>
+                        <svg
+                          viewBox={`0 0 ${financeChart.width} ${financeChart.height}`}
+                          className="mt-3 h-24 w-full"
+                          role="img"
+                          aria-label="Grafico de presupuestos y ganancias"
+                        >
+                          <path
+                            d={financeChart.quotesPath}
+                            fill="none"
+                            stroke="#0F172A"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d={financeChart.approvedPath}
+                            fill="none"
+                            stroke="#F59E0B"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d={financeChart.profitPath}
+                            fill="none"
+                            stroke="#10B981"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          {financeChart.quotesPoints.map((point, index) => (
+                            <circle key={`q-${index}`} cx={point.x} cy={point.y} r="2" fill="#0F172A" />
+                          ))}
+                          {financeChart.approvedPoints.map((point, index) => (
+                            <circle key={`a-${index}`} cx={point.x} cy={point.y} r="2" fill="#F59E0B" />
+                          ))}
+                          {financeChart.profitPoints.map((point, index) => (
+                            <circle key={`p-${index}`} cx={point.x} cy={point.y} r="2" fill="#10B981" />
+                          ))}
+                        </svg>
+                        <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
+                          {financeSeries.map((item) => (
+                            <span key={item.key} className="uppercase">
+                              {item.label}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
@@ -993,6 +1706,237 @@ export default function TechniciansPage() {
               </div>
             )}
 
+            {activeTab === 'nuevo' && (
+              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Job config</p>
+                    <h2 className="text-xl font-semibold text-slate-900">Nuevo presupuesto</h2>
+                    <p className="text-sm text-slate-500">Completa los datos para crear un presupuesto nuevo.</p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('presupuestos')}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Volver
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cliente</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Nombre del cliente</label>
+                      <input
+                        value={clientName}
+                        onChange={(event) => setClientName(event.target.value)}
+                        placeholder="Nombre y apellido"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Direccion del trabajo</label>
+                      <input
+                        value={clientAddress}
+                        onChange={(event) => setClientAddress(event.target.value)}
+                        placeholder="Direccion completa"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Items</p>
+                          <p className="text-xs text-slate-500">Detalle de materiales y mano de obra.</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={handleAddItem}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                        >
+                          + Agregar item
+                        </button>
+                      </div>
+                      {items.length === 0 && (
+                        <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+                          Agrega el primer item para armar el presupuesto.
+                        </div>
+                      )}
+                      <div className="mt-4 space-y-3">
+                        {items.map((item) => (
+                          <div
+                            key={item.id}
+                            className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[2fr_0.7fr_0.9fr_1fr_auto]"
+                          >
+                            <input
+                              value={item.description}
+                              onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
+                              placeholder="Descripcion"
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              step="1"
+                              value={item.quantity}
+                              onChange={(event) =>
+                                handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
+                              }
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              value={item.unitPrice}
+                              onChange={(event) =>
+                                handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
+                              }
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
+                            />
+                            <select
+                              value={item.type}
+                              onChange={(event) =>
+                                handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
+                              }
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none focus:border-slate-400"
+                            >
+                              <option value="labor">Mano de obra</option>
+                              <option value="material">Material</option>
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Resumen</p>
+                      <div className="mt-3 space-y-2 text-sm text-slate-600">
+                        <div className="flex items-center justify-between">
+                          <span>Mano de obra</span>
+                          <span className="font-semibold text-slate-900">
+                            ${laborSubtotal.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Materiales</span>
+                          <span className="font-semibold text-slate-900">
+                            ${materialSubtotal.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>Descuento</span>
+                          <span className="font-semibold text-slate-900">
+                            -${discount.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span>IVA 21%</span>
+                          <span className="font-semibold text-slate-900">${taxAmount.toLocaleString('es-AR')}</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 border-t border-slate-200 pt-4">
+                        <div className="flex items-center justify-between text-lg font-semibold text-slate-900">
+                          <span>Total</span>
+                          <span>${total.toLocaleString('es-AR')}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ajustes</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Descuento</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={discount}
+                        onChange={(event) => setDiscount(Math.max(0, toNumber(event.target.value)))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        <input
+                          type="checkbox"
+                          checked={applyTax}
+                          onChange={(event) => setApplyTax(event.target.checked)}
+                          className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                        />
+                        Aplicar IVA 21%
+                      </label>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acciones</p>
+                      <div className="mt-3 grid gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleSave('draft')}
+                          disabled={isSaving}
+                          className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                        >
+                          Guardar borrador
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSave('sent')}
+                          disabled={isSaving}
+                          className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          Enviar al cliente
+                        </button>
+                      </div>
+                      {formError && <p className="mt-3 text-xs text-rose-500">{formError}</p>}
+                      {infoMessage && <p className="mt-3 text-xs text-emerald-600">{infoMessage}</p>}
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Adjuntos</p>
+                      {!activeQuoteId && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          Guarda el presupuesto para adjuntar fotos o documentos.
+                        </p>
+                      )}
+                      {activeQuoteId && (
+                        <div className="mt-3 space-y-2">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleAttachmentUpload}
+                            disabled={uploadingAttachments}
+                            className="w-full text-xs text-slate-500"
+                          />
+                          {attachments.length > 0 && (
+                            <div className="flex flex-wrap gap-2">
+                              {attachments.map((file) => (
+                                <span
+                                  key={file.id}
+                                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] text-slate-500"
+                                >
+                                  {file.file_name || 'Adjunto'}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
             {activeTab === 'presupuestos' && (
               <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1000,24 +1944,32 @@ export default function TechniciansPage() {
                     <h2 className="text-lg font-semibold text-slate-900">Presupuestos</h2>
                     <p className="text-xs text-slate-500">Listado y estado actual de tus presupuestos.</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {quoteFilter !== 'all' && (
-                      <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
-                        {quoteFilter === 'pending'
-                          ? 'Pendientes'
-                          : quoteFilter === 'approved'
-                            ? 'Aprobados'
+                <div className="flex items-center gap-2">
+                  {quoteFilter !== 'all' && (
+                    <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
+                      {quoteFilter === 'pending'
+                        ? 'Pendientes'
+                        : quoteFilter === 'approved'
+                          ? 'Aprobados'
                           : quoteFilter === 'draft'
                               ? 'Computo'
                               : quoteFilter === 'completed'
                                 ? 'Finalizados'
                                 : 'Cobrados'}
-                      </span>
-                    )}
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
-                      {filteredQuotes.length} activos
                     </span>
-                  </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={startNewQuote}
+                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    title="Nuevo presupuesto"
+                  >
+                    +
+                  </button>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
+                    {filteredQuotes.length} activos
+                  </span>
+                </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
                   {[
@@ -1092,6 +2044,16 @@ export default function TechniciansPage() {
                                 type="button"
                                 onClick={(event) => {
                                   event.stopPropagation();
+                                  startEditQuote(quote);
+                                }}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
                                   handleDeleteQuote(quote);
                                 }}
                                 disabled={deletingQuoteId === quote.id}
@@ -1143,6 +2105,15 @@ export default function TechniciansPage() {
                       Usar presupuesto activo
                     </button>
                   )}
+                  {activeQuote && (
+                    <button
+                      type="button"
+                      onClick={() => startEditQuote(activeQuote)}
+                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                    >
+                      Editar presupuesto
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1184,16 +2155,400 @@ export default function TechniciansPage() {
             {activeTab === 'agenda' && (
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Agenda</p>
-                <h2 className="text-xl font-semibold text-slate-900">Calendario de trabajos</h2>
-                <p className="text-sm text-slate-500">Esta seccion estara disponible pronto.</p>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  {['Instalaciones', 'Relevamientos'].map((label) => (
-                    <div key={label} className="rounded-3xl border border-dashed border-slate-200 bg-slate-50 p-5">
-                      <p className="text-sm font-semibold text-slate-800">{label}</p>
-                      <p className="mt-2 text-xs text-slate-500">
-                        Aun no hay eventos programados. Podras cargar turnos desde aqui.
-                      </p>
+                <h2 className="text-xl font-semibold text-slate-900">Trabajos aprobados</h2>
+                <p className="text-sm text-slate-500">
+                  Asigna fecha de inicio y fin a los presupuestos aprobados para coordinar la obra.
+                </p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAgendaView('list')}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                      agendaView === 'list'
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
+                    }`}
+                  >
+                    Lista
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgendaView('calendar')}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                      agendaView === 'calendar'
+                        ? 'bg-slate-900 text-white'
+                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
+                    }`}
+                  >
+                    Calendario
+                  </button>
+                </div>
+
+                {scheduleMessage && <p className="mt-3 text-xs text-slate-600">{scheduleMessage}</p>}
+
+                {agendaView === 'calendar' ? (
+                  <div className="mt-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalendarCursor(
+                            new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1)
+                          )
+                        }
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                      >
+                        ◀
+                      </button>
+                      <p className="text-sm font-semibold text-slate-800 capitalize">{calendarLabel}</p>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setCalendarCursor(
+                            new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1)
+                          )
+                        }
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                      >
+                        ▶
+                      </button>
                     </div>
+                    <div className="mt-4 grid grid-cols-7 gap-2 text-[11px] text-slate-400">
+                      {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((label) => (
+                        <div key={label} className="text-center font-semibold uppercase tracking-[0.2em]">
+                          {label}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-2 grid grid-cols-7 gap-2">
+                      {calendarDays.map((day) => {
+                        const isCurrentMonth = day.getMonth() === calendarCursor.getMonth();
+                        const jobsForDay = approvedJobs.filter((job) => {
+                          if (!job.start_date || !job.end_date) return false;
+                          const start = new Date(job.start_date);
+                          const end = new Date(job.end_date);
+                          const check = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+                          return start <= check && end >= check;
+                        });
+                        return (
+                          <div
+                            key={day.toISOString()}
+                            onDragOver={(event) => event.preventDefault()}
+                            onDrop={(event) => {
+                              event.preventDefault();
+                              const droppedId = event.dataTransfer.getData('text/plain') || draggedJobId;
+                              if (!droppedId) return;
+                              handleCalendarDrop(
+                                new Date(day.getFullYear(), day.getMonth(), day.getDate()),
+                                droppedId
+                              );
+                              setDraggedJobId(null);
+                            }}
+                            className={`min-h-[90px] rounded-2xl border p-2 text-xs ${
+                              isCurrentMonth
+                                ? 'border-slate-200 bg-white'
+                                : 'border-slate-100 bg-slate-50 text-slate-400'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-semibold text-slate-600">{day.getDate()}</span>
+                              {jobsForDay.length > 0 && (
+                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                                  {jobsForDay.length}
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-2 space-y-1">
+                              {jobsForDay.slice(0, 2).map((job) => (
+                                <div
+                                  key={job.id}
+                                  draggable
+                                  onDragStart={(event) => {
+                                    event.dataTransfer.setData('text/plain', job.id);
+                                    setDraggedJobId(job.id);
+                                  }}
+                                  onDragEnd={() => setDraggedJobId(null)}
+                                  className={`truncate rounded-lg px-2 py-1 text-[10px] font-semibold ${
+                                    draggedJobId === job.id
+                                      ? 'bg-slate-200 text-slate-700'
+                                      : 'bg-slate-100 text-slate-600'
+                                  }`}
+                                  title={job.client_name || 'Presupuesto'}
+                                >
+                                  {job.client_name || 'Presupuesto'}
+                                </div>
+                              ))}
+                              {jobsForDay.length > 2 && (
+                                <div className="text-[10px] text-slate-400">+{jobsForDay.length - 2} mas</div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {jobsWithoutDates.length > 0 && (
+                      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pendientes de fecha</p>
+                        <p className="mt-2 text-xs text-slate-500">
+                          Arrastra un trabajo al calendario para asignar fechas.
+                        </p>
+                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                          {jobsWithoutDates.map((job) => (
+                            <div
+                              key={job.id}
+                              draggable
+                              onDragStart={(event) => {
+                                event.dataTransfer.setData('text/plain', job.id);
+                                setDraggedJobId(job.id);
+                              }}
+                              onDragEnd={() => setDraggedJobId(null)}
+                              className={`rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
+                                draggedJobId === job.id
+                                  ? 'border-slate-300 bg-slate-100 text-slate-700'
+                                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
+                              }`}
+                              title={job.client_name || 'Presupuesto'}
+                            >
+                              {job.client_name || 'Presupuesto'}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mt-6 space-y-3">
+                    {approvedJobs.length === 0 && (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                        No hay trabajos aprobados para coordinar.
+                      </div>
+                    )}
+                    {approvedJobs.map((quote) => (
+                      <div
+                        key={quote.id}
+                        className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{quote.client_name || 'Presupuesto'}</p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                            {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                              Inicio
+                            </label>
+                            <input
+                              type="date"
+                              value={quote.start_date ? quote.start_date.slice(0, 10) : ''}
+                              onChange={(event) =>
+                                setQuotes((prev) =>
+                                  prev.map((item) =>
+                                    item.id === quote.id ? { ...item, start_date: event.target.value } : item
+                                  )
+                                )
+                              }
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                              Fin
+                            </label>
+                            <input
+                              type="date"
+                              value={quote.end_date ? quote.end_date.slice(0, 10) : ''}
+                              onChange={(event) =>
+                                setQuotes((prev) =>
+                                  prev.map((item) =>
+                                    item.id === quote.id ? { ...item, end_date: event.target.value } : item
+                                  )
+                                )
+                              }
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400"
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              handleScheduleUpdate(
+                                quote.id,
+                                quote.start_date ? quote.start_date.slice(0, 10) : '',
+                                quote.end_date ? quote.end_date.slice(0, 10) : ''
+                              )
+                            }
+                            disabled={scheduleSavingId === quote.id}
+                            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                          >
+                            {scheduleSavingId === quote.id ? 'Guardando...' : 'Guardar'}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'historial' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Historial</p>
+                <h2 className="text-xl font-semibold text-slate-900">Historico de facturacion</h2>
+                <p className="text-sm text-slate-500">
+                  Resumen anual y mensual de los presupuestos cobrados o aprobados.
+                </p>
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-[2fr,1fr]">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Facturacion mensual</p>
+                        <p className="text-xs text-slate-500">Ultimos 12 meses</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-slate-500">Total 12 meses</p>
+                        <p className="text-lg font-semibold text-slate-900">
+                          ${billingTotals.total.toLocaleString('es-AR')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-end gap-3 overflow-x-auto pb-2">
+                      {billingMonthlySeries.map((item) => {
+                        const height = Math.min(
+                          100,
+                          Math.max(8, Math.round((item.total / maxMonthlyBilling) * 100))
+                        );
+                        return (
+                          <div key={item.key} className="flex min-w-[48px] flex-col items-center gap-2">
+                            <div className="flex h-32 w-4 items-end rounded-full bg-white shadow-sm">
+                              <div
+                                className="w-full rounded-full bg-emerald-500"
+                                style={{ height: `${height}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                              {item.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
+                      <span className="rounded-full bg-white px-3 py-1">
+                        Promedio mensual: ${billingTotals.average.toLocaleString('es-AR')}
+                      </span>
+                      <span className="rounded-full bg-white px-3 py-1">
+                        Ultimo mes: $
+                        {(billingMonthlySeries[billingMonthlySeries.length - 1]?.total || 0).toLocaleString('es-AR')}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Resumen anual</p>
+                    <p className="mt-2 text-xs text-slate-500">Total facturado por ano.</p>
+                    <div className="mt-4 space-y-3">
+                      {billingYearSeries.length === 0 && (
+                        <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
+                          Aun no hay facturacion registrada.
+                        </div>
+                      )}
+                      {billingYearSeries.map((item) => (
+                        <div
+                          key={item.year}
+                          className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                        >
+                          <span className="text-sm font-semibold text-slate-800">{item.year}</span>
+                          <span className="text-sm font-semibold text-slate-900">
+                            ${item.total.toLocaleString('es-AR')}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Detalle mensual</p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {billingMonthlySeries.map((item) => (
+                      <div key={item.key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
+                        <p className="mt-2 text-sm font-semibold text-slate-900">
+                          ${item.total.toLocaleString('es-AR')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'notificaciones' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Notificaciones</p>
+                    <h2 className="text-xl font-semibold text-slate-900">Alertas y movimientos</h2>
+                    <p className="text-sm text-slate-500">Actualizaciones de presupuestos, agenda y revisiones.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleMarkAllNotificationsRead}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                  >
+                    Marcar todo como leido
+                  </button>
+                </div>
+
+                <div className="mt-6 space-y-3">
+                  {loadingNotifications && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      Cargando notificaciones...
+                    </div>
+                  )}
+                  {!loadingNotifications && notificationsError && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+                      {notificationsError}
+                    </div>
+                  )}
+                  {!loadingNotifications && !notificationsError && notifications.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      No hay notificaciones por ahora.
+                    </div>
+                  )}
+                  {notifications.map((notif) => (
+                    <button
+                      key={notif.id}
+                      type="button"
+                      onClick={() => handleOpenNotification(notif)}
+                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
+                        notif.read_at
+                          ? 'border-slate-200 bg-white hover:border-slate-300'
+                          : 'border-amber-200 bg-amber-50 hover:border-amber-300'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{notif.title}</p>
+                          <p className="mt-1 text-xs text-slate-500">{notif.body}</p>
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {notif.created_at ? new Date(notif.created_at).toLocaleDateString('es-AR') : ''}
+                        </div>
+                      </div>
+                      {!notif.read_at && (
+                        <span className="mt-3 inline-flex rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-700">
+                          Nueva
+                        </span>
+                      )}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1202,27 +2557,222 @@ export default function TechniciansPage() {
             {activeTab === 'perfil' && (
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil</p>
-                <h2 className="text-xl font-semibold text-slate-900">Datos del negocio</h2>
-                <p className="text-sm text-slate-500">Revisa la informacion principal de tu cuenta.</p>
-                <div className="mt-6 grid gap-4 md:grid-cols-2">
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Nombre</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-800">{profile?.full_name || 'Sin completar'}</p>
+                <h2 className="text-xl font-semibold text-slate-900">Perfil del tecnico</h2>
+                <p className="text-sm text-slate-500">Completa la informacion para que tus presupuestos sean mas claros.</p>
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Informacion del perfil</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">ID de usuario</p>
+                          <p className="mt-2 text-xs font-semibold text-slate-700 break-all">
+                            {session?.user?.id || 'No disponible'}
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Email autenticado</p>
+                          <p className="mt-2 text-xs font-semibold text-slate-700 break-all">
+                            {session?.user?.email || 'No disponible'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos basicos</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Nombre y apellido</label>
+                      <input
+                        value={profileForm.fullName}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Nombre del negocio</label>
+                      <input
+                        value={profileForm.businessName}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, businessName: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Email</label>
+                      <input
+                        value={profileForm.email}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Telefono</label>
+                      <input
+                        value={profileForm.phone}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Logo o foto (URL)</label>
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <div
+                          className={`flex h-12 w-12 items-center justify-center overflow-hidden border border-slate-200 bg-white ${logoPreviewPresentation.frame} ${logoPreviewPresentation.padding}`}
+                        >
+                          {profileForm.avatarUrl ? (
+                            <img
+                              src={profileForm.avatarUrl}
+                              alt="Logo de empresa"
+                              onLoad={handleLogoLoaded}
+                              className={`h-full w-full ${logoPreviewPresentation.img}`}
+                            />
+                          ) : (
+                            <span className="text-[10px] font-semibold text-slate-400">LOGO</span>
+                          )}
+                        </div>
+                        <label className="inline-flex cursor-pointer items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
+                          {uploadingLogo ? 'Subiendo...' : 'Subir logo'}
+                          <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+                        </label>
+                        <input
+                          value={profileForm.avatarUrl}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, avatarUrl: event.target.value }))}
+                          placeholder="https://..."
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 sm:flex-1"
+                        />
+                        <select
+                          value={profileForm.logoShape}
+                          onChange={(event) => setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                        >
+                          <option value="auto">Auto</option>
+                          <option value="round">Redondo</option>
+                          <option value="square">Cuadrado</option>
+                          <option value="rect">Rectangular</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura y horarios</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Direccion base</label>
+                      <input
+                        value={profileForm.address}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad</label>
+                      <input
+                        value={profileForm.city}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
+                      <input
+                        value={profileForm.coverageArea}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, coverageArea: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Horarios de atencion</label>
+                      <input
+                        value={profileForm.workingHours}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, workingHours: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Negocio</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-800">
-                      {profile?.business_name || 'Sin completar'}
-                    </p>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Especialidades</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Rubros</label>
+                      <textarea
+                        value={profileForm.specialties}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, specialties: event.target.value }))}
+                        rows={3}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Certificaciones</label>
+                      <textarea
+                        value={profileForm.certifications}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, certifications: event.target.value }))}
+                        rows={3}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos comerciales</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">CUIT / CUIL</label>
+                      <input
+                        value={profileForm.taxId}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, taxId: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Condicion IVA</label>
+                      <input
+                        value={profileForm.taxStatus}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, taxStatus: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Metodo de pago</label>
+                      <input
+                        value={profileForm.paymentMethod}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, paymentMethod: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">CBU / Alias</label>
+                      <input
+                        value={profileForm.bankAlias}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, bankAlias: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Preferencias</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Moneda</label>
+                      <select
+                        value={profileForm.defaultCurrency}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, defaultCurrency: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="ARS">ARS</option>
+                        <option value="USD">USD</option>
+                      </select>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">IVA por defecto</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={profileForm.defaultTaxRate}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            defaultTaxRate: toNumber(event.target.value),
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Descuento por defecto</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={profileForm.defaultDiscount}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            defaultDiscount: toNumber(event.target.value),
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
                   </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Telefono</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-800">{profile?.phone || 'Sin completar'}</p>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Email</p>
-                    <p className="mt-2 text-sm font-semibold text-slate-800">{profile?.email || 'Sin completar'}</p>
-                  </div>
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handleProfileSave}
+                    disabled={profileSaving}
+                    className="rounded-full bg-slate-900 px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {profileSaving ? 'Guardando...' : 'Guardar cambios'}
+                  </button>
+                  {profileMessage && <span className="text-xs text-slate-600">{profileMessage}</span>}
                 </div>
               </div>
             )}
@@ -1232,18 +2782,103 @@ export default function TechniciansPage() {
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios</p>
                 <h2 className="text-xl font-semibold text-slate-900">Mano de obra</h2>
                 <p className="text-sm text-slate-500">
-                  Define valores base para agilizar los presupuestos. Esta seccion estara disponible pronto.
+                  Valores de mano de obra cargados en tu base. Selecciona un item para usarlo en el presupuesto.
                 </p>
-                <div className="mt-6 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-6">
-                  <p className="text-sm font-semibold text-slate-800">Lista de precios en construccion</p>
-                  <p className="mt-2 text-xs text-slate-500">
-                    Agregaremos una tabla editable con rubros, precios por hora y categorias.
-                  </p>
+
+                <div className="mt-5 flex flex-wrap items-center gap-3">
+                  <input
+                    value={masterSearch}
+                    onChange={(event) => setMasterSearch(event.target.value)}
+                    placeholder="Buscar item..."
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 sm:max-w-xs"
+                  />
+                  <select
+                    value={masterCategory}
+                    onChange={(event) => setMasterCategory(event.target.value)}
+                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                  >
+                    <option value="all">Todas las categorias</option>
+                    {masterCategories.map((category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMasterSearch('');
+                      setMasterCategory('all');
+                    }}
+                    className="rounded-full border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                  >
+                    Limpiar filtros
+                  </button>
+                </div>
+
+                <div className="mt-5 space-y-3">
+                  {loadingMasterItems && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      Cargando valores...
+                    </div>
+                  )}
+                  {!loadingMasterItems && filteredMasterItems.length === 0 && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      No encontramos items con esos filtros.
+                    </div>
+                  )}
+                  {filteredMasterItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {item.category || 'Sin categoria'}
+                          {item.source_ref ? ` · ${item.source_ref}` : ''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-slate-900">
+                          ${Number(item.suggested_price || 0).toLocaleString('es-AR')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => addMasterItemToQuote(item)}
+                          className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                        >
+                          Usar
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
           </section>
         </main>
+        {session && (
+          <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
+            <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3 text-xs text-slate-500">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-800">UrbanFix</span>
+                <span>© 2026 UrbanFix</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs">
+                <a
+                  href="mailto:info@urbanfixar.com"
+                  className="font-semibold text-slate-600 transition hover:text-slate-900"
+                >
+                  Soporte
+                </a>
+                <a href="/terminos" className="font-semibold text-slate-600 transition hover:text-slate-900">
+                  Terminos y condiciones
+                </a>
+              </div>
+            </div>
+          </footer>
+        )}
       </div>
     </div>
   );
