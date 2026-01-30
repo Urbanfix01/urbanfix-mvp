@@ -107,9 +107,17 @@ export default function QuotePage() {
   }, [items]);
 
   const fetchQuoteBundle = async (quoteId: string) => {
-    const { data, error } = await supabase.rpc('get_public_quote_bundle', { quote_id: quoteId });
-    if (error) throw error;
-    const bundle = data as any;
+    const attempt = async (params: Record<string, string>) => {
+      const { data, error } = await supabase.rpc('get_public_quote_bundle', params);
+      if (error) throw error;
+      return data as any;
+    };
+    let bundle: any;
+    try {
+      bundle = await attempt({ p_quote_id: quoteId });
+    } catch (error) {
+      bundle = await attempt({ quote_id: quoteId });
+    }
     setQuote(bundle?.quote || null);
     setProfile(bundle?.profile || null);
     setItems(Array.isArray(bundle?.items) ? bundle.items : []);

@@ -60,6 +60,28 @@ type MasterItemRow = {
   source_ref?: string | null;
 };
 
+type BillingPlanRow = {
+  id: string;
+  name: string;
+  period_months: number;
+  price_ars: number;
+  is_partner: boolean;
+  trial_days?: number | null;
+  active?: boolean | null;
+  mp_plan_id?: string | null;
+};
+
+type SubscriptionRow = {
+  id: string;
+  user_id: string;
+  plan_id: string | null;
+  status: string | null;
+  current_period_start?: string | null;
+  current_period_end?: string | null;
+  trial_end?: string | null;
+  plan?: BillingPlanRow | null;
+};
+
 const TAX_RATE = 0.21;
 const PROFIT_MARGIN = 0.3;
 
@@ -168,6 +190,9 @@ const toNumber = (value: string) => {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const formatCurrency = (value: number) =>
+  `$${Number(value || 0).toLocaleString('es-AR')}`;
 
 const getQuoteAddress = (quote: QuoteRow) =>
   quote.client_address || quote.address || quote.location_address || '';
@@ -307,11 +332,34 @@ export default function TechniciansPage() {
   const [loadingMasterItems, setLoadingMasterItems] = useState(false);
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
+  const [billingPlans, setBillingPlans] = useState<BillingPlanRow[]>([]);
+  const [loadingBilling, setLoadingBilling] = useState(false);
+  const [billingError, setBillingError] = useState('');
+  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
+  const [couponCode, setCouponCode] = useState('');
+  const [couponStatus, setCouponStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
+  const [couponInfo, setCouponInfo] = useState<{
+    code: string;
+    discount_percent: number;
+    is_partner: boolean;
+  } | null>(null);
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
+  const [creatingCheckout, setCreatingCheckout] = useState(false);
+  const [billingMessage, setBillingMessage] = useState('');
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
   const [activeTab, setActiveTab] = useState<
-    'lobby' | 'nuevo' | 'presupuestos' | 'visualizador' | 'agenda' | 'perfil' | 'precios' | 'historial' | 'notificaciones'
+    | 'lobby'
+    | 'nuevo'
+    | 'presupuestos'
+    | 'visualizador'
+    | 'agenda'
+    | 'perfil'
+    | 'precios'
+    | 'historial'
+    | 'notificaciones'
+    | 'suscripcion'
   >('lobby');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -333,6 +381,7 @@ export default function TechniciansPage() {
     { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG' },
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO' },
     { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI' },
+    { key: 'suscripcion', label: 'Suscripcion', hint: 'Planes', short: 'SU' },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF' },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM' },
   ] as const;
@@ -371,6 +420,8 @@ export default function TechniciansPage() {
       await fetchQuotes(session.user.id);
       await fetchNotifications(session.user.id);
       await fetchMasterItems();
+      await fetchBillingPlans();
+      await fetchSubscription();
     };
     load();
   }, [session?.user?.id]);
@@ -404,6 +455,26 @@ export default function TechniciansPage() {
     if (!profile?.avatar_url) return;
     setLogoRatio(1);
   }, [profile?.avatar_url]);
+
+  useEffect(() => {
+    if (!billingPlans.length) return;
+    if (selectedPlanId) return;
+    const basePlans = billingPlans.filter((plan) => !plan.is_partner);
+    const sorted = basePlans.sort((a, b) => a.period_months - b.period_months);
+    if (sorted[0]) {
+      setSelectedPlanId(sorted[0].id);
+    }
+  }, [billingPlans, selectedPlanId]);
+
+  useEffect(() => {
+    if (!couponCode) {
+      setCouponStatus('idle');
+      setCouponInfo(null);
+      return;
+    }
+    setCouponStatus('idle');
+    setCouponInfo(null);
+  }, [couponCode]);
 
   const fetchQuotes = async (userId?: string) => {
     if (!userId) return;
@@ -491,6 +562,107 @@ export default function TechniciansPage() {
     }
     setMasterItems((data as MasterItemRow[]) || []);
     setLoadingMasterItems(false);
+  };
+
+  const fetchBillingPlans = async () => {
+    setLoadingBilling(true);
+    setBillingError('');
+    try {
+      const response = await fetch('/api/billing/plans');
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudieron cargar los planes.');
+      }
+      setBillingPlans(data.plans || []);
+    } catch (error: any) {
+      setBillingError(error?.message || 'No se pudieron cargar los planes.');
+    } finally {
+      setLoadingBilling(false);
+    }
+  };
+
+  const fetchSubscription = async () => {
+    if (!session?.access_token) return;
+    try {
+      const response = await fetch('/api/billing/subscription', {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo cargar la suscripcion.');
+      }
+      setSubscription(data.subscription || null);
+    } catch (error: any) {
+      setSubscription(null);
+    }
+  };
+
+  const handleValidateCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponStatus('invalid');
+      setCouponInfo(null);
+      return;
+    }
+    if (!session?.access_token) {
+      setCouponStatus('invalid');
+      setCouponInfo(null);
+      return;
+    }
+    setCouponStatus('checking');
+    try {
+      const response = await fetch('/api/billing/coupon/validate', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code: couponCode }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.valid) {
+        setCouponStatus('invalid');
+        setCouponInfo(null);
+        return;
+      }
+      setCouponStatus('valid');
+      setCouponInfo(data.coupon || null);
+    } catch (error) {
+      setCouponStatus('invalid');
+      setCouponInfo(null);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!selectedPlanId) return;
+    if (!session?.access_token) return;
+    setCreatingCheckout(true);
+    setBillingMessage('');
+    try {
+      const response = await fetch('/api/billing/checkout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          planId: selectedPlanId,
+          couponCode: couponStatus === 'valid' ? couponInfo?.code : '',
+          successUrl: `${getPublicBaseUrl()}/tecnicos?billing=success`,
+          cancelUrl: `${getPublicBaseUrl()}/tecnicos?billing=cancel`,
+        }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || 'No pudimos iniciar el pago.');
+      }
+      if (data?.checkout_url) {
+        window.location.href = data.checkout_url;
+      }
+    } catch (error: any) {
+      setBillingMessage(error?.message || 'No pudimos iniciar el pago.');
+    } finally {
+      setCreatingCheckout(false);
+    }
   };
 
   const fetchAttachments = async (quoteId: string) => {
@@ -825,6 +997,36 @@ export default function TechniciansPage() {
       return matchesSearch && matchesCategory;
     });
   }, [masterItems, masterSearch, masterCategory]);
+  const baseBillingPlans = useMemo(
+    () =>
+      billingPlans
+        .filter((plan) => !plan.is_partner)
+        .sort((a, b) => a.period_months - b.period_months),
+    [billingPlans]
+  );
+  const partnerBillingMap = useMemo(() => {
+    const map = new Map<number, BillingPlanRow>();
+    billingPlans.forEach((plan) => {
+      if (plan.is_partner) {
+        map.set(plan.period_months, plan);
+      }
+    });
+    return map;
+  }, [billingPlans]);
+  const selectedBasePlan = useMemo(() => {
+    if (!baseBillingPlans.length) return null;
+    return baseBillingPlans.find((plan) => plan.id === selectedPlanId) || baseBillingPlans[0];
+  }, [baseBillingPlans, selectedPlanId]);
+  const selectedPartnerPlan = useMemo(() => {
+    if (!selectedBasePlan) return null;
+    return partnerBillingMap.get(selectedBasePlan.period_months) || null;
+  }, [partnerBillingMap, selectedBasePlan]);
+  const effectivePlan = useMemo(() => {
+    if (couponStatus === 'valid' && couponInfo?.is_partner && selectedPartnerPlan) {
+      return selectedPartnerPlan;
+    }
+    return selectedBasePlan;
+  }, [couponStatus, couponInfo, selectedPartnerPlan, selectedBasePlan]);
   const approvedJobs = useMemo(
     () => quotes.filter((quote) => readyToScheduleStatuses.has((quote.status || '').toLowerCase())),
     [quotes]
@@ -2494,6 +2696,145 @@ export default function TechniciansPage() {
                     ))}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {activeTab === 'suscripcion' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Suscripcion</p>
+                <h2 className="text-xl font-semibold text-slate-900">Planes y cobro</h2>
+                <p className="text-sm text-slate-500">Todos los planes incluyen 7 dias gratis.</p>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-[1.2fr,1fr]">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Estado actual</p>
+                    {subscription ? (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {subscription.plan?.name || 'Plan activo'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          Estado: <span className="font-semibold text-slate-700">{subscription.status || 'pendiente'}</span>
+                        </p>
+                        {subscription.current_period_end && (
+                          <p className="text-xs text-slate-500">
+                            Proximo vencimiento:{' '}
+                            {new Date(subscription.current_period_end).toLocaleDateString('es-AR')}
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
+                        Aun no tienes una suscripcion activa.
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Codigo de socio</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <input
+                        value={couponCode}
+                        onChange={(event) => setCouponCode(event.target.value)}
+                        placeholder="Ingresa tu codigo"
+                        className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleValidateCoupon}
+                        className="rounded-full border border-slate-200 px-4 py-2 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                      >
+                        Validar
+                      </button>
+                    </div>
+                    {couponStatus === 'valid' && couponInfo && (
+                      <p className="mt-3 text-xs text-emerald-600">
+                        Codigo aplicado ({couponInfo.discount_percent}% OFF).
+                      </p>
+                    )}
+                    {couponStatus === 'invalid' && (
+                      <p className="mt-3 text-xs text-rose-600">Codigo invalido o ya utilizado.</p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Planes disponibles</p>
+                      <p className="text-xs text-slate-500">Elegi la duracion que mas te convenga.</p>
+                    </div>
+                  </div>
+
+                  {loadingBilling && (
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      Cargando planes...
+                    </div>
+                  )}
+                  {!loadingBilling && billingError && (
+                    <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-600">
+                      {billingError}
+                    </div>
+                  )}
+
+                  {!loadingBilling && !billingError && (
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      {baseBillingPlans.map((plan) => {
+                        const partnerPlan = partnerBillingMap.get(plan.period_months);
+                        const showDiscount = couponStatus === 'valid' && couponInfo?.is_partner && partnerPlan;
+                        const displayPrice = showDiscount ? partnerPlan?.price_ars : plan.price_ars;
+                        return (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => setSelectedPlanId(plan.id)}
+                            className={`flex flex-col gap-3 rounded-3xl border p-4 text-left transition ${
+                              selectedPlanId === plan.id
+                                ? 'border-slate-900 bg-slate-900 text-white shadow-lg shadow-slate-900/20'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            }`}
+                          >
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.2em] opacity-70">{plan.name}</p>
+                              <p className="mt-3 text-2xl font-semibold">
+                                {formatCurrency(Number(displayPrice || 0))}
+                              </p>
+                              {showDiscount && (
+                                <p className="text-xs opacity-70 line-through">{formatCurrency(plan.price_ars)}</p>
+                              )}
+                            </div>
+                            <div className="text-xs opacity-80">
+                              {plan.period_months === 1
+                                ? 'Facturacion mensual'
+                                : `Facturacion cada ${plan.period_months} meses`}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                  <div className="text-sm text-slate-600">
+                    Plan seleccionado:{' '}
+                    <span className="font-semibold text-slate-900">{selectedBasePlan?.name || '---'}</span>
+                    {effectivePlan && effectivePlan.id !== selectedBasePlan?.id && (
+                      <span className="ml-2 rounded-full bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">
+                        {formatCurrency(effectivePlan.price_ars)}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleCheckout}
+                    disabled={!selectedPlanId || creatingCheckout}
+                    className="rounded-full bg-slate-900 px-6 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {creatingCheckout ? 'Redirigiendo...' : 'Suscribirme'}
+                  </button>
+                </div>
+                {billingMessage && <p className="mt-3 text-xs text-rose-600">{billingMessage}</p>}
               </div>
             )}
 
