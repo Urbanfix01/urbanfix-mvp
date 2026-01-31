@@ -28,7 +28,7 @@ const getAuthUser = async (request: NextRequest) => {
   return data?.user || null;
 };
 
-const createMpPlan = async (plan: any) => {
+const createMpPlan = async (plan: any, backUrl: string) => {
   if (!mpAccessToken) {
     throw new Error('Falta MP_ACCESS_TOKEN');
   }
@@ -47,6 +47,7 @@ const createMpPlan = async (plan: any) => {
   const payload = {
     reason: plan.name,
     auto_recurring: autoRecurring,
+    back_url: backUrl,
   };
   const response = await fetch('https://api.mercadopago.com/preapproval_plan', {
     method: 'POST',
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
 
     let mpPlanId = finalPlan.mp_plan_id;
     if (!mpPlanId) {
-      const mpPlan = await createMpPlan(finalPlan);
+      const mpPlan = await createMpPlan(finalPlan, successUrl);
       mpPlanId = mpPlan?.id;
       if (mpPlanId) {
         await supabase.from('billing_plans').update({ mp_plan_id: mpPlanId }).eq('id', finalPlan.id);
