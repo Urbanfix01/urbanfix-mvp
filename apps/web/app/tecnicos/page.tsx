@@ -12,10 +12,12 @@ import {
   Eye,
   FileText,
   Home,
+  ImagePlus,
   MessageCircle,
   Search,
   Tag,
   User,
+  X,
   type LucideIcon,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase/supabase';
@@ -125,6 +127,9 @@ type NavItem = {
 
 const TAX_RATE = 0.21;
 const PROFIT_MARGIN = 0.3;
+const SUPPORT_BUCKET = 'beta-support';
+const SUPPORT_MAX_IMAGES = 4;
+const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 
@@ -385,6 +390,19 @@ const translateProfileError = (message: string) => {
   return 'No pudimos guardar los cambios.';
 };
 
+const getSupportUploadExtension = (file: File) => {
+  const name = file.name || '';
+  const fromName = name.includes('.') ? name.split('.').pop() : '';
+  if (fromName) {
+    return fromName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  }
+  const mime = file.type || '';
+  if (mime.includes('/')) {
+    return mime.split('/')[1].replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+  }
+  return 'jpg';
+};
+
 export default function TechniciansPage() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -407,8 +425,11 @@ export default function TechniciansPage() {
   const [supportUsers, setSupportUsers] = useState<any[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
   const [supportDraft, setSupportDraft] = useState('');
+  const [supportAttachments, setSupportAttachments] = useState<{ file: File; previewUrl: string }[]>([]);
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState('');
+  const supportFileInputRef = useRef<HTMLInputElement | null>(null);
+  const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -472,6 +493,7 @@ export default function TechniciansPage() {
   const [billingMessage, setBillingMessage] = useState('');
   const [navSearch, setNavSearch] = useState('');
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
+  const [isNavHovered, setIsNavHovered] = useState(false);
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
@@ -518,6 +540,8 @@ export default function TechniciansPage() {
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
   ];
+
+  const isNavExpanded = !isNavCollapsed || isNavHovered;
 
   const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
   const filteredNavItems = useMemo(() => {
@@ -662,6 +686,27 @@ export default function TechniciansPage() {
     setCouponInfo(null);
   }, [couponCode]);
 
+  useEffect(() => {
+    supportAttachmentsRef.current = supportAttachments;
+  }, [supportAttachments]);
+
+  useEffect(() => {
+    return () => {
+      supportAttachmentsRef.current.forEach((item) => {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isBetaAdmin) return;
+    if (!activeSupportUserId) return;
+    clearSupportAttachments();
+    setSupportDraft('');
+  }, [activeSupportUserId, isBetaAdmin]);
+
   const fetchQuotes = async (userId?: string) => {
     if (!userId) return;
     const { data, error } = await supabase
@@ -759,18 +804,99 @@ export default function TechniciansPage() {
     setSupportLoading(false);
   };
 
+  const clearSupportAttachments = () => {
+    supportAttachments.forEach((item) => {
+      if (item.previewUrl) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+    setSupportAttachments([]);
+  };
+
+  const handleSupportImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (files.length === 0) return;
+    setSupportError('');
+    let next = [...supportAttachments];
+    let message = '';
+
+    files.forEach((file) => {
+      if (!file.type.startsWith('image/')) {
+        message = 'Solo se permiten imagenes.';
+        return;
+      }
+      if (file.size > SUPPORT_MAX_IMAGE_BYTES) {
+        message = 'Cada imagen debe pesar menos de 5 MB.';
+        return;
+      }
+      if (next.length >= SUPPORT_MAX_IMAGES) {
+        message = `Maximo ${SUPPORT_MAX_IMAGES} imagenes por mensaje.`;
+        return;
+      }
+      next.push({ file, previewUrl: URL.createObjectURL(file) });
+    });
+
+    if (message) {
+      setSupportError(message);
+    }
+    setSupportAttachments(next);
+  };
+
+  const handleRemoveSupportImage = (index: number) => {
+    setSupportAttachments((prev) => {
+      const copy = [...prev];
+      const removed = copy.splice(index, 1);
+      removed.forEach((item) => {
+        if (item.previewUrl) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+      return copy;
+    });
+  };
+
   const handleSendSupportMessage = async () => {
     if (!session?.user) return;
     const trimmed = supportDraft.trim();
-    if (!trimmed) return;
+    const hasImages = supportAttachments.length > 0;
+    if (!trimmed && !hasImages) return;
     const targetUserId = isBetaAdmin ? activeSupportUserId : session.user.id;
     if (!targetUserId) return;
     setSupportLoading(true);
     setSupportError('');
+    let imageUrls: string[] = [];
+    if (hasImages) {
+      try {
+        const uploads = await Promise.all(
+          supportAttachments.map(async (item) => {
+            const ext = getSupportUploadExtension(item.file);
+            const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}.${ext || 'jpg'}`;
+            const path = `${targetUserId}/${fileName}`;
+            const { error: uploadError } = await supabase.storage
+              .from(SUPPORT_BUCKET)
+              .upload(path, item.file, { contentType: item.file.type, upsert: false });
+            if (uploadError) {
+              throw uploadError;
+            }
+            const { data } = supabase.storage.from(SUPPORT_BUCKET).getPublicUrl(path);
+            return data.publicUrl;
+          })
+        );
+        imageUrls = uploads.filter(Boolean);
+      } catch (error: any) {
+        setSupportError(error?.message || 'No pudimos subir las imagenes.');
+        setSupportLoading(false);
+        return;
+      }
+    }
+
+    const messageBody = trimmed || (imageUrls.length ? 'Imagen adjunta' : '');
     const { error } = await supabase.from('beta_support_messages').insert({
       user_id: targetUserId,
       sender_id: session.user.id,
-      body: trimmed,
+      body: messageBody,
+      image_urls: imageUrls.length ? imageUrls : null,
     });
     if (error) {
       setSupportError(error.message || 'No pudimos enviar el mensaje.');
@@ -778,6 +904,7 @@ export default function TechniciansPage() {
       return;
     }
     setSupportDraft('');
+    clearSupportAttachments();
     await fetchSupportMessages();
     if (isBetaAdmin) {
       await fetchSupportUsers();
@@ -2157,10 +2284,12 @@ export default function TechniciansPage() {
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <div className="relative mx-auto flex w-full max-w-7xl gap-6 px-6 pb-28 pt-8">
+        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
           <aside
-            className={`hidden lg:flex flex-col rounded-3xl border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all ${
-              isNavCollapsed ? 'w-20' : 'w-72'
+            onMouseEnter={() => setIsNavHovered(true)}
+            onMouseLeave={() => setIsNavHovered(false)}
+            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
+              isNavExpanded ? 'w-72' : 'w-20'
             }`}
           >
             <div className="flex items-center justify-between px-4 py-4">
@@ -2181,7 +2310,7 @@ export default function TechniciansPage() {
                     <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
                   )}
                 </div>
-                {!isNavCollapsed && (
+                {isNavExpanded && (
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">UrbanFix</p>
                     <p className="text-sm font-semibold text-slate-800">
@@ -2192,7 +2321,13 @@ export default function TechniciansPage() {
               </div>
               <button
                 type="button"
-                onClick={() => setIsNavCollapsed((prev) => !prev)}
+                onClick={() =>
+                  setIsNavCollapsed((prev) => {
+                    const next = !prev;
+                    if (next) setIsNavHovered(false);
+                    return next;
+                  })
+                }
                 className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
                 title={isNavCollapsed ? 'Expandir menu' : 'Colapsar menu'}
               >
@@ -2200,7 +2335,7 @@ export default function TechniciansPage() {
               </button>
             </div>
 
-            {!isNavCollapsed && (
+            {isNavExpanded && (
               <div className="px-4">
                 <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
                   <Search className="h-4 w-4" />
@@ -2214,7 +2349,11 @@ export default function TechniciansPage() {
               </div>
             )}
 
-            <nav className="mt-4 flex-1 space-y-1 px-3">
+            {isNavExpanded && (
+              <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.3em] text-slate-400">Menu</p>
+            )}
+
+            <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-0 pb-3">
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNavKey === item.key;
@@ -2222,12 +2361,14 @@ export default function TechniciansPage() {
                   <button
                     key={item.key}
                     type="button"
-                    title={isNavCollapsed ? item.label : undefined}
+                    title={!isNavExpanded ? item.label : undefined}
                     onClick={() => {
                       setActiveTab(item.key);
                       if (item.key === 'presupuestos') setQuoteFilter('all');
                     }}
-                    className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold transition ${
+                    className={`group flex w-full items-center rounded-2xl py-2 text-sm font-semibold transition ${
+                      isNavExpanded ? 'gap-3 px-6' : 'justify-center px-0'
+                    } ${
                       isActive
                         ? 'bg-slate-900 text-white shadow-sm'
                         : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
@@ -2238,8 +2379,8 @@ export default function TechniciansPage() {
                         isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-800'
                       }`}
                     />
-                    {!isNavCollapsed && <span className="flex-1 text-left">{item.label}</span>}
-                    {!isNavCollapsed && item.key === 'notificaciones' && unreadNotifications > 0 && (
+                    {isNavExpanded && <span className="flex-1 text-left">{item.label}</span>}
+                    {isNavExpanded && item.key === 'notificaciones' && unreadNotifications > 0 && (
                       <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
                         {unreadNotifications}
                       </span>
@@ -2249,12 +2390,12 @@ export default function TechniciansPage() {
               })}
             </nav>
 
-            <div className="mt-4 border-t border-slate-200/80 px-4 py-4">
+            <div className="mt-auto border-t border-slate-200/80 px-4 py-4">
               <div className="flex items-center gap-3">
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-600">
                   {(profile?.business_name || 'U')[0]}
                 </div>
-                {!isNavCollapsed && (
+                {isNavExpanded && (
                   <div>
                     <p className="text-xs font-semibold text-slate-700">{profile?.business_name || 'UrbanFix'}</p>
                     <p className="text-[10px] text-slate-400">{session?.user?.email || 'Cuenta demo'}</p>
@@ -2290,22 +2431,6 @@ export default function TechniciansPage() {
                       {profile?.business_name || 'Panel tecnico'}
                     </p>
                   </div>
-                </div>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={startNewQuote}
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                  >
-                    Nuevo presupuesto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                  >
-                    Cerrar sesion
-                  </button>
                 </div>
               </div>
 
@@ -3714,7 +3839,26 @@ export default function TechniciansPage() {
                                   isOwn ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
                                 }`}
                               >
-                                <p>{msg.body}</p>
+                                {msg.body && <p>{msg.body}</p>}
+                                {Array.isArray(msg.image_urls) && msg.image_urls.length > 0 && (
+                                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                    {msg.image_urls.map((url: string, index: number) => (
+                                      <a
+                                        key={`${msg.id}-img-${index}`}
+                                        href={url}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="block overflow-hidden rounded-xl border border-white/20 bg-white/5"
+                                      >
+                                        <img
+                                          src={url}
+                                          alt="Adjunto"
+                                          className="h-28 w-full object-cover"
+                                        />
+                                      </a>
+                                    ))}
+                                  </div>
+                                )}
                                 <p className={`mt-1 text-[10px] ${isOwn ? 'text-slate-300' : 'text-slate-400'}`}>
                                   {msg.created_at ? new Date(msg.created_at).toLocaleString('es-AR') : ''}
                                 </p>
@@ -3724,22 +3868,64 @@ export default function TechniciansPage() {
                         })}
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                      <textarea
-                        value={supportDraft}
-                        onChange={(event) => setSupportDraft(event.target.value)}
-                        placeholder="Escribe tu mensaje..."
-                        className="min-h-[90px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleSendSupportMessage}
-                        disabled={supportLoading}
-                        className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                      >
-                        Enviar
-                      </button>
+                    <div className="mt-4 flex flex-col gap-3 lg:flex-row">
+                      <div className="flex-1 space-y-3">
+                        <textarea
+                          value={supportDraft}
+                          onChange={(event) => setSupportDraft(event.target.value)}
+                          placeholder="Escribe tu mensaje..."
+                          className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        {supportAttachments.length > 0 && (
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {supportAttachments.map((item, index) => (
+                              <div
+                                key={`${item.previewUrl}-${index}`}
+                                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                              >
+                                <img src={item.previewUrl} alt="Adjunto" className="h-28 w-full object-cover" />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveSupportImage(index)}
+                                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1 text-slate-600 shadow-sm transition hover:bg-white"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <p className="text-[11px] text-slate-400">
+                          Puedes adjuntar hasta {SUPPORT_MAX_IMAGES} imagenes (max 5 MB c/u).
+                        </p>
+                      </div>
+                      <div className="flex flex-row gap-2 lg:flex-col">
+                        <button
+                          type="button"
+                          onClick={() => supportFileInputRef.current?.click()}
+                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                        >
+                          <ImagePlus className="h-4 w-4" />
+                          Adjuntar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSendSupportMessage}
+                          disabled={supportLoading}
+                          className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          Enviar
+                        </button>
+                      </div>
                     </div>
+                    <input
+                      ref={supportFileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handleSupportImageSelect}
+                      className="hidden"
+                    />
                     {supportError && <p className="mt-3 text-xs text-rose-500">{supportError}</p>}
                   </div>
                 </div>
@@ -4028,7 +4214,7 @@ export default function TechniciansPage() {
                         <p className="text-sm font-semibold text-slate-900">{item.name}</p>
                         <p className="text-xs text-slate-500">
                           {formatRubroLabel(resolveMasterRubro(item))}
-                          {item.source_ref ? ` · ${item.source_ref}` : ''}
+                          {item.source_ref ? ` | ${item.source_ref}` : ''}
                         </p>
                       </div>
                       <div className="flex items-center gap-3">
