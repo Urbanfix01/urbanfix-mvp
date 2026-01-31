@@ -9,6 +9,16 @@ const publicWebUrl = process.env.NEXT_PUBLIC_PUBLIC_WEB_URL || 'https://www.urba
 const supabase =
   supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
+const normalizeUrl = (value?: string | null) => {
+  if (!value) return null;
+  try {
+    const url = new URL(value);
+    return url.toString();
+  } catch (_error) {
+    return null;
+  }
+};
+
 const getAuthUser = async (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace('Bearer ', '').trim();
@@ -86,7 +96,10 @@ export async function POST(request: NextRequest) {
     const payload = await request.json();
     const planId = String(payload?.planId || '');
     const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
-    const successUrl = String(payload?.successUrl || '').trim() || `${publicWebUrl}/tecnicos?billing=success`;
+    const rawSuccessUrl = String(payload?.successUrl || '').trim();
+    const normalizedPublicUrl = normalizeUrl(publicWebUrl) || 'https://www.urbanfixar.com';
+    const fallbackSuccessUrl = `${normalizedPublicUrl.replace(/\/+$/, '')}/tecnicos?billing=success`;
+    const successUrl = normalizeUrl(rawSuccessUrl) || fallbackSuccessUrl;
 
     if (!planId) {
       return NextResponse.json({ error: 'Missing plan' }, { status: 400 });
