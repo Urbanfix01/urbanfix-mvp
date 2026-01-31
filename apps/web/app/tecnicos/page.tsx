@@ -82,6 +82,12 @@ type SubscriptionRow = {
   plan?: BillingPlanRow | null;
 };
 
+type GeoResult = {
+  display_name: string;
+  lat: number;
+  lon: number;
+};
+
 const TAX_RATE = 0.21;
 const PROFIT_MARGIN = 0.3;
 
@@ -153,6 +159,7 @@ const draftStatuses = new Set(['draft', 'borrador']);
 const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
 const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
 const readyToScheduleStatuses = new Set(['approved', 'accepted']);
+const confirmedStatuses = new Set([...approvedStatuses, ...paidStatuses, ...completedStatuses]);
 const billingStatuses = new Set([
   'approved',
   'accepted',
@@ -254,6 +261,61 @@ const formatDateLocal = (date: Date) => {
   return `${year}-${month}-${day}`;
 };
 
+const normalizeText = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const buildOsmEmbedUrl = (lat: number, lon: number) => {
+  const delta = 0.004;
+  const left = lon - delta;
+  const right = lon + delta;
+  const bottom = lat - delta;
+  const top = lat + delta;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${lat}%2C${lon}`;
+};
+
+const buildOsmLink = (lat: number, lon: number) =>
+  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+
+const RUBRO_ORDER = ['gas', 'sanitario', 'electricidad', 'albanileria'];
+const RUBRO_LABELS: Record<string, string> = {
+  gas: 'Gas',
+  sanitario: 'Sanitario',
+  electricidad: 'Electricidad',
+  albanileria: 'Albañileria',
+};
+
+const resolveMasterRubro = (item: MasterItemRow) => {
+  const raw = [item.category, item.source_ref, item.name].filter(Boolean).join(' ');
+  const normalized = normalizeText(raw);
+  if (normalized.includes('gas')) return 'gas';
+  if (
+    normalized.includes('electric') ||
+    normalized.includes('electrico') ||
+    normalized.includes('tablero') ||
+    normalized.includes('cableado') ||
+    normalized.includes('luminaria') ||
+    normalized.includes('tomacorriente')
+  ) {
+    return 'electricidad';
+  }
+  if (
+    normalized.includes('albanil') ||
+    normalized.includes('albaniler') ||
+    normalized.includes('mamposter') ||
+    normalized.includes('revoque') ||
+    normalized.includes('cemento') ||
+    normalized.includes('ladrillo')
+  ) {
+    return 'albanileria';
+  }
+  return 'sanitario';
+};
+
+const formatRubroLabel = (value: string) => RUBRO_LABELS[value] || value;
+
 const parseDateLocal = (value?: string | null) => {
   if (!value) return null;
   const [year, month, day] = value.split('-').map((part) => Number(part));
@@ -294,6 +356,21 @@ export default function TechniciansPage() {
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [accessGateStatus, setAccessGateStatus] = useState<'checking' | 'required' | 'granted'>('checking');
+  const [accessCodeInput, setAccessCodeInput] = useState('');
+  const [accessCodeError, setAccessCodeError] = useState('');
+  const [redeemingAccess, setRedeemingAccess] = useState(false);
+  const [isBetaAdmin, setIsBetaAdmin] = useState(false);
+  const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
+  const [geoSelected, setGeoSelected] = useState<GeoResult | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState('');
+  const [supportMessages, setSupportMessages] = useState<any[]>([]);
+  const [supportUsers, setSupportUsers] = useState<any[]>([]);
+  const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
+  const [supportDraft, setSupportDraft] = useState('');
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState('');
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -363,6 +440,7 @@ export default function TechniciansPage() {
     | 'nuevo'
     | 'presupuestos'
     | 'visualizador'
+    | 'soporte'
     | 'agenda'
     | 'perfil'
     | 'precios'
@@ -383,12 +461,18 @@ export default function TechniciansPage() {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
 
+  const geoMapUrl = useMemo(() => {
+    if (!geoSelected) return '';
+    return buildOsmEmbedUrl(geoSelected.lat, geoSelected.lon);
+  }, [geoSelected]);
+
   const navItems = [
     { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB' },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR' },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI' },
     { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG' },
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO' },
+    { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH' },
     { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI' },
     { key: 'suscripcion', label: 'Suscripcion', hint: 'Planes', short: 'SU' },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF' },
@@ -418,19 +502,60 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
-    if (!session?.user) return;
+    if (!session?.user) {
+      setIsBetaAdmin(false);
+      return;
+    }
+    const loadAdmin = async () => {
+      const { data, error } = await supabase
+        .from('beta_admins')
+        .select('user_id')
+        .eq('user_id', session.user.id)
+        .single();
+      if (error || !data) {
+        setIsBetaAdmin(false);
+        return;
+      }
+      setIsBetaAdmin(true);
+    };
+    loadAdmin();
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setAccessGateStatus('checking');
+      return;
+    }
     const load = async () => {
-      const { data: profileData } = await supabase
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
-      setProfile(profileData || null);
-      await fetchQuotes(session.user.id);
-      await fetchNotifications(session.user.id);
-      await fetchMasterItems();
-      await fetchBillingPlans();
-      await fetchSubscription();
+
+      let resolvedProfile = profileData || null;
+      if (error || !profileData) {
+        const fallback = {
+          id: session.user.id,
+          email: session.user.email || null,
+          full_name: session.user.user_metadata?.full_name || '',
+          business_name: session.user.user_metadata?.business_name || '',
+        };
+        const { data: createdProfile } = await supabase.from('profiles').upsert(fallback).select().single();
+        resolvedProfile = createdProfile || fallback;
+      }
+
+      setProfile(resolvedProfile);
+
+      const hasAccess = Boolean(resolvedProfile?.access_granted);
+      setAccessGateStatus(hasAccess ? 'granted' : 'required');
+      if (hasAccess) {
+        await fetchQuotes(session.user.id);
+        await fetchNotifications(session.user.id);
+        await fetchMasterItems();
+        await fetchBillingPlans();
+        await fetchSubscription();
+      }
     };
     load();
   }, [session?.user?.id]);
@@ -515,6 +640,96 @@ export default function TechniciansPage() {
     }
     setNotifications((data as NotificationRow[]) || []);
     setLoadingNotifications(false);
+  };
+
+  const fetchSupportUsers = async () => {
+    if (!isBetaAdmin) return;
+    setSupportError('');
+    const { data, error } = await supabase
+      .from('beta_support_messages')
+      .select('user_id, body, created_at')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (error) {
+      setSupportError('No pudimos cargar las conversaciones.');
+      return;
+    }
+    const latestByUser = new Map<string, any>();
+    (data || []).forEach((msg: any) => {
+      if (!latestByUser.has(msg.user_id)) {
+        latestByUser.set(msg.user_id, msg);
+      }
+    });
+    const userIds = Array.from(latestByUser.keys());
+    let profilesMap = new Map<string, any>();
+    if (userIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, business_name, email')
+        .in('id', userIds);
+      (profilesData || []).forEach((profile: any) => {
+        profilesMap.set(profile.id, profile);
+      });
+    }
+    const list = userIds.map((id) => {
+      const profile = profilesMap.get(id);
+      const label = profile?.business_name || profile?.full_name || profile?.email || id;
+      return { userId: id, label, lastMessage: latestByUser.get(id) };
+    });
+    setSupportUsers(list);
+    if (!activeSupportUserId && list[0]) {
+      setActiveSupportUserId(list[0].userId);
+    }
+  };
+
+  const fetchSupportMessages = async () => {
+    if (!session?.user) return;
+    setSupportLoading(true);
+    setSupportError('');
+    const targetUserId = isBetaAdmin ? activeSupportUserId : session.user.id;
+    if (!targetUserId) {
+      setSupportMessages([]);
+      setSupportLoading(false);
+      return;
+    }
+    const { data, error } = await supabase
+      .from('beta_support_messages')
+      .select('*')
+      .eq('user_id', targetUserId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      setSupportError('No pudimos cargar los mensajes.');
+      setSupportMessages([]);
+      setSupportLoading(false);
+      return;
+    }
+    setSupportMessages((data as any[]) || []);
+    setSupportLoading(false);
+  };
+
+  const handleSendSupportMessage = async () => {
+    if (!session?.user) return;
+    const trimmed = supportDraft.trim();
+    if (!trimmed) return;
+    const targetUserId = isBetaAdmin ? activeSupportUserId : session.user.id;
+    if (!targetUserId) return;
+    setSupportLoading(true);
+    setSupportError('');
+    const { error } = await supabase.from('beta_support_messages').insert({
+      user_id: targetUserId,
+      sender_id: session.user.id,
+      body: trimmed,
+    });
+    if (error) {
+      setSupportError(error.message || 'No pudimos enviar el mensaje.');
+      setSupportLoading(false);
+      return;
+    }
+    setSupportDraft('');
+    await fetchSupportMessages();
+    if (isBetaAdmin) {
+      await fetchSupportUsers();
+    }
   };
 
   const handleScheduleUpdate = async (quoteId: string, startDate: string, endDate: string) => {
@@ -699,6 +914,10 @@ export default function TechniciansPage() {
     setActiveQuoteId(null);
     setClientName('');
     setClientAddress('');
+    setGeoResults([]);
+    setGeoSelected(null);
+    setGeoLoading(false);
+    setGeoError('');
     setDiscount(0);
     setApplyTax(false);
     setItems([]);
@@ -732,6 +951,15 @@ export default function TechniciansPage() {
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
     setClientAddress(getQuoteAddress(quote));
+    if (quote.location_lat && quote.location_lng) {
+      setGeoSelected({
+        display_name: quote.location_address || getQuoteAddress(quote) || 'Ubicacion',
+        lat: Number(quote.location_lat),
+        lon: Number(quote.location_lng),
+      });
+    } else {
+      setGeoSelected(null);
+    }
     setApplyTax((quote.tax_rate || 0) > 0);
     setDiscount(0);
     setFormError('');
@@ -786,8 +1014,32 @@ export default function TechniciansPage() {
     ]);
   };
 
+  const laborMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'labor'), [masterItems]);
+  const laborMasterMap = useMemo(() => {
+    const map = new Map<string, MasterItemRow>();
+    laborMasterItems.forEach((item) => {
+      map.set(normalizeText(item.name), item);
+    });
+    return map;
+  }, [laborMasterItems]);
+
   const handleItemUpdate = (id: string, patch: Partial<ItemForm>) => {
-    setItems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+    setItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const next = { ...item, ...patch };
+        if ((patch.description !== undefined || patch.type !== undefined) && next.type === 'labor') {
+          const normalized = normalizeText(next.description || '');
+          if (normalized) {
+            const match = laborMasterMap.get(normalized);
+            if (match) {
+              next.unitPrice = Number(match.suggested_price || 0);
+            }
+          }
+        }
+        return next;
+      })
+    );
   };
 
   const handleRemoveItem = (id: string) => {
@@ -894,8 +1146,8 @@ export default function TechniciansPage() {
         const status = (quote.status || '').toLowerCase();
         if (status === 'draft') acc.draft += 1;
         if (pendingStatuses.has(status)) acc.pending += 1;
-        if (approvedStatuses.has(status)) {
-          acc.approved += 1;
+        if (approvedStatuses.has(status)) acc.approved += 1;
+        if (confirmedStatuses.has(status)) {
           acc.approvedAmount += quote.total_amount || 0;
           acc.profitAmount += (quote.total_amount || 0) * PROFIT_MARGIN;
         }
@@ -929,7 +1181,7 @@ export default function TechniciansPage() {
       const bucket = points.find((item) => item.key === key);
       if (!bucket) return;
       bucket.quotes += quote.total_amount || 0;
-      if (approvedStatuses.has((quote.status || '').toLowerCase())) {
+      if (confirmedStatuses.has((quote.status || '').toLowerCase())) {
         bucket.approved += quote.total_amount || 0;
         bucket.profit += (quote.total_amount || 0) * PROFIT_MARGIN;
       }
@@ -1025,15 +1277,23 @@ export default function TechniciansPage() {
   const masterCategories = useMemo(() => {
     const set = new Set<string>();
     masterItems.forEach((item) => {
-      if (item.category) set.add(item.category);
+      set.add(resolveMasterRubro(item));
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(set).sort((a, b) => {
+      const aIndex = RUBRO_ORDER.indexOf(a);
+      const bIndex = RUBRO_ORDER.indexOf(b);
+      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    });
   }, [masterItems]);
   const filteredMasterItems = useMemo(() => {
     const search = masterSearch.trim().toLowerCase();
     return masterItems.filter((item) => {
       const matchesSearch = !search || item.name.toLowerCase().includes(search);
-      const matchesCategory = masterCategory === 'all' || item.category === masterCategory;
+      const rubro = resolveMasterRubro(item);
+      const matchesCategory = masterCategory === 'all' || rubro === masterCategory;
       return matchesSearch && matchesCategory;
     });
   }, [masterItems, masterSearch, masterCategory]);
@@ -1339,6 +1599,19 @@ export default function TechniciansPage() {
     }
   };
 
+  const copyQuoteLink = async (quoteId?: string) => {
+    const targetId = quoteId || activeQuoteId;
+    if (!targetId) return { ok: false, url: '' };
+    const url = buildQuoteLink(targetId);
+    try {
+      if (!navigator?.clipboard?.writeText) throw new Error('Clipboard no disponible');
+      await navigator.clipboard.writeText(url);
+      return { ok: true, url };
+    } catch (error) {
+      return { ok: false, url };
+    }
+  };
+
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
     if (savingRef.current || isSaving) return;
     savingRef.current = true;
@@ -1368,6 +1641,9 @@ export default function TechniciansPage() {
       const quotePayload = {
         client_name: clientName,
         client_address: clientAddress,
+        location_address: geoSelected?.display_name || null,
+        location_lat: geoSelected?.lat ?? null,
+        location_lng: geoSelected?.lon ?? null,
         total_amount: total,
         tax_rate: applyTax ? TAX_RATE : 0,
         status: nextStatus,
@@ -1419,8 +1695,18 @@ export default function TechniciansPage() {
         if (itemsError) throw itemsError;
       }
 
+      let postSaveMessage = nextStatus === 'sent' ? 'Presupuesto enviado.' : 'Borrador guardado.';
+      if (nextStatus === 'sent') {
+        const copyResult = await copyQuoteLink(quoteId || undefined);
+        if (copyResult.url) {
+          postSaveMessage = copyResult.ok
+            ? 'Tu link fue copiado, podes enviarlo.'
+            : `No pudimos copiar el link. Copialo manualmente: ${copyResult.url}`;
+        }
+      }
+
       await fetchQuotes(session?.user?.id);
-      setInfoMessage(nextStatus === 'sent' ? 'Presupuesto enviado.' : 'Borrador guardado.');
+      setInfoMessage(postSaveMessage);
       lastSavedItemsSignatureRef.current = itemsSignature;
       lastSavedItemsCountRef.current = cleanedItems.length;
     } catch (error: any) {
@@ -1432,15 +1718,9 @@ export default function TechniciansPage() {
   };
 
   const handleCopyLink = async (quoteId?: string) => {
-    const targetId = quoteId || activeQuoteId;
-    if (!targetId) return;
-    const url = buildQuoteLink(targetId);
-    try {
-      await navigator.clipboard.writeText(url);
-      setInfoMessage('Link copiado al portapapeles.');
-    } catch (error) {
-      setInfoMessage(`Link: ${url}`);
-    }
+    const result = await copyQuoteLink(quoteId);
+    if (!result.url) return;
+    setInfoMessage(result.ok ? 'Link copiado al portapapeles.' : `Link: ${result.url}`);
   };
 
   const handleOpenQuoteWindow = (quoteId?: string) => {
@@ -1509,6 +1789,41 @@ export default function TechniciansPage() {
       }
   };
 
+  const handleRedeemAccessCode = async () => {
+    if (!session?.user) return;
+    setAccessCodeError('');
+    const trimmedCode = accessCodeInput.trim();
+    if (!trimmedCode) {
+      setAccessCodeError('Ingresa el codigo de acceso.');
+      return;
+    }
+    setRedeemingAccess(true);
+    try {
+      const { error } = await supabase.rpc('redeem_access_code', { p_code: trimmedCode });
+      if (error) throw error;
+      setAccessGateStatus('granted');
+      setAccessCodeInput('');
+      setProfile((prev: any) => ({ ...prev, access_granted: true, access_granted_at: new Date().toISOString() }));
+      await fetchQuotes(session.user.id);
+      await fetchNotifications(session.user.id);
+      await fetchMasterItems();
+      await fetchBillingPlans();
+      await fetchSubscription();
+    } catch (error: any) {
+      setAccessCodeError(error?.message || 'No pudimos validar el codigo.');
+    } finally {
+      setRedeemingAccess(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!session?.user || activeTab !== 'soporte') return;
+    if (isBetaAdmin) {
+      fetchSupportUsers();
+    }
+    fetchSupportMessages();
+  }, [activeTab, session?.user?.id, isBetaAdmin, activeSupportUserId]);
+
   if (loadingSession) {
     return (
       <>
@@ -1525,6 +1840,82 @@ export default function TechniciansPage() {
     );
   }
 
+  if (session?.user && accessGateStatus === 'checking') {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+        >
+          <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
+            Cargando acceso...
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (session?.user && accessGateStatus === 'required') {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        >
+          <div className="relative overflow-hidden">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
+            />
+            <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-12">
+              <div className="w-full rounded-[32px] border border-slate-200 bg-white/90 p-8 shadow-xl shadow-slate-200/60">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso demo</p>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Ingresa tu codigo de acceso</h2>
+                <p className="mt-2 text-sm text-slate-600">
+                  Para activar tu cuenta demo necesitas el codigo que te compartimos.
+                </p>
+                <div className="mt-6 space-y-3">
+                  <input
+                    value={accessCodeInput}
+                    onChange={(event) => setAccessCodeInput(event.target.value)}
+                    placeholder="Codigo de acceso"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleRedeemAccessCode}
+                    disabled={redeemingAccess}
+                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {redeemingAccess ? 'Validando...' : 'Validar codigo'}
+                  </button>
+                  {accessCodeError && <p className="text-xs text-rose-500">{accessCodeError}</p>}
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Cerrar sesion
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (!session?.user) {
     return (
       <>
@@ -1534,11 +1925,20 @@ export default function TechniciansPage() {
           className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]" />
-          <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl" />
-          <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl" />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl"
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
+          />
 
-          <main className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
+          <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
             <div className="space-y-6 text-center md:text-left">
               <div className="flex items-center justify-center gap-3 md:justify-start">
                 <div
@@ -2023,6 +2423,7 @@ export default function TechniciansPage() {
                               value={item.description}
                               onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
                               placeholder="Descripcion"
+                              list={item.type === 'labor' ? 'labor-master-items' : undefined}
                               className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
                             />
                             <input
@@ -2064,6 +2465,11 @@ export default function TechniciansPage() {
                             </button>
                           </div>
                         ))}
+                        <datalist id="labor-master-items">
+                          {laborMasterItems.map((laborItem) => (
+                            <option key={laborItem.id} value={laborItem.name} />
+                          ))}
+                        </datalist>
                       </div>
                     </div>
                   </div>
@@ -2973,6 +3379,114 @@ export default function TechniciansPage() {
               </div>
             )}
 
+            {activeTab === 'soporte' && (
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Soporte beta</p>
+                    <h2 className="text-xl font-semibold text-slate-900">Chat interno</h2>
+                    <p className="text-sm text-slate-500">
+                      Usa este canal para reportar problemas o pedir ayuda durante la beta.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isBetaAdmin) fetchSupportUsers();
+                      fetchSupportMessages();
+                    }}
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Actualizar
+                  </button>
+                </div>
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-[280px,1fr]">
+                  {isBetaAdmin && (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Conversaciones</p>
+                      {supportUsers.length === 0 && (
+                        <p className="mt-3 text-sm text-slate-500">Aun no hay mensajes.</p>
+                      )}
+                      <div className="mt-3 space-y-2">
+                        {supportUsers.map((user) => (
+                          <button
+                            key={user.userId}
+                            type="button"
+                            onClick={() => setActiveSupportUserId(user.userId)}
+                            className={`w-full rounded-2xl border px-3 py-3 text-left text-xs transition ${
+                              activeSupportUserId === user.userId
+                                ? 'border-slate-300 bg-white text-slate-900 shadow-sm'
+                                : 'border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-white'
+                            }`}
+                          >
+                            <p className="text-sm font-semibold">{user.label}</p>
+                            <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
+                              {user.lastMessage?.body || 'Sin mensajes'}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    {isBetaAdmin && (
+                      <p className="text-xs text-slate-500">
+                        Conversacion con:{' '}
+                        <span className="font-semibold text-slate-700">
+                          {supportUsers.find((user) => user.userId === activeSupportUserId)?.label ||
+                            'Selecciona un usuario'}
+                        </span>
+                      </p>
+                    )}
+                    <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                      {supportLoading && <p className="text-sm text-slate-500">Cargando mensajes...</p>}
+                      {!supportLoading && supportMessages.length === 0 && (
+                        <p className="text-sm text-slate-500">Todavia no hay mensajes en este chat.</p>
+                      )}
+                      {!supportLoading &&
+                        supportMessages.map((msg) => {
+                          const isOwn = msg.sender_id === session?.user?.id;
+                          return (
+                            <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                              <div
+                                className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                                  isOwn ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
+                                }`}
+                              >
+                                <p>{msg.body}</p>
+                                <p className={`mt-1 text-[10px] ${isOwn ? 'text-slate-300' : 'text-slate-400'}`}>
+                                  {msg.created_at ? new Date(msg.created_at).toLocaleString('es-AR') : ''}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+                      <textarea
+                        value={supportDraft}
+                        onChange={(event) => setSupportDraft(event.target.value)}
+                        placeholder="Escribe tu mensaje..."
+                        className="min-h-[90px] flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSendSupportMessage}
+                        disabled={supportLoading}
+                        className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        Enviar
+                      </button>
+                    </div>
+                    {supportError && <p className="mt-3 text-xs text-rose-500">{supportError}</p>}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {activeTab === 'perfil' && (
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil</p>
@@ -3216,10 +3730,10 @@ export default function TechniciansPage() {
                     onChange={(event) => setMasterCategory(event.target.value)}
                     className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
                   >
-                    <option value="all">Todas las categorias</option>
+                    <option value="all">Todos los rubros</option>
                     {masterCategories.map((category) => (
                       <option key={category} value={category}>
-                        {category}
+                        {formatRubroLabel(category)}
                       </option>
                     ))}
                   </select>
@@ -3254,7 +3768,7 @@ export default function TechniciansPage() {
                       <div>
                         <p className="text-sm font-semibold text-slate-900">{item.name}</p>
                         <p className="text-xs text-slate-500">
-                          {item.category || 'Sin categoria'}
+                          {formatRubroLabel(resolveMasterRubro(item))}
                           {item.source_ref ? ` · ${item.source_ref}` : ''}
                         </p>
                       </div>

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -75,10 +75,61 @@ function MainTabs() {
   );
 }
 
+function AccessGate({ onGranted }: { onGranted: () => void }) {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRedeem = async () => {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      Alert.alert('Falta codigo', 'Ingresa el codigo de acceso.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.rpc('redeem_access_code', { p_code: trimmed });
+      if (error) throw error;
+      onGranted();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No pudimos validar el codigo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <View style={stylesGate.container}>
+      <View style={stylesGate.card}>
+        <Text style={stylesGate.title}>Acceso demo</Text>
+        <Text style={stylesGate.subtitle}>Ingresa el codigo que te compartimos para activar tu cuenta.</Text>
+        <TextInput
+          style={stylesGate.input}
+          placeholder="Codigo de acceso"
+          placeholderTextColor="#94A3B8"
+          value={code}
+          onChangeText={setCode}
+          autoCapitalize="characters"
+        />
+        <TouchableOpacity onPress={handleRedeem} disabled={loading} style={stylesGate.button}>
+          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={stylesGate.buttonText}>Validar codigo</Text>}
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={async () => {
+            await supabase.auth.signOut();
+          }}
+        >
+          <Text style={stylesGate.logout}>Cerrar sesion</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 // --- ROOT STACK (Navegación Global) ---
 export default function RootNavigator() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [accessGranted, setAccessGranted] = useState<boolean | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -93,6 +144,35 @@ export default function RootNavigator() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!session?.user) {
+      setAccessGranted(null);
+      return;
+    }
+    let active = true;
+    const checkAccess = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('access_granted')
+        .eq('id', session.user.id)
+        .single();
+      if (!active) return;
+      if (error || !data) {
+        await supabase.from('profiles').upsert({
+          id: session.user.id,
+          email: session.user.email || null,
+        });
+        setAccessGranted(false);
+        return;
+      }
+      setAccessGranted(Boolean(data.access_granted));
+    };
+    checkAccess();
+    return () => {
+      active = false;
+    };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user || Platform.OS === 'web') return;
@@ -143,6 +223,18 @@ export default function RootNavigator() {
         <ActivityIndicator size="large" color={COLORS.primary} />
       </View>
     );
+  }
+
+  if (session && accessGranted === null) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: COLORS.secondary }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+      </View>
+    );
+  }
+
+  if (session && accessGranted === false) {
+    return <AccessGate onGranted={() => setAccessGranted(true)} />;
   }
 
   return (
@@ -206,3 +298,41 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const stylesGate = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  card: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#0B1221',
+    borderRadius: 20,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  title: { fontSize: 22, color: '#FFF', fontWeight: '700', marginBottom: 6 },
+  subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
+  input: {
+    backgroundColor: 'rgba(15,23,42,0.7)',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    color: '#F8FAFC',
+    marginBottom: 12,
+  },
+  button: {
+    backgroundColor: COLORS.primary,
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  buttonText: { color: '#FFF', fontWeight: '700' },
+  logout: { color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 12 },
+});
