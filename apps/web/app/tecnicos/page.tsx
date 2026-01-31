@@ -2,6 +2,22 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Sora } from 'next/font/google';
+import {
+  Bell,
+  Calendar,
+  ChevronsLeft,
+  ChevronsRight,
+  Clock,
+  CreditCard,
+  Eye,
+  FileText,
+  Home,
+  MessageCircle,
+  Search,
+  Tag,
+  User,
+  type LucideIcon,
+} from 'lucide-react';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
 
@@ -86,6 +102,25 @@ type GeoResult = {
   display_name: string;
   lat: number;
   lon: number;
+};
+
+type NavItem = {
+  key:
+    | 'lobby'
+    | 'nuevo'
+    | 'presupuestos'
+    | 'visualizador'
+    | 'agenda'
+    | 'notificaciones'
+    | 'soporte'
+    | 'historial'
+    | 'suscripcion'
+    | 'perfil'
+    | 'precios';
+  label: string;
+  hint: string;
+  short: string;
+  icon: LucideIcon;
 };
 
 const TAX_RATE = 0.21;
@@ -314,7 +349,10 @@ const resolveMasterRubro = (item: MasterItemRow) => {
   return 'sanitario';
 };
 
-const formatRubroLabel = (value: string) => RUBRO_LABELS[value] || value;
+const formatRubroLabel = (value: string) => {
+  if (value === 'albanileria') return 'Albanileria';
+  return RUBRO_LABELS[value] || value;
+};
 
 const parseDateLocal = (value?: string | null) => {
   if (!value) return null;
@@ -432,6 +470,8 @@ export default function TechniciansPage() {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
   const [creatingCheckout, setCreatingCheckout] = useState(false);
   const [billingMessage, setBillingMessage] = useState('');
+  const [navSearch, setNavSearch] = useState('');
+  const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
@@ -466,18 +506,30 @@ export default function TechniciansPage() {
     return buildOsmEmbedUrl(geoSelected.lat, geoSelected.lon);
   }, [geoSelected]);
 
-  const navItems = [
-    { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB' },
-    { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR' },
-    { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI' },
-    { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG' },
-    { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO' },
-    { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH' },
-    { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI' },
-    { key: 'suscripcion', label: 'Suscripcion', hint: 'Planes', short: 'SU' },
-    { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF' },
-    { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM' },
-  ] as const;
+  const navItems: NavItem[] = [
+    { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB', icon: Home },
+    { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
+    { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI', icon: Eye },
+    { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG', icon: Calendar },
+    { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO', icon: Bell },
+    { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH', icon: MessageCircle },
+    { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI', icon: Clock },
+    { key: 'suscripcion', label: 'Suscripcion', hint: 'Planes', short: 'SU', icon: CreditCard },
+    { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
+    { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
+  ];
+
+  const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
+  const filteredNavItems = useMemo(() => {
+    const query = navSearch.trim().toLowerCase();
+    if (!query) return navItems;
+    return navItems.filter(
+      (item) =>
+        item.label.toLowerCase().includes(query) ||
+        item.hint.toLowerCase().includes(query) ||
+        item.short.toLowerCase().includes(query)
+    );
+  }, [navItems, navSearch]);
 
   const statusOptions = [
     { value: 'draft', label: 'Computo' },
@@ -1044,6 +1096,48 @@ export default function TechniciansPage() {
 
   const handleRemoveItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleGeocodeSearch = async () => {
+    const query = clientAddress.trim();
+    if (!query) {
+      setGeoError('Ingresa una direccion para buscar en el mapa.');
+      return;
+    }
+    setGeoLoading(true);
+    setGeoError('');
+    setGeoResults([]);
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(
+        query
+      )}&addressdetails=1&email=info@urbanfixar.com`;
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('No se pudo geocodificar la direccion.');
+      const data = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+      const mapped = data
+        .map((item) => ({
+          display_name: item.display_name,
+          lat: Number(item.lat),
+          lon: Number(item.lon),
+        }))
+        .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+      if (mapped.length === 0) {
+        setGeoError('No encontramos esa direccion. Prueba con mas detalles.');
+      }
+      setGeoResults(mapped);
+    } catch (error) {
+      console.error('Error geocodificando direccion:', error);
+      setGeoError('No pudimos buscar la direccion. Intenta nuevamente.');
+    } finally {
+      setGeoLoading(false);
+    }
+  };
+
+  const handleSelectGeo = (result: GeoResult) => {
+    setGeoSelected(result);
+    setGeoResults([]);
+    setGeoError('');
+    setClientAddress(result.display_name);
   };
 
   const handleAttachmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2063,87 +2157,195 @@ export default function TechniciansPage() {
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <header className="relative mx-auto mt-8 w-full max-w-6xl rounded-3xl border border-slate-200 bg-white/80 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="relative mx-auto flex w-full max-w-7xl gap-6 px-6 pb-28 pt-8">
+          <aside
+            className={`hidden lg:flex flex-col rounded-3xl border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all ${
+              isNavCollapsed ? 'w-20' : 'w-72'
+            }`}
+          >
+            <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-3">
-              <div
-                className={`flex h-12 w-12 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                  profile?.avatar_url ? 'bg-white' : 'bg-slate-900'
-                }`}
-              >
-                {profile?.avatar_url ? (
-                  <img
-                    src={profile.avatar_url}
-                    alt="Logo de empresa"
-                    onLoad={handleLogoLoaded}
-                    className={`h-full w-full ${logoPresentation.img}`}
-                  />
-                ) : (
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+                <div
+                  className={`flex h-11 w-11 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/30 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                    profile?.avatar_url ? 'bg-white' : 'bg-slate-900'
+                  }`}
+                >
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Logo de empresa"
+                      onLoad={handleLogoLoaded}
+                      className={`h-full w-full ${logoPresentation.img}`}
+                    />
+                  ) : (
+                    <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
+                  )}
+                </div>
+                {!isNavCollapsed && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">UrbanFix</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {profile?.business_name || 'Panel tecnico'}
+                    </p>
+                  </div>
                 )}
               </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                <p className="text-sm font-semibold text-slate-800">
-                  {profile?.business_name || 'Panel tecnico'}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-3">
-                <button
-                  type="button"
-                  onClick={startNewQuote}
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Nuevo presupuesto
-                </button>
               <button
                 type="button"
-                onClick={handleLogout}
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                onClick={() => setIsNavCollapsed((prev) => !prev)}
+                className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
+                title={isNavCollapsed ? 'Expandir menu' : 'Colapsar menu'}
               >
-                Cerrar sesion
+                {isNavCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
               </button>
             </div>
-          </div>
 
-          <div className="mt-4 rounded-full border border-slate-200 bg-slate-50/90 p-2 shadow-sm backdrop-blur">
-            <div className="flex items-center gap-2 overflow-x-auto">
-                {navItems.map((item) => {
-                  const isActive = activeTab === item.key || (activeTab === 'nuevo' && item.key === 'presupuestos');
-                  return (
+            {!isNavCollapsed && (
+              <div className="px-4">
+                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                  <Search className="h-4 w-4" />
+                  <input
+                    value={navSearch}
+                    onChange={(event) => setNavSearch(event.target.value)}
+                    placeholder="Buscar seccion..."
+                    className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none"
+                  />
+                </div>
+              </div>
+            )}
+
+            <nav className="mt-4 flex-1 space-y-1 px-3">
+              {filteredNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeNavKey === item.key;
+                return (
                   <button
                     key={item.key}
                     type="button"
+                    title={isNavCollapsed ? item.label : undefined}
                     onClick={() => {
                       setActiveTab(item.key);
                       if (item.key === 'presupuestos') setQuoteFilter('all');
                     }}
-                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                    className={`group flex w-full items-center gap-3 rounded-2xl px-3 py-2 text-sm font-semibold transition ${
                       isActive
                         ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                     }`}
                   >
-                    <span className="inline-flex items-center gap-2">
-                      {item.label}
-                      {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                        <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                          {unreadNotifications}
-                        </span>
-                      )}
-                    </span>
+                    <Icon
+                      className={`h-4 w-4 ${
+                        isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-800'
+                      }`}
+                    />
+                    {!isNavCollapsed && <span className="flex-1 text-left">{item.label}</span>}
+                    {!isNavCollapsed && item.key === 'notificaciones' && unreadNotifications > 0 && (
+                      <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                        {unreadNotifications}
+                      </span>
+                    )}
                   </button>
                 );
               })}
-              <span className="ml-auto hidden shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-slate-500 sm:inline-flex">
-                {quotes.length} activos
-              </span>
-            </div>
-          </div>
-        </header>
+            </nav>
 
-        <main className="relative mx-auto w-full max-w-6xl px-6 pb-28 pt-6">
+            <div className="mt-4 border-t border-slate-200/80 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-600">
+                  {(profile?.business_name || 'U')[0]}
+                </div>
+                {!isNavCollapsed && (
+                  <div>
+                    <p className="text-xs font-semibold text-slate-700">{profile?.business_name || 'UrbanFix'}</p>
+                    <p className="text-[10px] text-slate-400">{session?.user?.email || 'Cuenta demo'}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </aside>
+
+          <div className="min-w-0 flex-1">
+            <header className="relative rounded-3xl border border-slate-200 bg-white/85 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-12 w-12 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                      profile?.avatar_url ? 'bg-white' : 'bg-slate-900'
+                    }`}
+                  >
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Logo de empresa"
+                        onLoad={handleLogoLoaded}
+                        className={`h-full w-full ${logoPresentation.img}`}
+                      />
+                    ) : (
+                      <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
+                    <p className="text-sm font-semibold text-slate-800">
+                      {profile?.business_name || 'Panel tecnico'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={startNewQuote}
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Nuevo presupuesto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  >
+                    Cerrar sesion
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-full border border-slate-200 bg-slate-50/90 p-2 shadow-sm backdrop-blur lg:hidden">
+                <div className="flex items-center gap-2 overflow-x-auto">
+                  {navItems.map((item) => {
+                    const isActive = activeNavKey === item.key;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          setActiveTab(item.key);
+                          if (item.key === 'presupuestos') setQuoteFilter('all');
+                        }}
+                        className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                          isActive
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'bg-white text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {item.label}
+                          {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                              {unreadNotifications}
+                            </span>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                  <span className="ml-auto hidden shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-slate-500 sm:inline-flex">
+                    {quotes.length} activos
+                  </span>
+                </div>
+              </div>
+            </header>
+
+            <main className="relative pt-6">
           <section className="space-y-6">
             {activeTab === 'lobby' && (
               <div className="space-y-6">
@@ -2388,10 +2590,67 @@ export default function TechniciansPage() {
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Direccion del trabajo</label>
                       <input
                         value={clientAddress}
-                        onChange={(event) => setClientAddress(event.target.value)}
+                        onChange={(event) => {
+                          const nextValue = event.target.value;
+                          setClientAddress(nextValue);
+                          if (geoSelected && nextValue !== geoSelected.display_name) {
+                            setGeoSelected(null);
+                          }
+                          if (geoResults.length) setGeoResults([]);
+                          if (geoError) setGeoError('');
+                        }}
                         placeholder="Direccion completa"
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleGeocodeSearch}
+                          disabled={geoLoading}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                        >
+                          {geoLoading ? 'Buscando...' : 'Buscar en mapa'}
+                        </button>
+                        {geoSelected && (
+                          <span className="text-[11px] font-semibold text-emerald-600">Ubicacion seleccionada</span>
+                        )}
+                      </div>
+                      {geoError && <p className="mt-2 text-xs text-rose-500">{geoError}</p>}
+                      {geoResults.length > 0 && (
+                        <div className="mt-3 space-y-2">
+                          {geoResults.map((result) => (
+                            <button
+                              key={`${result.lat}-${result.lon}`}
+                              type="button"
+                              onClick={() => handleSelectGeo(result)}
+                              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                            >
+                              {result.display_name}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {geoSelected && geoMapUrl && (
+                        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                          <iframe
+                            title="Mapa de ubicacion"
+                            src={geoMapUrl}
+                            className="h-64 w-full border-0"
+                            loading="lazy"
+                          />
+                          <div className="flex items-center justify-between gap-2 px-4 py-3 text-xs text-slate-500">
+                            <span>Vista previa de la ubicacion</span>
+                            <a
+                              href={buildOsmLink(geoSelected.lat, geoSelected.lon)}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-semibold text-slate-700 transition hover:text-slate-900"
+                            >
+                              Abrir mapa
+                            </a>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -3791,6 +4050,8 @@ export default function TechniciansPage() {
             )}
           </section>
         </main>
+          </div>
+        </div>
         {session && (
           <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3 text-xs text-slate-500">
