@@ -2319,20 +2319,6 @@ export default function TechniciansPage() {
                   </div>
                 )}
               </div>
-              <button
-                type="button"
-                onClick={() =>
-                  setIsNavCollapsed((prev) => {
-                    const next = !prev;
-                    if (next) setIsNavHovered(false);
-                    return next;
-                  })
-                }
-                className="rounded-full border border-slate-200 bg-white p-2 text-slate-500 transition hover:border-slate-300 hover:text-slate-800"
-                title={isNavCollapsed ? 'Expandir menu' : 'Colapsar menu'}
-              >
-                {isNavCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
-              </button>
             </div>
 
             {isNavExpanded && (
