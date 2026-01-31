@@ -28,42 +28,6 @@ const getAuthUser = async (request: NextRequest) => {
   return data?.user || null;
 };
 
-const createMpPlan = async (plan: any, backUrl: string) => {
-  if (!mpAccessToken) {
-    throw new Error('Falta MP_ACCESS_TOKEN');
-  }
-  const autoRecurring: any = {
-    frequency: plan.period_months,
-    frequency_type: 'months',
-    transaction_amount: Number(plan.price_ars),
-    currency_id: 'ARS',
-  };
-  if (plan.trial_days && Number(plan.trial_days) > 0) {
-    autoRecurring.free_trial = {
-      frequency: Number(plan.trial_days),
-      frequency_type: 'days',
-    };
-  }
-  const payload = {
-    reason: plan.name,
-    auto_recurring: autoRecurring,
-    back_url: backUrl,
-  };
-  const response = await fetch('https://api.mercadopago.com/preapproval_plan', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${mpAccessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || 'No se pudo crear el plan en Mercado Pago.');
-  }
-  return response.json();
-};
-
 const createMpPreapproval = async (payload: any) => {
   if (!mpAccessToken) {
     throw new Error('Falta MP_ACCESS_TOKEN');
@@ -153,25 +117,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let mpPlanId = finalPlan.mp_plan_id;
-    if (!mpPlanId) {
-      const mpPlan = await createMpPlan(finalPlan, successUrl);
-      mpPlanId = mpPlan?.id;
-      if (mpPlanId) {
-        await supabase.from('billing_plans').update({ mp_plan_id: mpPlanId }).eq('id', finalPlan.id);
-      }
-    }
-
-    if (!mpPlanId) {
-      return NextResponse.json({ error: 'No se pudo crear el plan de Mercado Pago' }, { status: 500 });
+    const autoRecurring: any = {
+      frequency: finalPlan.period_months,
+      frequency_type: 'months',
+      transaction_amount: Number(finalPlan.price_ars),
+      currency_id: 'ARS',
+    };
+    if (finalPlan.trial_days && Number(finalPlan.trial_days) > 0) {
+      autoRecurring.free_trial = {
+        frequency: Number(finalPlan.trial_days),
+        frequency_type: 'days',
+      };
     }
 
     const preapproval = await createMpPreapproval({
-      preapproval_plan_id: mpPlanId,
       payer_email: user.email,
       reason: finalPlan.name,
       back_url: successUrl,
       status: 'pending',
+      auto_recurring: autoRecurring,
       external_reference: `${user.id}|${finalPlan.id}`,
     });
 
