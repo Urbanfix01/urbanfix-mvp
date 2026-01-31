@@ -229,6 +229,14 @@ const isImageAttachment = (attachment: AttachmentRow) => {
   return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment.file_url || '');
 };
 
+const getAttachmentStoragePath = (publicUrl?: string | null) => {
+  if (!publicUrl) return null;
+  const marker = '/storage/v1/object/public/urbanfix-assets/';
+  const index = publicUrl.indexOf(marker);
+  if (index === -1) return null;
+  return publicUrl.slice(index + marker.length);
+};
+
 const buildItemsSignature = (items: ItemForm[]) =>
   JSON.stringify(
     items.map((item) => ({
@@ -297,6 +305,7 @@ export default function TechniciansPage() {
   const [items, setItems] = useState<ItemForm[]>([]);
   const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
@@ -837,6 +846,29 @@ export default function TechniciansPage() {
       setFormError('No pudimos subir los archivos.');
     } finally {
       setUploadingAttachments(false);
+    }
+  };
+
+  const handleAttachmentRemove = async (attachment: AttachmentRow) => {
+    if (!session?.user?.id) return;
+    setDeletingAttachmentId(attachment.id);
+    setFormError('');
+    try {
+      const storagePath = getAttachmentStoragePath(attachment.file_url);
+      if (storagePath) {
+        const { error: storageError } = await supabase.storage.from('urbanfix-assets').remove([storagePath]);
+        if (storageError) {
+          console.error('Error eliminando archivo:', storageError);
+        }
+      }
+      const { error: deleteError } = await supabase.from('quote_attachments').delete().eq('id', attachment.id);
+      if (deleteError) throw deleteError;
+      setAttachments((prev) => prev.filter((file) => file.id !== attachment.id));
+    } catch (error) {
+      console.error('Error eliminando adjunto:', error);
+      setFormError('No pudimos eliminar el adjunto.');
+    } finally {
+      setDeletingAttachmentId(null);
     }
   };
 
@@ -2134,16 +2166,47 @@ export default function TechniciansPage() {
                             disabled={uploadingAttachments}
                             className="w-full text-xs text-slate-500"
                           />
+                          {attachments.length === 0 && (
+                            <p className="text-xs text-slate-500">Aun no hay fotos adjuntas.</p>
+                          )}
                           {attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {attachments.map((file) => (
-                                <span
-                                  key={file.id}
-                                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] text-slate-500"
-                                >
-                                  {file.file_name || 'Adjunto'}
-                                </span>
-                              ))}
+                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                              {attachments.map((file) => {
+                                const isImage = isImageAttachment(file);
+                                return (
+                                  <div
+                                    key={file.id}
+                                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                                  >
+                                    <a href={file.file_url} target="_blank" rel="noreferrer">
+                                      {isImage ? (
+                                        <img
+                                          src={file.file_url}
+                                          alt={file.file_name || 'Adjunto'}
+                                          className="h-28 w-full object-cover"
+                                        />
+                                      ) : (
+                                        <div className="flex h-28 items-center justify-center bg-slate-50 text-xs text-slate-500">
+                                          Ver archivo
+                                        </div>
+                                      )}
+                                    </a>
+                                    <div className="flex items-center justify-between gap-2 px-3 py-2">
+                                      <span className="truncate text-[11px] text-slate-600">
+                                        {file.file_name || 'Adjunto'}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAttachmentRemove(file)}
+                                        disabled={deletingAttachmentId === file.id}
+                                        className="rounded-full border border-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-500 transition hover:border-rose-300 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {deletingAttachmentId === file.id ? 'Eliminando' : 'Eliminar'}
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
