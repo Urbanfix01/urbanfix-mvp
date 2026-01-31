@@ -73,134 +73,139 @@ const createMpPreapproval = async (payload: any) => {
 };
 
 export async function POST(request: NextRequest) {
-  if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
-  }
+  try {
+    if (!supabase) {
+      return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    }
 
-  const user = await getAuthUser(request);
-  if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+    const user = await getAuthUser(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-  const payload = await request.json();
-  const planId = String(payload?.planId || '');
-  const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
-  const successUrl = String(payload?.successUrl || '').trim() || `${publicWebUrl}/tecnicos?billing=success`;
+    const payload = await request.json();
+    const planId = String(payload?.planId || '');
+    const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
+    const successUrl = String(payload?.successUrl || '').trim() || `${publicWebUrl}/tecnicos?billing=success`;
 
-  if (!planId) {
-    return NextResponse.json({ error: 'Missing plan' }, { status: 400 });
-  }
+    if (!planId) {
+      return NextResponse.json({ error: 'Missing plan' }, { status: 400 });
+    }
 
-  const { data: basePlan, error: planError } = await supabase
-    .from('billing_plans')
-    .select('*')
-    .eq('id', planId)
-    .single();
-
-  if (planError || !basePlan) {
-    return NextResponse.json({ error: 'Plan no encontrado' }, { status: 404 });
-  }
-
-  let finalPlan = basePlan;
-  let appliedCoupon: any = null;
-
-  if (couponCode) {
-    const { data: coupon } = await supabase
-      .from('coupons')
+    const { data: basePlan, error: planError } = await supabase
+      .from('billing_plans')
       .select('*')
-      .eq('code', couponCode)
+      .eq('id', planId)
       .single();
 
-    if (coupon && coupon.active) {
-      const expired = coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now();
-      const limitReached = coupon.max_redemptions && coupon.redeemed_count >= coupon.max_redemptions;
-      const { data: redemption } = await supabase
-        .from('coupon_redemptions')
-        .select('id')
-        .eq('coupon_id', coupon.id)
-        .eq('user_id', user.id)
-        .maybeSingle();
+    if (planError || !basePlan) {
+      return NextResponse.json({ error: 'Plan no encontrado' }, { status: 404 });
+    }
 
-      if (!expired && !limitReached && !redemption) {
-        appliedCoupon = coupon;
-        if (coupon.is_partner) {
-          const { data: partnerPlan } = await supabase
-            .from('billing_plans')
-            .select('*')
-            .eq('period_months', basePlan.period_months)
-            .eq('is_partner', true)
-            .single();
-          if (partnerPlan) {
-            finalPlan = partnerPlan;
+    let finalPlan = basePlan;
+    let appliedCoupon: any = null;
+
+    if (couponCode) {
+      const { data: coupon } = await supabase
+        .from('coupons')
+        .select('*')
+        .eq('code', couponCode)
+        .single();
+
+      if (coupon && coupon.active) {
+        const expired = coupon.expires_at && new Date(coupon.expires_at).getTime() < Date.now();
+        const limitReached = coupon.max_redemptions && coupon.redeemed_count >= coupon.max_redemptions;
+        const { data: redemption } = await supabase
+          .from('coupon_redemptions')
+          .select('id')
+          .eq('coupon_id', coupon.id)
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (!expired && !limitReached && !redemption) {
+          appliedCoupon = coupon;
+          if (coupon.is_partner) {
+            const { data: partnerPlan } = await supabase
+              .from('billing_plans')
+              .select('*')
+              .eq('period_months', basePlan.period_months)
+              .eq('is_partner', true)
+              .single();
+            if (partnerPlan) {
+              finalPlan = partnerPlan;
+            }
           }
         }
       }
     }
-  }
 
-  let mpPlanId = finalPlan.mp_plan_id;
-  if (!mpPlanId) {
-    const mpPlan = await createMpPlan(finalPlan);
-    mpPlanId = mpPlan?.id;
-    if (mpPlanId) {
-      await supabase.from('billing_plans').update({ mp_plan_id: mpPlanId }).eq('id', finalPlan.id);
+    let mpPlanId = finalPlan.mp_plan_id;
+    if (!mpPlanId) {
+      const mpPlan = await createMpPlan(finalPlan);
+      mpPlanId = mpPlan?.id;
+      if (mpPlanId) {
+        await supabase.from('billing_plans').update({ mp_plan_id: mpPlanId }).eq('id', finalPlan.id);
+      }
     }
-  }
 
-  if (!mpPlanId) {
-    return NextResponse.json({ error: 'No se pudo crear el plan de Mercado Pago' }, { status: 500 });
-  }
+    if (!mpPlanId) {
+      return NextResponse.json({ error: 'No se pudo crear el plan de Mercado Pago' }, { status: 500 });
+    }
 
-  const preapproval = await createMpPreapproval({
-    preapproval_plan_id: mpPlanId,
-    payer_email: user.email,
-    reason: finalPlan.name,
-    back_url: successUrl,
-    status: 'pending',
-    external_reference: `${user.id}|${finalPlan.id}`,
-  });
+    const preapproval = await createMpPreapproval({
+      preapproval_plan_id: mpPlanId,
+      payer_email: user.email,
+      reason: finalPlan.name,
+      back_url: successUrl,
+      status: 'pending',
+      external_reference: `${user.id}|${finalPlan.id}`,
+    });
 
-  const preapprovalId = preapproval?.id;
-  const initPoint = preapproval?.init_point || preapproval?.sandbox_init_point;
+    const preapprovalId = preapproval?.id;
+    const initPoint = preapproval?.init_point || preapproval?.sandbox_init_point;
 
-  if (!initPoint) {
-    return NextResponse.json({ error: 'No se obtuvo link de pago' }, { status: 500 });
-  }
+    if (!initPoint) {
+      return NextResponse.json({ error: 'No se obtuvo link de pago' }, { status: 500 });
+    }
 
-  const { data: subscription } = await supabase
-    .from('subscriptions')
-    .upsert(
-      {
-        user_id: user.id,
-        plan_id: finalPlan.id,
-        coupon_id: appliedCoupon?.id || null,
-        mp_preapproval_id: preapprovalId,
-        status: preapproval?.status || 'pending',
-        current_period_start: preapproval?.auto_recurring?.start_date || null,
-        current_period_end: preapproval?.auto_recurring?.end_date || null,
-        trial_end: preapproval?.trial_end_date || null,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' }
-    )
-    .select()
-    .maybeSingle();
-
-  if (appliedCoupon?.id) {
-    await supabase
-      .from('coupon_redemptions')
-      .insert({ coupon_id: appliedCoupon.id, user_id: user.id })
+    const { data: subscription } = await supabase
+      .from('subscriptions')
+      .upsert(
+        {
+          user_id: user.id,
+          plan_id: finalPlan.id,
+          coupon_id: appliedCoupon?.id || null,
+          mp_preapproval_id: preapprovalId,
+          status: preapproval?.status || 'pending',
+          current_period_start: preapproval?.auto_recurring?.start_date || null,
+          current_period_end: preapproval?.auto_recurring?.end_date || null,
+          trial_end: preapproval?.trial_end_date || null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      )
+      .select()
       .maybeSingle();
-    await supabase
-      .from('coupons')
-      .update({ redeemed_count: (appliedCoupon.redeemed_count || 0) + 1 })
-      .eq('id', appliedCoupon.id);
-  }
 
-  return NextResponse.json({
-    checkout_url: initPoint,
-    subscription,
-    plan: finalPlan,
-    coupon: appliedCoupon ? { code: appliedCoupon.code, discount_percent: appliedCoupon.discount_percent } : null,
-  });
+    if (appliedCoupon?.id) {
+      await supabase
+        .from('coupon_redemptions')
+        .insert({ coupon_id: appliedCoupon.id, user_id: user.id })
+        .maybeSingle();
+      await supabase
+        .from('coupons')
+        .update({ redeemed_count: (appliedCoupon.redeemed_count || 0) + 1 })
+        .eq('id', appliedCoupon.id);
+    }
+
+    return NextResponse.json({
+      checkout_url: initPoint,
+      subscription,
+      plan: finalPlan,
+      coupon: appliedCoupon ? { code: appliedCoupon.code, discount_percent: appliedCoupon.discount_percent } : null,
+    });
+  } catch (error: any) {
+    const message = error?.message || 'No pudimos iniciar el pago.';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

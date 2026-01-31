@@ -651,12 +651,20 @@ export default function TechniciansPage() {
           cancelUrl: `${getPublicBaseUrl()}/tecnicos?billing=cancel`,
         }),
       });
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any = null;
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch (_error) {
+        data = null;
+      }
       if (!response.ok) {
-        throw new Error(data?.error || 'No pudimos iniciar el pago.');
+        throw new Error(data?.error || responseText || 'No pudimos iniciar el pago.');
       }
       if (data?.checkout_url) {
         window.location.href = data.checkout_url;
+      } else {
+        throw new Error('No se obtuvo el link de pago.');
       }
     } catch (error: any) {
       setBillingMessage(error?.message || 'No pudimos iniciar el pago.');
