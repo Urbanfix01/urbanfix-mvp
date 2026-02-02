@@ -4340,7 +4340,11 @@ export default function TechniciansPage() {
                   </button>
                 </div>
 
-                <div className="mt-6 grid gap-6 lg:grid-cols-[280px,1fr]">
+                <div
+                  className={`mt-6 grid gap-6 ${
+                    isBetaAdmin ? 'lg:grid-cols-[280px,1fr]' : 'grid-cols-1'
+                  }`}
+                >
                   {isBetaAdmin && (
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Conversaciones</p>
@@ -4379,7 +4383,7 @@ export default function TechniciansPage() {
                         </span>
                       </p>
                     )}
-                    <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    <div className="mt-4 min-h-[320px] max-h-[60vh] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
                       {supportLoading && <p className="text-sm text-slate-500">Cargando mensajes...</p>}
                       {!supportLoading && supportMessages.length === 0 && (
                         <p className="text-sm text-slate-500">Todavia no hay mensajes en este chat.</p>
