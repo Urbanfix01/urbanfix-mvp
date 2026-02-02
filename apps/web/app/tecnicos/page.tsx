@@ -1431,7 +1431,7 @@ export default function TechniciansPage() {
         const netAmount = getNetAmount(amount, taxRate);
         if (status === 'draft') acc.draft += 1;
         if (pendingStatuses.has(status)) acc.pending += 1;
-        if (approvedStatuses.has(status)) {
+        if (paidStatuses.has(status)) {
           acc.approved += 1;
           acc.approvedAmount += amount;
           acc.profitAmount += netAmount * PROFIT_MARGIN;
@@ -1470,7 +1470,7 @@ export default function TechniciansPage() {
       const taxRate = toAmountValue(quote.tax_rate);
       const netAmount = getNetAmount(amount, taxRate);
       bucket.quotes += amount;
-      if (approvedStatuses.has(status)) {
+      if (paidStatuses.has(status)) {
         bucket.approved += amount;
         bucket.profit += netAmount * PROFIT_MARGIN;
       }
@@ -3088,17 +3088,17 @@ export default function TechniciansPage() {
                   </div>
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Aprobados</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobrados</p>
                       <button
                         type="button"
-                        onClick={() => handleShowQuotes('approved')}
+                        onClick={() => handleShowQuotes('paid')}
                         className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
                       >
                         Ver
                       </button>
                     </div>
                     <p className="mt-3 text-2xl font-semibold text-emerald-600">{quoteStats.approved}</p>
-                    <p className="mt-1 text-xs text-slate-500">Listos para ejecutar</p>
+                    <p className="mt-1 text-xs text-slate-500">Pagos confirmados</p>
                   </div>
                 </div>
 
@@ -3120,12 +3120,12 @@ export default function TechniciansPage() {
                         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
                           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                             <span className="h-2 w-2 rounded-full bg-amber-500" />
-                            Aprobado
+                            Cobrado
                           </div>
                           <p className="mt-3 text-xl font-semibold text-amber-600">
                             ${quoteStats.approvedAmount.toLocaleString('es-AR')}
                           </p>
-                          <p className="mt-1 text-xs text-slate-500">Monto confirmado.</p>
+                          <p className="mt-1 text-xs text-slate-500">Monto cobrado.</p>
                         </div>
                         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
                           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
@@ -3149,7 +3149,7 @@ export default function TechniciansPage() {
                             </span>
                             <span className="inline-flex items-center gap-1">
                               <span className="h-2 w-2 rounded-full bg-amber-500" />
-                              Aprobados
+                              Cobrados
                             </span>
                             <span className="inline-flex items-center gap-1">
                               <span className="h-2 w-2 rounded-full bg-emerald-500" />
