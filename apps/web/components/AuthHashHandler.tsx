@@ -19,7 +19,10 @@ export default function AuthHashHandler() {
   useEffect(() => {
     const tokens = getOAuthTokensFromHash();
     if (!tokens) return;
-    const redirectPath = tokens.type === 'recovery' ? '/tecnicos?recovery=1' : '/tecnicos';
+    const basePath = window.location.pathname || '/';
+    const baseSearch = window.location.search || '';
+    const defaultRedirect = `${basePath}${baseSearch}`;
+    const redirectPath = tokens.type === 'recovery' ? '/tecnicos?recovery=1' : defaultRedirect;
 
     supabase.auth
       .setSession(tokens)

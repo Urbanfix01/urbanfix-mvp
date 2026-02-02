@@ -423,6 +423,7 @@ export default function TechniciansPage() {
   const [accessCodeError, setAccessCodeError] = useState('');
   const [redeemingAccess, setRedeemingAccess] = useState(false);
   const [isBetaAdmin, setIsBetaAdmin] = useState(false);
+  const [adminGateStatus, setAdminGateStatus] = useState<'idle' | 'checking' | 'done'>('idle');
   const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
   const [geoSelected, setGeoSelected] = useState<GeoResult | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -604,9 +605,11 @@ export default function TechniciansPage() {
   useEffect(() => {
     if (!session?.user) {
       setIsBetaAdmin(false);
+      setAdminGateStatus('idle');
       return;
     }
     const loadAdmin = async () => {
+      setAdminGateStatus('checking');
       const { data, error } = await supabase
         .from('beta_admins')
         .select('user_id')
@@ -614,12 +617,20 @@ export default function TechniciansPage() {
         .single();
       if (error || !data) {
         setIsBetaAdmin(false);
+        setAdminGateStatus('done');
         return;
       }
       setIsBetaAdmin(true);
+      setAdminGateStatus('done');
     };
     loadAdmin();
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user || !isBetaAdmin) return;
+    if (typeof window === 'undefined') return;
+    window.location.replace('/admin');
+  }, [session?.user, isBetaAdmin]);
 
   useEffect(() => {
     if (!session?.user) {
@@ -2145,6 +2156,47 @@ export default function TechniciansPage() {
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
             Cargando...
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (session?.user && adminGateStatus === 'checking') {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+        >
+          <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
+            Validando acceso...
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (session?.user && isBetaAdmin) {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
+        >
+          <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
+            <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
+            <p className="mt-3 text-sm text-slate-600">
+              Tu cuenta está configurada como admin. Te llevamos al panel de control.
+            </p>
+            <a
+              href="/admin"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+            >
+              Ir al panel admin
+            </a>
           </div>
         </div>
       </>
