@@ -74,6 +74,22 @@ type ScreenMetric = {
   views: number;
 };
 
+type PresenceUser = {
+  id: string;
+  label: string;
+  email?: string | null;
+  last_seen_at?: string | null;
+  last_seen_path?: string | null;
+  is_online: boolean;
+};
+
+type PresenceData = {
+  onlineCount: number;
+  onlineUsers: PresenceUser[];
+  recentUsers: PresenceUser[];
+  onlineWindowMinutes: number;
+};
+
 type PendingAccessItem = {
   id: string;
   full_name?: string | null;
@@ -240,6 +256,9 @@ export default function AdminPage() {
   } | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
+  const [presenceData, setPresenceData] = useState<PresenceData | null>(null);
+  const [presenceLoading, setPresenceLoading] = useState(false);
+  const [presenceError, setPresenceError] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -361,6 +380,28 @@ export default function AdminPage() {
     }
   };
 
+  const loadPresence = async () => {
+    if (!session?.access_token) return;
+    setPresenceError('');
+    setPresenceLoading(true);
+    try {
+      const params = new URLSearchParams({ minutes: '5', limit: '12' });
+      const response = await fetch(`/api/admin/analytics/presence?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudo cargar la presencia.');
+      }
+      const data = await response.json();
+      setPresenceData(data);
+    } catch (error: any) {
+      setPresenceError(error?.message || 'No se pudo cargar la presencia.');
+    } finally {
+      setPresenceLoading(false);
+    }
+  };
+
   const handleSendSupportMessage = async () => {
     if (!session?.access_token || !activeSupportUserId) return;
     const trimmed = supportDraft.trim();
@@ -417,6 +458,15 @@ export default function AdminPage() {
     activityPath,
     activityUserId,
   ]);
+
+  useEffect(() => {
+    if (!session?.access_token || activeTab !== 'actividad') return;
+    loadPresence();
+    const interval = window.setInterval(loadPresence, 60000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [activeTab, session?.access_token]);
 
   const handleEmailLogin = async () => {
     setAuthError('');
@@ -1447,7 +1497,10 @@ export default function AdminPage() {
                   />
                   <button
                     type="button"
-                    onClick={loadActivity}
+                    onClick={() => {
+                      loadActivity();
+                      loadPresence();
+                    }}
                     className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
                   >
                     Actualizar
@@ -1595,6 +1648,96 @@ export default function AdminPage() {
                       >
                         {getDeltaLabel(activityData.totals.minutes, activityData.prevTotals.minutes).text}
                       </p>
+                    </div>
+                  </div>
+
+                  {presenceError && <p className="mt-4 text-xs text-rose-500">{presenceError}</p>}
+
+                  <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold text-slate-900">Usuarios online</h4>
+                        <span className="text-xs text-slate-400">
+                          {presenceData
+                            ? `${presenceData.onlineCount} online (últimos ${presenceData.onlineWindowMinutes} min)`
+                            : 'Online'}
+                        </span>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {presenceLoading && (
+                          <p className="text-sm text-slate-500">Cargando usuarios online...</p>
+                        )}
+                        {!presenceLoading && (!presenceData || presenceData.onlineUsers.length === 0) && (
+                          <p className="text-sm text-slate-500">No hay usuarios online.</p>
+                        )}
+                        {!presenceLoading &&
+                          presenceData?.onlineUsers.map((user) => (
+                            <div
+                              key={user.id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-slate-700">{user.label}</p>
+                                {user.email && <p className="text-[11px] text-slate-400">{user.email}</p>}
+                                {user.last_seen_path && (
+                                  <p className="text-[10px] text-slate-400">Ruta: {user.last_seen_path}</p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <span className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  Online
+                                </span>
+                                <p className="mt-1 text-[10px] text-slate-400">
+                                  Visto {formatDateTime(user.last_seen_at)}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold text-slate-900">Últimas conexiones</h4>
+                        <span className="text-xs text-slate-400">Top 12</span>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {presenceLoading && (
+                          <p className="text-sm text-slate-500">Cargando últimas conexiones...</p>
+                        )}
+                        {!presenceLoading && (!presenceData || presenceData.recentUsers.length === 0) && (
+                          <p className="text-sm text-slate-500">No hay datos disponibles.</p>
+                        )}
+                        {!presenceLoading &&
+                          presenceData?.recentUsers.map((user) => (
+                            <div
+                              key={user.id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"
+                            >
+                              <div>
+                                <p className="text-sm font-semibold text-slate-700">{user.label}</p>
+                                {user.email && <p className="text-[11px] text-slate-400">{user.email}</p>}
+                                {user.last_seen_path && (
+                                  <p className="text-[10px] text-slate-400">Ruta: {user.last_seen_path}</p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                {user.is_online ? (
+                                  <span className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-600">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                    Online
+                                  </span>
+                                ) : (
+                                  <span className="text-xs font-semibold text-slate-500">Offline</span>
+                                )}
+                                <p className="mt-1 text-[10px] text-slate-400">
+                                  {user.last_seen_at ? `Visto ${formatDateTime(user.last_seen_at)}` : 'Sin datos'}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                      </div>
                     </div>
                   </div>
 

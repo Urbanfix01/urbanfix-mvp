@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { supabase } from '../lib/supabase/supabase';
 
 const ANALYTICS_ENDPOINT = '/api/analytics/track';
+const HEARTBEAT_MS = 60000;
 
 const getSessionId = () => {
   if (typeof window === 'undefined') return 'server';
@@ -89,6 +90,8 @@ export default function AnalyticsTracker() {
         flushDuration();
       } else if (document.visibilityState === 'visible') {
         startTimeRef.current = Date.now();
+        const path = lastPathRef.current || pathname || '/';
+        sendEvent({ event_type: 'heartbeat', path });
       }
     };
     const handleBeforeUnload = () => {
@@ -101,6 +104,19 @@ export default function AnalyticsTracker() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
   }, []);
+
+  useEffect(() => {
+    const sendHeartbeat = () => {
+      if (document.visibilityState !== 'visible') return;
+      const path = lastPathRef.current || pathname || '/';
+      sendEvent({ event_type: 'heartbeat', path });
+    };
+    sendHeartbeat();
+    const interval = window.setInterval(sendHeartbeat, HEARTBEAT_MS);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [pathname]);
 
   return null;
 }

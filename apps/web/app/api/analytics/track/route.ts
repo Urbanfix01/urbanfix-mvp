@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing payload' }, { status: 400 });
   }
 
-  if (!['page_view', 'page_duration'].includes(eventType)) {
+  if (!['page_view', 'page_duration', 'heartbeat'].includes(eventType)) {
     return NextResponse.json({ error: 'Invalid event_type' }, { status: 400 });
   }
 
@@ -61,6 +61,14 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (user?.id && (eventType === 'page_view' || eventType === 'heartbeat')) {
+    const now = new Date().toISOString();
+    await supabase
+      .from('profiles')
+      .update({ last_seen_at: now, last_seen_path: path })
+      .eq('id', user.id);
   }
 
   return NextResponse.json({ ok: true });
