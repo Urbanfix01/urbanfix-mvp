@@ -1,16 +1,19 @@
 /** @type {import('next').NextConfig} */
-const nextConfig = {
-  // En Next.js 14, esta configuración va dentro de 'experimental'
-  experimental: {
-    serverComponentsExternalPackages: ["@react-pdf/renderer"],
-  },
+const path = require('path');
 
-  // Configuración de imágenes (Supabase)
+const nextConfig = {
+  // Next.js 15+: moved out of `experimental`
+  serverExternalPackages: ['@react-pdf/renderer'],
+
+  // Monorepo: ensure output tracing includes the workspace root.
+  outputFileTracingRoot: path.join(__dirname, '../..'),
+
+  // Image config (Supabase)
   images: {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: '**', 
+        hostname: '**',
       },
     ],
   },
