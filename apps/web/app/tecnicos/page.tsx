@@ -547,9 +547,8 @@ export default function TechniciansPage() {
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
   const [scheduleSavingId, setScheduleSavingId] = useState<string | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState('');
-  const [agendaView, setAgendaView] = useState<'list' | 'calendar'>('list');
-  const [calendarCursor, setCalendarCursor] = useState(() => new Date());
-  const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const [agendaSearch, setAgendaSearch] = useState('');
+  const [agendaFilter, setAgendaFilter] = useState<'all' | 'pending' | 'scheduled'>('all');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -991,24 +990,13 @@ export default function TechniciansPage() {
       }
       const normalized = normalizeQuoteRow(updated as QuoteRow);
       setQuotes((prev) => prev.map((quote) => (quote.id === quoteId ? { ...quote, ...normalized } : quote)));
-      setScheduleMessage('Fechas guardadas.');
+      setScheduleMessage('Fecha guardada.');
     } catch (error: any) {
       console.error('Error guardando fechas:', error);
       setScheduleMessage(error?.message || 'No pudimos guardar las fechas.');
     } finally {
       setScheduleSavingId(null);
     }
-  };
-
-  const handleCalendarDrop = (targetDate: Date, jobId: string) => {
-    const job = approvedJobs.find((item) => item.id === jobId);
-    if (!job) return;
-    const start = parseDateLocal(job.start_date) || targetDate;
-    const end = parseDateLocal(job.end_date) || targetDate;
-    const diffDays = Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
-    const newStart = targetDate;
-    const newEnd = addDays(targetDate, diffDays);
-    handleScheduleUpdate(job.id, formatDateLocal(newStart), formatDateLocal(newEnd));
   };
 
   const fetchMasterItems = async () => {
@@ -1637,33 +1625,39 @@ export default function TechniciansPage() {
     if (profile?.logo_shape && profile?.avatar_url) return profile.avatar_url as string;
     return '';
   }, [profile?.avatar_url, profile?.company_logo_url, profile?.logo_shape]);
-  const calendarLabel = useMemo(
-    () =>
-      calendarCursor.toLocaleDateString('es-AR', {
-        month: 'long',
-        year: 'numeric',
-      }),
-    [calendarCursor]
-  );
-  const calendarDays = useMemo(() => {
-    const year = calendarCursor.getFullYear();
-    const month = calendarCursor.getMonth();
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const mondayOffset = (firstDay.getDay() + 6) % 7;
-    const start = new Date(year, month, 1 - mondayOffset);
-    const endOffset = 6 - ((lastDay.getDay() + 6) % 7);
-    const end = new Date(year, month + 1, endOffset);
-    const days: Date[] = [];
-    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      days.push(new Date(d));
-    }
-    return days;
-  }, [calendarCursor]);
-  const jobsWithoutDates = useMemo(
-    () => approvedJobs.filter((quote) => !quote.start_date || !quote.end_date),
-    [approvedJobs]
-  );
+  const agendaCounts = useMemo(() => {
+    const scheduled = approvedJobs.filter((quote) => Boolean(quote.start_date)).length;
+    const pending = approvedJobs.length - scheduled;
+    return { all: approvedJobs.length, pending, scheduled };
+  }, [approvedJobs]);
+  const agendaJobs = useMemo(() => {
+    const search = agendaSearch.trim().toLowerCase();
+    const filtered = approvedJobs.filter((quote) => {
+      const isScheduled = Boolean(quote.start_date);
+      if (agendaFilter === 'pending' && isScheduled) return false;
+      if (agendaFilter === 'scheduled' && !isScheduled) return false;
+      if (!search) return true;
+      const address = (getQuoteAddress(quote) || '').toLowerCase();
+      const clientName = (quote.client_name || '').toLowerCase();
+      return clientName.includes(search) || address.includes(search);
+    });
+
+    return filtered.sort((a, b) => {
+      const aScheduled = Boolean(a.start_date);
+      const bScheduled = Boolean(b.start_date);
+      if (aScheduled !== bScheduled) return aScheduled ? 1 : -1;
+
+      const aDate = parseDateLocal(a.start_date ? a.start_date.slice(0, 10) : '');
+      const bDate = parseDateLocal(b.start_date ? b.start_date.slice(0, 10) : '');
+      if (aDate && bDate && aDate.getTime() !== bDate.getTime()) {
+        return aDate.getTime() - bDate.getTime();
+      }
+
+      const aCreated = new Date(a.created_at).getTime();
+      const bCreated = new Date(b.created_at).getTime();
+      return bCreated - aCreated;
+    });
+  }, [approvedJobs, agendaFilter, agendaSearch]);
   const filteredQuotes = useMemo(() => {
     if (quoteFilter === 'pending') {
       return quotes.filter((quote) => pendingStatuses.has(normalizeStatusValue(quote.status)));
@@ -3808,245 +3802,201 @@ export default function TechniciansPage() {
             {activeTab === 'agenda' && (
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Agenda</p>
-                <h2 className="text-xl font-semibold text-slate-900">Trabajos aprobados</h2>
-                <p className="text-sm text-slate-500">
-                  Asigna fecha de inicio y fin a los presupuestos aprobados para coordinar la obra.
-                </p>
+                <div className="mt-1 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <h2 className="text-xl font-semibold text-slate-900">Trabajos aprobados</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      En esta vista ves todos los trabajos aprobados. Solo elegi una fecha y se guarda automaticamente.
+                    </p>
+                    <p className="mt-1 text-xs text-slate-400">
+                      Tip: si el trabajo ya tenia duracion (varios dias), la mantenemos al mover la fecha.
+                    </p>
+                  </div>
+
+                  <div className="w-full lg:w-[360px]">
+                    <div className="relative">
+                      <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={agendaSearch}
+                        onChange={(event) => setAgendaSearch(event.target.value)}
+                        placeholder="Buscar por cliente o direccion..."
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                  </div>
+                </div>
 
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => setAgendaView('list')}
+                    onClick={() => setAgendaFilter('all')}
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                      agendaView === 'list'
+                      agendaFilter === 'all'
                         ? 'bg-slate-900 text-white'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    Lista
+                    Todos ({agendaCounts.all})
                   </button>
                   <button
                     type="button"
-                    onClick={() => setAgendaView('calendar')}
+                    onClick={() => setAgendaFilter('pending')}
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                      agendaView === 'calendar'
+                      agendaFilter === 'pending'
                         ? 'bg-slate-900 text-white'
                         : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
-                    Calendario
+                    Pendientes ({agendaCounts.pending})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAgendaFilter('scheduled')}
+                    className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                      agendaFilter === 'scheduled'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    Programados ({agendaCounts.scheduled})
                   </button>
                 </div>
 
                 {scheduleMessage && <p className="mt-3 text-xs text-slate-600">{scheduleMessage}</p>}
 
-                {agendaView === 'calendar' ? (
-                  <div className="mt-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCalendarCursor(
-                            new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1)
-                          )
-                        }
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        ◀
-                      </button>
-                      <p className="text-sm font-semibold text-slate-800 capitalize">{calendarLabel}</p>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setCalendarCursor(
-                            new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1)
-                          )
-                        }
-                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
-                      >
-                        ▶
-                      </button>
+                <div className="mt-6 space-y-3">
+                  {approvedJobs.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                      No hay trabajos aprobados para coordinar.
                     </div>
-                    <div className="mt-4 grid grid-cols-7 gap-2 text-[11px] text-slate-400">
-                      {['Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab', 'Dom'].map((label) => (
-                        <div key={label} className="text-center font-semibold uppercase tracking-[0.2em]">
-                          {label}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-2 grid grid-cols-7 gap-2">
-                      {calendarDays.map((day) => {
-                        const isCurrentMonth = day.getMonth() === calendarCursor.getMonth();
-                        const jobsForDay = approvedJobs.filter((job) => {
-                          if (!job.start_date || !job.end_date) return false;
-                          const start = new Date(job.start_date);
-                          const end = new Date(job.end_date);
-                          const check = new Date(day.getFullYear(), day.getMonth(), day.getDate());
-                          return start <= check && end >= check;
-                        });
-                        return (
-                          <div
-                            key={day.toISOString()}
-                            onDragOver={(event) => event.preventDefault()}
-                            onDrop={(event) => {
-                              event.preventDefault();
-                              const droppedId = event.dataTransfer.getData('text/plain') || draggedJobId;
-                              if (!droppedId) return;
-                              handleCalendarDrop(
-                                new Date(day.getFullYear(), day.getMonth(), day.getDate()),
-                                droppedId
-                              );
-                              setDraggedJobId(null);
-                            }}
-                            className={`min-h-[90px] rounded-2xl border p-2 text-xs ${
-                              isCurrentMonth
-                                ? 'border-slate-200 bg-white'
-                                : 'border-slate-100 bg-slate-50 text-slate-400'
-                            }`}
-                          >
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-semibold text-slate-600">{day.getDate()}</span>
-                              {jobsForDay.length > 0 && (
-                                <span className="rounded-full bg-slate-900 px-2 py-0.5 text-[10px] font-semibold text-white">
-                                  {jobsForDay.length}
-                                </span>
-                              )}
-                            </div>
-                            <div className="mt-2 space-y-1">
-                              {jobsForDay.slice(0, 2).map((job) => (
-                                <div
-                                  key={job.id}
-                                  draggable
-                                  onDragStart={(event) => {
-                                    event.dataTransfer.setData('text/plain', job.id);
-                                    setDraggedJobId(job.id);
-                                  }}
-                                  onDragEnd={() => setDraggedJobId(null)}
-                                  className={`truncate rounded-lg px-2 py-1 text-[10px] font-semibold ${
-                                    draggedJobId === job.id
-                                      ? 'bg-slate-200 text-slate-700'
-                                      : 'bg-slate-100 text-slate-600'
-                                  }`}
-                                  title={job.client_name || 'Presupuesto'}
-                                >
-                                  {job.client_name || 'Presupuesto'}
-                                </div>
-                              ))}
-                              {jobsForDay.length > 2 && (
-                                <div className="text-[10px] text-slate-400">+{jobsForDay.length - 2} mas</div>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
+                  )}
 
-                    {jobsWithoutDates.length > 0 && (
-                      <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pendientes de fecha</p>
-                        <p className="mt-2 text-xs text-slate-500">
-                          Arrastra un trabajo al calendario para asignar fechas.
-                        </p>
-                        <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                          {jobsWithoutDates.map((job) => (
-                            <div
-                              key={job.id}
-                              draggable
-                              onDragStart={(event) => {
-                                event.dataTransfer.setData('text/plain', job.id);
-                                setDraggedJobId(job.id);
-                              }}
-                              onDragEnd={() => setDraggedJobId(null)}
-                              className={`rounded-2xl border px-3 py-2 text-xs font-semibold transition ${
-                                draggedJobId === job.id
-                                  ? 'border-slate-300 bg-slate-100 text-slate-700'
-                                  : 'border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300'
-                              }`}
-                              title={job.client_name || 'Presupuesto'}
-                            >
-                              {job.client_name || 'Presupuesto'}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-6 space-y-3">
-                    {approvedJobs.length === 0 && (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
-                        No hay trabajos aprobados para coordinar.
-                      </div>
-                    )}
-                    {approvedJobs.map((quote) => (
+                  {approvedJobs.length > 0 && agendaJobs.length === 0 && (
+                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
+                      No encontramos trabajos con esos filtros.
+                    </div>
+                  )}
+
+                  {agendaJobs.map((quote) => {
+                    const startValue = quote.start_date ? quote.start_date.slice(0, 10) : '';
+                    const endValue = quote.end_date ? quote.end_date.slice(0, 10) : '';
+                    const start = parseDateLocal(startValue);
+                    const end = parseDateLocal(endValue);
+                    const durationDays =
+                      start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000)) : 0;
+                    const isSaving = scheduleSavingId === quote.id;
+
+                    return (
                       <div
                         key={quote.id}
-                        className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4"
+                        className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">{quote.client_name || 'Presupuesto'}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {quote.client_name || 'Presupuesto'}
+                            </p>
+                            {startValue ? (
+                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700">
+                                Programado
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-semibold text-amber-700">
+                                Sin fecha
+                              </span>
+                            )}
+                          </div>
                           <p className="mt-1 text-xs text-slate-500">
                             {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
                             {new Date(quote.created_at).toLocaleDateString('es-AR')}
                           </p>
+                          {durationDays > 0 && (
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              Duracion actual: {durationDays + 1} dias
+                            </p>
+                          )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+
+                        <div className="flex flex-wrap items-end gap-2">
                           <div className="flex flex-col gap-1">
                             <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                              Inicio
+                              Fecha
                             </label>
                             <input
                               type="date"
-                              value={quote.start_date ? quote.start_date.slice(0, 10) : ''}
-                              onChange={(event) =>
+                              value={startValue}
+                              disabled={isSaving}
+                              onChange={(event) => {
+                                const value = event.target.value;
+                                if (!value) {
+                                  setQuotes((prev) =>
+                                    prev.map((item) =>
+                                      item.id === quote.id
+                                        ? { ...item, start_date: null, end_date: null }
+                                        : item
+                                    )
+                                  );
+                                  handleScheduleUpdate(quote.id, '', '');
+                                  return;
+                                }
+
+                                const prevStart = quote.start_date ? quote.start_date.slice(0, 10) : '';
+                                const prevEnd = quote.end_date ? quote.end_date.slice(0, 10) : '';
+                                const prevStartDate = parseDateLocal(prevStart);
+                                const prevEndDate = parseDateLocal(prevEnd);
+                                const nextStartDate = parseDateLocal(value);
+                                if (!nextStartDate) return;
+
+                                const diffDays =
+                                  prevStartDate && prevEndDate
+                                    ? Math.max(
+                                        0,
+                                        Math.round(
+                                          (prevEndDate.getTime() - prevStartDate.getTime()) / 86400000
+                                        )
+                                      )
+                                    : 0;
+                                const nextEndDate = addDays(nextStartDate, diffDays);
+                                const nextStart = formatDateLocal(nextStartDate);
+                                const nextEnd = formatDateLocal(nextEndDate);
+
                                 setQuotes((prev) =>
                                   prev.map((item) =>
-                                    item.id === quote.id ? { ...item, start_date: event.target.value } : item
+                                    item.id === quote.id
+                                      ? { ...item, start_date: nextStart, end_date: nextEnd }
+                                      : item
                                   )
-                                )
-                              }
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400"
+                                );
+                                handleScheduleUpdate(quote.id, nextStart, nextEnd);
+                              }}
+                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
                             />
                           </div>
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                              Fin
-                            </label>
-                            <input
-                              type="date"
-                              value={quote.end_date ? quote.end_date.slice(0, 10) : ''}
-                              onChange={(event) =>
-                                setQuotes((prev) =>
-                                  prev.map((item) =>
-                                    item.id === quote.id ? { ...item, end_date: event.target.value } : item
-                                  )
-                                )
-                              }
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400"
-                            />
-                          </div>
+
                           <button
                             type="button"
-                            onClick={() =>
-                              handleScheduleUpdate(
-                                quote.id,
-                                quote.start_date ? quote.start_date.slice(0, 10) : '',
-                                quote.end_date ? quote.end_date.slice(0, 10) : ''
-                              )
-                            }
-                            disabled={scheduleSavingId === quote.id}
-                            className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                            onClick={() => {
+                              setQuotes((prev) =>
+                                prev.map((item) =>
+                                  item.id === quote.id ? { ...item, start_date: null, end_date: null } : item
+                                )
+                              );
+                              handleScheduleUpdate(quote.id, '', '');
+                            }}
+                            disabled={isSaving || (!quote.start_date && !quote.end_date)}
+                            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
                           >
-                            {scheduleSavingId === quote.id ? 'Guardando...' : 'Guardar'}
+                            Limpiar
                           </button>
+
+                          {isSaving && <span className="text-xs font-semibold text-slate-400">Guardando...</span>}
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
+                    );
+                  })}
+                </div>
               </div>
             )}
-
             {activeTab === 'historial' && (
               <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Historial</p>
