@@ -566,7 +566,7 @@ export default function TechniciansPage() {
   }, [geoSelected]);
 
   const navItems: NavItem[] = [
-    { key: 'lobby', label: 'Lobby', hint: 'Resumen general', short: 'LB', icon: Home },
+    { key: 'lobby', label: 'Panel de control', hint: 'Resumen general', short: 'PC', icon: Home },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI', icon: Eye },
     { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG', icon: Calendar },
