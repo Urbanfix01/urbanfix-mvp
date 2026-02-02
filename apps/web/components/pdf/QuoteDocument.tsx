@@ -98,7 +98,7 @@ export const QuoteDocument = ({ quote, items, profile }: Props) => {
   const total = subtotal + tax;
 
   // Validación estricta de imagen
-  const logoUrl = profile?.company_logo_url;
+  const logoUrl = profile?.company_logo_url || profile?.avatar_url;
   // Solo mostramos imagen si es un string válido y empieza con http (ignora file:// o blob:)
   const hasLogo = logoUrl && typeof logoUrl === 'string' && logoUrl.startsWith('http');
 

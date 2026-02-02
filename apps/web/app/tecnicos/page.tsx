@@ -470,12 +470,14 @@ export default function TechniciansPage() {
     defaultCurrency: 'ARS',
     defaultTaxRate: 0.21,
     defaultDiscount: 0,
+    companyLogoUrl: '',
     avatarUrl: '',
     logoShape: 'auto',
   });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
-  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [logoRatio, setLogoRatio] = useState(1);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
@@ -673,12 +675,14 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (!profile) return;
+    const hasLegacyLogo = !profile.company_logo_url && profile.avatar_url && profile.logo_shape;
+    const legacyLogoUrl = hasLegacyLogo ? profile.avatar_url : '';
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
       email: profile.email || session?.user?.email || '',
       phone: profile.phone || '',
-      address: profile.address || '',
+      address: profile.company_address || profile.address || '',
       city: profile.city || '',
       coverageArea: profile.coverage_area || '',
       workingHours: profile.working_hours || '',
@@ -691,15 +695,16 @@ export default function TechniciansPage() {
       defaultCurrency: profile.default_currency || 'ARS',
       defaultTaxRate: Number(profile.default_tax_rate ?? 0.21),
       defaultDiscount: Number(profile.default_discount ?? 0),
-      avatarUrl: profile.avatar_url || '',
+      companyLogoUrl: profile.company_logo_url || legacyLogoUrl || '',
+      avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
     });
   }, [profile, session?.user?.email]);
 
   useEffect(() => {
-    if (!profile?.avatar_url) return;
+    if (!(profile?.company_logo_url || (profile?.logo_shape && profile?.avatar_url))) return;
     setLogoRatio(1);
-  }, [profile?.avatar_url]);
+  }, [profile?.avatar_url, profile?.company_logo_url, profile?.logo_shape]);
 
   useEffect(() => {
     if (!billingPlans.length) return;
@@ -1595,6 +1600,11 @@ export default function TechniciansPage() {
     () => resolveLogoPresentation(logoRatio, profileForm.logoShape),
     [logoRatio, profileForm.logoShape]
   );
+  const brandLogoUrl = useMemo(() => {
+    if (profile?.company_logo_url) return profile.company_logo_url as string;
+    if (profile?.logo_shape && profile?.avatar_url) return profile.avatar_url as string;
+    return '';
+  }, [profile?.avatar_url, profile?.company_logo_url, profile?.logo_shape]);
   const calendarLabel = useMemo(
     () =>
       calendarCursor.toLocaleDateString('es-AR', {
@@ -1697,6 +1707,7 @@ export default function TechniciansPage() {
         business_name: profileForm.businessName,
         email: profileForm.email || session.user.email,
         phone: profileForm.phone,
+        company_address: profileForm.address,
         address: profileForm.address,
         city: profileForm.city,
         coverage_area: profileForm.coverageArea,
@@ -1710,6 +1721,7 @@ export default function TechniciansPage() {
         default_currency: profileForm.defaultCurrency,
         default_tax_rate: toNumber(String(profileForm.defaultTaxRate)),
         default_discount: toNumber(String(profileForm.defaultDiscount)),
+        company_logo_url: profileForm.companyLogoUrl,
         avatar_url: profileForm.avatarUrl,
         logo_shape: profileForm.logoShape,
       };
@@ -1725,7 +1737,7 @@ export default function TechniciansPage() {
     }
   };
 
-  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCompanyLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
@@ -1737,10 +1749,51 @@ export default function TechniciansPage() {
       setProfileMessage('Solo se permiten imagenes.');
       return;
     }
-    setUploadingLogo(true);
+    setUploadingCompanyLogo(true);
     setProfileMessage('');
     try {
       const storagePath = `${session.user.id}/profile/${Date.now()}-${sanitizeFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
+        contentType: file.type || 'application/octet-stream',
+        upsert: true,
+      });
+      if (uploadError) throw uploadError;
+      const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
+      const publicUrl = publicData.publicUrl;
+      const { data, error } = await supabase
+        .from('profiles')
+        .update({ company_logo_url: publicUrl })
+        .eq('id', session.user.id)
+        .select()
+        .single();
+      if (error) throw error;
+      setProfile(data);
+      setProfileForm((prev) => ({ ...prev, companyLogoUrl: publicUrl }));
+      setProfileMessage('Logo actualizado.');
+    } catch (error: any) {
+      console.error('Error subiendo logo:', error);
+      setProfileMessage('No pudimos subir el logo.');
+    } finally {
+      setUploadingCompanyLogo(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!session?.user?.id) {
+      setProfileMessage('Inicia sesion para subir una foto.');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setProfileMessage('Solo se permiten imagenes.');
+      return;
+    }
+    setUploadingAvatar(true);
+    setProfileMessage('');
+    try {
+      const storagePath = `${session.user.id}/profile/avatar-${Date.now()}-${sanitizeFileName(file.name)}`;
       const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
         contentType: file.type || 'application/octet-stream',
         upsert: true,
@@ -1757,12 +1810,12 @@ export default function TechniciansPage() {
       if (error) throw error;
       setProfile(data);
       setProfileForm((prev) => ({ ...prev, avatarUrl: publicUrl }));
-      setProfileMessage('Logo actualizado.');
+      setProfileMessage('Foto actualizada.');
     } catch (error: any) {
-      console.error('Error subiendo logo:', error);
-      setProfileMessage('No pudimos subir el logo.');
+      console.error('Error subiendo foto:', error);
+      setProfileMessage('No pudimos subir la foto.');
     } finally {
-      setUploadingLogo(false);
+      setUploadingAvatar(false);
     }
   };
 
@@ -2146,6 +2199,34 @@ export default function TechniciansPage() {
     fetchSupportMessages();
   }, [activeTab, session?.user?.id, isBetaAdmin, activeSupportUserId]);
 
+  const profileRequiredMissing = useMemo(() => {
+    const missing: string[] = [];
+    const full = String(profile?.full_name || '').trim();
+    const business = String(profile?.business_name || '').trim();
+    const phone = String(profile?.phone || '').trim();
+    const address = String(profile?.company_address || profile?.address || '').trim();
+    if (!full) missing.push('Nombre y apellido');
+    if (!business) missing.push('Nombre del negocio');
+    if (!phone) missing.push('Telefono / WhatsApp');
+    if (!address) missing.push('Direccion base');
+    return missing;
+  }, [profile?.address, profile?.business_name, profile?.company_address, profile?.full_name, profile?.phone]);
+
+  const formRequiredMissing = useMemo(() => {
+    const missing: string[] = [];
+    if (!profileForm.fullName.trim()) missing.push('Nombre y apellido');
+    if (!profileForm.businessName.trim()) missing.push('Nombre del negocio');
+    if (!profileForm.phone.trim()) missing.push('Telefono / WhatsApp');
+    if (!profileForm.address.trim()) missing.push('Direccion base');
+    return missing;
+  }, [profileForm.address, profileForm.businessName, profileForm.fullName, profileForm.phone]);
+
+  const canSaveRequiredProfile =
+    Boolean(profileForm.fullName.trim()) &&
+    Boolean(profileForm.businessName.trim()) &&
+    Boolean(profileForm.phone.trim()) &&
+    Boolean(profileForm.address.trim());
+
   if (loadingSession) {
     return (
       <>
@@ -2230,12 +2311,12 @@ export default function TechniciansPage() {
                 <div className="flex items-center justify-center gap-3 md:justify-start">
                   <div
                     className={`flex h-14 w-14 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                      profile?.avatar_url ? 'bg-white' : 'bg-white'
+                      brandLogoUrl ? 'bg-white' : 'bg-white'
                     }`}
                   >
-                    {profile?.avatar_url ? (
+                    {brandLogoUrl ? (
                       <img
-                        src={profile.avatar_url}
+                        src={brandLogoUrl}
                         alt="Logo de empresa"
                         onLoad={handleLogoLoaded}
                         className={`h-full w-full ${logoPresentation.img}`}
@@ -2402,6 +2483,203 @@ export default function TechniciansPage() {
     );
   }
 
+  if (session?.user && accessGateStatus === 'granted' && profile && profileRequiredMissing.length > 0) {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        >
+          <div className="relative overflow-hidden">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
+            />
+
+            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="space-y-6 text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+                  Primer ingreso
+                </div>
+                <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">Configura tu perfil</h1>
+                <p className="text-base text-slate-600 md:text-lg">
+                  Antes de crear presupuestos necesitamos tus datos bÃ¡sicos. Esto se muestra en el link pÃºblico y en el
+                  PDF que recibe tu cliente.
+                </p>
+
+                <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl shadow-slate-200/60">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por quÃ© te lo pedimos</p>
+                  <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                    <li className="flex gap-3">
+                      <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
+                      Tu cliente identifica rÃ¡pido tu negocio y confÃ­a mÃ¡s en el presupuesto.
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
+                      Evitas preguntas repetidas (telÃ©fono, direcciÃ³n, horarios) y aceleras la aprobaciÃ³n.
+                    </li>
+                    <li className="flex gap-3">
+                      <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
+                      Tu marca (logo + foto) hace que el documento se vea profesional y memorizable.
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejo de marca</p>
+                  <p className="mt-3 text-sm text-slate-600">
+                    Logo recomendado: fondo transparente o claro, alto contraste y versiÃ³n horizontal si es posible.
+                    Foto recomendada: rostro visible, luz natural y fondo simple.
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 overflow-hidden">
+                  <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                    {profileForm.companyLogoUrl ? (
+                      <img
+                        src={profileForm.companyLogoUrl}
+                        alt="Logo"
+                        onLoad={handleLogoLoaded}
+                        className="h-full w-full object-contain p-6"
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <p className="text-sm font-semibold text-white">Tu logo / banner</p>
+                        <p className="mt-1 text-xs text-white/70">Recomendado: 1200x675 (16:9)</p>
+                      </div>
+                    )}
+                    <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center rounded-full bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white">
+                      {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
+                      <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                    </label>
+                  </div>
+
+                  <div className="relative flex flex-wrap items-end gap-4 px-6 pb-6 pt-0">
+                    <div className="-mt-8 flex items-end gap-4">
+                      <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
+                        {profileForm.avatarUrl ? (
+                          <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                            {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
+                          </div>
+                        )}
+                        <label className="absolute bottom-1 right-1 inline-flex cursor-pointer items-center justify-center rounded-full bg-slate-900 p-2 text-white shadow-sm transition hover:bg-slate-800">
+                          {uploadingAvatar ? (
+                            <span className="text-[10px] font-semibold">...</span>
+                          ) : (
+                            <User className="h-3.5 w-3.5" />
+                          )}
+                          <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                        </label>
+                      </div>
+
+                      <div className="pb-1">
+                        <p className="text-base font-semibold text-slate-900">
+                          {profileForm.businessName || 'Tu negocio'}
+                        </p>
+                        <p className="text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-6 space-y-4">
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Nombre y apellido</label>
+                      <input
+                        value={profileForm.fullName}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Nombre del negocio</label>
+                      <input
+                        value={profileForm.businessName}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, businessName: event.target.value }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Telefono / WhatsApp</label>
+                      <input
+                        value={profileForm.phone}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                        placeholder="+54 9 ..."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-slate-600">Email</label>
+                      <input
+                        value={profileForm.email}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">Direccion base</label>
+                    <input
+                      value={profileForm.address}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
+                      placeholder="Calle y ciudad"
+                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                  </div>
+
+                  {!canSaveRequiredProfile && (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                      Falta completar: {formRequiredMissing.join(', ')}.
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={handleProfileSave}
+                    disabled={profileSaving || !canSaveRequiredProfile}
+                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  >
+                    {profileSaving ? 'Guardando...' : 'Guardar y entrar'}
+                  </button>
+
+                  {profileMessage && <p className="text-xs text-slate-600">{profileMessage}</p>}
+
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Cerrar sesion
+                  </button>
+                </div>
+              </div>
+            </main>
+          </div>
+        </div>
+      </>
+    );
+  }
+
   if (!session?.user) {
     return (
       <>
@@ -2429,12 +2707,12 @@ export default function TechniciansPage() {
               <div className="flex items-center justify-center gap-3 md:justify-start">
                 <div
                   className={`flex h-14 w-14 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                    profile?.avatar_url ? 'bg-white' : 'bg-white'
+                    brandLogoUrl ? 'bg-white' : 'bg-white'
                   }`}
                 >
-                  {profile?.avatar_url ? (
+                  {brandLogoUrl ? (
                     <img
-                      src={profile.avatar_url}
+                      src={brandLogoUrl}
                       alt="Logo de empresa"
                       onLoad={handleLogoLoaded}
                       className={`h-full w-full ${logoPresentation.img}`}
@@ -2579,12 +2857,12 @@ export default function TechniciansPage() {
               <div className="flex items-center gap-3">
                 <div
                   className={`flex h-11 w-11 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/30 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                    profile?.avatar_url ? 'bg-white' : 'bg-slate-900'
+                    brandLogoUrl ? 'bg-white' : 'bg-slate-900'
                   }`}
                 >
-                  {profile?.avatar_url ? (
+                  {brandLogoUrl ? (
                     <img
-                      src={profile.avatar_url}
+                      src={brandLogoUrl}
                       alt="Logo de empresa"
                       onLoad={handleLogoLoaded}
                       className={`h-full w-full ${logoPresentation.img}`}
@@ -2680,12 +2958,12 @@ export default function TechniciansPage() {
                 <div className="flex items-center gap-3">
                   <div
                     className={`flex h-12 w-12 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                      profile?.avatar_url ? 'bg-white' : 'bg-slate-900'
+                      brandLogoUrl ? 'bg-white' : 'bg-slate-900'
                     }`}
                   >
-                    {profile?.avatar_url ? (
+                    {brandLogoUrl ? (
                       <img
-                        src={profile.avatar_url}
+                        src={brandLogoUrl}
                         alt="Logo de empresa"
                         onLoad={handleLogoLoaded}
                         className={`h-full w-full ${logoPresentation.img}`}
@@ -4208,6 +4486,162 @@ export default function TechniciansPage() {
                 <p className="text-sm text-slate-500">Completa la informacion para que tus presupuestos sean mas claros.</p>
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                  <div className="lg:col-span-2">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Marca</p>
+                          <h3 className="mt-1 text-lg font-semibold text-slate-900">Tu identidad profesional</h3>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Tu logo y tu foto aparecen en el link publico del presupuesto y en el PDF.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                            Basico: {Math.max(0, 4 - formRequiredMissing.length)}/4
+                          </span>
+                          {formRequiredMissing.length > 0 && (
+                            <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">
+                              Falta: {formRequiredMissing.length}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 overflow-hidden">
+                          <div className="relative flex h-44 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                            {profileForm.companyLogoUrl ? (
+                              <img
+                                src={profileForm.companyLogoUrl}
+                                alt="Logo"
+                                onLoad={handleLogoLoaded}
+                                className="h-full w-full object-contain p-8"
+                              />
+                            ) : (
+                              <div className="text-center">
+                                <p className="text-sm font-semibold text-white">Logo / banner de tu empresa</p>
+                                <p className="mt-1 text-xs text-white/70">Recomendado: horizontal, alto contraste</p>
+                              </div>
+                            )}
+                            <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white">
+                              <ImagePlus className="h-4 w-4" />
+                              {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
+                              <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                            </label>
+                          </div>
+
+                          <div className="relative -mt-10 flex flex-wrap items-end justify-between gap-4 px-6 pb-6">
+                            <div className="flex items-end gap-4">
+                              <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
+                                {profileForm.avatarUrl ? (
+                                  <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
+                                ) : (
+                                  <div className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                                    {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
+                                  </div>
+                                )}
+                                <label className="absolute bottom-1 right-1 inline-flex cursor-pointer items-center justify-center rounded-full bg-slate-900 p-2 text-white shadow-sm transition hover:bg-slate-800">
+                                  <ImagePlus className="h-3.5 w-3.5" />
+                                  <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                                </label>
+                              </div>
+
+                              <div className="pb-1">
+                                <p className="text-base font-semibold text-slate-900">
+                                  {profileForm.businessName || 'Tu negocio'}
+                                </p>
+                                <p className="text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
+                                    <FileText className="h-3.5 w-3.5" />
+                                    Se ve en PDF
+                                  </span>
+                                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
+                                    Link publico
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <select
+                                value={profileForm.logoShape}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))
+                                }
+                                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                              >
+                                <option value="auto">Auto</option>
+                                <option value="round">Redondo</option>
+                                <option value="square">Cuadrado</option>
+                                <option value="rect">Rectangular</option>
+                              </select>
+                              <span className="text-[11px] font-semibold text-slate-400">Forma del logo</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejos de imagen</p>
+                            <ul className="mt-3 space-y-2 text-xs text-slate-600">
+                              <li className="flex gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
+                                Usa un logo simple y legible (ideal: fondo transparente o claro).
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
+                                Foto: rostro visible, buena luz, fondo limpio (genera confianza).
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
+                                Mantene el mismo nombre y logo en todos tus canales.
+                              </li>
+                            </ul>
+                          </div>
+
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por que completar</p>
+                            <ul className="mt-3 space-y-2 text-xs text-slate-600">
+                              <li className="flex gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
+                                Aumenta la tasa de aprobacion: tu presupuesto se ve profesional.
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
+                                Reduce idas y vueltas: el cliente tiene tus datos a mano.
+                              </li>
+                              <li className="flex gap-2">
+                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
+                                Mejora recordacion: el cliente vuelve a contactarte mas facil.
+                              </li>
+                            </ul>
+                          </div>
+
+                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">URLs (opcional)</p>
+                            <label className="mt-3 block text-xs font-semibold text-slate-600">URL logo/banner</label>
+                            <input
+                              value={profileForm.companyLogoUrl}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, companyLogoUrl: event.target.value }))
+                              }
+                              placeholder="https://..."
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                            <label className="mt-4 block text-xs font-semibold text-slate-600">URL foto</label>
+                            <input
+                              value={profileForm.avatarUrl}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, avatarUrl: event.target.value }))}
+                              placeholder="https://..."
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div className="space-y-4">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Informacion del perfil</p>
@@ -4252,43 +4686,9 @@ export default function TechniciansPage() {
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Logo o foto (URL)</label>
-                      <div className="mt-2 flex flex-wrap items-center gap-3">
-                        <div
-                          className={`flex h-12 w-12 items-center justify-center overflow-hidden border border-slate-200 bg-white ${logoPreviewPresentation.frame} ${logoPreviewPresentation.padding}`}
-                        >
-                          {profileForm.avatarUrl ? (
-                            <img
-                              src={profileForm.avatarUrl}
-                              alt="Logo de empresa"
-                              onLoad={handleLogoLoaded}
-                              className={`h-full w-full ${logoPreviewPresentation.img}`}
-                            />
-                          ) : (
-                            <span className="text-[10px] font-semibold text-slate-400">LOGO</span>
-                          )}
-                        </div>
-                        <label className="inline-flex cursor-pointer items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800">
-                          {uploadingLogo ? 'Subiendo...' : 'Subir logo'}
-                          <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
-                        </label>
-                        <input
-                          value={profileForm.avatarUrl}
-                          onChange={(event) => setProfileForm((prev) => ({ ...prev, avatarUrl: event.target.value }))}
-                          placeholder="https://..."
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 sm:flex-1"
-                        />
-                        <select
-                          value={profileForm.logoShape}
-                          onChange={(event) => setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))}
-                          className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                        >
-                          <option value="auto">Auto</option>
-                          <option value="round">Redondo</option>
-                          <option value="square">Cuadrado</option>
-                          <option value="rect">Rectangular</option>
-                        </select>
-                      </div>
+                      <p className="mt-4 text-xs text-slate-500">
+                        Tu logo y tu foto se gestionan en la seccion &quot;Marca&quot; de arriba.
+                      </p>
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
