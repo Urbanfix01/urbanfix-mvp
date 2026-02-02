@@ -55,6 +55,11 @@ export async function GET(request: NextRequest) {
     const activeSubStatuses = ['authorized', 'active', 'approved'];
     const blockedPaymentStatuses = new Set(['rejected', 'cancelled', 'canceled', 'refunded']);
 
+    const usersRes = await supabase.auth.admin.listUsers({ page: 1, perPage: 12 });
+    if (usersRes.error) {
+      throw usersRes.error;
+    }
+
     const [
       totalUsersRes,
       accessGrantedRes,
@@ -173,6 +178,7 @@ export async function GET(request: NextRequest) {
       recentSubscriptions: recentSubsRes.data || [],
       recentPayments: recentPaymentsRes.data || [],
       pendingAccess: pendingAccessRes.data || [],
+      recentUsers: usersRes.data?.users || [],
     };
 
     const userIds = new Set<string>();
@@ -188,6 +194,9 @@ export async function GET(request: NextRequest) {
     });
     listsRaw.pendingAccess.forEach((item) => {
       if (item.id) userIds.add(item.id);
+    });
+    listsRaw.recentUsers.forEach((user) => {
+      if (user?.id) userIds.add(user.id);
     });
 
     let profiles: Record<string, any> = {};
@@ -233,6 +242,13 @@ export async function GET(request: NextRequest) {
         pendingAccess: listsRaw.pendingAccess.map((item) => ({
           ...item,
           profile: profiles[item.id] || null,
+        })),
+        recentUsers: listsRaw.recentUsers.map((user) => ({
+          id: user.id,
+          email: user.email,
+          created_at: user.created_at,
+          last_sign_in_at: user.last_sign_in_at,
+          profile: profiles[user.id] || null,
         })),
       },
     });

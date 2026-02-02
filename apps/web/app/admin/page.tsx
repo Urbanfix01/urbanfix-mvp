@@ -49,6 +49,14 @@ type PaymentItem = {
   profile?: AdminProfile | null;
 };
 
+type RecentUserItem = {
+  id: string;
+  email?: string | null;
+  created_at?: string | null;
+  last_sign_in_at?: string | null;
+  profile?: AdminProfile | null;
+};
+
 type PendingAccessItem = {
   id: string;
   full_name?: string | null;
@@ -76,6 +84,7 @@ type AdminOverview = {
     recentSubscriptions: SubscriptionItem[];
     recentPayments: PaymentItem[];
     pendingAccess: PendingAccessItem[];
+    recentUsers: RecentUserItem[];
   };
 };
 
@@ -125,6 +134,16 @@ export default function AdminPage() {
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [grantingId, setGrantingId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'resumen' | 'usuarios' | 'facturacion' | 'mensajes' | 'accesos'>(
+    'resumen'
+  );
+  const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
+  const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
+  const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
+  const [supportLoading, setSupportLoading] = useState(false);
+  const [supportError, setSupportError] = useState('');
+  const [supportDraft, setSupportDraft] = useState('');
+  const [supportSending, setSupportSending] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -166,10 +185,95 @@ export default function AdminPage() {
     }
   };
 
+  const loadSupportUsers = async (token?: string) => {
+    if (!token) return;
+    setSupportError('');
+    setSupportLoading(true);
+    try {
+      const response = await fetch('/api/admin/support/users', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudieron cargar las conversaciones.');
+      }
+      const data = await response.json();
+      const list = data?.users || [];
+      setSupportUsers(list);
+      if (!activeSupportUserId && list[0]) {
+        setActiveSupportUserId(list[0].userId);
+      }
+    } catch (error: any) {
+      setSupportError(error?.message || 'No se pudieron cargar las conversaciones.');
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  const loadSupportMessages = async (token?: string, userId?: string | null) => {
+    if (!token || !userId) return;
+    setSupportError('');
+    setSupportLoading(true);
+    try {
+      const response = await fetch(`/api/admin/support/messages?userId=${userId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudieron cargar los mensajes.');
+      }
+      const data = await response.json();
+      setSupportMessages(data?.messages || []);
+    } catch (error: any) {
+      setSupportError(error?.message || 'No se pudieron cargar los mensajes.');
+    } finally {
+      setSupportLoading(false);
+    }
+  };
+
+  const handleSendSupportMessage = async () => {
+    if (!session?.access_token || !activeSupportUserId) return;
+    const trimmed = supportDraft.trim();
+    if (!trimmed) return;
+    setSupportSending(true);
+    setSupportError('');
+    try {
+      const response = await fetch('/api/admin/support/messages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: activeSupportUserId, body: trimmed }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudo enviar el mensaje.');
+      }
+      setSupportDraft('');
+      await loadSupportMessages(session.access_token, activeSupportUserId);
+      await loadSupportUsers(session.access_token);
+    } catch (error: any) {
+      setSupportError(error?.message || 'No se pudo enviar el mensaje.');
+    } finally {
+      setSupportSending(false);
+    }
+  };
+
   useEffect(() => {
     if (!session?.access_token) return;
     loadOverview(session.access_token);
   }, [session?.access_token]);
+
+  useEffect(() => {
+    if (!session?.access_token || activeTab !== 'mensajes') return;
+    loadSupportUsers(session.access_token);
+  }, [activeTab, session?.access_token]);
+
+  useEffect(() => {
+    if (!session?.access_token || activeTab !== 'mensajes' || !activeSupportUserId) return;
+    loadSupportMessages(session.access_token, activeSupportUserId);
+  }, [activeTab, session?.access_token, activeSupportUserId]);
 
   const handleEmailLogin = async () => {
     setAuthError('');
@@ -201,6 +305,10 @@ export default function AdminPage() {
     setSession(null);
     setOverview(null);
     setIsAdmin(null);
+    setSupportUsers([]);
+    setSupportMessages([]);
+    setSupportDraft('');
+    setActiveSupportUserId(null);
   };
 
   const handleGrantAccess = async (userId: string) => {
@@ -241,6 +349,14 @@ export default function AdminPage() {
       { label: 'Mensajes soporte (7d)', value: formatNumber(overview.kpis.supportMessagesLast7) },
     ];
   }, [overview]);
+
+  const tabs = [
+    { key: 'resumen', label: 'Resumen' },
+    { key: 'usuarios', label: 'Usuarios' },
+    { key: 'facturacion', label: 'Facturación' },
+    { key: 'mensajes', label: 'Mensajes' },
+    { key: 'accesos', label: 'Accesos' },
+  ] as const;
 
   if (loadingSession) {
     return (
@@ -406,6 +522,23 @@ export default function AdminPage() {
             </div>
           </header>
 
+          <div className="mt-6 flex flex-wrap items-center gap-2 rounded-3xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
+            {tabs.map((tab) => (
+              <button
+                key={tab.key}
+                type="button"
+                onClick={() => setActiveTab(tab.key)}
+                className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                  activeTab === tab.key
+                    ? 'bg-slate-900 text-white shadow-sm'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
           {overviewError && (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
               {overviewError}
@@ -420,7 +553,9 @@ export default function AdminPage() {
 
           {!loadingOverview && overview && (
             <>
-              <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {activeTab === 'resumen' && (
+                <>
+                  <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {kpis.map((card) => (
                   <div
                     key={card.label}
@@ -576,6 +711,333 @@ export default function AdminPage() {
                   </div>
                 </div>
               </section>
+            </>
+          )}
+          {activeTab === 'usuarios' && (
+            <>
+              <section className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios totales</p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatNumber(overview.kpis.totalUsers)}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Accesos habilitados</p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatNumber(overview.kpis.accessGranted)}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Accesos pendientes</p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatNumber(overview.kpis.pendingAccess)}
+                  </p>
+                </div>
+              </section>
+
+              <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900">Nuevos usuarios</h3>
+                    <span className="text-xs text-slate-400">Últimos 12</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {overview.lists.recentUsers.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay usuarios recientes.</p>
+                    )}
+                    {overview.lists.recentUsers.map((user) => (
+                      <div
+                        key={user.id}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold text-slate-700">
+                            {getProfileLabel(user.profile || { email: user.email })}
+                          </span>
+                          <span className="text-slate-400">{formatDateTime(user.created_at)}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">{user.email || 'Sin email'}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                    <span className="text-xs text-slate-400">Últimos 12</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {overview.lists.pendingAccess.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
+                    )}
+                    {overview.lists.pendingAccess.map((user) => (
+                      <div
+                        key={user.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">
+                            {getProfileLabel(user.profile || user)}
+                          </p>
+                          <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleGrantAccess(user.id)}
+                          disabled={grantingId === user.id}
+                          className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
+          {activeTab === 'facturacion' && (
+            <>
+              <section className="mt-6 grid gap-4 md:grid-cols-3">
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                    Ingresos suscripciones (12m)
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatCurrency(overview.kpis.revenueTotal)}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                    Ingresos por presupuestos
+                  </p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatCurrency(overview.kpis.paidQuotesTotal)}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Suscriptores activos</p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatNumber(overview.kpis.activeSubscribers)}
+                  </p>
+                </div>
+              </section>
+
+              <section className="mt-8 grid gap-6 lg:grid-cols-2">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
+                    <span className="text-xs text-slate-400">Últimas 10</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {overview.lists.recentSubscriptions.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay suscripciones nuevas.</p>
+                    )}
+                    {overview.lists.recentSubscriptions.map((sub) => (
+                      <div
+                        key={sub.id}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold text-slate-700">{getProfileLabel(sub.profile)}</span>
+                          <span className="text-slate-400">{formatDateTime(sub.created_at)}</span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
+                            {sub.status || 'sin estado'}
+                          </span>
+                          {sub.plan?.name && (
+                            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
+                              {sub.plan.name}
+                            </span>
+                          )}
+                          {sub.current_period_end && (
+                            <span className="text-[10px] text-slate-400">
+                              Renueva: {formatDateTime(sub.current_period_end)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
+                    <span className="text-xs text-slate-400">Últimos 10</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {overview.lists.recentPayments.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay pagos registrados.</p>
+                    )}
+                    {overview.lists.recentPayments.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                          <span className="font-semibold text-slate-700">
+                            {getProfileLabel(payment.profile)}
+                          </span>
+                          <span className="text-slate-400">
+                            {formatDateTime(payment.paid_at || payment.created_at)}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
+                            {payment.status || 'sin estado'}
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-700">
+                            {formatCurrency(payment.amount)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </section>
+            </>
+          )}
+          {activeTab === 'mensajes' && (
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Soporte</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Mensajes de usuarios</h3>
+                  <p className="text-sm text-slate-500">Responde desde aquí al chat beta.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    loadSupportUsers(session.access_token);
+                    if (activeSupportUserId) {
+                      loadSupportMessages(session.access_token, activeSupportUserId);
+                    }
+                  }}
+                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  Actualizar
+                </button>
+              </div>
+
+              <div className="mt-6 grid gap-6 lg:grid-cols-[280px,1fr]">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Conversaciones</p>
+                  {supportUsers.length === 0 && !supportLoading && (
+                    <p className="mt-3 text-sm text-slate-500">Aun no hay mensajes.</p>
+                  )}
+                  <div className="mt-3 space-y-2">
+                    {supportUsers.map((user) => (
+                      <button
+                        key={user.userId}
+                        type="button"
+                        onClick={() => setActiveSupportUserId(user.userId)}
+                        className={`w-full rounded-2xl border px-3 py-3 text-left text-xs transition ${
+                          activeSupportUserId === user.userId
+                            ? 'border-slate-300 bg-white text-slate-900 shadow-sm'
+                            : 'border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-white'
+                        }`}
+                      >
+                        <p className="text-sm font-semibold">{user.label}</p>
+                        <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
+                          {user.lastMessage?.body || 'Sin mensajes'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs text-slate-500">
+                    Conversación con:{' '}
+                    <span className="font-semibold text-slate-700">
+                      {supportUsers.find((user) => user.userId === activeSupportUserId)?.label ||
+                        'Selecciona un usuario'}
+                    </span>
+                  </p>
+                  <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                    {supportLoading && <p className="text-sm text-slate-500">Cargando mensajes...</p>}
+                    {!supportLoading && supportMessages.length === 0 && (
+                      <p className="text-sm text-slate-500">Aun no hay mensajes en esta conversación.</p>
+                    )}
+                    {!supportLoading &&
+                      supportMessages.map((msg) => {
+                        const isOwn = msg.sender_id === session?.user?.id;
+                        return (
+                          <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                            <div
+                              className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
+                                isOwn ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
+                              }`}
+                            >
+                              {msg.body && <p>{msg.body}</p>}
+                              <p className="mt-1 text-[10px] text-slate-400">
+                                {formatDateTime(msg.created_at)}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
+                    <textarea
+                      value={supportDraft}
+                      onChange={(event) => setSupportDraft(event.target.value)}
+                      placeholder="Escribe tu respuesta..."
+                      rows={2}
+                      className="min-h-[64px] w-full flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleSendSupportMessage}
+                      disabled={supportSending || !activeSupportUserId}
+                      className="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {supportSending ? 'Enviando...' : 'Responder'}
+                    </button>
+                  </div>
+
+                  {supportError && <p className="mt-3 text-xs text-rose-500">{supportError}</p>}
+                </div>
+              </div>
+            </section>
+          )}
+          {activeTab === 'accesos' && (
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                <span className="text-xs text-slate-400">Últimos 12</span>
+              </div>
+              <div className="mt-4 space-y-3">
+                {overview.lists.pendingAccess.length === 0 && (
+                  <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
+                )}
+                {overview.lists.pendingAccess.map((user) => (
+                  <div
+                    key={user.id}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{getProfileLabel(user.profile || user)}</p>
+                      <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleGrantAccess(user.id)}
+                      disabled={grantingId === user.id}
+                      className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
             </>
           )}
         </div>
