@@ -1,12 +1,11 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Sora } from 'next/font/google';
+import { Manrope } from 'next/font/google';
+import { useSearchParams } from 'next/navigation';
 import {
   Bell,
   Calendar,
-  ChevronsLeft,
-  ChevronsRight,
   Clock,
   CreditCard,
   Eye,
@@ -133,9 +132,9 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 
-const sora = Sora({
+const manrope = Manrope({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
 });
 
 const themeStyles = {
@@ -404,6 +403,7 @@ const getSupportUploadExtension = (file: File) => {
 };
 
 export default function TechniciansPage() {
+  const searchParams = useSearchParams();
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -412,6 +412,14 @@ export default function TechniciansPage() {
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [authError, setAuthError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
+  const [sendingRecovery, setSendingRecovery] = useState(false);
+  const [recoveryMode, setRecoveryMode] = useState(false);
+  const [recoveryPassword, setRecoveryPassword] = useState('');
+  const [recoveryConfirm, setRecoveryConfirm] = useState('');
+  const [recoveryError, setRecoveryError] = useState('');
+  const [recoveryMessage, setRecoveryMessage] = useState('');
+  const [updatingRecovery, setUpdatingRecovery] = useState(false);
   const [accessGateStatus, setAccessGateStatus] = useState<'checking' | 'required' | 'granted'>('checking');
   const [accessCodeInput, setAccessCodeInput] = useState('');
   const [accessCodeError, setAccessCodeError] = useState('');
@@ -522,6 +530,15 @@ export default function TechniciansPage() {
   const [agendaView, setAgendaView] = useState<'list' | 'calendar'>('list');
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
+  const recoveryParam = searchParams.get('recovery');
+
+  useEffect(() => {
+    if (recoveryParam === '1') {
+      setRecoveryMode(true);
+      setAuthError('');
+      setAuthNotice('');
+    }
+  }, [recoveryParam]);
 
   const geoMapUrl = useMemo(() => {
     if (!geoSelected) return '';
@@ -554,6 +571,14 @@ export default function TechniciansPage() {
         item.short.toLowerCase().includes(query)
     );
   }, [navItems, navSearch]);
+  const activeSupportLabel = useMemo(() => {
+    if (isBetaAdmin) {
+      return (
+        supportUsers.find((user) => user.userId === activeSupportUserId)?.label || 'Selecciona un usuario'
+      );
+    }
+    return profile?.business_name || session?.user?.email || 'Tu cuenta';
+  }, [activeSupportUserId, isBetaAdmin, profile?.business_name, session?.user?.email, supportUsers]);
 
   const statusOptions = [
     { value: 'draft', label: 'Computo' },
@@ -1968,6 +1993,7 @@ export default function TechniciansPage() {
 
   const handleGoogleLogin = async () => {
     setAuthError('');
+    setAuthNotice('');
     const redirectTo = `${window.location.origin}/tecnicos`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -1978,8 +2004,73 @@ export default function TechniciansPage() {
     }
   };
 
+  const exitRecoveryMode = () => {
+    setRecoveryMode(false);
+    setRecoveryError('');
+    setRecoveryMessage('');
+    setRecoveryPassword('');
+    setRecoveryConfirm('');
+    setAuthMode('login');
+    if (typeof window !== 'undefined') {
+      window.history.replaceState({}, document.title, '/tecnicos');
+    }
+  };
+
+  const handlePasswordRecovery = async () => {
+    setAuthError('');
+    setAuthNotice('');
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setAuthError('Ingresa tu correo para recuperar la contraseña.');
+      return;
+    }
+    setSendingRecovery(true);
+    try {
+      const redirectTo = `${window.location.origin}/tecnicos`;
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
+      if (error) throw error;
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
+    } catch (error: any) {
+      setAuthError(error?.message || 'No pudimos enviar el correo de recuperación.');
+    } finally {
+      setSendingRecovery(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    setRecoveryError('');
+    setRecoveryMessage('');
+    if (!session?.user) {
+      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
+      return;
+    }
+    const nextPassword = recoveryPassword.trim();
+    const confirmPassword = recoveryConfirm.trim();
+    if (!nextPassword) {
+      setRecoveryError('Ingresa una nueva contraseña.');
+      return;
+    }
+    if (nextPassword !== confirmPassword) {
+      setRecoveryError('Las contraseñas no coinciden.');
+      return;
+    }
+    setUpdatingRecovery(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: nextPassword });
+      if (error) throw error;
+      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
+      setRecoveryPassword('');
+      setRecoveryConfirm('');
+    } catch (error: any) {
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
+    } finally {
+      setUpdatingRecovery(false);
+    }
+  };
+
   const handleEmailAuth = async () => {
     setAuthError('');
+    setAuthNotice('');
     try {
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -2051,10 +2142,133 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={themeStyles}
-          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
             Cargando...
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (recoveryMode) {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={themeStyles}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        >
+          <div className="relative overflow-hidden">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
+            />
+
+            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-6 text-center md:text-left">
+                <div className="flex items-center justify-center gap-3 md:justify-start">
+                  <div
+                    className={`flex h-14 w-14 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                      profile?.avatar_url ? 'bg-white' : 'bg-white'
+                    }`}
+                  >
+                    {profile?.avatar_url ? (
+                      <img
+                        src={profile.avatar_url}
+                        alt="Logo de empresa"
+                        onLoad={handleLogoLoaded}
+                        className={`h-full w-full ${logoPresentation.img}`}
+                      />
+                    ) : (
+                      <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                    )}
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
+                    <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
+                  </div>
+                </div>
+                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseña</h1>
+                <p className="text-base text-slate-600 md:text-lg">
+                  Define una nueva contraseña para volver a acceder a tu cuenta.
+                </p>
+                <button
+                  type="button"
+                  onClick={exitRecoveryMode}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Volver al inicio
+                </button>
+              </div>
+
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseña</h2>
+                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseña para finalizar.</p>
+                </div>
+
+                {!session?.user && (
+                  <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
+                  </div>
+                )}
+
+                {session?.user && (
+                  <>
+                    <div className="mt-6 space-y-3">
+                      <input
+                        value={recoveryPassword}
+                        onChange={(event) => setRecoveryPassword(event.target.value)}
+                        type="password"
+                        placeholder="Nueva contraseña"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <input
+                        value={recoveryConfirm}
+                        onChange={(event) => setRecoveryConfirm(event.target.value)}
+                        type="password"
+                        placeholder="Repetir contraseña"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+
+                    {recoveryError && <p className="mt-4 text-xs text-amber-600">{recoveryError}</p>}
+                    {recoveryMessage && <p className="mt-4 text-xs text-emerald-600">{recoveryMessage}</p>}
+
+                    {!recoveryMessage && (
+                      <button
+                        type="button"
+                        onClick={handleUpdatePassword}
+                        disabled={updatingRecovery}
+                        className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
+                      </button>
+                    )}
+
+                    {recoveryMessage && (
+                      <button
+                        type="button"
+                        onClick={exitRecoveryMode}
+                        className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                      >
+                        Ir al panel
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </main>
           </div>
         </div>
       </>
@@ -2067,7 +2281,7 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={themeStyles}
-          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
             Cargando acceso...
@@ -2083,7 +2297,7 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={themeStyles}
-          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
             <div
@@ -2143,7 +2357,7 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={themeStyles}
-          className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
           <div
@@ -2248,6 +2462,20 @@ export default function TechniciansPage() {
                 />
               </div>
 
+              {authMode === 'login' && (
+                <div className="mt-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={handlePasswordRecovery}
+                    disabled={sendingRecovery}
+                    className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                  >
+                    {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                  </button>
+                </div>
+              )}
+
+              {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
               {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
 
               <button
@@ -2260,7 +2488,11 @@ export default function TechniciansPage() {
 
               <button
                 type="button"
-                onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                onClick={() => {
+                  setAuthMode(authMode === 'login' ? 'register' : 'login');
+                  setAuthError('');
+                  setAuthNotice('');
+                }}
                 className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
               >
                 {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
@@ -2276,7 +2508,7 @@ export default function TechniciansPage() {
   return (
     <div
       style={themeStyles}
-      className={`${sora.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+      className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
       <div className="relative overflow-hidden">
@@ -2467,7 +2699,7 @@ export default function TechniciansPage() {
                       <button
                         type="button"
                         onClick={() => handleShowQuotes('all')}
-                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
                       >
                         Ver
                       </button>
@@ -2481,7 +2713,7 @@ export default function TechniciansPage() {
                       <button
                         type="button"
                         onClick={() => handleShowQuotes('pending')}
-                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
                       >
                         Ver
                       </button>
@@ -2495,7 +2727,7 @@ export default function TechniciansPage() {
                       <button
                         type="button"
                         onClick={() => handleShowQuotes('approved')}
-                        className="rounded-full border border-slate-200 px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
                       >
                         Ver
                       </button>
@@ -2680,7 +2912,7 @@ export default function TechniciansPage() {
                     <button
                       type="button"
                       onClick={() => setActiveTab('presupuestos')}
-                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                      className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
                     >
                       Volver
                     </button>
@@ -2718,7 +2950,7 @@ export default function TechniciansPage() {
                           type="button"
                           onClick={handleGeocodeSearch}
                           disabled={geoLoading}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                          className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100/60 disabled:text-slate-400"
                         >
                           {geoLoading ? 'Buscando...' : 'Buscar en mapa'}
                         </button>
@@ -2773,7 +3005,7 @@ export default function TechniciansPage() {
                         <button
                           type="button"
                           onClick={handleAddItem}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                          className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
                         >
                           + Agregar item
                         </button>
@@ -2975,7 +3207,7 @@ export default function TechniciansPage() {
                                         type="button"
                                         onClick={() => handleAttachmentRemove(file)}
                                         disabled={deletingAttachmentId === file.id}
-                                        className="rounded-full border border-rose-200 px-2 py-1 text-[10px] font-semibold text-rose-500 transition hover:border-rose-300 hover:text-rose-600 disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                                       >
                                         {deletingAttachmentId === file.id ? 'Eliminando' : 'Eliminar'}
                                       </button>
@@ -3017,7 +3249,7 @@ export default function TechniciansPage() {
                   <button
                     type="button"
                     onClick={startNewQuote}
-                    className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
                     title="Nuevo presupuesto"
                   >
                     +
@@ -3088,7 +3320,7 @@ export default function TechniciansPage() {
                                 value={normalizeStatusValue(quote.status)}
                                 onClick={(event) => event.stopPropagation()}
                                 onChange={(event) => handleStatusChange(quote.id, event.target.value)}
-                                className="rounded-full border border-slate-200 bg-white px-2 py-1 text-[10px] font-semibold text-slate-500 outline-none hover:border-slate-300"
+                                className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600 outline-none hover:bg-slate-200"
                               >
                                 {statusOptions.map((option) => (
                                   <option key={option.value} value={option.value}>
@@ -3102,7 +3334,7 @@ export default function TechniciansPage() {
                                   event.stopPropagation();
                                   startEditQuote(quote);
                                 }}
-                                className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                                className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
                               >
                                 Editar
                               </button>
@@ -3113,10 +3345,10 @@ export default function TechniciansPage() {
                                   handleDeleteQuote(quote);
                                 }}
                                 disabled={deletingQuoteId === quote.id}
-                                className={`rounded-full border px-3 py-1 text-[10px] font-semibold transition ${
+                                className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
                                   deletingQuoteId === quote.id
-                                    ? 'border-rose-200 bg-rose-50 text-rose-300 cursor-not-allowed'
-                                    : 'border-rose-200 bg-rose-50 text-rose-600 hover:border-rose-300 hover:text-rose-700'
+                                    ? 'bg-rose-50 text-rose-300 cursor-not-allowed'
+                                    : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
                                 }`}
                               >
                                 {deletingQuoteId === quote.id ? 'Eliminando...' : 'Eliminar'}
@@ -3156,7 +3388,7 @@ export default function TechniciansPage() {
                         setViewerUrl(nextUrl);
                         setViewerError('');
                       }}
-                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                      className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
                     >
                       Usar presupuesto activo
                     </button>
@@ -3223,7 +3455,7 @@ export default function TechniciansPage() {
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                       agendaView === 'list'
                         ? 'bg-slate-900 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
                     Lista
@@ -3234,7 +3466,7 @@ export default function TechniciansPage() {
                     className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                       agendaView === 'calendar'
                         ? 'bg-slate-900 text-white'
-                        : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-800'
+                        : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                     }`}
                   >
                     Calendario
@@ -3253,7 +3485,7 @@ export default function TechniciansPage() {
                             new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() - 1, 1)
                           )
                         }
-                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
                       >
                         ◀
                       </button>
@@ -3265,7 +3497,7 @@ export default function TechniciansPage() {
                             new Date(calendarCursor.getFullYear(), calendarCursor.getMonth() + 1, 1)
                           )
                         }
-                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
+                        className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-200"
                       >
                         ▶
                       </button>
@@ -3589,7 +3821,7 @@ export default function TechniciansPage() {
                       <button
                         type="button"
                         onClick={handleValidateCoupon}
-                        className="rounded-full border border-slate-200 px-4 py-2 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                        className="rounded-full bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
                       >
                         Validar
                       </button>
@@ -3696,7 +3928,7 @@ export default function TechniciansPage() {
                   <button
                     type="button"
                     onClick={handleMarkAllNotificationsRead}
-                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
                   >
                     Marcar todo como leido
                   </button>
@@ -3765,7 +3997,7 @@ export default function TechniciansPage() {
                       if (isBetaAdmin) fetchSupportUsers();
                       fetchSupportMessages();
                     }}
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
                   >
                     Actualizar
                   </button>
@@ -4174,7 +4406,7 @@ export default function TechniciansPage() {
                       setMasterSearch('');
                       setMasterCategory('all');
                     }}
-                    className="rounded-full border border-slate-200 px-3 py-2 text-[11px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                    className="rounded-full bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200"
                   >
                     Limpiar filtros
                   </button>
@@ -4226,10 +4458,26 @@ export default function TechniciansPage() {
         </div>
         {session && (
           <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-6xl flex-wrap items-center justify-between gap-3 px-6 py-3 text-xs text-slate-500">
+            <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">UrbanFix</span>
-                <span>© 2026 UrbanFix</span>
+                <span>(c) 2026 UrbanFix</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startNewQuote}
+                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  Nuevo presupuesto
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  Cerrar sesion
+                </button>
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <a
