@@ -65,6 +65,7 @@ export async function GET(request: NextRequest) {
       accessGrantedRes,
       totalQuotesRes,
       activeSubsRes,
+      activeSubsDataRes,
       supportLast7Res,
       paidQuotesRes,
       paymentRowsRes,
@@ -77,6 +78,10 @@ export async function GET(request: NextRequest) {
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('access_granted', true),
       supabase.from('quotes').select('id', { count: 'exact', head: true }),
       supabase.from('subscriptions').select('id', { count: 'exact', head: true }).in('status', activeSubStatuses),
+      supabase
+        .from('subscriptions')
+        .select('status, plan:billing_plans(period_months, price_ars)')
+        .in('status', activeSubStatuses),
       supabase
         .from('beta_support_messages')
         .select('id', { count: 'exact', head: true })
@@ -116,6 +121,7 @@ export async function GET(request: NextRequest) {
       accessGrantedRes.error ||
       totalQuotesRes.error ||
       activeSubsRes.error ||
+      activeSubsDataRes.error ||
       supportLast7Res.error ||
       paymentRowsRes.error ||
       recentMessagesRes.error ||
@@ -128,6 +134,7 @@ export async function GET(request: NextRequest) {
         accessGrantedRes.error ||
         totalQuotesRes.error ||
         activeSubsRes.error ||
+        activeSubsDataRes.error ||
         supportLast7Res.error ||
         paymentRowsRes.error ||
         recentMessagesRes.error ||
@@ -173,6 +180,15 @@ export async function GET(request: NextRequest) {
       return sum + parseAmount(row.amount);
     }, 0);
 
+    const activeSubsRows = activeSubsDataRes.data || [];
+    const mrr = activeSubsRows.reduce((sum, row: any) => {
+      const price = parseAmount(row?.plan?.price_ars);
+      const periodMonths = Number(row?.plan?.period_months || 1);
+      if (!price || !periodMonths) return sum;
+      return sum + price / periodMonths;
+    }, 0);
+    const arr = mrr * 12;
+
     const listsRaw = {
       supportMessages: recentMessagesRes.data || [],
       recentSubscriptions: recentSubsRes.data || [],
@@ -212,6 +228,21 @@ export async function GET(request: NextRequest) {
       }, {});
     }
 
+    let subscriptionsByUser: Record<string, any> = {};
+    if (userIds.size) {
+      const { data: subsRows, error: subsError } = await supabase
+        .from('subscriptions')
+        .select('user_id, status, current_period_end, plan:billing_plans(name, period_months, price_ars, is_partner)')
+        .in('user_id', Array.from(userIds));
+      if (subsError) throw subsError;
+      subscriptionsByUser = (subsRows || []).reduce((acc: Record<string, any>, row) => {
+        if (row.user_id && !acc[row.user_id]) {
+          acc[row.user_id] = row;
+        }
+        return acc;
+      }, {});
+    }
+
     return NextResponse.json({
       kpis: {
         totalUsers: totalUsersRes.count || 0,
@@ -223,6 +254,8 @@ export async function GET(request: NextRequest) {
         activeSubscribers: activeSubsRes.count || 0,
         supportMessagesLast7: supportLast7Res.count || 0,
         revenueTotal,
+        mrr,
+        arr,
         revenueSince: revenueSince.toISOString(),
       },
       lists: {
@@ -249,6 +282,7 @@ export async function GET(request: NextRequest) {
           created_at: user.created_at,
           last_sign_in_at: user.last_sign_in_at,
           profile: profiles[user.id] || null,
+          subscription: subscriptionsByUser[user.id] || null,
         })),
       },
     });

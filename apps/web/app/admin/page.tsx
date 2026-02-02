@@ -55,6 +55,16 @@ type RecentUserItem = {
   created_at?: string | null;
   last_sign_in_at?: string | null;
   profile?: AdminProfile | null;
+  subscription?: {
+    status?: string | null;
+    current_period_end?: string | null;
+    plan?: {
+      name?: string | null;
+      period_months?: number | null;
+      price_ars?: number | null;
+      is_partner?: boolean | null;
+    } | null;
+  } | null;
 };
 
 type PendingAccessItem = {
@@ -77,6 +87,8 @@ type AdminOverview = {
     activeSubscribers: number;
     supportMessagesLast7: number;
     revenueTotal: number;
+    mrr: number;
+    arr: number;
     revenueSince: string;
   };
   lists: {
@@ -109,6 +121,33 @@ const formatDateTime = (value?: string | null) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString('es-AR');
+};
+
+const normalizeText = (value?: string | null) =>
+  (value || '')
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+
+const toCsvValue = (value: any) => {
+  const text = value === null || value === undefined ? '' : String(value);
+  return `"${text.replace(/"/g, '""')}"`;
+};
+
+const downloadCsv = (filename: string, rows: Array<Record<string, any>>) => {
+  if (!rows.length) return;
+  const headers = Object.keys(rows[0]);
+  const csv = [headers.join(','), ...rows.map((row) => headers.map((h) => toCsvValue(row[h])).join(','))].join(
+    '\n'
+  );
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
 };
 
 type ProfileLike = {
@@ -144,6 +183,8 @@ export default function AdminPage() {
   const [supportError, setSupportError] = useState('');
   const [supportDraft, setSupportDraft] = useState('');
   const [supportSending, setSupportSending] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+  const [messageSearch, setMessageSearch] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -357,6 +398,39 @@ export default function AdminPage() {
     { key: 'mensajes', label: 'Mensajes' },
     { key: 'accesos', label: 'Accesos' },
   ] as const;
+
+  const filteredRecentUsers = useMemo(() => {
+    if (!overview) return [];
+    const query = normalizeText(userSearch);
+    if (!query) return overview.lists.recentUsers;
+    return overview.lists.recentUsers.filter((user) => {
+      const name = normalizeText(user.profile?.business_name || user.profile?.full_name || user.email);
+      const email = normalizeText(user.email);
+      const plan = normalizeText(user.subscription?.plan?.name || '');
+      return name.includes(query) || email.includes(query) || plan.includes(query);
+    });
+  }, [overview, userSearch]);
+
+  const filteredPendingAccess = useMemo(() => {
+    if (!overview) return [];
+    const query = normalizeText(userSearch);
+    if (!query) return overview.lists.pendingAccess;
+    return overview.lists.pendingAccess.filter((user) => {
+      const name = normalizeText(user.profile?.business_name || user.profile?.full_name || user.email);
+      const email = normalizeText(user.email || user.profile?.email || '');
+      return name.includes(query) || email.includes(query);
+    });
+  }, [overview, userSearch]);
+
+  const filteredSupportUsers = useMemo(() => {
+    const query = normalizeText(messageSearch);
+    if (!query) return supportUsers;
+    return supportUsers.filter((user) => {
+      const label = normalizeText(user.label);
+      const lastBody = normalizeText(user.lastMessage?.body || '');
+      return label.includes(query) || lastBody.includes(query);
+    });
+  }, [supportUsers, messageSearch]);
 
   if (loadingSession) {
     return (
@@ -715,6 +789,40 @@ export default function AdminPage() {
           )}
           {activeTab === 'usuarios' && (
             <>
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-1 flex-wrap items-center gap-3">
+                  <input
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    placeholder="Buscar por nombre, email o plan..."
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
+                  />
+                  <span className="text-xs text-slate-400">
+                    {filteredRecentUsers.length} usuarios recientes
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    downloadCsv(
+                      'usuarios_recientes.csv',
+                      filteredRecentUsers.map((user) => ({
+                        nombre: user.profile?.full_name || '',
+                        negocio: user.profile?.business_name || '',
+                        email: user.email || '',
+                        alta: user.created_at || '',
+                        ultimo_ingreso: user.last_sign_in_at || '',
+                        suscripcion_estado: user.subscription?.status || '',
+                        suscripcion_plan: user.subscription?.plan?.name || '',
+                      }))
+                    )
+                  }
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Exportar CSV
+                </button>
+              </div>
+
               <section className="mt-6 grid gap-4 md:grid-cols-3">
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios totales</p>
@@ -743,10 +851,10 @@ export default function AdminPage() {
                     <span className="text-xs text-slate-400">Últimos 12</span>
                   </div>
                   <div className="mt-4 space-y-3">
-                    {overview.lists.recentUsers.length === 0 && (
+                    {filteredRecentUsers.length === 0 && (
                       <p className="text-sm text-slate-500">No hay usuarios recientes.</p>
                     )}
-                    {overview.lists.recentUsers.map((user) => (
+                    {filteredRecentUsers.map((user) => (
                       <div
                         key={user.id}
                         className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
@@ -758,6 +866,20 @@ export default function AdminPage() {
                           <span className="text-slate-400">{formatDateTime(user.created_at)}</span>
                         </div>
                         <p className="mt-1 text-xs text-slate-500">{user.email || 'Sin email'}</p>
+                        {(user.subscription?.status || user.subscription?.plan?.name) && (
+                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
+                            {user.subscription?.status && (
+                              <span className="rounded-full bg-white px-2 py-1 font-semibold text-slate-600">
+                                {user.subscription.status}
+                              </span>
+                            )}
+                            {user.subscription?.plan?.name && (
+                              <span className="rounded-full bg-white px-2 py-1 font-semibold text-slate-600">
+                                {user.subscription.plan.name}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -769,10 +891,10 @@ export default function AdminPage() {
                     <span className="text-xs text-slate-400">Últimos 12</span>
                   </div>
                   <div className="mt-4 space-y-3">
-                    {overview.lists.pendingAccess.length === 0 && (
+                    {filteredPendingAccess.length === 0 && (
                       <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
                     )}
-                    {overview.lists.pendingAccess.map((user) => (
+                    {filteredPendingAccess.map((user) => (
                       <div
                         key={user.id}
                         className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
@@ -800,7 +922,54 @@ export default function AdminPage() {
           )}
           {activeTab === 'facturacion' && (
             <>
-              <section className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <div className="text-xs text-slate-400">
+                  Ingresos calculados desde {formatDateTime(overview.kpis.revenueSince)}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadCsv(
+                        'suscripciones_recientes.csv',
+                        overview.lists.recentSubscriptions.map((sub) => ({
+                          usuario: getProfileLabel(sub.profile),
+                          email: sub.profile?.email || '',
+                          estado: sub.status || '',
+                          plan: sub.plan?.name || '',
+                          periodo_meses: sub.plan?.period_months || '',
+                          precio: sub.plan?.price_ars || '',
+                          creado: sub.created_at,
+                          renueva: sub.current_period_end || '',
+                        }))
+                      )
+                    }
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Exportar suscripciones
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadCsv(
+                        'pagos_recientes.csv',
+                        overview.lists.recentPayments.map((payment) => ({
+                          usuario: getProfileLabel(payment.profile),
+                          email: payment.profile?.email || '',
+                          estado: payment.status || '',
+                          monto: payment.amount || 0,
+                          pagado: payment.paid_at || payment.created_at,
+                        }))
+                      )
+                    }
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Exportar pagos
+                  </button>
+                </div>
+              </div>
+
+              <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
                     Ingresos suscripciones (12m)
@@ -810,17 +979,23 @@ export default function AdminPage() {
                   </p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">MRR estimado</p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatCurrency(overview.kpis.mrr)}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">ARR estimado</p>
+                  <p className="mt-3 text-2xl font-semibold text-slate-900">
+                    {formatCurrency(overview.kpis.arr)}
+                  </p>
+                </div>
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
                     Ingresos por presupuestos
                   </p>
                   <p className="mt-3 text-2xl font-semibold text-slate-900">
                     {formatCurrency(overview.kpis.paidQuotesTotal)}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Suscriptores activos</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatNumber(overview.kpis.activeSubscribers)}
                   </p>
                 </div>
               </section>
@@ -909,28 +1084,52 @@ export default function AdminPage() {
                   <h3 className="text-lg font-semibold text-slate-900">Mensajes de usuarios</h3>
                   <p className="text-sm text-slate-500">Responde desde aquí al chat beta.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    loadSupportUsers(session.access_token);
-                    if (activeSupportUserId) {
-                      loadSupportMessages(session.access_token, activeSupportUserId);
+                <div className="flex flex-wrap items-center gap-3">
+                  <input
+                    value={messageSearch}
+                    onChange={(event) => setMessageSearch(event.target.value)}
+                    placeholder="Buscar conversación..."
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      loadSupportUsers(session.access_token);
+                      if (activeSupportUserId) {
+                        loadSupportMessages(session.access_token, activeSupportUserId);
+                      }
+                    }}
+                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                  >
+                    Actualizar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadCsv(
+                        'mensajes_conversacion.csv',
+                        supportMessages.map((msg) => ({
+                          usuario: supportUsers.find((item) => item.userId === activeSupportUserId)?.label || '',
+                          mensaje: msg.body,
+                          fecha: msg.created_at,
+                        }))
+                      )
                     }
-                  }}
-                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                >
-                  Actualizar
-                </button>
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Exportar conversación
+                  </button>
+                </div>
               </div>
 
               <div className="mt-6 grid gap-6 lg:grid-cols-[280px,1fr]">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Conversaciones</p>
-                  {supportUsers.length === 0 && !supportLoading && (
+                  {filteredSupportUsers.length === 0 && !supportLoading && (
                     <p className="mt-3 text-sm text-slate-500">Aun no hay mensajes.</p>
                   )}
                   <div className="mt-3 space-y-2">
-                    {supportUsers.map((user) => (
+                    {filteredSupportUsers.map((user) => (
                       <button
                         key={user.userId}
                         type="button"
@@ -1008,15 +1207,23 @@ export default function AdminPage() {
           )}
           {activeTab === 'accesos' && (
             <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                <span className="text-xs text-slate-400">Últimos 12</span>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                  <p className="text-xs text-slate-400">Últimos 12</p>
+                </div>
+                <input
+                  value={userSearch}
+                  onChange={(event) => setUserSearch(event.target.value)}
+                  placeholder="Buscar usuario..."
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-xs"
+                />
               </div>
               <div className="mt-4 space-y-3">
-                {overview.lists.pendingAccess.length === 0 && (
+                {filteredPendingAccess.length === 0 && (
                   <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
                 )}
-                {overview.lists.pendingAccess.map((user) => (
+                {filteredPendingAccess.map((user) => (
                   <div
                     key={user.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
