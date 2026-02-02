@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const revenueSince = new Date(now);
     revenueSince.setMonth(revenueSince.getMonth() - 12);
-    const paidQuoteStatuses = ['paid', 'cobrado', 'pagado', 'charged'];
+    const paidQuoteStatuses = ['paid', 'charged', 'completed'];
     const activeSubStatuses = ['authorized', 'active', 'approved'];
     const blockedPaymentStatuses = new Set(['rejected', 'cancelled', 'canceled', 'refunded']);
 
@@ -112,7 +112,6 @@ export async function GET(request: NextRequest) {
       totalQuotesRes.error ||
       activeSubsRes.error ||
       supportLast7Res.error ||
-      paidQuotesRes.error ||
       paymentRowsRes.error ||
       recentMessagesRes.error ||
       recentSubsRes.error ||
@@ -125,7 +124,6 @@ export async function GET(request: NextRequest) {
         totalQuotesRes.error ||
         activeSubsRes.error ||
         supportLast7Res.error ||
-        paidQuotesRes.error ||
         paymentRowsRes.error ||
         recentMessagesRes.error ||
         recentSubsRes.error ||
@@ -134,7 +132,31 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const paidQuotes = paidQuotesRes.data || [];
+    let paidQuotesData = paidQuotesRes.data || [];
+    if (paidQuotesRes.error) {
+      const message = String(paidQuotesRes.error.message || '').toLowerCase();
+      if (message.includes('invalid input value for enum')) {
+        const fallback = await supabase.from('quotes').select('id, total_amount, status');
+        if (fallback.error) throw fallback.error;
+        paidQuotesData = fallback.data || [];
+      } else {
+        throw paidQuotesRes.error;
+      }
+    }
+
+    const paidStatusSet = new Set([
+      'paid',
+      'charged',
+      'cobrado',
+      'cobrados',
+      'pagado',
+      'pagados',
+      'completed',
+      'finalizado',
+    ]);
+    const paidQuotes = paidQuotesData.filter((quote) =>
+      paidStatusSet.has(String(quote.status || '').toLowerCase())
+    );
     const paidQuotesTotal = paidQuotes.reduce((sum, quote) => sum + parseAmount(quote.total_amount), 0);
     const paidQuotesCount = paidQuotes.length;
 
