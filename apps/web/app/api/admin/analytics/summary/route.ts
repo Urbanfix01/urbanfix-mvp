@@ -28,6 +28,19 @@ const ensureAdmin = async (userId: string) => {
 };
 
 const formatDate = (value: Date) => value.toISOString().split('T')[0];
+const startOfDay = (value: Date) => {
+  const copy = new Date(value);
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+};
+const endOfDay = (value: Date) => {
+  const copy = new Date(value);
+  copy.setHours(23, 59, 59, 999);
+  return copy;
+};
+
+const getProfileLabel = (profile: any, fallback?: string) =>
+  profile?.business_name || profile?.full_name || profile?.email || fallback || 'Sin perfil';
 
 export async function GET(request: NextRequest) {
   if (!supabase) {
@@ -45,67 +58,146 @@ export async function GET(request: NextRequest) {
   }
 
   const params = request.nextUrl.searchParams;
-  const days = Math.min(90, Math.max(1, Number(params.get('days') || 30)));
+  const rawDays = Number(params.get('days') || 30);
+  const days = Math.min(90, Math.max(1, Number.isFinite(rawDays) ? rawDays : 30));
   const path = (params.get('path') || '').trim();
   const userId = (params.get('userId') || '').trim();
+  const startParam = (params.get('start') || '').trim();
+  const endParam = (params.get('end') || '').trim();
 
-  const since = new Date();
-  since.setDate(since.getDate() - days);
+  const now = new Date();
+  let startDate = startParam ? new Date(startParam) : new Date(now);
+  let endDate = endParam ? new Date(endParam) : new Date(now);
+  if (!startParam) {
+    startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - (days - 1));
+  }
+
+  if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return NextResponse.json({ error: 'Invalid date range' }, { status: 400 });
+  }
+  if (startDate > endDate) {
+    const swap = startDate;
+    startDate = endDate;
+    endDate = swap;
+  }
+  startDate = startOfDay(startDate);
+  endDate = endOfDay(endDate);
+
+  const rangeDays =
+    Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 86400000) + 1);
+  const prevEnd = endOfDay(new Date(startDate.getTime() - 86400000));
+  const prevStart = startOfDay(new Date(prevEnd.getTime() - (rangeDays - 1) * 86400000));
+
+  const applyFilters = (query: any) => {
+    let next = query;
+    if (path) next = next.eq('path', path);
+    if (userId) next = next.eq('user_id', userId);
+    return next;
+  };
 
   let query = supabase
     .from('analytics_events')
     .select('event_type, path, duration_ms, created_at, session_id, user_id')
-    .gte('created_at', since.toISOString())
+    .in('event_type', ['page_view', 'page_duration'])
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString())
     .order('created_at', { ascending: true })
     .limit(50000);
 
-  if (path) {
-    query = query.eq('path', path);
-  }
-  if (userId) {
-    query = query.eq('user_id', userId);
+  let prevQuery = supabase
+    .from('analytics_events')
+    .select('event_type, duration_ms, created_at, session_id, user_id')
+    .in('event_type', ['page_view', 'page_duration'])
+    .gte('created_at', prevStart.toISOString())
+    .lte('created_at', prevEnd.toISOString())
+    .order('created_at', { ascending: true })
+    .limit(50000);
+
+  query = applyFilters(query);
+  prevQuery = applyFilters(prevQuery);
+
+  const [{ data: events, error }, { data: prevEvents, error: prevError }] = await Promise.all([
+    query,
+    prevQuery,
+  ]);
+
+  if (error || prevError) {
+    return NextResponse.json({ error: error?.message || prevError?.message }, { status: 500 });
   }
 
-  const { data, error } = await query;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  const events = data || [];
   const seriesMap = new Map<string, { views: number; durationMs: number }>();
-  const screenMap = new Map<string, { totalMs: number; count: number; views: number }>();
+  const routeMap = new Map<string, { views: number; durationMs: number; durationCount: number }>();
+  const userMap = new Map<
+    string,
+    { views: number; durationMs: number; durationCount: number; sessions: Set<string>; lastSeen?: string }
+  >();
   const sessions = new Set<string>();
   const users = new Set<string>();
+  let totalViews = 0;
+  let totalDurationMs = 0;
 
-  const startDate = new Date(since);
-  const endDate = new Date();
-  for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-    const key = formatDate(d);
-    seriesMap.set(key, { views: 0, durationMs: 0 });
+  for (let cursor = new Date(startDate); cursor <= endDate; cursor.setDate(cursor.getDate() + 1)) {
+    seriesMap.set(formatDate(cursor), { views: 0, durationMs: 0 });
   }
 
-  events.forEach((event: any) => {
+  (events || []).forEach((event: any) => {
     const dateKey = formatDate(new Date(event.created_at));
     const series = seriesMap.get(dateKey) || { views: 0, durationMs: 0 };
     if (event.event_type === 'page_view') {
       series.views += 1;
+      totalViews += 1;
       if (event.session_id) sessions.add(event.session_id);
       if (event.user_id) users.add(event.user_id);
       if (event.path) {
-        const screen = screenMap.get(event.path) || { totalMs: 0, count: 0, views: 0 };
-        screen.views += 1;
-        screenMap.set(event.path, screen);
+        const current = routeMap.get(event.path) || {
+          views: 0,
+          durationMs: 0,
+          durationCount: 0,
+        };
+        current.views += 1;
+        routeMap.set(event.path, current);
+      }
+      if (event.user_id) {
+        const current = userMap.get(event.user_id) || {
+          views: 0,
+          durationMs: 0,
+          durationCount: 0,
+          sessions: new Set<string>(),
+        };
+        current.views += 1;
+        if (event.session_id) current.sessions.add(event.session_id);
+        if (!current.lastSeen || new Date(event.created_at) > new Date(current.lastSeen)) {
+          current.lastSeen = event.created_at;
+        }
+        userMap.set(event.user_id, current);
       }
     }
     if (event.event_type === 'page_duration') {
       const duration = Number(event.duration_ms || 0);
       if (Number.isFinite(duration) && duration > 0) {
         series.durationMs += duration;
+        totalDurationMs += duration;
         if (event.path) {
-          const screen = screenMap.get(event.path) || { totalMs: 0, count: 0, views: 0 };
-          screen.totalMs += duration;
-          screen.count += 1;
-          screenMap.set(event.path, screen);
+          const current = routeMap.get(event.path) || {
+            views: 0,
+            durationMs: 0,
+            durationCount: 0,
+          };
+          current.durationMs += duration;
+          current.durationCount += 1;
+          routeMap.set(event.path, current);
+        }
+        if (event.user_id) {
+          const current = userMap.get(event.user_id) || {
+            views: 0,
+            durationMs: 0,
+            durationCount: 0,
+            sessions: new Set<string>(),
+          };
+          current.durationMs += duration;
+          current.durationCount += 1;
+          userMap.set(event.user_id, current);
         }
       }
     }
@@ -118,22 +210,104 @@ export async function GET(request: NextRequest) {
     minutes: stats.durationMs / 1000 / 60,
   }));
 
-  const topScreens = Array.from(screenMap.entries())
+  const topScreens = Array.from(routeMap.entries())
     .map(([pathName, stats]) => ({
       path: pathName,
-      total_minutes: stats.totalMs / 1000 / 60,
-      avg_seconds: stats.count ? stats.totalMs / 1000 / stats.count : 0,
+      total_minutes: stats.durationMs / 1000 / 60,
+      avg_seconds: stats.durationCount ? stats.durationMs / 1000 / stats.durationCount : 0,
       views: stats.views,
     }))
     .sort((a, b) => b.total_minutes - a.total_minutes)
     .slice(0, 5);
 
+  const topRoutes = Array.from(routeMap.entries())
+    .map(([pathName, stats]) => ({
+      path: pathName,
+      views: stats.views,
+      total_minutes: stats.durationMs / 1000 / 60,
+      avg_seconds: stats.durationCount ? stats.durationMs / 1000 / stats.durationCount : 0,
+    }))
+    .sort((a, b) => b.views - a.views || b.total_minutes - a.total_minutes)
+    .slice(0, 8);
+
+  const userStats = Array.from(userMap.entries()).map(([id, stats]) => ({
+    user_id: id,
+    views: stats.views,
+    sessions: stats.sessions.size,
+    total_minutes: stats.durationMs / 1000 / 60,
+    avg_seconds: stats.durationCount ? stats.durationMs / 1000 / stats.durationCount : 0,
+    last_seen: stats.lastSeen || null,
+  }));
+  const topUserIds = userStats
+    .slice()
+    .sort((a, b) => b.total_minutes - a.total_minutes || b.views - a.views)
+    .slice(0, 50)
+    .map((item) => item.user_id);
+
+  let profilesById: Record<string, any> = {};
+  if (topUserIds.length) {
+    const { data: profileRows, error: profileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, business_name, email')
+      .in('id', topUserIds);
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 });
+    }
+    profilesById = (profileRows || []).reduce((acc: Record<string, any>, row: any) => {
+      acc[row.id] = row;
+      return acc;
+    }, {});
+  }
+
+  const topUsers = userStats
+    .map((item) => ({
+      ...item,
+      label: getProfileLabel(profilesById[item.user_id], item.user_id),
+    }))
+    .sort((a, b) => b.total_minutes - a.total_minutes || b.views - a.views)
+    .slice(0, 8);
+
+  let prevViews = 0;
+  let prevDurationMs = 0;
+  const prevSessions = new Set<string>();
+  const prevUsers = new Set<string>();
+
+  (prevEvents || []).forEach((event: any) => {
+    if (event.event_type === 'page_view') {
+      prevViews += 1;
+      if (event.session_id) prevSessions.add(event.session_id);
+      if (event.user_id) prevUsers.add(event.user_id);
+    }
+    if (event.event_type === 'page_duration') {
+      const duration = Number(event.duration_ms || 0);
+      if (Number.isFinite(duration) && duration > 0) {
+        prevDurationMs += duration;
+      }
+    }
+  });
+
   const totals = {
-    views: series.reduce((sum, item) => sum + item.views, 0),
-    minutes: series.reduce((sum, item) => sum + item.minutes, 0),
+    views: totalViews,
+    minutes: totalDurationMs / 1000 / 60,
     uniqueSessions: sessions.size,
     uniqueUsers: users.size,
   };
 
-  return NextResponse.json({ series, topScreens, totals });
+  const prevTotals = {
+    views: prevViews,
+    minutes: prevDurationMs / 1000 / 60,
+    uniqueSessions: prevSessions.size,
+    uniqueUsers: prevUsers.size,
+  };
+
+  return NextResponse.json({
+    range: { start: startDate.toISOString(), end: endDate.toISOString(), days: rangeDays },
+    previousRange: { start: prevStart.toISOString(), end: prevEnd.toISOString() },
+    series,
+    topScreens,
+    topRoutes,
+    topUsers,
+    totals,
+    prevTotals,
+  });
 }

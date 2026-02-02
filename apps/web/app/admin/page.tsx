@@ -160,6 +160,26 @@ const downloadCsv = (filename: string, rows: Array<Record<string, any>>) => {
   URL.revokeObjectURL(url);
 };
 
+const formatShortDate = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('es-AR');
+};
+
+const getDeltaLabel = (current: number, previous: number) => {
+  if (!previous) {
+    if (!current) {
+      return { text: 'Sin cambios', tone: 'text-slate-400' };
+    }
+    return { text: 'Nuevo', tone: 'text-emerald-600' };
+  }
+  const diff = current - previous;
+  const pct = (diff / previous) * 100;
+  const text = `${diff >= 0 ? '+' : ''}${pct.toFixed(0)}% vs periodo anterior`;
+  return { text, tone: diff >= 0 ? 'text-emerald-600' : 'text-rose-600' };
+};
+
 type ProfileLike = {
   business_name?: string | null;
   full_name?: string | null;
@@ -196,12 +216,27 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('');
   const [messageSearch, setMessageSearch] = useState('');
   const [activityRange, setActivityRange] = useState<7 | 30 | 90>(30);
+  const [activityStart, setActivityStart] = useState('');
+  const [activityEnd, setActivityEnd] = useState('');
   const [activityPath, setActivityPath] = useState('');
   const [activityUserId, setActivityUserId] = useState('');
   const [activityData, setActivityData] = useState<{
     series: { date: string; views: number; minutes: number }[];
     totals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
+    prevTotals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
     topScreens: ScreenMetric[];
+    topRoutes: { path: string; views: number; total_minutes: number; avg_seconds: number }[];
+    topUsers: {
+      user_id: string;
+      label: string;
+      views: number;
+      sessions: number;
+      total_minutes: number;
+      avg_seconds: number;
+      last_seen?: string | null;
+    }[];
+    range?: { start: string; end: string; days: number };
+    previousRange?: { start: string; end: string };
   } | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
@@ -298,6 +333,12 @@ export default function AdminPage() {
     setActivityLoading(true);
     try {
       const params = new URLSearchParams({ days: String(activityRange) });
+      if (activityStart) {
+        params.set('start', activityStart);
+      }
+      if (activityEnd) {
+        params.set('end', activityEnd);
+      }
       if (activityPath.trim()) {
         params.set('path', activityPath.trim());
       }
@@ -367,7 +408,15 @@ export default function AdminPage() {
   useEffect(() => {
     if (!session?.access_token || activeTab !== 'actividad') return;
     loadActivity();
-  }, [activeTab, session?.access_token, activityRange, activityPath, activityUserId]);
+  }, [
+    activeTab,
+    session?.access_token,
+    activityRange,
+    activityStart,
+    activityEnd,
+    activityPath,
+    activityUserId,
+  ]);
 
   const handleEmailLogin = async () => {
     setAuthError('');
@@ -1336,24 +1385,55 @@ export default function AdminPage() {
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Actividad</p>
                   <h3 className="text-lg font-semibold text-slate-900">Uso de la plataforma</h3>
                   <p className="text-sm text-slate-500">Visitas, sesiones únicas y tiempo por pantalla.</p>
+                  {activityData?.range && (
+                    <p className="mt-1 text-xs text-slate-400">
+                      Periodo: {formatShortDate(activityData.range.start)} -{' '}
+                      {formatShortDate(activityData.range.end)} • Comparado con{' '}
+                      {activityData.previousRange
+                        ? `${formatShortDate(activityData.previousRange.start)} - ${formatShortDate(
+                            activityData.previousRange.end
+                          )}`
+                        : 'periodo anterior'}
+                    </p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <select
                     value={activityRange}
-                    onChange={(event) => setActivityRange(Number(event.target.value) as 7 | 30 | 90)}
+                    onChange={(event) => {
+                      setActivityRange(Number(event.target.value) as 7 | 30 | 90);
+                      setActivityStart('');
+                      setActivityEnd('');
+                    }}
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
                   >
                     <option value={7}>Últimos 7 días</option>
                     <option value={30}>Últimos 30 días</option>
                     <option value={90}>Últimos 90 días</option>
                   </select>
+                  <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Del</span>
+                    <input
+                      type="date"
+                      value={activityStart}
+                      onChange={(event) => setActivityStart(event.target.value)}
+                      className="border-none bg-transparent text-xs font-semibold text-slate-600 outline-none"
+                    />
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">al</span>
+                    <input
+                      type="date"
+                      value={activityEnd}
+                      onChange={(event) => setActivityEnd(event.target.value)}
+                      className="border-none bg-transparent text-xs font-semibold text-slate-600 outline-none"
+                    />
+                  </div>
                   <select
                     value={activityUserId}
                     onChange={(event) => setActivityUserId(event.target.value)}
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
                   >
                     <option value="">Todos los usuarios</option>
-                    {overview.lists.recentUsers.map((user) => (
+                    {(overview?.lists.recentUsers || []).map((user) => (
                       <option key={user.id} value={user.id}>
                         {user.profile?.business_name || user.profile?.full_name || user.email || user.id}
                       </option>
@@ -1372,6 +1452,18 @@ export default function AdminPage() {
                   >
                     Actualizar
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivityStart('');
+                      setActivityEnd('');
+                      setActivityPath('');
+                      setActivityUserId('');
+                    }}
+                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                  >
+                    Limpiar filtros
+                  </button>
                 </div>
               </div>
 
@@ -1384,11 +1476,73 @@ export default function AdminPage() {
 
               {!activityLoading && activityData && (
                 <>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadCsv(
+                          'actividad_series.csv',
+                          activityData.series.map((item) => ({
+                            fecha: item.date,
+                            visitas: item.views,
+                            minutos: item.minutes.toFixed(2),
+                          }))
+                        )
+                      }
+                      className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      Exportar serie
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadCsv(
+                          'actividad_rutas.csv',
+                          activityData.topRoutes.map((item) => ({
+                            ruta: item.path,
+                            visitas: item.views,
+                            minutos: item.total_minutes.toFixed(2),
+                            promedio_seg: item.avg_seconds.toFixed(0),
+                          }))
+                        )
+                      }
+                      className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      Exportar rutas
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadCsv(
+                          'actividad_usuarios.csv',
+                          activityData.topUsers.map((item) => ({
+                            usuario: item.label,
+                            visitas: item.views,
+                            sesiones: item.sessions,
+                            minutos: item.total_minutes.toFixed(2),
+                            promedio_seg: item.avg_seconds.toFixed(0),
+                            ultima_visita: item.last_seen || '',
+                          }))
+                        )
+                      }
+                      className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      Exportar usuarios
+                    </button>
+                  </div>
+
                   <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Visitas</p>
                       <p className="mt-2 text-2xl font-semibold text-slate-900">
                         {formatNumber(activityData.totals.views)}
+                      </p>
+                      <p
+                        className={`mt-1 text-xs ${
+                          getDeltaLabel(activityData.totals.views, activityData.prevTotals.views).tone
+                        }`}
+                      >
+                        {getDeltaLabel(activityData.totals.views, activityData.prevTotals.views).text}
                       </p>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
@@ -1396,17 +1550,50 @@ export default function AdminPage() {
                       <p className="mt-2 text-2xl font-semibold text-slate-900">
                         {formatNumber(activityData.totals.uniqueSessions)}
                       </p>
+                      <p
+                        className={`mt-1 text-xs ${
+                          getDeltaLabel(
+                            activityData.totals.uniqueSessions,
+                            activityData.prevTotals.uniqueSessions
+                          ).tone
+                        }`}
+                      >
+                        {getDeltaLabel(
+                          activityData.totals.uniqueSessions,
+                          activityData.prevTotals.uniqueSessions
+                        ).text}
+                      </p>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios únicos</p>
                       <p className="mt-2 text-2xl font-semibold text-slate-900">
                         {formatNumber(activityData.totals.uniqueUsers)}
                       </p>
+                      <p
+                        className={`mt-1 text-xs ${
+                          getDeltaLabel(
+                            activityData.totals.uniqueUsers,
+                            activityData.prevTotals.uniqueUsers
+                          ).tone
+                        }`}
+                      >
+                        {getDeltaLabel(
+                          activityData.totals.uniqueUsers,
+                          activityData.prevTotals.uniqueUsers
+                        ).text}
+                      </p>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tiempo total</p>
                       <p className="mt-2 text-2xl font-semibold text-slate-900">
                         {activityData.totals.minutes.toFixed(1)} min
+                      </p>
+                      <p
+                        className={`mt-1 text-xs ${
+                          getDeltaLabel(activityData.totals.minutes, activityData.prevTotals.minutes).tone
+                        }`}
+                      >
+                        {getDeltaLabel(activityData.totals.minutes, activityData.prevTotals.minutes).text}
                       </p>
                     </div>
                   </div>
@@ -1484,6 +1671,76 @@ export default function AdminPage() {
                           </span>
                         </div>
                       ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-8 grid gap-6 lg:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold text-slate-900">Rutas con más visitas</h4>
+                        <span className="text-xs text-slate-400">Top 8</span>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {activityData.topRoutes.length === 0 && (
+                          <p className="text-sm text-slate-500">No hay datos disponibles.</p>
+                        )}
+                        {activityData.topRoutes.map((route) => (
+                          <div
+                            key={route.path}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{route.path}</p>
+                              <p className="mt-1 text-[11px] text-slate-400">
+                                {route.views} visita(s) • {route.avg_seconds.toFixed(0)}s promedio
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-700">
+                                {route.total_minutes.toFixed(1)} min
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-lg font-semibold text-slate-900">Usuarios más activos</h4>
+                        <span className="text-xs text-slate-400">Top 8</span>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        {activityData.topUsers.length === 0 && (
+                          <p className="text-sm text-slate-500">No hay datos disponibles.</p>
+                        )}
+                        {activityData.topUsers.map((user) => (
+                          <div
+                            key={user.user_id}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{user.label}</p>
+                              <p className="mt-1 text-[11px] text-slate-400">
+                                {user.views} visita(s) • {user.sessions} sesión(es)
+                              </p>
+                              {user.last_seen && (
+                                <p className="mt-1 text-[10px] text-slate-400">
+                                  Última visita: {formatDateTime(user.last_seen)}
+                                </p>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-700">
+                                {user.total_minutes.toFixed(1)} min
+                              </p>
+                              <p className="text-[11px] text-slate-400">
+                                {user.avg_seconds.toFixed(0)}s promedio
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </>
