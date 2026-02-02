@@ -197,7 +197,6 @@ const draftStatuses = new Set(['draft', 'borrador']);
 const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
 const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
 const readyToScheduleStatuses = new Set(['approved', 'accepted']);
-const confirmedStatuses = new Set([...approvedStatuses, ...paidStatuses, ...completedStatuses]);
 const billingStatuses = new Set([
   'approved',
   'accepted',
@@ -235,6 +234,26 @@ const toNumber = (value: string) => {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const toAmountValue = (value: any) => {
+  if (value === null || value === undefined || value === '') return 0;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getNetAmount = (amount: number, taxRate: number) => {
+  if (!taxRate) return amount;
+  return amount / (1 + taxRate);
+};
+
+const normalizeQuoteRow = (quote: QuoteRow) => ({
+  ...quote,
+  total_amount: toAmountValue(quote.total_amount),
+  tax_rate:
+    quote.tax_rate === null || quote.tax_rate === undefined
+      ? null
+      : toAmountValue(quote.tax_rate),
+});
 
 const formatCurrency = (value: number) =>
   `$${Number(value || 0).toLocaleString('es-AR')}`;
@@ -758,7 +777,8 @@ export default function TechniciansPage() {
       setInfoMessage('No pudimos cargar los presupuestos.');
       return;
     }
-    setQuotes((data as QuoteRow[]) || []);
+    const normalizedQuotes = ((data as QuoteRow[]) || []).map(normalizeQuoteRow);
+    setQuotes(normalizedQuotes);
   };
 
   const fetchNotifications = async (userId?: string) => {
@@ -969,7 +989,8 @@ export default function TechniciansPage() {
         setScheduleMessage('No se pudo actualizar el trabajo. Revisa permisos.');
         return;
       }
-      setQuotes((prev) => prev.map((quote) => (quote.id === quoteId ? { ...quote, ...updated } : quote)));
+      const normalized = normalizeQuoteRow(updated as QuoteRow);
+      setQuotes((prev) => prev.map((quote) => (quote.id === quoteId ? { ...quote, ...normalized } : quote)));
       setScheduleMessage('Fechas guardadas.');
     } catch (error: any) {
       console.error('Error guardando fechas:', error);
@@ -1404,15 +1425,18 @@ export default function TechniciansPage() {
   const quoteStats = useMemo(() => {
     const totals = quotes.reduce(
       (acc, quote) => {
-        const status = (quote.status || '').toLowerCase();
+        const status = normalizeStatusValue(quote.status);
+        const amount = toAmountValue(quote.total_amount);
+        const taxRate = toAmountValue(quote.tax_rate);
+        const netAmount = getNetAmount(amount, taxRate);
         if (status === 'draft') acc.draft += 1;
         if (pendingStatuses.has(status)) acc.pending += 1;
-        if (approvedStatuses.has(status)) acc.approved += 1;
-        if (confirmedStatuses.has(status)) {
-          acc.approvedAmount += quote.total_amount || 0;
-          acc.profitAmount += (quote.total_amount || 0) * PROFIT_MARGIN;
+        if (approvedStatuses.has(status)) {
+          acc.approved += 1;
+          acc.approvedAmount += amount;
+          acc.profitAmount += netAmount * PROFIT_MARGIN;
         }
-        acc.amount += quote.total_amount || 0;
+        acc.amount += amount;
         return acc;
       },
       { draft: 0, pending: 0, approved: 0, amount: 0, approvedAmount: 0, profitAmount: 0 }
@@ -1441,10 +1465,14 @@ export default function TechniciansPage() {
       const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
       const bucket = points.find((item) => item.key === key);
       if (!bucket) return;
-      bucket.quotes += quote.total_amount || 0;
-      if (confirmedStatuses.has((quote.status || '').toLowerCase())) {
-        bucket.approved += quote.total_amount || 0;
-        bucket.profit += (quote.total_amount || 0) * PROFIT_MARGIN;
+      const amount = toAmountValue(quote.total_amount);
+      const status = normalizeStatusValue(quote.status);
+      const taxRate = toAmountValue(quote.tax_rate);
+      const netAmount = getNetAmount(amount, taxRate);
+      bucket.quotes += amount;
+      if (approvedStatuses.has(status)) {
+        bucket.approved += amount;
+        bucket.profit += netAmount * PROFIT_MARGIN;
       }
     });
     return points;
@@ -1500,23 +1528,23 @@ export default function TechniciansPage() {
       points.push({ key, label, total: 0 });
     }
     quotes.forEach((quote) => {
-      const status = (quote.status || '').toLowerCase();
+      const status = normalizeStatusValue(quote.status);
       if (!billingStatuses.has(status)) return;
       const created = new Date(quote.created_at);
       const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
       const bucket = points.find((item) => item.key === key);
       if (!bucket) return;
-      bucket.total += quote.total_amount || 0;
+      bucket.total += toAmountValue(quote.total_amount);
     });
     return points;
   }, [quotes]);
   const billingYearSeries = useMemo(() => {
     const map = new Map<number, number>();
     quotes.forEach((quote) => {
-      const status = (quote.status || '').toLowerCase();
+      const status = normalizeStatusValue(quote.status);
       if (!billingStatuses.has(status)) return;
       const year = new Date(quote.created_at).getFullYear();
-      map.set(year, (map.get(year) || 0) + (quote.total_amount || 0));
+      map.set(year, (map.get(year) || 0) + toAmountValue(quote.total_amount));
     });
     return Array.from(map.entries())
       .sort((a, b) => b[0] - a[0])
@@ -1589,7 +1617,7 @@ export default function TechniciansPage() {
     return selectedBasePlan;
   }, [couponStatus, couponInfo, selectedPartnerPlan, selectedBasePlan]);
   const approvedJobs = useMemo(
-    () => quotes.filter((quote) => readyToScheduleStatuses.has((quote.status || '').toLowerCase())),
+    () => quotes.filter((quote) => readyToScheduleStatuses.has(normalizeStatusValue(quote.status))),
     [quotes]
   );
   const logoPresentation = useMemo(
@@ -1638,19 +1666,19 @@ export default function TechniciansPage() {
   );
   const filteredQuotes = useMemo(() => {
     if (quoteFilter === 'pending') {
-      return quotes.filter((quote) => pendingStatuses.has((quote.status || '').toLowerCase()));
+      return quotes.filter((quote) => pendingStatuses.has(normalizeStatusValue(quote.status)));
     }
     if (quoteFilter === 'approved') {
-      return quotes.filter((quote) => approvedStatuses.has((quote.status || '').toLowerCase()));
+      return quotes.filter((quote) => approvedStatuses.has(normalizeStatusValue(quote.status)));
     }
     if (quoteFilter === 'draft') {
-      return quotes.filter((quote) => draftStatuses.has((quote.status || '').toLowerCase()));
+      return quotes.filter((quote) => draftStatuses.has(normalizeStatusValue(quote.status)));
     }
     if (quoteFilter === 'completed') {
-      return quotes.filter((quote) => completedStatuses.has((quote.status || '').toLowerCase()));
+      return quotes.filter((quote) => completedStatuses.has(normalizeStatusValue(quote.status)));
     }
     if (quoteFilter === 'paid') {
-      return quotes.filter((quote) => paidStatuses.has((quote.status || '').toLowerCase()));
+      return quotes.filter((quote) => paidStatuses.has(normalizeStatusValue(quote.status)));
     }
     return quotes;
   }, [quotes, quoteFilter]);
