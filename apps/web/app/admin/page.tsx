@@ -67,6 +67,13 @@ type RecentUserItem = {
   } | null;
 };
 
+type ScreenMetric = {
+  path: string;
+  total_minutes: number;
+  avg_seconds: number;
+  views: number;
+};
+
 type PendingAccessItem = {
   id: string;
   full_name?: string | null;
@@ -89,6 +96,8 @@ type AdminOverview = {
     revenueTotal: number;
     mrr: number;
     arr: number;
+    visitsLast7: number;
+    uniqueSessionsLast7: number;
     revenueSince: string;
   };
   lists: {
@@ -97,6 +106,7 @@ type AdminOverview = {
     recentPayments: PaymentItem[];
     pendingAccess: PendingAccessItem[];
     recentUsers: RecentUserItem[];
+    topScreens: ScreenMetric[];
   };
 };
 
@@ -379,6 +389,8 @@ export default function AdminPage() {
   const kpis = useMemo(() => {
     if (!overview) return [];
     return [
+      { label: 'Visitas (7d)', value: formatNumber(overview.kpis.visitsLast7) },
+      { label: 'Sesiones únicas (7d)', value: formatNumber(overview.kpis.uniqueSessionsLast7) },
       { label: 'Usuarios totales', value: formatNumber(overview.kpis.totalUsers) },
       { label: 'Accesos habilitados', value: formatNumber(overview.kpis.accessGranted) },
       { label: 'Accesos pendientes', value: formatNumber(overview.kpis.pendingAccess) },
@@ -779,6 +791,34 @@ export default function AdminPage() {
                               {formatCurrency(payment.amount)}
                             </span>
                           </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h3>
+                      <span className="text-xs text-slate-400">Últimos 30 días</span>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {overview.lists.topScreens.length === 0 && (
+                        <p className="text-sm text-slate-500">No hay datos de navegación todavía.</p>
+                      )}
+                      {overview.lists.topScreens.map((screen) => (
+                        <div
+                          key={screen.path}
+                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500"
+                        >
+                          <div>
+                            <p className="text-sm font-semibold text-slate-700">{screen.path}</p>
+                            <p className="mt-1 text-[11px] text-slate-400">
+                              {screen.views} visita(s) • {screen.avg_seconds.toFixed(0)}s promedio
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700">
+                            {screen.total_minutes.toFixed(1)} min
+                          </span>
                         </div>
                       ))}
                     </div>

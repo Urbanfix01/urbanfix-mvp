@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const revenueSince = new Date(now);
     revenueSince.setMonth(revenueSince.getMonth() - 12);
+    const analyticsSince7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const analyticsSince30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const paidQuoteStatuses = ['paid', 'charged', 'completed'];
     const activeSubStatuses = ['authorized', 'active', 'approved'];
     const blockedPaymentStatuses = new Set(['rejected', 'cancelled', 'canceled', 'refunded']);
@@ -73,6 +75,8 @@ export async function GET(request: NextRequest) {
       recentSubsRes,
       recentPaymentsRes,
       pendingAccessRes,
+      analyticsViewsRes,
+      analyticsDurationsRes,
     ] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('access_granted', true),
@@ -114,6 +118,20 @@ export async function GET(request: NextRequest) {
         .select('id, full_name, business_name, email, access_granted')
         .eq('access_granted', false)
         .limit(12),
+      supabase
+        .from('analytics_events')
+        .select('session_id')
+        .eq('event_type', 'page_view')
+        .gte('created_at', analyticsSince7.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10000),
+      supabase
+        .from('analytics_events')
+        .select('path, duration_ms')
+        .eq('event_type', 'page_duration')
+        .gte('created_at', analyticsSince30.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(20000),
     ]);
 
     if (
@@ -127,7 +145,9 @@ export async function GET(request: NextRequest) {
       recentMessagesRes.error ||
       recentSubsRes.error ||
       recentPaymentsRes.error ||
-      pendingAccessRes.error
+      pendingAccessRes.error ||
+      analyticsViewsRes.error ||
+      analyticsDurationsRes.error
     ) {
       throw (
         totalUsersRes.error ||
@@ -140,7 +160,9 @@ export async function GET(request: NextRequest) {
         recentMessagesRes.error ||
         recentSubsRes.error ||
         recentPaymentsRes.error ||
-        pendingAccessRes.error
+        pendingAccessRes.error ||
+        analyticsViewsRes.error ||
+        analyticsDurationsRes.error
       );
     }
 
@@ -179,6 +201,32 @@ export async function GET(request: NextRequest) {
       }
       return sum + parseAmount(row.amount);
     }, 0);
+
+    const visitsLast7 = (analyticsViewsRes.data || []).length;
+    const uniqueSessionsLast7 = new Set(
+      (analyticsViewsRes.data || []).map((item: any) => item.session_id).filter(Boolean)
+    ).size;
+
+    const durationRows = analyticsDurationsRes.data || [];
+    const screenMap = new Map<string, { totalMs: number; count: number }>();
+    durationRows.forEach((row: any) => {
+      const path = (row.path || '').toString();
+      const duration = Number(row.duration_ms || 0);
+      if (!path || !Number.isFinite(duration) || duration <= 0) return;
+      const current = screenMap.get(path) || { totalMs: 0, count: 0 };
+      current.totalMs += duration;
+      current.count += 1;
+      screenMap.set(path, current);
+    });
+    const topScreens = Array.from(screenMap.entries())
+      .map(([path, stats]) => ({
+        path,
+        total_minutes: stats.totalMs / 1000 / 60,
+        avg_seconds: stats.count ? stats.totalMs / 1000 / stats.count : 0,
+        views: stats.count,
+      }))
+      .sort((a, b) => b.total_minutes - a.total_minutes)
+      .slice(0, 5);
 
     const activeSubsRows = activeSubsDataRes.data || [];
     const mrr = activeSubsRows.reduce((sum, row: any) => {
@@ -256,6 +304,8 @@ export async function GET(request: NextRequest) {
         revenueTotal,
         mrr,
         arr,
+        visitsLast7,
+        uniqueSessionsLast7,
         revenueSince: revenueSince.toISOString(),
       },
       lists: {
@@ -284,6 +334,7 @@ export async function GET(request: NextRequest) {
           profile: profiles[user.id] || null,
           subscription: subscriptionsByUser[user.id] || null,
         })),
+        topScreens,
       },
     });
   } catch (error: any) {
