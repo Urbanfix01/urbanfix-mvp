@@ -257,9 +257,9 @@ const resolveLogoPresentation = (ratio: number, shape?: string | null) => {
     return { frame: 'rounded-full', img: 'object-cover', padding: '' };
   }
   if (mode === 'rect') {
-    return { frame: 'rounded-xl', img: 'object-contain', padding: 'p-2' };
+    return { frame: 'rounded-xl', img: 'object-contain', padding: 'p-1' };
   }
-  return { frame: 'rounded-2xl', img: 'object-contain', padding: 'p-1' };
+  return { frame: 'rounded-2xl', img: 'object-contain', padding: 'p-0.5' };
 };
 
 const resolveLogoAspect = (ratio: number, shape?: string | null) => {
@@ -1600,6 +1600,10 @@ export default function TechniciansPage() {
     () => resolveLogoPresentation(logoRatio, profileForm.logoShape),
     [logoRatio, profileForm.logoShape]
   );
+  const logoAspect = useMemo(
+    () => resolveLogoAspect(logoRatio, profile?.logo_shape),
+    [logoRatio, profile?.logo_shape]
+  );
   const brandLogoUrl = useMemo(() => {
     if (profile?.company_logo_url) return profile.company_logo_url as string;
     if (profile?.logo_shape && profile?.avatar_url) return profile.avatar_url as string;
@@ -2310,7 +2314,8 @@ export default function TechniciansPage() {
               <div className="space-y-6 text-center md:text-left">
                 <div className="flex items-center justify-center gap-3 md:justify-start">
                   <div
-                    className={`flex h-14 w-14 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                    style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                    className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
                       brandLogoUrl ? 'bg-white' : 'bg-white'
                     }`}
                   >
@@ -2706,7 +2711,8 @@ export default function TechniciansPage() {
             <div className="space-y-6 text-center md:text-left">
               <div className="flex items-center justify-center gap-3 md:justify-start">
                 <div
-                  className={`flex h-14 w-14 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                  style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                  className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
                     brandLogoUrl ? 'bg-white' : 'bg-white'
                   }`}
                 >
@@ -2856,7 +2862,8 @@ export default function TechniciansPage() {
             <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-11 w-11 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/30 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                  style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                  className={`flex h-11 w-auto min-w-11 max-w-[88px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/30 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
                     brandLogoUrl ? 'bg-white' : 'bg-slate-900'
                   }`}
                 >
@@ -2957,7 +2964,8 @@ export default function TechniciansPage() {
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
                   <div
-                    className={`flex h-12 w-12 items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                    style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                    className={`flex h-12 w-auto min-w-12 max-w-[96px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
                       brandLogoUrl ? 'bg-white' : 'bg-slate-900'
                     }`}
                   >
