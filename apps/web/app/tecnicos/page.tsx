@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
-import { useSearchParams } from 'next/navigation';
 import {
   Bell,
   Calendar,
@@ -403,7 +402,6 @@ const getSupportUploadExtension = (file: File) => {
 };
 
 export default function TechniciansPage() {
-  const searchParams = useSearchParams();
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -530,15 +528,16 @@ export default function TechniciansPage() {
   const [agendaView, setAgendaView] = useState<'list' | 'calendar'>('list');
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [draggedJobId, setDraggedJobId] = useState<string | null>(null);
-  const recoveryParam = searchParams.get('recovery');
 
   useEffect(() => {
-    if (recoveryParam === '1') {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('recovery') === '1') {
       setRecoveryMode(true);
       setAuthError('');
       setAuthNotice('');
     }
-  }, [recoveryParam]);
+  }, []);
 
   const geoMapUrl = useMemo(() => {
     if (!geoSelected) return '';
