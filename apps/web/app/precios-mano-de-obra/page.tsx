@@ -104,6 +104,18 @@ export default function PreciosManoDeObraPage() {
                   Ver rubros de construccion
                 </a>
                 <a
+                  href="/ciudades"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Ver ciudades
+                </a>
+                <a
+                  href="/guias-precios"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Ver guias y precios
+                </a>
+                <a
                   href="/urbanfix"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >

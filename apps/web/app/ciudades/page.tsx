@@ -1,42 +1,26 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
-import { rubros, rubroSlugs, type RubroKey } from '../../../lib/seo/urbanfix-data';
+import { ciudades, ciudadSlugs } from '../../lib/seo/urbanfix-data';
 
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 });
 
-export const dynamicParams = false;
+export const metadata: Metadata = {
+  title: 'Ciudades y MANO DE OBRA en construccion | UrbanFix Argentina',
+  description:
+    'Gestion de presupuestos, clientes y materiales de obra por ciudad. Recursos de MANO DE OBRA para construccion en Argentina.',
+  alternates: { canonical: '/ciudades' },
+};
 
-export function generateStaticParams() {
-  return rubroSlugs.map((slug) => ({ slug }));
-}
-
-export async function generateMetadata({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}): Promise<Metadata> {
-  const { slug } = await params;
-  const rubro = rubros[slug as RubroKey];
-  if (!rubro) {
-    return {
-      title: 'Rubro no encontrado | UrbanFix',
-    };
-  }
-  return {
-    title: `MANO DE OBRA en ${rubro.title} | UrbanFix Argentina`,
-    description: `Gestion de presupuestos, gestion de clientes y materiales de obra para ${rubro.title.toLowerCase()} en Argentina.`,
-    alternates: { canonical: `/rubros/${slug}` },
-  };
-}
-
-export default async function RubroPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
-  const rubro = rubros[slug as RubroKey];
-  if (!rubro) return notFound();
+export default function CiudadesPage() {
+  const cities = ciudadSlugs.map((slug) => ({
+    slug,
+    name: ciudades[slug].name,
+    region: ciudades[slug].region,
+    description: ciudades[slug].description,
+  }));
 
   return (
     <div className={sora.className}>
@@ -46,7 +30,7 @@ export default async function RubroPage({ params }: { params: Promise<{ slug: st
           <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-[#F5B942]/30 blur-3xl" />
           <div className="absolute -right-20 bottom-10 h-72 w-72 rounded-full bg-[#94A3B8]/25 blur-3xl" />
 
-          <main className="relative mx-auto w-full max-w-5xl px-6 py-12">
+          <main className="relative mx-auto w-full max-w-6xl px-6 py-12">
             <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
@@ -54,15 +38,15 @@ export default async function RubroPage({ params }: { params: Promise<{ slug: st
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">{rubro.title}</p>
+                  <p className="text-sm font-semibold text-slate-700">Ciudades y zonas</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <a
-                  href="/rubros"
+                  href="/"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
-                  Volver a rubros
+                  Volver al inicio
                 </a>
                 <a
                   href="/tecnicos"
@@ -74,41 +58,47 @@ export default async function RubroPage({ params }: { params: Promise<{ slug: st
             </header>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                Rubro de construccion
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Argentina</p>
               <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                {rubro.title} · MANO DE OBRA y presupuestos
+                Gestion de presupuestos y MANO DE OBRA por ciudad
               </h1>
-              <p className="mt-4 text-sm text-slate-600">{rubro.description}</p>
+              <p className="mt-4 text-sm text-slate-600">
+                Encuentra recursos por ciudad para gestion de presupuestos, clientes y materiales de obra. UrbanFix
+                ayuda a tecnicos a ordenar tarifas y rubros en cada zona.
+              </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
-                  href="/precios-mano-de-obra"
+                  href="/rubros"
                   className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
-                  Ver guia de precios
+                  Ver rubros de construccion
                 </a>
                 <a
-                  href="/urbanfix"
+                  href="/guias-precios"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
-                  Conocer UrbanFix
+                  Ver guias y precios
                 </a>
               </div>
             </section>
 
-            <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Servicios frecuentes</p>
-              <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                {rubro.services.map((service) => (
-                  <li key={service}>{service}</li>
-                ))}
-              </ul>
+            <section className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {cities.map((city) => (
+                <a
+                  key={city.slug}
+                  href={`/ciudades/${city.slug}`}
+                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
+                >
+                  <p className="text-sm font-semibold text-slate-900">{city.name}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-[0.2em] text-slate-400">{city.region}</p>
+                  <p className="mt-3 text-xs text-slate-500">{city.description}</p>
+                </a>
+              ))}
             </section>
 
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-              Gestiona precios, materiales de obra y presupuestos por rubro. UrbanFix centraliza la MANO DE OBRA y la
-              comunicacion con clientes para trabajos de {rubro.title.toLowerCase()} en Argentina.
+            <section className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+              Cada ciudad incluye gestion de presupuestos, gestion de clientes y MANO DE OBRA con materiales de obra
+              organizados por rubro.
             </section>
           </main>
         </div>

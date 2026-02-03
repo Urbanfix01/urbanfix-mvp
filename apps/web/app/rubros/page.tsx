@@ -1,10 +1,19 @@
 import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
+import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
 
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 });
+
+export const metadata: Metadata = {
+  title: 'Rubros de construccion y MANO DE OBRA | UrbanFix Argentina',
+  description:
+    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro de construccion en Argentina.',
+  alternates: { canonical: '/rubros' },
+};
 
 export const metadata: Metadata = {
   title: 'Rubros de construccion y mano de obra | UrbanFix Argentina',
@@ -13,55 +22,13 @@ export const metadata: Metadata = {
   alternates: { canonical: '/rubros' },
 };
 
-const rubros = [
-  {
-    slug: 'electricidad',
-    title: 'Electricidad',
-    description: 'Tableros, instalaciones, reparaciones y mantenimiento electrico.',
-  },
-  {
-    slug: 'plomeria',
-    title: 'Plomeria',
-    description: 'Instalaciones sanitarias, reparaciones y mantenimiento.',
-  },
-  {
-    slug: 'pintura',
-    title: 'Pintura',
-    description: 'Interior, exterior, preparacion de superficies y terminaciones.',
-  },
-  {
-    slug: 'albanileria',
-    title: 'Albanileria',
-    description: 'Muros, revoques, ampliaciones y reformas generales.',
-  },
-  {
-    slug: 'gasista',
-    title: 'Gasista',
-    description: 'Instalaciones, reparaciones y mantenimiento de gas.',
-  },
-  {
-    slug: 'impermeabilizacion',
-    title: 'Impermeabilizacion',
-    description: 'Cubiertas, terrazas, filtraciones y sellados.',
-  },
-  {
-    slug: 'techos',
-    title: 'Techos',
-    description: 'Estructuras, reparaciones, aislamientos y mantenimiento.',
-  },
-  {
-    slug: 'carpinteria',
-    title: 'Carpinteria',
-    description: 'Muebles, aberturas, ajustes y terminaciones.',
-  },
-  {
-    slug: 'herreria',
-    title: 'Herreria',
-    description: 'Estructuras metalicas, rejas y mantenimiento.',
-  },
-];
-
 export default function RubrosPage() {
+  const rubrosList = rubroSlugs.map((slug) => ({
+    slug,
+    title: rubros[slug].title,
+    description: rubros[slug].description,
+  }));
+
   return (
     <div className={sora.className}>
       <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
@@ -116,6 +83,18 @@ export default function RubrosPage() {
                   Ver guia de precios
                 </a>
                 <a
+                  href="/ciudades"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Ver ciudades
+                </a>
+                <a
+                  href="/guias-precios"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Ver guias y precios
+                </a>
+                <a
                   href="/urbanfix"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
@@ -125,7 +104,7 @@ export default function RubrosPage() {
             </section>
 
             <section className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {rubros.map((rubro) => (
+              {rubrosList.map((rubro) => (
                 <a
                   key={rubro.slug}
                   href={`/rubros/${rubro.slug}`}
