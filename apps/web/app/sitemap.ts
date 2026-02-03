@@ -13,6 +13,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "carpinteria",
     "herreria",
   ];
+  const rubrosEntries: MetadataRoute.Sitemap = rubros.map((slug) => ({
+    url: `${baseUrl}/rubros/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
   return [
     {
       url: baseUrl,
@@ -32,12 +39,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.7,
     },
-    ...rubros.map((slug) => ({
-      url: `${baseUrl}/rubros/${slug}`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.6,
-    })),
+    ...rubrosEntries,
     {
       url: `${baseUrl}/urbanfix`,
       lastModified: new Date(),
