@@ -1419,15 +1419,16 @@ export default function TechniciansPage() {
         const netAmount = getNetAmount(amount, taxRate);
         if (status === 'draft') acc.draft += 1;
         if (pendingStatuses.has(status)) acc.pending += 1;
+        if (approvedStatuses.has(status)) acc.approved += 1;
         if (paidStatuses.has(status)) {
-          acc.approved += 1;
-          acc.approvedAmount += amount;
+          acc.paid += 1;
+          acc.paidAmount += amount;
           acc.profitAmount += netAmount * PROFIT_MARGIN;
         }
         acc.amount += amount;
         return acc;
       },
-      { draft: 0, pending: 0, approved: 0, amount: 0, approvedAmount: 0, profitAmount: 0 }
+      { draft: 0, pending: 0, approved: 0, paid: 0, amount: 0, paidAmount: 0, profitAmount: 0 }
     );
     return {
       total: quotes.length,
@@ -1441,12 +1442,12 @@ export default function TechniciansPage() {
   );
   const financeSeries = useMemo(() => {
     const now = new Date();
-    const points: { key: string; label: string; quotes: number; approved: number; profit: number }[] = [];
+    const points: { key: string; label: string; quotes: number; paid: number; profit: number }[] = [];
     for (let i = 5; i >= 0; i -= 1) {
       const point = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const key = `${point.getFullYear()}-${point.getMonth() + 1}`;
       const label = point.toLocaleDateString('es-AR', { month: 'short' });
-      points.push({ key, label, quotes: 0, approved: 0, profit: 0 });
+      points.push({ key, label, quotes: 0, paid: 0, profit: 0 });
     }
     quotes.forEach((quote) => {
       const created = new Date(quote.created_at);
@@ -1459,7 +1460,7 @@ export default function TechniciansPage() {
       const netAmount = getNetAmount(amount, taxRate);
       bucket.quotes += amount;
       if (paidStatuses.has(status)) {
-        bucket.approved += amount;
+        bucket.paid += amount;
         bucket.profit += netAmount * PROFIT_MARGIN;
       }
     });
@@ -1469,7 +1470,7 @@ export default function TechniciansPage() {
     () =>
       Math.max(
         1,
-        ...financeSeries.map((item) => Math.max(item.quotes || 0, item.approved || 0, item.profit || 0))
+        ...financeSeries.map((item) => Math.max(item.quotes || 0, item.paid || 0, item.profit || 0))
       ),
     [financeSeries]
   );
@@ -1478,7 +1479,7 @@ export default function TechniciansPage() {
     const height = 80;
     const padding = 6;
     const step = financeSeries.length > 1 ? (width - padding * 2) / (financeSeries.length - 1) : 0;
-    const buildPath = (key: 'quotes' | 'approved' | 'profit') =>
+    const buildPath = (key: 'quotes' | 'paid' | 'profit') =>
       financeSeries
         .map((item, index) => {
           const value = item[key] || 0;
@@ -1487,7 +1488,7 @@ export default function TechniciansPage() {
           return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
         })
         .join(' ');
-    const buildPoints = (key: 'quotes' | 'approved' | 'profit') =>
+    const buildPoints = (key: 'quotes' | 'paid' | 'profit') =>
       financeSeries.map((item, index) => {
         const value = item[key] || 0;
         return {
@@ -1499,10 +1500,10 @@ export default function TechniciansPage() {
       width,
       height,
       quotesPath: buildPath('quotes'),
-      approvedPath: buildPath('approved'),
+      paidPath: buildPath('paid'),
       profitPath: buildPath('profit'),
       quotesPoints: buildPoints('quotes'),
-      approvedPoints: buildPoints('approved'),
+      paidPoints: buildPoints('paid'),
       profitPoints: buildPoints('profit'),
     };
   }, [financeSeries, maxFinanceValue]);
@@ -3051,7 +3052,7 @@ export default function TechniciansPage() {
           <section className="space-y-6">
             {activeTab === 'lobby' && (
               <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-3">
+                <div className="grid gap-4 md:grid-cols-4">
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Total presupuestos</p>
@@ -3082,6 +3083,20 @@ export default function TechniciansPage() {
                   </div>
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Aprobados</p>
+                      <button
+                        type="button"
+                        onClick={() => handleShowQuotes('approved')}
+                        className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
+                      >
+                        Ver
+                      </button>
+                    </div>
+                    <p className="mt-3 text-2xl font-semibold text-slate-900">{quoteStats.approved}</p>
+                    <p className="mt-1 text-xs text-slate-500">Listos para ejecutar</p>
+                  </div>
+                  <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex items-center justify-between">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobrados</p>
                       <button
                         type="button"
@@ -3091,7 +3106,7 @@ export default function TechniciansPage() {
                         Ver
                       </button>
                     </div>
-                    <p className="mt-3 text-2xl font-semibold text-emerald-600">{quoteStats.approved}</p>
+                    <p className="mt-3 text-2xl font-semibold text-emerald-600">{quoteStats.paid}</p>
                     <p className="mt-1 text-xs text-slate-500">Pagos confirmados</p>
                   </div>
                 </div>
@@ -3117,7 +3132,7 @@ export default function TechniciansPage() {
                             Cobrado
                           </div>
                           <p className="mt-3 text-xl font-semibold text-amber-600">
-                            ${quoteStats.approvedAmount.toLocaleString('es-AR')}
+                            ${quoteStats.paidAmount.toLocaleString('es-AR')}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">Monto cobrado.</p>
                         </div>
@@ -3166,7 +3181,7 @@ export default function TechniciansPage() {
                             strokeLinejoin="round"
                           />
                           <path
-                            d={financeChart.approvedPath}
+                            d={financeChart.paidPath}
                             fill="none"
                             stroke="#F59E0B"
                             strokeWidth="2"
@@ -3184,7 +3199,7 @@ export default function TechniciansPage() {
                           {financeChart.quotesPoints.map((point, index) => (
                             <circle key={`q-${index}`} cx={point.x} cy={point.y} r="2" fill="#0F172A" />
                           ))}
-                          {financeChart.approvedPoints.map((point, index) => (
+                          {financeChart.paidPoints.map((point, index) => (
                             <circle key={`a-${index}`} cx={point.x} cy={point.y} r="2" fill="#F59E0B" />
                           ))}
                           {financeChart.profitPoints.map((point, index) => (
@@ -3597,7 +3612,7 @@ export default function TechniciansPage() {
                       {quoteFilter === 'pending'
                         ? 'Pendientes'
                         : quoteFilter === 'approved'
-                          ? 'Aprobados'
+                          ? 'Confirmados'
                           : quoteFilter === 'draft'
                               ? 'Computo'
                               : quoteFilter === 'completed'
@@ -3623,7 +3638,7 @@ export default function TechniciansPage() {
                     { key: 'all', label: 'Todos' },
                     { key: 'draft', label: 'Computo' },
                     { key: 'pending', label: 'Pendientes' },
-                    { key: 'approved', label: 'Aprobados' },
+                    { key: 'approved', label: 'Confirmados' },
                     { key: 'completed', label: 'Finalizados' },
                     { key: 'paid', label: 'Cobrados' },
                   ].map((filter) => (
