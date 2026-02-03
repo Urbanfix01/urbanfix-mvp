@@ -332,7 +332,17 @@ export default function QuotePage() {
   };
 
   const calculateTotal = () => {
-    if (!items.length) return { subtotal: 0, tax: 0, total: 0, taxRate: 0, laborSubtotal: 0, materialSubtotal: 0 };
+    if (!items.length)
+      return {
+        subtotal: 0,
+        tax: 0,
+        total: 0,
+        taxRate: 0,
+        laborSubtotal: 0,
+        materialSubtotal: 0,
+        discountPercent: 0,
+        discountAmount: 0,
+      };
     const laborSubtotal = items
       .filter((item) => normalizeItemType(item) === 'labor')
       .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
@@ -341,14 +351,27 @@ export default function QuotePage() {
       .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
     const subtotal = laborSubtotal + materialSubtotal;
     const taxRate = normalizeTaxRate(quote?.tax_rate);
-    const tax = subtotal * taxRate;
-    return { subtotal, tax, total: subtotal + tax, taxRate, laborSubtotal, materialSubtotal };
+    const discountPercent = Math.min(100, Math.max(0, Number(quote?.discount_percent || 0)));
+    const discountAmount = subtotal * (discountPercent / 100);
+    const discountedSubtotal = subtotal - discountAmount;
+    const tax = discountedSubtotal * taxRate;
+    return {
+      subtotal,
+      tax,
+      total: discountedSubtotal + tax,
+      taxRate,
+      laborSubtotal,
+      materialSubtotal,
+      discountPercent,
+      discountAmount,
+    };
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-100"><p className="text-slate-400 animate-pulse">Cargando presupuesto...</p></div>;
   if (!quote) return <div className="min-h-screen flex items-center justify-center text-red-500">Presupuesto no disponible.</div>;
 
-  const { subtotal, tax, total, taxRate, laborSubtotal, materialSubtotal } = calculateTotal();
+  const { subtotal, tax, total, taxRate, laborSubtotal, materialSubtotal, discountPercent, discountAmount } =
+    calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
   const isPresented = ['presented', 'pending', 'pendiente', 'sent'].includes(statusNormalized);
@@ -873,7 +896,16 @@ export default function QuotePage() {
                 <span>Materiales</span>
                 <span className="font-mono">${materialSubtotal.toLocaleString('es-AR')}</span>
               </div>
-              <div className="flex justify-between text-sm font-medium text-slate-600"><span>Subtotal</span><span className="font-mono">${subtotal.toLocaleString('es-AR')}</span></div>
+              <div className="flex justify-between text-sm font-medium text-slate-600">
+                <span>Subtotal</span>
+                <span className="font-mono">${subtotal.toLocaleString('es-AR')}</span>
+              </div>
+              {discountAmount > 0 && (
+                 <div className="flex justify-between text-sm font-medium text-slate-600">
+                   <span>Descuento ({discountPercent.toFixed(0)}%)</span>
+                   <span className="font-mono">- ${discountAmount.toLocaleString('es-AR')}</span>
+                 </div>
+              )}
               {tax > 0 && (
                  <div className="flex justify-between text-sm font-medium text-slate-600"><span>IVA ({(taxRate * 100).toFixed(0)}%)</span><span className="font-mono">+ ${tax.toLocaleString('es-AR')}</span></div>
               )}

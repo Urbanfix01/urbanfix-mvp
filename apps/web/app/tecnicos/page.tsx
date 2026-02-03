@@ -31,6 +31,7 @@ type QuoteRow = {
   location_lng?: number | null;
   total_amount: number | null;
   tax_rate: number | null;
+  discount_percent?: number | null;
   status: string | null;
   start_date?: string | null;
   end_date?: string | null;
@@ -253,6 +254,10 @@ const normalizeQuoteRow = (quote: QuoteRow) => ({
     quote.tax_rate === null || quote.tax_rate === undefined
       ? null
       : toAmountValue(quote.tax_rate),
+  discount_percent:
+    quote.discount_percent === null || quote.discount_percent === undefined
+      ? null
+      : toAmountValue(quote.discount_percent),
 });
 
 const formatCurrency = (value: number) =>
@@ -1146,7 +1151,12 @@ export default function TechniciansPage() {
     setGeoSelected(null);
     setGeoLoading(false);
     setGeoError('');
-    setDiscount(0);
+    setDiscount(
+      Math.min(
+        100,
+        Math.max(0, toAmountValue(profile?.default_discount ?? profileForm.defaultDiscount ?? 0))
+      )
+    );
     setApplyTax(false);
     setItems([]);
     setAttachments([]);
@@ -1189,7 +1199,17 @@ export default function TechniciansPage() {
       setGeoSelected(null);
     }
     setApplyTax((quote.tax_rate || 0) > 0);
-    setDiscount(0);
+    setDiscount(
+      Math.min(
+        100,
+        Math.max(
+          0,
+          toAmountValue(
+            quote.discount_percent ?? profile?.default_discount ?? profileForm.defaultDiscount ?? 0
+          )
+        )
+      )
+    );
     setFormError('');
     setInfoMessage('');
     const { data: itemsData } = await supabase
@@ -1984,6 +2004,7 @@ export default function TechniciansPage() {
         location_lng: geoSelected?.lon ?? null,
         total_amount: total,
         tax_rate: applyTax ? TAX_RATE : 0,
+        discount_percent: discountPercent,
         status: nextStatus,
         user_id: session.user.id,
       };
