@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import AuthHashHandler from '../components/AuthHashHandler';
 
@@ -5,6 +6,12 @@ const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
 });
+
+export const metadata: Metadata = {
+  title: 'UrbanFix Argentina | Precios y mano de obra para construcción',
+  description:
+    'UrbanFix ayuda a técnicos en Argentina a gestionar precios, mano de obra y presupuestos de construcción. Comparte presupuestos claros y controla cada estado desde la web.',
+};
 
 const highlights = [
   {
@@ -97,7 +104,7 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Plataforma de presupuestos</p>
+                  <p className="text-sm font-semibold text-slate-700">Precios y mano de obra</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -120,11 +127,11 @@ export default function HomePage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Gestion clara</p>
                 <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                  Gestion clara para tecnicos en movimiento.
+                  Precios y mano de obra para construcción en Argentina.
                 </h1>
                 <p className="mt-4 text-sm text-slate-600">
-                  UrbanFix conecta tecnicos y clientes con presupuestos rapidos, estados claros y un detalle
-                  profesional listo para compartir.
+                  UrbanFix conecta tecnicos y clientes con presupuestos rapidos, gestion de precios y mano de obra,
+                  estados claros y un detalle profesional listo para compartir.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <a
@@ -256,6 +263,31 @@ export default function HomePage() {
                     <p className="mt-2 text-xs text-slate-500">{tool.description}</p>
                   </div>
                 ))}
+              </div>
+            </section>
+
+            <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Argentina</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                Control de precios y mano de obra en construcción
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm text-slate-600">
+                Organiza tus tarifas por rubro, actualiza materiales y presenta presupuestos claros para obras y
+                mantenimiento. UrbanFix centraliza la informacion para que puedas cotizar rapido y con confianza.
+              </p>
+              <div className="mt-6 flex flex-wrap gap-3">
+                <a
+                  href="/precios-mano-de-obra"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  Ver guia de precios
+                </a>
+                <a
+                  href="/tecnicos"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Empezar como tecnico
+                </a>
               </div>
             </section>
           </main>
