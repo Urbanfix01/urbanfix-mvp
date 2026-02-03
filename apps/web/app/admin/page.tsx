@@ -114,6 +114,8 @@ type AdminOverview = {
     arr: number;
     visitsLast7: number;
     uniqueSessionsLast7: number;
+    visitsLast24: number;
+    uniqueSessionsLast24: number;
     revenueSince: string;
   };
   lists: {
@@ -531,6 +533,8 @@ export default function AdminPage() {
   const kpis = useMemo(() => {
     if (!overview) return [];
     return [
+      { label: 'Visitas (24h)', value: formatNumber(overview.kpis.visitsLast24) },
+      { label: 'Sesiones únicas (24h)', value: formatNumber(overview.kpis.uniqueSessionsLast24) },
       { label: 'Visitas (7d)', value: formatNumber(overview.kpis.visitsLast7) },
       { label: 'Sesiones únicas (7d)', value: formatNumber(overview.kpis.uniqueSessionsLast7) },
       { label: 'Usuarios totales', value: formatNumber(overview.kpis.totalUsers) },

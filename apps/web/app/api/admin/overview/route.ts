@@ -51,6 +51,7 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const revenueSince = new Date(now);
     revenueSince.setMonth(revenueSince.getMonth() - 12);
+    const analyticsSince1 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const analyticsSince7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const analyticsSince30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
     const paidQuoteStatuses = ['paid', 'charged', 'completed'];
@@ -76,6 +77,7 @@ export async function GET(request: NextRequest) {
       recentPaymentsRes,
       pendingAccessRes,
       analyticsViewsRes,
+      analyticsViewsLast1Res,
       analyticsDurationsRes,
     ] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
@@ -127,6 +129,13 @@ export async function GET(request: NextRequest) {
         .limit(10000),
       supabase
         .from('analytics_events')
+        .select('session_id')
+        .eq('event_type', 'page_view')
+        .gte('created_at', analyticsSince1.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(10000),
+      supabase
+        .from('analytics_events')
         .select('path, duration_ms')
         .eq('event_type', 'page_duration')
         .gte('created_at', analyticsSince30.toISOString())
@@ -147,6 +156,7 @@ export async function GET(request: NextRequest) {
       recentPaymentsRes.error ||
       pendingAccessRes.error ||
       analyticsViewsRes.error ||
+      analyticsViewsLast1Res.error ||
       analyticsDurationsRes.error
     ) {
       throw (
@@ -162,6 +172,7 @@ export async function GET(request: NextRequest) {
         recentPaymentsRes.error ||
         pendingAccessRes.error ||
         analyticsViewsRes.error ||
+        analyticsViewsLast1Res.error ||
         analyticsDurationsRes.error
       );
     }
@@ -205,6 +216,10 @@ export async function GET(request: NextRequest) {
     const visitsLast7 = (analyticsViewsRes.data || []).length;
     const uniqueSessionsLast7 = new Set(
       (analyticsViewsRes.data || []).map((item: any) => item.session_id).filter(Boolean)
+    ).size;
+    const visitsLast24 = (analyticsViewsLast1Res.data || []).length;
+    const uniqueSessionsLast24 = new Set(
+      (analyticsViewsLast1Res.data || []).map((item: any) => item.session_id).filter(Boolean)
     ).size;
 
     const durationRows = analyticsDurationsRes.data || [];
@@ -306,6 +321,8 @@ export async function GET(request: NextRequest) {
         arr,
         visitsLast7,
         uniqueSessionsLast7,
+        visitsLast24,
+        uniqueSessionsLast24,
         revenueSince: revenueSince.toISOString(),
       },
       lists: {
