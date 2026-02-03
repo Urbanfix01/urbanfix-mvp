@@ -3612,7 +3612,7 @@ export default function TechniciansPage() {
                       {quoteFilter === 'pending'
                         ? 'Pendientes'
                         : quoteFilter === 'approved'
-                          ? 'Confirmados'
+                          ? 'Aprobados'
                           : quoteFilter === 'draft'
                               ? 'Computo'
                               : quoteFilter === 'completed'
@@ -3638,7 +3638,7 @@ export default function TechniciansPage() {
                     { key: 'all', label: 'Todos' },
                     { key: 'draft', label: 'Computo' },
                     { key: 'pending', label: 'Pendientes' },
-                    { key: 'approved', label: 'Confirmados' },
+                    { key: 'approved', label: 'Aprobados' },
                     { key: 'completed', label: 'Finalizados' },
                     { key: 'paid', label: 'Cobrados' },
                   ].map((filter) => (
