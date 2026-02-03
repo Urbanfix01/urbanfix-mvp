@@ -21,6 +21,58 @@ const highlights = [
   },
 ];
 
+const featureShowcase = [
+  {
+    title: 'Panel de control',
+    description: 'Resumen de presupuestos, estados y actividad para empezar el dia con claridad.',
+    image: '/illustrations/dashboard.svg',
+  },
+  {
+    title: 'Presupuestos profesionales',
+    description: 'Crea, edita y comparte presupuestos con items, materiales, impuestos y adjuntos.',
+    image: '/illustrations/quotes.svg',
+  },
+  {
+    title: 'Visualizador para clientes',
+    description: 'Link listo para abrir desde el celular, revisar el detalle y confirmar el presupuesto.',
+    image: '/illustrations/viewer.svg',
+  },
+  {
+    title: 'Agenda simple',
+    description: 'Mira todos los trabajos aprobados y asigna una fecha en segundos.',
+    image: '/illustrations/agenda.svg',
+  },
+  {
+    title: 'Notificaciones',
+    description: 'Alertas y seguimiento para no perder aprobaciones, mensajes o cambios importantes.',
+    image: '/illustrations/notifications.svg',
+  },
+  {
+    title: 'Perfil y marca',
+    description: 'Carga logo, banner, foto y datos del negocio para una imagen mas profesional.',
+    image: '/illustrations/branding.svg',
+  },
+];
+
+const moreTools = [
+  {
+    title: 'Precios y mano de obra',
+    description: 'Base de precios para agilizar cotizaciones y mantener consistencia.',
+  },
+  {
+    title: 'Historial',
+    description: 'Registros y resumen anual/mensual para volver a cotizar y controlar ingresos.',
+  },
+  {
+    title: 'Suscripcion',
+    description: 'Planes y facturacion para crecer sin friccion.',
+  },
+  {
+    title: 'Soporte',
+    description: 'Canal directo para resolver dudas y mejorar el producto.',
+  },
+];
+
 const quickSteps = [
   'Recibi el link de tu tecnico.',
   'Abri el presupuesto desde tu celular.',
@@ -76,6 +128,12 @@ export default function HomePage() {
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <a
+                    href="/tecnicos"
+                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  >
+                    Entrar como tecnico
+                  </a>
+                  <a
                     href="/privacidad"
                     className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                   >
@@ -96,6 +154,15 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
+
+                <div className="mt-8 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                  <img
+                    src="/illustrations/dashboard.svg"
+                    alt="Vista previa de panel de control"
+                    loading="lazy"
+                    className="h-[220px] w-full object-cover"
+                  />
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -115,23 +182,80 @@ export default function HomePage() {
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <img
+                      src="/illustrations/viewer.svg"
+                      alt="Vista previa de visualizador para clientes"
+                      loading="lazy"
+                      className="h-40 w-full object-cover"
+                    />
+                  </div>
                 </div>
 
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">App movil</p>
-                  <h2 className="mt-2 text-lg font-semibold text-slate-900">UrbanFix en tu bolsillo</h2>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Imagen profesional</p>
+                  <h2 className="mt-2 text-lg font-semibold text-slate-900">Tu marca en cada presupuesto</h2>
                   <p className="mt-2 text-sm text-slate-600">
-                    La app esta en camino para que puedas gestionar presupuestos desde cualquier lugar.
+                    Completa tu perfil con logo, banner y datos de contacto para transmitir confianza y ordenar la
+                    informacion del cliente.
                   </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
-                      Android beta
+                      Logo + banner
                     </span>
                     <span className="rounded-full border border-slate-300 px-3 py-1 text-[10px] font-semibold text-slate-500">
-                      iOS proximamente
+                      Datos de contacto
                     </span>
                   </div>
+                  <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                    <img
+                      src="/illustrations/branding.svg"
+                      alt="Vista previa de perfil y marca"
+                      loading="lazy"
+                      className="h-40 w-full object-cover"
+                    />
+                  </div>
                 </div>
+              </div>
+            </section>
+
+            <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Funcionalidades</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Todo lo que podes hacer en UrbanFix</h2>
+              <p className="mt-3 max-w-3xl text-sm text-slate-600">
+                Desde el primer contacto hasta el cobro: presupuestos, seguimiento, agenda, comunicacion y una imagen
+                profesional para tu negocio.
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {featureShowcase.map((feature) => (
+                  <div
+                    key={feature.title}
+                    className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                  >
+                    <div className="bg-slate-50">
+                      <img
+                        src={feature.image}
+                        alt={feature.title}
+                        loading="lazy"
+                        className="h-40 w-full object-cover"
+                      />
+                    </div>
+                    <div className="p-5">
+                      <p className="text-sm font-semibold text-slate-900">{feature.title}</p>
+                      <p className="mt-2 text-xs text-slate-500">{feature.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2">
+                {moreTools.map((tool) => (
+                  <div key={tool.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-sm font-semibold text-slate-900">{tool.title}</p>
+                    <p className="mt-2 text-xs text-slate-500">{tool.description}</p>
+                  </div>
+                ))}
               </div>
             </section>
           </main>
