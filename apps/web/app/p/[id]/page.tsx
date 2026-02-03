@@ -416,14 +416,16 @@ export default function QuotePage() {
   };
 
   return (
-    <div className={`${manrope.className} min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-slate-200 py-6 pb-24 px-3 sm:px-4 sm:py-10 sm:pb-10 md:py-12 flex justify-center items-start antialiased`}>
-      <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl overflow-hidden ring-1 ring-slate-200/50 transition-all">
+    <div
+      className={`${manrope.className} min-h-screen bg-gradient-to-b from-slate-100 via-slate-100 to-slate-200 py-4 pb-24 px-2 sm:px-4 sm:py-10 sm:pb-10 md:py-12 flex justify-center items-start antialiased`}
+    >
+      <div className="w-full max-w-4xl bg-white shadow-none sm:shadow-2xl rounded-none sm:rounded-2xl overflow-hidden ring-0 sm:ring-1 ring-slate-200/50 transition-all">
         
         {/* HEADER (Técnico / Empresa) */}
         <div className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 text-white p-5 sm:p-10 md:p-12 relative overflow-hidden border-b border-white/5">
           <div className="absolute top-0 right-0 -mt-16 -mr-16 w-64 h-64 bg-white/5 rounded-full blur-3xl"></div>
-          <div className="flex flex-col md:flex-row justify-between items-start gap-8 md:gap-10 relative z-10">
-            <div className="flex-1 space-y-4 sm:space-y-6">
+          <div className="flex flex-col md:flex-row justify-between items-start gap-6 md:gap-10 relative z-10">
+            <div className="flex-1 space-y-4 sm:space-y-6 text-left sm:text-left">
               {/* LOGO EMPRESA */}
               {(profile?.company_logo_url || profile?.avatar_url) && !imageError ? (
                 <img 
@@ -717,7 +719,7 @@ export default function QuotePage() {
             {groupedItems.map((group) =>
               group.items.length > 0 ? (
                 <div key={group.key} className="space-y-3">
-                  <div className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+                  <div className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
                     <span>{group.label}</span>
                     <span className="text-[10px] font-semibold text-slate-400">
                       {group.items.length} items · ${getGroupTotal(group.items).toLocaleString('es-AR')}
@@ -727,12 +729,12 @@ export default function QuotePage() {
                     const typeBadge = getItemTypeBadge(item);
                     const rowKey = item.id || `${group.key}-${index}`;
                     return (
-                      <div key={rowKey} className="rounded-2xl border border-slate-200/80 bg-slate-50/60 p-4 shadow-sm">
+                      <div key={rowKey} className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-5 shadow-sm">
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex flex-col gap-2">
-                            <p className="text-sm font-semibold text-slate-800">{item.description}</p>
+                            <p className="text-base font-semibold text-slate-800">{item.description}</p>
                             {typeBadge && (
-                              <span className={`inline-flex w-fit items-center rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
+                              <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
                                 {typeBadge.label}
                               </span>
                             )}
@@ -759,11 +761,15 @@ export default function QuotePage() {
                           </div>
                           <div>
                             <p className="text-[10px] uppercase tracking-wider text-slate-400">Unitario</p>
-                            <p className="mt-1 font-mono text-slate-700">${item.unit_price?.toLocaleString('es-AR')}</p>
+                            <p className="mt-1 font-mono text-slate-700">
+                              ${item.unit_price?.toLocaleString('es-AR')}
+                            </p>
                           </div>
-                          <div className="col-span-2 flex items-center justify-between rounded-lg bg-white/80 px-3 py-2">
+                          <div className="col-span-2 flex items-center justify-between rounded-xl bg-white px-3 py-2">
                             <p className="text-[10px] uppercase tracking-wider text-slate-400">Total</p>
-                            <p className="font-mono font-semibold text-slate-900">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</p>
+                            <p className="font-mono text-sm font-semibold text-slate-900">
+                              ${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}
+                            </p>
                           </div>
                         </div>
                         {revisionMode && isItemSelected(item) && (
@@ -822,6 +828,41 @@ export default function QuotePage() {
               </div>
             </div>
           )}
+          <div className="mt-6 sm:hidden">
+            <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <div className="flex items-center justify-between text-sm font-semibold text-slate-600">
+                <span>Mano de obra</span>
+                <span className="font-mono">${laborSubtotal.toLocaleString('es-AR')}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm font-semibold text-slate-600">
+                <span>Materiales</span>
+                <span className="font-mono">${materialSubtotal.toLocaleString('es-AR')}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-sm font-semibold text-slate-600">
+                <span>Subtotal</span>
+                <span className="font-mono">${subtotal.toLocaleString('es-AR')}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="mt-2 flex items-center justify-between text-sm font-semibold text-slate-600">
+                  <span>Descuento ({discountPercent.toFixed(0)}%)</span>
+                  <span className="font-mono text-slate-900">- ${discountAmount.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+              {tax > 0 && (
+                <div className="mt-2 flex items-center justify-between text-sm font-semibold text-slate-600">
+                  <span>IVA ({(taxRate * 100).toFixed(0)}%)</span>
+                  <span className="font-mono">+ ${tax.toLocaleString('es-AR')}</span>
+                </div>
+              )}
+              <div className="my-4 border-t border-dashed border-slate-200" />
+              <div className="flex items-center justify-between">
+                <span className="text-base font-black text-slate-800">TOTAL</span>
+                <span className="text-2xl font-black text-slate-900 font-mono">
+                  ${total.toLocaleString('es-AR')}
+                </span>
+              </div>
+            </div>
+          </div>
           <div className="mt-8 sm:mt-12 hidden sm:flex justify-end">
             <div className="w-full sm:w-7/12 md:w-5/12 bg-slate-50 rounded-2xl p-6 sm:p-8 space-y-4 border border-slate-200/60">
               <div className="flex justify-between text-sm font-medium text-slate-600">
