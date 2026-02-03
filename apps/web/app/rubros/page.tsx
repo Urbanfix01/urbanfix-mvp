@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
 
@@ -11,14 +10,7 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Rubros de construccion y MANO DE OBRA | UrbanFix Argentina',
   description:
-    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro de construccion en Argentina.',
-  alternates: { canonical: '/rubros' },
-};
-
-export const metadata: Metadata = {
-  title: 'Rubros de construccion y mano de obra | UrbanFix Argentina',
-  description:
-    'Gestiona presupuestos, clientes y materiales de obra por rubro de construccion. Mano de obra para electricidad, plomeria, pintura y mas.',
+    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro de construccion. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
   alternates: { canonical: '/rubros' },
 };
 
