@@ -72,8 +72,13 @@ export function generateStaticParams() {
   return Object.keys(rubros).map((slug) => ({ slug }));
 }
 
-export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
-  const rubro = rubros[params.slug as RubroKey];
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const rubro = rubros[slug as RubroKey];
   if (!rubro) {
     return {
       title: 'Rubro no encontrado | UrbanFix',
@@ -82,12 +87,13 @@ export function generateMetadata({ params }: { params: { slug: string } }): Meta
   return {
     title: `MANO DE OBRA en ${rubro.title} | UrbanFix Argentina`,
     description: `Gestion de presupuestos, gestion de clientes y materiales de obra para ${rubro.title.toLowerCase()} en Argentina.`,
-    alternates: { canonical: `/rubros/${params.slug}` },
+    alternates: { canonical: `/rubros/${slug}` },
   };
 }
 
-export default function RubroPage({ params }: { params: { slug: string } }) {
-  const rubro = rubros[params.slug as RubroKey];
+export default async function RubroPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const rubro = rubros[slug as RubroKey];
   if (!rubro) return notFound();
 
   return (
