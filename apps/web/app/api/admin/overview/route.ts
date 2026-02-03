@@ -94,11 +94,11 @@ export async function GET(request: NextRequest) {
         .gte('created_at', new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()),
       supabase
         .from('quotes')
-        .select('id, total_amount, status')
+        .select('id, total_amount, status, user_id')
         .in('status', paidQuoteStatuses),
       supabase
         .from('subscription_payments')
-        .select('amount, status, created_at')
+        .select('amount, status, created_at, user_id')
         .gte('created_at', revenueSince.toISOString()),
       supabase
         .from('beta_support_messages')
@@ -181,7 +181,7 @@ export async function GET(request: NextRequest) {
     if (paidQuotesRes.error) {
       const message = String(paidQuotesRes.error.message || '').toLowerCase();
       if (message.includes('invalid input value for enum')) {
-        const fallback = await supabase.from('quotes').select('id, total_amount, status');
+        const fallback = await supabase.from('quotes').select('id, total_amount, status, user_id');
         if (fallback.error) throw fallback.error;
         paidQuotesData = fallback.data || [];
       } else {
@@ -252,6 +252,16 @@ export async function GET(request: NextRequest) {
     }, 0);
     const arr = mrr * 12;
 
+    const revenueUserIds = new Set<string>();
+    paidQuotes.forEach((quote: any) => {
+      if (quote?.user_id) revenueUserIds.add(quote.user_id);
+    });
+    paymentRows.forEach((row: any) => {
+      if (!row?.user_id) return;
+      if (row?.status && blockedPaymentStatuses.has(String(row.status).toLowerCase())) return;
+      revenueUserIds.add(row.user_id);
+    });
+
     const listsRaw = {
       supportMessages: recentMessagesRes.data || [],
       recentSubscriptions: recentSubsRes.data || [],
@@ -277,12 +287,13 @@ export async function GET(request: NextRequest) {
     listsRaw.recentUsers.forEach((user) => {
       if (user?.id) userIds.add(user.id);
     });
+    revenueUserIds.forEach((id) => userIds.add(id));
 
     let profiles: Record<string, any> = {};
     if (userIds.size) {
       const { data: profileRows, error: profileError } = await supabase
         .from('profiles')
-        .select('id, full_name, business_name, email, access_granted')
+        .select('id, full_name, business_name, email, access_granted, city, coverage_area, address')
         .in('id', Array.from(userIds));
       if (profileError) throw profileError;
       profiles = (profileRows || []).reduce((acc: Record<string, any>, row) => {
@@ -305,6 +316,72 @@ export async function GET(request: NextRequest) {
         return acc;
       }, {});
     }
+
+    const getZoneLabel = (profile?: any | null) => {
+      const city = (profile?.city || '').toString().trim();
+      if (city) return city;
+      const coverage = (profile?.coverage_area || '').toString().trim();
+      if (coverage) return coverage;
+      const address = (profile?.address || '').toString().trim();
+      if (address) return address;
+      return 'Sin zona';
+    };
+
+    const incomeByZoneMap = new Map<
+      string,
+      {
+        zone: string;
+        quotes_amount: number;
+        subscriptions_amount: number;
+        quotes_count: number;
+        payments_count: number;
+        users: Set<string>;
+      }
+    >();
+
+    const ensureZone = (zone: string) => {
+      if (!incomeByZoneMap.has(zone)) {
+        incomeByZoneMap.set(zone, {
+          zone,
+          quotes_amount: 0,
+          subscriptions_amount: 0,
+          quotes_count: 0,
+          payments_count: 0,
+          users: new Set(),
+        });
+      }
+      return incomeByZoneMap.get(zone)!;
+    };
+
+    paidQuotes.forEach((quote: any) => {
+      const zone = getZoneLabel(profiles[quote.user_id]);
+      const entry = ensureZone(zone);
+      entry.quotes_amount += parseAmount(quote.total_amount);
+      entry.quotes_count += 1;
+      if (quote?.user_id) entry.users.add(quote.user_id);
+    });
+
+    paymentRows.forEach((row: any) => {
+      if (row?.status && blockedPaymentStatuses.has(String(row.status).toLowerCase())) return;
+      const zone = getZoneLabel(profiles[row.user_id]);
+      const entry = ensureZone(zone);
+      entry.subscriptions_amount += parseAmount(row.amount);
+      entry.payments_count += 1;
+      if (row?.user_id) entry.users.add(row.user_id);
+    });
+
+    const incomeByZone = Array.from(incomeByZoneMap.values())
+      .map((item) => ({
+        zone: item.zone,
+        total_amount: item.quotes_amount + item.subscriptions_amount,
+        quotes_amount: item.quotes_amount,
+        subscriptions_amount: item.subscriptions_amount,
+        quotes_count: item.quotes_count,
+        payments_count: item.payments_count,
+        users_count: item.users.size,
+      }))
+      .sort((a, b) => b.total_amount - a.total_amount)
+      .slice(0, 12);
 
     return NextResponse.json({
       kpis: {
@@ -351,6 +428,7 @@ export async function GET(request: NextRequest) {
           profile: profiles[user.id] || null,
           subscription: subscriptionsByUser[user.id] || null,
         })),
+        incomeByZone,
         topScreens,
       },
     });

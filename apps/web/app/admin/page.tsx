@@ -49,6 +49,16 @@ type PaymentItem = {
   profile?: AdminProfile | null;
 };
 
+type IncomeZoneItem = {
+  zone: string;
+  total_amount: number;
+  quotes_amount: number;
+  subscriptions_amount: number;
+  quotes_count: number;
+  payments_count: number;
+  users_count: number;
+};
+
 type RecentUserItem = {
   id: string;
   email?: string | null;
@@ -124,6 +134,7 @@ type AdminOverview = {
     recentPayments: PaymentItem[];
     pendingAccess: PendingAccessItem[];
     recentUsers: RecentUserItem[];
+    incomeByZone: IncomeZoneItem[];
     topScreens: ScreenMetric[];
   };
 };
@@ -1153,6 +1164,26 @@ export default function AdminPage() {
                   >
                     Exportar pagos
                   </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadCsv(
+                        'ingresos_por_zona.csv',
+                        overview.lists.incomeByZone.map((item) => ({
+                          zona: item.zone,
+                          total: item.total_amount,
+                          presupuestos: item.quotes_amount,
+                          suscripciones: item.subscriptions_amount,
+                          presupuestos_cobrados: item.quotes_count,
+                          pagos: item.payments_count,
+                          usuarios: item.users_count,
+                        }))
+                      )
+                    }
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Exportar zonas
+                  </button>
                 </div>
               </div>
 
@@ -1184,6 +1215,46 @@ export default function AdminPage() {
                   <p className="mt-3 text-2xl font-semibold text-slate-900">
                     {formatCurrency(overview.kpis.paidQuotesTotal)}
                   </p>
+                </div>
+              </section>
+
+              <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Zonas</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Ingresos por zona</h3>
+                    <p className="text-xs text-slate-500">
+                      Basado en ciudad o área de cobertura del perfil.
+                    </p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {overview.lists.incomeByZone.length === 0 && (
+                    <p className="text-sm text-slate-500">No hay datos de zona todavía.</p>
+                  )}
+                  {overview.lists.incomeByZone.map((item) => (
+                    <div
+                      key={item.zone}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">{item.zone}</p>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          {item.users_count} usuario(s) • {item.quotes_count} presupuestos •{' '}
+                          {item.payments_count} pagos
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-semibold text-slate-700">
+                          {formatCurrency(item.total_amount)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          Presupuestos {formatCurrency(item.quotes_amount)} · Suscripciones{' '}
+                          {formatCurrency(item.subscriptions_amount)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </section>
 
