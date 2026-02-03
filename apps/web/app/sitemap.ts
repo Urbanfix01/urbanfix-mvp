@@ -2,6 +2,17 @@ import type { MetadataRoute } from "next";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://www.urbanfixar.com";
+  const rubros = [
+    "electricidad",
+    "plomeria",
+    "pintura",
+    "albanileria",
+    "gasista",
+    "impermeabilizacion",
+    "techos",
+    "carpinteria",
+    "herreria",
+  ];
   return [
     {
       url: baseUrl,
@@ -15,6 +26,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.8,
     },
+    {
+      url: `${baseUrl}/rubros`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.7,
+    },
+    ...rubros.map((slug) => ({
+      url: `${baseUrl}/rubros/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    })),
     {
       url: `${baseUrl}/urbanfix`,
       lastModified: new Date(),

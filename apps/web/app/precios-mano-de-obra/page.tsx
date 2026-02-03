@@ -98,6 +98,12 @@ export default function PreciosManoDeObraPage() {
                   Crear mi primer presupuesto
                 </a>
                 <a
+                  href="/rubros"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Ver rubros de construccion
+                </a>
+                <a
                   href="/urbanfix"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
