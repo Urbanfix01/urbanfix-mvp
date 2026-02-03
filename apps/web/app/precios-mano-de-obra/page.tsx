@@ -7,9 +7,10 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'Precios y mano de obra en construcción | UrbanFix Argentina',
+  title:
+    'Gestion de presupuestos y MANO DE OBRA en construccion | UrbanFix Argentina',
   description:
-    'Gestiona precios y mano de obra para construcción en Argentina. Centraliza tarifas, materiales y presupuestos con una experiencia clara para clientes.',
+    'Gestiona presupuestos, clientes, materiales de obra y mano de obra para construccion en Argentina. Centraliza tarifas, rubros y presupuestos con una experiencia clara para clientes.',
   alternates: { canonical: '/precios-mano-de-obra' },
 };
 
@@ -17,6 +18,10 @@ const focusAreas = [
   {
     title: 'Tarifas por rubro',
     description: 'Organiza precios de mano de obra por especialidad, tipo de obra y complejidad.',
+  },
+  {
+    title: 'Gestion de clientes',
+    description: 'Mantene el historial de clientes, obras y presupuestos en un solo lugar.',
   },
   {
     title: 'Materiales y consumos',
@@ -30,8 +35,10 @@ const focusAreas = [
 
 const benefits = [
   'Presupuestos listos para enviar desde el celular.',
+  'Gestion de clientes y obras con historial completo.',
   'Estados claros: presentado, aprobado, finalizado y cobrado.',
-  'Historial de precios para volver a cotizar mas rapido.',
+  'Gestion de materiales de obra y rubros de construccion.',
+  'Historial de precios y MANO DE OBRA para volver a cotizar mas rapido.',
   'Visualizacion profesional para clientes.',
 ];
 
@@ -72,13 +79,16 @@ export default function PreciosManoDeObraPage() {
             </header>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios y mano de obra</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                Gestion de presupuestos y mano de obra
+              </p>
               <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                Gestion de precios y mano de obra en construccion en Argentina
+                Gestion de presupuestos, clientes y MANO DE OBRA en construccion en Argentina
               </h1>
               <p className="mt-4 text-sm text-slate-600">
-                UrbanFix te ayuda a centralizar tarifas, materiales y presupuestos en un solo lugar, con una experiencia
-                clara para clientes y equipos. Ideal para tecnicos, instaladores y mantenimiento de obra.
+                UrbanFix te ayuda a centralizar tarifas, materiales de obra, rubros de construccion y gestion de
+                presupuestos en un solo lugar, con una experiencia clara para clientes y equipos. Ideal para tecnicos,
+                instaladores y mantenimiento de obra.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
@@ -106,7 +116,7 @@ export default function PreciosManoDeObraPage() {
             </section>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Beneficios</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Beneficios para construccion</p>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
                 {benefits.map((item) => (
                   <li key={item}>{item}</li>
@@ -115,8 +125,8 @@ export default function PreciosManoDeObraPage() {
             </section>
 
             <section className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-              UrbanFix no publica una lista fija de precios: te permite configurar tus valores de mano de obra y
-              materiales segun tu tipo de obra y zona en Argentina.
+              UrbanFix no publica una lista fija de precios: te permite configurar tus valores de MANO DE OBRA,
+              materiales de obra y rubros segun tu tipo de construccion y zona en Argentina.
             </section>
           </main>
         </div>

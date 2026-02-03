@@ -8,9 +8,10 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'UrbanFix Argentina | Precios y mano de obra para construcción',
+  title:
+    'UrbanFix Argentina | Gestion de presupuestos, clientes y mano de obra en construccion',
   description:
-    'UrbanFix ayuda a técnicos en Argentina a gestionar precios, mano de obra y presupuestos de construcción. Comparte presupuestos claros y controla cada estado desde la web.',
+    'UrbanFix ayuda a tecnicos en Argentina con gestion de presupuestos, gestion de clientes, gestion de materiales de obra y mano de obra en construccion. Comparte presupuestos claros y controla cada estado desde la web.',
 };
 
 const highlights = [
@@ -104,7 +105,9 @@ export default function HomePage() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Precios y mano de obra</p>
+                  <p className="text-sm font-semibold text-slate-700">
+                    Gestion de presupuestos y mano de obra
+                  </p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
@@ -127,11 +130,12 @@ export default function HomePage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Gestion clara</p>
                 <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                  Precios y mano de obra para construcción en Argentina.
+                  Gestion de presupuestos, clientes y MANO DE OBRA para construccion en Argentina.
                 </h1>
                 <p className="mt-4 text-sm text-slate-600">
-                  UrbanFix conecta tecnicos y clientes con presupuestos rapidos, gestion de precios y mano de obra,
-                  estados claros y un detalle profesional listo para compartir.
+                  UrbanFix conecta tecnicos y clientes con gestion de presupuestos, gestion de clientes, gestion de
+                  materiales de obra, precios y MANO DE OBRA. Estados claros y un detalle profesional listo para
+                  compartir.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <a
@@ -228,7 +232,9 @@ export default function HomePage() {
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Funcionalidades</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Todo lo que podes hacer en UrbanFix</h2>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">
+                Todo lo que podes hacer en UrbanFix para construccion
+              </h2>
               <p className="mt-3 max-w-3xl text-sm text-slate-600">
                 Desde el primer contacto hasta el cobro: presupuestos, seguimiento, agenda, comunicacion y una imagen
                 profesional para tu negocio.
@@ -269,11 +275,12 @@ export default function HomePage() {
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Argentina</p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-                Control de precios y mano de obra en construcción
+                Gestion de presupuestos, clientes, materiales de obra y MANO DE OBRA
               </h2>
               <p className="mt-3 max-w-3xl text-sm text-slate-600">
-                Organiza tus tarifas por rubro, actualiza materiales y presenta presupuestos claros para obras y
-                mantenimiento. UrbanFix centraliza la informacion para que puedas cotizar rapido y con confianza.
+                Organiza tus tarifas por rubro, actualiza materiales de obra y presenta presupuestos claros para
+                construccion y mantenimiento. UrbanFix centraliza la informacion para que puedas cotizar rapido y con
+                confianza.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
                 <a
