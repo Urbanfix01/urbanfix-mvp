@@ -351,9 +351,36 @@ export default function QuotePage() {
       .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
     const subtotal = laborSubtotal + materialSubtotal;
     const taxRate = normalizeTaxRate(quote?.tax_rate);
-    const discountPercent = Math.min(100, Math.max(0, Number(quote?.discount_percent || 0)));
-    const discountAmount = subtotal * (discountPercent / 100);
-    const discountedSubtotal = subtotal - discountAmount;
+    const rawDiscount = quote?.discount_percent;
+    const parsedDiscount =
+      typeof rawDiscount === 'number' ? rawDiscount : Number(rawDiscount);
+    const hasDiscountPercent =
+      rawDiscount !== null &&
+      rawDiscount !== undefined &&
+      rawDiscount !== '' &&
+      Number.isFinite(parsedDiscount);
+    let discountPercent = 0;
+    let discountAmount = 0;
+    let discountedSubtotal = subtotal;
+
+    if (hasDiscountPercent) {
+      discountPercent = Math.min(100, Math.max(0, parsedDiscount));
+      discountAmount = subtotal * (discountPercent / 100);
+      discountedSubtotal = subtotal - discountAmount;
+    } else {
+      const rawTotal = Number(quote?.total_amount);
+      if (Number.isFinite(rawTotal) && rawTotal > 0) {
+        const divisor = 1 + taxRate;
+        const subtotalFromTotal = divisor > 0 ? rawTotal / divisor : rawTotal;
+        const inferredDiscount = Math.max(0, subtotal - subtotalFromTotal);
+        if (subtotal > 0 && inferredDiscount > 0) {
+          discountAmount = inferredDiscount;
+          discountPercent = Math.min(100, (inferredDiscount / subtotal) * 100);
+          discountedSubtotal = subtotalFromTotal;
+        }
+      }
+    }
+
     const tax = discountedSubtotal * taxRate;
     return {
       subtotal,
@@ -532,6 +559,16 @@ export default function QuotePage() {
                   ${subtotal.toLocaleString('es-AR')}
                 </p>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex-1 min-w-[140px] rounded-xl bg-rose-50 px-3 py-2">
+                  <p className="text-[10px] uppercase tracking-wider text-rose-400">
+                    Descuento ({discountPercent.toFixed(0)}%)
+                  </p>
+                  <p className="mt-1 font-mono font-semibold text-rose-700">
+                    - ${discountAmount.toLocaleString('es-AR')}
+                  </p>
+                </div>
+              )}
               {tax > 0 && (
                 <div className="flex-1 min-w-[140px] rounded-xl bg-slate-50 px-3 py-2">
                   <p className="text-[10px] uppercase tracking-wider text-slate-400">
