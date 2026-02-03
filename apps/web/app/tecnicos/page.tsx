@@ -1406,7 +1406,9 @@ export default function TechniciansPage() {
     () => items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0),
     [items]
   );
-  const totalBeforeTax = Math.max(0, subtotal - discount);
+  const discountPercent = Math.min(100, Math.max(0, discount));
+  const discountAmount = subtotal * (discountPercent / 100);
+  const totalBeforeTax = Math.max(0, subtotal - discountAmount);
   const taxAmount = applyTax ? totalBeforeTax * TAX_RATE : 0;
   const total = totalBeforeTax + taxAmount;
   const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
@@ -3467,9 +3469,9 @@ export default function TechniciansPage() {
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span>Descuento</span>
+                          <span>Descuento ({discountPercent.toFixed(0)}%)</span>
                           <span className="font-semibold text-slate-900">
-                            -${discount.toLocaleString('es-AR')}
+                            -${discountAmount.toLocaleString('es-AR')}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
@@ -3487,13 +3489,16 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ajustes</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Descuento</label>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Descuento (%)</label>
                       <input
                         type="number"
                         min={0}
+                        max={100}
                         step="0.01"
                         value={discount}
-                        onChange={(event) => setDiscount(Math.max(0, toNumber(event.target.value)))}
+                        onChange={(event) =>
+                          setDiscount(Math.min(100, Math.max(0, toNumber(event.target.value))))
+                        }
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
@@ -4797,16 +4802,19 @@ export default function TechniciansPage() {
                         }
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Descuento por defecto</label>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">
+                        Descuento por defecto (%)
+                      </label>
                       <input
                         type="number"
                         step="0.01"
                         min="0"
+                        max="100"
                         value={profileForm.defaultDiscount}
                         onChange={(event) =>
                           setProfileForm((prev) => ({
                             ...prev,
-                            defaultDiscount: toNumber(event.target.value),
+                            defaultDiscount: Math.min(100, Math.max(0, toNumber(event.target.value))),
                           }))
                         }
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
