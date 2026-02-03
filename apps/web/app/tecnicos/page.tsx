@@ -12,7 +12,9 @@ import {
   Home,
   ImagePlus,
   MessageCircle,
+  Moon,
   Search,
+  Sun,
   Tag,
   User,
   X,
@@ -131,6 +133,7 @@ const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
+const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -140,9 +143,20 @@ const manrope = Manrope({
 const themeStyles = {
   '--ui-bg': '#F5F4F0',
   '--ui-card': '#FFFFFF',
+  '--ui-border': '#E2E8F0',
   '--ui-ink': '#0F172A',
   '--ui-muted': '#64748B',
   '--ui-accent': '#111827',
+  '--ui-accent-soft': '#F5B942',
+} as React.CSSProperties;
+
+const darkThemeStyles = {
+  '--ui-bg': '#0B1220',
+  '--ui-card': '#0F172A',
+  '--ui-border': '#334155',
+  '--ui-ink': '#E2E8F0',
+  '--ui-muted': '#94A3B8',
+  '--ui-accent': '#1F2937',
   '--ui-accent-soft': '#F5B942',
 } as React.CSSProperties;
 
@@ -527,6 +541,7 @@ export default function TechniciansPage() {
   const [navSearch, setNavSearch] = useState('');
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false);
+  const [uiTheme, setUiTheme] = useState<'light' | 'dark'>('light');
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
@@ -554,6 +569,8 @@ export default function TechniciansPage() {
   const [scheduleMessage, setScheduleMessage] = useState('');
   const [agendaSearch, setAgendaSearch] = useState('');
   const [agendaFilter, setAgendaFilter] = useState<'all' | 'pending' | 'scheduled'>('all');
+  const activeThemeStyles = uiTheme === 'dark' ? darkThemeStyles : themeStyles;
+  const toggleUiTheme = () => setUiTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -564,6 +581,23 @@ export default function TechniciansPage() {
       setAuthNotice('');
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem(UI_THEME_STORAGE_KEY);
+    if (stored === 'dark' || stored === 'light') {
+      setUiTheme(stored);
+      return;
+    }
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
+    setUiTheme(prefersDark ? 'dark' : 'light');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme);
+    document.documentElement.style.colorScheme = uiTheme;
+  }, [uiTheme]);
 
   const geoMapUrl = useMemo(() => {
     if (!geoSelected) return '';
@@ -2282,7 +2316,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
@@ -2298,7 +2332,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
@@ -2314,7 +2348,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
         >
           <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
@@ -2339,7 +2373,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
@@ -2463,7 +2497,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
@@ -2479,7 +2513,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
@@ -2539,7 +2573,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
@@ -2736,7 +2770,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <div
-          style={themeStyles}
+          style={activeThemeStyles}
           className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
@@ -2888,7 +2922,7 @@ export default function TechniciansPage() {
 
   return (
     <div
-      style={themeStyles}
+      style={activeThemeStyles}
       className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
@@ -2901,7 +2935,7 @@ export default function TechniciansPage() {
           <aside
             onMouseEnter={() => setIsNavHovered(true)}
             onMouseLeave={() => setIsNavHovered(false)}
-            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-slate-200 bg-white/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
+            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
               isNavExpanded ? 'w-72' : 'w-20'
             }`}
           >
@@ -2927,7 +2961,7 @@ export default function TechniciansPage() {
                 {isNavExpanded && (
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">UrbanFix</p>
-                    <p className="text-sm font-semibold text-slate-800">
+                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
                       {profile?.business_name || 'Panel tecnico'}
                     </p>
                   </div>
@@ -2937,13 +2971,13 @@ export default function TechniciansPage() {
 
             {isNavExpanded && (
               <div className="px-4">
-                <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-500">
+                <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-xs text-[color:var(--ui-muted)]">
                   <Search className="h-4 w-4" />
                   <input
                     value={navSearch}
                     onChange={(event) => setNavSearch(event.target.value)}
                     placeholder="Buscar seccion..."
-                    className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none"
+                    className="w-full bg-transparent text-xs font-semibold text-[color:var(--ui-ink)] outline-none placeholder:text-[color:var(--ui-muted)]/70"
                   />
                 </div>
               </div>
@@ -2970,13 +3004,13 @@ export default function TechniciansPage() {
                       isNavExpanded ? 'gap-3 px-6' : 'justify-center px-0'
                     } ${
                       isActive
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                        ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
+                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
                     }`}
                   >
                     <Icon
                       className={`h-4 w-4 ${
-                        isActive ? 'text-white' : 'text-slate-500 group-hover:text-slate-800'
+                        isActive ? 'text-white' : 'text-[color:var(--ui-muted)] group-hover:text-[color:var(--ui-ink)]'
                       }`}
                     />
                     {isNavExpanded && <span className="flex-1 text-left">{item.label}</span>}
@@ -2990,15 +3024,38 @@ export default function TechniciansPage() {
               })}
             </nav>
 
-            <div className="mt-auto border-t border-slate-200/80 px-4 py-4">
-              <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-600">
+            <div className="mt-auto border-t border-[color:var(--ui-border)]/80 px-4 py-4">
+              <button
+                type="button"
+                title={!isNavExpanded ? (uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro') : undefined}
+                onClick={toggleUiTheme}
+                className={`flex w-full items-center rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-muted)] transition hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)] ${
+                  isNavExpanded ? 'gap-3' : 'justify-center'
+                }`}
+              >
+                {uiTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                {isNavExpanded && (
+                  <span className="flex-1 text-left">{uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+                )}
+                {isNavExpanded && (
+                  <span className="rounded-full bg-[color:var(--ui-accent)]/10 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--ui-muted)]">
+                    {uiTheme === 'dark' ? 'Oscuro' : 'Claro'}
+                  </span>
+                )}
+              </button>
+
+              <div className={`mt-3 flex items-center gap-3 ${isNavExpanded ? '' : 'justify-center'}`}>
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] text-xs font-semibold text-[color:var(--ui-muted)]">
                   {(profile?.business_name || 'U')[0]}
                 </div>
                 {isNavExpanded && (
-                  <div>
-                    <p className="text-xs font-semibold text-slate-700">{profile?.business_name || 'UrbanFix'}</p>
-                    <p className="text-[10px] text-slate-400">{session?.user?.email || 'Cuenta demo'}</p>
+                  <div className="min-w-0">
+                    <p className="truncate text-xs font-semibold text-[color:var(--ui-ink)]">
+                      {profile?.business_name || 'UrbanFix'}
+                    </p>
+                    <p className="truncate text-[10px] text-[color:var(--ui-muted)]">
+                      {session?.user?.email || 'Cuenta demo'}
+                    </p>
                   </div>
                 )}
               </div>
@@ -3006,7 +3063,7 @@ export default function TechniciansPage() {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <header className="relative rounded-3xl border border-slate-200 bg-white/85 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
+            <header className="relative rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/85 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
               <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div className="flex items-center gap-3">
                   <div
@@ -3027,15 +3084,26 @@ export default function TechniciansPage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                    <p className="text-sm font-semibold text-slate-800">
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
+                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
                       {profile?.business_name || 'Panel tecnico'}
                     </p>
                   </div>
                 </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={toggleUiTheme}
+                    className="inline-flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/80 px-4 py-2 text-xs font-semibold text-[color:var(--ui-muted)] transition hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]"
+                  >
+                    {uiTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+                    <span className="hidden sm:inline">{uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
+                  </button>
+                </div>
               </div>
 
-              <div className="mt-4 rounded-full border border-slate-200 bg-slate-50/90 p-2 shadow-sm backdrop-blur lg:hidden">
+              <div className="mt-4 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/70 p-2 shadow-sm backdrop-blur lg:hidden">
                 <div className="flex items-center gap-2 overflow-x-auto">
                   {navItems.map((item) => {
                     const isActive = activeNavKey === item.key;
@@ -3049,8 +3117,8 @@ export default function TechniciansPage() {
                         }}
                         className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
                           isActive
-                            ? 'bg-slate-900 text-white shadow-sm'
-                            : 'bg-white text-slate-600 hover:bg-slate-200 hover:text-slate-900'
+                            ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
+                            : 'bg-[color:var(--ui-card)] text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
                         }`}
                       >
                         <span className="inline-flex items-center gap-2">
@@ -3064,7 +3132,7 @@ export default function TechniciansPage() {
                       </button>
                     );
                   })}
-                  <span className="ml-auto hidden shrink-0 rounded-full bg-white px-3 py-1 text-[10px] font-semibold text-slate-500 sm:inline-flex">
+                  <span className="ml-auto hidden shrink-0 rounded-full bg-[color:var(--ui-card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--ui-muted)] sm:inline-flex">
                     {quotes.length} activos
                   </span>
                 </div>
