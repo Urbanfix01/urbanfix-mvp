@@ -3409,6 +3409,8 @@ export default function TechniciansPage() {
                               min={0}
                               step="1"
                               value={item.quantity}
+                              onFocus={(event) => event.currentTarget.select()}
+                              onClick={(event) => event.currentTarget.select()}
                               onChange={(event) =>
                                 handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
                               }
@@ -3419,6 +3421,8 @@ export default function TechniciansPage() {
                               min={0}
                               step="0.01"
                               value={item.unitPrice}
+                              onFocus={(event) => event.currentTarget.select()}
+                              onClick={(event) => event.currentTarget.select()}
                               onChange={(event) =>
                                 handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
                               }
@@ -3496,6 +3500,8 @@ export default function TechniciansPage() {
                         max={100}
                         step="0.01"
                         value={discount}
+                        onFocus={(event) => event.currentTarget.select()}
+                        onClick={(event) => event.currentTarget.select()}
                         onChange={(event) =>
                           setDiscount(Math.min(100, Math.max(0, toNumber(event.target.value))))
                         }
@@ -4794,6 +4800,8 @@ export default function TechniciansPage() {
                         step="0.01"
                         min="0"
                         value={profileForm.defaultTaxRate}
+                        onFocus={(event) => event.currentTarget.select()}
+                        onClick={(event) => event.currentTarget.select()}
                         onChange={(event) =>
                           setProfileForm((prev) => ({
                             ...prev,
@@ -4811,6 +4819,8 @@ export default function TechniciansPage() {
                         min="0"
                         max="100"
                         value={profileForm.defaultDiscount}
+                        onFocus={(event) => event.currentTarget.select()}
+                        onClick={(event) => event.currentTarget.select()}
                         onChange={(event) =>
                           setProfileForm((prev) => ({
                             ...prev,
