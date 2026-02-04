@@ -2575,110 +2575,146 @@ export default function TechniciansPage() {
               aria-hidden="true"
               className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
             />
-            <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-12">
-              <div className="w-full rounded-[32px] border border-slate-200 bg-white/90 p-8 shadow-xl shadow-slate-200/60">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso demo</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Elegi como ingresar</h2>
-                <p className="mt-2 text-sm text-slate-600">
-                  Podes validar un codigo, iniciar una prueba gratuita o pagar una suscripcion.
-                </p>
-                <div className="mt-6 grid gap-4 lg:grid-cols-3">
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Entrar con codigo</p>
-                    <div className="mt-3 space-y-3">
-                      <input
-                        value={accessCodeInput}
-                        onChange={(event) => setAccessCodeInput(event.target.value)}
-                        placeholder="Codigo de acceso"
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleRedeemAccessCode}
-                        disabled={redeemingAccess}
-                        className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                      >
-                        {redeemingAccess ? 'Validando...' : 'Validar codigo'}
-                      </button>
-                      {accessCodeError && <p className="text-xs text-rose-500">{accessCodeError}</p>}
+            <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-5xl items-center px-6 py-12">
+              <div className="w-full rounded-[36px] bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 p-[1px] shadow-[0_30px_90px_rgba(15,23,42,0.45)]">
+                <div className="rounded-[36px] bg-white/95 p-8 md:p-10">
+                  <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.3em] text-slate-400">Acceso UrbanFix</p>
+                      <h2 className="mt-2 text-3xl font-semibold text-slate-900">Elegí cómo ingresar</h2>
+                      <p className="mt-2 max-w-xl text-sm text-slate-600">
+                        Validá tu código, activá la prueba gratuita o suscribite en minutos con MercadoPago.
+                      </p>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-xs text-slate-500 shadow-sm">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      Acceso seguro y directo
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Prueba gratuita</p>
-                    <p className="mt-2 text-xs text-slate-500">7 dias de acceso completo.</p>
-                    {trialActive && (
-                      <p className="mt-2 text-xs text-emerald-600">Activa hasta {trialEndsLabel}</p>
-                    )}
-                    {!trialActive && trialUsed && (
-                      <p className="mt-2 text-xs text-amber-600">La prueba gratuita ya fue utilizada.</p>
-                    )}
-                    {!trialActive && !trialUsed && (
-                      <p className="mt-2 text-xs text-slate-500">Disponible para nuevos usuarios.</p>
-                    )}
-                    <button
-                      type="button"
-                      onClick={handleStartTrial}
-                      disabled={startingTrial || trialUsed}
-                      className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {startingTrial ? 'Iniciando...' : 'Iniciar prueba gratuita'}
-                    </button>
-                    {trialError && <p className="mt-2 text-xs text-rose-500">{trialError}</p>}
+                  <div className="mt-8 grid gap-4 lg:grid-cols-3">
+                    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+                          #
+                        </span>
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Entrar con código</p>
+                          <p className="text-xs text-slate-500">Si ya tenés acceso demo</p>
+                        </div>
+                      </div>
+                      <div className="mt-4 space-y-3">
+                        <input
+                          value={accessCodeInput}
+                          onChange={(event) => setAccessCodeInput(event.target.value)}
+                          placeholder="Código de acceso"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleRedeemAccessCode}
+                          disabled={redeemingAccess}
+                          className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {redeemingAccess ? 'Validando...' : 'Validar código'}
+                        </button>
+                        {accessCodeError && <p className="text-xs text-rose-500">{accessCodeError}</p>}
+                      </div>
+                    </div>
+
+                    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-600 text-sm font-semibold text-white">
+                          7D
+                        </span>
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Prueba gratuita</p>
+                          <p className="text-xs text-slate-500">Acceso completo por 7 días</p>
+                        </div>
+                      </div>
+                      {trialActive && (
+                        <p className="mt-4 text-xs text-emerald-600">Activa hasta {trialEndsLabel}</p>
+                      )}
+                      {!trialActive && trialUsed && (
+                        <p className="mt-4 text-xs text-amber-600">La prueba gratuita ya fue utilizada.</p>
+                      )}
+                      {!trialActive && !trialUsed && (
+                        <p className="mt-4 text-xs text-slate-500">Disponible para nuevos usuarios.</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleStartTrial}
+                        disabled={startingTrial || trialUsed}
+                        className="mt-4 w-full rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {startingTrial ? 'Iniciando...' : 'Iniciar prueba gratuita'}
+                      </button>
+                      {trialError && <p className="mt-2 text-xs text-rose-500">{trialError}</p>}
+                    </div>
+
+                    <div className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-1 hover:shadow-xl">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-sm font-semibold text-white">
+                          MP
+                        </span>
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pago por suscripción</p>
+                          <p className="text-xs text-slate-500">Elegí el plan ideal</p>
+                        </div>
+                      </div>
+                      {loadingBilling && (
+                        <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                          Cargando planes...
+                        </div>
+                      )}
+                      {!loadingBilling && billingError && (
+                        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-600">
+                          {billingError}
+                        </div>
+                      )}
+                      {!loadingBilling && !billingError && (
+                        <div className="mt-4 grid gap-2">
+                          {baseBillingPlans.map((plan) => (
+                            <button
+                              key={plan.id}
+                              type="button"
+                              onClick={() => setSelectedPlanId(plan.id)}
+                              className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-left text-xs transition ${
+                                selectedPlanId === plan.id
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                              }`}
+                            >
+                              <span className="text-[10px] uppercase tracking-[0.2em] opacity-70">{plan.name}</span>
+                              <span className="text-sm font-semibold">
+                                {formatCurrency(Number(plan.price_ars || 0))}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={handleCheckout}
+                        disabled={!selectedPlanId || creatingCheckout || loadingBilling}
+                        className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {creatingCheckout ? 'Redirigiendo...' : 'Suscribirme'}
+                      </button>
+                      {billingMessage && <p className="mt-2 text-xs text-rose-500">{billingMessage}</p>}
+                    </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pago por suscripcion</p>
-                    <p className="mt-2 text-xs text-slate-500">Elegi un plan y paga en MercadoPago.</p>
-                    {loadingBilling && (
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
-                        Cargando planes...
-                      </div>
-                    )}
-                    {!loadingBilling && billingError && (
-                      <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-600">
-                        {billingError}
-                      </div>
-                    )}
-                    {!loadingBilling && !billingError && (
-                      <div className="mt-3 grid gap-2">
-                        {baseBillingPlans.map((plan) => (
-                          <button
-                            key={plan.id}
-                            type="button"
-                            onClick={() => setSelectedPlanId(plan.id)}
-                            className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-left text-xs transition ${
-                              selectedPlanId === plan.id
-                                ? 'border-slate-900 bg-slate-900 text-white'
-                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                            }`}
-                          >
-                            <span className="text-[10px] uppercase tracking-[0.2em] opacity-70">{plan.name}</span>
-                            <span className="text-sm font-semibold">
-                              {formatCurrency(Number(plan.price_ars || 0))}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
+                  <div className="mt-6 flex justify-center">
                     <button
                       type="button"
-                      onClick={handleCheckout}
-                      disabled={!selectedPlanId || creatingCheckout || loadingBilling}
-                      className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      onClick={handleLogout}
+                      className="rounded-full border border-slate-300 px-6 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                     >
-                      {creatingCheckout ? 'Redirigiendo...' : 'Suscribirme'}
+                      Cerrar sesión
                     </button>
-                    {billingMessage && <p className="mt-2 text-xs text-rose-500">{billingMessage}</p>}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="mt-6 w-full rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Cerrar sesion
-                </button>
               </div>
             </div>
           </div>
