@@ -38,6 +38,7 @@ type QuoteRow = {
   start_date?: string | null;
   end_date?: string | null;
   created_at: string;
+  quote_items?: QuoteItemRow[];
 };
 
 type ItemForm = {
@@ -46,6 +47,12 @@ type ItemForm = {
   quantity: number;
   unitPrice: number;
   type: 'labor' | 'material';
+};
+
+type QuoteItemRow = {
+  unit_price?: number | null;
+  quantity?: number | null;
+  metadata?: any;
 };
 
 type AttachmentRow = {
@@ -127,7 +134,6 @@ type NavItem = {
 };
 
 const TAX_RATE = 0.21;
-const PROFIT_MARGIN = 0.3;
 const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
@@ -257,9 +263,25 @@ const toAmountValue = (value: any) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const getNetAmount = (amount: number, taxRate: number) => {
-  if (!taxRate) return amount;
-  return amount / (1 + taxRate);
+const normalizeQuoteItemType = (metadata: any) => {
+  const raw = metadata?.type;
+  if (!raw) return 'labor';
+  const value = String(raw).toLowerCase().trim();
+  if (value === 'material') return 'material';
+  return 'labor';
+};
+
+const getLaborAmount = (quote: QuoteRow) => {
+  const items = Array.isArray(quote.quote_items) ? quote.quote_items : [];
+  const laborSubtotal = items.reduce((acc, item) => {
+    const type = normalizeQuoteItemType(item?.metadata);
+    if (type === 'material') return acc;
+    const unitPrice = toAmountValue(item?.unit_price);
+    const quantity = toAmountValue(item?.quantity);
+    return acc + unitPrice * quantity;
+  }, 0);
+  const discountPercent = Math.min(100, Math.max(0, toAmountValue(quote.discount_percent ?? 0)));
+  return laborSubtotal * (1 - discountPercent / 100);
 };
 
 const normalizeQuoteRow = (quote: QuoteRow) => ({
@@ -827,7 +849,7 @@ export default function TechniciansPage() {
     if (!userId) return;
     const { data, error } = await supabase
       .from('quotes')
-      .select('*')
+      .select('*, quote_items(unit_price, quantity, metadata)')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
     if (error) {
@@ -1519,15 +1541,13 @@ export default function TechniciansPage() {
       (acc, quote) => {
         const status = normalizeStatusValue(quote.status);
         const amount = toAmountValue(quote.total_amount);
-        const taxRate = toAmountValue(quote.tax_rate);
-        const netAmount = getNetAmount(amount, taxRate);
         if (status === 'draft') acc.draft += 1;
         if (pendingStatuses.has(status)) acc.pending += 1;
         if (approvedStatuses.has(status)) acc.approved += 1;
         if (paidStatuses.has(status)) {
           acc.paid += 1;
           acc.paidAmount += amount;
-          acc.profitAmount += netAmount * PROFIT_MARGIN;
+          acc.profitAmount += getLaborAmount(quote);
         }
         acc.amount += amount;
         return acc;
@@ -1560,12 +1580,10 @@ export default function TechniciansPage() {
       if (!bucket) return;
       const amount = toAmountValue(quote.total_amount);
       const status = normalizeStatusValue(quote.status);
-      const taxRate = toAmountValue(quote.tax_rate);
-      const netAmount = getNetAmount(amount, taxRate);
       bucket.quotes += amount;
       if (paidStatuses.has(status)) {
         bucket.paid += amount;
-        bucket.profit += netAmount * PROFIT_MARGIN;
+        bucket.profit += getLaborAmount(quote);
       }
     });
     return points;
@@ -3433,12 +3451,12 @@ export default function TechniciansPage() {
                         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
                           <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                            Ganancia
+                            Mano de obra
                           </div>
                           <p className="mt-3 text-xl font-semibold text-emerald-600">
                             ${quoteStats.profitAmount.toLocaleString('es-AR')}
                           </p>
-                          <p className="mt-1 text-xs text-slate-500">Estimacion proyectada.</p>
+                          <p className="mt-1 text-xs text-slate-500">Total de mano de obra cobrada.</p>
                         </div>
                       </div>
 
@@ -3456,7 +3474,7 @@ export default function TechniciansPage() {
                             </span>
                             <span className="inline-flex items-center gap-1">
                               <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                              Ganancias
+                              Mano de obra
                             </span>
                           </div>
                         </div>
@@ -3464,7 +3482,7 @@ export default function TechniciansPage() {
                           viewBox={`0 0 ${financeChart.width} ${financeChart.height}`}
                           className="mt-3 h-24 w-full"
                           role="img"
-                          aria-label="Grafico de presupuestos y ganancias"
+                          aria-label="Grafico de presupuestos y mano de obra"
                         >
                           <path
                             d={financeChart.quotesPath}
