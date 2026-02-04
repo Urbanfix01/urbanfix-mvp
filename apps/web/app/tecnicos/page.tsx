@@ -224,6 +224,7 @@ const billingStatuses = new Set([
   'completado',
   'finalizado',
 ]);
+const activeSubscriptionStatuses = new Set(['authorized', 'active', 'approved']);
 
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
@@ -460,6 +461,8 @@ export default function TechniciansPage() {
   const [accessCodeInput, setAccessCodeInput] = useState('');
   const [accessCodeError, setAccessCodeError] = useState('');
   const [redeemingAccess, setRedeemingAccess] = useState(false);
+  const [startingTrial, setStartingTrial] = useState(false);
+  const [trialError, setTrialError] = useState('');
   const [isBetaAdmin, setIsBetaAdmin] = useState(false);
   const [adminGateStatus, setAdminGateStatus] = useState<'idle' | 'checking' | 'done'>('idle');
   const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
@@ -717,14 +720,22 @@ export default function TechniciansPage() {
 
       setProfile(resolvedProfile);
 
-      const hasAccess = Boolean(resolvedProfile?.access_granted);
+      await fetchBillingPlans();
+      const currentSubscription = await fetchSubscription();
+      const trialEndsAt = resolvedProfile?.trial_ends_at
+        ? new Date(resolvedProfile.trial_ends_at)
+        : null;
+      const trialActive = trialEndsAt ? trialEndsAt.getTime() > Date.now() : false;
+      const hasActiveSubscription = currentSubscription
+        ? activeSubscriptionStatuses.has(String(currentSubscription.status || '').toLowerCase())
+        : false;
+      const hasAccess =
+        Boolean(resolvedProfile?.access_granted) || trialActive || hasActiveSubscription;
       setAccessGateStatus(hasAccess ? 'granted' : 'required');
       if (hasAccess) {
         await fetchQuotes(session.user.id);
         await fetchNotifications(session.user.id);
         await fetchMasterItems();
-        await fetchBillingPlans();
-        await fetchSubscription();
       }
     };
     load();
@@ -1073,7 +1084,7 @@ export default function TechniciansPage() {
   };
 
   const fetchSubscription = async () => {
-    if (!session?.access_token) return;
+    if (!session?.access_token) return null;
     try {
       const response = await fetch('/api/billing/subscription', {
         headers: { Authorization: `Bearer ${session.access_token}` },
@@ -1082,9 +1093,12 @@ export default function TechniciansPage() {
       if (!response.ok) {
         throw new Error(data?.error || 'No se pudo cargar la suscripcion.');
       }
-      setSubscription(data.subscription || null);
+      const nextSubscription = data.subscription || null;
+      setSubscription(nextSubscription);
+      return nextSubscription;
     } catch (error: any) {
       setSubscription(null);
+      return null;
     }
   };
 
@@ -2275,6 +2289,33 @@ export default function TechniciansPage() {
     }
   };
 
+  const handleStartTrial = async () => {
+    if (!session?.user) return;
+    setTrialError('');
+    setStartingTrial(true);
+    try {
+      const { error } = await supabase.rpc('start_free_trial');
+      if (error) throw error;
+      const now = new Date();
+      const endsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+      setProfile((prev: any) => ({
+        ...prev,
+        trial_started_at: now.toISOString(),
+        trial_ends_at: endsAt.toISOString(),
+      }));
+      setAccessGateStatus('granted');
+      await fetchQuotes(session.user.id);
+      await fetchNotifications(session.user.id);
+      await fetchMasterItems();
+      await fetchBillingPlans();
+      await fetchSubscription();
+    } catch (error: any) {
+      setTrialError(error?.message || 'No pudimos iniciar la prueba gratuita.');
+    } finally {
+      setStartingTrial(false);
+    }
+  };
+
   useEffect(() => {
     if (!session?.user || activeTab !== 'soporte') return;
     if (isBetaAdmin) {
@@ -2295,6 +2336,11 @@ export default function TechniciansPage() {
     if (!address) missing.push('Direccion base');
     return missing;
   }, [profile?.address, profile?.business_name, profile?.company_address, profile?.full_name, profile?.phone]);
+
+  const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
+  const trialActive = trialEndsAt ? trialEndsAt.getTime() > Date.now() : false;
+  const trialUsed = Boolean(profile?.trial_started_at || profile?.trial_ends_at);
+  const trialEndsLabel = trialEndsAt ? trialEndsAt.toLocaleDateString('es-AR') : '';
 
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
@@ -2532,34 +2578,107 @@ export default function TechniciansPage() {
             <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-12">
               <div className="w-full rounded-[32px] border border-slate-200 bg-white/90 p-8 shadow-xl shadow-slate-200/60">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso demo</p>
-                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Ingresa tu codigo de acceso</h2>
+                <h2 className="mt-2 text-2xl font-semibold text-slate-900">Elegi como ingresar</h2>
                 <p className="mt-2 text-sm text-slate-600">
-                  Para activar tu cuenta demo necesitas el codigo que te compartimos.
+                  Podes validar un codigo, iniciar una prueba gratuita o pagar una suscripcion.
                 </p>
-                <div className="mt-6 space-y-3">
-                  <input
-                    value={accessCodeInput}
-                    onChange={(event) => setAccessCodeInput(event.target.value)}
-                    placeholder="Codigo de acceso"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleRedeemAccessCode}
-                    disabled={redeemingAccess}
-                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {redeemingAccess ? 'Validando...' : 'Validar codigo'}
-                  </button>
-                  {accessCodeError && <p className="text-xs text-rose-500">{accessCodeError}</p>}
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                  >
-                    Cerrar sesion
-                  </button>
+                <div className="mt-6 grid gap-4 lg:grid-cols-3">
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Entrar con codigo</p>
+                    <div className="mt-3 space-y-3">
+                      <input
+                        value={accessCodeInput}
+                        onChange={(event) => setAccessCodeInput(event.target.value)}
+                        placeholder="Codigo de acceso"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleRedeemAccessCode}
+                        disabled={redeemingAccess}
+                        className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {redeemingAccess ? 'Validando...' : 'Validar codigo'}
+                      </button>
+                      {accessCodeError && <p className="text-xs text-rose-500">{accessCodeError}</p>}
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Prueba gratuita</p>
+                    <p className="mt-2 text-xs text-slate-500">7 dias de acceso completo.</p>
+                    {trialActive && (
+                      <p className="mt-2 text-xs text-emerald-600">Activa hasta {trialEndsLabel}</p>
+                    )}
+                    {!trialActive && trialUsed && (
+                      <p className="mt-2 text-xs text-amber-600">La prueba gratuita ya fue utilizada.</p>
+                    )}
+                    {!trialActive && !trialUsed && (
+                      <p className="mt-2 text-xs text-slate-500">Disponible para nuevos usuarios.</p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleStartTrial}
+                      disabled={startingTrial || trialUsed}
+                      className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {startingTrial ? 'Iniciando...' : 'Iniciar prueba gratuita'}
+                    </button>
+                    {trialError && <p className="mt-2 text-xs text-rose-500">{trialError}</p>}
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pago por suscripcion</p>
+                    <p className="mt-2 text-xs text-slate-500">Elegi un plan y paga en MercadoPago.</p>
+                    {loadingBilling && (
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
+                        Cargando planes...
+                      </div>
+                    )}
+                    {!loadingBilling && billingError && (
+                      <div className="mt-3 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-600">
+                        {billingError}
+                      </div>
+                    )}
+                    {!loadingBilling && !billingError && (
+                      <div className="mt-3 grid gap-2">
+                        {baseBillingPlans.map((plan) => (
+                          <button
+                            key={plan.id}
+                            type="button"
+                            onClick={() => setSelectedPlanId(plan.id)}
+                            className={`flex items-center justify-between rounded-2xl border px-3 py-2 text-left text-xs transition ${
+                              selectedPlanId === plan.id
+                                ? 'border-slate-900 bg-slate-900 text-white'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                            }`}
+                          >
+                            <span className="text-[10px] uppercase tracking-[0.2em] opacity-70">{plan.name}</span>
+                            <span className="text-sm font-semibold">
+                              {formatCurrency(Number(plan.price_ars || 0))}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleCheckout}
+                      disabled={!selectedPlanId || creatingCheckout || loadingBilling}
+                      className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {creatingCheckout ? 'Redirigiendo...' : 'Suscribirme'}
+                    </button>
+                    {billingMessage && <p className="mt-2 text-xs text-rose-500">{billingMessage}</p>}
+                  </div>
                 </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="mt-6 w-full rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Cerrar sesion
+                </button>
               </div>
             </div>
           </div>
