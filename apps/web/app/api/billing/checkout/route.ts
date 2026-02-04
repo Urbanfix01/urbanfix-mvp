@@ -63,8 +63,10 @@ export async function POST(request: NextRequest) {
     const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
     const rawSuccessUrl = String(payload?.successUrl || '').trim();
     const normalizedPublicUrl = normalizeUrl(publicWebUrl) || 'https://www.urbanfixar.com';
-    const fallbackSuccessUrl = `${normalizedPublicUrl.replace(/\/+$/, '')}/tecnicos?billing=success`;
+    const publicBase = normalizedPublicUrl.replace(/\/+$/, '');
+    const fallbackSuccessUrl = `${publicBase}/tecnicos?billing=success`;
     const successUrl = normalizeUrl(rawSuccessUrl) || fallbackSuccessUrl;
+    const notificationUrl = normalizeUrl(`${publicBase}/api/billing/webhook`);
 
     if (!planId) {
       return NextResponse.json({ error: 'Missing plan' }, { status: 400 });
@@ -134,6 +136,7 @@ export async function POST(request: NextRequest) {
       payer_email: user.email,
       reason: finalPlan.name,
       back_url: successUrl,
+      ...(notificationUrl ? { notification_url: notificationUrl } : {}),
       status: 'pending',
       auto_recurring: autoRecurring,
       external_reference: `${user.id}|${finalPlan.id}`,
