@@ -5,7 +5,7 @@ const sora = Sora({
   weight: ['400', '500', '600', '700'],
 });
 
-export default function PrivacyPage() {
+export default function DeleteAccountPage() {
   return (
     <div className={sora.className}>
       <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
@@ -22,15 +22,15 @@ export default function PrivacyPage() {
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Politica de privacidad</p>
+                  <p className="text-sm font-semibold text-slate-700">Eliminacion de cuenta</p>
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <a
-                  href="/urbanfix"
+                  href="/privacidad"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
-                  Que es UrbanFix
+                  Politica de privacidad
                 </a>
                 <a
                   href="/"
@@ -42,38 +42,35 @@ export default function PrivacyPage() {
             </header>
 
             <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Politica</p>
-              <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">Politica de privacidad</h1>
-              <p className="mt-2 text-xs text-slate-500">Ultima actualizacion: 26/12/2025</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cuenta</p>
+              <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">
+                Solicitar eliminacion de cuenta
+              </h1>
+              <p className="mt-2 text-xs text-slate-500">Ultima actualizacion: 04/02/2026</p>
 
               <div className="mt-6 space-y-4 text-sm leading-relaxed text-slate-600">
                 <p>
-                  En UrbanFix respetamos tu privacidad. Esta politica describe como recopilamos y usamos la
-                  informacion cuando utilizas nuestros servicios.
+                  Para eliminar tu cuenta de UrbanFix, envia un correo a <strong>info@urbanfixar.com</strong> con el
+                  asunto <strong>&quot;Eliminar cuenta UrbanFix&quot;</strong>.
                 </p>
                 <p>
-                  Datos que podemos solicitar: nombre, correo electronico, telefono, direccion del servicio y
-                  detalles necesarios para generar presupuestos. No vendemos ni compartimos tu informacion con
-                  terceros no autorizados.
+                  En el mensaje indica:
                 </p>
+                <ul className="list-disc pl-5">
+                  <li>El email con el que te registraste.</li>
+                  <li>Tu nombre o el nombre del negocio.</li>
+                  <li>Si deseas eliminar toda la cuenta o solo ciertos datos.</li>
+                </ul>
                 <p>
-                  Usamos proveedores externos como Google y Supabase para autenticacion y almacenamiento seguro.
-                  Tus datos solo se utilizan para operar el servicio y mejorar la experiencia.
-                </p>
-                <p>
-                  Puedes solicitar la actualizacion o eliminacion de tus datos escribiendo a INFO@URBANFIXAR.COM o
-                  siguiendo las instrucciones en{' '}
-                  <a href="/eliminar-cuenta" className="font-semibold text-slate-700 underline">
-                    urbanfixar.com/eliminar-cuenta
-                  </a>
-                  .
+                  Procesaremos la solicitud en un plazo de hasta <strong>30 dias</strong>. Algunos datos pueden
+                  conservarse por obligaciones legales o de seguridad.
                 </p>
               </div>
             </section>
 
             <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
-              <p className="mt-2 font-semibold text-slate-900">INFO@URBANFIXAR.COM</p>
+              <p className="mt-2 font-semibold text-slate-900">info@urbanfixar.com</p>
             </section>
           </main>
         </div>
