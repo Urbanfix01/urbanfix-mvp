@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import AnalyticsTracker from "../components/AnalyticsTracker";
+import PageTransition from "../components/PageTransition";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -49,7 +50,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <AnalyticsTracker />
-        {children}
+        <PageTransition>{children}</PageTransition>
       </body>
     </html>
   );
