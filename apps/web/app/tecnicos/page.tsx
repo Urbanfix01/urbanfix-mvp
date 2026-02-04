@@ -286,6 +286,8 @@ const sanitizeFileName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_
 const buildAttachmentPath = (userId: string, quoteId: string, fileName: string) =>
   `${userId}/quotes/${quoteId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFileName(fileName)}`;
 
+const isEmailLike = (value: string) => /.+@.+\..+/.test(value);
+
 const resolveLogoPresentation = (ratio: number, shape?: string | null) => {
   const normalized = (shape || 'auto').toLowerCase();
   let mode = normalized;
@@ -531,6 +533,7 @@ export default function TechniciansPage() {
   const [loadingBilling, setLoadingBilling] = useState(false);
   const [billingError, setBillingError] = useState('');
   const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
+  const [payerEmail, setPayerEmail] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [couponStatus, setCouponStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
   const [couponInfo, setCouponInfo] = useState<{
@@ -768,6 +771,11 @@ export default function TechniciansPage() {
       logoShape: profile.logo_shape || 'auto',
     });
   }, [profile, session?.user?.email]);
+
+  useEffect(() => {
+    if (!profile && !session?.user?.email) return;
+    setPayerEmail((prev) => prev || profile?.mp_payer_email || session?.user?.email || '');
+  }, [profile?.mp_payer_email, session?.user?.email]);
 
   useEffect(() => {
     if (!(profile?.company_logo_url || (profile?.logo_shape && profile?.avatar_url))) return;
@@ -1143,6 +1151,18 @@ export default function TechniciansPage() {
     setCreatingCheckout(true);
     setBillingMessage('');
     try {
+      const trimmedPayerEmail = payerEmail.trim();
+      if (trimmedPayerEmail && !isEmailLike(trimmedPayerEmail)) {
+        setBillingMessage('Ingresa un email valido de MercadoPago.');
+        return;
+      }
+      if (trimmedPayerEmail && session?.user?.id && trimmedPayerEmail !== profile?.mp_payer_email) {
+        await supabase
+          .from('profiles')
+          .update({ mp_payer_email: trimmedPayerEmail })
+          .eq('id', session.user.id);
+        setProfile((prev: any) => ({ ...prev, mp_payer_email: trimmedPayerEmail }));
+      }
       const response = await fetch('/api/billing/checkout', {
         method: 'POST',
         headers: {
@@ -1154,6 +1174,7 @@ export default function TechniciansPage() {
           couponCode: couponStatus === 'valid' ? couponInfo?.code : '',
           successUrl: `${getPublicBaseUrl()}/tecnicos?billing=success`,
           cancelUrl: `${getPublicBaseUrl()}/tecnicos?billing=cancel`,
+          payerEmail: trimmedPayerEmail || null,
         }),
       });
       const responseText = await response.text();
@@ -2661,6 +2682,20 @@ export default function TechniciansPage() {
                           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pago por suscripción</p>
                           <p className="text-xs text-slate-500">Elegí el plan ideal</p>
                         </div>
+                      </div>
+                      <div className="mt-4 space-y-2">
+                        <label className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                          Email de MercadoPago
+                        </label>
+                        <input
+                          value={payerEmail}
+                          onChange={(event) => setPayerEmail(event.target.value)}
+                          placeholder="tuemail@mercadopago.com"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <p className="text-[11px] text-slate-400">
+                          Debe ser el email real con el que vas a pagar en MercadoPago.
+                        </p>
                       </div>
                       {loadingBilling && (
                         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-500">
@@ -4477,6 +4512,19 @@ export default function TechniciansPage() {
                       })}
                     </div>
                   )}
+                </div>
+
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Email de MercadoPago</p>
+                  <input
+                    value={payerEmail}
+                    onChange={(event) => setPayerEmail(event.target.value)}
+                    placeholder="tuemail@mercadopago.com"
+                    className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                  <p className="mt-2 text-xs text-slate-500">
+                    Debe ser el email real con el que vas a pagar en MercadoPago.
+                  </p>
                 </div>
 
                 <div className="mt-6 flex flex-wrap items-center justify-between gap-3">

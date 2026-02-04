@@ -42,7 +42,19 @@ const createMpPreapproval = async (payload: any) => {
   });
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(errorText || 'No se pudo crear la suscripcion.');
+    let parsedMessage = errorText;
+    try {
+      const parsed = JSON.parse(errorText);
+      if (parsed?.message) parsedMessage = parsed.message;
+    } catch (_error) {
+      parsedMessage = errorText;
+    }
+    if (String(parsedMessage).includes('Both payer and collector must be real or test users')) {
+      throw new Error(
+        'MercadoPago requiere un email real para pagar. Usa el email de una cuenta real de MercadoPago.'
+      );
+    }
+    throw new Error(parsedMessage || 'No se pudo crear la suscripcion.');
   }
   return response.json();
 };
@@ -62,6 +74,7 @@ export async function POST(request: NextRequest) {
     const planId = String(payload?.planId || '');
     const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
     const rawSuccessUrl = String(payload?.successUrl || '').trim();
+    const rawPayerEmail = String(payload?.payerEmail || '').trim();
     const normalizedPublicUrl = normalizeUrl(publicWebUrl) || 'https://www.urbanfixar.com';
     const publicBase = normalizedPublicUrl.replace(/\/+$/, '');
     const fallbackSuccessUrl = `${publicBase}/tecnicos?billing=success`;
@@ -132,8 +145,13 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    const payerEmail = rawPayerEmail || user.email || '';
+    if (!payerEmail) {
+      return NextResponse.json({ error: 'Falta email de MercadoPago' }, { status: 400 });
+    }
+
     const preapproval = await createMpPreapproval({
-      payer_email: user.email,
+      payer_email: payerEmail,
       reason: finalPlan.name,
       back_url: successUrl,
       ...(notificationUrl ? { notification_url: notificationUrl } : {}),
