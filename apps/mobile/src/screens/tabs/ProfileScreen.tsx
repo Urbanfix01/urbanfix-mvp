@@ -28,6 +28,7 @@ interface Profile {
   email?: string;
   phone?: string | null;
   company_address?: string | null;
+  default_discount?: number | null;
   location_lat?: number | null;
   location_lng?: number | null;
 }
@@ -47,6 +48,7 @@ export default function ProfileScreen() {
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
 
   // --- 1. LÓGICA DE CARGA DE DATOS ---
@@ -72,6 +74,7 @@ export default function ProfileScreen() {
       setBusinessName(userProfile.business_name || '');
       setPhone(userProfile.phone || '');
       setAddress(userProfile.company_address || '');
+      setDefaultDiscount(userProfile.default_discount !== null && userProfile.default_discount !== undefined ? String(userProfile.default_discount) : '');
       if (userProfile.location_lat && userProfile.location_lng) {
         setLocation({ lat: userProfile.location_lat, lng: userProfile.location_lng });
       }
@@ -154,6 +157,7 @@ export default function ProfileScreen() {
         business_name: businessName,
         phone: phone,
         company_address: address, 
+        default_discount: parsePercent(defaultDiscount),
         location_lat: location.lat !== 0 ? location.lat : null,
         location_lng: location.lng !== 0 ? location.lng : null,
         updated_at: new Date(),
@@ -204,6 +208,13 @@ export default function ProfileScreen() {
   };
 
   const isValidUrl = (url?: string | null) => !!url && url.startsWith('http');
+
+  const parsePercent = (value: string) => {
+    const cleaned = (value || '').replace(',', '.').replace(/[^\d.]/g, '');
+    const parsed = Number(cleaned);
+    if (!Number.isFinite(parsed)) return 0;
+    return Math.min(100, Math.max(0, parsed));
+  };
 
   // --- RENDER ---
   if (loading && !profile) return <View style={[styles.container, styles.center]}><ActivityIndicator color={COLORS.primary} /></View>;
@@ -313,6 +324,18 @@ export default function ProfileScreen() {
                 />
             </View>
 
+            {/* Descuento por defecto */}
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>DESCUENTO POR DEFECTO (%)</Text>
+                <TextInput
+                    style={styles.inputField}
+                    value={defaultDiscount}
+                    onChangeText={setDefaultDiscount}
+                    placeholder="0"
+                    keyboardType="numeric"
+                />
+            </View>
+
             {/* Selector de Mapa (Base Operativa) */}
             <View style={[styles.inputGroup, { zIndex: 100 }]}>
                 <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
@@ -349,7 +372,30 @@ export default function ProfileScreen() {
         {/* === SECCIÓN 3: HERRAMIENTAS === */}
         <Text style={styles.sectionTitle}>Herramientas</Text>
         <View style={styles.menuContainer}>
-          <MenuOption icon="calculator-outline" label="Configurar Precios" isNew onPress={() => {}} />
+          <MenuOption
+            icon="calculator-outline"
+            label="Configurar Precios"
+            onPress={() => {
+              // @ts-ignore
+              navigation.navigate('Catálogo');
+            }}
+          />
+          <MenuOption
+            icon="chatbubble-ellipses-outline"
+            label="Soporte"
+            onPress={() => {
+              // @ts-ignore
+              navigation.navigate('Support');
+            }}
+          />
+          <MenuOption
+            icon="card-outline"
+            label="Suscripcion"
+            onPress={() => {
+              // @ts-ignore
+              navigation.navigate('Subscription');
+            }}
+          />
           <MenuOption 
             icon="document-text-outline" 
             label="Historial Completo" 

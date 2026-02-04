@@ -10,8 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
 import { formatCurrency } from '../../utils/number';
-
-const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p';
+import { getPublicQuoteUrl } from '../../utils/config';
 
 async function getQuoteById(id: string) {
   const { data, error } = await supabase
@@ -83,7 +82,7 @@ export default function JobDetailScreen() {
     if (!data) {
       return {
         processedQuote: null,
-        breakdown: { subtotal: 0, tax: 0, total: 0 },
+        breakdown: { subtotal: 0, discountPercent: 0, discountAmount: 0, tax: 0, total: 0 },
       };
     }
 
@@ -94,15 +93,25 @@ export default function JobDetailScreen() {
       location_lng: data.location_lng,
     };
 
-    const rawSub = (processedQuote.quote_items || []).reduce((acc: number, item: any) => acc + (item.unit_price * item.quantity), 0);
-    const taxVal = rawSub * (processedQuote.tax_rate || 0);
+    const subtotal = (processedQuote.quote_items || []).reduce(
+      (acc: number, item: any) => acc + (item.unit_price * item.quantity),
+      0
+    );
+    const discountPercent = Math.min(100, Math.max(0, Number(processedQuote.discount_percent || 0)));
+    const discountAmount = subtotal * (discountPercent / 100);
+    const discountedSubtotal = subtotal - discountAmount;
+    const taxRate = Number(processedQuote.tax_rate || 0);
+    const taxVal = discountedSubtotal * taxRate;
+    const total = discountedSubtotal + taxVal;
 
     return {
       processedQuote,
       breakdown: {
-        subtotal: rawSub,
+        subtotal,
+        discountPercent,
+        discountAmount,
         tax: taxVal,
-        total: processedQuote.total_amount,
+        total,
       },
     };
   }, [data, params]);
@@ -168,6 +177,31 @@ export default function JobDetailScreen() {
   const handleEdit = () => navigation.navigate('JobConfig', { quote });
   
   const handleDelete = async () => {
+      const performDelete = async () => {
+          try {
+              const { error } = await supabase.rpc('delete_quote', { p_quote_id: jobId });
+              if (error) throw error;
+              await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
+              await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+              navigation.goBack();
+          } catch (err: any) {
+              Alert.alert('Error', err?.message || 'No se pudo borrar el presupuesto.');
+          }
+      };
+
+      if (Platform.OS === 'web') {
+          // @ts-ignore
+          if (window.confirm('Borrar presupuesto?')) {
+              await performDelete();
+          }
+          return;
+      }
+
+      Alert.alert('Borrar presupuesto', 'Seguro que quieres borrar este presupuesto?', [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Borrar', style: 'destructive', onPress: () => void performDelete() },
+      ]);
+      return;
       /* Tu l¢gica de borrado existente... */
       if(confirm("¨Borrar trabajo?")) {
           await supabase.from('quotes').delete().eq('id', jobId);
@@ -179,13 +213,16 @@ export default function JobDetailScreen() {
 
   const handleShare = async () => {
       /* Tu l¢gica de compartir... */
-      const link = `${WEB_BASE_URL}/${jobId}`;
+      const link = getPublicQuoteUrl(jobId);
       if(Platform.OS === 'web') { navigator.clipboard.writeText(link); alert("Link copiado"); }
       else { Share.share({message: link}); }
   };
 
   const handleConfirmQuote = async () => {
-      await supabase.from('quotes').update({ status: 'sent' }).eq('id', jobId);
+      const { error } = await supabase.rpc('update_quote_status', { quote_id: jobId, next_status: 'sent' });
+      if (error) {
+          await supabase.from('quotes').update({ status: 'sent' }).eq('id', jobId);
+      }
       await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
       await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
   };
@@ -330,6 +367,12 @@ export default function JobDetailScreen() {
                 <Text style={styles.summaryLabel}>Subtotal</Text>
                 <Text style={styles.summaryValue}>${formatCurrency(breakdown.subtotal)}</Text>
             </View>
+            {breakdown.discountAmount > 0 && (
+                <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Descuento ({breakdown.discountPercent.toFixed(0)}%)</Text>
+                    <Text style={styles.summaryValue}>- ${formatCurrency(breakdown.discountAmount)}</Text>
+                </View>
+            )}
             {breakdown.tax > 0 && (
                 <View style={styles.summaryRow}>
                     <Text style={styles.summaryLabel}>IVA (21%)</Text>

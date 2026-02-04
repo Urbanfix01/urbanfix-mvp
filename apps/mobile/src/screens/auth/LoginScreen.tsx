@@ -31,7 +31,7 @@ export default function AuthScreen() {
     }
     const isExpoGo = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
     if (isExpoGo) {
-      return AuthSession.makeRedirectUri({ useProxy: true });
+      return AuthSession.makeRedirectUri({ useProxy: true } as any);
     }
     return AuthSession.makeRedirectUri({
       scheme: 'urbanfix',

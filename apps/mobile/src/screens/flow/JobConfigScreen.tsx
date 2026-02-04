@@ -166,6 +166,21 @@ export default function JobConfigScreen() {
     if (hasLoadedData.current === initKey) return;
     const initData = async () => {
         try {
+            let defaultDiscount = 0;
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    const { data: profileData } = await supabase
+                        .from('profiles')
+                        .select('default_discount')
+                        .eq('id', user.id)
+                        .single();
+                    defaultDiscount = Math.min(100, Math.max(0, Number(profileData?.default_discount || 0)));
+                }
+            } catch (_error) {
+                defaultDiscount = 0;
+            }
+
             if (isEditMode && quote?.id) {
                 const { data, error } = await supabase.from('quotes').select('*').eq('id', quote.id).single();
                 if (error) throw error;
@@ -177,6 +192,8 @@ export default function JobConfigScreen() {
                         setLocation({ lat: data.location_lat, lng: data.location_lng });
                     }
                     setApplyTax(data.tax_rate > 0);
+                    const resolvedDiscount = data.discount_percent ?? defaultDiscount;
+                    setDiscount(Math.min(100, Math.max(0, Number(resolvedDiscount || 0))));
                     
                     const { data: itemsData } = await supabase.from('quote_items').select('*').eq('quote_id', quote.id);
                     if (itemsData) {
@@ -191,6 +208,24 @@ export default function JobConfigScreen() {
                         }));
                         setItems(mappedItems);
                         setPriceDrafts({});
+
+                        // Compat: si el presupuesto viene de versiones viejas (sin discount_percent),
+                        // inferimos el descuento desde total_amount para que coincida con el visor web.
+                        const subtotal = mappedItems.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
+                        const taxRate = Number(data.tax_rate || 0);
+                        const expectedNoDiscountTotal = subtotal * (1 + taxRate);
+                        const storedTotal = Number(data.total_amount || 0);
+                        const hasExplicitDiscount =
+                          data.discount_percent !== null &&
+                          data.discount_percent !== undefined &&
+                          Number(data.discount_percent || 0) > 0;
+                        if (!hasExplicitDiscount && expectedNoDiscountTotal > 0) {
+                          const inferred = 100 * (1 - storedTotal / expectedNoDiscountTotal);
+                          const inferredClamped = Math.min(100, Math.max(0, inferred));
+                          if (inferredClamped > 0.01) {
+                            setDiscount(inferredClamped);
+                          }
+                        }
                     }
 
                     const { data: attachmentsData } = await supabase
@@ -228,7 +263,7 @@ export default function JobConfigScreen() {
                 setClientAddress('');
                 setLocation({ lat: 0, lng: 0 });
                 setApplyTax(false);
-                setDiscount(0);
+                setDiscount(defaultDiscount);
                 setSelectedLaborTool('none');
                 setLaborToolOpen(false);
                 setToolQuantity('');
@@ -243,7 +278,7 @@ export default function JobConfigScreen() {
                 setClientAddress('');
                 setLocation({ lat: 0, lng: 0 });
                 setApplyTax(false);
-                setDiscount(0);
+                setDiscount(defaultDiscount);
                 setSelectedLaborTool('none');
                 setLaborToolOpen(false);
                 setToolQuantity('');
@@ -516,6 +551,7 @@ export default function JobConfigScreen() {
             location_lat: location.lat || null,
             location_lng: location.lng || null,
             total_amount: totalWithTax,
+            discount_percent: discountPercent,
             tax_rate: applyTax ? 0.21 : 0,
             status: quote?.status || 'draft',
             user_id: user.id,
@@ -592,7 +628,9 @@ export default function JobConfigScreen() {
   const laborTotal = laborItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const materialTotal = materialItems.reduce((acc, item) => acc + (item.price * item.quantity), 0);
   const subtotal = laborTotal + materialTotal;
-  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+  const discountPercent = Math.min(100, Math.max(0, discount));
+  const discountAmount = subtotal * (discountPercent / 100);
+  const subtotalAfterDiscount = Math.max(0, subtotal - discountAmount);
   const taxAmount = applyTax ? subtotalAfterDiscount * 0.21 : 0;
   const totalWithTax = subtotalAfterDiscount + taxAmount;
   const laborCount = laborItems.length;
@@ -713,17 +751,17 @@ export default function JobConfigScreen() {
             <Text style={styles.summaryLineValue}>${formatCurrency(materialTotal)}</Text>
         </View>
         <View style={styles.summaryLine}>
-            <Text style={styles.summaryLineLabel}>Descuento</Text>
+            <Text style={styles.summaryLineLabel}>Descuento (%)</Text>
             <View style={styles.discountInputContainer}>
-                <Text style={styles.currencyPrefix}>- $</Text>
                 <TextInput
                     style={styles.discountInput}
                     keyboardType="numeric"
                     placeholder="0"
                     selectTextOnFocus
                     value={discount.toString()}
-                    onChangeText={(t) => setDiscount(parseNumber(t))}
+                    onChangeText={(t) => setDiscount(Math.min(100, Math.max(0, parseNumber(t))))}
                 />
+                <Text style={styles.percentSuffix}>%</Text>
             </View>
         </View>
         <View style={styles.summaryLine}>
@@ -1387,7 +1425,7 @@ const styles = StyleSheet.create({
     padding: 0,
     borderWidth: 0,
     backgroundColor: 'transparent',
-    outlineStyle: 'none',
+    outlineStyle: 'solid',
     outlineWidth: 0,
     outlineColor: 'transparent',
   },
@@ -1399,7 +1437,7 @@ const styles = StyleSheet.create({
   itemActions: { alignItems: 'flex-end', gap: 8 },
   priceInputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderRadius: 8, paddingHorizontal: 10, height: 42, borderWidth: 1, borderColor: '#E2E8F0', width: 120, gap: 6 },
   currencySymbol: { color: '#94A3B8', fontWeight: '600' },
-  priceInput: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '700', color: '#1E293B', textAlign: 'right', padding: 0, paddingVertical: 0, height: '100%', textAlignVertical: 'center', backgroundColor: 'transparent', outlineStyle: 'none', outlineWidth: 0, outlineColor: 'transparent', borderWidth: 0, lineHeight: 18 },
+  priceInput: { flex: 1, minWidth: 0, fontSize: 15, fontWeight: '700', color: '#1E293B', textAlign: 'right', padding: 0, paddingVertical: 0, height: '100%', textAlignVertical: 'center', backgroundColor: 'transparent', outlineStyle: 'solid', outlineWidth: 0, outlineColor: 'transparent', borderWidth: 0, lineHeight: 18 },
   deleteBtn: { padding: 6 },
   
   emptyContainer: { padding: 40, alignItems: 'center', justifyContent: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#E2E8F0', borderRadius: 12, backgroundColor: '#FAFAFA', marginVertical: 10 },
@@ -1424,8 +1462,8 @@ const styles = StyleSheet.create({
   summaryToggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 },
   summaryToggleLabel: { fontSize: 12, color: '#475569', fontWeight: '600' },
   discountInputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 8, paddingHorizontal: 8, height: 34 },
-  currencyPrefix: { color: COLORS.danger, fontWeight: '700', fontSize: 12, marginRight: 2 },
   discountInput: { minWidth: 60, textAlign: 'right', fontWeight: '700', color: COLORS.danger },
+  percentSuffix: { color: COLORS.danger, fontWeight: '700', fontSize: 12, marginLeft: 4 },
   summaryDivider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 12 },
   summaryTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0F172A', borderRadius: 12, padding: 12 },
   summaryTotalLabel: { fontSize: 12, fontWeight: '800', color: '#E2E8F0', letterSpacing: 1 },

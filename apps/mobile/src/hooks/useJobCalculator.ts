@@ -23,6 +23,7 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
   
   // FINANCIEROS
+  // Descuento en porcentaje (0-100)
   const [discount, setDiscount] = useState(0);
   const [applyTax, setApplyTax] = useState(false);
 
@@ -106,11 +107,13 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
       return item.isActive ? acc + (item.price * item.quantity) : acc;
     }, 0);
 
-    const totalAfterDiscount = Math.max(0, subtotal - discount);
+    const discountPercent = Math.min(100, Math.max(0, discount));
+    const discountAmount = subtotal * (discountPercent / 100);
+    const totalAfterDiscount = Math.max(0, subtotal - discountAmount);
     const taxAmount = applyTax ? totalAfterDiscount * 0.21 : 0;
     const total = totalAfterDiscount + taxAmount;
     
-    return { subtotal, taxAmount, total };
+    return { subtotal, discountPercent, discountAmount, taxAmount, total };
   }, [items, discount, applyTax]);
 
   return {

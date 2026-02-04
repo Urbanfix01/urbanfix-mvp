@@ -26,6 +26,8 @@ import MarcaScreen from '../screens/flow/MarcaScreen'; // <--- ✅ IMPORTACIÓN 
 // 4. Detalles y Configuración
 import ItemDetailScreen from '../screens/tabs/ItemDetailScreen';
 import EditProfileScreen from '../screens/settings/EditProfileScreen'; 
+import SupportScreen from '../screens/settings/SupportScreen';
+import SubscriptionScreen from '../screens/settings/SubscriptionScreen';
 import NotificationsScreen from '../screens/tabs/NotificationsScreen';
 import { registerForPushNotificationsAsync, showLocalNotification } from '../utils/notifications';
 
@@ -284,6 +286,18 @@ export default function RootNavigator() {
                 headerShown: false, // CRÍTICO: Oculta la barra blanca para que se vea tu diseño azul
                 animation: 'slide_from_right'
               }} 
+            />
+
+            <Stack.Screen
+              name="Support"
+              component={SupportScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+
+            <Stack.Screen
+              name="Subscription"
+              component={SubscriptionScreen}
+              options={{ animation: 'slide_from_right' }}
             />
 
           </>

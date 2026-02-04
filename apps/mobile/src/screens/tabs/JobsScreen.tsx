@@ -12,8 +12,7 @@ import { COLORS, FONTS } from '../../utils/theme';
 import ServiceSelector from '../../components/organisms/ServiceSelector';
 import { ServiceBlueprint } from '../../types/database';
 import { supabase } from '../../lib/supabase'; 
-
-const WEB_BASE_URL = 'https://urbanfix-web.vercel.app/p'; // Tu URL
+import { getPublicQuoteUrl } from '../../utils/config';
 
 type QuoteListItem = {
   id: string;
@@ -82,13 +81,35 @@ export default function JobsScreen() {
     navigation.navigate('JobConfig', { blueprint });
   };
 
-  const handleShareJob = async (jobId: string, total?: number | null) => {
-    const link = `${WEB_BASE_URL}/${jobId}`;
-    const safeTotal = (total || 0).toLocaleString('es-AR');
+  const ensureShareableStatus = async (job: QuoteListItem) => {
+    const normalizedStatus = (job.status || '').toLowerCase().trim();
+    const isDraft = ['draft', 'borrador'].includes(normalizedStatus);
+    if (!isDraft) return;
+
+    try {
+      const { error } = await supabase.rpc('update_quote_status', {
+        quote_id: job.id,
+        next_status: 'sent',
+      });
+      if (error) {
+        await supabase.from('quotes').update({ status: 'sent' }).eq('id', job.id);
+      }
+      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+    } catch (err) {
+      console.warn('No se pudo confirmar el presupuesto antes de compartir.', err);
+    }
+  };
+
+  const handleShareJob = async (job: QuoteListItem) => {
+    await ensureShareableStatus(job);
+
+    const link = getPublicQuoteUrl(job.id);
+    const safeTotal = (job.total_amount || 0).toLocaleString('es-AR');
     const message = `Hola! Te paso el presupuesto por $${safeTotal}: ${link}`;
+
     try {
       await Share.share({ message, title: 'Presupuesto UrbanFix', url: link });
-    } catch (err) {
+    } catch (_err) {
       Alert.alert("Error", "No se pudo compartir.");
     }
   };
@@ -178,7 +199,7 @@ export default function JobsScreen() {
         {!selectionMode && (
           <TouchableOpacity 
               style={styles.shareBtn}
-              onPress={() => handleShareJob(item.id, item.total_amount)}
+              onPress={() => handleShareJob(item)}
           >
                <Ionicons name="paper-plane-outline" size={20} color={COLORS.textLight} />
           </TouchableOpacity>
@@ -294,15 +315,36 @@ export default function JobsScreen() {
         <TouchableOpacity 
           style={styles.bulkDeleteBar} 
           onPress={async () => {
-            try {
-              const { error: deleteError } = await supabase.from('quotes').delete().in('id', selectedIds);
-              if (deleteError) throw deleteError;
-              await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
-              setSelectedIds([]);
-              setSelectionMode(false);
-            } catch (err) {
-              Alert.alert("Error", "No se pudieron borrar los presupuestos seleccionados.");
+            const performDelete = async () => {
+              try {
+                for (const id of selectedIds) {
+                  const { error } = await supabase.rpc('delete_quote', { p_quote_id: id });
+                  if (error) throw error;
+                }
+                await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+                setSelectedIds([]);
+                setSelectionMode(false);
+              } catch (_err) {
+                Alert.alert("Error", "No se pudieron borrar los presupuestos seleccionados.");
+              }
+            };
+
+            if (Platform.OS === 'web') {
+              // @ts-ignore
+              if (window.confirm(`¿Borrar ${selectedIds.length} presupuestos?`)) {
+                await performDelete();
+              }
+              return;
             }
+
+            Alert.alert(
+              'Borrar presupuestos',
+              `¿Seguro que quieres borrar ${selectedIds.length} presupuestos?`,
+              [
+                { text: 'Cancelar', style: 'cancel' },
+                { text: 'Borrar', style: 'destructive', onPress: () => void performDelete() },
+              ]
+            );
           }}
         >
           <Ionicons name="trash" size={22} color="#FFF" />
