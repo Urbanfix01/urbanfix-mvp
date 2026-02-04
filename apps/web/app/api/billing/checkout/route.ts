@@ -145,7 +145,10 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const payerEmail = rawPayerEmail || user.email || '';
+    const isDevelopment = process.env.NODE_ENV === 'development';
+    const mpTestPayerEmail = String(process.env.MP_TEST_PAYER_EMAIL || '').trim();
+    const payerCandidate = rawPayerEmail || user.email || '';
+    const payerEmail = isDevelopment && mpTestPayerEmail ? mpTestPayerEmail : payerCandidate;
     if (!payerEmail) {
       return NextResponse.json({ error: 'Falta email de MercadoPago' }, { status: 400 });
     }

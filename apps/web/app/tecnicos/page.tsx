@@ -1156,6 +1156,10 @@ export default function TechniciansPage() {
         setBillingMessage('Ingresa un email valido de MercadoPago.');
         return;
       }
+      if (trimmedPayerEmail && process.env.NODE_ENV === 'production' && /@testuser\.com$/i.test(trimmedPayerEmail)) {
+        setBillingMessage('No se permiten emails de prueba en produccion. Usa tu email real de MercadoPago.');
+        return;
+      }
       if (trimmedPayerEmail && session?.user?.id && trimmedPayerEmail !== profile?.mp_payer_email) {
         await supabase
           .from('profiles')
@@ -1193,7 +1197,16 @@ export default function TechniciansPage() {
         throw new Error('No se obtuvo el link de pago.');
       }
     } catch (error: any) {
-      setBillingMessage(error?.message || 'No pudimos iniciar el pago.');
+      const message = error?.message || 'No pudimos iniciar el pago.';
+      if (
+        message.toLowerCase().includes('payer and collector') ||
+        message.toLowerCase().includes('mercadopago requiere')
+      ) {
+        setPayerEmail('');
+        setBillingMessage('El email no es una cuenta real de MercadoPago. Ingresalo nuevamente.');
+        return;
+      }
+      setBillingMessage(message);
     } finally {
       setCreatingCheckout(false);
     }
