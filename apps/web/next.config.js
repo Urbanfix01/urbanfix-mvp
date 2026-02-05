@@ -21,6 +21,23 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'urbanfixar.com' }],
+        destination: 'https://www.urbanfix.com.ar/:path*',
+        permanent: true,
+      },
+      {
+        source: '/:path*',
+        has: [{ type: 'host', value: 'www.urbanfixar.com' }],
+        destination: 'https://www.urbanfix.com.ar/:path*',
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
