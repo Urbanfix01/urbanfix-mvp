@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import AnalyticsTracker from "../components/AnalyticsTracker";
+import AuthHashHandler from "../components/AuthHashHandler";
 import PageTransition from "../components/PageTransition";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -49,6 +50,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={inter.className}>
+        <AuthHashHandler />
         <AnalyticsTracker />
         <PageTransition>{children}</PageTransition>
       </body>
