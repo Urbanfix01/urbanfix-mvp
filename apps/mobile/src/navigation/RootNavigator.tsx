@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useState } from 'react';
+import { View, ActivityIndicator, Platform, Text, TextInput, TouchableOpacity, Alert, StyleSheet, ScrollView } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -77,9 +77,15 @@ function MainTabs() {
   );
 }
 
-function AccessGate({ onGranted }: { onGranted: () => void }) {
+type AccessGateProps = {
+  onRefresh: () => Promise<void>;
+  onOpenSubscription: () => void;
+};
+
+function AccessGate({ onRefresh, onOpenSubscription }: AccessGateProps) {
   const [code, setCode] = useState('');
   const [loading, setLoading] = useState(false);
+  const [trialLoading, setTrialLoading] = useState(false);
 
   const handleRedeem = async () => {
     const trimmed = code.trim();
@@ -91,7 +97,7 @@ function AccessGate({ onGranted }: { onGranted: () => void }) {
     try {
       const { error } = await supabase.rpc('redeem_access_code', { p_code: trimmed });
       if (error) throw error;
-      onGranted();
+      await onRefresh();
     } catch (err: any) {
       Alert.alert('Error', err?.message || 'No pudimos validar el codigo.');
     } finally {
@@ -99,30 +105,85 @@ function AccessGate({ onGranted }: { onGranted: () => void }) {
     }
   };
 
+  const handleStartTrial = async () => {
+    setTrialLoading(true);
+    try {
+      const { error } = await supabase.rpc('start_free_trial');
+      if (error) throw error;
+      Alert.alert('Prueba activada', 'Tenes 7 dias gratis para usar UrbanFix.');
+      await onRefresh();
+    } catch (err: any) {
+      Alert.alert('No se pudo iniciar', err?.message || 'No pudimos activar la prueba.');
+    } finally {
+      setTrialLoading(false);
+    }
+  };
+
   return (
     <View style={stylesGate.container}>
-      <View style={stylesGate.card}>
-        <Text style={stylesGate.title}>Acceso demo</Text>
-        <Text style={stylesGate.subtitle}>Ingresa el codigo que te compartimos para activar tu cuenta.</Text>
-        <TextInput
-          style={stylesGate.input}
-          placeholder="Codigo de acceso"
-          placeholderTextColor="#94A3B8"
-          value={code}
-          onChangeText={setCode}
-          autoCapitalize="characters"
-        />
-        <TouchableOpacity onPress={handleRedeem} disabled={loading} style={stylesGate.button}>
-          {loading ? <ActivityIndicator color="#FFF" /> : <Text style={stylesGate.buttonText}>Validar codigo</Text>}
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={async () => {
-            await supabase.auth.signOut();
-          }}
-        >
-          <Text style={stylesGate.logout}>Cerrar sesion</Text>
-        </TouchableOpacity>
-      </View>
+      <ScrollView contentContainerStyle={stylesGate.scroll} showsVerticalScrollIndicator={false}>
+        <View style={stylesGate.card}>
+          <Text style={stylesGate.title}>Elegi como ingresar</Text>
+          <Text style={stylesGate.subtitle}>
+            Activá tu cuenta con un codigo, una prueba gratis o suscripcion.
+          </Text>
+
+          <View style={stylesGate.section}>
+            <Text style={stylesGate.sectionTitle}>Entrar con codigo</Text>
+            <Text style={stylesGate.sectionText}>
+              Si recibiste un codigo de acceso, ingresalo aca.
+            </Text>
+            <TextInput
+              style={stylesGate.input}
+              placeholder="Codigo de acceso"
+              placeholderTextColor="#94A3B8"
+              value={code}
+              onChangeText={setCode}
+              autoCapitalize="characters"
+            />
+            <TouchableOpacity onPress={handleRedeem} disabled={loading} style={stylesGate.button}>
+              {loading ? <ActivityIndicator color="#FFF" /> : <Text style={stylesGate.buttonText}>Validar codigo</Text>}
+            </TouchableOpacity>
+          </View>
+
+          <View style={stylesGate.section}>
+            <Text style={stylesGate.sectionTitle}>Prueba gratis</Text>
+            <Text style={stylesGate.sectionText}>Tenes 7 dias de acceso completo.</Text>
+            <TouchableOpacity
+              onPress={handleStartTrial}
+              disabled={trialLoading}
+              style={stylesGate.secondaryButton}
+            >
+              {trialLoading ? (
+                <ActivityIndicator color="#0F172A" />
+              ) : (
+                <Text style={stylesGate.secondaryButtonText}>Iniciar prueba</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={stylesGate.section}>
+            <Text style={stylesGate.sectionTitle}>Pagar suscripcion</Text>
+            <Text style={stylesGate.sectionText}>Elegi un plan y paga en MercadoPago.</Text>
+            <TouchableOpacity onPress={onOpenSubscription} style={stylesGate.secondaryButton}>
+              <Text style={stylesGate.secondaryButtonText}>Ver planes</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={stylesGate.footerRow}>
+            <TouchableOpacity onPress={onRefresh} style={stylesGate.refreshBtn}>
+              <Text style={stylesGate.refreshText}>Actualizar estado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={async () => {
+                await supabase.auth.signOut();
+              }}
+            >
+              <Text style={stylesGate.logout}>Cerrar sesion</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </ScrollView>
     </View>
   );
 }
@@ -147,34 +208,71 @@ export default function RootNavigator() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
+  const refreshAccess = useCallback(async () => {
     if (!session?.user) {
       setAccessGranted(null);
       return;
     }
-    let active = true;
-    const checkAccess = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('access_granted')
-        .eq('id', session.user.id)
-        .single();
-      if (!active) return;
-      if (error || !data) {
+    setAccessGranted(null);
+    const userId = session.user.id;
+    const userEmail = session.user.email || null;
+    const now = Date.now();
+    let profileAccess = false;
+    let trialEndsAt: string | null = null;
+    let subscriptionStatus = '';
+    let subscriptionEnd: string | null = null;
+    let subscriptionTrialEnd: string | null = null;
+
+    try {
+      const [{ data: profile, error: profileError }, { data: subscription, error: subError }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('access_granted, trial_ends_at')
+          .eq('id', userId)
+          .maybeSingle(),
+        supabase
+          .from('subscriptions')
+          .select('status, current_period_end, trial_end')
+          .eq('user_id', userId)
+          .maybeSingle(),
+      ]);
+
+      if (profileError || !profile) {
         await supabase.from('profiles').upsert({
-          id: session.user.id,
-          email: session.user.email || null,
+          id: userId,
+          email: userEmail,
         });
-        setAccessGranted(false);
-        return;
+      } else {
+        profileAccess = Boolean(profile.access_granted);
+        trialEndsAt = profile.trial_ends_at || null;
       }
-      setAccessGranted(Boolean(data.access_granted));
-    };
-    checkAccess();
-    return () => {
-      active = false;
-    };
-  }, [session?.user?.id]);
+
+      if (!subError && subscription) {
+        subscriptionStatus = (subscription.status || '').toString();
+        subscriptionEnd = subscription.current_period_end || null;
+        subscriptionTrialEnd = subscription.trial_end || null;
+      }
+    } catch (err) {
+      console.warn('Access check error', err);
+    }
+
+    const trialDate = trialEndsAt || subscriptionTrialEnd;
+    const hasTrial =
+      trialDate && !Number.isNaN(new Date(trialDate).getTime()) && new Date(trialDate).getTime() > now;
+
+    const activeStatuses = ['active', 'authorized', 'approved', 'paid', 'trialing'];
+    const normalizedStatus = subscriptionStatus.toLowerCase().trim();
+    const hasActiveSub =
+      activeStatuses.includes(normalizedStatus) &&
+      (!subscriptionEnd ||
+        (new Date(subscriptionEnd).getTime() > now && !Number.isNaN(new Date(subscriptionEnd).getTime())));
+
+    setAccessGranted(profileAccess || hasTrial || hasActiveSub);
+  }, [session?.user?.id, session?.user?.email]);
+
+  useEffect(() => {
+    refreshAccess();
+  }, [refreshAccess]);
 
   useEffect(() => {
     if (!session?.user || Platform.OS === 'web') return;
@@ -235,14 +333,32 @@ export default function RootNavigator() {
     );
   }
 
-  if (session && accessGranted === false) {
-    return <AccessGate onGranted={() => setAccessGranted(true)} />;
-  }
-
   return (
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {session ? (
+        {!session ? (
+          <Stack.Screen 
+            name="Auth" 
+            component={LoginScreen} 
+            options={{ animation: 'fade' }}
+          />
+        ) : accessGranted === false ? (
+          <>
+            <Stack.Screen name="AccessGate">
+              {(props) => (
+                <AccessGate
+                  onRefresh={refreshAccess}
+                  onOpenSubscription={() => props.navigation.navigate('Subscription')}
+                />
+              )}
+            </Stack.Screen>
+            <Stack.Screen
+              name="Subscription"
+              component={SubscriptionScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+          </>
+        ) : (
           <>
             {/* 1. TABS PRINCIPALES (Base) */}
             <Stack.Screen name="Main" component={MainTabs} />
@@ -301,12 +417,6 @@ export default function RootNavigator() {
             />
 
           </>
-        ) : (
-          <Stack.Screen 
-            name="Auth" 
-            component={LoginScreen} 
-            options={{ animation: 'fade' }}
-          />
         )}
       </Stack.Navigator>
     </NavigationContainer>
@@ -317,8 +427,10 @@ const stylesGate = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.secondary,
+  },
+  scroll: {
+    flexGrow: 1,
     justifyContent: 'center',
-    alignItems: 'center',
     padding: 24,
   },
   card: {
@@ -332,6 +444,16 @@ const stylesGate = StyleSheet.create({
   },
   title: { fontSize: 22, color: '#FFF', fontWeight: '700', marginBottom: 6 },
   subtitle: { fontSize: 13, color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
+  section: {
+    backgroundColor: 'rgba(15,23,42,0.7)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    marginBottom: 12,
+  },
+  sectionTitle: { fontSize: 15, color: '#FFF', fontWeight: '700' },
+  sectionText: { fontSize: 12, color: 'rgba(255,255,255,0.7)', marginTop: 6, marginBottom: 12 },
   input: {
     backgroundColor: 'rgba(15,23,42,0.7)',
     padding: 14,
@@ -348,5 +470,21 @@ const stylesGate = StyleSheet.create({
     alignItems: 'center',
   },
   buttonText: { color: '#FFF', fontWeight: '700' },
-  logout: { color: 'rgba(255,255,255,0.7)', textAlign: 'center', marginTop: 12 },
+  secondaryButton: {
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  secondaryButtonText: { color: '#0F172A', fontWeight: '700' },
+  footerRow: { marginTop: 4, alignItems: 'center', gap: 12 },
+  refreshBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  refreshText: { color: 'rgba(255,255,255,0.8)' },
+  logout: { color: 'rgba(255,255,255,0.7)' },
 });

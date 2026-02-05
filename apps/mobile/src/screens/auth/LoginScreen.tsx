@@ -25,6 +25,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
+  const [intent, setIntent] = useState<'trial' | 'subscription' | null>(null);
 
   const getRedirectUrl = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -69,9 +70,17 @@ export default function AuthScreen() {
       if (result.type === 'success' && result.url) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
         if (exchangeError) throw exchangeError;
+        return;
       }
+
+      if (result.type === 'cancel' || result.type === 'dismiss') {
+        throw new Error('Inicio con Google cancelado');
+      }
+
+      await WebBrowser.openBrowserAsync(data.url);
+      Alert.alert('Continuar en Google', 'Si completaste el login, la app debería abrirse automáticamente.');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', error.message || 'No se pudo iniciar con Google.');
     }
   };
 
@@ -94,7 +103,7 @@ export default function AuthScreen() {
           return;
         }
 
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -107,6 +116,13 @@ export default function AuthScreen() {
         });
 
         if (error) throw error;
+        if (intent === 'trial' && data?.session?.access_token) {
+          const { error: trialError } = await supabase.rpc('start_free_trial');
+          if (trialError) throw trialError;
+          Alert.alert('Prueba activada', 'Tenés 7 días gratis para usar UrbanFix.');
+        } else if (intent === 'trial') {
+          Alert.alert('Revisá tu correo', 'Confirmá el email y luego iniciamos la prueba gratis.');
+        }
         Alert.alert('¡Registro Exitoso!', 'Bienvenido a UrbanFix.');
       }
     } catch (error: any) {
@@ -154,7 +170,7 @@ export default function AuthScreen() {
           {/* FORMULARIO */}
           <View style={styles.card}>
             <Text style={styles.cardTitle}>{isLogin ? 'Ingresa a tu cuenta' : 'Crea tu perfil profesional'}</Text>
-            <Text style={styles.cardSubtitle}>Accede con Google o con tu correo.</Text>
+            <Text style={styles.cardSubtitle}>Accede con Google o con tu correo y elegi como empezar.</Text>
 
             <TouchableOpacity 
               style={styles.googleButton} 
@@ -164,6 +180,40 @@ export default function AuthScreen() {
             >
               <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
             </TouchableOpacity>
+
+            <View style={styles.quickRow}>
+              <TouchableOpacity
+                style={styles.quickPill}
+                onPress={() => {
+                  setIntent(null);
+                  setIsLogin(false);
+                }}
+              >
+                <Text style={styles.quickPillText}>Registrate</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickPill}
+                onPress={() => {
+                  setIntent('trial');
+                  setIsLogin(false);
+                }}
+              >
+                <Text style={styles.quickPillText}>Prueba gratis</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.quickPill}
+                onPress={() => {
+                  setIntent('subscription');
+                  setIsLogin(true);
+                  Alert.alert('Suscripcion', 'Inicia sesion y luego elegi tu plan.');
+                }}
+              >
+                <Text style={styles.quickPillText}>Suscripción</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.quickHint}>
+              Elegi una opcion y te guiamos paso a paso. La prueba gratis se activa al registrarte.
+            </Text>
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
@@ -326,7 +376,18 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   switchBtn: { alignItems: 'center', marginTop: 8 },
-  switchText: { color: COLORS.primary, fontFamily: FONTS.subtitle },
+  switchText: { color: '#FCD34D', fontFamily: FONTS.subtitle, fontSize: 13 },
   recoveryBtn: { alignItems: 'flex-end', marginTop: -6 },
-  recoveryText: { color: 'rgba(255,255,255,0.75)', fontFamily: FONTS.body, fontSize: 12 },
+  recoveryText: { color: 'rgba(255,255,255,0.85)', fontFamily: FONTS.body, fontSize: 12 },
+  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  quickPill: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
+    backgroundColor: 'rgba(15,23,42,0.6)',
+  },
+  quickPillText: { color: '#F8FAFC', fontFamily: FONTS.subtitle, fontSize: 12 },
+  quickHint: { textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 11 },
 });
