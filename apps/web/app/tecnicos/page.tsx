@@ -1081,19 +1081,48 @@ export default function TechniciansPage() {
 
   const fetchMasterItems = async () => {
     setLoadingMasterItems(true);
-    const { data, error } = await supabase
-      .from('master_items')
-      .select('id,name,type,suggested_price,category,source_ref')
-      .eq('type', 'labor')
-      .order('category', { ascending: true })
-      .order('name', { ascending: true });
-    if (error) {
+    const selectFields = 'id,name,type,suggested_price,category,source_ref';
+
+    const isMissingActiveColumn = (error: any) => {
+      const message = String(error?.message || '').toLowerCase();
+      return message.includes('column') && message.includes('active') && message.includes('does not exist');
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('master_items')
+        .select(selectFields)
+        .eq('type', 'labor')
+        .eq('active', true)
+        .order('category', { ascending: true })
+        .order('name', { ascending: true });
+
+      if (error) {
+        if (!isMissingActiveColumn(error)) {
+          throw error;
+        }
+
+        const fallback = await supabase
+          .from('master_items')
+          .select(selectFields)
+          .eq('type', 'labor')
+          .order('category', { ascending: true })
+          .order('name', { ascending: true });
+
+        if (fallback.error) {
+          throw fallback.error;
+        }
+
+        setMasterItems((fallback.data as MasterItemRow[]) || []);
+        return;
+      }
+
+      setMasterItems((data as MasterItemRow[]) || []);
+    } catch (error) {
       console.error('Error cargando master items:', error);
+    } finally {
       setLoadingMasterItems(false);
-      return;
     }
-    setMasterItems((data as MasterItemRow[]) || []);
-    setLoadingMasterItems(false);
   };
 
   const fetchBillingPlans = async () => {

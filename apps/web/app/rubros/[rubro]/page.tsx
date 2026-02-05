@@ -11,15 +11,15 @@ const sora = Sora({
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return rubroSlugs.map((slug) => ({ slug }));
+  return rubroSlugs.map((slug) => ({ rubro: slug }));
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug: string }>;
+  params: Promise<{ rubro: string }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
+  const { rubro: slug } = await params;
   const rubro = rubros[slug as RubroKey];
   if (!rubro) {
     return {
@@ -33,8 +33,8 @@ export async function generateMetadata({
   };
 }
 
-export default async function RubroPage({ params }: { params: Promise<{ slug: string }> }) {
-  const { slug } = await params;
+export default async function RubroPage({ params }: { params: Promise<{ rubro: string }> }) {
+  const { rubro: slug } = await params;
   const rubro = rubros[slug as RubroKey];
   if (!rubro) return notFound();
 
@@ -74,11 +74,9 @@ export default async function RubroPage({ params }: { params: Promise<{ slug: st
             </header>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                Rubro de construccion
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rubro de construccion</p>
               <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                {rubro.title} · MANO DE OBRA y presupuestos
+                {rubro.title} Â· MANO DE OBRA y presupuestos
               </h1>
               <p className="mt-4 text-sm text-slate-600">{rubro.description}</p>
               <div className="mt-6 flex flex-wrap gap-3">
@@ -116,3 +114,4 @@ export default async function RubroPage({ params }: { params: Promise<{ slug: st
     </div>
   );
 }
+

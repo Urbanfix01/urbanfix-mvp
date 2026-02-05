@@ -49,6 +49,17 @@ type PaymentItem = {
   profile?: AdminProfile | null;
 };
 
+type MasterItemAdminRow = {
+  id: string;
+  name: string;
+  type: string;
+  suggested_price?: number | null;
+  category?: string | null;
+  source_ref?: string | null;
+  active?: boolean | null;
+  created_at?: string | null;
+};
+
 type IncomeZoneItem = {
   zone: string;
   total_amount: number;
@@ -233,7 +244,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [grantingId, setGrantingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'resumen' | 'usuarios' | 'facturacion' | 'mensajes' | 'accesos' | 'actividad'
+    'resumen' | 'usuarios' | 'facturacion' | 'mensajes' | 'accesos' | 'actividad' | 'mano_obra'
   >('resumen');
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
@@ -272,6 +283,15 @@ export default function AdminPage() {
   const [presenceData, setPresenceData] = useState<PresenceData | null>(null);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [presenceError, setPresenceError] = useState('');
+  const [laborItems, setLaborItems] = useState<MasterItemAdminRow[]>([]);
+  const [laborLoading, setLaborLoading] = useState(false);
+  const [laborError, setLaborError] = useState('');
+  const [laborSearch, setLaborSearch] = useState('');
+  const [laborSourceFilter, setLaborSourceFilter] = useState('all');
+  const [laborShowInactive, setLaborShowInactive] = useState(false);
+  const [laborPriceDrafts, setLaborPriceDrafts] = useState<Record<string, string>>({});
+  const [laborSavingId, setLaborSavingId] = useState<string | null>(null);
+  const [laborMessage, setLaborMessage] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -415,6 +435,77 @@ export default function AdminPage() {
     }
   };
 
+  const loadLaborItems = async (token?: string) => {
+    if (!token) return;
+    setLaborError('');
+    setLaborMessage('');
+    setLaborLoading(true);
+    try {
+      const response = await fetch('/api/admin/master-items?type=labor', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudieron cargar los valores.');
+      }
+      const data = await response.json();
+      const items = (data?.items || []) as MasterItemAdminRow[];
+      setLaborItems(items);
+      const nextDrafts: Record<string, string> = {};
+      items.forEach((item) => {
+        nextDrafts[item.id] =
+          item.suggested_price === null || item.suggested_price === undefined ? '' : String(item.suggested_price);
+      });
+      setLaborPriceDrafts(nextDrafts);
+    } catch (error: any) {
+      setLaborError(error?.message || 'No se pudieron cargar los valores.');
+    } finally {
+      setLaborLoading(false);
+    }
+  };
+
+  const patchLaborItem = async (
+    itemId: string,
+    patch: { active?: boolean; suggested_price?: number | null }
+  ) => {
+    if (!session?.access_token) return;
+    setLaborError('');
+    setLaborMessage('');
+    setLaborSavingId(itemId);
+    try {
+      const response = await fetch(`/api/admin/master-items/${itemId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patch),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo guardar el cambio.');
+      }
+      const updated = (data?.item || null) as MasterItemAdminRow | null;
+      if (updated) {
+        setLaborItems((prev) => prev.map((item) => (item.id === itemId ? { ...item, ...updated } : item)));
+        if (patch.suggested_price !== undefined) {
+          setLaborPriceDrafts((prev) => ({
+            ...prev,
+            [itemId]:
+              updated.suggested_price === null || updated.suggested_price === undefined
+                ? ''
+                : String(updated.suggested_price),
+          }));
+        }
+      }
+      setLaborMessage('Guardado.');
+    } catch (error: any) {
+      setLaborError(error?.message || 'No se pudo guardar el cambio.');
+    } finally {
+      setLaborSavingId(null);
+    }
+  };
+
   const handleSendSupportMessage = async () => {
     if (!session?.access_token || !activeSupportUserId) return;
     const trimmed = supportDraft.trim();
@@ -458,6 +549,11 @@ export default function AdminPage() {
     if (!session?.access_token || activeTab !== 'mensajes' || !activeSupportUserId) return;
     loadSupportMessages(session.access_token, activeSupportUserId);
   }, [activeTab, session?.access_token, activeSupportUserId]);
+
+  useEffect(() => {
+    if (!session?.access_token || activeTab !== 'mano_obra') return;
+    loadLaborItems(session.access_token);
+  }, [activeTab, session?.access_token]);
 
   useEffect(() => {
     if (!session?.access_token || activeTab !== 'actividad') return;
@@ -564,6 +660,7 @@ export default function AdminPage() {
     { key: 'resumen', label: 'Resumen' },
     { key: 'usuarios', label: 'Usuarios' },
     { key: 'facturacion', label: 'Facturación' },
+    { key: 'mano_obra', label: 'Mano de obra' },
     { key: 'mensajes', label: 'Mensajes' },
     { key: 'accesos', label: 'Accesos' },
     { key: 'actividad', label: 'Actividad' },
@@ -601,6 +698,34 @@ export default function AdminPage() {
       return label.includes(query) || lastBody.includes(query);
     });
   }, [supportUsers, messageSearch]);
+
+  const laborSources = useMemo(() => {
+    const values = new Set<string>();
+    laborItems.forEach((item) => {
+      const source = (item.source_ref || '').toString().trim() || 'Sin fuente';
+      values.add(source);
+    });
+    return Array.from(values).sort((a, b) => a.localeCompare(b));
+  }, [laborItems]);
+
+  const laborTotals = useMemo(() => {
+    const total = laborItems.length;
+    const active = laborItems.filter((item) => item.active !== false).length;
+    return { total, active };
+  }, [laborItems]);
+
+  const filteredLaborItems = useMemo(() => {
+    const query = normalizeText(laborSearch);
+    return laborItems.filter((item) => {
+      const isActive = item.active !== false;
+      if (!laborShowInactive && !isActive) return false;
+      const source = (item.source_ref || '').toString().trim() || 'Sin fuente';
+      if (laborSourceFilter !== 'all' && source !== laborSourceFilter) return false;
+      if (!query) return true;
+      const haystack = normalizeText([item.name, item.category, item.source_ref].filter(Boolean).join(' '));
+      return haystack.includes(query);
+    });
+  }, [laborItems, laborSearch, laborShowInactive, laborSourceFilter]);
 
   if (loadingSession) {
     return (
@@ -1333,6 +1458,182 @@ export default function AdminPage() {
                 </div>
               </section>
             </>
+          )}
+          {activeTab === 'mano_obra' && (
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Catálogo</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Valores de mano de obra</h3>
+                  <p className="text-sm text-slate-500">
+                    Activa/desactiva items y ajusta el precio sugerido (se usa en el panel de técnicos).
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700">
+                    Activos: {laborTotals.active}/{laborTotals.total}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => loadLaborItems(session.access_token)}
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Actualizar
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <input
+                  value={laborSearch}
+                  onChange={(event) => setLaborSearch(event.target.value)}
+                  placeholder="Buscar por nombre, rubro o fuente..."
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
+                />
+                <select
+                  value={laborSourceFilter}
+                  onChange={(event) => setLaborSourceFilter(event.target.value)}
+                  className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                >
+                  <option value="all">Todas las fuentes</option>
+                  {laborSources.map((source) => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
+                <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={laborShowInactive}
+                    onChange={(event) => setLaborShowInactive(event.target.checked)}
+                    className="h-4 w-4 rounded border border-slate-300 text-slate-900"
+                  />
+                  Mostrar inactivos
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLaborSearch('');
+                    setLaborSourceFilter('all');
+                    setLaborShowInactive(false);
+                  }}
+                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  Limpiar filtros
+                </button>
+              </div>
+
+              {laborError && (
+                <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                  {laborError}
+                </div>
+              )}
+              {!laborError && laborMessage && (
+                <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {laborMessage}
+                </div>
+              )}
+
+              <div className="mt-5 space-y-3">
+                {laborLoading && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Cargando valores...
+                  </div>
+                )}
+                {!laborLoading && filteredLaborItems.length === 0 && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    No encontramos items con esos filtros.
+                  </div>
+                )}
+                {filteredLaborItems.map((item) => {
+                  const isActive = item.active !== false;
+                  const source = (item.source_ref || '').toString().trim() || 'Sin fuente';
+                  const draft = laborPriceDrafts[item.id] ?? '';
+                  const current =
+                    item.suggested_price === null || item.suggested_price === undefined ? '' : String(item.suggested_price);
+                  const dirty = draft !== current;
+                  const saving = laborSavingId === item.id;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                    >
+                      <div className="min-w-[240px] flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p
+                            className={`text-sm font-semibold ${
+                              isActive ? 'text-slate-900' : 'text-slate-400 line-through'
+                            }`}
+                          >
+                            {item.name}
+                          </p>
+                          <span
+                            className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                              isActive
+                                ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : 'border border-slate-200 bg-slate-100 text-slate-600'
+                            }`}
+                          >
+                            {isActive ? 'Activo' : 'Inactivo'}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {[item.category, source].filter(Boolean).join(' · ')}
+                        </p>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="1"
+                          value={draft}
+                          onChange={(event) =>
+                            setLaborPriceDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))
+                          }
+                          className="w-36 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <button
+                          type="button"
+                          disabled={saving || !dirty}
+                          onClick={() => {
+                            const raw = (laborPriceDrafts[item.id] ?? '').trim();
+                            if (raw === '') {
+                              patchLaborItem(item.id, { suggested_price: null });
+                              return;
+                            }
+
+                            const parsed = Number(raw);
+                            if (!Number.isFinite(parsed) || parsed < 0) {
+                              setLaborError('Precio inválido. Usa un número igual o mayor a 0.');
+                              return;
+                            }
+                            patchLaborItem(item.id, { suggested_price: parsed });
+                          }}
+                          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {saving ? 'Guardando...' : 'Guardar'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => patchLaborItem(item.id, { active: !isActive })}
+                          disabled={saving}
+                          className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                            isActive
+                              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                              : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                          } disabled:cursor-not-allowed disabled:opacity-60`}
+                        >
+                          {isActive ? 'Desactivar' : 'Activar'}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
           {activeTab === 'mensajes' && (
             <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
