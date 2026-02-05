@@ -23,6 +23,7 @@ export default function AuthScreen() {
   const [businessName, setBusinessName] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
 
   const getRedirectUrl = () => {
@@ -115,6 +116,26 @@ export default function AuthScreen() {
     }
   }
 
+  const handlePasswordRecovery = async () => {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      Alert.alert('Falta email', 'Ingresa tu email para recuperar la contraseña.');
+      return;
+    }
+    setRecovering(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: 'https://www.urbanfixar.com/tecnicos?recovery=1',
+      });
+      if (error) throw error;
+      Alert.alert('Revisa tu correo', 'Te enviamos un email para recuperar tu contraseña.');
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setRecovering(false);
+    }
+  };
+
   return (
     <LinearGradient colors={['#0B1221', COLORS.secondary, '#0B1221']} style={styles.container}>
       <KeyboardAvoidingView 
@@ -192,6 +213,18 @@ export default function AuthScreen() {
               onChangeText={setPassword}
               secureTextEntry
             />
+
+            {isLogin && (
+              <TouchableOpacity
+                style={styles.recoveryBtn}
+                onPress={handlePasswordRecovery}
+                disabled={recovering}
+              >
+                <Text style={styles.recoveryText}>
+                  {recovering ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
+                </Text>
+              </TouchableOpacity>
+            )}
 
             <TouchableOpacity 
               onPress={handleAuth}
@@ -294,4 +327,6 @@ const styles = StyleSheet.create({
   buttonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   switchBtn: { alignItems: 'center', marginTop: 8 },
   switchText: { color: COLORS.primary, fontFamily: FONTS.subtitle },
+  recoveryBtn: { alignItems: 'flex-end', marginTop: -6 },
+  recoveryText: { color: 'rgba(255,255,255,0.75)', fontFamily: FONTS.body, fontSize: 12 },
 });
