@@ -9,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/tecnicos", "/p/"],
       },
     ],
-    sitemap: "https://www.urbanfixar.com/sitemap.xml",
+    sitemap: "https://www.urbanfix.com.ar/sitemap.xml",
   };
 }

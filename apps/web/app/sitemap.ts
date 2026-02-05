@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { rubroSlugs, ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://www.urbanfixar.com";
+  const baseUrl = "https://www.urbanfix.com.ar";
   const rubrosEntries: MetadataRoute.Sitemap = rubroSlugs.map((slug) => ({
     url: `${baseUrl}/rubros/${slug}`,
     lastModified: new Date(),

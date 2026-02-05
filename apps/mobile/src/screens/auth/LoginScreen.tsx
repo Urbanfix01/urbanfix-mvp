@@ -125,7 +125,7 @@ export default function AuthScreen() {
     setRecovering(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: 'https://www.urbanfixar.com/tecnicos?recovery=1',
+        redirectTo: 'https://www.urbanfix.com.ar/tecnicos?recovery=1',
       });
       if (error) throw error;
       Alert.alert('Revisa tu correo', 'Te enviamos un email para recuperar tu contraseña.');

@@ -8,7 +8,7 @@ import PageTransition from "../components/PageTransition";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.urbanfixar.com"),
+  metadataBase: new URL("https://www.urbanfix.com.ar"),
   title: {
     default: "UrbanFix | Gestion clara para tecnicos en movimiento",
     template: "%s | UrbanFix",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: "UrbanFix | Gestion clara para tecnicos en movimiento",
     description:
       "Plataforma de presupuestos y gestion para tecnicos. Clientes reciben presupuestos por link y tecnicos gestionan desde la web.",
-    url: "https://www.urbanfixar.com",
+    url: "https://www.urbanfix.com.ar",
     siteName: "UrbanFix",
     locale: "es_AR",
     type: "website",
