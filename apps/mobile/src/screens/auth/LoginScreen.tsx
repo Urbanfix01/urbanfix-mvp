@@ -25,7 +25,7 @@ export default function AuthScreen() {
   const [loading, setLoading] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
-  const [intent, setIntent] = useState<'trial' | 'subscription' | null>(null);
+  const [showRegisterHint, setShowRegisterHint] = useState(false);
 
   const getRedirectUrl = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -116,13 +116,6 @@ export default function AuthScreen() {
         });
 
         if (error) throw error;
-        if (intent === 'trial' && data?.session?.access_token) {
-          const { error: trialError } = await supabase.rpc('start_free_trial');
-          if (trialError) throw trialError;
-          Alert.alert('Prueba activada', 'Tenés 7 días gratis para usar UrbanFix.');
-        } else if (intent === 'trial') {
-          Alert.alert('Revisá tu correo', 'Confirmá el email y luego iniciamos la prueba gratis.');
-        }
         Alert.alert('¡Registro Exitoso!', 'Bienvenido a UrbanFix.');
       }
     } catch (error: any) {
@@ -185,34 +178,15 @@ export default function AuthScreen() {
               <TouchableOpacity
                 style={styles.quickPill}
                 onPress={() => {
-                  setIntent(null);
                   setIsLogin(false);
+                  setShowRegisterHint(true);
                 }}
               >
-                <Text style={styles.quickPillText}>Registrate</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickPill}
-                onPress={() => {
-                  setIntent('trial');
-                  setIsLogin(false);
-                }}
-              >
-                <Text style={styles.quickPillText}>Prueba gratis</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.quickPill}
-                onPress={() => {
-                  setIntent('subscription');
-                  setIsLogin(true);
-                  Alert.alert('Suscripcion', 'Inicia sesion y luego elegi tu plan.');
-                }}
-              >
-                <Text style={styles.quickPillText}>Suscripción</Text>
+                <Text style={styles.quickPillText}>Crear cuenta gratis</Text>
               </TouchableOpacity>
             </View>
             <Text style={styles.quickHint}>
-              Elegi una opcion y te guiamos paso a paso. La prueba gratis se activa al registrarte.
+              UrbanFix es gratuito. Registrate en segundos y empezá a gestionar.
             </Text>
 
             <View style={styles.dividerRow}>
@@ -298,9 +272,12 @@ export default function AuthScreen() {
               onPress={() => setIsLogin(!isLogin)}
             >
               <Text style={styles.switchText}>
-                {isLogin ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Ingresa'}
+                {isLogin ? '¿No tienes cuenta? Regístrate gratis' : '¿Ya tienes cuenta? Ingresa'}
               </Text>
             </TouchableOpacity>
+            {showRegisterHint && !isLogin && (
+              <Text style={styles.registerHint}>Completa tu perfil y listo.</Text>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -390,4 +367,5 @@ const styles = StyleSheet.create({
   },
   quickPillText: { color: '#F8FAFC', fontFamily: FONTS.subtitle, fontSize: 12 },
   quickHint: { textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 11 },
+  registerHint: { marginTop: 4, textAlign: 'center', color: '#FCD34D', fontSize: 11 },
 });

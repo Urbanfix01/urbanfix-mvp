@@ -388,14 +388,6 @@ export default function ProfileScreen() {
               navigation.navigate('Support');
             }}
           />
-          <MenuOption
-            icon="card-outline"
-            label="Suscripcion"
-            onPress={() => {
-              // @ts-ignore
-              navigation.navigate('Subscription');
-            }}
-          />
           <MenuOption 
             icon="document-text-outline" 
             label="Historial Completo" 

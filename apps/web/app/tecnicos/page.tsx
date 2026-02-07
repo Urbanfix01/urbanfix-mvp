@@ -86,28 +86,6 @@ type MasterItemRow = {
   source_ref?: string | null;
 };
 
-type BillingPlanRow = {
-  id: string;
-  name: string;
-  period_months: number;
-  price_ars: number;
-  is_partner: boolean;
-  trial_days?: number | null;
-  active?: boolean | null;
-  mp_plan_id?: string | null;
-};
-
-type SubscriptionRow = {
-  id: string;
-  user_id: string;
-  plan_id: string | null;
-  status: string | null;
-  current_period_start?: string | null;
-  current_period_end?: string | null;
-  trial_end?: string | null;
-  plan?: BillingPlanRow | null;
-};
-
 type GeoResult = {
   display_name: string;
   lat: number;
@@ -124,7 +102,6 @@ type NavItem = {
     | 'notificaciones'
     | 'soporte'
     | 'historial'
-    | 'suscripcion'
     | 'perfil'
     | 'precios';
   label: string;
@@ -230,7 +207,6 @@ const billingStatuses = new Set([
   'completado',
   'finalizado',
 ]);
-const activeSubscriptionStatuses = new Set(['authorized', 'active', 'approved']);
 
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
@@ -481,12 +457,6 @@ export default function TechniciansPage() {
   const [recoveryError, setRecoveryError] = useState('');
   const [recoveryMessage, setRecoveryMessage] = useState('');
   const [updatingRecovery, setUpdatingRecovery] = useState(false);
-  const [accessGateStatus, setAccessGateStatus] = useState<'checking' | 'required' | 'granted'>('checking');
-  const [accessCodeInput, setAccessCodeInput] = useState('');
-  const [accessCodeError, setAccessCodeError] = useState('');
-  const [redeemingAccess, setRedeemingAccess] = useState(false);
-  const [startingTrial, setStartingTrial] = useState(false);
-  const [trialError, setTrialError] = useState('');
   const [isBetaAdmin, setIsBetaAdmin] = useState(false);
   const [adminGateStatus, setAdminGateStatus] = useState<'idle' | 'checking' | 'done'>('idle');
   const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
@@ -551,21 +521,6 @@ export default function TechniciansPage() {
   const [loadingMasterItems, setLoadingMasterItems] = useState(false);
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
-  const [billingPlans, setBillingPlans] = useState<BillingPlanRow[]>([]);
-  const [loadingBilling, setLoadingBilling] = useState(false);
-  const [billingError, setBillingError] = useState('');
-  const [subscription, setSubscription] = useState<SubscriptionRow | null>(null);
-  const [payerEmail, setPayerEmail] = useState('');
-  const [couponCode, setCouponCode] = useState('');
-  const [couponStatus, setCouponStatus] = useState<'idle' | 'checking' | 'valid' | 'invalid'>('idle');
-  const [couponInfo, setCouponInfo] = useState<{
-    code: string;
-    discount_percent: number;
-    is_partner: boolean;
-  } | null>(null);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null);
-  const [creatingCheckout, setCreatingCheckout] = useState(false);
-  const [billingMessage, setBillingMessage] = useState('');
   const [navSearch, setNavSearch] = useState('');
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false);
@@ -584,7 +539,6 @@ export default function TechniciansPage() {
     | 'precios'
     | 'historial'
     | 'notificaciones'
-    | 'suscripcion'
   >('lobby');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -640,7 +594,6 @@ export default function TechniciansPage() {
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO', icon: Bell },
     { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH', icon: MessageCircle },
     { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI', icon: Clock },
-    { key: 'suscripcion', label: 'Suscripcion', hint: 'Planes', short: 'SU', icon: CreditCard },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
   ];
@@ -721,7 +674,6 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (!session?.user) {
-      setAccessGateStatus('checking');
       return;
     }
     const load = async () => {
@@ -744,24 +696,9 @@ export default function TechniciansPage() {
       }
 
       setProfile(resolvedProfile);
-
-      await fetchBillingPlans();
-      const currentSubscription = await fetchSubscription();
-      const trialEndsAt = resolvedProfile?.trial_ends_at
-        ? new Date(resolvedProfile.trial_ends_at)
-        : null;
-      const trialActive = trialEndsAt ? trialEndsAt.getTime() > Date.now() : false;
-      const hasActiveSubscription = currentSubscription
-        ? activeSubscriptionStatuses.has(String(currentSubscription.status || '').toLowerCase())
-        : false;
-      const hasAccess =
-        Boolean(resolvedProfile?.access_granted) || trialActive || hasActiveSubscription;
-      setAccessGateStatus(hasAccess ? 'granted' : 'required');
-      if (hasAccess) {
-        await fetchQuotes(session.user.id);
-        await fetchNotifications(session.user.id);
-        await fetchMasterItems();
-      }
+      await fetchQuotes(session.user.id);
+      await fetchNotifications(session.user.id);
+      await fetchMasterItems();
     };
     load();
   }, [session?.user?.id]);
@@ -795,34 +732,9 @@ export default function TechniciansPage() {
   }, [profile, session?.user?.email]);
 
   useEffect(() => {
-    if (!profile && !session?.user?.email) return;
-    setPayerEmail((prev) => prev || profile?.mp_payer_email || session?.user?.email || '');
-  }, [profile?.mp_payer_email, session?.user?.email]);
-
-  useEffect(() => {
     if (!(profile?.company_logo_url || (profile?.logo_shape && profile?.avatar_url))) return;
     setLogoRatio(1);
   }, [profile?.avatar_url, profile?.company_logo_url, profile?.logo_shape]);
-
-  useEffect(() => {
-    if (!billingPlans.length) return;
-    if (selectedPlanId) return;
-    const basePlans = billingPlans.filter((plan) => !plan.is_partner);
-    const sorted = basePlans.sort((a, b) => a.period_months - b.period_months);
-    if (sorted[0]) {
-      setSelectedPlanId(sorted[0].id);
-    }
-  }, [billingPlans, selectedPlanId]);
-
-  useEffect(() => {
-    if (!couponCode) {
-      setCouponStatus('idle');
-      setCouponInfo(null);
-      return;
-    }
-    setCouponStatus('idle');
-    setCouponInfo(null);
-  }, [couponCode]);
 
   useEffect(() => {
     supportAttachmentsRef.current = supportAttachments;
@@ -1122,144 +1034,6 @@ export default function TechniciansPage() {
       console.error('Error cargando master items:', error);
     } finally {
       setLoadingMasterItems(false);
-    }
-  };
-
-  const fetchBillingPlans = async () => {
-    setLoadingBilling(true);
-    setBillingError('');
-    try {
-      const response = await fetch('/api/billing/plans');
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || 'No se pudieron cargar los planes.');
-      }
-      setBillingPlans(data.plans || []);
-    } catch (error: any) {
-      setBillingError(error?.message || 'No se pudieron cargar los planes.');
-    } finally {
-      setLoadingBilling(false);
-    }
-  };
-
-  const fetchSubscription = async () => {
-    if (!session?.access_token) return null;
-    try {
-      const response = await fetch('/api/billing/subscription', {
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error || 'No se pudo cargar la suscripcion.');
-      }
-      const nextSubscription = data.subscription || null;
-      setSubscription(nextSubscription);
-      return nextSubscription;
-    } catch (error: any) {
-      setSubscription(null);
-      return null;
-    }
-  };
-
-  const handleValidateCoupon = async () => {
-    if (!couponCode.trim()) {
-      setCouponStatus('invalid');
-      setCouponInfo(null);
-      return;
-    }
-    if (!session?.access_token) {
-      setCouponStatus('invalid');
-      setCouponInfo(null);
-      return;
-    }
-    setCouponStatus('checking');
-    try {
-      const response = await fetch('/api/billing/coupon/validate', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ code: couponCode }),
-      });
-      const data = await response.json();
-      if (!response.ok || !data.valid) {
-        setCouponStatus('invalid');
-        setCouponInfo(null);
-        return;
-      }
-      setCouponStatus('valid');
-      setCouponInfo(data.coupon || null);
-    } catch (error) {
-      setCouponStatus('invalid');
-      setCouponInfo(null);
-    }
-  };
-
-  const handleCheckout = async () => {
-    if (!selectedPlanId) return;
-    if (!session?.access_token) return;
-    setCreatingCheckout(true);
-    setBillingMessage('');
-    try {
-      const trimmedPayerEmail = payerEmail.trim();
-      if (trimmedPayerEmail && !isEmailLike(trimmedPayerEmail)) {
-        setBillingMessage('Ingresa un email valido de MercadoPago.');
-        return;
-      }
-      if (trimmedPayerEmail && process.env.NODE_ENV === 'production' && /@testuser\.com$/i.test(trimmedPayerEmail)) {
-        setBillingMessage('No se permiten emails de prueba en produccion. Usa tu email real de MercadoPago.');
-        return;
-      }
-      if (trimmedPayerEmail && session?.user?.id && trimmedPayerEmail !== profile?.mp_payer_email) {
-        await supabase
-          .from('profiles')
-          .update({ mp_payer_email: trimmedPayerEmail })
-          .eq('id', session.user.id);
-        setProfile((prev: any) => ({ ...prev, mp_payer_email: trimmedPayerEmail }));
-      }
-      const response = await fetch('/api/billing/checkout', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          planId: selectedPlanId,
-          couponCode: couponStatus === 'valid' ? couponInfo?.code : '',
-          successUrl: `${getPublicBaseUrl()}/tecnicos?billing=success`,
-          cancelUrl: `${getPublicBaseUrl()}/tecnicos?billing=cancel`,
-          payerEmail: trimmedPayerEmail || null,
-        }),
-      });
-      const responseText = await response.text();
-      let data: any = null;
-      try {
-        data = responseText ? JSON.parse(responseText) : null;
-      } catch (_error) {
-        data = null;
-      }
-      if (!response.ok) {
-        throw new Error(data?.error || responseText || 'No pudimos iniciar el pago.');
-      }
-      if (data?.checkout_url) {
-        window.location.href = data.checkout_url;
-      } else {
-        throw new Error('No se obtuvo el link de pago.');
-      }
-    } catch (error: any) {
-      const message = error?.message || 'No pudimos iniciar el pago.';
-      if (
-        message.toLowerCase().includes('payer and collector') ||
-        message.toLowerCase().includes('mercadopago requiere')
-      ) {
-        setPayerEmail('');
-        setBillingMessage('El email no es una cuenta real de MercadoPago. Ingresalo nuevamente.');
-        return;
-      }
-      setBillingMessage(message);
-    } finally {
-      setCreatingCheckout(false);
     }
   };
 
@@ -1726,36 +1500,6 @@ export default function TechniciansPage() {
       return matchesSearch && matchesCategory;
     });
   }, [masterItems, masterSearch, masterCategory]);
-  const baseBillingPlans = useMemo(
-    () =>
-      billingPlans
-        .filter((plan) => !plan.is_partner)
-        .sort((a, b) => a.period_months - b.period_months),
-    [billingPlans]
-  );
-  const partnerBillingMap = useMemo(() => {
-    const map = new Map<number, BillingPlanRow>();
-    billingPlans.forEach((plan) => {
-      if (plan.is_partner) {
-        map.set(plan.period_months, plan);
-      }
-    });
-    return map;
-  }, [billingPlans]);
-  const selectedBasePlan = useMemo(() => {
-    if (!baseBillingPlans.length) return null;
-    return baseBillingPlans.find((plan) => plan.id === selectedPlanId) || baseBillingPlans[0];
-  }, [baseBillingPlans, selectedPlanId]);
-  const selectedPartnerPlan = useMemo(() => {
-    if (!selectedBasePlan) return null;
-    return partnerBillingMap.get(selectedBasePlan.period_months) || null;
-  }, [partnerBillingMap, selectedBasePlan]);
-  const effectivePlan = useMemo(() => {
-    if (couponStatus === 'valid' && couponInfo?.is_partner && selectedPartnerPlan) {
-      return selectedPartnerPlan;
-    }
-    return selectedBasePlan;
-  }, [couponStatus, couponInfo, selectedPartnerPlan, selectedBasePlan]);
   const approvedJobs = useMemo(
     () => quotes.filter((quote) => readyToScheduleStatuses.has(normalizeStatusValue(quote.status))),
     [quotes]
@@ -2343,60 +2087,6 @@ export default function TechniciansPage() {
       }
   };
 
-  const handleRedeemAccessCode = async () => {
-    if (!session?.user) return;
-    setAccessCodeError('');
-    const trimmedCode = accessCodeInput.trim();
-    if (!trimmedCode) {
-      setAccessCodeError('Ingresa el codigo de acceso.');
-      return;
-    }
-    setRedeemingAccess(true);
-    try {
-      const { error } = await supabase.rpc('redeem_access_code', { p_code: trimmedCode });
-      if (error) throw error;
-      setAccessGateStatus('granted');
-      setAccessCodeInput('');
-      setProfile((prev: any) => ({ ...prev, access_granted: true, access_granted_at: new Date().toISOString() }));
-      await fetchQuotes(session.user.id);
-      await fetchNotifications(session.user.id);
-      await fetchMasterItems();
-      await fetchBillingPlans();
-      await fetchSubscription();
-    } catch (error: any) {
-      setAccessCodeError(error?.message || 'No pudimos validar el codigo.');
-    } finally {
-      setRedeemingAccess(false);
-    }
-  };
-
-  const handleStartTrial = async () => {
-    if (!session?.user) return;
-    setTrialError('');
-    setStartingTrial(true);
-    try {
-      const { error } = await supabase.rpc('start_free_trial');
-      if (error) throw error;
-      const now = new Date();
-      const endsAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-      setProfile((prev: any) => ({
-        ...prev,
-        trial_started_at: now.toISOString(),
-        trial_ends_at: endsAt.toISOString(),
-      }));
-      setAccessGateStatus('granted');
-      await fetchQuotes(session.user.id);
-      await fetchNotifications(session.user.id);
-      await fetchMasterItems();
-      await fetchBillingPlans();
-      await fetchSubscription();
-    } catch (error: any) {
-      setTrialError(error?.message || 'No pudimos iniciar la prueba gratuita.');
-    } finally {
-      setStartingTrial(false);
-    }
-  };
-
   useEffect(() => {
     if (!session?.user || activeTab !== 'soporte') return;
     if (isBetaAdmin) {
@@ -2417,11 +2107,6 @@ export default function TechniciansPage() {
     if (!address) missing.push('Direccion base');
     return missing;
   }, [profile?.address, profile?.business_name, profile?.company_address, profile?.full_name, profile?.phone]);
-
-  const trialEndsAt = profile?.trial_ends_at ? new Date(profile.trial_ends_at) : null;
-  const trialActive = trialEndsAt ? trialEndsAt.getTime() > Date.now() : false;
-  const trialUsed = Boolean(profile?.trial_started_at || profile?.trial_ends_at);
-  const trialEndsLabel = trialEndsAt ? trialEndsAt.toLocaleDateString('es-AR') : '';
 
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
@@ -2818,7 +2503,7 @@ export default function TechniciansPage() {
     );
   }
 
-  if (session?.user && accessGateStatus === 'granted' && profile && profileRequiredMissing.length > 0) {
+  if (session?.user && profile && profileRequiredMissing.length > 0) {
     return (
       <>
         <AuthHashHandler />
