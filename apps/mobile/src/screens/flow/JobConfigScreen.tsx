@@ -1,4 +1,5 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
+import { useCallback } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, Switch,
@@ -151,6 +152,7 @@ export default function JobConfigScreen() {
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<QuoteAttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
+  const [isHeaderCompact, setIsHeaderCompact] = useState(false);
   
   const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
@@ -429,6 +431,21 @@ export default function JobConfigScreen() {
     setSelectedLaborTool('none');
     setLaborToolOpen(false);
   };
+
+  const handleScroll = useCallback(
+    (event: any) => {
+      const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
+      if (!isHeaderCompact && offsetY > 80) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setIsHeaderCompact(true);
+      }
+      if (isHeaderCompact && offsetY < 40) {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        setIsHeaderCompact(false);
+      }
+    },
+    [isHeaderCompact]
+  );
 
   const updateAttachment = (id: string, patch: Partial<QuoteAttachmentItem>) => {
     setAttachments((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -807,107 +824,114 @@ export default function JobConfigScreen() {
                 // Ajuste fino para que el teclado no tape el input de Google
                 keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
             >
-                <View style={[styles.addressWrapper, IS_WEB && styles.addressWrapperWeb]}>
-                    <LinearGradient
-                        colors={['#0F172A', '#1F2937']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={[styles.hero, !isWideLayout && styles.heroCompact]}
-                    >
-                        <View style={styles.heroGlow} />
-                        <View style={[styles.heroContent, isWideLayout && styles.heroContentWide]}>
-                            <View style={styles.heroLeft}>
-                                <Text style={styles.heroEyebrow}>COTIZADOR URBANFIX</Text>
-                                <Text style={styles.heroTitle}>
-                                    {isEditMode ? 'Editar presupuesto' : 'Nuevo presupuesto'}
-                                </Text>
-                                <Text style={styles.heroSubtitle}>
-                                    Crea una propuesta clara, con totales al instante.
-                                </Text>
-                            </View>
-                            <View style={styles.heroTotalCard}>
-                                <Text style={styles.heroTotalLabel}>Total estimado</Text>
-                                <Text style={styles.heroTotalValue}>${formatCurrency(totalWithTax)}</Text>
-                                <Text style={styles.heroTotalMeta}>{applyTax ? 'IVA incluido' : 'Sin IVA'}</Text>
-                            </View>
-                        </View>
-                        <View style={styles.heroSteps}>
-                            <View style={[styles.stepChip, hasClientInfo && styles.stepChipActive]}>
-                                <Ionicons
-                                    name="person-outline"
-                                    size={14}
-                                    color={hasClientInfo ? '#0F172A' : '#E2E8F0'}
-                                />
-                                <Text style={[styles.stepChipText, hasClientInfo && styles.stepChipTextActive]}>
-                                    Cliente
-                                </Text>
-                            </View>
-                            <View style={[styles.stepChip, hasItems && styles.stepChipActive]}>
-                                <Ionicons
-                                    name="hammer-outline"
-                                    size={14}
-                                    color={hasItems ? '#0F172A' : '#E2E8F0'}
-                                />
-                                <Text style={[styles.stepChipText, hasItems && styles.stepChipTextActive]}>
-                                    Items
-                                </Text>
-                            </View>
-                            <View style={[styles.stepChip, hasItems && hasClientInfo && styles.stepChipActive]}>
-                                <Ionicons
-                                    name="document-text-outline"
-                                    size={14}
-                                    color={hasItems && hasClientInfo ? '#0F172A' : '#E2E8F0'}
-                                />
-                                <Text
-                                    style={[
-                                        styles.stepChipText,
-                                        hasItems && hasClientInfo && styles.stepChipTextActive,
-                                    ]}
-                                >
-                                    Total
-                                </Text>
-                            </View>
-                        </View>
-                    </LinearGradient>
-
-                    <View style={styles.panel}>
-                        <View style={styles.panelHeader}>
-                            <View style={styles.panelHeaderLeft}>
-                                <Text style={styles.panelEyebrow}>PASO 1</Text>
-                                <Text style={styles.panelTitle}>Datos del cliente</Text>
-                                <Text style={styles.panelHint}>Agrega nombre y direccion para iniciar.</Text>
-                            </View>
-                            <View style={[styles.statusBadge, hasClientInfo && styles.statusBadgeActive]}>
-                                <Ionicons
-                                    name={hasClientInfo ? 'checkmark-circle' : 'time-outline'}
-                                    size={14}
-                                    color={hasClientInfo ? '#16A34A' : '#94A3B8'}
-                                />
-                                <Text style={[styles.statusBadgeText, hasClientInfo && styles.statusBadgeTextActive]}>
-                                    {hasClientInfo ? 'Listo' : 'Pendiente'}
-                                </Text>
-                            </View>
-                        </View>
-                        <ClientAddressForm 
-                            variant="inline"
-                            initialName={clientName}
-                            initialAddress={clientAddress}
-                            initialLocation={location}
-                            onClientNameChange={setClientName}
-                            onLocationChange={(addr, lat, lng) => {
-                                setClientAddress(addr);
-                                setLocation({ lat, lng });
-                            }}
-                        />
-                    </View>
-                </View>
-
-                {/* 🔥 LA SOLUCIÓN ESTÁ AQUÍ: keyboardShouldPersistTaps="always" */}
                 <ScrollView 
                     contentContainerStyle={[styles.scrollContent, IS_WEB && styles.scrollContentWeb]} 
                     showsVerticalScrollIndicator={false}
-                    keyboardShouldPersistTaps="always" 
+                    keyboardShouldPersistTaps="always"
+                    onScroll={handleScroll}
+                    scrollEventThrottle={16}
                 >
+                    <View style={styles.addressWrapper}>
+                        <LinearGradient
+                            colors={['#0F172A', '#1F2937']}
+                            start={{ x: 0, y: 0 }}
+                            end={{ x: 1, y: 1 }}
+                            style={[
+                                styles.hero,
+                                !isWideLayout && styles.heroCompact,
+                                isHeaderCompact && styles.heroCollapsed,
+                            ]}
+                        >
+                            <View style={styles.heroGlow} />
+                            <View style={[styles.heroContent, isWideLayout && styles.heroContentWide]}>
+                                <View style={styles.heroLeft}>
+                                    <Text style={styles.heroEyebrow}>COTIZADOR URBANFIX</Text>
+                                    <Text style={styles.heroTitle}>
+                                        {isEditMode ? 'Editar presupuesto' : 'Nuevo presupuesto'}
+                                    </Text>
+                                    <Text style={styles.heroSubtitle}>
+                                        Crea una propuesta clara, con totales al instante.
+                                    </Text>
+                                </View>
+                                <View style={styles.heroTotalCard}>
+                                    <Text style={styles.heroTotalLabel}>Total estimado</Text>
+                                    <Text style={styles.heroTotalValue}>${formatCurrency(totalWithTax)}</Text>
+                                    <Text style={styles.heroTotalMeta}>{applyTax ? 'IVA incluido' : 'Sin IVA'}</Text>
+                                </View>
+                            </View>
+                        {!isHeaderCompact && (
+                            <View style={styles.heroSteps}>
+                                <View style={[styles.stepChip, hasClientInfo && styles.stepChipActive]}>
+                                    <Ionicons
+                                        name="person-outline"
+                                        size={14}
+                                        color={hasClientInfo ? '#0F172A' : '#E2E8F0'}
+                                    />
+                                    <Text style={[styles.stepChipText, hasClientInfo && styles.stepChipTextActive]}>
+                                        Cliente
+                                    </Text>
+                                </View>
+                                <View style={[styles.stepChip, hasItems && styles.stepChipActive]}>
+                                    <Ionicons
+                                        name="hammer-outline"
+                                        size={14}
+                                        color={hasItems ? '#0F172A' : '#E2E8F0'}
+                                    />
+                                    <Text style={[styles.stepChipText, hasItems && styles.stepChipTextActive]}>
+                                        Items
+                                    </Text>
+                                </View>
+                                <View style={[styles.stepChip, hasItems && hasClientInfo && styles.stepChipActive]}>
+                                    <Ionicons
+                                        name="document-text-outline"
+                                        size={14}
+                                        color={hasItems && hasClientInfo ? '#0F172A' : '#E2E8F0'}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.stepChipText,
+                                            hasItems && hasClientInfo && styles.stepChipTextActive,
+                                        ]}
+                                    >
+                                        Total
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+                        </LinearGradient>
+
+                        <View style={styles.panel}>
+                            <View style={styles.panelHeader}>
+                                <View style={styles.panelHeaderLeft}>
+                                    <Text style={styles.panelEyebrow}>PASO 1</Text>
+                                    <Text style={styles.panelTitle}>Datos del cliente</Text>
+                                    <Text style={styles.panelHint}>Agrega nombre y direccion para iniciar.</Text>
+                                </View>
+                                <View style={[styles.statusBadge, hasClientInfo && styles.statusBadgeActive]}>
+                                    <Ionicons
+                                        name={hasClientInfo ? 'checkmark-circle' : 'time-outline'}
+                                        size={14}
+                                        color={hasClientInfo ? '#16A34A' : '#94A3B8'}
+                                    />
+                                    <Text style={[styles.statusBadgeText, hasClientInfo && styles.statusBadgeTextActive]}>
+                                        {hasClientInfo ? 'Listo' : 'Pendiente'}
+                                    </Text>
+                                </View>
+                            </View>
+                            <ClientAddressForm 
+                                variant="inline"
+                                initialName={clientName}
+                                initialAddress={clientAddress}
+                                initialLocation={location}
+                                onClientNameChange={setClientName}
+                                onLocationChange={(addr, lat, lng) => {
+                                    setClientAddress(addr);
+                                    setLocation({ lat, lng });
+                                }}
+                            />
+                        </View>
+                    </View>
+
                     {/* ZIndex bajo para el resto */}
                     <View style={{ zIndex: 1, marginTop: 12 }}>
                         <View style={[styles.contentGrid, isWideLayout && styles.contentGridWide]}>
@@ -1255,7 +1279,6 @@ const styles = StyleSheet.create({
   scrollContent: { paddingHorizontal: 16, paddingBottom: 24 },
   scrollContentWeb: { paddingHorizontal: 20 },
   addressWrapper: {
-    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 4,
     zIndex: 9999,
@@ -1263,9 +1286,6 @@ const styles = StyleSheet.create({
     position: 'relative',
     overflow: 'visible',
     gap: 16,
-  },
-  addressWrapperWeb: {
-    paddingHorizontal: 20,
   },
   hero: {
     borderRadius: 20,
@@ -1280,6 +1300,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   heroCompact: { padding: 14, minHeight: 150 },
+  heroCollapsed: { paddingVertical: 12, minHeight: 120 },
   heroGlow: {
     position: 'absolute',
     width: 220,

@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase'; 
 import { COLORS } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // --- PANTALLAS ---
 // 1. Auth
@@ -35,24 +36,26 @@ const Tab = createBottomTabNavigator();
 
 // --- BOTTOM TABS (Menú Inferior) ---
 function MainTabs() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: '#95A5A6',
+        tabBarBackground: () => <View style={styles.tabBarBackground} />,
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: '#EEEEEE',
-          height: 60,
-          paddingBottom: 8,
+          height: 60 + insets.bottom,
+          paddingBottom: Math.max(8, insets.bottom),
           paddingTop: 8,
         },
         tabBarIcon: ({ focused, color, size }) => {
           let iconName: any;
           
-          if (route.name === 'Trabajos') {
-            iconName = focused ? 'briefcase' : 'briefcase-outline';
+          if (route.name === 'Panel') {
+            iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Agenda') {
             iconName = focused ? 'calendar' : 'calendar-outline';
           } else if (route.name === 'Catálogo') {
@@ -67,7 +70,7 @@ function MainTabs() {
         },
       })}
     >
-      <Tab.Screen name="Trabajos" component={JobsScreen} />
+      <Tab.Screen name="Panel" component={JobsScreen} />
       <Tab.Screen name="Agenda" component={AgendaScreen} /> 
       <Tab.Screen name="Catálogo" component={CatalogScreen} />
       <Tab.Screen name="Notificaciones" component={NotificationsScreen} />
@@ -224,3 +227,10 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  tabBarBackground: {
+    flex: 1,
+    backgroundColor: COLORS.white,
+  },
+});

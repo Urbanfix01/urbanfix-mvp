@@ -1,16 +1,19 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform 
+  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable 
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { COLORS, FONTS } from '../../utils/theme';
 import ServiceSelector from '../../components/organisms/ServiceSelector';
 import { ServiceBlueprint } from '../../types/database';
+import MapCanvas from '../../components/molecules/MapCanvas';
+import { MapPoint } from '../../types/maps';
 import { supabase } from '../../lib/supabase'; 
 import { getPublicQuoteUrl } from '../../utils/config';
 
@@ -27,6 +30,24 @@ type QuoteListItem = {
   created_at: string;
 };
 
+type DashboardFilter = 'total' | 'pending' | 'approved' | 'paid';
+
+const STATUS_COLORS = {
+  total: '#0F172A',
+  pending: '#F59E0B',
+  presented: '#3B82F6',
+  approved: '#10B981',
+  paid: '#059669',
+  closed: '#059669',
+};
+
+const FILTER_LABELS: Record<DashboardFilter, string> = {
+  total: 'Todos',
+  pending: 'Pendientes',
+  approved: 'Aprobados',
+  paid: 'Cobrados',
+};
+
 async function getQuotes(): Promise<QuoteListItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
@@ -35,7 +56,6 @@ async function getQuotes(): Promise<QuoteListItem[]> {
     .from('quotes')
     .select('*')
     .eq('user_id', user.id)
-    .neq('status', 'completed')
     .order('created_at', { ascending: false });
 
   if (error) throw error;
@@ -47,6 +67,11 @@ export default function JobsScreen() {
   const [selectorVisible, setSelectorVisible] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [trendWidth, setTrendWidth] = useState(0);
+  const [mapSelection, setMapSelection] = useState<MapPoint | null>(null);
+  const [activeFilter, setActiveFilter] = useState<DashboardFilter>('total');
+  const [listAnchor, setListAnchor] = useState(0);
+  const listRef = useRef<any>(null);
 
   const queryClient = useQueryClient();
   const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
@@ -55,22 +80,363 @@ export default function JobsScreen() {
     staleTime: 60000,
   });
 
+  const visibleJobs = useMemo(() => {
+    const normalized = (value?: string | null) => (value || '').toLowerCase().trim();
+    const isPending = (status: string) => ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
+    const isApproved = (status: string) => ['approved', 'aprobado', 'accepted'].includes(status);
+    const isPaid = (status: string) => ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
+
+    return jobs.filter((job) => {
+      const status = normalized(job.status);
+      if (activeFilter === 'total') return true;
+      if (activeFilter === 'pending') return isPending(status);
+      if (activeFilter === 'approved') return isApproved(status);
+      if (activeFilter === 'paid') return isPaid(status);
+      return true;
+    });
+  }, [jobs, activeFilter]);
+
   // --- FIX 1: ESTADISTICAS ROBUSTAS (Suma todo lo que sea similar) ---
   const stats = useMemo(() => {
-    const drafts = jobs.filter(j => {
-      const status = (j.status || '').toLowerCase();
-      return ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
-    }).length;
+    let totalCount = 0;
+    let pendingCount = 0;
+    let approvedCount = 0;
+    let paidCount = 0;
+    let totalAmount = 0;
+    let pendingAmount = 0;
+    let approvedAmount = 0;
+    let paidAmount = 0;
 
-    const approved = jobs.filter(j => {
-      const status = (j.status || '').toLowerCase();
-      return ['approved', 'aprobado', 'accepted'].includes(status);
-    }).length;
+    jobs.forEach((job) => {
+      const status = (job.status || '').toLowerCase().trim();
+      const amount = job.total_amount || 0;
+      const isPending = ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
+      const isApproved = ['approved', 'aprobado', 'accepted'].includes(status);
+      const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
 
-    const totalMoney = jobs.reduce((acc, j) => acc + (j.total_amount || 0), 0);
-    
-    return { drafts, approved, totalMoney };
+      totalCount += 1;
+      totalAmount += amount;
+      if (isPending) {
+        pendingCount += 1;
+        pendingAmount += amount;
+      }
+      if (isApproved) {
+        approvedCount += 1;
+        approvedAmount += amount;
+      }
+      if (isPaid) {
+        paidCount += 1;
+        paidAmount += amount;
+      }
+    });
+
+    return {
+      totalCount,
+      pendingCount,
+      approvedCount,
+      paidCount,
+      totalAmount,
+      pendingAmount,
+      approvedAmount,
+      paidAmount,
+    };
   }, [jobs]);
+
+  const monthStats = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    let totalAmount = 0;
+    let approvedAmount = 0;
+    let paidAmount = 0;
+
+    jobs.forEach((job) => {
+      const createdAt = new Date(job.created_at);
+      if (Number.isNaN(createdAt.getTime())) return;
+      if (createdAt.getFullYear() !== currentYear || createdAt.getMonth() !== currentMonth) return;
+
+      const amount = job.total_amount || 0;
+      const status = (job.status || '').toLowerCase().trim();
+      const isApproved = ['approved', 'aprobado', 'accepted'].includes(status);
+      const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
+
+      totalAmount += amount;
+      if (isApproved) approvedAmount += amount;
+      if (isPaid) paidAmount += amount;
+    });
+
+    return { totalAmount, approvedAmount, paidAmount };
+  }, [jobs]);
+
+  const formatMoney = (value: number) => Number(value || 0).toLocaleString('es-AR');
+  const formatCompact = (value: number) => {
+    const safe = Number(value || 0);
+    if (safe >= 1_000_000) return `${(safe / 1_000_000).toFixed(1)}M`;
+    if (safe >= 1_000) return `${Math.round(safe / 1_000)}k`;
+    return `${Math.round(safe)}`;
+  };
+
+  const dashboardCards = [
+    {
+      key: 'total',
+      filter: 'total' as DashboardFilter,
+      label: 'Total presupuestos',
+      value: stats.totalCount,
+      hint: 'Activos en tu cuenta',
+      accent: STATUS_COLORS.total,
+    },
+    {
+      key: 'pending',
+      filter: 'pending' as DashboardFilter,
+      label: 'Pendientes',
+      value: stats.pendingCount,
+      hint: 'En espera de respuesta',
+      accent: STATUS_COLORS.pending,
+    },
+    {
+      key: 'approved',
+      filter: 'approved' as DashboardFilter,
+      label: 'Aprobados',
+      value: stats.approvedCount,
+      hint: 'Listos para ejecutar',
+      accent: STATUS_COLORS.approved,
+    },
+    {
+      key: 'paid',
+      filter: 'paid' as DashboardFilter,
+      label: 'Cobrados',
+      value: stats.paidCount,
+      hint: 'Pagos confirmados',
+      accent: STATUS_COLORS.paid,
+    },
+  ];
+
+  const billingCards = [
+    {
+      key: 'billing-total',
+      label: 'Total',
+      value: `$${formatMoney(monthStats.totalAmount)}`,
+      hint: 'Presupuestos del mes',
+      accent: STATUS_COLORS.total,
+    },
+    {
+      key: 'billing-approved',
+      label: 'Aprobados',
+      value: `$${formatMoney(monthStats.approvedAmount)}`,
+      hint: 'Aprobados del mes',
+      accent: STATUS_COLORS.approved,
+    },
+    {
+      key: 'billing-paid',
+      label: 'Cobrados',
+      value: `$${formatMoney(monthStats.paidAmount)}`,
+      hint: 'Monto cobrado del mes',
+      accent: STATUS_COLORS.paid,
+    },
+  ];
+
+  const statusCounts = useMemo(() => {
+    let pending = 0;
+    let approved = 0;
+    let closed = 0;
+
+    jobs.forEach((job) => {
+      const status = (job.status || '').toLowerCase().trim();
+      const isPending = ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
+      const isApproved = ['approved', 'aprobado', 'accepted'].includes(status);
+      const isClosed = [
+        'completed',
+        'completado',
+        'finalizado',
+        'finalizados',
+        'paid',
+        'cobrado',
+        'cobrados',
+        'pagado',
+        'pagados',
+        'charged',
+      ].includes(status);
+
+      if (isPending) pending += 1;
+      if (isApproved) approved += 1;
+      if (isClosed) closed += 1;
+    });
+
+    return { pending, approved, closed };
+  }, [jobs]);
+
+  const statusChart = [
+    { key: 'pending', label: 'Pendientes', value: statusCounts.pending, color: STATUS_COLORS.pending },
+    { key: 'approved', label: 'Aprobados', value: statusCounts.approved, color: STATUS_COLORS.approved },
+    { key: 'closed', label: 'Cerrados', value: statusCounts.closed, color: STATUS_COLORS.closed },
+  ];
+
+  const maxStatusCount = Math.max(1, ...statusChart.map((item) => item.value));
+
+  const mapPoints = useMemo<MapPoint[]>(() => {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 3);
+
+    const normalizeStatus = (status?: string | null) => (status || '').toLowerCase().trim();
+    const isPending = (status: string) => ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
+    const isApproved = (status: string) => ['approved', 'aprobado', 'accepted'].includes(status);
+    const isClosed = (status: string) =>
+      [
+        'completed',
+        'completado',
+        'finalizado',
+        'finalizados',
+        'paid',
+        'cobrado',
+        'cobrados',
+        'pagado',
+        'pagados',
+        'charged',
+      ].includes(status);
+
+    const resolveStatus = (status: string) => {
+      if (isClosed(status)) return { key: 'closed', label: 'Cerrado', color: STATUS_COLORS.closed };
+      if (isApproved(status)) return { key: 'approved', label: 'Aprobado', color: STATUS_COLORS.approved };
+      if (isPending(status)) return { key: 'pending', label: 'Presupuestado', color: STATUS_COLORS.pending };
+      return null;
+    };
+
+    return jobs
+      .map((job) => {
+        const createdAt = new Date(job.created_at);
+        if (Number.isNaN(createdAt.getTime()) || createdAt < cutoff) return null;
+        const lat = Number(job.location_lat);
+        const lng = Number(job.location_lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const status = resolveStatus(normalizeStatus(job.status));
+        if (!status) return null;
+        return {
+          id: job.id,
+          title: job.client_name || `Presupuesto #${job.id.slice(0,4).toUpperCase()}`,
+          amount: job.total_amount || 0,
+          address: job.client_address || job.address || job.location_address || '',
+          createdAt: job.created_at,
+          lat,
+          lng,
+          status,
+        };
+      })
+      .filter(Boolean) as MapPoint[];
+  }, [jobs]);
+
+  const mapCounts = useMemo(() => {
+    return mapPoints.reduce(
+      (acc, point) => {
+        if (point.status.key === 'pending') acc.pending += 1;
+        if (point.status.key === 'approved') acc.approved += 1;
+        if (point.status.key === 'closed') acc.closed += 1;
+        return acc;
+      },
+      { pending: 0, approved: 0, closed: 0 }
+    );
+  }, [mapPoints]);
+
+  const mapRegion = useMemo(() => {
+    if (!mapPoints.length) {
+      return {
+        latitude: -34.6037,
+        longitude: -58.3816,
+        latitudeDelta: 0.35,
+        longitudeDelta: 0.35,
+      };
+    }
+    const lats = mapPoints.map((point) => point.lat);
+    const lngs = mapPoints.map((point) => point.lng);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latitude = (minLat + maxLat) / 2;
+    const longitude = (minLng + maxLng) / 2;
+    const latitudeDelta = Math.max(0.05, (maxLat - minLat) * 1.6);
+    const longitudeDelta = Math.max(0.05, (maxLng - minLng) * 1.6);
+    return { latitude, longitude, latitudeDelta, longitudeDelta };
+  }, [mapPoints]);
+
+  const mapKey = `${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
+
+  const handleOpenMapDetail = (point: MapPoint) => {
+    setMapSelection(point);
+  };
+
+  const handleCloseMapDetail = () => setMapSelection(null);
+
+  const trendData = useMemo(() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const monthLabels = [
+      'Ene',
+      'Feb',
+      'Mar',
+      'Abr',
+      'May',
+      'Jun',
+      'Jul',
+      'Ago',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dic',
+    ];
+    const months = monthLabels.map((label, index) => ({
+      key: `${year}-${String(index + 1).padStart(2, '0')}`,
+      label,
+      month: index,
+      year,
+    }));
+
+    const totals = new Map<string, { total: number; paid: number }>();
+    months.forEach((month) => totals.set(month.key, { total: 0, paid: 0 }));
+
+    jobs.forEach((job) => {
+      const createdAt = new Date(job.created_at);
+      if (Number.isNaN(createdAt.getTime())) return;
+      if (createdAt.getFullYear() !== year) return;
+      const key = `${year}-${String(createdAt.getMonth() + 1).padStart(2, '0')}`;
+      const bucket = totals.get(key);
+      if (!bucket) return;
+      const amount = job.total_amount || 0;
+      const status = (job.status || '').toLowerCase().trim();
+      const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
+      bucket.total += amount;
+      if (isPaid) bucket.paid += amount;
+    });
+
+    return months.map((month) => ({
+      ...month,
+      total: totals.get(month.key)?.total || 0,
+      paid: totals.get(month.key)?.paid || 0,
+    }));
+  }, [jobs]);
+
+  const maxTrendValue = useMemo(() => {
+    const values = trendData.map((entry) => Math.max(entry.total, entry.paid));
+    return Math.max(1, ...values);
+  }, [trendData]);
+
+  const trendHeight = 120;
+  const trendPadding = 12;
+  const trendInnerHeight = trendHeight - trendPadding * 2;
+
+  const trendPoints = useMemo(() => {
+    if (!trendWidth) return { total: '', paid: '', coords: [] as { x: number; totalY: number; paidY: number }[] };
+    const availableWidth = trendWidth - trendPadding * 2;
+    const step = trendData.length > 1 ? availableWidth / (trendData.length - 1) : 0;
+    const coords = trendData.map((entry, index) => {
+      const x = trendPadding + index * step;
+      const totalY = trendPadding + (1 - entry.total / maxTrendValue) * trendInnerHeight;
+      const paidY = trendPadding + (1 - entry.paid / maxTrendValue) * trendInnerHeight;
+      return { x, totalY, paidY };
+    });
+    const total = coords.map((point) => `${point.x},${point.totalY}`).join(' ');
+    const paid = coords.map((point) => `${point.x},${point.paidY}`).join(' ');
+    return { total, paid, coords };
+  }, [trendWidth, trendData, maxTrendValue, trendInnerHeight]);
 
   // --- ACCIONES ---
   const handleCreateJob = () => setSelectorVisible(true);
@@ -119,15 +485,15 @@ export default function JobsScreen() {
     const normalized = status?.toLowerCase().trim() || '';
 
     if (['approved', 'aprobado', 'accepted'].includes(normalized)) {
-        return { label: 'APROBADO', color: '#10B981', bg: '#D1FAE5' }; // Emerald
+        return { label: 'APROBADO', color: STATUS_COLORS.approved, bg: '#D1FAE5' }; // Emerald
     }
 
     if (['presented', 'sent'].includes(normalized)) {
-        return { label: 'PRESENTADO', color: '#3B82F6', bg: '#DBEAFE' }; // Azul
+        return { label: 'PRESENTADO', color: STATUS_COLORS.presented, bg: '#DBEAFE' }; // Azul
     }
 
     if (['pending', 'draft', 'pendiente'].includes(normalized)) {
-        return { label: 'PENDIENTE', color: '#F59E0B', bg: '#FFF7ED' }; // Amber
+        return { label: 'PENDIENTE', color: STATUS_COLORS.pending, bg: '#FFF7ED' }; // Amber
     }
 
     return { label: normalized.toUpperCase() || 'N/A', color: '#6B7280', bg: '#E5E7EB' };
@@ -136,6 +502,20 @@ export default function JobsScreen() {
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
+
+  const handleDashboardFilter = (filter: DashboardFilter) => {
+    setActiveFilter(filter);
+    setSelectionMode(false);
+    setSelectedIds([]);
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToOffset({ offset: listAnchor, animated: true });
+    });
+  };
+
+  const emptyMessage =
+    activeFilter === 'total'
+      ? 'No tienes presupuestos todavía.\nToca (+) para empezar.'
+      : `No tienes trabajos ${FILTER_LABELS[activeFilter].toLowerCase()}.`;
 
   // --- RENDER ITEM ---
   const renderItem = ({ item }: { item: QuoteListItem }) => {
@@ -190,7 +570,7 @@ export default function JobsScreen() {
                     {new Date(item.created_at).toLocaleDateString()}
                 </Text>
                 
-                <View style={[styles.badge, { backgroundColor: status.bg }]}>
+                <View style={[styles.badge, { backgroundColor: status.bg, borderColor: status.color }]}>
                     <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
                 </View>
             </View>
@@ -216,27 +596,8 @@ export default function JobsScreen() {
       <View style={styles.header}>
         <SafeAreaView edges={['top']}>
            <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>Resumen de Solicitudes</Text>
-              
-              <View style={styles.statsRow}>
-                  <View style={[styles.statCard, { borderLeftColor: '#F59E0B' }]}>
-                      <Text style={[styles.statNumber, { color: '#F59E0B' }]}>{stats.drafts}</Text>
-                      <Text style={styles.statLabel}>PENDIENTES</Text>
-                  </View>
-
-                  <View style={[styles.statCard, { borderLeftColor: '#10B981' }]}>
-                      <Text style={[styles.statNumber, { color: '#10B981' }]}>{stats.approved}</Text>
-                      <Text style={styles.statLabel}>APROBADOS</Text>
-                  </View>
-
-                  <View style={[styles.statCard, { borderLeftColor: '#374151' }]}>
-                      <Text style={[styles.statNumber, { color: '#374151', fontSize: 18 }]}>
-                        ${(stats.totalMoney/1000).toFixed(0)}k
-                      </Text>
-                      <Text style={styles.statLabel}>EN JUEGO</Text>
-                  </View>
-              </View>
-
+              <Text style={styles.headerTitle}>PANEL DE CONTROL</Text>
+            
            </View>
         </SafeAreaView>
       </View>
@@ -256,7 +617,8 @@ export default function JobsScreen() {
         </View>
       ) : (
         <FlashList
-            data={jobs}
+            ref={listRef}
+            data={visibleJobs}
             keyExtractor={(item) => item.id}
             renderItem={renderItem}
             extraData={{ selectionMode, selectedIds }}
@@ -265,42 +627,229 @@ export default function JobsScreen() {
             onRefresh={refetch}
             refreshing={isFetching && !isLoading}
             ListHeaderComponent={
-                <View style={{flexDirection:'row', justifyContent:'space-between', alignItems:'center', marginBottom:12}}>
-                  <Text style={styles.sectionTitle}>ULTIMOS MOVIMIENTOS</Text>
-                  <View style={{flexDirection:'row', gap:10}}>
-                    {selectionMode && (
+                <View style={styles.dashboardWrapper}>
+                  <View style={styles.dashboardPanel}>
+                    
+                    <View style={styles.dashboardGrid}>
+                      {dashboardCards.map((card) => (
+                        <TouchableOpacity
+                          key={card.key}
+                          style={[
+                            styles.dashboardCard,
+                            activeFilter === card.filter && styles.dashboardCardActive,
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() => handleDashboardFilter(card.filter)}
+                        >
+                          <View style={styles.dashboardTopRow}>
+                            <View style={styles.dashboardLabelRow}>
+                              <View style={[styles.dashboardDot, { backgroundColor: card.accent }]} />
+                              <Text style={styles.dashboardLabel}>{card.label}</Text>
+                            </View>
+                          </View>
+                          <Text style={[styles.dashboardValue, { color: card.accent }]}>{card.value}</Text>
+                          <Text style={styles.dashboardHint}>{card.hint}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.billingPanel}>
+                    <Text style={styles.panelTitle}>Facturacion estimada</Text>
+                    <View style={styles.billingGrid}>
+                      {billingCards.map((card) => (
+                        <View key={card.key} style={styles.billingCard}>
+                          <View style={styles.billingLabelRow}>
+                            <View style={[styles.billingDot, { backgroundColor: card.accent }]} />
+                            <Text style={styles.billingLabel}>{card.label}</Text>
+                          </View>
+                          <Text style={[styles.billingValue, { color: card.accent }]}>{card.value}</Text>
+                          <Text style={styles.billingHint}>{card.hint}</Text>
+                        </View>
+                      ))}
+                    </View>
+                    <View style={styles.trendPanel}>
+                      <View style={styles.trendHeader}>
+                        <Text style={styles.trendTitle}>TENDENCIA ANUAL · ENE-DIC</Text>
+                        <View style={styles.trendLegend}>
+                          <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.total }]} />
+                            <Text style={styles.legendText}>Presupuestos</Text>
+                          </View>
+                          <View style={styles.legendItem}>
+                            <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.paid }]} />
+                            <Text style={styles.legendText}>Cobrados</Text>
+                          </View>
+                        </View>
+                      </View>
+                      <View
+                        style={styles.trendChart}
+                        onLayout={(event) => setTrendWidth(event.nativeEvent.layout.width)}
+                      >
+                        <Svg width="100%" height={trendHeight}>
+                          <Line
+                            x1={trendPadding}
+                            x2={Math.max(trendPadding, trendWidth - trendPadding)}
+                            y1={trendPadding}
+                            y2={trendPadding}
+                            stroke="#E2E8F0"
+                            strokeWidth={1}
+                          />
+                          <Line
+                            x1={trendPadding}
+                            x2={Math.max(trendPadding, trendWidth - trendPadding)}
+                            y1={trendPadding + trendInnerHeight}
+                            y2={trendPadding + trendInnerHeight}
+                            stroke="#E2E8F0"
+                            strokeWidth={1}
+                          />
+                          {!!trendPoints.total && (
+                            <Polyline points={trendPoints.total} fill="none" stroke={STATUS_COLORS.total} strokeWidth={2} />
+                          )}
+                          {!!trendPoints.paid && (
+                            <Polyline points={trendPoints.paid} fill="none" stroke={STATUS_COLORS.paid} strokeWidth={2} />
+                          )}
+                          {trendPoints.coords.map((point, index) => (
+                            <React.Fragment key={`point-${index}`}>
+                              <Circle cx={point.x} cy={point.totalY} r={3} fill={STATUS_COLORS.total} />
+                              <Circle cx={point.x} cy={point.paidY} r={3} fill={STATUS_COLORS.paid} />
+                              <SvgText
+                                x={point.x}
+                                y={Math.max(12, point.totalY - 8)}
+                                fontSize="9"
+                                fill={STATUS_COLORS.total}
+                                textAnchor="middle"
+                                fontFamily={FONTS.subtitle}
+                              >
+                                {formatCompact(trendData[index]?.total || 0)}
+                              </SvgText>
+                              <SvgText
+                                x={point.x}
+                                y={Math.min(trendHeight - 4, point.paidY + 12)}
+                                fontSize="9"
+                                fill={STATUS_COLORS.paid}
+                                textAnchor="middle"
+                                fontFamily={FONTS.subtitle}
+                              >
+                                {formatCompact(trendData[index]?.paid || 0)}
+                              </SvgText>
+                            </React.Fragment>
+                          ))}
+                        </Svg>
+                      </View>
+                      <View style={styles.trendLabels}>
+                        {trendData.map((entry) => (
+                          <Text key={entry.key} style={styles.trendLabel}>{entry.label}</Text>
+                        ))}
+                      </View>
+                      <View style={styles.statusPanel}>
+                        <Text style={styles.trendTitle}>TRABAJOS POR ESTADO</Text>
+                        <View style={styles.statusChart}>
+                          {statusChart.map((item) => {
+                            const height = Math.max(8, (item.value / maxStatusCount) * 70);
+                            return (
+                              <View key={item.key} style={styles.statusColumn}>
+                                <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
+                                <View style={[styles.statusBar, { height, backgroundColor: item.color }]} />
+                                <Text style={styles.statusLabel}>{item.label}</Text>
+                              </View>
+                          );
+                        })}
+                        </View>
+                      </View>
+                      <View style={styles.mapPanel}>
+                        <View style={styles.mapHeader}>
+                          <View style={styles.mapTitleRow}>
+                            <Text style={styles.trendTitle}>MAPA · ULTIMOS 3 MESES</Text>
+                            <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
+                          </View>
+                          <View style={styles.mapPills}>
+                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
+                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
+                              <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
+                            </View>
+                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
+                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
+                              <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
+                            </View>
+                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
+                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
+                              <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <MapCanvas
+                          key={mapKey}
+                          points={mapPoints}
+                          region={mapRegion}
+                          onSelect={handleOpenMapDetail}
+                          formatMoney={formatMoney}
+                        />
+                      </View>
+                    </View>
+                  </View>
+
+                  <View style={styles.latestHeader}>
+                    <Text style={styles.sectionTitle}>
+                      {activeFilter === 'total'
+                        ? 'ULTIMOS PRESUPUESTOS'
+                        : `TRABAJOS ${FILTER_LABELS[activeFilter].toUpperCase()}`}
+                    </Text>
+                    <View style={styles.latestActions}>
+                      {selectionMode && (
+                        <TouchableOpacity 
+                          onPress={() => {
+                            setSelectionMode(false);
+                            setSelectedIds([]);
+                          }} 
+                          style={[styles.selectBtn, {backgroundColor:'#E5E7EB'}]}
+                        >
+                          <Text style={[styles.selectBtnText, {color:'#0F172A'}]}>Cancelar</Text>
+                        </TouchableOpacity>
+                      )}
                       <TouchableOpacity 
                         onPress={() => {
-                          setSelectionMode(false);
-                          setSelectedIds([]);
+                          if (selectionMode && selectedIds.length === 0) {
+                            setSelectionMode(false);
+                            return;
+                          }
+                          setSelectionMode(prev => !prev);
+                          if (!selectionMode) setSelectedIds([]);
                         }} 
-                        style={[styles.selectBtn, {backgroundColor:'#E5E7EB'}]}
+                        style={styles.selectBtn}
                       >
-                        <Text style={[styles.selectBtnText, {color:'#0F172A'}]}>Cancelar</Text>
+                        <Text style={styles.selectBtnText}>{selectionMode ? 'Listo' : 'Seleccionar'}</Text>
                       </TouchableOpacity>
+                    </View>
+                  </View>
+                  <View
+                    style={styles.filterBar}
+                    onLayout={(event) => setListAnchor(event.nativeEvent.layout.y)}
+                  >
+                    {activeFilter !== 'total' ? (
+                      <>
+                        <View style={styles.filterPill}>
+                          <Text style={styles.filterPillText}>
+                            Filtro: {FILTER_LABELS[activeFilter]}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.clearFilterBtn}
+                          onPress={() => setActiveFilter('total')}
+                        >
+                          <Text style={styles.clearFilterText}>Ver todos</Text>
+                        </TouchableOpacity>
+                      </>
+                    ) : (
+                      <Text style={styles.filterHint}>Selecciona una tarjeta para filtrar.</Text>
                     )}
-                    <TouchableOpacity 
-                      onPress={() => {
-                        if (selectionMode && selectedIds.length === 0) {
-                          setSelectionMode(false);
-                          return;
-                        }
-                        setSelectionMode(prev => !prev);
-                        if (!selectionMode) setSelectedIds([]);
-                      }} 
-                      style={styles.selectBtn}
-                    >
-                      <Text style={styles.selectBtnText}>{selectionMode ? 'Listo' : 'Seleccionar'}</Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
             }
             ListEmptyComponent={
                 <View style={styles.center}>
                    <Ionicons name="file-tray-outline" size={60} color="#E5E7EB" />
-                   <Text style={styles.emptyText}>
-                      No tienes trabajos activos. {"\n"}Toca (+) para empezar.
-                   </Text>
+                   <Text style={styles.emptyText}>{emptyMessage}</Text>
                 </View>
             }
         />
@@ -352,17 +901,64 @@ export default function JobsScreen() {
         </TouchableOpacity>
       )}
 
+      {mapSelection && (
+        <MapDetailSheet
+          point={mapSelection}
+          onClose={handleCloseMapDetail}
+          onOpen={(id) => {
+            handleCloseMapDetail();
+            // @ts-ignore
+            navigation.navigate('JobDetail', { jobId: id });
+          }}
+        />
+      )}
+
       <ServiceSelector 
-        visible={selectorVisible}
-        onClose={() => setSelectorVisible(false)}
+        visible={selectorVisible} 
+        onClose={() => setSelectorVisible(false)} 
         onSelect={handleSelectService}
       />
     </View>
   );
 }
 
+const MapDetailSheet = ({
+  point,
+  onClose,
+  onOpen,
+}: {
+  point: MapPoint;
+  onClose: () => void;
+  onOpen: (id: string) => void;
+}) => (
+  <Modal transparent animationType="fade" visible onRequestClose={onClose}>
+    <Pressable style={styles.sheetOverlay} onPress={onClose}>
+      <Pressable style={styles.sheetContainer} onPress={() => null}>
+        <View style={styles.sheetHandle} />
+        <Text style={styles.sheetTitle}>{point.title}</Text>
+        {!!point.address && <Text style={styles.sheetAddress}>{point.address}</Text>}
+        <Text style={styles.sheetMeta}>
+          {point.status.label} · ${Number(point.amount || 0).toLocaleString('es-AR')}
+        </Text>
+        <Text style={styles.sheetDate}>
+          {new Date(point.createdAt).toLocaleDateString()}
+        </Text>
+        <View style={styles.sheetActions}>
+          <TouchableOpacity style={styles.sheetBtnGhost} onPress={onClose}>
+            <Text style={styles.sheetBtnGhostText}>Cerrar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.sheetBtnPrimary} onPress={() => onOpen(point.id)}>
+            <Text style={styles.sheetBtnPrimaryText}>Ver detalle</Text>
+            <Ionicons name="arrow-forward" size={16} color="#FFF" />
+          </TouchableOpacity>
+        </View>
+      </Pressable>
+    </Pressable>
+  </Modal>
+);
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
+  container: { flex: 1, backgroundColor: '#F5F4F0' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 },
   
   // Header
@@ -385,63 +981,232 @@ const styles = StyleSheet.create({
     }
   }),
   headerContent: { paddingHorizontal: 20, paddingTop: 10 },
-  headerTitle: { fontSize: 22, fontFamily: FONTS.title, color: '#FFF', marginBottom: 20, textAlign: 'center' },
+  headerTitle: { fontSize: 24, fontFamily: FONTS.title, color: '#F8FAFC', marginBottom: 6, textAlign: 'center', letterSpacing: 0.6 },
+  headerSubtitle: { fontSize: 13, fontFamily: FONTS.body, color: 'rgba(248,250,252,0.7)', textAlign: 'center', marginBottom: 16 },
   
-  // Stats Cards
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
-  statCard: Platform.select({
-    web: {
-      flex: 1,
-      backgroundColor: '#FFF',
-      borderRadius: 8,
-      paddingVertical: 15,
-      paddingHorizontal: 5,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderLeftWidth: 4,
-      boxShadow: '0 4px 10px rgba(0,0,0,0.1)',
-    },
-    default: {
-      flex: 1,
-      backgroundColor: '#FFF',
-      borderRadius: 8,
-      paddingVertical: 15,
-      paddingHorizontal: 5,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderLeftWidth: 4, 
-      shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, elevation: 3,
-    }
-  }),
-  statNumber: { fontSize: 24, fontFamily: FONTS.title, fontWeight: 'bold', marginBottom: 4 },
-  statLabel: { fontSize: 9, fontFamily: FONTS.body, color: '#9CA3AF', fontWeight: 'bold', letterSpacing: 0.5 },
+  dashboardWrapper: { gap: 16, marginBottom: 6 },
+  dashboardPanel: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E6DED2',
+    shadowColor: '#C7BBA8',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  panelTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#8D8270', letterSpacing: 2.4, marginBottom: 12 },
+  dashboardGrid: { flexDirection: 'row', flexWrap: 'nowrap', justifyContent: 'space-between', gap: 10 },
+  dashboardCard: {
+    width: '23%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderWidth: 1,
+    borderColor: '#EFE6D8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E6DCCB',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  dashboardCardActive: {
+    borderColor: '#0F172A',
+    shadowColor: '#BDB1A0',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 7,
+  },
+  dashboardLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dashboardDot: { width: 7, height: 7, borderRadius: 999 },
+  dashboardTopRow: { alignItems: 'center', justifyContent: 'center', gap: 6 },
+  dashboardLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.4, textTransform: 'uppercase' },
+  dashboardValue: { fontSize: 26, fontFamily: FONTS.title, marginTop: 8, textAlign: 'center', alignSelf: 'center' },
+  dashboardHint: { fontSize: 10, fontFamily: FONTS.body, color: '#7C7C7C', marginTop: 4, textAlign: 'center' },
+  billingPanel: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E6DED2',
+    shadowColor: '#C7BBA8',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  billingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  billingCard: {
+    flexGrow: 1,
+    flexBasis: '30%',
+    minWidth: 140,
+    backgroundColor: '#FBFBF9',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+  },
+  billingLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  billingDot: { width: 6, height: 6, borderRadius: 999 },
+  billingLabel: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#A8A29E', letterSpacing: 1.4 },
+  billingValue: { fontSize: 22, fontFamily: FONTS.title, marginTop: 6, textAlign: 'center', alignSelf: 'center' },
+  billingHint: { fontSize: 11, fontFamily: FONTS.body, color: '#6B7280', marginTop: 4, textAlign: 'center' },
+  trendPanel: {
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+  },
+  trendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  trendTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.8 },
+  trendLegend: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  legendDot: { width: 6, height: 6, borderRadius: 3 },
+  legendText: { fontSize: 10, fontFamily: FONTS.body, color: '#6B7280' },
+  trendChart: { height: 120 },
+  trendLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  trendLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#A8A29E' },
+  statusPanel: {
+    marginTop: 16,
+    backgroundColor: '#FBFBF9',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+  },
+  statusChart: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 10 },
+  statusColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
+  statusValue: { fontSize: 16, fontFamily: FONTS.title, marginBottom: 6 },
+  statusBar: { width: 104, borderRadius: 6 },
+  statusLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#A8A29E', marginTop: 6, textAlign: 'center' },
+  mapPanel: {
+    marginTop: 16,
+    backgroundColor: '#FBFBF9',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+  },
+  mapHeader: { gap: 8, marginBottom: 10 },
+  mapTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  mapCountText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#94A3B8' },
+  mapLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  mapPills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  mapPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#FBFBF9',
+  },
+  mapPillDot: { width: 6, height: 6, borderRadius: 999 },
+  mapPillText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    justifyContent: 'flex-end',
+  },
+  sheetContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sheetHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  sheetTitle: { fontSize: 16, fontFamily: FONTS.title, color: '#0F172A' },
+  sheetAddress: { fontSize: 12, fontFamily: FONTS.body, color: '#64748B', marginTop: 4 },
+  sheetMeta: { fontSize: 13, fontFamily: FONTS.subtitle, color: '#0F172A', marginTop: 8 },
+  sheetDate: { fontSize: 11, fontFamily: FONTS.body, color: '#94A3B8', marginTop: 4 },
+  sheetActions: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 16 },
+  sheetBtnGhost: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  sheetBtnGhostText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#475569', letterSpacing: 0.4 },
+  sheetBtnPrimary: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  sheetBtnPrimaryText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#FFF', letterSpacing: 0.4 },
+  latestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  latestActions: { flexDirection: 'row', gap: 10 },
+  filterBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+  },
+  filterPillText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
+  clearFilterBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  clearFilterText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
+  filterHint: { fontSize: 11, fontFamily: FONTS.body, color: '#94A3B8' },
 
   // List
-  listContent: { padding: 20, paddingBottom: 100 },
-  sectionTitle: { fontSize: 12, fontFamily: FONTS.title, color: COLORS.textLight, marginBottom: 12, letterSpacing: 1, marginTop: 10 },
-  emptyText: { textAlign: 'center', marginTop: 16, color: COLORS.textLight, fontFamily: FONTS.body },
+  listContent: { padding: 18, paddingBottom: 110 },
+  sectionTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#94A3B8', marginBottom: 12, letterSpacing: 1.8, marginTop: 10, textTransform: 'uppercase' },
+  emptyText: { textAlign: 'center', marginTop: 16, color: COLORS.textLight, fontFamily: FONTS.body, fontSize: 12 },
 
   // Cards
   card: Platform.select({
     web: {
-      backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
-      boxShadow: '0 3px 8px rgba(0,0,0,0.08)',
+      backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
+      boxShadow: '0 3px 10px rgba(0,0,0,0.08)',
     },
     default: {
-      backgroundColor: '#FFF', borderRadius: 12, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
-      shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, elevation: 2,
+      backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 12, flexDirection: 'row', overflow: 'hidden',
+      shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, elevation: 2,
     }
   }),
   iconBar: { width: 6, height: '100%' },
   cardContent: { flex: 1, padding: 16 },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
   
-  clientName: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text, width: '60%' },
-  amountText: { fontSize: 16, fontFamily: FONTS.title, color: COLORS.text },
-  jobDate: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
+  clientName: { fontSize: 17, fontFamily: FONTS.subtitle, color: COLORS.text, width: '60%' },
+  amountText: { fontSize: 17, fontFamily: FONTS.title, color: COLORS.text },
+  jobDate: { fontSize: 13, fontFamily: FONTS.body, color: COLORS.textLight },
   
-  badge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4 },
-  badgeText: { fontSize: 10, fontFamily: FONTS.title, fontWeight: '700' },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, borderWidth: 1 },
+  badgeText: { fontSize: 10, fontFamily: FONTS.subtitle, letterSpacing: 0.7, textTransform: 'uppercase' },
   
   shareBtn: { padding: 16, justifyContent: 'center', borderLeftWidth: 1, borderLeftColor: '#F3F4F6' },
 
@@ -457,8 +1222,8 @@ const styles = StyleSheet.create({
       shadowColor: COLORS.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, elevation: 5,
     }
   }),
-  selectBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: COLORS.primary, borderRadius: 8 },
-  selectBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 12 },
+  selectBtn: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.primary, borderRadius: 999 },
+  selectBtnText: { color: '#FFF', fontFamily: FONTS.subtitle, fontSize: 12, letterSpacing: 0.5 },
   bulkDeleteBar: { position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: COLORS.danger, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 12, borderRadius: 12, gap: 8 },
-  bulkDeleteText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 }
+  bulkDeleteText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 15 }
 });

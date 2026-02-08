@@ -1,6 +1,12 @@
 {
   "css.validate": false,
   "scss.validate": false,
+  "json.schemas": [
+    {
+      "fileMatch": ["package.json"],
+      "url": "https://json.schemastore.org/package"
+    }
+  ],
   "files.associations": {
     "**/supabase/migrations/*.sql": "postgresql"
   }

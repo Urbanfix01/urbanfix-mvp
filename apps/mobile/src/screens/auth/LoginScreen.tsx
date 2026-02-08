@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
@@ -26,6 +27,10 @@ export default function AuthScreen() {
   const [recovering, setRecovering] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
   const [showRegisterHint, setShowRegisterHint] = useState(false);
+  const fullNameRef = useRef<TextInput>(null);
+  const businessNameRef = useRef<TextInput>(null);
+  const emailRef = useRef<TextInput>(null);
+  const passwordRef = useRef<TextInput>(null);
 
   const getRedirectUrl = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
@@ -87,30 +92,36 @@ export default function AuthScreen() {
   async function handleAuth() {
     setLoading(true);
     try {
+      const trimmedEmail = email.trim();
+      if (!trimmedEmail || !password) {
+        Alert.alert('Datos incompletos', 'Ingresa tu email y contraseña.');
+        setLoading(false);
+        return;
+      }
       if (isLogin) {
         // --- LOGIN NORMAL ---
         const { error } = await supabase.auth.signInWithPassword({
-          email,
+          email: trimmedEmail,
           password,
         });
         if (error) throw error;
         // La navegación se maneja sola por el cambio de sesión en App.tsx
       } else {
         // --- REGISTRO CON PERFIL ---
-        if (!fullName || !businessName) {
+        if (!fullName.trim() || !businessName.trim()) {
           Alert.alert('Faltan datos', 'Por favor completa tu nombre y el de tu negocio.');
           setLoading(false);
           return;
         }
 
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: trimmedEmail,
           password,
           options: {
             // Estos datos viajan al Trigger que creamos en SQL
             data: {
-              full_name: fullName,
-              business_name: businessName,
+              full_name: fullName.trim(),
+              business_name: businessName.trim(),
             },
           },
         });
@@ -145,25 +156,65 @@ export default function AuthScreen() {
     }
   };
 
+  const insets = useSafeAreaInsets();
+  const isRegister = !isLogin;
+
   return (
-    <LinearGradient colors={['#0B1221', COLORS.secondary, '#0B1221']} style={styles.container}>
+    <LinearGradient colors={['#0B1221', '#1C2A3A', '#0B1221']} style={styles.container}>
+      <View style={styles.orbOne} />
+      <View style={styles.orbTwo} />
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.container}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="always">
-          <View style={styles.brandBlock}>
+        <ScrollView
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingTop: SPACING.lg + insets.top,
+              paddingBottom: SPACING.lg + Math.max(0, insets.bottom),
+            },
+          ]}
+          keyboardShouldPersistTaps="always"
+        >
+          <View style={styles.hero}>
             <View style={styles.logoWrap}>
               <Image source={logo} style={styles.logo} />
             </View>
-            <Text style={styles.brandTitle}>UrbanFix</Text>
-            <Text style={styles.brandTagline}>Gestion clara para tecnicos en movimiento</Text>
+            <View style={styles.badgeRow}>
+              <View style={styles.badgeDot} />
+            <Text style={styles.badgeText}>ACCESO TECNICOS</Text>
+          </View>
+            <Text style={styles.heroTitle}>Bienvenido a UrbanFix</Text>
+            <Text style={styles.heroSubtitle}>Ingresa en segundos y empieza a presupuestar.</Text>
           </View>
 
           {/* FORMULARIO */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>{isLogin ? 'Ingresa a tu cuenta' : 'Crea tu perfil profesional'}</Text>
-            <Text style={styles.cardSubtitle}>Accede con Google o con tu correo y elegi como empezar.</Text>
+            <View style={styles.segmented}>
+              <TouchableOpacity
+                style={[styles.segmentItem, isLogin && styles.segmentItemActive]}
+                onPress={() => setIsLogin(true)}
+              >
+                <Text style={[styles.segmentText, isLogin && styles.segmentTextActive]}>Ingresar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.segmentItem, isRegister && styles.segmentItemActive]}
+                onPress={() => {
+                  setIsLogin(false);
+                  setShowRegisterHint(true);
+                }}
+              >
+                <Text style={[styles.segmentText, isRegister && styles.segmentTextActive]}>Crear cuenta</Text>
+              </TouchableOpacity>
+            </View>
+
+            {showRegisterHint && isRegister && (
+              <Text style={styles.registerHint}>Completa tu perfil y listo.</Text>
+            )}
+
+            <Text style={styles.cardTitle}>{isLogin ? 'Acceso rápido' : 'Registro profesional'}</Text>
+            <Text style={styles.cardSubtitle}>Usa Google o tu correo. Rápido y seguro.</Text>
 
             <TouchableOpacity 
               style={styles.googleButton} 
@@ -174,24 +225,9 @@ export default function AuthScreen() {
               <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
             </TouchableOpacity>
 
-            <View style={styles.quickRow}>
-              <TouchableOpacity
-                style={styles.quickPill}
-                onPress={() => {
-                  setIsLogin(false);
-                  setShowRegisterHint(true);
-                }}
-              >
-                <Text style={styles.quickPillText}>Crear cuenta gratis</Text>
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.quickHint}>
-              UrbanFix es gratuito. Registrate en segundos y empezá a gestionar.
-            </Text>
-
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>o</Text>
+              <Text style={styles.dividerText}>o con tu correo</Text>
               <View style={styles.dividerLine} />
             </View>
             {!!debugInfo && __DEV__ && (
@@ -199,43 +235,64 @@ export default function AuthScreen() {
             )}
             
             {/* 🔥 CAMPOS EXTRA SOLO SI ES REGISTRO */}
-            {!isLogin && (
+            {isRegister && (
               <>
+                <Text style={styles.sectionLabel}>Tu perfil</Text>
                 <TextInput
+                  ref={fullNameRef}
                   style={styles.input}
-                  placeholder="Nombre Completo (ej: Carlos Gómez)"
+                  placeholder="Nombre completo (ej: Carlos Gómez)"
                   placeholderTextColor="#94A3B8"
                   value={fullName}
                   onChangeText={setFullName}
                   autoCapitalize="words"
+                  returnKeyType="next"
+                  onSubmitEditing={() => businessNameRef.current?.focus()}
                 />
                 <TextInput
+                  ref={businessNameRef}
                   style={styles.input}
-                  placeholder="Nombre de tu Negocio (ej: ElectroFix)"
+                  placeholder="Nombre de tu negocio (ej: ElectroFix)"
                   placeholderTextColor="#94A3B8"
                   value={businessName}
                   onChangeText={setBusinessName}
                   autoCapitalize="words"
+                  returnKeyType="next"
+                  onSubmitEditing={() => emailRef.current?.focus()}
                 />
               </>
             )}
 
+            <Text style={styles.sectionLabel}>Credenciales</Text>
             <TextInput
+              ref={emailRef}
               style={styles.input}
               placeholder="Email"
               placeholderTextColor="#94A3B8"
               value={email}
               onChangeText={setEmail}
+              onBlur={() => setEmail((prev) => prev.trim())}
               autoCapitalize="none"
+              autoCorrect={false}
               keyboardType="email-address"
+              textContentType="emailAddress"
+              autoComplete="email"
+              returnKeyType="next"
+              onSubmitEditing={() => passwordRef.current?.focus()}
             />
             <TextInput
+              ref={passwordRef}
               style={styles.input}
               placeholder="Contraseña"
               placeholderTextColor="#94A3B8"
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoCorrect={false}
+              textContentType="password"
+              autoComplete="password"
+              returnKeyType="done"
+              onSubmitEditing={handleAuth}
             />
 
             {isLogin && (
@@ -266,7 +323,6 @@ export default function AuthScreen() {
               </LinearGradient>
             </TouchableOpacity>
 
-            {/* SWITCH LOGIN/REGISTER */}
             <TouchableOpacity 
               style={styles.switchBtn} 
               onPress={() => setIsLogin(!isLogin)}
@@ -275,9 +331,6 @@ export default function AuthScreen() {
                 {isLogin ? '¿No tienes cuenta? Regístrate gratis' : '¿Ya tienes cuenta? Ingresa'}
               </Text>
             </TouchableOpacity>
-            {showRegisterHint && !isLogin && (
-              <Text style={styles.registerHint}>Completa tu perfil y listo.</Text>
-            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -287,8 +340,26 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  scrollContent: { flexGrow: 1, justifyContent: 'center', padding: SPACING.lg, gap: 20 },
-  brandBlock: { alignItems: 'center', gap: 8 },
+  scrollContent: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: SPACING.lg, gap: 22 },
+  orbOne: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 999,
+    backgroundColor: 'rgba(243,156,18,0.12)',
+    top: -60,
+    right: -40,
+  },
+  orbTwo: {
+    position: 'absolute',
+    width: 260,
+    height: 260,
+    borderRadius: 999,
+    backgroundColor: 'rgba(56,189,248,0.08)',
+    bottom: -90,
+    left: -60,
+  },
+  hero: { alignItems: 'center', gap: 10 },
   logoWrap: {
     width: 72,
     height: 72,
@@ -305,8 +376,26 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   logo: { width: 44, height: 44, resizeMode: 'contain' },
-  brandTitle: { fontSize: 34, fontFamily: FONTS.title, color: '#FFF' },
-  brandTagline: { fontSize: 14, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.65)' },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  badgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: COLORS.primary,
+  },
+  badgeText: { fontSize: 11, letterSpacing: 1.5, color: '#F8FAFC', fontFamily: FONTS.subtitle },
+  heroTitle: { fontSize: 28, textAlign: 'center', fontFamily: FONTS.title, color: '#FFF' },
+  heroSubtitle: { fontSize: 13, textAlign: 'center', fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)' },
   card: {
     gap: 16,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -320,8 +409,33 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 8,
   },
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(15,23,42,0.6)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    padding: 4,
+    gap: 6,
+  },
+  segmentItem: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  segmentItemActive: {
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  segmentText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: FONTS.subtitle,
+    fontSize: 12,
+  },
+  segmentTextActive: { color: '#F8FAFC' },
   cardTitle: { fontSize: 18, fontFamily: FONTS.title, color: '#FFF' },
   cardSubtitle: { fontSize: 13, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)' },
+  sectionLabel: { color: 'rgba(255,255,255,0.6)', fontFamily: FONTS.subtitle, fontSize: 11, letterSpacing: 0.6 },
   input: {
     backgroundColor: 'rgba(15,23,42,0.7)',
     padding: 16,
@@ -343,7 +457,7 @@ const styles = StyleSheet.create({
   googleButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.5 },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(148,163,184,0.25)' },
-  dividerText: { color: 'rgba(255,255,255,0.6)', fontFamily: FONTS.body },
+  dividerText: { color: 'rgba(255,255,255,0.6)', fontFamily: FONTS.body, fontSize: 11 },
   debugText: { fontSize: 10, color: 'rgba(255,255,255,0.6)', textAlign: 'center' },
   button: {
     padding: 16,
@@ -356,16 +470,5 @@ const styles = StyleSheet.create({
   switchText: { color: '#FCD34D', fontFamily: FONTS.subtitle, fontSize: 13 },
   recoveryBtn: { alignItems: 'flex-end', marginTop: -6 },
   recoveryText: { color: 'rgba(255,255,255,0.85)', fontFamily: FONTS.body, fontSize: 12 },
-  quickRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
-  quickPill: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
-    backgroundColor: 'rgba(15,23,42,0.6)',
-  },
-  quickPillText: { color: '#F8FAFC', fontFamily: FONTS.subtitle, fontSize: 12 },
-  quickHint: { textAlign: 'center', color: 'rgba(255,255,255,0.6)', fontSize: 11 },
   registerHint: { marginTop: 4, textAlign: 'center', color: '#FCD34D', fontSize: 11 },
 });

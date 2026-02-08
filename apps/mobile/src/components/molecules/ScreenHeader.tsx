@@ -10,29 +10,35 @@ interface Props {
   subtitle?: string;
   showBack?: boolean;
   rightAction?: React.ReactNode; // Por si queremos poner un icono a la derecha
+  centerTitle?: boolean;
 }
 
-export const ScreenHeader = ({ title, subtitle, showBack, rightAction }: Props) => {
+export const ScreenHeader = ({ title, subtitle, showBack, rightAction, centerTitle }: Props) => {
   const navigation = useNavigation();
+  const isCentered = centerTitle && !showBack && !rightAction;
 
   return (
     <View style={styles.headerContainer}>
       <SafeAreaView edges={['top']}>
-        <View style={styles.headerContent}>
+        <View style={[styles.headerContent, isCentered && styles.headerContentCentered]}>
           
-          <View style={styles.leftContainer}>
+          <View style={[styles.leftContainer, isCentered && styles.leftContainerCentered]}>
             {showBack && (
               <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
                 <Ionicons name="arrow-back" size={24} color="#FFF" />
               </TouchableOpacity>
             )}
             <View>
-              <Text style={styles.title}>{title}</Text>
-              {subtitle && <Text style={styles.subtitle}>{subtitle}</Text>}
+              <Text style={[styles.title, isCentered && styles.titleCentered]}>{title}</Text>
+              {subtitle && (
+                <Text style={[styles.subtitle, isCentered && styles.titleCentered]}>
+                  {subtitle}
+                </Text>
+              )}
             </View>
           </View>
 
-          {rightAction && <View style={styles.rightContainer}>{rightAction}</View>}
+          {!isCentered && rightAction && <View style={styles.rightContainer}>{rightAction}</View>}
           
         </View>
       </SafeAreaView>
@@ -60,10 +66,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerContentCentered: {
+    justifyContent: 'center',
+  },
   leftContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+  },
+  leftContainerCentered: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   rightContainer: {
     marginLeft: 10,
@@ -76,6 +89,9 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.title,
     fontSize: 22,
     color: '#FFF',
+  },
+  titleCentered: {
+    textAlign: 'center',
   },
   subtitle: {
     fontFamily: FONTS.body,
