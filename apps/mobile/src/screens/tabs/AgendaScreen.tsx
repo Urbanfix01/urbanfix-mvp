@@ -16,7 +16,7 @@ LocaleConfig.locales['es'] = {
   monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
   monthNamesShort: ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'],
   dayNames: ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'],
-  dayNamesShort: ['D','L','M','X','J','V','S'],
+  dayNamesShort: ['Dom','Lun','Mar','Mié','Jue','Vi','Sáb'],
   today: "Hoy"
 };
 LocaleConfig.defaultLocale = 'es';
@@ -28,7 +28,7 @@ const toDateKey = (date: Date) => {
 };
 
 const TODAY = toDateKey(new Date());
-const DAY_HEADERS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+const DAY_HEADERS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vi', 'Sáb'];
 
 const NoTranslateText = ({
   children,
