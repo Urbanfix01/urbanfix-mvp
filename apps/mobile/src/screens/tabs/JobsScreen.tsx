@@ -70,6 +70,12 @@ export default function JobsScreen() {
   const [activeFilter, setActiveFilter] = useState<DashboardFilter>('total');
   const [listAnchor, setListAnchor] = useState(0);
   const listRef = useRef<any>(null);
+  const [dashboardWidth, setDashboardWidth] = useState(0);
+  const dashboardGap = 8;
+  const dashboardColumns = dashboardWidth && dashboardWidth < 320 ? 1 : 2;
+  const isDashboardCompact = dashboardWidth > 0 && dashboardWidth < 360;
+  const dashboardCardWidth =
+    dashboardWidth > 0 ? (dashboardWidth - dashboardGap * (dashboardColumns - 1)) / dashboardColumns : undefined;
 
   const queryClient = useQueryClient();
   const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
@@ -655,27 +661,59 @@ export default function JobsScreen() {
                   <View style={styles.dashboardWrapper}>
                   <View style={styles.dashboardPanel}>
                     
-                    <View style={styles.dashboardGrid}>
-                      {dashboardCards.map((card) => (
-                        <TouchableOpacity
-                          key={card.key}
-                          style={[
-                            styles.dashboardCard,
-                            activeFilter === card.filter && styles.dashboardCardActive,
-                          ]}
-                          activeOpacity={0.85}
-                          onPress={() => handleDashboardFilter(card.filter)}
-                        >
-                          <View style={styles.dashboardTopRow}>
-                            <View style={styles.dashboardLabelRow}>
-                              <View style={[styles.dashboardDot, { backgroundColor: card.accent }]} />
-                              <Text style={styles.dashboardLabel}>{card.label}</Text>
+                    <View
+                      style={styles.dashboardGrid}
+                      onLayout={(event) => setDashboardWidth(event.nativeEvent.layout.width)}
+                    >
+                      {dashboardCards.map((card, index) => {
+                        const isLastInRow =
+                          dashboardColumns > 1 && (index + 1) % dashboardColumns === 0;
+                        const cardStyle = {
+                          width: dashboardCardWidth ?? '48%',
+                          marginRight: dashboardColumns === 1 || isLastInRow ? 0 : dashboardGap,
+                          marginBottom: dashboardGap,
+                        };
+                        return (
+                          <TouchableOpacity
+                            key={card.key}
+                            style={[
+                              styles.dashboardCard,
+                              isDashboardCompact && styles.dashboardCardCompact,
+                              cardStyle,
+                              activeFilter === card.filter && styles.dashboardCardActive,
+                            ]}
+                            activeOpacity={0.85}
+                            onPress={() => handleDashboardFilter(card.filter)}
+                          >
+                            <View style={styles.dashboardTopRow}>
+                              <View style={styles.dashboardLabelRow}>
+                                <View style={[styles.dashboardDot, { backgroundColor: card.accent }]} />
+                                <Text
+                                  style={[styles.dashboardLabel, isDashboardCompact && styles.dashboardLabelCompact]}
+                                  numberOfLines={2}
+                                >
+                                  {card.label}
+                                </Text>
+                              </View>
                             </View>
-                          </View>
-                          <Text style={[styles.dashboardValue, { color: card.accent }]}>{card.value}</Text>
-                          <Text style={styles.dashboardHint}>{card.hint}</Text>
-                        </TouchableOpacity>
-                      ))}
+                            <Text
+                              style={[
+                                styles.dashboardValue,
+                                { color: card.accent },
+                                isDashboardCompact && styles.dashboardValueCompact,
+                              ]}
+                            >
+                              {card.value}
+                            </Text>
+                            <Text
+                              style={[styles.dashboardHint, isDashboardCompact && styles.dashboardHintCompact]}
+                              numberOfLines={2}
+                            >
+                              {card.hint}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
                     </View>
                   </View>
 
@@ -1065,7 +1103,7 @@ const styles = StyleSheet.create({
   dashboardPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#E6DED2',
     shadowColor: '#C7BBA8',
@@ -1078,15 +1116,14 @@ const styles = StyleSheet.create({
   dashboardGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    gap: 12,
+    justifyContent: 'flex-start',
   },
   dashboardCard: {
     width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: '#EFE6D8',
     alignItems: 'center',
@@ -1117,6 +1154,10 @@ const styles = StyleSheet.create({
   },
   dashboardValue: { fontSize: 26, fontFamily: FONTS.title, marginTop: 8, textAlign: 'center', alignSelf: 'center' },
   dashboardHint: { fontSize: 11, fontFamily: FONTS.body, color: '#6B7280', marginTop: 4, textAlign: 'center' },
+  dashboardCardCompact: { paddingVertical: 10, paddingHorizontal: 8 },
+  dashboardLabelCompact: { fontSize: 10 },
+  dashboardValueCompact: { fontSize: 22, marginTop: 6 },
+  dashboardHintCompact: { fontSize: 10, marginTop: 2 },
   billingPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,

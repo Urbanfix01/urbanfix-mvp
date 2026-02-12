@@ -21,6 +21,11 @@ export const ensureAndroidChannel = async () => {
 };
 
 export const registerForPushNotificationsAsync = async (): Promise<string | null> => {
+  // Expo Go no soporta push remoto desde SDK 53+
+  if (Constants.appOwnership === 'expo') {
+    return null;
+  }
+
   await ensureAndroidChannel();
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();

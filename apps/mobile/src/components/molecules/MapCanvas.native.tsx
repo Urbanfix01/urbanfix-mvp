@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { MapPoint, MapRegion } from '../../types/maps';
 
@@ -13,6 +13,8 @@ type Props = {
 
 export default function MapCanvas({ points, region, onSelect, formatMoney, height }: Props) {
   const mapHeight = height ?? 220;
+  const tracksViewChanges = Platform.OS === 'android';
+
   return (
     <View style={[styles.shell, { height: mapHeight }]}>
       <MapView
@@ -28,7 +30,7 @@ export default function MapCanvas({ points, region, onSelect, formatMoney, heigh
             key={point.id}
             coordinate={{ latitude: point.lat, longitude: point.lng }}
             anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={false}
+            tracksViewChanges={tracksViewChanges}
             title={point.title}
             description={`$${formatMoney(point.amount)} · ${point.status.label}`}
             onPress={() => onSelect(point)}
