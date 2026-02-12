@@ -7,6 +7,7 @@ import * as AuthSession from 'expo-auth-session';
 import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
+import { getWebApiUrl } from '../../utils/config';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
 
 WebBrowser.maybeCompleteAuthSession();
@@ -192,7 +193,7 @@ export default function AuthScreen() {
     setRecovering(true);
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
-        redirectTo: 'https://www.urbanfix.com.ar/tecnicos?recovery=1',
+        redirectTo: getWebApiUrl('/tecnicos?recovery=1'),
       });
       if (error) throw error;
       Alert.alert('Revisa tu correo', 'Te enviamos un email para recuperar tu contraseña.');

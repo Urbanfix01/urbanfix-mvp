@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
@@ -10,6 +10,7 @@ import { MapPoint } from '../../types/maps';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { EmptyState } from '../../components/molecules/EmptyState';
 import { Ionicons } from '@expo/vector-icons';
+import { isApproved, isCancelled, isPaid, isPending, normalizeStatus } from '../../utils/status';
 
 // --- CONFIGURACIÓN DE IDIOMA ---
 LocaleConfig.locales['es'] = {
@@ -25,6 +26,21 @@ const toDateKey = (date: Date) => {
   const offset = date.getTimezoneOffset();
   const localDate = new Date(date.getTime() - offset * 60 * 1000);
   return localDate.toISOString().split('T')[0];
+};
+
+const normalizeDateKey = (value?: string | null) => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const datePart = value.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return toDateKey(parsed);
+    }
+  }
+  return null;
 };
 
 const TODAY = toDateKey(new Date());
@@ -93,36 +109,56 @@ export default function AgendaScreen() {
 
   // --- FIX FECHA: Función para mostrar la fecha correcta sin restar horas ---
   const formatDateForDisplay = (dateString: string) => {
+    const dateKey = normalizeDateKey(dateString);
+    if (!dateKey) return dateString;
     // Rompemos el string "2025-12-01" en partes
-    const [year, month, day] = dateString.split('-').map(Number);
+    const [year, month, day] = dateKey.split('-').map(Number);
     // Creamos la fecha localmente (Mes en JS es índice 0, por eso month - 1)
     const localDate = new Date(year, month - 1, day);
     return localDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
   };
 
-  const formatMoney = (value: number) => Number(value || 0).toLocaleString('es-AR');
-
-  const statusConfig = {
-    pending: { label: 'Pendiente', color: '#F59E0B', bg: '#FFF7ED' },
-    confirmed: { label: 'Confirmado', color: '#10B981', bg: '#D1FAE5' },
-    cancelled: { label: 'Cancelado', color: '#EF4444', bg: '#FEE2E2' },
+  const formatNumberSafe = (value: number) => {
+    const safe = Number(value || 0);
+    try {
+      return new Intl.NumberFormat('es-AR').format(safe);
+    } catch (_err) {
+      const [intPart, decPart] = safe.toString().split('.');
+      const withSeparators = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (decPart) return `${withSeparators},${decPart}`;
+      return withSeparators;
+    }
   };
+  const formatMoney = (value: number) => formatNumberSafe(value);
 
-  const resolveAgendaStatus = (status?: string | null) => {
-    const normalized = (status || '').toLowerCase().trim();
-    if (['cancelled', 'canceled', 'cancelado', 'rechazado', 'rejected'].includes(normalized)) {
-      return { key: 'cancelled', ...statusConfig.cancelled };
-    }
-    if (['approved', 'aprobado', 'accepted', 'paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(normalized)) {
-      return { key: 'confirmed', ...statusConfig.confirmed };
-    }
-    if (['draft', 'pending', 'pendiente', 'presented', 'sent'].includes(normalized)) {
+  const statusConfig = useMemo(
+    () => ({
+      pending: { label: 'Pendiente', color: '#F59E0B', bg: '#FFF7ED' },
+      confirmed: { label: 'Confirmado', color: '#10B981', bg: '#D1FAE5' },
+      cancelled: { label: 'Cancelado', color: '#EF4444', bg: '#FEE2E2' },
+    }),
+    []
+  );
+
+  const resolveAgendaStatus = useCallback(
+    (status?: string | null) => {
+      const normalized = normalizeStatus(status);
+      if (isCancelled(normalized)) {
+        return { key: 'cancelled', ...statusConfig.cancelled };
+      }
+      if (isApproved(normalized) || isPaid(normalized)) {
+        return { key: 'confirmed', ...statusConfig.confirmed };
+      }
+      if (isPending(normalized)) {
+        return { key: 'pending', ...statusConfig.pending };
+      }
       return { key: 'pending', ...statusConfig.pending };
-    }
-    return { key: 'pending', ...statusConfig.pending };
-  };
+    },
+    [statusConfig]
+  );
 
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
+    setLoading(true);
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -140,13 +176,12 @@ export default function AgendaScreen() {
         const pendingList: any[] = [];
 
         data?.forEach((job) => {
-            if (!job.scheduled_date) {
+            const dateKey = normalizeDateKey(job.scheduled_date);
+            if (!dateKey) {
                 pendingList.push(job);
                 return;
             }
 
-            const dateKey = job.scheduled_date; 
-            
             if (!newItems[dateKey]) newItems[dateKey] = [];
             newItems[dateKey].push(job);
 
@@ -168,9 +203,13 @@ export default function AgendaScreen() {
     } finally {
         setLoading(false);
     }
-  };
+  }, [resolveAgendaStatus]);
 
-  useEffect(() => { loadItems(); }, []);
+  useFocusEffect(
+    useCallback(() => {
+      loadItems();
+    }, [loadItems])
+  );
 
   // --- ACCIÓN: ASIGNAR FECHA ---
   const updateSchedule = async (jobId: string, dateString: string) => {
@@ -239,7 +278,7 @@ export default function AgendaScreen() {
                 <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
             </View>
         </View>
-        <Text style={styles.itemPrice}>${item.total_amount?.toLocaleString('es-AR')}</Text>
+        <Text style={styles.itemPrice}>${formatMoney(item.total_amount || 0)}</Text>
       </TouchableOpacity>
     );
   };
@@ -583,6 +622,19 @@ export default function AgendaScreen() {
                               </Text>
                             )}
                         </View>
+                        <TouchableOpacity
+                            style={styles.sheetSecondaryBtn}
+                            onPress={() => {
+                              const id = quickDetail.id;
+                              setQuickDetail(null);
+                              openScheduler(id);
+                            }}
+                        >
+                            <Ionicons name="calendar" size={16} color="#0F172A" />
+                            <Text style={styles.sheetSecondaryText}>
+                              {normalizeDateKey(quickDetail.scheduled_date) ? 'Cambiar fecha' : 'Asignar fecha'}
+                            </Text>
+                        </TouchableOpacity>
                         <View style={styles.sheetActions}>
                             <TouchableOpacity style={styles.sheetGhostBtn} onPress={() => setQuickDetail(null)}>
                                 <Text style={styles.sheetGhostText}>Cerrar</Text>
@@ -784,6 +836,19 @@ const styles = StyleSheet.create({
   },
   sheetBadgeText: { fontSize: 10, fontFamily: FONTS.subtitle, letterSpacing: 0.6 },
   sheetDate: { fontSize: 11, fontFamily: FONTS.body, color: '#94A3B8' },
+  sheetSecondaryBtn: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sheetSecondaryText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#0F172A' },
   sheetActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
   sheetGhostBtn: {
     flex: 1,

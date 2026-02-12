@@ -17,6 +17,8 @@ import MapCanvas from '../../components/molecules/MapCanvas';
 import { supabase } from '../../lib/supabase';
 import { MapPoint } from '../../types/maps';
 import { COLORS, FONTS } from '../../utils/theme';
+import { formatCurrency } from '../../utils/number';
+import { isApproved, isClosed, isPending, normalizeStatus } from '../../utils/status';
 
 type QuoteListItem = {
   id: string;
@@ -43,7 +45,7 @@ async function getQuotes(): Promise<QuoteListItem[]> {
 
   const { data, error } = await supabase
     .from('quotes')
-    .select('*')
+    .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -60,28 +62,11 @@ export default function MapScreen() {
     staleTime: 60000,
   });
 
-  const formatMoney = (value: number) => Number(value || 0).toLocaleString('es-AR');
+  const formatMoney = (value: number) => formatCurrency(value);
 
   const mapPoints = useMemo<MapPoint[]>(() => {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 3);
-
-    const normalizeStatus = (status?: string | null) => (status || '').toLowerCase().trim();
-    const isPending = (status: string) => ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
-    const isApproved = (status: string) => ['approved', 'aprobado', 'accepted'].includes(status);
-    const isClosed = (status: string) =>
-      [
-        'completed',
-        'completado',
-        'finalizado',
-        'finalizados',
-        'paid',
-        'cobrado',
-        'cobrados',
-        'pagado',
-        'pagados',
-        'charged',
-      ].includes(status);
 
     const resolveStatus = (status: string) => {
       if (isClosed(status)) return { key: 'closed', label: 'Cerrado', color: STATUS_COLORS.closed };
@@ -238,7 +223,7 @@ const MapDetailSheet = ({
         <Text style={styles.sheetTitle}>{point.title}</Text>
         {!!point.address && <Text style={styles.sheetAddress}>{point.address}</Text>}
         <Text style={styles.sheetMeta}>
-          {point.status.label} · ${Number(point.amount || 0).toLocaleString('es-AR')}
+          {point.status.label} · ${formatCurrency(point.amount || 0)}
         </Text>
         <Text style={styles.sheetDate}>
           {new Date(point.createdAt).toLocaleDateString()}

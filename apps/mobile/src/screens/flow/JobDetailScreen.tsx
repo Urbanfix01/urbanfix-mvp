@@ -11,12 +11,17 @@ import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
 import { formatCurrency } from '../../utils/number';
 import { getPublicQuoteUrl } from '../../utils/config';
+import { isApproved, isClosed, isPaid, isPending, isPresented, normalizeStatus } from '../../utils/status';
 
 async function getQuoteById(id: string) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión expirada');
+
   const { data, error } = await supabase
     .from('quotes')
     .select('*, quote_items(*)')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single();
 
   if (error) throw error;
@@ -120,12 +125,13 @@ export default function JobDetailScreen() {
     if (!quote) return null;
 
     const address = quote.client_address;
-    const lat = quote.location_lat;
-    const lng = quote.location_lng;
+    const lat = Number(quote.location_lat);
+    const lng = Number(quote.location_lng);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
 
-    if (!address && (!lat || !lng)) return null;
+    if (!address && !hasCoords) return null;
 
-    const query = (lat && lng) ? `${lat},${lng}` : encodeURIComponent(address);
+    const query = hasCoords ? `${lat},${lng}` : encodeURIComponent(address);
 
     return {
         embedUrl: `https://maps.google.com/maps?q=${query}&t=m&z=15&output=embed&iwloc=near`,
@@ -138,10 +144,10 @@ export default function JobDetailScreen() {
 
     return (
       <View style={styles.mapContainer}>
-          <Text style={styles.sectionTitle}>UBICACIàN EN MAPA</Text>
+          <Text style={styles.sectionTitle}>UBICACIÓN EN MAPA</Text>
           
           {Platform.OS === 'web' ? (
-            /* VERSIàN WEB: Iframe incrustado */
+            /* VERSIÓN WEB: Iframe incrustado */
             <View style={styles.mapFrame}>
                 <iframe 
                   title="mapa-ubicacion"
@@ -154,7 +160,7 @@ export default function JobDetailScreen() {
                 ></iframe>
             </View>
           ) : (
-            /* VERSIàN MàVIL: Bot¢n de acci¢n */
+            /* VERSIÓN MÓVIL: Botón de acción */
             <TouchableOpacity 
                 style={styles.mapButtonMobile} 
                 onPress={() => Linking.openURL(mapData.externalUrl)}
@@ -164,7 +170,7 @@ export default function JobDetailScreen() {
                 </View>
                 <View>
                     <Text style={styles.mapBtnTitle}>Abrir en Google Maps</Text>
-                    <Text style={styles.mapBtnSubtitle}>Ver ruta y navegaci¢n</Text>
+                    <Text style={styles.mapBtnSubtitle}>Ver ruta y navegación</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} style={{marginLeft: 'auto'}}/>
             </TouchableOpacity>
@@ -202,8 +208,8 @@ export default function JobDetailScreen() {
           { text: 'Borrar', style: 'destructive', onPress: () => void performDelete() },
       ]);
       return;
-      /* Tu l¢gica de borrado existente... */
-      if(confirm("¨Borrar trabajo?")) {
+      /* Tu lógica de borrado existente... */
+      if(confirm("¿Borrar trabajo?")) {
           await supabase.from('quotes').delete().eq('id', jobId);
           await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
           await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
@@ -212,10 +218,24 @@ export default function JobDetailScreen() {
   };
 
   const handleShare = async () => {
-      /* Tu l¢gica de compartir... */
+      /* Tu lógica de compartir... */
       const link = getPublicQuoteUrl(jobId);
-      if(Platform.OS === 'web') { navigator.clipboard.writeText(link); alert("Link copiado"); }
-      else { Share.share({message: link}); }
+      if (Platform.OS === 'web') {
+          try {
+              if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+                  await navigator.clipboard.writeText(link);
+                  alert('Link copiado');
+              } else if (typeof window !== 'undefined') {
+                  window.prompt('Copia este link', link);
+              }
+          } catch (_err) {
+              if (typeof window !== 'undefined') {
+                  window.prompt('Copia este link', link);
+              }
+          }
+          return;
+      }
+      Share.share({message: link});
   };
 
   const handleConfirmQuote = async () => {
@@ -228,7 +248,10 @@ export default function JobDetailScreen() {
   };
 
   const handleFinalize = async () => {
-      await supabase.from('quotes').update({ status: 'completed', completed_at: new Date() }).eq('id', jobId);
+      await supabase
+        .from('quotes')
+        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .eq('id', jobId);
       await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
       await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
       navigation.goBack();
@@ -236,16 +259,17 @@ export default function JobDetailScreen() {
 
   // --- HELPERS UI ---
   const getStatusColor = (s: string) => {
-      const st = (s || '').toLowerCase();
-      if (['approved', 'accepted'].includes(st)) return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
-      if (st === 'sent') return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
-      if (st === 'completed') return { bg: '#DCFCE7', text: '#166534', label: 'COBRADO' };
-      return { bg: '#FEF3C7', text: '#B45309', label: 'BORRADOR' };
+      const st = normalizeStatus(s);
+      if (isApproved(st)) return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
+      if (isPresented(st)) return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
+      if (isPaid(st) || isClosed(st)) return { bg: '#DCFCE7', text: '#166534', label: 'COBRADO' };
+      if (isPending(st)) return { bg: '#FEF3C7', text: '#B45309', label: 'PENDIENTE' };
+      return { bg: '#E5E7EB', text: '#475569', label: 'SIN ESTADO' };
   };
 
   if (isLoading && !quote) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={COLORS.primary}/></View>;
   if (error) return <View style={styles.center}><Text>Error al cargar el trabajo</Text></View>;
-  if (!quote) return <View style={styles.center}><Text>No se encontr¢ el trabajo</Text></View>;
+  if (!quote) return <View style={styles.center}><Text>No se encontró el trabajo</Text></View>;
 
   const statusInfo = getStatusColor(quote.status);
 
@@ -290,9 +314,9 @@ export default function JobDetailScreen() {
                     <Ionicons name="location" size={20} color={COLORS.textLight} />
                 </View>
                 <View style={{flex: 1}}>
-                    <Text style={styles.label}>DIRECCIàN</Text>
+                    <Text style={styles.label}>DIRECCIÓN</Text>
                     <Text style={styles.clientAddress}>
-                        {quote.client_address || 'Sin direcci¢n cargada'}
+                        {quote.client_address || 'Sin dirección cargada'}
                     </Text>
                 </View>
             </View>

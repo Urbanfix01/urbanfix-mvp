@@ -15,6 +15,7 @@ import MapCanvas from '../../components/molecules/MapCanvas';
 import { MapPoint } from '../../types/maps';
 import { supabase } from '../../lib/supabase'; 
 import { getPublicQuoteUrl } from '../../utils/config';
+import { isApproved, isClosed, isPaid, isPending, isPresented, normalizeStatus } from '../../utils/status';
 
 type QuoteListItem = {
   id: string;
@@ -53,7 +54,7 @@ async function getQuotes(): Promise<QuoteListItem[]> {
 
   const { data, error } = await supabase
     .from('quotes')
-    .select('*')
+    .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
 
@@ -71,9 +72,9 @@ export default function JobsScreen() {
   const [listAnchor, setListAnchor] = useState(0);
   const listRef = useRef<any>(null);
   const [dashboardWidth, setDashboardWidth] = useState(0);
-  const dashboardGap = 8;
-  const dashboardColumns = dashboardWidth && dashboardWidth < 320 ? 1 : 2;
-  const isDashboardCompact = dashboardWidth > 0 && dashboardWidth < 360;
+  const dashboardGap = 6;
+  const dashboardColumns = dashboardWidth && dashboardWidth < 300 ? 1 : 2;
+  const isDashboardCompact = dashboardWidth > 0 && dashboardWidth < 380;
   const dashboardCardWidth =
     dashboardWidth > 0 ? (dashboardWidth - dashboardGap * (dashboardColumns - 1)) / dashboardColumns : undefined;
 
@@ -85,13 +86,8 @@ export default function JobsScreen() {
   });
 
   const visibleJobs = useMemo(() => {
-    const normalized = (value?: string | null) => (value || '').toLowerCase().trim();
-    const isPending = (status: string) => ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
-    const isApproved = (status: string) => ['approved', 'aprobado', 'accepted'].includes(status);
-    const isPaid = (status: string) => ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
-
     return jobs.filter((job) => {
-      const status = normalized(job.status);
+      const status = job.status;
       if (activeFilter === 'total') return true;
       if (activeFilter === 'pending') return isPending(status);
       if (activeFilter === 'approved') return isApproved(status);
@@ -112,23 +108,20 @@ export default function JobsScreen() {
     let paidAmount = 0;
 
     jobs.forEach((job) => {
-      const status = (job.status || '').toLowerCase().trim();
+      const status = job.status;
       const amount = job.total_amount || 0;
-      const isPending = ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
-      const isApproved = ['approved', 'aprobado', 'accepted'].includes(status);
-      const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
 
       totalCount += 1;
       totalAmount += amount;
-      if (isPending) {
+      if (isPending(status)) {
         pendingCount += 1;
         pendingAmount += amount;
       }
-      if (isApproved) {
+      if (isApproved(status)) {
         approvedCount += 1;
         approvedAmount += amount;
       }
-      if (isPaid) {
+      if (isPaid(status)) {
         paidCount += 1;
         paidAmount += amount;
       }
@@ -160,13 +153,11 @@ export default function JobsScreen() {
       if (createdAt.getFullYear() !== currentYear || createdAt.getMonth() !== currentMonth) return;
 
       const amount = job.total_amount || 0;
-      const status = (job.status || '').toLowerCase().trim();
-      const isApproved = ['approved', 'aprobado', 'accepted'].includes(status);
-      const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
+      const status = job.status;
 
       totalAmount += amount;
-      if (isApproved) approvedAmount += amount;
-      if (isPaid) paidAmount += amount;
+      if (isApproved(status)) approvedAmount += amount;
+      if (isPaid(status)) paidAmount += amount;
     });
 
     return { totalAmount, approvedAmount, paidAmount };
@@ -257,25 +248,10 @@ export default function JobsScreen() {
     let closed = 0;
 
     jobs.forEach((job) => {
-      const status = (job.status || '').toLowerCase().trim();
-      const isPending = ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
-      const isApproved = ['approved', 'aprobado', 'accepted'].includes(status);
-      const isClosed = [
-        'completed',
-        'completado',
-        'finalizado',
-        'finalizados',
-        'paid',
-        'cobrado',
-        'cobrados',
-        'pagado',
-        'pagados',
-        'charged',
-      ].includes(status);
-
-      if (isPending) pending += 1;
-      if (isApproved) approved += 1;
-      if (isClosed) closed += 1;
+      const status = job.status;
+      if (isPending(status)) pending += 1;
+      if (isApproved(status)) approved += 1;
+      if (isClosed(status)) closed += 1;
     });
 
     return { pending, approved, closed };
@@ -292,23 +268,6 @@ export default function JobsScreen() {
   const mapPoints = useMemo<MapPoint[]>(() => {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 3);
-
-    const normalizeStatus = (status?: string | null) => (status || '').toLowerCase().trim();
-    const isPending = (status: string) => ['pending', 'draft', 'pendiente', 'presented', 'sent'].includes(status);
-    const isApproved = (status: string) => ['approved', 'aprobado', 'accepted'].includes(status);
-    const isClosed = (status: string) =>
-      [
-        'completed',
-        'completado',
-        'finalizado',
-        'finalizados',
-        'paid',
-        'cobrado',
-        'cobrados',
-        'pagado',
-        'pagados',
-        'charged',
-      ].includes(status);
 
     const resolveStatus = (status: string) => {
       if (isClosed(status)) return { key: 'closed', label: 'Cerrado', color: STATUS_COLORS.closed };
@@ -417,10 +376,9 @@ export default function JobsScreen() {
       const bucket = totals.get(key);
       if (!bucket) return;
       const amount = job.total_amount || 0;
-      const status = (job.status || '').toLowerCase().trim();
-      const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
+      const status = job.status;
       bucket.total += amount;
-      if (isPaid) bucket.paid += amount;
+      if (isPaid(status)) bucket.paid += amount;
     });
 
     return months.map((month) => ({
@@ -512,17 +470,15 @@ export default function JobsScreen() {
 
   // --- FIX 2: NORMALIZADOR VISUAL DE ESTADOS ---
   const getStatusConfig = (status?: string | null) => {
-    const normalized = status?.toLowerCase().trim() || '';
-
-    if (['approved', 'aprobado', 'accepted'].includes(normalized)) {
+    if (isApproved(status)) {
         return { label: 'APROBADO', color: STATUS_COLORS.approved, bg: '#D1FAE5' }; // Emerald
     }
 
-    if (['presented', 'sent'].includes(normalized)) {
+    if (isPresented(status)) {
         return { label: 'PRESENTADO', color: STATUS_COLORS.presented, bg: '#DBEAFE' }; // Azul
     }
 
-    if (['pending', 'draft', 'pendiente'].includes(normalized)) {
+    if (isPending(status)) {
         return { label: 'PENDIENTE', color: STATUS_COLORS.pending, bg: '#FFF7ED' }; // Amber
     }
 
@@ -1103,7 +1059,7 @@ const styles = StyleSheet.create({
   dashboardPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 14,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#E6DED2',
     shadowColor: '#C7BBA8',
@@ -1122,8 +1078,8 @@ const styles = StyleSheet.create({
     width: '48%',
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#EFE6D8',
     alignItems: 'center',
@@ -1146,18 +1102,18 @@ const styles = StyleSheet.create({
   dashboardDot: { width: 7, height: 7, borderRadius: 999 },
   dashboardTopRow: { alignItems: 'center', justifyContent: 'center', gap: 6 },
   dashboardLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontFamily: FONTS.subtitle,
     color: '#9A8F7B',
     letterSpacing: 0.6,
     textAlign: 'center',
   },
-  dashboardValue: { fontSize: 26, fontFamily: FONTS.title, marginTop: 8, textAlign: 'center', alignSelf: 'center' },
-  dashboardHint: { fontSize: 11, fontFamily: FONTS.body, color: '#6B7280', marginTop: 4, textAlign: 'center' },
-  dashboardCardCompact: { paddingVertical: 10, paddingHorizontal: 8 },
-  dashboardLabelCompact: { fontSize: 10 },
-  dashboardValueCompact: { fontSize: 22, marginTop: 6 },
-  dashboardHintCompact: { fontSize: 10, marginTop: 2 },
+  dashboardValue: { fontSize: 22, fontFamily: FONTS.title, marginTop: 6, textAlign: 'center', alignSelf: 'center' },
+  dashboardHint: { fontSize: 10, fontFamily: FONTS.body, color: '#6B7280', marginTop: 2, textAlign: 'center' },
+  dashboardCardCompact: { paddingVertical: 8, paddingHorizontal: 6 },
+  dashboardLabelCompact: { fontSize: 9 },
+  dashboardValueCompact: { fontSize: 20, marginTop: 4 },
+  dashboardHintCompact: { fontSize: 9, marginTop: 2 },
   billingPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,

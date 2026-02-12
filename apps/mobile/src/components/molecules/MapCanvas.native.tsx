@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { MapPoint, MapRegion } from '../../types/maps';
@@ -14,10 +14,23 @@ type Props = {
 export default function MapCanvas({ points, region, onSelect, formatMoney, height }: Props) {
   const mapHeight = height ?? 220;
   const tracksViewChanges = Platform.OS === 'android';
+  const mapRef = useRef<MapView>(null);
+  const coordsKey = points.map((point) => `${point.lat},${point.lng}`).join('|');
+
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!points.length) return;
+    const coords = points.map((point) => ({ latitude: point.lat, longitude: point.lng }));
+    mapRef.current?.fitToCoordinates(coords, {
+      edgePadding: { top: 32, right: 32, bottom: 32, left: 32 },
+      animated: false,
+    });
+  }, [coordsKey]);
 
   return (
     <View style={[styles.shell, { height: mapHeight }]}>
       <MapView
+        ref={mapRef}
         style={[styles.map, { height: mapHeight }]}
         initialRegion={region}
         scrollEnabled

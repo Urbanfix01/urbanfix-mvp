@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Ionicons } from '@expo/vector-icons';
@@ -60,19 +60,32 @@ export default function NotificationsScreen() {
   }, [queryClient]);
 
   const markAsRead = async (id: string) => {
-    await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('id', id);
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    try {
+      const { error: updateError } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id);
+      if (updateError) throw updateError;
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (_err) {
+      Alert.alert('Error', 'No pudimos marcar la notificación.');
+    }
   };
 
   const markAllRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    await supabase
-      .from('notifications')
-      .update({ read_at: new Date().toISOString() })
-      .eq('user_id', user.id)
-      .is('read_at', null);
-    queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { error: updateError } = await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('user_id', user.id)
+        .is('read_at', null);
+      if (updateError) throw updateError;
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+    } catch (_err) {
+      Alert.alert('Error', 'No pudimos marcar todas las notificaciones.');
+    }
   };
 
   const renderItem = ({ item }: { item: NotificationItem }) => {
