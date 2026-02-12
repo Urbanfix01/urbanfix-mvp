@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 // 👇 AQUÍ FALTABA 'Text'. YA LO AGREGUÉ.
-import { View, Text, FlatList, TextInput, StyleSheet, ActivityIndicator, TouchableOpacity, StatusBar, ScrollView } from 'react-native';
+import { View, Text, FlatList, TextInput, StyleSheet, ActivityIndicator, TouchableOpacity, StatusBar, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; 
 import { useNavigation } from '@react-navigation/native'; 
 import { useMasterItems } from '../../hooks/useCatalog'; 
@@ -43,19 +43,39 @@ export default function CatalogScreen() {
     return ['all', ...sorted];
   }, [items]);
 
-  const filteredItems = (items || []).filter(item => {
-    const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase());
-    const categoryValue = item.source_ref ? item.source_ref : 'general';
-    const matchesCategory = activeCategory === 'all' || categoryValue === activeCategory;
-    let matchesType = true;
-    
-    if (activeTab === 'labor') matchesType = item.type === 'labor';
-    else if (activeTab === 'material') matchesType = item.type === 'material' || item.type === 'consumable';
+  const baseFilteredItems = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return (items || []).filter((item) => {
+      const matchesSearch = !normalizedSearch || item.name.toLowerCase().includes(normalizedSearch);
+      const categoryValue = item.source_ref ? item.source_ref : 'general';
+      const matchesCategory = activeCategory === 'all' || categoryValue === activeCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [items, search, activeCategory]);
 
-    return matchesSearch && matchesType && matchesCategory;
-  });
+  const typeCounts = useMemo(() => {
+    let labor = 0;
+    let material = 0;
+    baseFilteredItems.forEach((item) => {
+      if (item.type === 'labor') labor += 1;
+      if (item.type === 'material' || item.type === 'consumable') material += 1;
+    });
+    return {
+      all: baseFilteredItems.length,
+      labor,
+      material,
+    };
+  }, [baseFilteredItems]);
 
-  const FilterTab = ({ label, type }: { label: string, type: FilterType }) => {
+  const filteredItems = useMemo(() => {
+    if (activeTab === 'labor') return baseFilteredItems.filter((item) => item.type === 'labor');
+    if (activeTab === 'material') {
+      return baseFilteredItems.filter((item) => item.type === 'material' || item.type === 'consumable');
+    }
+    return baseFilteredItems;
+  }, [baseFilteredItems, activeTab]);
+
+  const FilterTab = ({ label, type, count }: { label: string; type: FilterType; count: number }) => {
     const isActive = activeTab === type;
     return (
       <TouchableOpacity 
@@ -63,6 +83,9 @@ export default function CatalogScreen() {
         onPress={() => setActiveTab(type)}
       >
         <Text style={[styles.tabText, isActive && styles.tabTextActive]}>{label}</Text>
+        <View style={[styles.tabCount, isActive && styles.tabCountActive]}>
+          <Text style={[styles.tabCountText, isActive && styles.tabCountTextActive]}>{count}</Text>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -84,13 +107,16 @@ export default function CatalogScreen() {
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
       
       <ScreenHeader 
-        title="Catálogo Maestro" 
+        title="CATÁLOGO MAESTRO" 
         subtitle={`${filteredItems.length} items encontrados`} 
+        centerTitle
       />
 
       <View style={styles.content}>
         <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={20} color="#7F8C8D" style={{marginRight: 8}} />
+          <View style={styles.searchIconWrap}>
+            <Ionicons name="search" size={18} color="#7F8C8D" />
+          </View>
           <TextInput 
             style={styles.searchInput}
             placeholder="Buscar material o servicio..."
@@ -99,33 +125,40 @@ export default function CatalogScreen() {
             onChangeText={setSearch}
           />
           {search.length > 0 && (
-             <TouchableOpacity onPress={() => setSearch('')}>
-               <Ionicons name="close-circle" size={20} color="#95A5A6" />
+             <TouchableOpacity onPress={() => setSearch('')} style={styles.clearSearchBtn}>
+               <Ionicons name="close" size={16} color="#64748B" />
              </TouchableOpacity>
           )}
         </View>
 
-        <View style={styles.tabsContainer}>
-          <FilterTab label="Todos" type="all" />
-          <FilterTab label="Mano de Obra" type="labor" />
-          <FilterTab label="Materiales" type="material" />
-        </View>
+        <View style={styles.filtersCard}>
+          <View style={styles.tabsContainer}>
+            <FilterTab label="Todos" type="all" count={typeCounts.all} />
+            <FilterTab label="Mano de Obra" type="labor" count={typeCounts.labor} />
+            <FilterTab label="Materiales" type="material" count={typeCounts.material} />
+          </View>
 
-        <View style={styles.categorySection}>
-          <Text style={styles.categoryLabel}>Categorias</Text>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryRow}
-          >
-            {categories.map((value) => (
-              <CategoryChip
-                key={value}
-                value={value}
-                label={value === 'all' ? 'Todas' : formatCategoryLabel(value)}
-              />
-            ))}
-          </ScrollView>
+          <View style={styles.categorySection}>
+            <View style={styles.categoryHeader}>
+              <Text style={styles.categoryLabel}>Categorías</Text>
+              <Text style={styles.categoryHint}>
+                {activeCategory === 'all' ? 'Todas' : formatCategoryLabel(activeCategory)}
+              </Text>
+            </View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.categoryRow}
+            >
+              {categories.map((value) => (
+                <CategoryChip
+                  key={value}
+                  value={value}
+                  label={value === 'all' ? 'Todas' : formatCategoryLabel(value)}
+                />
+              ))}
+            </ScrollView>
+          </View>
         </View>
 
         {isLoading ? (
@@ -172,33 +205,128 @@ export default function CatalogScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  content: { flex: 1, paddingHorizontal: 16, paddingTop: 16 }, 
+  content: { flex: 1, paddingHorizontal: 16, paddingTop: 12 }, 
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  searchWrapper: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
-    borderRadius: 12, paddingHorizontal: 12, height: 48, elevation: 2, marginBottom: 16
+  searchWrapper: Platform.select({
+    web: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      height: 54,
+      borderWidth: 1,
+      borderColor: '#ECE7DD',
+      boxShadow: '0 10px 18px rgba(15, 23, 42, 0.08)',
+      marginBottom: 14,
+    },
+    default: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      paddingHorizontal: 12,
+      height: 54,
+      borderWidth: 1,
+      borderColor: '#ECE7DD',
+      shadowColor: '#1F2937',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 4,
+      marginBottom: 14,
+    },
+  }),
+  searchIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 999,
+    backgroundColor: '#F5F1E8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
   },
-  searchInput: { flex: 1, fontFamily: FONTS.body, fontSize: 16, color: COLORS.text, height: '100%' },
-  tabsContainer: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  tab: { 
-    paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, 
-    backgroundColor: '#E0E0E0', borderWidth: 1, borderColor: 'transparent' 
+  searchInput: { flex: 1, fontFamily: FONTS.body, fontSize: 15, color: COLORS.text, height: '100%' },
+  clearSearchBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
   },
-  tabActive: { backgroundColor: COLORS.primary },
-  tabText: { color: COLORS.textLight, fontFamily: FONTS.subtitle, fontSize: 12 },
+  filtersCard: Platform.select({
+    web: {
+      backgroundColor: '#FFF',
+      borderRadius: 18,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: '#EFE6D8',
+      boxShadow: '0 8px 16px rgba(15, 23, 42, 0.06)',
+      marginBottom: 16,
+    },
+    default: {
+      backgroundColor: '#FFF',
+      borderRadius: 18,
+      padding: 12,
+      borderWidth: 1,
+      borderColor: '#EFE6D8',
+      shadowColor: '#1F2937',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.06,
+      shadowRadius: 10,
+      elevation: 3,
+      marginBottom: 16,
+    },
+  }),
+  tabsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 4,
+    borderRadius: 999,
+    backgroundColor: '#F4EFE6',
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  tabActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
+  tabText: { color: '#6B7280', fontFamily: FONTS.subtitle, fontSize: 11, letterSpacing: 0.6 },
   tabTextActive: { color: '#FFF', fontFamily: FONTS.title },
-  categorySection: { marginBottom: 16 },
-  categoryLabel: { fontSize: 12, color: COLORS.textLight, marginBottom: 8, fontFamily: FONTS.subtitle },
-  categoryRow: { gap: 8 },
+  tabCount: {
+    minWidth: 22,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabCountActive: { backgroundColor: 'rgba(255,255,255,0.2)' },
+  tabCountText: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#64748B' },
+  tabCountTextActive: { color: '#FFF' },
+  categorySection: { marginTop: 12 },
+  categoryHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  categoryLabel: { fontSize: 11, color: '#9A8F7B', fontFamily: FONTS.subtitle, letterSpacing: 1.2 },
+  categoryHint: { fontSize: 10, color: '#94A3B8', fontFamily: FONTS.body },
+  categoryRow: { gap: 8, paddingVertical: 6, paddingRight: 16 },
   categoryChip: {
     paddingVertical: 6,
     paddingHorizontal: 12,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#E7E2D7',
     backgroundColor: '#FFF',
   },
-  categoryChipActive: { backgroundColor: COLORS.secondary, borderColor: COLORS.secondary },
-  categoryChipText: { fontSize: 12, color: '#475569', fontFamily: FONTS.body },
+  categoryChipActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  categoryChipText: { fontSize: 11, color: '#5B6B75', fontFamily: FONTS.body },
   categoryChipTextActive: { color: '#FFF', fontFamily: FONTS.subtitle },
 });

@@ -42,6 +42,7 @@ export default function ProfileScreen() {
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<'logo' | 'avatar' | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   
   // Estados de Datos (Formulario)
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -101,6 +102,7 @@ export default function ProfileScreen() {
   // --- 2. LÓGICA DE SUBIDA DE IMÁGENES ---
   const handleImagePick = async (type: 'logo' | 'avatar') => {
     try {
+      if (!isEditing) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
@@ -173,6 +175,7 @@ export default function ProfileScreen() {
       // Actualizar estado local del perfil
       // TypeScript ahora estará feliz porque Profile acepta null en lat/lng
       setProfile(prev => prev ? ({ ...prev, ...updates }) : null);
+      setIsEditing(false);
 
       const msg = "Perfil actualizado correctamente";
       isWeb ? alert(msg) : Alert.alert("Éxito", msg);
@@ -216,23 +219,46 @@ export default function ProfileScreen() {
     return Math.min(100, Math.max(0, parsed));
   };
 
+  const handleCancelEdit = () => {
+    if (profile) {
+      setBusinessName(profile.business_name || '');
+      setPhone(profile.phone || '');
+      setAddress(profile.company_address || '');
+      setDefaultDiscount(
+        profile.default_discount !== null && profile.default_discount !== undefined
+          ? String(profile.default_discount)
+          : ''
+      );
+      if (profile.location_lat && profile.location_lng) {
+        setLocation({ lat: profile.location_lat, lng: profile.location_lng });
+      } else {
+        setLocation({ lat: 0, lng: 0 });
+      }
+    }
+    setIsEditing(false);
+  };
+
   // --- RENDER ---
   if (loading && !profile) return <View style={[styles.container, styles.center]}><ActivityIndicator color={COLORS.primary} /></View>;
 
   const MenuOption = ({ icon, label, onPress, isNew }: any) => (
-    <TouchableOpacity style={styles.menuOption} onPress={onPress}>
+    <TouchableOpacity style={styles.menuOption} onPress={onPress} activeOpacity={0.8}>
       <View style={styles.menuLeft}>
-        <View style={styles.iconBox}><Ionicons name={icon} size={22} color={COLORS.primary} /></View>
+        <View style={styles.iconCircle}>
+          <Ionicons name={icon} size={18} color={COLORS.primary} />
+        </View>
         <Text style={styles.menuText}>{label}</Text>
         {isNew && <View style={styles.badge}><Text style={styles.badgeText}>NUEVO</Text></View>}
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#CCC" />
+      <View style={styles.chevronCircle}>
+        <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+      </View>
     </TouchableOpacity>
   );
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScreenHeader title="Mi Perfil" subtitle="Configuración y cuenta" />
+      <ScreenHeader title="Mi Perfil" subtitle="Configuración y cuenta" centerTitle={isWeb} />
 
       <ScrollView 
         contentContainerStyle={styles.content}
@@ -246,7 +272,7 @@ export default function ProfileScreen() {
           <TouchableOpacity 
             style={styles.brandBanner} 
             onPress={() => handleImagePick('logo')}
-            disabled={uploadingImage !== null}
+            disabled={!isEditing || uploadingImage !== null}
             activeOpacity={0.9}
           >
             {uploadingImage === 'logo' ? (
@@ -259,7 +285,7 @@ export default function ProfileScreen() {
                 <Text style={styles.placeholderText}>Toca para subir Logo</Text>
               </View>
             )}
-            {uploadingImage !== 'logo' && (
+            {isEditing && uploadingImage !== 'logo' && (
                 <View style={styles.editIconBanner}><Ionicons name="pencil" size={12} color="#FFF" /></View>
             )}
           </TouchableOpacity>
@@ -269,7 +295,7 @@ export default function ProfileScreen() {
             <TouchableOpacity 
                 style={styles.avatarContainer}
                 onPress={() => handleImagePick('avatar')}
-                disabled={uploadingImage !== null}
+                disabled={!isEditing || uploadingImage !== null}
                 activeOpacity={0.9}
             >
               {uploadingImage === 'avatar' ? (
@@ -281,7 +307,7 @@ export default function ProfileScreen() {
                   <Text style={styles.avatarText}>{getInitials(profile?.full_name)}</Text>
                 </View>
               )}
-              {uploadingImage !== 'avatar' && (
+              {isEditing && uploadingImage !== 'avatar' && (
                   <View style={styles.editIconAvatar}><Ionicons name="camera" size={14} color="#FFF" /></View>
               )}
             </TouchableOpacity>
@@ -298,17 +324,32 @@ export default function ProfileScreen() {
         </View>
 
         {/* === SECCIÓN 2: DATOS EDITABLES === */}
-        <Text style={styles.sectionTitle}>Datos de la Empresa</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Datos de la Empresa</Text>
+          {isEditing ? (
+            <TouchableOpacity style={styles.cancelEditBtn} onPress={handleCancelEdit}>
+              <Ionicons name="close" size={14} color="#64748B" />
+              <Text style={styles.cancelEditText}>Cancelar</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}>
+              <Ionicons name="create-outline" size={14} color="#0F172A" />
+              <Text style={styles.editProfileText}>Editar perfil</Text>
+            </TouchableOpacity>
+          )}
+        </View>
         <View style={styles.formContainer}>
             
             {/* Input Nombre Empresa */}
             <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>NOMBRE COMERCIAL</Text>
                 <TextInput 
-                    style={styles.inputField} 
+                    style={[styles.inputField, !isEditing && styles.inputFieldDisabled]} 
                     value={businessName} 
                     onChangeText={setBusinessName}
                     placeholder="Ej: FixIt Soluciones"
+                    editable={isEditing}
+                    selectTextOnFocus={isEditing}
                 />
             </View>
 
@@ -316,23 +357,13 @@ export default function ProfileScreen() {
             <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>TELÉFONO / WHATSAPP</Text>
                 <TextInput 
-                    style={styles.inputField} 
+                    style={[styles.inputField, !isEditing && styles.inputFieldDisabled]} 
                     value={phone} 
                     onChangeText={setPhone}
                     placeholder="+54 9 11..."
                     keyboardType="phone-pad"
-                />
-            </View>
-
-            {/* Descuento por defecto */}
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>DESCUENTO POR DEFECTO (%)</Text>
-                <TextInput
-                    style={styles.inputField}
-                    value={defaultDiscount}
-                    onChangeText={setDefaultDiscount}
-                    placeholder="0"
-                    keyboardType="numeric"
+                    editable={isEditing}
+                    selectTextOnFocus={isEditing}
                 />
             </View>
 
@@ -340,32 +371,41 @@ export default function ProfileScreen() {
             <View style={[styles.inputGroup, { zIndex: 100 }]}>
                 <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
                 <View style={{ marginTop: 5, height: 60, zIndex: 100 }}>
-                    {isWeb ? (
-                        process.env.EXPO_PUBLIC_WEB_API_KEY ? (
-                            <WebGoogleMaps
-                                apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
+                    {isEditing ? (
+                        isWeb ? (
+                            process.env.EXPO_PUBLIC_WEB_API_KEY ? (
+                                <WebGoogleMaps
+                                    apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
+                                    initialValue={address}
+                                    onPlaceSelected={handleLocationSelect}
+                                />
+                            ) : <Text style={{color:'red'}}>Falta API Key Web</Text>
+                        ) : (
+                            <LocationAutocomplete 
                                 initialValue={address}
-                                onPlaceSelected={handleLocationSelect}
+                                onLocationSelect={handleLocationSelect}
+                                apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} 
                             />
-                        ) : <Text style={{color:'red'}}>Falta API Key Web</Text>
+                        )
                     ) : (
-                        <LocationAutocomplete 
-                            initialValue={address}
-                            onLocationSelect={handleLocationSelect}
-                            apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} 
-                        />
+                        <View style={styles.readonlyField}>
+                          <Ionicons name="location-outline" size={16} color="#94A3B8" />
+                          <Text style={styles.readonlyText}>{address || 'Sin dirección'}</Text>
+                        </View>
                     )}
                 </View>
             </View>
 
             {/* Botón Guardar Cambios de Texto */}
-            <TouchableOpacity 
-                style={[styles.saveButton, saving && { opacity: 0.7 }]} 
-                onPress={saveProfileData}
-                disabled={saving}
-            >
-                {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>GUARDAR DATOS</Text>}
-            </TouchableOpacity>
+            {isEditing && (
+              <TouchableOpacity 
+                  style={[styles.saveButton, saving && { opacity: 0.7 }]} 
+                  onPress={saveProfileData}
+                  disabled={saving}
+              >
+                  {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>GUARDAR DATOS</Text>}
+              </TouchableOpacity>
+            )}
         </View>
 
 
@@ -412,46 +452,244 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   center: { justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 20, paddingBottom: 50 },
+  content: Platform.select({
+    web: { padding: 24, paddingBottom: 60, maxWidth: 820, width: '100%', alignSelf: 'center' },
+    default: { padding: 20, paddingBottom: 50 },
+  }),
 
   // --- BRAND CARD ---
-  brandCard: { backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 24, shadowColor: '#000', shadowOffset: {width:0, height:4}, shadowOpacity:0.1, elevation: 4 },
-  brandBanner: { height: 120, backgroundColor: '#FFFFFF', justifyContent: 'center', alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  bannerImage: { width: '80%', height: '80%' },
-  bannerPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F9FAFB', width: '100%' },
-  placeholderText: { fontSize: 10, color: '#CCC', marginTop: 4, fontFamily: FONTS.subtitle },
-  editIconBanner: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.3)', padding: 6, borderRadius: 20 },
-  brandContent: { alignItems: 'center', paddingBottom: 24, marginTop: -50 },
-  avatarContainer: { marginBottom: 12, shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity:0.2, elevation: 5, position: 'relative' },
-  avatarImage: { width: 100, height: 100, borderRadius: 50, borderWidth: 4, borderColor: '#FFF', backgroundColor: '#FFF' },
+  brandCard: Platform.select({
+    web: {
+      backgroundColor: '#FFF',
+      borderRadius: 20,
+      overflow: 'hidden',
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: '#EDE6DB',
+      boxShadow: '0 20px 40px rgba(15, 23, 42, 0.08)',
+    },
+    default: {
+      backgroundColor: '#FFF',
+      borderRadius: 20,
+      overflow: 'hidden',
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: '#EDE6DB',
+      shadowColor: '#1F2937',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.12,
+      shadowRadius: 16,
+      elevation: 6,
+    },
+  }),
+  brandBanner: {
+    height: 120,
+    backgroundColor: '#F5F1E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#EFE6D8',
+  },
+  bannerImage: { width: '78%', height: '78%' },
+  bannerPlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F8FAFC', width: '100%' },
+  placeholderText: { fontSize: 10, color: '#94A3B8', marginTop: 4, fontFamily: FONTS.subtitle },
+  editIconBanner: { position: 'absolute', top: 10, right: 10, backgroundColor: 'rgba(15, 23, 42, 0.75)', padding: 6, borderRadius: 999 },
+  brandContent: { alignItems: 'center', paddingHorizontal: 20, paddingBottom: 22, marginTop: -44 },
+  avatarContainer: Platform.select({
+    web: {
+      marginBottom: 12,
+      padding: 4,
+      borderRadius: 999,
+      backgroundColor: '#FFF',
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      boxShadow: '0 10px 20px rgba(15, 23, 42, 0.15)',
+      position: 'relative',
+    },
+    default: {
+      marginBottom: 12,
+      padding: 4,
+      borderRadius: 999,
+      backgroundColor: '#FFF',
+      borderWidth: 1,
+      borderColor: '#E2E8F0',
+      shadowColor: '#1F2937',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.12,
+      shadowRadius: 12,
+      elevation: 6,
+      position: 'relative',
+    },
+  }),
+  avatarImage: { width: 92, height: 92, borderRadius: 46, borderWidth: 3, borderColor: '#FFF', backgroundColor: '#FFF' },
   avatarPlaceholder: { backgroundColor: COLORS.primary, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 32, fontFamily: FONTS.title, color: '#FFF' },
-  editIconAvatar: { position: 'absolute', bottom: 0, right: 0, backgroundColor: COLORS.primary, padding: 6, borderRadius: 20, borderWidth: 2, borderColor: '#FFF' },
+  avatarText: { fontSize: 30, fontFamily: FONTS.title, color: '#FFF' },
+  editIconAvatar: { position: 'absolute', bottom: 2, right: 2, backgroundColor: COLORS.primary, padding: 6, borderRadius: 999, borderWidth: 2, borderColor: '#FFF' },
   brandInfo: { alignItems: 'center' },
-  businessName: { fontFamily: FONTS.title, fontSize: 20, color: COLORS.text, marginBottom: 4, textAlign: 'center' },
-  personName: { fontFamily: FONTS.body, fontSize: 14, color: COLORS.textLight, marginBottom: 8 },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.success, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  verifiedText: { fontSize: 10, color: '#FFF', marginLeft: 4, fontFamily: FONTS.subtitle },
+  businessName: { fontFamily: FONTS.title, fontSize: 20, color: COLORS.text, marginBottom: 4, textAlign: 'center', letterSpacing: 0.5 },
+  personName: { fontFamily: FONTS.body, fontSize: 13, color: COLORS.textLight, marginBottom: 8 },
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#0F172A', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  verifiedText: { fontSize: 10, color: '#FFF', marginLeft: 4, fontFamily: FONTS.subtitle, letterSpacing: 0.4 },
 
   // --- FORMULARIO ---
-  formContainer: { backgroundColor: '#FFF', borderRadius: 12, padding: 16, marginBottom: 24, shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 },
+  formContainer: Platform.select({
+    web: {
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: '#EFE6D8',
+      boxShadow: '0 12px 26px rgba(15, 23, 42, 0.06)',
+    },
+    default: {
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      padding: 18,
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: '#EFE6D8',
+      shadowColor: '#1F2937',
+      shadowOpacity: 0.06,
+      shadowOffset: { width: 0, height: 6 },
+      shadowRadius: 12,
+      elevation: 3,
+    },
+  }),
   inputGroup: { marginBottom: 16 },
-  inputLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: COLORS.textLight, marginBottom: 6, letterSpacing: 0.5 },
-  inputField: { backgroundColor: '#F9FAFB', borderRadius: 8, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
-  saveButton: { backgroundColor: COLORS.primary, padding: 14, borderRadius: 10, alignItems: 'center', marginTop: 8 },
-  saveButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 },
+  inputLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#8B93A1', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' },
+  inputField: { backgroundColor: '#FFF', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
+  inputFieldDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
+  readonlyField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  readonlyText: { fontSize: 13, fontFamily: FONTS.body, color: '#64748B' },
+  saveButton: Platform.select({
+    web: {
+      backgroundColor: COLORS.primary,
+      padding: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+      boxShadow: '0 12px 22px rgba(243, 156, 18, 0.3)',
+    },
+    default: {
+      backgroundColor: COLORS.primary,
+      padding: 14,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+      shadowColor: COLORS.primary,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+  }),
+  saveButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.6 },
 
   // --- MENU ---
-  sectionTitle: { fontFamily: FONTS.subtitle, fontSize: 12, color: COLORS.textLight, marginBottom: 8, marginLeft: 4, letterSpacing: 1 },
-  menuContainer: { backgroundColor: '#FFF', borderRadius: 12, overflow: 'hidden', marginBottom: 24, shadowColor: '#000', shadowOpacity: 0.03, elevation: 1 },
-  menuOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  menuLeft: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { marginRight: 12, width: 24, alignItems: 'center' },
-  menuText: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
-  badge: { backgroundColor: COLORS.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
-  badgeText: { fontSize: 8, fontFamily: FONTS.title, color: '#FFF' },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    marginLeft: 4,
+    marginRight: 4,
+  },
+  sectionTitle: { fontFamily: FONTS.subtitle, fontSize: 11, color: '#9A8F7B', letterSpacing: 1.6, textTransform: 'uppercase' },
+  editProfileBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  editProfileText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#0F172A' },
+  cancelEditBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  cancelEditText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#64748B' },
+  menuContainer: Platform.select({
+    web: {
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      overflow: 'hidden',
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: '#EFE6D8',
+      boxShadow: '0 12px 26px rgba(15, 23, 42, 0.06)',
+    },
+    default: {
+      backgroundColor: '#FFF',
+      borderRadius: 16,
+      overflow: 'hidden',
+      marginBottom: 24,
+      borderWidth: 1,
+      borderColor: '#EFE6D8',
+      shadowColor: '#1F2937',
+      shadowOpacity: 0.06,
+      shadowOffset: { width: 0, height: 6 },
+      shadowRadius: 12,
+      elevation: 3,
+    },
+  }),
+  menuOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EDE2',
+    backgroundColor: '#FFF',
+  },
+  menuLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  iconCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: '#FFF3D6',
+    borderWidth: 1,
+    borderColor: '#F3D59A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  menuText: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text },
+  badge: { backgroundColor: COLORS.primary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 999, marginLeft: 6 },
+  badgeText: { fontSize: 8, fontFamily: FONTS.title, color: '#FFF', letterSpacing: 0.6 },
+  chevronCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+  },
 
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FEF2F2', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#FEE2E2' },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1F2', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: '#FEE2E2' },
   logoutText: { marginLeft: 8, fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.danger },
-  versionText: { textAlign: 'center', marginTop: 24, color: '#CCC', fontFamily: FONTS.body, fontSize: 10 }
+  versionText: { textAlign: 'center', marginTop: 20, color: '#94A3B8', fontFamily: FONTS.body, fontSize: 10 }
 });

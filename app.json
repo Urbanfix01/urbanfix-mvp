@@ -1,3 +1,21 @@
 {
-  "expo": {}
+  "expo": {
+    "name": "UrbanFix",
+    "slug": "UrbanFix",
+    "owner": "urbanfix",
+    "ios": {
+      "bundleIdentifier": "com.urbanfix.urbanfix",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "834bb60b-4d87-4372-9495-7d3b48b30b4b"
+      }
+    },
+    "android": {
+      "package": "com.urbanfix.urbanfix"
+    }
+  }
 }

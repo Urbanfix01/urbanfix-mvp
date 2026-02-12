@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable 
+  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,7 +10,6 @@ import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { COLORS, FONTS } from '../../utils/theme';
-import ServiceSelector from '../../components/organisms/ServiceSelector';
 import { ServiceBlueprint } from '../../types/database';
 import MapCanvas from '../../components/molecules/MapCanvas';
 import { MapPoint } from '../../types/maps';
@@ -64,7 +63,6 @@ async function getQuotes(): Promise<QuoteListItem[]> {
 
 export default function JobsScreen() {
   const navigation = useNavigation();
-  const [selectorVisible, setSelectorVisible] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [trendWidth, setTrendWidth] = useState(0);
@@ -168,7 +166,19 @@ export default function JobsScreen() {
     return { totalAmount, approvedAmount, paidAmount };
   }, [jobs]);
 
-  const formatMoney = (value: number) => Number(value || 0).toLocaleString('es-AR');
+  const formatNumberSafe = (value: number) => {
+    const safe = Number(value || 0);
+    try {
+      // Intl puede fallar en Android si falta el locale; usamos fallback.
+      return new Intl.NumberFormat('es-AR').format(safe);
+    } catch (_err) {
+      const [intPart, decPart] = safe.toString().split('.');
+      const withSeparators = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (decPart) return `${withSeparators},${decPart}`;
+      return withSeparators;
+    }
+  };
+  const formatMoney = (value: number) => formatNumberSafe(value);
   const formatCompact = (value: number) => {
     const safe = Number(value || 0);
     if (safe >= 1_000_000) return `${(safe / 1_000_000).toFixed(1)}M`;
@@ -414,14 +424,25 @@ export default function JobsScreen() {
     }));
   }, [jobs]);
 
+  const trendSummary = useMemo(() => {
+    const lastIndex = trendData.reduce((acc, entry, index) => {
+      if (entry.total > 0 || entry.paid > 0) return index;
+      return acc;
+    }, -1);
+    const finalIndex = lastIndex === -1 ? trendData.length - 1 : lastIndex;
+    const startIndex = Math.max(0, finalIndex - 5);
+    return trendData.slice(startIndex, finalIndex + 1);
+  }, [trendData]);
+
   const maxTrendValue = useMemo(() => {
     const values = trendData.map((entry) => Math.max(entry.total, entry.paid));
     return Math.max(1, ...values);
   }, [trendData]);
 
-  const trendHeight = 120;
-  const trendPadding = 12;
+  const trendHeight = 160;
+  const trendPadding = 14;
   const trendInnerHeight = trendHeight - trendPadding * 2;
+  const trendMidY = trendPadding + trendInnerHeight / 2;
 
   const trendPoints = useMemo(() => {
     if (!trendWidth) return { total: '', paid: '', coords: [] as { x: number; totalY: number; paidY: number }[] };
@@ -439,12 +460,15 @@ export default function JobsScreen() {
   }, [trendWidth, trendData, maxTrendValue, trendInnerHeight]);
 
   // --- ACCIONES ---
-  const handleCreateJob = () => setSelectorVisible(true);
-
-  const handleSelectService = (blueprint: ServiceBlueprint) => {
-    setSelectorVisible(false);
+  const handleCreateJob = () => {
+    const blankBlueprint: ServiceBlueprint = {
+      id: 'custom',
+      name: 'Trabajo a Medida',
+      description: 'Empieza con un presupuesto vacío',
+      blueprint_components: [],
+    };
     // @ts-ignore
-    navigation.navigate('JobConfig', { blueprint });
+    navigation.navigate('JobConfig', { blueprint: blankBlueprint });
   };
 
   const ensureShareableStatus = async (job: QuoteListItem) => {
@@ -470,7 +494,7 @@ export default function JobsScreen() {
     await ensureShareableStatus(job);
 
     const link = getPublicQuoteUrl(job.id);
-    const safeTotal = (job.total_amount || 0).toLocaleString('es-AR');
+    const safeTotal = formatMoney(job.total_amount || 0);
     const message = `Hola! Te paso el presupuesto por $${safeTotal}: ${link}`;
 
     try {
@@ -561,7 +585,7 @@ export default function JobsScreen() {
                     {item.client_name || `Presupuesto #${item.id.slice(0,4).toUpperCase()}`}
                 </Text>
                 <Text style={styles.amountText}>
-                    ${(item.total_amount || 0).toLocaleString('es-AR')}
+                    ${formatMoney(item.total_amount || 0)}
                 </Text>
             </View>
 
@@ -627,7 +651,8 @@ export default function JobsScreen() {
             onRefresh={refetch}
             refreshing={isFetching && !isLoading}
             ListHeaderComponent={
-                <View style={styles.dashboardWrapper}>
+                <View>
+                  <View style={styles.dashboardWrapper}>
                   <View style={styles.dashboardPanel}>
                     
                     <View style={styles.dashboardGrid}>
@@ -698,11 +723,50 @@ export default function JobsScreen() {
                           <Line
                             x1={trendPadding}
                             x2={Math.max(trendPadding, trendWidth - trendPadding)}
+                            y1={trendMidY}
+                            y2={trendMidY}
+                            stroke="#E2E8F0"
+                            strokeWidth={1}
+                            strokeDasharray="4 4"
+                          />
+                          <Line
+                            x1={trendPadding}
+                            x2={Math.max(trendPadding, trendWidth - trendPadding)}
                             y1={trendPadding + trendInnerHeight}
                             y2={trendPadding + trendInnerHeight}
                             stroke="#E2E8F0"
                             strokeWidth={1}
                           />
+                          <SvgText
+                            x={trendPadding}
+                            y={trendPadding - 3}
+                            fontSize="9"
+                            fill="#94A3B8"
+                            textAnchor="start"
+                            fontFamily={FONTS.body}
+                          >
+                            {formatCompact(maxTrendValue)}
+                          </SvgText>
+                          <SvgText
+                            x={trendPadding}
+                            y={trendMidY - 3}
+                            fontSize="9"
+                            fill="#94A3B8"
+                            textAnchor="start"
+                            fontFamily={FONTS.body}
+                          >
+                            {formatCompact(maxTrendValue / 2)}
+                          </SvgText>
+                          <SvgText
+                            x={trendPadding}
+                            y={trendPadding + trendInnerHeight + 12}
+                            fontSize="9"
+                            fill="#94A3B8"
+                            textAnchor="start"
+                            fontFamily={FONTS.body}
+                          >
+                            0
+                          </SvgText>
                           {!!trendPoints.total && (
                             <Polyline points={trendPoints.total} fill="none" stroke={STATUS_COLORS.total} strokeWidth={2} />
                           )}
@@ -713,26 +777,6 @@ export default function JobsScreen() {
                             <React.Fragment key={`point-${index}`}>
                               <Circle cx={point.x} cy={point.totalY} r={3} fill={STATUS_COLORS.total} />
                               <Circle cx={point.x} cy={point.paidY} r={3} fill={STATUS_COLORS.paid} />
-                              <SvgText
-                                x={point.x}
-                                y={Math.max(12, point.totalY - 8)}
-                                fontSize="9"
-                                fill={STATUS_COLORS.total}
-                                textAnchor="middle"
-                                fontFamily={FONTS.subtitle}
-                              >
-                                {formatCompact(trendData[index]?.total || 0)}
-                              </SvgText>
-                              <SvgText
-                                x={point.x}
-                                y={Math.min(trendHeight - 4, point.paidY + 12)}
-                                fontSize="9"
-                                fill={STATUS_COLORS.paid}
-                                textAnchor="middle"
-                                fontFamily={FONTS.subtitle}
-                              >
-                                {formatCompact(trendData[index]?.paid || 0)}
-                              </SvgText>
                             </React.Fragment>
                           ))}
                         </Svg>
@@ -742,51 +786,89 @@ export default function JobsScreen() {
                           <Text key={entry.key} style={styles.trendLabel}>{entry.label}</Text>
                         ))}
                       </View>
-                      <View style={styles.statusPanel}>
-                        <Text style={styles.trendTitle}>TRABAJOS POR ESTADO</Text>
-                        <View style={styles.statusChart}>
-                          {statusChart.map((item) => {
-                            const height = Math.max(8, (item.value / maxStatusCount) * 70);
-                            return (
-                              <View key={item.key} style={styles.statusColumn}>
-                                <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
-                                <View style={[styles.statusBar, { height, backgroundColor: item.color }]} />
-                                <Text style={styles.statusLabel}>{item.label}</Text>
-                              </View>
-                          );
-                        })}
-                        </View>
-                      </View>
-                      <View style={styles.mapPanel}>
-                        <View style={styles.mapHeader}>
-                          <View style={styles.mapTitleRow}>
-                            <Text style={styles.trendTitle}>MAPA · ULTIMOS 3 MESES</Text>
-                            <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
+                      <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        contentContainerStyle={styles.trendSummaryRow}
+                      >
+                        {trendSummary.map((entry) => (
+                          <View key={entry.key} style={styles.trendSummaryCard}>
+                            <Text style={styles.trendSummaryMonth}>{entry.label}</Text>
+                            <View style={styles.trendSummaryLine}>
+                              <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.total }]} />
+                              <Text style={styles.trendSummaryLabel}>Presup.</Text>
+                            </View>
+                            <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.total }]}>
+                              ${formatMoney(entry.total)}
+                            </Text>
+                            <View style={styles.trendSummaryLine}>
+                              <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.paid }]} />
+                              <Text style={styles.trendSummaryLabel}>Cobrados</Text>
+                            </View>
+                            <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.paid }]}>
+                              ${formatMoney(entry.paid)}
+                            </Text>
                           </View>
-                          <View style={styles.mapPills}>
-                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
-                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
-                              <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
-                            </View>
-                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
-                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
-                              <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
-                            </View>
-                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
-                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
-                              <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
-                            </View>
+                        ))}
+                      </ScrollView>
+                    </View>
+                    <View style={styles.statusPanel}>
+                      <Text style={styles.trendTitle}>TRABAJOS POR ESTADO</Text>
+                      <View style={styles.statusChart}>
+                      {statusChart.map((item) => {
+                        const height = Math.max(10, (item.value / maxStatusCount) * 80);
+                        return (
+                          <View key={item.key} style={styles.statusColumn}>
+                            <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
+                            <View style={[styles.statusBar, { height, backgroundColor: item.color }]} />
+                            <Text style={styles.statusLabel}>{item.label}</Text>
                           </View>
-                        </View>
-                        <MapCanvas
-                          key={mapKey}
-                          points={mapPoints}
-                          region={mapRegion}
-                          onSelect={handleOpenMapDetail}
-                          formatMoney={formatMoney}
-                        />
+                        );
+                      })}
                       </View>
                     </View>
+                  </View>
+
+                  <View style={styles.mapPanel}>
+                    <View style={styles.mapHeader}>
+                      <View style={styles.mapTitleRow}>
+                        <Text style={styles.trendTitle}>MAPA · ULTIMOS 3 MESES</Text>
+                        <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
+                      </View>
+                      <View style={styles.mapPills}>
+                        <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
+                          <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
+                          <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
+                        </View>
+                        <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
+                          <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
+                          <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
+                        </View>
+                        <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
+                          <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
+                          <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
+                        </View>
+                      </View>
+                    </View>
+                    <MapCanvas
+                      key={mapKey}
+                      points={mapPoints}
+                      region={mapRegion}
+                      onSelect={handleOpenMapDetail}
+                      formatMoney={formatMoney}
+                      height={260}
+                    />
+                    <TouchableOpacity
+                      style={styles.mapCta}
+                      onPress={() => {
+                        // @ts-ignore
+                        navigation.navigate('Mapa');
+                      }}
+                    >
+                      <Text style={styles.mapCtaText}>Ver mapa completo</Text>
+                      <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                    </TouchableOpacity>
+                  </View>
                   </View>
 
                   <View style={styles.latestHeader}>
@@ -913,11 +995,6 @@ export default function JobsScreen() {
         />
       )}
 
-      <ServiceSelector 
-        visible={selectorVisible} 
-        onClose={() => setSelectorVisible(false)} 
-        onSelect={handleSelectService}
-      />
     </View>
   );
 }
@@ -938,7 +1015,7 @@ const MapDetailSheet = ({
         <Text style={styles.sheetTitle}>{point.title}</Text>
         {!!point.address && <Text style={styles.sheetAddress}>{point.address}</Text>}
         <Text style={styles.sheetMeta}>
-          {point.status.label} · ${Number(point.amount || 0).toLocaleString('es-AR')}
+          {point.status.label} · ${formatMoney(Number(point.amount || 0))}
         </Text>
         <Text style={styles.sheetDate}>
           {new Date(point.createdAt).toLocaleDateString()}
@@ -998,20 +1075,25 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   panelTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#8D8270', letterSpacing: 2.4, marginBottom: 12 },
-  dashboardGrid: { flexDirection: 'row', flexWrap: 'nowrap', justifyContent: 'space-between', gap: 10 },
+  dashboardGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   dashboardCard: {
-    width: '23%',
+    width: '48%',
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: '#EFE6D8',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#E6DCCB',
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -1023,12 +1105,18 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 7,
   },
-  dashboardLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dashboardLabelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, flexWrap: 'wrap' },
   dashboardDot: { width: 7, height: 7, borderRadius: 999 },
   dashboardTopRow: { alignItems: 'center', justifyContent: 'center', gap: 6 },
-  dashboardLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.4, textTransform: 'uppercase' },
+  dashboardLabel: {
+    fontSize: 11,
+    fontFamily: FONTS.subtitle,
+    color: '#9A8F7B',
+    letterSpacing: 0.6,
+    textAlign: 'center',
+  },
   dashboardValue: { fontSize: 26, fontFamily: FONTS.title, marginTop: 8, textAlign: 'center', alignSelf: 'center' },
-  dashboardHint: { fontSize: 10, fontFamily: FONTS.body, color: '#7C7C7C', marginTop: 4, textAlign: 'center' },
+  dashboardHint: { fontSize: 11, fontFamily: FONTS.body, color: '#6B7280', marginTop: 4, textAlign: 'center' },
   billingPanel: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -1060,42 +1148,56 @@ const styles = StyleSheet.create({
   trendPanel: {
     marginTop: 16,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#EFE9DE',
   },
-  trendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  trendTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.8 },
-  trendLegend: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  trendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 },
+  trendTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.2 },
+  trendLegend: { flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 6, height: 6, borderRadius: 3 },
   legendText: { fontSize: 10, fontFamily: FONTS.body, color: '#6B7280' },
-  trendChart: { height: 120 },
-  trendLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
+  trendChart: { height: 160 },
+  trendLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   trendLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#A8A29E' },
+  trendSummaryRow: { gap: 10, paddingTop: 12, paddingBottom: 4 },
+  trendSummaryCard: {
+    width: 120,
+    borderRadius: 14,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+    backgroundColor: '#FBFBF9',
+  },
+  trendSummaryMonth: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#9A8F7B', marginBottom: 6 },
+  trendSummaryLine: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4 },
+  trendSummaryDot: { width: 6, height: 6, borderRadius: 999 },
+  trendSummaryLabel: { fontSize: 10, fontFamily: FONTS.body, color: '#6B7280' },
+  trendSummaryValue: { fontSize: 13, fontFamily: FONTS.subtitle, marginTop: 2 },
   statusPanel: {
     marginTop: 16,
-    backgroundColor: '#FBFBF9',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#EFE9DE',
   },
   statusChart: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 10 },
   statusColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
-  statusValue: { fontSize: 16, fontFamily: FONTS.title, marginBottom: 6 },
-  statusBar: { width: 104, borderRadius: 6 },
-  statusLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#A8A29E', marginTop: 6, textAlign: 'center' },
+  statusValue: { fontSize: 18, fontFamily: FONTS.title, marginBottom: 6 },
+  statusBar: { width: '100%', borderRadius: 8, alignSelf: 'stretch' },
+  statusLabel: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#A8A29E', marginTop: 6, textAlign: 'center', letterSpacing: 0.3 },
   mapPanel: {
     marginTop: 16,
-    backgroundColor: '#FBFBF9',
-    borderRadius: 16,
-    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#EFE9DE',
   },
-  mapHeader: { gap: 8, marginBottom: 10 },
+  mapHeader: { gap: 10, marginBottom: 12 },
   mapTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   mapCountText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#94A3B8' },
   mapLegend: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
@@ -1108,10 +1210,21 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: '#FBFBF9',
+    backgroundColor: '#FFFFFF',
   },
   mapPillDot: { width: 6, height: 6, borderRadius: 999 },
   mapPillText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
+  mapCta: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 999,
+    backgroundColor: COLORS.secondary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  mapCtaText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#FFFFFF', letterSpacing: 0.4 },
   sheetOverlay: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.35)',

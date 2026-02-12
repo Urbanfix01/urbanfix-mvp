@@ -112,12 +112,6 @@ export default function HomePage() {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <a
-                  href="/nueva"
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  AAPSyA
-                </a>
-                <a
                   href="/tecnicos"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
@@ -149,6 +143,14 @@ export default function HomePage() {
                     className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                   >
                     Entrar como tecnico
+                  </a>
+                  <a
+                    href="https://play.google.com/apps/testing/com.urbanfix.app"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+                  >
+                    Descargar app Android (beta)
                   </a>
                   <a
                     href="/privacidad"

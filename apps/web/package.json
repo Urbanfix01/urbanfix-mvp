@@ -12,11 +12,13 @@
     "@react-pdf/renderer": "^4.3.2",
     "@supabase/supabase-js": "^2.39.0",
     "base64-arraybuffer": "^1.0.2",
+    "google-auth-library": "^9.14.2",
     "lucide-react": "^0.555.0",
     "next": "15.5.11",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "styled-jsx": "^5.1.1"
+    "styled-jsx": "^5.1.1",
+    "urbanfix-monorepo": "file:../.."
   },
   "devDependencies": {
     "@types/node": "^20",

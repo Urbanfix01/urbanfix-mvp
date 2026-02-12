@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as Linking from 'expo-linking';
 import Constants from 'expo-constants';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
@@ -46,6 +47,26 @@ export default function AuthScreen() {
     });
   };
 
+  const parseAuthParams = (url: string) => {
+    const params: Record<string, string> = {};
+    const querySplit = url.split('?')[1];
+    if (querySplit) {
+      const queryString = querySplit.split('#')[0];
+      const queryParams = new URLSearchParams(queryString);
+      queryParams.forEach((value, key) => {
+        params[key] = value;
+      });
+    }
+    const hashString = url.split('#')[1];
+    if (hashString) {
+      const hashParams = new URLSearchParams(hashString);
+      hashParams.forEach((value, key) => {
+        if (!(key in params)) params[key] = value;
+      });
+    }
+    return params;
+  };
+
   const handleGoogleAuth = async () => {
     try {
       if (Platform.OS === 'web') {
@@ -69,17 +90,43 @@ export default function AuthScreen() {
         },
       });
       if (error) throw error;
-      if (!data?.url) throw new Error('No se pudo iniciar Google Sign-In');
+      const authUrl = data?.url;
+      if (!authUrl) throw new Error('No se pudo iniciar Google Sign-In (url vacía)');
 
-      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-      if (result.type === 'success' && result.url) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(result.url);
-        if (exchangeError) throw exchangeError;
-        return;
+      const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
+
+      if (result.type === 'success') {
+        const urlResult = result.url;
+        if (!urlResult) throw new Error('Respuesta de Google incompleta');
+        const params = parseAuthParams(urlResult);
+        const errorMessage = params.error_description || params.error;
+
+        if (errorMessage) throw new Error(String(errorMessage));
+
+        if (params.code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(String(params.code));
+          if (exchangeError) throw exchangeError;
+          return;
+        }
+
+        if (params.access_token && params.refresh_token) {
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: params.access_token,
+            refresh_token: params.refresh_token,
+          });
+          if (sessionError) throw sessionError;
+          return;
+        }
+
+        throw new Error('Respuesta de Google incompleta');
       }
 
       if (result.type === 'cancel' || result.type === 'dismiss') {
         throw new Error('Inicio con Google cancelado');
+      }
+
+      if (result.type === 'error' && 'errorCode' in result) {
+        throw new Error(result.errorCode || 'No se pudo completar Google');
       }
 
       await WebBrowser.openBrowserAsync(data.url);

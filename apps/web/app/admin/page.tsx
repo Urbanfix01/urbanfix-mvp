@@ -111,6 +111,32 @@ type PresenceData = {
   onlineWindowMinutes: number;
 };
 
+type PlayMetrics = {
+  installs?: {
+    series: {
+      date: string;
+      dailyUserInstalls?: number;
+      dailyUserUninstalls?: number;
+      dailyDeviceInstalls?: number;
+    }[];
+    totalUserInstalls: number;
+    totalUserUninstalls: number;
+  } | null;
+  crashes?: {
+    crashRate?: number;
+    crashRate7d?: number;
+    crashRate28d?: number;
+    lastDate?: string | null;
+  } | null;
+  anr?: {
+    anrRate?: number;
+    anrRate7d?: number;
+    anrRate28d?: number;
+    lastDate?: string | null;
+  } | null;
+  errors?: string[];
+};
+
 type PendingAccessItem = {
   id: string;
   full_name?: string | null;
@@ -283,6 +309,9 @@ export default function AdminPage() {
   const [presenceData, setPresenceData] = useState<PresenceData | null>(null);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [presenceError, setPresenceError] = useState('');
+  const [playMetrics, setPlayMetrics] = useState<PlayMetrics | null>(null);
+  const [playLoading, setPlayLoading] = useState(false);
+  const [playError, setPlayError] = useState('');
   const [laborItems, setLaborItems] = useState<MasterItemAdminRow[]>([]);
   const [laborLoading, setLaborLoading] = useState(false);
   const [laborError, setLaborError] = useState('');
@@ -330,6 +359,27 @@ export default function AdminPage() {
       setOverviewError(error?.message || 'No se pudo cargar el panel.');
     } finally {
       setLoadingOverview(false);
+    }
+  };
+
+  const loadPlayMetrics = async (token?: string) => {
+    if (!token) return;
+    setPlayLoading(true);
+    setPlayError('');
+    try {
+      const response = await fetch('/api/admin/play-metrics', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudieron cargar las métricas de Play.');
+      }
+      const data = await response.json();
+      setPlayMetrics(data);
+    } catch (error: any) {
+      setPlayError(error?.message || 'No se pudieron cargar las métricas de Play.');
+    } finally {
+      setPlayLoading(false);
     }
   };
 
@@ -538,6 +588,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!session?.access_token) return;
     loadOverview(session.access_token);
+    loadPlayMetrics(session.access_token);
   }, [session?.access_token]);
 
   useEffect(() => {
@@ -607,6 +658,9 @@ export default function AdminPage() {
     setSession(null);
     setOverview(null);
     setIsAdmin(null);
+    setPlayMetrics(null);
+    setPlayError('');
+    setPlayLoading(false);
     setSupportUsers([]);
     setSupportMessages([]);
     setSupportDraft('');
@@ -876,7 +930,10 @@ export default function AdminPage() {
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
-                onClick={() => loadOverview(session.access_token)}
+                onClick={() => {
+                  loadOverview(session.access_token);
+                  loadPlayMetrics(session.access_token);
+                }}
                 className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
               >
                 Actualizar
@@ -925,22 +982,145 @@ export default function AdminPage() {
               {activeTab === 'resumen' && (
                 <>
                   <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {kpis.map((card) => (
-                  <div
+                    {kpis.map((card) => (
+                      <div
                     key={card.label}
                     className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
                   >
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
-                    <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
-                  </div>
-                ))}
-              </section>
+                      <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
+                    </div>
+                  ))}
+                </section>
 
-              <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-6">
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Mensajes recientes</h3>
+                  <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-slate-900">Google Play (Android)</h3>
+                        <span className="text-xs text-slate-400">Últimos 14 días</span>
+                      </div>
+                      {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando métricas...</p>}
+                      {playError && (
+                        <p className="mt-3 text-xs text-rose-500">
+                          {playError}
+                        </p>
+                      )}
+                      {!playLoading && !playError && !playMetrics && (
+                        <p className="mt-3 text-sm text-slate-500">
+                          Configura GOOGLE_PLAY_SERVICE_ACCOUNT_B64 y GOOGLE_PLAY_PACKAGE_NAME para ver datos.
+                        </p>
+                      )}
+                      {!playLoading && !playError && playMetrics && (
+                        <>
+                          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Instalaciones</p>
+                              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                                {formatNumber(playMetrics.installs?.totalUserInstalls || 0)}
+                              </p>
+                              <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Desinstalaciones</p>
+                              <p className="mt-2 text-2xl font-semibold text-slate-900">
+                                {formatNumber(playMetrics.installs?.totalUserUninstalls || 0)}
+                              </p>
+                              <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
+                            </div>
+                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Crashes / ANR (7d)</p>
+                              <p className="mt-2 text-xl font-semibold text-slate-900">
+                                {`${((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}% · ${((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%`}
+                              </p>
+                              <p className="mt-1 text-[11px] text-slate-500">Crash · ANR</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-4">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                              Instalaciones por día
+                            </p>
+                            <div className="mt-3 grid gap-2">
+                              {(playMetrics.installs?.series || []).slice(-14).map((row) => {
+                                const installs = Number(row.dailyUserInstalls || 0);
+                                const uninstalls = Number(row.dailyUserUninstalls || 0);
+                                const max = Math.max(1, installs + uninstalls);
+                                return (
+                                  <div
+                                    key={row.date || `${installs}-${uninstalls}`}
+                                    className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2"
+                                  >
+                                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                      <span>{row.date || ''}</span>
+                                      <span className="text-slate-600">
+                                        {installs} / {uninstalls}
+                                      </span>
+                                    </div>
+                                    <div className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-white">
+                                      <div
+                                        className="bg-emerald-500"
+                                        style={{ width: `${(installs / max) * 100}%` }}
+                                        title={`${installs} instalaciones`}
+                                      />
+                                      <div
+                                        className="bg-rose-400"
+                                        style={{ width: `${(uninstalls / max) * 100}%` }}
+                                        title={`${uninstalls} desinstalaciones`}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {!!playMetrics.errors?.length && (
+                            <p className="mt-3 text-[11px] text-amber-600">
+                              {playMetrics.errors.join(' • ')}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </div>
+
+                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold text-slate-900">Crashes y ANR</h3>
+                        <span className="text-xs text-slate-400">
+                          {playMetrics?.crashes?.lastDate || playMetrics?.anr?.lastDate || 'Últimos 14 días'}
+                        </span>
+                      </div>
+                      {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando...</p>}
+                      {!playLoading && !playError && playMetrics && (
+                        <div className="mt-4 space-y-2 text-sm text-slate-600">
+                          <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                            <span>Crash rate 7d</span>
+                            <span className="font-semibold text-slate-900">
+                              {((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                            <span>ANR rate 7d</span>
+                            <span className="font-semibold text-slate-900">
+                              {((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-400">
+                            Datos de Play Developer Reporting. Puede tardar algunas horas tras publicar una versión.
+                          </div>
+                        </div>
+                      )}
+                      {!playLoading && playError && (
+                        <p className="mt-3 text-xs text-rose-500">{playError}</p>
+                      )}
+                    </div>
+                  </section>
+
+                  <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                    <div className="space-y-6">
+                      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">Mensajes recientes</h3>
                       <span className="text-xs text-slate-400">Últimos 10</span>
                     </div>
                     <div className="mt-4 space-y-3">

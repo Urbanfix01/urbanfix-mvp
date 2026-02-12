@@ -1,0 +1,41 @@
+# General
+.git
+.gitignore
+*.log
+*.tmp
+
+# IDE/editor
+.vscode
+.idea
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/yarn
+**/node_modules
+npm-debug.log*
+yarn-error.log*
+
+# Expo cache/output
+.expo
+.expo-shared
+.expo-packager-cache
+.expo-cli
+
+# Android/iOS build outputs
+**/android/app/build
+**/ios/build
+**/ios/Pods
+
+# Credentials / secrets (do not upload)
+**/asc-key.json
+**/*.p8
+**/*.p12
+**/*.mobileprovision
+
+# Assets heavy or not needed
+**/.gradle
+**/.env.local
+**/.env.development
+**/.env.production

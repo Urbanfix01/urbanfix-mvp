@@ -1,5 +1,4 @@
 ﻿import React, { useEffect, useRef, useState } from 'react';
-import { useCallback } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
   TextInput, KeyboardAvoidingView, Platform, ScrollView, Alert, ActivityIndicator, Switch,
@@ -152,7 +151,9 @@ export default function JobConfigScreen() {
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<QuoteAttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
-  const [isHeaderCompact, setIsHeaderCompact] = useState(false);
+  const [showAttachments, setShowAttachments] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
+  const isHeaderCompact = true;
   
   const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
@@ -302,6 +303,7 @@ export default function JobConfigScreen() {
   useEffect(() => {
     if (activeCategory !== 'labor') {
       setLaborToolOpen(false);
+      setShowCalculator(false);
     }
   }, [activeCategory]);
 
@@ -431,21 +433,6 @@ export default function JobConfigScreen() {
     setSelectedLaborTool('none');
     setLaborToolOpen(false);
   };
-
-  const handleScroll = useCallback(
-    (event: any) => {
-      const offsetY = event?.nativeEvent?.contentOffset?.y ?? 0;
-      if (!isHeaderCompact && offsetY > 80) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setIsHeaderCompact(true);
-      }
-      if (isHeaderCompact && offsetY < 40) {
-        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-        setIsHeaderCompact(false);
-      }
-    },
-    [isHeaderCompact]
-  );
 
   const updateAttachment = (id: string, patch: Partial<QuoteAttachmentItem>) => {
     setAttachments((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
@@ -828,8 +815,6 @@ export default function JobConfigScreen() {
                     contentContainerStyle={[styles.scrollContent, IS_WEB && styles.scrollContentWeb]} 
                     showsVerticalScrollIndicator={false}
                     keyboardShouldPersistTaps="always"
-                    onScroll={handleScroll}
-                    scrollEventThrottle={16}
                 >
                     <View style={styles.addressWrapper}>
                         <LinearGradient
@@ -839,7 +824,6 @@ export default function JobConfigScreen() {
                             style={[
                                 styles.hero,
                                 !isWideLayout && styles.heroCompact,
-                                isHeaderCompact && styles.heroCollapsed,
                             ]}
                         >
                             <View style={styles.heroGlow} />
@@ -903,7 +887,6 @@ export default function JobConfigScreen() {
                         <View style={styles.panel}>
                             <View style={styles.panelHeader}>
                                 <View style={styles.panelHeaderLeft}>
-                                    <Text style={styles.panelEyebrow}>PASO 1</Text>
                                     <Text style={styles.panelTitle}>Datos del cliente</Text>
                                     <Text style={styles.panelHint}>Agrega nombre y direccion para iniciar.</Text>
                                 </View>
@@ -939,61 +922,80 @@ export default function JobConfigScreen() {
                                 <View style={styles.panel}>
                                     <View style={styles.panelHeader}>
                                         <View style={styles.panelHeaderLeft}>
-                                            <Text style={styles.panelEyebrow}>ADJUNTOS</Text>
-                                            <Text style={styles.panelTitle}>Imagenes del trabajo</Text>
-                                            <Text style={styles.panelHint}>Subi fotos para compartir con el cliente.</Text>
+                                            <Text style={styles.panelTitle}>Adjuntos (opcional)</Text>
+                                            <Text style={styles.panelHint}>Subi fotos solo si lo necesitas.</Text>
                                         </View>
-                                        <TouchableOpacity
-                                            style={[styles.attachmentsAction, attachmentsUploading && styles.attachmentsActionDisabled]}
-                                            onPress={handlePickAttachments}
-                                            disabled={attachmentsUploading}
-                                        >
-                                            {attachmentsUploading ? (
-                                                <ActivityIndicator size="small" color={COLORS.primary} />
-                                            ) : (
-                                                <Ionicons name="cloud-upload-outline" size={18} color={COLORS.primary} />
+                                        <View style={styles.panelHeaderRight}>
+                                            {showAttachments && (
+                                                <TouchableOpacity
+                                                    style={[styles.attachmentsAction, attachmentsUploading && styles.attachmentsActionDisabled]}
+                                                    onPress={handlePickAttachments}
+                                                    disabled={attachmentsUploading}
+                                                >
+                                                    {attachmentsUploading ? (
+                                                        <ActivityIndicator size="small" color={COLORS.primary} />
+                                                    ) : (
+                                                        <Ionicons name="cloud-upload-outline" size={18} color={COLORS.primary} />
+                                                    )}
+                                                    <Text style={styles.attachmentsActionText}>Agregar</Text>
+                                                </TouchableOpacity>
                                             )}
-                                            <Text style={styles.attachmentsActionText}>Agregar</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                    <View style={styles.attachmentsGrid}>
-                                        {attachments.length === 0 ? (
-                                            <TouchableOpacity style={styles.attachmentsEmpty} onPress={handlePickAttachments}>
-                                                <Ionicons name="image-outline" size={28} color="#94A3B8" />
-                                                <Text style={styles.attachmentsEmptyText}>Toca para subir imagenes</Text>
+                                            <TouchableOpacity
+                                                style={styles.collapsePill}
+                                                onPress={() => setShowAttachments((prev) => !prev)}
+                                            >
+                                                <Text style={styles.collapseText}>
+                                                    {showAttachments ? 'Ocultar' : 'Mostrar'}
+                                                </Text>
+                                                <Ionicons
+                                                    name={showAttachments ? 'chevron-up' : 'chevron-down'}
+                                                    size={16}
+                                                    color="#64748B"
+                                                />
                                             </TouchableOpacity>
-                                        ) : (
-                                            attachments.map((item) => {
-                                                const previewUri = item.url || item.localUri;
-                                                return (
-                                                    <View key={item.id} style={styles.attachmentTile}>
-                                                        {previewUri ? (
-                                                            <Image source={{ uri: previewUri }} style={styles.attachmentImage} />
-                                                        ) : (
-                                                            <View style={styles.attachmentPlaceholder}>
-                                                                <Ionicons name="image-outline" size={24} color="#CBD5E1" />
-                                                            </View>
-                                                        )}
-                                                        {item.isUploading && (
-                                                            <View style={styles.attachmentOverlay}>
-                                                                <ActivityIndicator color="#FFF" />
-                                                            </View>
-                                                        )}
-                                                    </View>
-                                                );
-                                            })
-                                        )}
+                                        </View>
                                     </View>
-                                    <Text style={styles.attachmentsNote}>
-                                        {canUploadAttachments
-                                          ? 'Se suben al instante.'
-                                          : 'Se suben al guardar el presupuesto.'}
-                                    </Text>
+                                    {showAttachments && (
+                                        <>
+                                            <View style={styles.attachmentsGrid}>
+                                                {attachments.length === 0 ? (
+                                                    <TouchableOpacity style={styles.attachmentsEmpty} onPress={handlePickAttachments}>
+                                                        <Ionicons name="image-outline" size={28} color="#94A3B8" />
+                                                        <Text style={styles.attachmentsEmptyText}>Toca para subir imagenes</Text>
+                                                    </TouchableOpacity>
+                                                ) : (
+                                                    attachments.map((item) => {
+                                                        const previewUri = item.url || item.localUri;
+                                                        return (
+                                                            <View key={item.id} style={styles.attachmentTile}>
+                                                                {previewUri ? (
+                                                                    <Image source={{ uri: previewUri }} style={styles.attachmentImage} />
+                                                                ) : (
+                                                                    <View style={styles.attachmentPlaceholder}>
+                                                                        <Ionicons name="image-outline" size={24} color="#CBD5E1" />
+                                                                    </View>
+                                                                )}
+                                                                {item.isUploading && (
+                                                                    <View style={styles.attachmentOverlay}>
+                                                                        <ActivityIndicator color="#FFF" />
+                                                                    </View>
+                                                                )}
+                                                            </View>
+                                                        );
+                                                    })
+                                                )}
+                                            </View>
+                                            <Text style={styles.attachmentsNote}>
+                                                {canUploadAttachments
+                                                  ? 'Se suben al instante.'
+                                                  : 'Se suben al guardar el presupuesto.'}
+                                            </Text>
+                                        </>
+                                    )}
                                 </View>
                                 <View style={styles.panel}>
                                     <View style={styles.panelHeader}>
                                         <View style={styles.panelHeaderLeft}>
-                                            <Text style={styles.panelEyebrow}>PASO 2</Text>
                                             <Text style={styles.panelTitle}>Cargar items</Text>
                                             <Text style={styles.panelHint}>Selecciona tareas y materiales para cotizar.</Text>
                                         </View>
@@ -1041,165 +1043,185 @@ export default function JobConfigScreen() {
                                         </View>
 
                                         {activeCategory === 'labor' && (
-                                            <>
-                                                <View style={styles.laborTools}>
-                                                    <TouchableOpacity
-                                                        style={styles.laborToolsHeader}
-                                                        onPress={() => setLaborToolOpen(prev => !prev)}
-                                                        activeOpacity={0.8}
-                                                    >
-                                                        <View>
-                                                        <Text style={styles.laborToolsLabel}>Presupuestador (m2 / ml)</Text>
-                                                        <Text style={styles.laborToolsHint}>Calculadora rapida por unidad (m2 o ml)</Text>
-                                                        </View>
-                                                    <View style={styles.laborToolsValue}>
-                                                        <Text style={styles.laborToolsValueText} numberOfLines={1}>
-                                                            {laborToolDisplay}
-                                                        </Text>
-                                                        <Ionicons
-                                                            name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
-                                                            size={18}
-                                                            color="#64748B"
-                                                            />
-                                                        </View>
-                                                    </TouchableOpacity>
+                                            <View style={styles.optionalBlock}>
+                                                <TouchableOpacity
+                                                    style={styles.optionalHeader}
+                                                    onPress={() => setShowCalculator((prev) => !prev)}
+                                                    activeOpacity={0.85}
+                                                >
+                                                    <View>
+                                                        <Text style={styles.optionalTitle}>Calculadora rapida</Text>
+                                                        <Text style={styles.optionalHint}>Opcional para m2 / ml</Text>
+                                                    </View>
+                                                    <Ionicons
+                                                        name={showCalculator ? 'chevron-up' : 'chevron-down'}
+                                                        size={18}
+                                                        color="#64748B"
+                                                    />
+                                                </TouchableOpacity>
 
-                                                    {laborToolOpen && (
-                                                        <View style={styles.laborToolsMenu}>
-                                                            {LABOR_TOOLS.map((tool) => (
+                                                {showCalculator && (
+                                                    <>
+                                                        <View style={styles.laborTools}>
                                                             <TouchableOpacity
-                                                                key={tool.key}
-                                                                style={styles.laborToolsOption}
-                                                                onPress={() => {
-                                                                    setSelectedLaborTool(tool.key);
-                                                                    setLaborToolOpen(false);
-                                                                    setToolQuantity('');
-                                                                    setToolRate('');
-                                                                    if (tool.key !== 'custom') {
-                                                                        setCustomToolName('');
-                                                                        setCustomToolUnit('m2');
-                                                                    }
-                                                                }}
+                                                                style={styles.laborToolsHeader}
+                                                                onPress={() => setLaborToolOpen(prev => !prev)}
+                                                                activeOpacity={0.8}
                                                             >
-                                                                <Text style={styles.laborToolsOptionText}>{tool.label}</Text>
+                                                                <View>
+                                                                <Text style={styles.laborToolsLabel}>Presupuestador (m2 / ml)</Text>
+                                                                <Text style={styles.laborToolsHint}>Calculadora rapida por unidad (m2 o ml)</Text>
+                                                                </View>
+                                                            <View style={styles.laborToolsValue}>
+                                                                <Text style={styles.laborToolsValueText} numberOfLines={1}>
+                                                                    {laborToolDisplay}
+                                                                </Text>
+                                                                <Ionicons
+                                                                    name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
+                                                                    size={18}
+                                                                    color="#64748B"
+                                                                    />
+                                                                </View>
                                                             </TouchableOpacity>
-                                                        ))}
-                                                        {selectedLaborTool !== 'none' && (
-                                                            <TouchableOpacity
-                                                                style={styles.laborToolsOption}
-                                                                onPress={() => {
-                                                                    setSelectedLaborTool('none');
-                                                                    setLaborToolOpen(false);
-                                                                    setToolQuantity('');
-                                                                    setToolRate('');
-                                                                    setCustomToolName('');
-                                                                    setCustomToolUnit('m2');
-                                                                }}
-                                                            >
-                                                                <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
-                                                            </TouchableOpacity>
+
+                                                            {laborToolOpen && (
+                                                                <View style={styles.laborToolsMenu}>
+                                                                    {LABOR_TOOLS.map((tool) => (
+                                                                    <TouchableOpacity
+                                                                        key={tool.key}
+                                                                        style={styles.laborToolsOption}
+                                                                        onPress={() => {
+                                                                            setSelectedLaborTool(tool.key);
+                                                                            setLaborToolOpen(false);
+                                                                            setToolQuantity('');
+                                                                            setToolRate('');
+                                                                            if (tool.key !== 'custom') {
+                                                                                setCustomToolName('');
+                                                                                setCustomToolUnit('m2');
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        <Text style={styles.laborToolsOptionText}>{tool.label}</Text>
+                                                                    </TouchableOpacity>
+                                                                ))}
+                                                                {selectedLaborTool !== 'none' && (
+                                                                    <TouchableOpacity
+                                                                        style={styles.laborToolsOption}
+                                                                        onPress={() => {
+                                                                            setSelectedLaborTool('none');
+                                                                            setLaborToolOpen(false);
+                                                                            setToolQuantity('');
+                                                                            setToolRate('');
+                                                                            setCustomToolName('');
+                                                                            setCustomToolUnit('m2');
+                                                                        }}
+                                                                    >
+                                                                        <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
+                                                                    </TouchableOpacity>
+                                                                )}
+                                                            </View>
                                                         )}
                                                     </View>
+
+                                                    {effectiveTool && (
+                                                        <View style={styles.calculatorCard}>
+                                                            <View style={styles.calculatorHeader}>
+                                                                <Ionicons name="grid-outline" size={18} color={COLORS.primary} />
+                                                                <Text style={styles.calculatorTitle}>{effectiveTool.label}</Text>
+                                                            </View>
+
+                                                            {effectiveTool.key === 'custom' && (
+                                                                <View style={styles.customToolRow}>
+                                                                    <View style={styles.customToolField}>
+                                                                        <Text style={styles.calculatorLabel}>Nombre del item</Text>
+                                                                        <TextInput
+                                                                            style={styles.customToolInput}
+                                                                            placeholder="Ej: Revoque exterior"
+                                                                            value={customToolName}
+                                                                            onChangeText={setCustomToolName}
+                                                                        />
+                                                                    </View>
+                                                                    <View style={styles.customUnitGroup}>
+                                                                        <Text style={styles.calculatorLabel}>Unidad</Text>
+                                                                        <View style={styles.unitChips}>
+                                                                            <TouchableOpacity
+                                                                                style={[
+                                                                                    styles.unitChip,
+                                                                                    customUnit === 'm2' && styles.unitChipActive,
+                                                                                ]}
+                                                                                onPress={() => setCustomToolUnit('m2')}
+                                                                            >
+                                                                                <Text
+                                                                                    style={[
+                                                                                        styles.unitChipText,
+                                                                                        customUnit === 'm2' && styles.unitChipTextActive,
+                                                                                    ]}
+                                                                                >
+                                                                                    m2
+                                                                                </Text>
+                                                                            </TouchableOpacity>
+                                                                            <TouchableOpacity
+                                                                                style={[
+                                                                                    styles.unitChip,
+                                                                                    customUnit === 'ml' && styles.unitChipActive,
+                                                                                ]}
+                                                                                onPress={() => setCustomToolUnit('ml')}
+                                                                            >
+                                                                                <Text
+                                                                                    style={[
+                                                                                        styles.unitChipText,
+                                                                                        customUnit === 'ml' && styles.unitChipTextActive,
+                                                                                    ]}
+                                                                                >
+                                                                                    ml
+                                                                                </Text>
+                                                                            </TouchableOpacity>
+                                                                        </View>
+                                                                    </View>
+                                                                </View>
+                                                            )}
+
+                                                            <View style={styles.calculatorRow}>
+                                                                <View style={styles.calculatorField}>
+                                                                    <Text style={styles.calculatorLabel}>{effectiveTool.quantityLabel}</Text>
+                                                                    <TextInput
+                                                                        style={styles.calculatorInput}
+                                                                        placeholder="Ej: 24"
+                                                                        keyboardType="decimal-pad"
+                                                                        value={toolQuantity}
+                                                                        onChangeText={setToolQuantity}
+                                                                    />
+                                                                </View>
+                                                                <View style={styles.calculatorField}>
+                                                                    <Text style={styles.calculatorLabel}>{effectiveTool.rateLabel}</Text>
+                                                                    <TextInput
+                                                                        style={styles.calculatorInput}
+                                                                        placeholder="Ej: 4500"
+                                                                        keyboardType="decimal-pad"
+                                                                        value={toolRate}
+                                                                            onChangeText={setToolRate}
+                                                                        />
+                                                                    </View>
+                                                                </View>
+
+                                                                <View style={styles.calculatorTotalRow}>
+                                                                    <Text style={styles.calculatorTotalLabel}>Total estimado</Text>
+                                                                    <Text style={styles.calculatorTotalValue}>${formatCurrency(toolTotal)}</Text>
+                                                                </View>
+
+                                                                <TouchableOpacity
+                                                                    style={styles.calculatorAddBtn}
+                                                                    onPress={handleAddLaborCalculator}
+                                                                    activeOpacity={0.9}
+                                                                >
+                                                                    <Ionicons name="add-circle" size={20} color="#FFF" />
+                                                                    <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
+                                                                </TouchableOpacity>
+                                                            </View>
+                                                        )}
+                                                    </>
                                                 )}
                                             </View>
-
-                                            {effectiveTool && (
-                                                <View style={styles.calculatorCard}>
-                                                    <View style={styles.calculatorHeader}>
-                                                        <Ionicons name="grid-outline" size={18} color={COLORS.primary} />
-                                                        <Text style={styles.calculatorTitle}>{effectiveTool.label}</Text>
-                                                    </View>
-
-                                                    {effectiveTool.key === 'custom' && (
-                                                        <View style={styles.customToolRow}>
-                                                            <View style={styles.customToolField}>
-                                                                <Text style={styles.calculatorLabel}>Nombre del item</Text>
-                                                                <TextInput
-                                                                    style={styles.customToolInput}
-                                                                    placeholder="Ej: Revoque exterior"
-                                                                    value={customToolName}
-                                                                    onChangeText={setCustomToolName}
-                                                                />
-                                                            </View>
-                                                            <View style={styles.customUnitGroup}>
-                                                                <Text style={styles.calculatorLabel}>Unidad</Text>
-                                                                <View style={styles.unitChips}>
-                                                                    <TouchableOpacity
-                                                                        style={[
-                                                                            styles.unitChip,
-                                                                            customUnit === 'm2' && styles.unitChipActive,
-                                                                        ]}
-                                                                        onPress={() => setCustomToolUnit('m2')}
-                                                                    >
-                                                                        <Text
-                                                                            style={[
-                                                                                styles.unitChipText,
-                                                                                customUnit === 'm2' && styles.unitChipTextActive,
-                                                                            ]}
-                                                                        >
-                                                                            m2
-                                                                        </Text>
-                                                                    </TouchableOpacity>
-                                                                    <TouchableOpacity
-                                                                        style={[
-                                                                            styles.unitChip,
-                                                                            customUnit === 'ml' && styles.unitChipActive,
-                                                                        ]}
-                                                                        onPress={() => setCustomToolUnit('ml')}
-                                                                    >
-                                                                        <Text
-                                                                            style={[
-                                                                                styles.unitChipText,
-                                                                                customUnit === 'ml' && styles.unitChipTextActive,
-                                                                            ]}
-                                                                        >
-                                                                            ml
-                                                                        </Text>
-                                                                    </TouchableOpacity>
-                                                                </View>
-                                                            </View>
-                                                        </View>
-                                                    )}
-
-                                                    <View style={styles.calculatorRow}>
-                                                        <View style={styles.calculatorField}>
-                                                            <Text style={styles.calculatorLabel}>{effectiveTool.quantityLabel}</Text>
-                                                            <TextInput
-                                                                style={styles.calculatorInput}
-                                                                placeholder="Ej: 24"
-                                                                keyboardType="decimal-pad"
-                                                                value={toolQuantity}
-                                                                onChangeText={setToolQuantity}
-                                                            />
-                                                        </View>
-                                                        <View style={styles.calculatorField}>
-                                                            <Text style={styles.calculatorLabel}>{effectiveTool.rateLabel}</Text>
-                                                            <TextInput
-                                                                style={styles.calculatorInput}
-                                                                placeholder="Ej: 4500"
-                                                                keyboardType="decimal-pad"
-                                                                value={toolRate}
-                                                                    onChangeText={setToolRate}
-                                                                />
-                                                            </View>
-                                                        </View>
-
-                                                        <View style={styles.calculatorTotalRow}>
-                                                            <Text style={styles.calculatorTotalLabel}>Total estimado</Text>
-                                                            <Text style={styles.calculatorTotalValue}>${formatCurrency(toolTotal)}</Text>
-                                                        </View>
-
-                                                        <TouchableOpacity
-                                                            style={styles.calculatorAddBtn}
-                                                            onPress={handleAddLaborCalculator}
-                                                            activeOpacity={0.9}
-                                                        >
-                                                            <Ionicons name="add-circle" size={20} color="#FFF" />
-                                                            <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                )}
-                                            </>
                                         )}
 
                                         <View style={styles.listHeader}>
@@ -1358,9 +1380,22 @@ const styles = StyleSheet.create({
   },
   panelHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
   panelHeaderLeft: { flex: 1 },
+  panelHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   panelEyebrow: { fontSize: 11, letterSpacing: 1.6, color: '#94A3B8', fontWeight: '700' },
   panelTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginTop: 4, fontFamily: FONTS.title || 'System' },
   panelHint: { fontSize: 12, color: '#64748B', marginTop: 4, fontFamily: FONTS.body || 'System' },
+  collapsePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
+  collapseText: { fontSize: 11, color: '#475569', fontWeight: '700' },
   statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0' },
   statusBadgeActive: { backgroundColor: '#DCFCE7', borderColor: '#86EFAC' },
   statusBadgeText: { fontSize: 11, fontWeight: '700', color: '#64748B' },
@@ -1398,6 +1433,18 @@ const styles = StyleSheet.create({
   tabBadgeActive: { backgroundColor: '#FCD34D' },
   tabBadgeText: { fontSize: 11, fontWeight: '800', color: '#475569' },
   tabBadgeTextActive: { color: '#0F172A' },
+
+  optionalBlock: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 14,
+  },
+  optionalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  optionalTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  optionalHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
 
   laborTools: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14, overflow: 'hidden' },
   laborToolsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, gap: 12 },

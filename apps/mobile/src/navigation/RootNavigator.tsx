@@ -15,6 +15,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 // 2. Tabs Principales
 import JobsScreen from '../screens/tabs/JobsScreen';
 import AgendaScreen from '../screens/tabs/AgendaScreen';
+import MapScreen from '../screens/tabs/MapScreen';
 import CatalogScreen from '../screens/tabs/CatalogScreen';
 import ProfileScreen from '../screens/tabs/ProfileScreen';
 
@@ -58,6 +59,8 @@ function MainTabs() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Agenda') {
             iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Mapa') {
+            iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'Catálogo') {
             iconName = focused ? 'book' : 'book-outline';
           } else if (route.name === 'Notificaciones') {
@@ -72,6 +75,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Panel" component={JobsScreen} />
       <Tab.Screen name="Agenda" component={AgendaScreen} /> 
+      <Tab.Screen name="Mapa" component={MapScreen} />
       <Tab.Screen name="Catálogo" component={CatalogScreen} />
       <Tab.Screen name="Notificaciones" component={NotificationsScreen} />
       <Tab.Screen name="Perfil" component={ProfileScreen} />

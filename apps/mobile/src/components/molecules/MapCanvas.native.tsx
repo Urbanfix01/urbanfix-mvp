@@ -8,13 +8,15 @@ type Props = {
   region: MapRegion;
   onSelect: (point: MapPoint) => void;
   formatMoney: (value: number) => string;
+  height?: number;
 };
 
-export default function MapCanvas({ points, region, onSelect, formatMoney }: Props) {
+export default function MapCanvas({ points, region, onSelect, formatMoney, height }: Props) {
+  const mapHeight = height ?? 220;
   return (
-    <View style={styles.shell}>
+    <View style={[styles.shell, { height: mapHeight }]}>
       <MapView
-        style={styles.map}
+        style={[styles.map, { height: mapHeight }]}
         initialRegion={region}
         scrollEnabled
         rotateEnabled
@@ -46,13 +48,12 @@ export default function MapCanvas({ points, region, onSelect, formatMoney }: Pro
 
 const styles = StyleSheet.create({
   shell: {
-    height: 220,
     borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#EFE9DE',
   },
-  map: { height: 220, width: '100%' },
+  map: { width: '100%' },
   pinWrap: { alignItems: 'center' },
   pinHead: {
     width: 28,

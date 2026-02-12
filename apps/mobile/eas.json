@@ -2,6 +2,13 @@
   "cli": {
     "version": ">= 7.0.0"
   },
+  "submit": {
+    "production": {
+      "ios": {
+        "ascAppId": "1270277"
+      }
+    }
+  },
   "build": {
     "development": {
       "developmentClient": true,
@@ -15,10 +22,10 @@
     "production": {
       "android": {
         "buildType": "app-bundle"
+      },
+      "ios": {
+        "simulator": false
       }
     }
-  },
-  "submit": {
-    "production": {}
   }
 }

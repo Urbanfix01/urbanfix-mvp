@@ -9,11 +9,13 @@ type Props = {
   region: MapRegion;
   onSelect: (point: MapPoint) => void;
   formatMoney: (value: number) => string;
+  height?: number;
 };
 
-export default function MapCanvas(_props: Props) {
+export default function MapCanvas({ height }: Props) {
+  const mapHeight = height ?? 220;
   return (
-    <View style={styles.placeholder}>
+    <View style={[styles.placeholder, { height: mapHeight }]}>
       <Ionicons name="map-outline" size={28} color="#94A3B8" />
       <Text style={styles.text}>Mapa disponible en la app movil.</Text>
     </View>
@@ -22,7 +24,6 @@ export default function MapCanvas(_props: Props) {
 
 const styles = StyleSheet.create({
   placeholder: {
-    height: 220,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#EFE9DE',
