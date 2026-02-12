@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,7 +13,7 @@ interface Props {
   centerTitle?: boolean;
 }
 
-export const ScreenHeader = ({ title, subtitle, showBack, rightAction, centerTitle }: Props) => {
+export const ScreenHeader = memo(({ title, subtitle, showBack, rightAction, centerTitle }: Props) => {
   const navigation = useNavigation();
   const isCentered = centerTitle && !showBack && !rightAction;
 
@@ -44,7 +44,7 @@ export const ScreenHeader = ({ title, subtitle, showBack, rightAction, centerTit
       </SafeAreaView>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   headerContainer: {

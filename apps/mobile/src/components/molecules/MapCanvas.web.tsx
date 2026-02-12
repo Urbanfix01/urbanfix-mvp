@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { FONTS } from '../../utils/theme';
@@ -12,7 +12,7 @@ type Props = {
   height?: number;
 };
 
-export default function MapCanvas({ height }: Props) {
+const MapCanvas = ({ height }: Props) => {
   const mapHeight = height ?? 220;
   return (
     <View style={[styles.placeholder, { height: mapHeight }]}>
@@ -20,7 +20,9 @@ export default function MapCanvas({ height }: Props) {
       <Text style={styles.text}>Mapa disponible en la app movil.</Text>
     </View>
   );
-}
+};
+
+export default memo(MapCanvas, (prev, next) => prev.height === next.height);
 
 const styles = StyleSheet.create({
   placeholder: {

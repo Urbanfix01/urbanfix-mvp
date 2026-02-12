@@ -1,9 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ActivityIndicator,
   TouchableOpacity,
   Modal,
   Pressable,
@@ -14,6 +13,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuery } from '@tanstack/react-query';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import MapCanvas from '../../components/molecules/MapCanvas';
+import { SkeletonBlock } from '../../components/molecules/SkeletonBlock';
 import { supabase } from '../../lib/supabase';
 import { MapPoint } from '../../types/maps';
 import { COLORS, FONTS } from '../../utils/theme';
@@ -62,7 +62,7 @@ export default function MapScreen() {
     staleTime: 60000,
   });
 
-  const formatMoney = (value: number) => formatCurrency(value);
+  const formatMoney = useCallback((value: number) => formatCurrency(value), []);
 
   const mapPoints = useMemo<MapPoint[]>(() => {
     const cutoff = new Date();
@@ -140,8 +140,19 @@ export default function MapScreen() {
       <ScreenHeader title="MAPA" subtitle={subtitle} centerTitle />
       <View style={styles.content}>
         {isLoading ? (
-          <View style={styles.center}>
-            <ActivityIndicator size="large" color={COLORS.primary} />
+          <View style={styles.mapPanel}>
+            <View style={styles.mapHeader}>
+              <View style={styles.mapTitleRow}>
+                <SkeletonBlock width={160} height={12} radius={6} />
+                <SkeletonBlock width={70} height={12} radius={6} />
+              </View>
+              <View style={styles.mapPills}>
+                <SkeletonBlock width={120} height={22} radius={999} />
+                <SkeletonBlock width={110} height={22} radius={999} />
+                <SkeletonBlock width={100} height={22} radius={999} />
+              </View>
+            </View>
+            <SkeletonBlock height={420} radius={14} />
           </View>
         ) : error ? (
           <View style={styles.center}>

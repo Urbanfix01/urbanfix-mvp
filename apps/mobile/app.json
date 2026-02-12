@@ -4,7 +4,7 @@
     "slug": "UrbanFix",
     "owner": "urbanfix",
     "scheme": "urbanfix",
-    "version": "1.1",
+    "version": "1.2",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +17,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.urbanfix.urbanfix",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -28,7 +28,7 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.urbanfix.app",
-      "versionCode": 8,
+      "versionCode": 9,
       "intentFilters": [
         {
           "action": "VIEW",

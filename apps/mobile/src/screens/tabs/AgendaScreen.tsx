@@ -9,6 +9,8 @@ import MapCanvas from '../../components/molecules/MapCanvas';
 import { MapPoint } from '../../types/maps';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { EmptyState } from '../../components/molecules/EmptyState';
+import AgendaItemCard from '../../components/molecules/AgendaItemCard';
+import AgendaUnscheduledCard from '../../components/molecules/AgendaUnscheduledCard';
 import { Ionicons } from '@expo/vector-icons';
 import { isApproved, isCancelled, isPaid, isPending, normalizeStatus } from '../../utils/status';
 
@@ -118,7 +120,7 @@ export default function AgendaScreen() {
     return localDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
   };
 
-  const formatNumberSafe = (value: number) => {
+  const formatNumberSafe = useCallback((value: number) => {
     const safe = Number(value || 0);
     try {
       return new Intl.NumberFormat('es-AR').format(safe);
@@ -128,8 +130,8 @@ export default function AgendaScreen() {
       if (decPart) return `${withSeparators},${decPart}`;
       return withSeparators;
     }
-  };
-  const formatMoney = (value: number) => formatNumberSafe(value);
+  }, []);
+  const formatMoney = useCallback((value: number) => formatNumberSafe(value), [formatNumberSafe]);
 
   const statusConfig = useMemo(
     () => ({
@@ -212,76 +214,61 @@ export default function AgendaScreen() {
   );
 
   // --- ACCIÓN: ASIGNAR FECHA ---
-  const updateSchedule = async (jobId: string, dateString: string) => {
+  const updateSchedule = useCallback(async (jobId: string, dateString: string) => {
     await supabase.from('quotes').update({ scheduled_date: dateString }).eq('id', jobId);
     setTargetJobId(null);
-    setLoading(true);
     loadItems();
-  };
+  }, [loadItems]);
 
-  const quickAssign = async (jobId: string, offsetDays: number) => {
+  const quickAssign = useCallback(async (jobId: string, offsetDays: number) => {
     const date = new Date();
     date.setDate(date.getDate() + offsetDays);
     await updateSchedule(jobId, toDateKey(date));
-  };
+  }, [updateSchedule]);
 
-  const onDateSelected = async (_event: any, date?: Date) => {
+  const onDateSelected = useCallback(async (_event: any, date?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     
     if (date && targetJobId) {
         await updateSchedule(targetJobId, toDateKey(date));
         if (Platform.OS === 'ios') setShowDatePicker(false);
     }
-  };
+  }, [targetJobId, updateSchedule]);
 
-  const openScheduler = (jobId: string) => {
+  const openScheduler = useCallback((jobId: string) => {
       setTargetJobId(jobId);
       setShowDatePicker(true);
-  };
+  }, []);
 
   // --- RENDERS ---
-  const renderUnscheduledItem = ({ item }: { item: any }) => (
-    <View style={styles.unscheduledCard}>
-        <View style={styles.unscheduledInfo}>
-            <Text style={styles.unscheduledName} numberOfLines={1}>{item.client_name || 'Sin Nombre'}</Text>
-            <Text style={styles.unscheduledAmount}>${formatMoney(item.total_amount || 0)}</Text>
-        </View>
-        <View style={styles.quickRow}>
-            <TouchableOpacity style={styles.quickChip} onPress={() => quickAssign(item.id, 0)}>
-              <Text style={styles.quickChipText}>Hoy</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.quickChip} onPress={() => quickAssign(item.id, 1)}>
-              <Text style={styles.quickChipText}>Mañana</Text>
-            </TouchableOpacity>
-        </View>
-        <TouchableOpacity style={styles.assignBtn} onPress={() => openScheduler(item.id)}>
-            <Text style={styles.assignBtnText}>Asignar fecha</Text>
-            <Ionicons name="calendar" size={14} color="#FFF" style={{marginLeft:6}}/>
-        </TouchableOpacity>
-    </View>
-  );
+  const renderUnscheduledItem = useCallback(({ item }: { item: any }) => (
+    <AgendaUnscheduledCard
+      id={item.id}
+      clientName={item.client_name || 'Sin Nombre'}
+      amountText={`$${formatMoney(item.total_amount || 0)}`}
+      onQuickAssign={quickAssign}
+      onOpenScheduler={openScheduler}
+    />
+  ), [formatMoney, openScheduler, quickAssign]);
 
-  const renderItem = ({ item }: { item: any }) => {
+  const renderItem = useCallback(({ item }: { item: any }) => {
     const status = resolveAgendaStatus(item.status);
     return (
-      <TouchableOpacity 
-        style={[styles.itemCard, { borderLeftColor: status.color }]}
+      <AgendaItemCard
+        id={item.id}
+        clientName={item.client_name || 'Sin Nombre'}
+        amountText={`$${formatMoney(item.total_amount || 0)}`}
+        statusLabel={status.label}
+        statusColor={status.color}
+        statusBg={status.bg}
         onPress={() => {
-             // @ts-ignore
-             navigation.navigate('JobDetail', { jobId: item.id });
+          // @ts-ignore
+          navigation.navigate('JobDetail', { jobId: item.id });
         }}
         onLongPress={() => setQuickDetail(item)}
-      >
-        <View>
-            <Text style={styles.itemTitle}>{item.client_name || 'Sin Nombre'}</Text>
-            <View style={[styles.badge, { backgroundColor: status.bg, borderColor: status.color }]}>
-                <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
-            </View>
-        </View>
-        <Text style={styles.itemPrice}>${formatMoney(item.total_amount || 0)}</Text>
-      </TouchableOpacity>
+      />
     );
-  };
+  }, [formatMoney, navigation, resolveAgendaStatus]);
 
   const dayItems = useMemo(() => items[selectedDate] || [], [items, selectedDate]);
   const filteredDayItems = useMemo(() => {
@@ -312,12 +299,15 @@ export default function AgendaScreen() {
     };
   }, [dayItems]);
 
-  const summaryCards = [
-    { key: 'visits', label: 'Visitas', value: daySummary.totalVisits, accent: '#0F172A' },
-    { key: 'pending', label: 'Pendientes', value: daySummary.pending, accent: statusConfig.pending.color },
-    { key: 'confirmed', label: 'Confirmadas', value: daySummary.confirmed, accent: statusConfig.confirmed.color },
-    { key: 'total', label: 'Estimado', value: `$${formatMoney(daySummary.totalAmount)}`, accent: '#0F172A' },
-  ];
+  const summaryCards = useMemo(
+    () => [
+      { key: 'visits', label: 'Visitas', value: daySummary.totalVisits, accent: '#0F172A' },
+      { key: 'pending', label: 'Pendientes', value: daySummary.pending, accent: statusConfig.pending.color },
+      { key: 'confirmed', label: 'Confirmadas', value: daySummary.confirmed, accent: statusConfig.confirmed.color },
+      { key: 'total', label: 'Estimado', value: `$${formatMoney(daySummary.totalAmount)}`, accent: '#0F172A' },
+    ],
+    [daySummary, formatMoney, statusConfig.confirmed.color, statusConfig.pending.color]
+  );
 
   const weekDays = useMemo(() => {
     const [year, month, day] = selectedDate.split('-').map(Number);
@@ -402,6 +392,10 @@ export default function AgendaScreen() {
                     renderItem={renderUnscheduledItem}
                     keyExtractor={item => item.id}
                     showsHorizontalScrollIndicator={false}
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    initialNumToRender={6}
+                    maxToRenderPerBatch={6}
+                    windowSize={3}
                     contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 10 }}
                 />
             </View>
@@ -565,6 +559,11 @@ export default function AgendaScreen() {
                 data={filteredDayItems}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={7}
+                updateCellsBatchingPeriod={50}
                 contentContainerStyle={styles.listContent}
                 ListEmptyComponent={
                     <EmptyState icon="calendar-outline" title="Día Libre" message={emptyMessage} />

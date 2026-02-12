@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable, ScrollView
+  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,9 +9,12 @@ import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, FONTS } from '../../utils/theme';
 import { ServiceBlueprint } from '../../types/database';
 import MapCanvas from '../../components/molecules/MapCanvas';
+import { SkeletonBlock } from '../../components/molecules/SkeletonBlock';
+import JobListCard from '../../components/molecules/JobListCard';
 import { MapPoint } from '../../types/maps';
 import { supabase } from '../../lib/supabase'; 
 import { getPublicQuoteUrl } from '../../utils/config';
@@ -31,6 +34,123 @@ type QuoteListItem = {
 };
 
 type DashboardFilter = 'total' | 'pending' | 'approved' | 'paid';
+type TrendCoord = { x: number; totalY: number; paidY: number };
+
+const DASHBOARD_CACHE_KEY = 'dashboard_quotes_cache_v1';
+const DASHBOARD_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 horas
+
+const TrendChart = React.memo(
+  ({
+    width,
+    height,
+    padding,
+    innerHeight,
+    midY,
+    maxLabel,
+    midLabel,
+    totalPoints,
+    paidPoints,
+    coords,
+  }: {
+    width: number;
+    height: number;
+    padding: number;
+    innerHeight: number;
+    midY: number;
+    maxLabel: string;
+    midLabel: string;
+    totalPoints: string;
+    paidPoints: string;
+    coords: TrendCoord[];
+  }) => (
+    <Svg width="100%" height={height}>
+      <Line
+        x1={padding}
+        x2={Math.max(padding, width - padding)}
+        y1={padding}
+        y2={padding}
+        stroke="#E2E8F0"
+        strokeWidth={1}
+      />
+      <Line
+        x1={padding}
+        x2={Math.max(padding, width - padding)}
+        y1={midY}
+        y2={midY}
+        stroke="#E2E8F0"
+        strokeWidth={1}
+        strokeDasharray="4 4"
+      />
+      <Line
+        x1={padding}
+        x2={Math.max(padding, width - padding)}
+        y1={padding + innerHeight}
+        y2={padding + innerHeight}
+        stroke="#E2E8F0"
+        strokeWidth={1}
+      />
+      <SvgText
+        x={padding}
+        y={padding - 3}
+        fontSize="9"
+        fill="#94A3B8"
+        textAnchor="start"
+        fontFamily={FONTS.body}
+      >
+        {maxLabel}
+      </SvgText>
+      <SvgText
+        x={padding}
+        y={midY - 3}
+        fontSize="9"
+        fill="#94A3B8"
+        textAnchor="start"
+        fontFamily={FONTS.body}
+      >
+        {midLabel}
+      </SvgText>
+      <SvgText
+        x={padding}
+        y={padding + innerHeight + 12}
+        fontSize="9"
+        fill="#94A3B8"
+        textAnchor="start"
+        fontFamily={FONTS.body}
+      >
+        0
+      </SvgText>
+      {!!totalPoints && (
+        <Polyline points={totalPoints} fill="none" stroke={STATUS_COLORS.total} strokeWidth={2} />
+      )}
+      {!!paidPoints && (
+        <Polyline points={paidPoints} fill="none" stroke={STATUS_COLORS.paid} strokeWidth={2} />
+      )}
+      {coords.map((point, index) => (
+        <React.Fragment key={`point-${index}`}>
+          <Circle cx={point.x} cy={point.totalY} r={3} fill={STATUS_COLORS.total} />
+          <Circle cx={point.x} cy={point.paidY} r={3} fill={STATUS_COLORS.paid} />
+        </React.Fragment>
+      ))}
+    </Svg>
+  )
+);
+
+const StatusChart = React.memo(
+  ({ data, max }: { data: { key: string; label: string; value: number; color: string }[]; max: number }) => (
+    <>
+      {data.map((item) => {
+        const height = Math.max(10, (item.value / max) * 80);
+        return (
+          <View key={item.key} style={styles.statusColumn}>
+            <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
+            <View style={[styles.statusBar, { height, backgroundColor: item.color }]} />
+            <Text style={styles.statusLabel}>{item.label}</Text>
+          </View>
+        );
+      })}
+    </>
+  )
+);
 
 const STATUS_COLORS = {
   total: '#0F172A',
@@ -79,11 +199,46 @@ export default function JobsScreen() {
     dashboardWidth > 0 ? (dashboardWidth - dashboardGap * (dashboardColumns - 1)) / dashboardColumns : undefined;
 
   const queryClient = useQueryClient();
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes-list'],
     queryFn: getQuotes,
     staleTime: 60000,
+    onSuccess: async (data) => {
+      try {
+        const timestamp = Date.now();
+        await AsyncStorage.setItem(
+          DASHBOARD_CACHE_KEY,
+          JSON.stringify({ timestamp, data })
+        );
+        setLastUpdatedAt(new Date(timestamp));
+      } catch (_err) {
+        // cache best-effort
+      }
+    },
   });
+
+  useEffect(() => {
+    let mounted = true;
+    const loadCache = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(DASHBOARD_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (!parsed || !Array.isArray(parsed.data)) return;
+        if (parsed.timestamp && Date.now() - parsed.timestamp > DASHBOARD_CACHE_TTL) return;
+        if (!mounted) return;
+        queryClient.setQueryData(['quotes-list'], parsed.data);
+        setLastUpdatedAt(parsed.timestamp ? new Date(parsed.timestamp) : null);
+      } catch (_err) {
+        // ignore cache errors
+      }
+    };
+    loadCache();
+    return () => {
+      mounted = false;
+    };
+  }, [queryClient]);
 
   const visibleJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -163,7 +318,7 @@ export default function JobsScreen() {
     return { totalAmount, approvedAmount, paidAmount };
   }, [jobs]);
 
-  const formatNumberSafe = (value: number) => {
+  const formatNumberSafe = useCallback((value: number) => {
     const safe = Number(value || 0);
     try {
       // Intl puede fallar en Android si falta el locale; usamos fallback.
@@ -174,73 +329,79 @@ export default function JobsScreen() {
       if (decPart) return `${withSeparators},${decPart}`;
       return withSeparators;
     }
-  };
-  const formatMoney = (value: number) => formatNumberSafe(value);
-  const formatCompact = (value: number) => {
+  }, []);
+  const formatMoney = useCallback((value: number) => formatNumberSafe(value), [formatNumberSafe]);
+  const formatCompact = useCallback((value: number) => {
     const safe = Number(value || 0);
     if (safe >= 1_000_000) return `${(safe / 1_000_000).toFixed(1)}M`;
     if (safe >= 1_000) return `${Math.round(safe / 1_000)}k`;
     return `${Math.round(safe)}`;
-  };
+  }, []);
 
-  const dashboardCards = [
-    {
-      key: 'total',
-      filter: 'total' as DashboardFilter,
-      label: 'Total presupuestos',
-      value: stats.totalCount,
-      hint: 'Activos en tu cuenta',
-      accent: STATUS_COLORS.total,
-    },
-    {
-      key: 'pending',
-      filter: 'pending' as DashboardFilter,
-      label: 'Pendientes',
-      value: stats.pendingCount,
-      hint: 'En espera de respuesta',
-      accent: STATUS_COLORS.pending,
-    },
-    {
-      key: 'approved',
-      filter: 'approved' as DashboardFilter,
-      label: 'Aprobados',
-      value: stats.approvedCount,
-      hint: 'Listos para ejecutar',
-      accent: STATUS_COLORS.approved,
-    },
-    {
-      key: 'paid',
-      filter: 'paid' as DashboardFilter,
-      label: 'Cobrados',
-      value: stats.paidCount,
-      hint: 'Pagos confirmados',
-      accent: STATUS_COLORS.paid,
-    },
-  ];
+  const dashboardCards = useMemo(
+    () => [
+      {
+        key: 'total',
+        filter: 'total' as DashboardFilter,
+        label: 'Total presupuestos',
+        value: stats.totalCount,
+        hint: 'Activos en tu cuenta',
+        accent: STATUS_COLORS.total,
+      },
+      {
+        key: 'pending',
+        filter: 'pending' as DashboardFilter,
+        label: 'Pendientes',
+        value: stats.pendingCount,
+        hint: 'En espera de respuesta',
+        accent: STATUS_COLORS.pending,
+      },
+      {
+        key: 'approved',
+        filter: 'approved' as DashboardFilter,
+        label: 'Aprobados',
+        value: stats.approvedCount,
+        hint: 'Listos para ejecutar',
+        accent: STATUS_COLORS.approved,
+      },
+      {
+        key: 'paid',
+        filter: 'paid' as DashboardFilter,
+        label: 'Cobrados',
+        value: stats.paidCount,
+        hint: 'Pagos confirmados',
+        accent: STATUS_COLORS.paid,
+      },
+    ],
+    [stats]
+  );
 
-  const billingCards = [
-    {
-      key: 'billing-total',
-      label: 'Total',
-      value: `$${formatMoney(monthStats.totalAmount)}`,
-      hint: 'Presupuestos del mes',
-      accent: STATUS_COLORS.total,
-    },
-    {
-      key: 'billing-approved',
-      label: 'Aprobados',
-      value: `$${formatMoney(monthStats.approvedAmount)}`,
-      hint: 'Aprobados del mes',
-      accent: STATUS_COLORS.approved,
-    },
-    {
-      key: 'billing-paid',
-      label: 'Cobrados',
-      value: `$${formatMoney(monthStats.paidAmount)}`,
-      hint: 'Monto cobrado del mes',
-      accent: STATUS_COLORS.paid,
-    },
-  ];
+  const billingCards = useMemo(
+    () => [
+      {
+        key: 'billing-total',
+        label: 'Total',
+        value: `$${formatMoney(monthStats.totalAmount)}`,
+        hint: 'Presupuestos del mes',
+        accent: STATUS_COLORS.total,
+      },
+      {
+        key: 'billing-approved',
+        label: 'Aprobados',
+        value: `$${formatMoney(monthStats.approvedAmount)}`,
+        hint: 'Aprobados del mes',
+        accent: STATUS_COLORS.approved,
+      },
+      {
+        key: 'billing-paid',
+        label: 'Cobrados',
+        value: `$${formatMoney(monthStats.paidAmount)}`,
+        hint: 'Monto cobrado del mes',
+        accent: STATUS_COLORS.paid,
+      },
+    ],
+    [formatMoney, monthStats]
+  );
 
   const statusCounts = useMemo(() => {
     let pending = 0;
@@ -257,13 +418,19 @@ export default function JobsScreen() {
     return { pending, approved, closed };
   }, [jobs]);
 
-  const statusChart = [
-    { key: 'pending', label: 'Pendientes', value: statusCounts.pending, color: STATUS_COLORS.pending },
-    { key: 'approved', label: 'Aprobados', value: statusCounts.approved, color: STATUS_COLORS.approved },
-    { key: 'closed', label: 'Cerrados', value: statusCounts.closed, color: STATUS_COLORS.closed },
-  ];
+  const statusChart = useMemo(
+    () => [
+      { key: 'pending', label: 'Pendientes', value: statusCounts.pending, color: STATUS_COLORS.pending },
+      { key: 'approved', label: 'Aprobados', value: statusCounts.approved, color: STATUS_COLORS.approved },
+      { key: 'closed', label: 'Cerrados', value: statusCounts.closed, color: STATUS_COLORS.closed },
+    ],
+    [statusCounts]
+  );
 
-  const maxStatusCount = Math.max(1, ...statusChart.map((item) => item.value));
+  const maxStatusCount = useMemo(
+    () => Math.max(1, ...statusChart.map((item) => item.value)),
+    [statusChart]
+  );
 
   const mapPoints = useMemo<MapPoint[]>(() => {
     const cutoff = new Date();
@@ -407,6 +574,9 @@ export default function JobsScreen() {
   const trendPadding = 14;
   const trendInnerHeight = trendHeight - trendPadding * 2;
   const trendMidY = trendPadding + trendInnerHeight / 2;
+  const showTrendSkeleton = isLoading || trendWidth === 0;
+  const showStatusSkeleton = isLoading;
+  const showMapSkeleton = isLoading;
 
   const trendPoints = useMemo(() => {
     if (!trendWidth) return { total: '', paid: '', coords: [] as { x: number; totalY: number; paidY: number }[] };
@@ -435,7 +605,7 @@ export default function JobsScreen() {
     navigation.navigate('JobConfig', { blueprint: blankBlueprint });
   };
 
-  const ensureShareableStatus = async (job: QuoteListItem) => {
+  const ensureShareableStatus = useCallback(async (job: QuoteListItem) => {
     const normalizedStatus = (job.status || '').toLowerCase().trim();
     const isDraft = ['draft', 'borrador'].includes(normalizedStatus);
     if (!isDraft) return;
@@ -452,9 +622,9 @@ export default function JobsScreen() {
     } catch (err) {
       console.warn('No se pudo confirmar el presupuesto antes de compartir.', err);
     }
-  };
+  }, [queryClient]);
 
-  const handleShareJob = async (job: QuoteListItem) => {
+  const handleShareJob = useCallback(async (job: QuoteListItem) => {
     await ensureShareableStatus(job);
 
     const link = getPublicQuoteUrl(job.id);
@@ -466,10 +636,11 @@ export default function JobsScreen() {
     } catch (_err) {
       Alert.alert("Error", "No se pudo compartir.");
     }
-  };
+  }, [ensureShareableStatus, formatMoney]);
 
   // --- FIX 2: NORMALIZADOR VISUAL DE ESTADOS ---
-  const getStatusConfig = (status?: string | null) => {
+  const getStatusConfig = useCallback((status?: string | null) => {
+    const normalized = normalizeStatus(status);
     if (isApproved(status)) {
         return { label: 'APROBADO', color: STATUS_COLORS.approved, bg: '#D1FAE5' }; // Emerald
     }
@@ -483,96 +654,167 @@ export default function JobsScreen() {
     }
 
     return { label: normalized.toUpperCase() || 'N/A', color: '#6B7280', bg: '#E5E7EB' };
-  };
+  }, []);
 
-  const toggleSelect = (id: string) => {
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
-  };
+  }, []);
 
-  const handleDashboardFilter = (filter: DashboardFilter) => {
+  const handleDashboardFilter = useCallback((filter: DashboardFilter) => {
     setActiveFilter(filter);
     setSelectionMode(false);
     setSelectedIds([]);
     requestAnimationFrame(() => {
       listRef.current?.scrollToOffset({ offset: listAnchor, animated: true });
     });
-  };
+  }, [listAnchor]);
+
+  const renderDashboardCard = useCallback(
+    ({ item, index }: { item: typeof dashboardCards[number]; index: number }) => {
+      const isLastInRow =
+        dashboardColumns > 1 && (index + 1) % dashboardColumns === 0;
+      const cardStyle = {
+        width: dashboardCardWidth ?? '48%',
+        marginRight: dashboardColumns === 1 || isLastInRow ? 0 : dashboardGap,
+        marginBottom: dashboardGap,
+      };
+      return (
+        <TouchableOpacity
+          style={[
+            styles.dashboardCard,
+            isDashboardCompact && styles.dashboardCardCompact,
+            cardStyle,
+            activeFilter === item.filter && styles.dashboardCardActive,
+          ]}
+          activeOpacity={0.85}
+          onPress={() => handleDashboardFilter(item.filter)}
+        >
+          <View style={styles.dashboardTopRow}>
+            <View style={styles.dashboardLabelRow}>
+              <View style={[styles.dashboardDot, { backgroundColor: item.accent }]} />
+              <Text
+                style={[styles.dashboardLabel, isDashboardCompact && styles.dashboardLabelCompact]}
+                numberOfLines={2}
+              >
+                {item.label}
+              </Text>
+            </View>
+          </View>
+          <Text
+            style={[
+              styles.dashboardValue,
+              { color: item.accent },
+              isDashboardCompact && styles.dashboardValueCompact,
+            ]}
+          >
+            {item.value}
+          </Text>
+          <Text
+            style={[styles.dashboardHint, isDashboardCompact && styles.dashboardHintCompact]}
+            numberOfLines={2}
+          >
+            {item.hint}
+          </Text>
+        </TouchableOpacity>
+      );
+    },
+    [
+      activeFilter,
+      dashboardCardWidth,
+      dashboardColumns,
+      dashboardGap,
+      handleDashboardFilter,
+      isDashboardCompact,
+    ]
+  );
 
   const emptyMessage =
     activeFilter === 'total'
       ? 'No tienes presupuestos todavía.\nToca (+) para empezar.'
       : `No tienes trabajos ${FILTER_LABELS[activeFilter].toLowerCase()}.`;
+  const lastUpdatedLabel = useMemo(() => {
+    if (!lastUpdatedAt) return null;
+    try {
+      return lastUpdatedAt.toLocaleString('es-AR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch (_err) {
+      return lastUpdatedAt.toISOString();
+    }
+  }, [lastUpdatedAt]);
 
   // --- RENDER ITEM ---
-  const renderItem = ({ item }: { item: QuoteListItem }) => {
+  const renderItem = useCallback(({ item }: { item: QuoteListItem }) => {
     const status = getStatusConfig(item.status);
     const isSelected = selectedIds.includes(item.id);
-    
+    const clientName = item.client_name || `Presupuesto #${item.id.slice(0,4).toUpperCase()}`;
+    const amountText = `$${formatMoney(item.total_amount || 0)}`;
+    const dateText = new Date(item.created_at).toLocaleDateString();
+
     return (
-      <TouchableOpacity 
-        style={styles.card}
-        activeOpacity={0.7}
+      <JobListCard
+        id={item.id}
+        clientName={clientName}
+        amountText={amountText}
+        dateText={dateText}
+        statusLabel={status.label}
+        statusColor={status.color}
+        statusBg={status.bg}
+        isSelected={isSelected}
+        selectionMode={selectionMode}
         onPress={() => {
           if (selectionMode) {
             toggleSelect(item.id);
-          } else {
-            // @ts-ignore
-            navigation.navigate('JobDetail', { 
-              jobId: item.id,
-              quote: item,
-              client_address: item.client_address || item.address || item.location_address,
-              location_lat: item.location_lat,
-              location_lng: item.location_lng,
-            });
+            return;
           }
+          // @ts-ignore
+          navigation.navigate('JobDetail', { 
+            jobId: item.id,
+            quote: item,
+            client_address: item.client_address || item.address || item.location_address,
+            location_lat: item.location_lat,
+            location_lng: item.location_lng,
+          });
         }}
         onLongPress={() => {
           setSelectionMode(true);
           toggleSelect(item.id);
         }}
-      >
-        <View style={[styles.iconBar, { backgroundColor: status.color }]} />
-        
-        <View style={styles.cardContent}>
-            {selectionMode && (
-              <Ionicons 
-                name={isSelected ? "checkbox" : "square-outline"} 
-                size={22} 
-                color={isSelected ? COLORS.primary : '#CBD5E1'} 
-                style={{ marginRight: 8 }}
-              />
-            )}
-            <View style={styles.rowBetween}>
-                <Text style={styles.clientName} numberOfLines={1}>
-                    {item.client_name || `Presupuesto #${item.id.slice(0,4).toUpperCase()}`}
-                </Text>
-                <Text style={styles.amountText}>
-                    ${formatMoney(item.total_amount || 0)}
-                </Text>
-            </View>
-
-            <View style={styles.rowBetween}>
-                <Text style={styles.jobDate}>
-                    {new Date(item.created_at).toLocaleDateString()}
-                </Text>
-                
-                <View style={[styles.badge, { backgroundColor: status.bg, borderColor: status.color }]}>
-                    <Text style={[styles.badgeText, { color: status.color }]}>{status.label}</Text>
-                </View>
-            </View>
-        </View>
-
-        {!selectionMode && (
-          <TouchableOpacity 
-              style={styles.shareBtn}
-              onPress={() => handleShareJob(item)}
-          >
-               <Ionicons name="paper-plane-outline" size={20} color={COLORS.textLight} />
-          </TouchableOpacity>
-        )}
-      </TouchableOpacity>
+        onShare={() => handleShareJob(item)}
+      />
     );
-  };
+  }, [formatMoney, getStatusConfig, handleShareJob, navigation, selectedIds, selectionMode, toggleSelect]);
+
+  const keyExtractor = useCallback((item: QuoteListItem) => item.id, []);
+
+  const renderTrendSummaryItem = useCallback(
+    ({ item }: { item: typeof trendSummary[number] }) => (
+      <View style={styles.trendSummaryCard}>
+        <Text style={styles.trendSummaryMonth}>{item.label}</Text>
+        <View style={styles.trendSummaryLine}>
+          <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.total }]} />
+          <Text style={styles.trendSummaryLabel}>Presup.</Text>
+        </View>
+        <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.total }]}>
+          ${formatMoney(item.total)}
+        </Text>
+        <View style={styles.trendSummaryLine}>
+          <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.paid }]} />
+          <Text style={styles.trendSummaryLabel}>Cobrados</Text>
+        </View>
+        <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.paid }]}>
+          ${formatMoney(item.paid)}
+        </Text>
+      </View>
+    ),
+    [formatMoney]
+  );
+
+  const trendMaxLabel = useMemo(() => formatCompact(maxTrendValue), [formatCompact, maxTrendValue]);
+  const trendMidLabel = useMemo(() => formatCompact(maxTrendValue / 2), [formatCompact, maxTrendValue]);
 
   return (
     <View style={styles.container}>
@@ -583,7 +825,12 @@ export default function JobsScreen() {
         <SafeAreaView edges={['top']}>
            <View style={styles.headerContent}>
               <Text style={styles.headerTitle}>PANEL DE CONTROL</Text>
-            
+              {!!lastUpdatedLabel && (
+                <View style={styles.headerMetaRow}>
+                  <Ionicons name="time-outline" size={12} color="rgba(248,250,252,0.7)" />
+                  <Text style={styles.headerMeta}>Actualizado {lastUpdatedLabel}</Text>
+                </View>
+              )}
            </View>
         </SafeAreaView>
       </View>
@@ -605,11 +852,16 @@ export default function JobsScreen() {
         <FlashList
             ref={listRef}
             data={visibleJobs}
-            keyExtractor={(item) => item.id}
+            keyExtractor={keyExtractor}
             renderItem={renderItem}
             extraData={{ selectionMode, selectedIds }}
             contentContainerStyle={styles.listContent}
             estimatedItemSize={150}
+            removeClippedSubviews={Platform.OS === 'android'}
+            initialNumToRender={8}
+            maxToRenderPerBatch={10}
+            windowSize={5}
+            updateCellsBatchingPeriod={50}
             onRefresh={refetch}
             refreshing={isFetching && !isLoading}
             ListHeaderComponent={
@@ -621,55 +873,15 @@ export default function JobsScreen() {
                       style={styles.dashboardGrid}
                       onLayout={(event) => setDashboardWidth(event.nativeEvent.layout.width)}
                     >
-                      {dashboardCards.map((card, index) => {
-                        const isLastInRow =
-                          dashboardColumns > 1 && (index + 1) % dashboardColumns === 0;
-                        const cardStyle = {
-                          width: dashboardCardWidth ?? '48%',
-                          marginRight: dashboardColumns === 1 || isLastInRow ? 0 : dashboardGap,
-                          marginBottom: dashboardGap,
-                        };
-                        return (
-                          <TouchableOpacity
-                            key={card.key}
-                            style={[
-                              styles.dashboardCard,
-                              isDashboardCompact && styles.dashboardCardCompact,
-                              cardStyle,
-                              activeFilter === card.filter && styles.dashboardCardActive,
-                            ]}
-                            activeOpacity={0.85}
-                            onPress={() => handleDashboardFilter(card.filter)}
-                          >
-                            <View style={styles.dashboardTopRow}>
-                              <View style={styles.dashboardLabelRow}>
-                                <View style={[styles.dashboardDot, { backgroundColor: card.accent }]} />
-                                <Text
-                                  style={[styles.dashboardLabel, isDashboardCompact && styles.dashboardLabelCompact]}
-                                  numberOfLines={2}
-                                >
-                                  {card.label}
-                                </Text>
-                              </View>
-                            </View>
-                            <Text
-                              style={[
-                                styles.dashboardValue,
-                                { color: card.accent },
-                                isDashboardCompact && styles.dashboardValueCompact,
-                              ]}
-                            >
-                              {card.value}
-                            </Text>
-                            <Text
-                              style={[styles.dashboardHint, isDashboardCompact && styles.dashboardHintCompact]}
-                              numberOfLines={2}
-                            >
-                              {card.hint}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })}
+                      <FlashList
+                        key={`dashboard-${dashboardColumns}`}
+                        data={dashboardCards}
+                        numColumns={dashboardColumns}
+                        keyExtractor={(item) => item.key}
+                        renderItem={renderDashboardCard}
+                        scrollEnabled={false}
+                        estimatedItemSize={120}
+                      />
                     </View>
                   </View>
 
@@ -705,120 +917,80 @@ export default function JobsScreen() {
                         style={styles.trendChart}
                         onLayout={(event) => setTrendWidth(event.nativeEvent.layout.width)}
                       >
-                        <Svg width="100%" height={trendHeight}>
-                          <Line
-                            x1={trendPadding}
-                            x2={Math.max(trendPadding, trendWidth - trendPadding)}
-                            y1={trendPadding}
-                            y2={trendPadding}
-                            stroke="#E2E8F0"
-                            strokeWidth={1}
+                        {showTrendSkeleton ? (
+                          <SkeletonBlock height={trendHeight} radius={12} />
+                        ) : (
+                          <TrendChart
+                            width={trendWidth}
+                            height={trendHeight}
+                            padding={trendPadding}
+                            innerHeight={trendInnerHeight}
+                            midY={trendMidY}
+                            maxLabel={trendMaxLabel}
+                            midLabel={trendMidLabel}
+                            totalPoints={trendPoints.total}
+                            paidPoints={trendPoints.paid}
+                            coords={trendPoints.coords}
                           />
-                          <Line
-                            x1={trendPadding}
-                            x2={Math.max(trendPadding, trendWidth - trendPadding)}
-                            y1={trendMidY}
-                            y2={trendMidY}
-                            stroke="#E2E8F0"
-                            strokeWidth={1}
-                            strokeDasharray="4 4"
-                          />
-                          <Line
-                            x1={trendPadding}
-                            x2={Math.max(trendPadding, trendWidth - trendPadding)}
-                            y1={trendPadding + trendInnerHeight}
-                            y2={trendPadding + trendInnerHeight}
-                            stroke="#E2E8F0"
-                            strokeWidth={1}
-                          />
-                          <SvgText
-                            x={trendPadding}
-                            y={trendPadding - 3}
-                            fontSize="9"
-                            fill="#94A3B8"
-                            textAnchor="start"
-                            fontFamily={FONTS.body}
-                          >
-                            {formatCompact(maxTrendValue)}
-                          </SvgText>
-                          <SvgText
-                            x={trendPadding}
-                            y={trendMidY - 3}
-                            fontSize="9"
-                            fill="#94A3B8"
-                            textAnchor="start"
-                            fontFamily={FONTS.body}
-                          >
-                            {formatCompact(maxTrendValue / 2)}
-                          </SvgText>
-                          <SvgText
-                            x={trendPadding}
-                            y={trendPadding + trendInnerHeight + 12}
-                            fontSize="9"
-                            fill="#94A3B8"
-                            textAnchor="start"
-                            fontFamily={FONTS.body}
-                          >
-                            0
-                          </SvgText>
-                          {!!trendPoints.total && (
-                            <Polyline points={trendPoints.total} fill="none" stroke={STATUS_COLORS.total} strokeWidth={2} />
-                          )}
-                          {!!trendPoints.paid && (
-                            <Polyline points={trendPoints.paid} fill="none" stroke={STATUS_COLORS.paid} strokeWidth={2} />
-                          )}
-                          {trendPoints.coords.map((point, index) => (
-                            <React.Fragment key={`point-${index}`}>
-                              <Circle cx={point.x} cy={point.totalY} r={3} fill={STATUS_COLORS.total} />
-                              <Circle cx={point.x} cy={point.paidY} r={3} fill={STATUS_COLORS.paid} />
-                            </React.Fragment>
-                          ))}
-                        </Svg>
+                        )}
                       </View>
-                      <View style={styles.trendLabels}>
-                        {trendData.map((entry) => (
-                          <Text key={entry.key} style={styles.trendLabel}>{entry.label}</Text>
-                        ))}
-                      </View>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.trendSummaryRow}
-                      >
-                        {trendSummary.map((entry) => (
-                          <View key={entry.key} style={styles.trendSummaryCard}>
-                            <Text style={styles.trendSummaryMonth}>{entry.label}</Text>
-                            <View style={styles.trendSummaryLine}>
-                              <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.total }]} />
-                              <Text style={styles.trendSummaryLabel}>Presup.</Text>
-                            </View>
-                            <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.total }]}>
-                              ${formatMoney(entry.total)}
-                            </Text>
-                            <View style={styles.trendSummaryLine}>
-                              <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.paid }]} />
-                              <Text style={styles.trendSummaryLabel}>Cobrados</Text>
-                            </View>
-                            <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.paid }]}>
-                              ${formatMoney(entry.paid)}
-                            </Text>
+                      {showTrendSkeleton ? (
+                        <>
+                          <View style={styles.trendLabelSkeletonRow}>
+                            {Array.from({ length: 6 }).map((_, index) => (
+                              <SkeletonBlock key={`trend-label-${index}`} width={24} height={8} radius={4} />
+                            ))}
                           </View>
-                        ))}
-                      </ScrollView>
+                          <View style={styles.trendSummarySkeletonRow}>
+                            {Array.from({ length: 2 }).map((_, index) => (
+                              <SkeletonBlock
+                                key={`trend-card-${index}`}
+                                width={120}
+                                height={88}
+                                radius={14}
+                                style={styles.trendSummarySkeleton}
+                              />
+                            ))}
+                          </View>
+                        </>
+                      ) : (
+                        <>
+                          <View style={styles.trendLabels}>
+                            {trendData.map((entry) => (
+                              <Text key={entry.key} style={styles.trendLabel}>{entry.label}</Text>
+                            ))}
+                          </View>
+                          <FlashList
+                            horizontal
+                            data={trendSummary}
+                            keyExtractor={(item) => item.key}
+                            renderItem={renderTrendSummaryItem}
+                            showsHorizontalScrollIndicator={false}
+                            contentContainerStyle={styles.trendSummaryRow}
+                            estimatedItemSize={120}
+                          />
+                        </>
+                      )}
                     </View>
                     <View style={styles.statusPanel}>
                       <Text style={styles.trendTitle}>TRABAJOS POR ESTADO</Text>
                       <View style={styles.statusChart}>
-                      {statusChart.map((item) => {
-                        const height = Math.max(10, (item.value / maxStatusCount) * 80);
-                        return (
-                          <View key={item.key} style={styles.statusColumn}>
-                            <Text style={[styles.statusValue, { color: item.color }]}>{item.value}</Text>
-                            <View style={[styles.statusBar, { height, backgroundColor: item.color }]} />
-                            <Text style={styles.statusLabel}>{item.label}</Text>
+                      {showStatusSkeleton ? (
+                        Array.from({ length: 3 }).map((_, index) => (
+                          <View key={`status-skel-${index}`} style={styles.statusColumn}>
+                            <SkeletonBlock width={24} height={14} radius={6} />
+                            <SkeletonBlock
+                              width="100%"
+                              height={60 - index * 8}
+                              radius={8}
+                              style={styles.statusSkeletonBar}
+                            />
+                            <SkeletonBlock width={50} height={10} radius={6} style={styles.statusSkeletonLabel} />
                           </View>
-                        );
-                      })}
+                        ))
+                      ) : (
+                        <StatusChart data={statusChart} max={maxStatusCount} />
+                      )}
                       </View>
                     </View>
                   </View>
@@ -827,31 +999,54 @@ export default function JobsScreen() {
                     <View style={styles.mapHeader}>
                       <View style={styles.mapTitleRow}>
                         <Text style={styles.trendTitle}>MAPA · ULTIMOS 3 MESES</Text>
-                        <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
+                        {showMapSkeleton ? (
+                          <SkeletonBlock width={70} height={12} radius={6} />
+                        ) : (
+                          <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
+                        )}
                       </View>
                       <View style={styles.mapPills}>
-                        <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
-                          <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
-                          <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
-                        </View>
-                        <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
-                          <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
-                          <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
-                        </View>
-                        <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
-                          <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
-                          <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
-                        </View>
+                        {showMapSkeleton ? (
+                          <>
+                            <SkeletonBlock width={120} height={22} radius={999} />
+                            <SkeletonBlock width={110} height={22} radius={999} />
+                            <SkeletonBlock width={100} height={22} radius={999} />
+                          </>
+                        ) : (
+                          <>
+                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
+                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
+                              <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
+                            </View>
+                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
+                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
+                              <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
+                            </View>
+                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
+                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
+                              <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
+                            </View>
+                          </>
+                        )}
                       </View>
                     </View>
-                    <MapCanvas
-                      key={mapKey}
-                      points={mapPoints}
-                      region={mapRegion}
-                      onSelect={handleOpenMapDetail}
-                      formatMoney={formatMoney}
-                      height={260}
-                    />
+                    {showMapSkeleton ? (
+                      <SkeletonBlock height={260} radius={14} />
+                    ) : (
+                      <>
+                        <MapCanvas
+                          key={mapKey}
+                          points={mapPoints}
+                          region={mapRegion}
+                          onSelect={handleOpenMapDetail}
+                          formatMoney={formatMoney}
+                          height={260}
+                        />
+                        {!mapPoints.length && (
+                          <Text style={styles.mapEmptyText}>Agrega ubicaciones en tus presupuestos.</Text>
+                        )}
+                      </>
+                    )}
                     <TouchableOpacity
                       style={styles.mapCta}
                       onPress={() => {
@@ -1053,6 +1248,8 @@ const styles = StyleSheet.create({
   }),
   headerContent: { paddingHorizontal: 20, paddingTop: 10 },
   headerTitle: { fontSize: 24, fontFamily: FONTS.title, color: '#F8FAFC', marginBottom: 6, textAlign: 'center', letterSpacing: 0.6 },
+  headerMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  headerMeta: { fontSize: 11, fontFamily: FONTS.body, color: 'rgba(248,250,252,0.7)', textAlign: 'center' },
   headerSubtitle: { fontSize: 13, fontFamily: FONTS.body, color: 'rgba(248,250,252,0.7)', textAlign: 'center', marginBottom: 16 },
   
   dashboardWrapper: { gap: 16, marginBottom: 6 },
@@ -1159,7 +1356,10 @@ const styles = StyleSheet.create({
   trendChart: { height: 160 },
   trendLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   trendLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#A8A29E' },
+  trendLabelSkeletonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
   trendSummaryRow: { gap: 10, paddingTop: 12, paddingBottom: 4 },
+  trendSummarySkeletonRow: { flexDirection: 'row', gap: 10, paddingTop: 12, paddingBottom: 4 },
+  trendSummarySkeleton: { backgroundColor: '#EFE9DE' },
   trendSummaryCard: {
     width: 120,
     borderRadius: 14,
@@ -1186,6 +1386,8 @@ const styles = StyleSheet.create({
   statusValue: { fontSize: 18, fontFamily: FONTS.title, marginBottom: 6 },
   statusBar: { width: '100%', borderRadius: 8, alignSelf: 'stretch' },
   statusLabel: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#A8A29E', marginTop: 6, textAlign: 'center', letterSpacing: 0.3 },
+  statusSkeletonBar: { marginTop: 6 },
+  statusSkeletonLabel: { marginTop: 6 },
   mapPanel: {
     marginTop: 16,
     backgroundColor: '#FFFFFF',
@@ -1211,6 +1413,7 @@ const styles = StyleSheet.create({
   },
   mapPillDot: { width: 6, height: 6, borderRadius: 999 },
   mapPillText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
+  mapEmptyText: { marginTop: 8, fontSize: 11, fontFamily: FONTS.body, color: '#94A3B8' },
   mapCta: {
     marginTop: 12,
     paddingVertical: 10,

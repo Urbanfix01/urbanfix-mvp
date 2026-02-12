@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, FONTS } from '../../utils/theme';
@@ -9,7 +9,7 @@ interface Props {
   message: string;
 }
 
-export const EmptyState = ({ icon = 'folder-open-outline', title, message }: Props) => {
+export const EmptyState = memo(({ icon = 'folder-open-outline', title, message }: Props) => {
   return (
     <View style={styles.container}>
       <View style={styles.iconCircle}>
@@ -19,7 +19,7 @@ export const EmptyState = ({ icon = 'folder-open-outline', title, message }: Pro
       <Text style={styles.message}>{message}</Text>
     </View>
   );
-};
+});
 
 const styles = StyleSheet.create({
   container: {

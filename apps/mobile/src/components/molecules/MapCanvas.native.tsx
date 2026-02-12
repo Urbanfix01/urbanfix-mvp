@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { memo, useEffect, useRef } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import { MapPoint, MapRegion } from '../../types/maps';
@@ -11,7 +11,7 @@ type Props = {
   height?: number;
 };
 
-export default function MapCanvas({ points, region, onSelect, formatMoney, height }: Props) {
+const MapCanvas = ({ points, region, onSelect, formatMoney, height }: Props) => {
   const mapHeight = height ?? 220;
   const tracksViewChanges = Platform.OS === 'android';
   const mapRef = useRef<MapView>(null);
@@ -59,7 +59,42 @@ export default function MapCanvas({ points, region, onSelect, formatMoney, heigh
       </MapView>
     </View>
   );
-}
+};
+
+const areRegionsEqual = (a: MapRegion, b: MapRegion) =>
+  a.latitude === b.latitude &&
+  a.longitude === b.longitude &&
+  a.latitudeDelta === b.latitudeDelta &&
+  a.longitudeDelta === b.longitudeDelta;
+
+const arePointsEqual = (prevPoints: MapPoint[], nextPoints: MapPoint[]) => {
+  if (prevPoints.length !== nextPoints.length) return false;
+  for (let i = 0; i < prevPoints.length; i += 1) {
+    const prev = prevPoints[i];
+    const next = nextPoints[i];
+    if (
+      prev.id !== next.id ||
+      prev.lat !== next.lat ||
+      prev.lng !== next.lng ||
+      prev.amount !== next.amount ||
+      prev.title !== next.title ||
+      prev.status.key !== next.status.key ||
+      prev.status.label !== next.status.label ||
+      prev.status.color !== next.status.color
+    ) {
+      return false;
+    }
+  }
+  return true;
+};
+
+export default memo(
+  MapCanvas,
+  (prev, next) =>
+    prev.height === next.height &&
+    areRegionsEqual(prev.region, next.region) &&
+    arePointsEqual(prev.points, next.points)
+);
 
 const styles = StyleSheet.create({
   shell: {
