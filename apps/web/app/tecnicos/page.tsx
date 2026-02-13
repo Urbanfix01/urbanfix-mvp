@@ -1604,6 +1604,7 @@ export default function TechniciansPage() {
       const { data, error } = await supabase.rpc('update_quote_status', {
         quote_id: quoteId,
         next_status: nextStatus,
+        mode: 'manual',
       });
       if (error) throw error;
       if (!data || !data.id) {

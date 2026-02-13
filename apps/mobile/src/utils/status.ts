@@ -1,9 +1,9 @@
 const normalizeStatusValue = (status?: string | null) => (status || '').toLowerCase().trim();
 
 const STATUS_ALIASES = {
-  pending: ['pending', 'draft', 'pendiente', 'presented', 'sent'],
-  presented: ['presented', 'sent'],
-  approved: ['approved', 'aprobado', 'accepted'],
+  pending: ['pending', 'draft', 'pendiente', 'presented', 'sent', 'client_review', 'revision_requested', 'changes_requested', 'cambios_solicitados'],
+  presented: ['presented', 'sent', 'client_review'],
+  approved: ['approved', 'aprobado', 'accepted', 'scheduled', 'programado', 'agendado', 'in_progress', 'inprogress', 'en_progreso'],
   paid: ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'],
   closed: ['completed', 'completado', 'finalizado', 'finalizados', 'paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'],
   cancelled: ['cancelled', 'canceled', 'cancelado', 'rechazado', 'rejected'],

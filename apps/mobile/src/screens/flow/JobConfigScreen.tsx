@@ -22,6 +22,16 @@ import { COLORS, FONTS } from '../../utils/theme';
 import { useJobCalculator } from '../../hooks/useJobCalculator';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/number';
+import {
+  getOfflineQuoteDetail,
+  isLikelyOfflineError,
+  isLocalQuoteId,
+  queueOfflineQuoteDraft,
+  updateOfflineQuoteDraft,
+  upsertQuoteInList,
+  type OfflineQuoteData,
+  type QuoteItemPayload,
+} from '../../lib/offlineQuotes';
 
 // Habilitar animaciones en Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -157,7 +167,8 @@ export default function JobConfigScreen() {
   
   const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
-  const canUploadAttachments = isEditMode && !!quote?.id;
+  const isLocalEdit = isEditMode && isLocalQuoteId(String(quote?.id || ''));
+  const canUploadAttachments = isEditMode && !!quote?.id && !isLocalEdit;
   const initKey = isEditMode && quote?.id
     ? `quote:${quote.id}`
     : blueprint?.id
@@ -170,9 +181,11 @@ export default function JobConfigScreen() {
     const initData = async () => {
         try {
             let defaultDiscount = 0;
+            let currentUserId: string | undefined;
             try {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user) {
+                    currentUserId = user.id;
                     const { data: profileData } = await supabase
                         .from('profiles')
                         .select('default_discount')
@@ -185,23 +198,40 @@ export default function JobConfigScreen() {
             }
 
             if (isEditMode && quote?.id) {
-                const { data, error } = await supabase.from('quotes').select('*').eq('id', quote.id).single();
-                if (error) throw error;
+                const editingLocalQuote = isLocalQuoteId(String(quote.id));
+                let data: any = null;
+                let itemsData: any[] = [];
+
+                if (editingLocalQuote) {
+                    data = await getOfflineQuoteDetail(quote.id, currentUserId);
+                    if (!data) throw new Error('No se encontro el presupuesto local.');
+                    itemsData = data.quote_items || [];
+                } else {
+                    const { data: remoteQuote, error } = await supabase.from('quotes').select('*').eq('id', quote.id).single();
+                    if (error) throw error;
+                    data = remoteQuote;
+                    const { data: remoteItems } = await supabase.from('quote_items').select('*').eq('quote_id', quote.id);
+                    itemsData = remoteItems || [];
+                }
 
                 if (data) {
                     setClientName(data.client_name || '');
-                    setClientAddress(data.client_address || ''); 
-                    if (data.location_lat && data.location_lng) {
-                        setLocation({ lat: data.location_lat, lng: data.location_lng });
+                    setClientAddress(data.client_address || data.address || data.location_address || '');
+                    const lat = Number(data.location_lat);
+                    const lng = Number(data.location_lng);
+                    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+                        setLocation({ lat, lng });
+                    } else {
+                        setLocation({ lat: 0, lng: 0 });
                     }
-                    setApplyTax(data.tax_rate > 0);
+
+                    setApplyTax(Number(data.tax_rate || 0) > 0);
                     const resolvedDiscount = data.discount_percent ?? defaultDiscount;
                     setDiscount(Math.min(100, Math.max(0, Number(resolvedDiscount || 0))));
-                    
-                    const { data: itemsData } = await supabase.from('quote_items').select('*').eq('quote_id', quote.id);
-                    if (itemsData) {
+
+                    if (itemsData.length > 0) {
                         const mappedItems = itemsData.map((item: any) => ({
-                            id: item.id?.toString(),
+                            id: item.id?.toString() || `local-item-${Math.random().toString(36).slice(2, 8)}`,
                             name: item.description || 'Item',
                             price: Number(item.unit_price || 0),
                             quantity: Number(item.quantity || 1),
@@ -212,8 +242,6 @@ export default function JobConfigScreen() {
                         setItems(mappedItems);
                         setPriceDrafts({});
 
-                        // Compat: si el presupuesto viene de versiones viejas (sin discount_percent),
-                        // inferimos el descuento desde total_amount para que coincida con el visor web.
                         const subtotal = mappedItems.reduce((acc: number, item: any) => acc + (item.price * item.quantity), 0);
                         const taxRate = Number(data.tax_rate || 0);
                         const expectedNoDiscountTotal = subtotal * (1 + taxRate);
@@ -229,20 +257,27 @@ export default function JobConfigScreen() {
                             setDiscount(inferredClamped);
                           }
                         }
+                    } else {
+                        setItems([]);
+                        setPriceDrafts({});
                     }
 
-                    const { data: attachmentsData } = await supabase
-                        .from('quote_attachments')
-                        .select('*')
-                        .eq('quote_id', quote.id)
-                        .order('created_at', { ascending: false });
-                    if (attachmentsData) {
-                        const mappedAttachments = attachmentsData.map((item: any) => ({
-                            id: item.id?.toString() || `remote-${Date.now()}`,
-                            name: item.file_name || 'Imagen',
-                            url: item.file_url,
-                        }));
-                        setAttachments(mappedAttachments);
+                    if (!editingLocalQuote) {
+                        const { data: attachmentsData } = await supabase
+                            .from('quote_attachments')
+                            .select('*')
+                            .eq('quote_id', quote.id)
+                            .order('created_at', { ascending: false });
+                        if (attachmentsData) {
+                            const mappedAttachments = attachmentsData.map((item: any) => ({
+                                id: item.id?.toString() || `remote-${Date.now()}`,
+                                name: item.file_name || 'Imagen',
+                                url: item.file_url,
+                            }));
+                            setAttachments(mappedAttachments);
+                        } else {
+                            setAttachments([]);
+                        }
                     } else {
                         setAttachments([]);
                     }
@@ -538,53 +573,87 @@ export default function JobConfigScreen() {
   };
 
   const handleSave = async () => {
-      // Validaciones
       if (!clientName.trim()) return Alert.alert("Falta información", "Ingresa el nombre del cliente.");
       if (!clientAddress?.trim()) return Alert.alert("Falta información", "Ingresa la dirección.");
       if (items.length === 0) return Alert.alert("Atención", "Agrega al menos un item.");
+
+      const quoteData: OfflineQuoteData = {
+        client_name: clientName,
+        client_address: clientAddress,
+        address: clientAddress,
+        location_address: clientAddress,
+        location_lat: location.lat || null,
+        location_lng: location.lng || null,
+        total_amount: totalWithTax,
+        discount_percent: discountPercent,
+        tax_rate: applyTax ? 0.21 : 0,
+        status: quote?.status || 'draft',
+        scheduled_date: params?.quote?.scheduled_date || null,
+      };
+
+      const itemsPayload: QuoteItemPayload[] = items.map((item) => ({
+        description: item.name,
+        unit_price: Number(item.price || 0),
+        quantity: Number(item.quantity || 1),
+        metadata: { type: item.type, category: item.category },
+      }));
+
+      let userId = '';
 
       try {
         setIsSaving(true);
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Sesión expirada");
-
-        // Datos listos para guardar
-        const quoteData = {
-            client_name: clientName,
-            client_address: clientAddress,
-            location_lat: location.lat || null,
-            location_lng: location.lng || null,
-            total_amount: totalWithTax,
-            discount_percent: discountPercent,
-            tax_rate: applyTax ? 0.21 : 0,
-            status: quote?.status || 'draft',
-            user_id: user.id,
-            scheduled_date: params?.quote?.scheduled_date || null,
-        };
+        userId = user.id;
 
         let targetId = quote?.id;
 
-        // Lógica de Upsert
+        if (isEditMode && targetId && isLocalQuoteId(String(targetId))) {
+          const updatedLocal = await updateOfflineQuoteDraft({
+            userId: user.id,
+            localId: targetId,
+            quoteData,
+            items: itemsPayload,
+          });
+
+          if (!updatedLocal) throw new Error('No se pudo actualizar el presupuesto local.');
+
+          handleSmartInteraction('heavy');
+          queryClient.setQueryData(['quotes-list'], (prev: any) => {
+            const list = Array.isArray(prev) ? prev : [];
+            return upsertQuoteInList(list, updatedLocal);
+          });
+          navigation.navigate('JobDetail', {
+            jobId: targetId,
+            quote: updatedLocal,
+            client_address: updatedLocal.client_address || updatedLocal.address || updatedLocal.location_address,
+            location_lat: updatedLocal.location_lat,
+            location_lng: updatedLocal.location_lng,
+          });
+          return;
+        }
+
+        const remoteQuoteData = {
+          ...quoteData,
+          user_id: user.id,
+        };
+
         if (isEditMode && targetId) {
-            const { error } = await supabase.from('quotes').update(quoteData).eq('id', targetId);
+            const { error } = await supabase.from('quotes').update(remoteQuoteData).eq('id', targetId);
             if (error) throw error;
             await supabase.from('quote_items').delete().eq('quote_id', targetId);
         } else {
-            const { data: newQuote, error } = await supabase.from('quotes').insert(quoteData).select().single();
+            const { data: newQuote, error } = await supabase.from('quotes').insert(remoteQuoteData).select().single();
             if (error) throw error;
             targetId = newQuote.id;
         }
 
-        // Guardar items
-        if (items.length > 0) {
-            const itemsPayload = items.map(i => ({
-                quote_id: targetId,
-                description: i.name,
-                unit_price: i.price,
-                quantity: i.quantity,
-                metadata: { type: i.type, category: i.category }
+        if (itemsPayload.length > 0 && targetId) {
+            const remoteItemsPayload = itemsPayload.map((item) => ({
+              ...item,
+              quote_id: targetId,
             }));
-            const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
+            const { error: itemsError } = await supabase.from('quote_items').insert(remoteItemsPayload);
             if (itemsError) throw itemsError;
         }
 
@@ -598,7 +667,45 @@ export default function JobConfigScreen() {
         navigation.navigate('JobDetail', { jobId: targetId });
 
       } catch (e: any) {
-        Alert.alert("Error", e.message);
+        const canFallbackOffline = !isEditMode && !!userId && isLikelyOfflineError(e);
+        if (canFallbackOffline) {
+          try {
+            const localQuote = await queueOfflineQuoteDraft({
+              userId,
+              quoteData,
+              items: itemsPayload,
+            });
+            handleSmartInteraction('heavy');
+            queryClient.setQueryData(['quotes-list'], (prev: any) => {
+              const list = Array.isArray(prev) ? prev : [];
+              return upsertQuoteInList(list, localQuote);
+            });
+
+            const hasLocalAttachments = attachments.some((item) => !!item.localUri);
+            Alert.alert(
+              'Guardado sin internet',
+              hasLocalAttachments
+                ? 'El presupuesto se guardo localmente. Los adjuntos requieren internet y deberas cargarlos cuando se sincronice.'
+                : 'El presupuesto se guardo localmente y se sincronizara automaticamente cuando vuelva internet.'
+            );
+            navigation.goBack();
+            return;
+          } catch (offlineError: any) {
+            Alert.alert('Error', offlineError?.message || 'No se pudo guardar sin internet.');
+            return;
+          }
+        }
+
+        if (isLikelyOfflineError(e)) {
+          if (isEditMode) {
+            Alert.alert('Sin conexion', 'No hay internet para sincronizar cambios. Intenta nuevamente cuando vuelva la conexion.');
+          } else {
+            Alert.alert('Sin conexion', 'No se pudo guardar el presupuesto sin internet.');
+          }
+          return;
+        }
+
+        Alert.alert("Error", e.message || 'No se pudo guardar el presupuesto.');
       } finally {
         setIsSaving(false);
       }

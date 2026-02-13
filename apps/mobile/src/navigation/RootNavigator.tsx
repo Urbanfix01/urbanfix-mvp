@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform, StyleSheet, useWindowDimensions, Easing } from 'react-native';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { supabase } from '../lib/supabase'; 
 import { COLORS } from '../utils/theme';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SwipeableTabScreen from './SwipeableTabScreen';
 
 // --- PANTALLAS ---
 // 1. Auth
@@ -34,45 +33,37 @@ import NotificationsScreen from '../screens/tabs/NotificationsScreen';
 import { registerForPushNotificationsAsync, showLocalNotification } from '../utils/notifications';
 
 const Stack = createNativeStackNavigator();
-const Tab = createBottomTabNavigator();
-
-const withTabSwipe = (Component: React.ComponentType<any>) => {
-  const Wrapped = (props: any) => (
-    <SwipeableTabScreen>
-      <Component {...props} />
-    </SwipeableTabScreen>
-  );
-  return Wrapped;
-};
-
-const JobsScreenWithSwipe = withTabSwipe(JobsScreen);
-const AgendaScreenWithSwipe = withTabSwipe(AgendaScreen);
-const MapScreenWithSwipe = withTabSwipe(MapScreen);
-const CatalogScreenWithSwipe = withTabSwipe(CatalogScreen);
-const NotificationsScreenWithSwipe = withTabSwipe(NotificationsScreen);
-const ProfileScreenWithSwipe = withTabSwipe(ProfileScreen);
+const Tab = createMaterialTopTabNavigator();
 
 // --- BOTTOM TABS (Menú Inferior) ---
 function MainTabs() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const slideWidth = Math.max(width || 0, 320);
   return (
     <Tab.Navigator
+      tabBarPosition="bottom"
       screenOptions={({ route }) => ({
-        headerShown: false,
+        swipeEnabled: true,
+        lazy: false,
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: '#95A5A6',
-        tabBarBackground: () => <View style={styles.tabBarBackground} />,
+        tabBarShowIcon: true,
+        tabBarShowLabel: true,
+        tabBarIndicatorStyle: { height: 0 },
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: '#EEEEEE',
+          borderTopWidth: 1,
           height: 60 + insets.bottom,
           paddingBottom: Math.max(8, insets.bottom),
           paddingTop: 8,
         },
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarLabelStyle: {
+          fontSize: 11,
+          textTransform: 'none',
+        },
+        tabBarIcon: ({ focused, color }) => {
           let iconName: any;
+          const iconSize = 21;
           
           if (route.name === 'Panel') {
             iconName = focused ? 'home' : 'home-outline';
@@ -88,35 +79,16 @@ function MainTabs() {
             iconName = focused ? 'person' : 'person-outline';
           }
           
-          return <Ionicons name={iconName} size={size} color={color} />;
+          return <Ionicons name={iconName} size={iconSize} color={color} />;
         },
-        transitionSpec: {
-          animation: 'timing',
-          config: {
-            duration: 220,
-            easing: Easing.out(Easing.cubic),
-          },
-        },
-        sceneStyleInterpolator: ({ current }) => ({
-          sceneStyle: {
-            transform: [
-              {
-                translateX: current.progress.interpolate({
-                  inputRange: [-1, 0, 1],
-                  outputRange: [-slideWidth, 0, slideWidth],
-                }),
-              },
-            ],
-          },
-        }),
       })}
     >
-      <Tab.Screen name="Panel" component={JobsScreenWithSwipe} />
-      <Tab.Screen name="Agenda" component={AgendaScreenWithSwipe} /> 
-      <Tab.Screen name="Mapa" component={MapScreenWithSwipe} />
-      <Tab.Screen name="Catálogo" component={CatalogScreenWithSwipe} />
-      <Tab.Screen name="Notificaciones" component={NotificationsScreenWithSwipe} />
-      <Tab.Screen name="Perfil" component={ProfileScreenWithSwipe} />
+      <Tab.Screen name="Panel" component={JobsScreen} />
+      <Tab.Screen name="Agenda" component={AgendaScreen} /> 
+      <Tab.Screen name="Mapa" component={MapScreen} />
+      <Tab.Screen name="Catálogo" component={CatalogScreen} />
+      <Tab.Screen name="Notificaciones" component={NotificationsScreen} />
+      <Tab.Screen name="Perfil" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
@@ -269,10 +241,3 @@ export default function RootNavigator() {
     </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  tabBarBackground: {
-    flex: 1,
-    backgroundColor: COLORS.white,
-  },
-});
