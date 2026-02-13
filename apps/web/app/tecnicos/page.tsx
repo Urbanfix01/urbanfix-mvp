@@ -227,6 +227,16 @@ const normalizeStatusValue = (status?: string | null) => {
   return 'draft';
 };
 
+const getStatusInfo = (status?: string | null) => {
+  const normalized = normalizeStatusValue(status);
+  return (
+    statusMap[normalized] || {
+      label: (status || 'N/A').toUpperCase(),
+      className: 'bg-slate-100 text-slate-600',
+    }
+  );
+};
+
 const toNumber = (value: string) => {
   const normalized = value.replace(',', '.');
   const parsed = Number.parseFloat(normalized);
@@ -701,6 +711,43 @@ export default function TechniciansPage() {
       await fetchMasterItems();
     };
     load();
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const refreshQuotes = () => {
+      void fetchQuotes(userId);
+    };
+
+    const channel = supabase
+      .channel(`quotes-live-${userId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'quotes',
+        filter: `user_id=eq.${userId}`,
+      }, refreshQuotes)
+      .subscribe();
+
+    const pollId = setInterval(refreshQuotes, 30000);
+    const onFocus = () => refreshQuotes();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        refreshQuotes();
+      }
+    };
+
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
+    return () => {
+      clearInterval(pollId);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      void supabase.removeChannel(channel);
+    };
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -3062,24 +3109,32 @@ export default function TechniciansPage() {
                           Todavia no hay presupuestos cargados.
                         </div>
                       )}
-                      {recentQuotes.map((quote) => (
-                        <button
-                          key={quote.id}
-                          type="button"
-                          onClick={() => loadQuote(quote)}
-                          className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-100"
-                        >
-                          <div>
-                            <p className="font-semibold text-slate-800">{quote.client_name || 'Presupuesto'}</p>
-                            <p className="text-xs text-slate-500">
-                              {new Date(quote.created_at).toLocaleDateString('es-AR')}
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold text-slate-900">
-                            ${(quote.total_amount || 0).toLocaleString('es-AR')}
-                          </span>
-                        </button>
-                      ))}
+                      {recentQuotes.map((quote) => {
+                        const info = getStatusInfo(quote.status);
+                        return (
+                          <button
+                            key={quote.id}
+                            type="button"
+                            onClick={() => loadQuote(quote)}
+                            className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-100"
+                          >
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="font-semibold text-slate-800">{quote.client_name || 'Presupuesto'}</p>
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${info.className}`}>
+                                  {info.label}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500">
+                                {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                              </p>
+                            </div>
+                            <span className="text-sm font-semibold text-slate-900">
+                              ${(quote.total_amount || 0).toLocaleString('es-AR')}
+                            </span>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -3504,10 +3559,7 @@ export default function TechniciansPage() {
                     </div>
                   )}
                   {filteredQuotes.map((quote) => {
-                    const info = statusMap[quote.status || ''] || {
-                      label: (quote.status || 'N/A').toUpperCase(),
-                      className: 'bg-slate-100 text-slate-600',
-                    };
+                    const info = getStatusInfo(quote.status);
                       return (
                         <button
                           key={quote.id}
