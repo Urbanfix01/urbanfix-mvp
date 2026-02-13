@@ -1,21 +1,35 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  ActivityIndicator, Alert, Share, StatusBar, Platform, Linking 
+  ActivityIndicator, Alert, Share, StatusBar, Platform, Linking, Modal, Pressable
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
+import { deleteOfflineQuoteDraft, getOfflineQuoteDetail, isLocalQuoteId, updateOfflineQuoteStatus } from '../../lib/offlineQuotes';
 import { COLORS, FONTS } from '../../utils/theme';
 import { formatCurrency } from '../../utils/number';
 import { getPublicQuoteUrl } from '../../utils/config';
-import { isApproved, isClosed, isPaid, isPending, isPresented, normalizeStatus } from '../../utils/status';
+import {
+  getManualStatusOptions,
+  getPrimaryProcessAction,
+  getSecondaryProcessActions,
+  getStatusMeta,
+  getWorkflowLabel,
+  type QuoteWorkflowStatus,
+} from '../../utils/quoteWorkflow';
 
 async function getQuoteById(id: string) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('Sesión expirada');
+
+  if (isLocalQuoteId(id)) {
+    const localQuote = await getOfflineQuoteDetail(id, user.id);
+    if (!localQuote) throw new Error('No se encontró el presupuesto local.');
+    return localQuote;
+  }
 
   const { data, error } = await supabase
     .from('quotes')
@@ -68,7 +82,10 @@ export default function JobDetailScreen() {
   const route = useRoute();
   const params = route.params as any;
   const jobId = params?.jobId as string;
+  const isLocalDraft = isLocalQuoteId(jobId);
   const queryClient = useQueryClient();
+  const [manualStatusOpen, setManualStatusOpen] = useState(false);
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['quote', jobId],
@@ -79,7 +96,7 @@ export default function JobDetailScreen() {
   const { data: revisionRequests = [] } = useQuery({
     queryKey: ['quote-revision-requests', jobId],
     queryFn: () => getRevisionRequests(jobId),
-    enabled: !!jobId,
+    enabled: !!jobId && !isLocalDraft,
     staleTime: 30000,
   });
 
@@ -185,6 +202,14 @@ export default function JobDetailScreen() {
   const handleDelete = async () => {
       const performDelete = async () => {
           try {
+              if (isLocalDraft) {
+                const { data: { user } } = await supabase.auth.getUser();
+                await deleteOfflineQuoteDraft(jobId, user?.id);
+                await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+                navigation.goBack();
+                return;
+              }
+
               const { error } = await supabase.rpc('delete_quote', { p_quote_id: jobId });
               if (error) throw error;
               await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
@@ -207,17 +232,13 @@ export default function JobDetailScreen() {
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Borrar', style: 'destructive', onPress: () => void performDelete() },
       ]);
-      return;
-      /* Tu lógica de borrado existente... */
-      if(confirm("¿Borrar trabajo?")) {
-          await supabase.from('quotes').delete().eq('id', jobId);
-          await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-          await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
-          navigation.goBack();
-      }
   };
 
   const handleShare = async () => {
+      if (isLocalDraft) {
+          Alert.alert('Pendiente de sincronizacion', 'Este presupuesto se creo sin internet y aun no tiene link publico.');
+          return;
+      }
       /* Tu lógica de compartir... */
       const link = getPublicQuoteUrl(jobId);
       if (Platform.OS === 'web') {
@@ -238,40 +259,55 @@ export default function JobDetailScreen() {
       Share.share({message: link});
   };
 
-  const handleConfirmQuote = async () => {
-      const { error } = await supabase.rpc('update_quote_status', { quote_id: jobId, next_status: 'sent' });
-      if (error) {
-          await supabase.from('quotes').update({ status: 'sent' }).eq('id', jobId);
+  const applyStatus = async (nextStatus: QuoteWorkflowStatus, mode: 'process' | 'manual') => {
+      if (!quote) return;
+      try {
+        setStatusUpdating(true);
+        if (isLocalDraft) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user?.id) throw new Error('Sesion expirada');
+          const updated = await updateOfflineQuoteStatus({
+            userId: user.id,
+            localId: jobId,
+            status: nextStatus,
+          });
+          if (!updated) throw new Error('No se pudo actualizar el estado local.');
+        } else {
+          const { error: rpcError } = await supabase.rpc('update_quote_status', {
+            quote_id: jobId,
+            next_status: nextStatus,
+            mode,
+          });
+          if (rpcError) throw rpcError;
+        }
+
+        await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
+        await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+        Alert.alert('Estado actualizado', `${mode === 'process' ? 'Proceso' : 'Manual'}: ${getWorkflowLabel(nextStatus)}`);
+      } catch (err: any) {
+        Alert.alert('Error', err?.message || 'No se pudo actualizar el estado.');
+      } finally {
+        setStatusUpdating(false);
       }
-      await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
   };
 
-  const handleFinalize = async () => {
-      await supabase
-        .from('quotes')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('id', jobId);
-      await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
-      navigation.goBack();
+  const handleProcessStatus = async (nextStatus: QuoteWorkflowStatus) => {
+    await applyStatus(nextStatus, 'process');
   };
 
-  // --- HELPERS UI ---
-  const getStatusColor = (s: string) => {
-      const st = normalizeStatus(s);
-      if (isApproved(st)) return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
-      if (isPresented(st)) return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
-      if (isPaid(st) || isClosed(st)) return { bg: '#DCFCE7', text: '#166534', label: 'COBRADO' };
-      if (isPending(st)) return { bg: '#FEF3C7', text: '#B45309', label: 'PENDIENTE' };
-      return { bg: '#E5E7EB', text: '#475569', label: 'SIN ESTADO' };
+  const handleManualStatus = async (nextStatus: QuoteWorkflowStatus) => {
+    setManualStatusOpen(false);
+    await applyStatus(nextStatus, 'manual');
   };
+
+  const statusInfo = getStatusMeta(quote?.status);
+  const primaryProcessAction = getPrimaryProcessAction(quote?.status);
+  const secondaryProcessActions = getSecondaryProcessActions(quote?.status);
+  const manualStatusOptions = getManualStatusOptions(quote?.status);
 
   if (isLoading && !quote) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={COLORS.primary}/></View>;
   if (error) return <View style={styles.center}><Text>Error al cargar el trabajo</Text></View>;
   if (!quote) return <View style={styles.center}><Text>No se encontró el trabajo</Text></View>;
-
-  const statusInfo = getStatusColor(quote.status);
 
   return (
     <View style={styles.container}>
@@ -305,7 +341,7 @@ export default function JobDetailScreen() {
                     <Text style={styles.clientName}>{quote.client_name || 'Sin Nombre'}</Text>
                 </View>
                 <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-                    <Text style={[styles.statusText, { color: statusInfo.text }]}>{statusInfo.label}</Text>
+                    <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
                 </View>
             </View>
 
@@ -327,6 +363,48 @@ export default function JobDetailScreen() {
 
         {/* MAPA GOOGLE */}
         {renderMapSection()}
+
+        {/* PROCESO DE ESTADOS */}
+        <View style={styles.workflowCard}>
+          <Text style={styles.sectionTitle}>PROCESO DE ESTADOS</Text>
+          <Text style={styles.workflowModeText}>
+            Proceso real: cliente y tecnico. Manual: ajuste directo por el tecnico.
+          </Text>
+
+          {primaryProcessAction ? (
+            <TouchableOpacity
+              style={[styles.workflowPrimaryBtn, statusUpdating && styles.disabledBtn]}
+              disabled={statusUpdating}
+              onPress={() => void handleProcessStatus(primaryProcessAction.nextStatus)}
+            >
+              <Ionicons name={primaryProcessAction.icon} size={20} color="#FFF" />
+              <View style={styles.workflowPrimaryTextWrap}>
+                <Text style={styles.workflowPrimaryTitle}>{primaryProcessAction.label}</Text>
+                <Text style={styles.workflowPrimaryHint}>{primaryProcessAction.hint}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.workflowDoneText}>
+              Este estado no tiene mas pasos automaticos del proceso real.
+            </Text>
+          )}
+
+          {secondaryProcessActions.map((action) => (
+            <TouchableOpacity
+              key={`${action.nextStatus}-${action.label}`}
+              style={[styles.workflowSecondaryBtn, statusUpdating && styles.disabledBtn]}
+              disabled={statusUpdating}
+              onPress={() => void handleProcessStatus(action.nextStatus)}
+            >
+              <Ionicons name={action.icon} size={18} color={COLORS.text} />
+              <View style={styles.workflowSecondaryTextWrap}>
+                <Text style={styles.workflowSecondaryTitle}>{action.label}</Text>
+                <Text style={styles.workflowSecondaryHint}>{action.hint}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={COLORS.textLight} />
+            </TouchableOpacity>
+          ))}
+        </View>
 
         {/* REVISIONES SOLICITADAS */}
         {revisionRequests.length > 0 && (
@@ -418,28 +496,79 @@ export default function JobDetailScreen() {
             <Ionicons name="trash-outline" size={24} color={COLORS.danger} />
         </TouchableOpacity>
 
-        {quote.status === 'draft' ? (
-          <TouchableOpacity style={styles.shareBtn} onPress={handleConfirmQuote}>
-              <Text style={styles.shareText}>Confirmar</Text>
-              <Ionicons name="checkmark" size={20} color="#FFF" style={{marginLeft: 8}} />
+        {primaryProcessAction ? (
+          <TouchableOpacity
+            style={[styles.shareBtn, statusUpdating && styles.disabledBtn]}
+            disabled={statusUpdating}
+            onPress={() => void handleProcessStatus(primaryProcessAction.nextStatus)}
+          >
+              {statusUpdating ? (
+                <ActivityIndicator size="small" color="#FFF" />
+              ) : (
+                <>
+                  <Text style={styles.shareText} numberOfLines={1}>{primaryProcessAction.label}</Text>
+                  <Ionicons name={primaryProcessAction.icon} size={20} color="#FFF" style={{marginLeft: 8}} />
+                </>
+              )}
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShare} disabled={statusUpdating}>
               <Text style={styles.shareText}>Compartir</Text>
               <Ionicons name="share-social" size={20} color="#FFF" style={{marginLeft: 8}} />
           </TouchableOpacity>
         )}
 
-        {['approved', 'accepted'].includes((quote.status || '').toLowerCase()) ? (
-            <TouchableOpacity style={styles.successBtn} onPress={handleFinalize}>
-                <Ionicons name="checkmark-circle" size={24} color="#FFF" />
-            </TouchableOpacity>
-        ) : (
-            <TouchableOpacity style={styles.successBtn} onPress={handleEdit}>
-                <Ionicons name="pencil" size={20} color="#FFF" />
-            </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.successBtn, statusUpdating && styles.disabledBtn]}
+          disabled={statusUpdating}
+          onPress={() => setManualStatusOpen(true)}
+        >
+          <Ionicons name="settings-outline" size={20} color="#FFF" />
+        </TouchableOpacity>
       </SafeAreaView>
+
+      <Modal
+        transparent
+        animationType="fade"
+        visible={manualStatusOpen}
+        onRequestClose={() => setManualStatusOpen(false)}
+      >
+        <Pressable style={styles.manualOverlay} onPress={() => setManualStatusOpen(false)}>
+          <Pressable style={styles.manualCard} onPress={() => null}>
+            <Text style={styles.manualTitle}>Cambiar estado manualmente</Text>
+            <Text style={styles.manualSubtitle}>Estado actual: {statusInfo.label}</Text>
+
+            <View style={styles.manualList}>
+              {manualStatusOptions.length === 0 ? (
+                <Text style={styles.manualEmpty}>No hay otros estados disponibles.</Text>
+              ) : (
+                manualStatusOptions.map((status) => {
+                  const meta = getStatusMeta(status);
+                  return (
+                    <TouchableOpacity
+                      key={status}
+                      style={styles.manualOption}
+                      disabled={statusUpdating}
+                      onPress={() => void handleManualStatus(status)}
+                    >
+                      <View style={[styles.manualDot, { backgroundColor: meta.color }]} />
+                      <Text style={styles.manualOptionText}>{getWorkflowLabel(status)}</Text>
+                      <Ionicons name="chevron-forward" size={18} color={COLORS.textLight} />
+                    </TouchableOpacity>
+                  );
+                })
+              )}
+            </View>
+
+            <TouchableOpacity
+              style={styles.manualCloseBtn}
+              onPress={() => setManualStatusOpen(false)}
+            >
+              <Text style={styles.manualCloseText}>Cerrar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -474,6 +603,37 @@ const styles = StyleSheet.create({
   mapIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#34A853', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   mapBtnTitle: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text },
   mapBtnSubtitle: { fontSize: 12, color: COLORS.textLight },
+
+  // WORKFLOW
+  workflowCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 16, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
+  workflowModeText: { fontSize: 12, color: COLORS.textLight, marginBottom: 12 },
+  workflowPrimaryBtn: {
+    backgroundColor: COLORS.secondary,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  workflowPrimaryTextWrap: { marginLeft: 10, flex: 1 },
+  workflowPrimaryTitle: { fontSize: 14, fontFamily: FONTS.subtitle, color: '#FFF' },
+  workflowPrimaryHint: { marginTop: 2, fontSize: 11, color: 'rgba(255,255,255,0.82)' },
+  workflowDoneText: { fontSize: 12, color: COLORS.textLight, marginBottom: 10 },
+  workflowSecondaryBtn: {
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  workflowSecondaryTextWrap: { flex: 1, marginLeft: 10, marginRight: 8 },
+  workflowSecondaryTitle: { fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
+  workflowSecondaryHint: { fontSize: 11, color: COLORS.textLight, marginTop: 2 },
 
   // REVISIONES
   revisionCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
@@ -515,4 +675,47 @@ const styles = StyleSheet.create({
   shareBtn: { flex: 1, height: 50, borderRadius: 12, backgroundColor: COLORS.secondary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   shareText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   successBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center' },
+  disabledBtn: { opacity: 0.6 },
+
+  // MODAL MANUAL
+  manualOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.35)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  manualCard: {
+    backgroundColor: '#FFF',
+    borderRadius: 16,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxHeight: '80%',
+  },
+  manualTitle: { fontSize: 17, fontFamily: FONTS.title, color: COLORS.text },
+  manualSubtitle: { marginTop: 6, marginBottom: 12, fontSize: 12, color: COLORS.textLight },
+  manualList: { gap: 8 },
+  manualEmpty: { fontSize: 12, color: COLORS.textLight },
+  manualOption: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+  },
+  manualDot: { width: 8, height: 8, borderRadius: 999, marginRight: 10 },
+  manualOptionText: { flex: 1, fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
+  manualCloseBtn: {
+    marginTop: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+  },
+  manualCloseText: { fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
 });

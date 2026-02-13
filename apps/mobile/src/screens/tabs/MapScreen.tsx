@@ -15,6 +15,7 @@ import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import MapCanvas from '../../components/molecules/MapCanvas';
 import { SkeletonBlock } from '../../components/molecules/SkeletonBlock';
 import { supabase } from '../../lib/supabase';
+import { fetchQuotesWithOffline } from '../../lib/offlineQuotes';
 import { MapPoint } from '../../types/maps';
 import { COLORS, FONTS } from '../../utils/theme';
 import { formatCurrency } from '../../utils/number';
@@ -42,15 +43,7 @@ const STATUS_COLORS = {
 async function getQuotes(): Promise<QuoteListItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('quotes')
-    .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  return fetchQuotesWithOffline(user.id);
 }
 
 export default function MapScreen() {

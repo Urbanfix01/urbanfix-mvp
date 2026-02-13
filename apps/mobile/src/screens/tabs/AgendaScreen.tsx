@@ -4,6 +4,7 @@ import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { supabase } from '../../lib/supabase';
+import { fetchQuotesWithOffline, isLocalQuoteId, updateOfflineQuoteSchedule } from '../../lib/offlineQuotes';
 import { COLORS, FONTS } from '../../utils/theme';
 import MapCanvas from '../../components/molecules/MapCanvas';
 import { MapPoint } from '../../types/maps';
@@ -165,19 +166,16 @@ export default function AgendaScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
-        .from('quotes')
-        .select('id, client_name, total_amount, status, scheduled_date, created_at, client_address, address, location_address, location_lat, location_lng')
-        .eq('user_id', user.id)
-        .neq('status', 'completed');
-
-        if (error) throw error;
+        const data = await fetchQuotesWithOffline(user.id);
+        const activeQuotes = data.filter(
+          (quote) => String(quote.status || '').toLowerCase().trim() !== 'completed'
+        );
 
         const newItems: any = {};
         const newMarks: any = {};
         const pendingList: any[] = [];
 
-        data?.forEach((job) => {
+        activeQuotes.forEach((job) => {
             const dateKey = normalizeDateKey(job.scheduled_date);
             if (!dateKey) {
                 pendingList.push(job);
@@ -215,7 +213,18 @@ export default function AgendaScreen() {
 
   // --- ACCIÓN: ASIGNAR FECHA ---
   const updateSchedule = useCallback(async (jobId: string, dateString: string) => {
-    await supabase.from('quotes').update({ scheduled_date: dateString }).eq('id', jobId);
+    if (isLocalQuoteId(jobId)) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.id) {
+        await updateOfflineQuoteSchedule({
+          userId: user.id,
+          localId: jobId,
+          scheduledDate: dateString,
+        });
+      }
+    } else {
+      await supabase.from('quotes').update({ scheduled_date: dateString }).eq('id', jobId);
+    }
     setTargetJobId(null);
     loadItems();
   }, [loadItems]);

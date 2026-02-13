@@ -17,8 +17,10 @@ import { SkeletonBlock } from '../../components/molecules/SkeletonBlock';
 import JobListCard from '../../components/molecules/JobListCard';
 import { MapPoint } from '../../types/maps';
 import { supabase } from '../../lib/supabase'; 
+import { deleteOfflineQuoteDraft, fetchQuotesWithOffline, isLocalQuoteId } from '../../lib/offlineQuotes';
 import { getPublicQuoteUrl } from '../../utils/config';
-import { isApproved, isClosed, isPaid, isPending, isPresented, normalizeStatus } from '../../utils/status';
+import { getStatusMeta } from '../../utils/quoteWorkflow';
+import { isApproved, isClosed, isPaid, isPending, normalizeStatus } from '../../utils/status';
 
 type QuoteListItem = {
   id: string;
@@ -155,7 +157,6 @@ const StatusChart = React.memo(
 const STATUS_COLORS = {
   total: '#0F172A',
   pending: '#F59E0B',
-  presented: '#3B82F6',
   approved: '#10B981',
   paid: '#059669',
   closed: '#059669',
@@ -171,15 +172,7 @@ const FILTER_LABELS: Record<DashboardFilter, string> = {
 async function getQuotes(): Promise<QuoteListItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
-
-  const { data, error } = await supabase
-    .from('quotes')
-    .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
-
-  if (error) throw error;
-  return data || [];
+  return fetchQuotesWithOffline(user.id);
 }
 
 export default function JobsScreen() {
@@ -606,6 +599,8 @@ export default function JobsScreen() {
   };
 
   const ensureShareableStatus = useCallback(async (job: QuoteListItem) => {
+    if (isLocalQuoteId(job.id)) return;
+
     const normalizedStatus = (job.status || '').toLowerCase().trim();
     const isDraft = ['draft', 'borrador'].includes(normalizedStatus);
     if (!isDraft) return;
@@ -614,10 +609,9 @@ export default function JobsScreen() {
       const { error } = await supabase.rpc('update_quote_status', {
         quote_id: job.id,
         next_status: 'sent',
+        mode: 'process',
       });
-      if (error) {
-        await supabase.from('quotes').update({ status: 'sent' }).eq('id', job.id);
-      }
+      if (error) throw error;
       await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
     } catch (err) {
       console.warn('No se pudo confirmar el presupuesto antes de compartir.', err);
@@ -625,6 +619,11 @@ export default function JobsScreen() {
   }, [queryClient]);
 
   const handleShareJob = useCallback(async (job: QuoteListItem) => {
+    if (isLocalQuoteId(job.id)) {
+      Alert.alert('Pendiente de sincronizacion', 'Este presupuesto se creo sin internet y todavia no tiene link publico.');
+      return;
+    }
+
     await ensureShareableStatus(job);
 
     const link = getPublicQuoteUrl(job.id);
@@ -641,19 +640,12 @@ export default function JobsScreen() {
   // --- FIX 2: NORMALIZADOR VISUAL DE ESTADOS ---
   const getStatusConfig = useCallback((status?: string | null) => {
     const normalized = normalizeStatus(status);
-    if (isApproved(status)) {
-        return { label: 'APROBADO', color: STATUS_COLORS.approved, bg: '#D1FAE5' }; // Emerald
+    if (!normalized) {
+      return { label: 'SIN ESTADO', color: '#6B7280', bg: '#E5E7EB' };
     }
 
-    if (isPresented(status)) {
-        return { label: 'PRESENTADO', color: STATUS_COLORS.presented, bg: '#DBEAFE' }; // Azul
-    }
-
-    if (isPending(status)) {
-        return { label: 'PENDIENTE', color: STATUS_COLORS.pending, bg: '#FFF7ED' }; // Amber
-    }
-
-    return { label: normalized.toUpperCase() || 'N/A', color: '#6B7280', bg: '#E5E7EB' };
+    const meta = getStatusMeta(normalized);
+    return { label: meta.label, color: meta.color, bg: meta.bg };
   }, []);
 
   const toggleSelect = useCallback((id: string) => {
@@ -1137,7 +1129,12 @@ export default function JobsScreen() {
           onPress={async () => {
             const performDelete = async () => {
               try {
+                const { data: { user } } = await supabase.auth.getUser();
                 for (const id of selectedIds) {
+                  if (isLocalQuoteId(id)) {
+                    await deleteOfflineQuoteDraft(id, user?.id);
+                    continue;
+                  }
                   const { error } = await supabase.rpc('delete_quote', { p_quote_id: id });
                   if (error) throw error;
                 }

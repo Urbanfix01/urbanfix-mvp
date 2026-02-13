@@ -8,6 +8,12 @@
     }
   ],
   "files.associations": {
-    "**/supabase/migrations/*.sql": "postgresql"
-  }
+    "*.sql": "sql",
+    "**/apps/web/lib/supabase/migrations/*.sql": "plaintext",
+    "**/supabase/migrations/*.sql": "plaintext",
+    "**/node_modules/**/*.sql": "plaintext"
+  },
+  "mssql.intelliSense.enableErrorChecking": false,
+  "mssql.intelliSense.enableIntelliSense": false,
+  "mssql.intelliSense.enableSuggestions": false
 }
