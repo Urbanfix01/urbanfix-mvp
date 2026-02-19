@@ -129,6 +129,32 @@ npx tsc --noEmit
 - Se deploya solo codigo que ya esta mergeado a `master`.
 - Si hay migraciones nuevas, aplicarlas antes de validar feature en produccion.
 
+## Migraciones SQL automaticas
+
+Las migraciones de este repo viven en:
+`apps/web/lib/supabase/migrations`.
+
+Comando unico:
+
+```bash
+npm run migrations:push
+```
+
+Credenciales soportadas:
+- `SUPABASE_DB_URL` (recomendado para push directo).
+- o `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` + `SUPABASE_DB_PASSWORD`.
+
+Opcional:
+- `npm run migrations:push -- --dry-run`
+- `npm run migrations:push -- --include-all`
+
+CI automatica:
+- Workflow: `.github/workflows/supabase-migrations-push.yml`
+- Trigger: push a `master` con cambios en `apps/web/lib/supabase/migrations/**`
+- Secrets requeridos:
+  - `SUPABASE_DB_URL`
+  - o `SUPABASE_ACCESS_TOKEN` + `SUPABASE_PROJECT_REF` + `SUPABASE_DB_PASSWORD`
+
 ## Convencion de comentarios de Roadmap
 
 - `[PC1] avance tecnico ...`
