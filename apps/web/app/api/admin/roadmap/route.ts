@@ -20,6 +20,10 @@ type RoadmapUpdateRow = {
   priority: string;
   owner?: string | null;
   eta_date?: string | null;
+  source_key?: string | null;
+  source_branch?: string | null;
+  source_commit?: string | null;
+  source_files?: string[] | null;
   created_by?: string | null;
   updated_by?: string | null;
   created_at: string;
@@ -105,6 +109,18 @@ const normalizeSentiment = (value: unknown) => {
   return normalized;
 };
 
+const normalizeSourceFiles = (value: unknown) => {
+  if (!Array.isArray(value)) return [] as string[];
+  const deduped = new Set<string>();
+  value.forEach((item) => {
+    if (typeof item !== 'string') return;
+    const trimmed = item.trim();
+    if (!trimmed) return;
+    deduped.add(trimmed.slice(0, 240));
+  });
+  return Array.from(deduped).slice(0, 200);
+};
+
 const mapFeedback = (item: RoadmapFeedbackRow, labels: Record<string, string>) => ({
   id: item.id,
   roadmap_id: item.roadmap_id,
@@ -128,6 +144,10 @@ const mapUpdate = (
   priority: normalizePriority(item.priority) || 'medium',
   owner: item.owner || '',
   eta_date: item.eta_date || null,
+  source_key: item.source_key || null,
+  source_branch: item.source_branch || null,
+  source_commit: item.source_commit || null,
+  source_files: Array.isArray(item.source_files) ? item.source_files : [],
   created_by: item.created_by || null,
   created_by_label: item.created_by ? labels[item.created_by] || item.created_by : 'Sistema',
   updated_by: item.updated_by || null,
@@ -154,7 +174,9 @@ export async function GET(request: NextRequest) {
   const [updatesRes, feedbackRes] = await Promise.all([
     supabase
       .from('roadmap_updates')
-      .select('id,title,description,status,area,priority,owner,eta_date,created_by,updated_by,created_at,updated_at')
+      .select(
+        'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
+      )
       .order('created_at', { ascending: false })
       .limit(400),
     supabase
@@ -226,6 +248,16 @@ export async function POST(request: NextRequest) {
   const status = normalizeStatus(body?.status) || 'planned';
   const area = normalizeArea(body?.area) || 'web';
   const priority = normalizePriority(body?.priority) || 'medium';
+  const feedbackBody = toOptionalText(body?.feedback_body);
+  if (!feedbackBody || feedbackBody.length < 2) {
+    return NextResponse.json(
+      { error: 'Cada tarea de roadmap debe crearse con feedback inicial (mínimo 2 caracteres).' },
+      { status: 400 }
+    );
+  }
+
+  const feedbackSentiment = normalizeSentiment(body?.feedback_sentiment);
+  const sourceFiles = normalizeSourceFiles(body?.source_files);
 
   const payload = {
     title,
@@ -235,6 +267,10 @@ export async function POST(request: NextRequest) {
     priority,
     owner: toOptionalText(body?.owner),
     eta_date: toOptionalText(body?.eta_date),
+    source_key: toOptionalText(body?.source_key),
+    source_branch: toOptionalText(body?.source_branch),
+    source_commit: toOptionalText(body?.source_commit),
+    source_files: sourceFiles,
     created_by: user.id,
     updated_by: user.id,
   };
@@ -242,14 +278,37 @@ export async function POST(request: NextRequest) {
   const { data, error } = await supabase
     .from('roadmap_updates')
     .insert(payload)
-    .select('id,title,description,status,area,priority,owner,eta_date,created_by,updated_by,created_at,updated_at')
+    .select(
+      'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
+    )
     .maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  const createdUpdate = data as RoadmapUpdateRow;
+  const { data: feedbackData, error: feedbackError } = await supabase
+    .from('roadmap_feedback')
+    .insert({
+      roadmap_id: createdUpdate.id,
+      body: feedbackBody,
+      sentiment: feedbackSentiment,
+      created_by: user.id,
+    })
+    .select('id,roadmap_id,body,sentiment,created_by,created_at')
+    .maybeSingle();
+
+  if (feedbackError || !feedbackData) {
+    await supabase.from('roadmap_updates').delete().eq('id', createdUpdate.id);
+    return NextResponse.json(
+      { error: feedbackError?.message || 'No se pudo guardar el feedback inicial.' },
+      { status: 500 }
+    );
+  }
+
   const labels = await getLabelsByUserId([user.id]);
-  const mapped = mapUpdate(data as RoadmapUpdateRow, labels, []);
+  const mappedFeedback = mapFeedback(feedbackData as RoadmapFeedbackRow, labels);
+  const mapped = mapUpdate(createdUpdate, labels, [mappedFeedback]);
   return NextResponse.json({ update: mapped });
 }
