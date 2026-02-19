@@ -66,6 +66,7 @@ export async function GET(request: NextRequest) {
     const [
       totalUsersRes,
       accessGrantedRes,
+      blockedAccessRes,
       totalQuotesRes,
       activeSubsRes,
       activeSubsDataRes,
@@ -82,6 +83,7 @@ export async function GET(request: NextRequest) {
     ] = await Promise.all([
       supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('access_granted', true),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('access_granted', false),
       supabase.from('quotes').select('id', { count: 'exact', head: true }),
       supabase.from('subscriptions').select('id', { count: 'exact', head: true }).in('status', activeSubStatuses),
       supabase
@@ -146,6 +148,7 @@ export async function GET(request: NextRequest) {
     if (
       totalUsersRes.error ||
       accessGrantedRes.error ||
+      blockedAccessRes.error ||
       totalQuotesRes.error ||
       activeSubsRes.error ||
       activeSubsDataRes.error ||
@@ -162,6 +165,7 @@ export async function GET(request: NextRequest) {
       throw (
         totalUsersRes.error ||
         accessGrantedRes.error ||
+        blockedAccessRes.error ||
         totalQuotesRes.error ||
         activeSubsRes.error ||
         activeSubsDataRes.error ||
@@ -387,7 +391,7 @@ export async function GET(request: NextRequest) {
       kpis: {
         totalUsers: totalUsersRes.count || 0,
         accessGranted: accessGrantedRes.count || 0,
-        pendingAccess: (totalUsersRes.count || 0) - (accessGrantedRes.count || 0),
+        pendingAccess: blockedAccessRes.count || 0,
         totalQuotes: totalQuotesRes.count || 0,
         paidQuotesCount,
         paidQuotesTotal,

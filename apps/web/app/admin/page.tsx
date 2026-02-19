@@ -438,7 +438,6 @@ export default function AdminPage() {
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [grantingId, setGrantingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     'resumen' | 'usuarios' | 'facturacion' | 'roadmap' | 'mensajes' | 'accesos' | 'actividad' | 'mano_obra'
   >('resumen');
@@ -1093,30 +1092,6 @@ export default function AdminPage() {
     setRoadmapSearch('');
   };
 
-  const handleGrantAccess = async (userId: string) => {
-    if (!session?.access_token) return;
-    setGrantingId(userId);
-    try {
-      const response = await fetch('/api/admin/access', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || 'No se pudo habilitar el acceso.');
-      }
-      await loadOverview(session.access_token);
-    } catch (error: any) {
-      setOverviewError(error?.message || 'No se pudo habilitar el acceso.');
-    } finally {
-      setGrantingId(null);
-    }
-  };
-
   const kpis = useMemo(() => {
     if (!overview) return [];
     return [
@@ -1125,8 +1100,8 @@ export default function AdminPage() {
       { label: 'Visitas (7d)', value: formatNumber(overview.kpis.visitsLast7) },
       { label: 'Sesiones únicas (7d)', value: formatNumber(overview.kpis.uniqueSessionsLast7) },
       { label: 'Usuarios totales', value: formatNumber(overview.kpis.totalUsers) },
-      { label: 'Accesos habilitados', value: formatNumber(overview.kpis.accessGranted) },
-      { label: 'Accesos pendientes', value: formatNumber(overview.kpis.pendingAccess) },
+      { label: 'Usuarios con acceso', value: formatNumber(overview.kpis.accessGranted) },
+      { label: 'Usuarios sin acceso', value: formatNumber(overview.kpis.pendingAccess) },
       { label: 'Suscriptores activos', value: formatNumber(overview.kpis.activeSubscribers) },
       { label: 'Presupuestos totales', value: formatNumber(overview.kpis.totalQuotes) },
       { label: 'Presupuestos cobrados', value: formatNumber(overview.kpis.paidQuotesCount) },
@@ -1143,7 +1118,7 @@ export default function AdminPage() {
     { key: 'mano_obra', label: 'Mano de obra' },
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'mensajes', label: 'Mensajes' },
-    { key: 'accesos', label: 'Accesos' },
+    { key: 'accesos', label: 'Registros' },
     { key: 'actividad', label: 'Actividad' },
   ] as const;
 
@@ -1774,12 +1749,12 @@ export default function AdminPage() {
 
                   <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">Usuarios sin acceso (control)</h3>
                       <span className="text-xs text-slate-400">Últimos 12</span>
                     </div>
                     <div className="mt-4 space-y-3">
                       {overview.lists.pendingAccess.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
+                        <p className="text-sm text-slate-500">Todos los usuarios tienen acceso habilitado.</p>
                       )}
                       {overview.lists.pendingAccess.map((user) => (
                         <div
@@ -1792,14 +1767,7 @@ export default function AdminPage() {
                             </p>
                             <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleGrantAccess(user.id)}
-                            disabled={grantingId === user.id}
-                            className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                          >
-                            {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
-                          </button>
+                          <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">Revisar perfil</span>
                         </div>
                       ))}
                     </div>
@@ -1957,13 +1925,13 @@ export default function AdminPage() {
                   </p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Accesos habilitados</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios con acceso</p>
                   <p className="mt-3 text-2xl font-semibold text-slate-900">
                     {formatNumber(overview.kpis.accessGranted)}
                   </p>
                 </div>
                 <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Accesos pendientes</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios sin acceso</p>
                   <p className="mt-3 text-2xl font-semibold text-slate-900">
                     {formatNumber(overview.kpis.pendingAccess)}
                   </p>
@@ -2013,12 +1981,12 @@ export default function AdminPage() {
 
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                    <h3 className="text-lg font-semibold text-slate-900">Usuarios sin acceso (control)</h3>
                     <span className="text-xs text-slate-400">Últimos 12</span>
                   </div>
                   <div className="mt-4 space-y-3">
                     {filteredPendingAccess.length === 0 && (
-                      <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
+                      <p className="text-sm text-slate-500">Todos los usuarios tienen acceso habilitado.</p>
                     )}
                     {filteredPendingAccess.map((user) => (
                       <div
@@ -2031,14 +1999,7 @@ export default function AdminPage() {
                           </p>
                           <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => handleGrantAccess(user.id)}
-                          disabled={grantingId === user.id}
-                          className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                        >
-                          {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
-                        </button>
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">Revisar perfil</span>
                       </div>
                     ))}
                   </div>
@@ -3207,7 +3168,7 @@ export default function AdminPage() {
             <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Registros recientes</h3>
                   <p className="text-xs text-slate-400">Últimos 12</p>
                 </div>
                 <input
@@ -3218,26 +3179,24 @@ export default function AdminPage() {
                 />
               </div>
               <div className="mt-4 space-y-3">
-                {filteredPendingAccess.length === 0 && (
-                  <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
+                {filteredRecentUsers.length === 0 && (
+                  <p className="text-sm text-slate-500">No hay usuarios recientes.</p>
                 )}
-                {filteredPendingAccess.map((user) => (
+                {filteredRecentUsers.map((user) => (
                   <div
                     key={user.id}
                     className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-slate-800">{getProfileLabel(user.profile || user)}</p>
-                      <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {getProfileLabel(user.profile || { email: user.email })}
+                      </p>
+                      <p className="text-xs text-slate-500">{user.email || 'Sin email'}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">Alta: {formatDateTime(user.created_at)}</p>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleGrantAccess(user.id)}
-                      disabled={grantingId === user.id}
-                      className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
-                    </button>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                      {user.last_sign_in_at ? `Ultimo ingreso: ${formatDateTime(user.last_sign_in_at)}` : 'Sin ingreso'}
+                    </span>
                   </div>
                 ))}
               </div>
