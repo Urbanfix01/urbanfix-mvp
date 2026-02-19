@@ -331,6 +331,51 @@ const ROADMAP_SENTIMENT_BADGE_CLASS: Record<RoadmapSentiment, string> = {
   negative: 'border border-rose-200 bg-rose-50 text-rose-700',
 };
 
+const ROADMAP_STATUS_ORDER: RoadmapStatus[] = ['planned', 'in_progress', 'blocked', 'done'];
+
+const ROADMAP_STATUS_CHART_COLOR: Record<RoadmapStatus, string> = {
+  planned: '#94A3B8',
+  in_progress: '#0EA5E9',
+  blocked: '#F43F5E',
+  done: '#10B981',
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const toTimeMs = (value?: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.getTime();
+};
+
+const startOfDay = (date: Date) => {
+  const next = new Date(date);
+  next.setHours(0, 0, 0, 0);
+  return next;
+};
+
+const formatWeekLabel = (value: Date) =>
+  value.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+
+const buildLinePoints = (values: number[], maxValue: number) => {
+  if (!values.length) return '';
+  if (values.length === 1) {
+    const y = 38 - Math.round((values[0] / Math.max(1, maxValue)) * 30);
+    return `50,${Math.max(4, Math.min(38, y))}`;
+  }
+  return values
+    .map((value, index) => {
+      const x = Math.round((index / (values.length - 1)) * 100);
+      const y = 38 - Math.round((value / Math.max(1, maxValue)) * 30);
+      return `${x},${Math.max(4, Math.min(38, y))}`;
+    })
+    .join(' ');
+};
+
 const toCsvValue = (value: any) => {
   const text = value === null || value === undefined ? '' : String(value);
   return `"${text.replace(/"/g, '""')}"`;
@@ -1163,14 +1208,6 @@ export default function AdminPage() {
     });
   }, [laborItems, laborSearch, laborShowInactive, laborSourceFilter]);
 
-  const roadmapTotals = useMemo(() => {
-    const total = roadmapUpdates.length;
-    const done = roadmapUpdates.filter((item) => item.status === 'done').length;
-    const inProgress = roadmapUpdates.filter((item) => item.status === 'in_progress').length;
-    const blocked = roadmapUpdates.filter((item) => item.status === 'blocked').length;
-    return { total, done, inProgress, blocked };
-  }, [roadmapUpdates]);
-
   const filteredRoadmapUpdates = useMemo(() => {
     const query = normalizeText(roadmapSearch);
     return roadmapUpdates.filter((item) => {
@@ -1182,6 +1219,187 @@ export default function AdminPage() {
       return haystack.includes(query);
     });
   }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter]);
+
+  const roadmapTotals = useMemo(() => {
+    const total = roadmapUpdates.length;
+    const done = roadmapUpdates.filter((item) => item.status === 'done').length;
+    const inProgress = roadmapUpdates.filter((item) => item.status === 'in_progress').length;
+    const blocked = roadmapUpdates.filter((item) => item.status === 'blocked').length;
+    return { total, done, inProgress, blocked };
+  }, [roadmapUpdates]);
+
+  const roadmapReportItems = filteredRoadmapUpdates;
+
+  const roadmapReportTotals = useMemo(() => {
+    const total = roadmapReportItems.length;
+    const done = roadmapReportItems.filter((item) => item.status === 'done').length;
+    const inProgress = roadmapReportItems.filter((item) => item.status === 'in_progress').length;
+    const blocked = roadmapReportItems.filter((item) => item.status === 'blocked').length;
+    const open = total - done;
+    const todayMs = startOfDay(new Date()).getTime();
+    const overdue = roadmapReportItems.filter((item) => {
+      if (item.status === 'done') return false;
+      const etaMs = toTimeMs(item.eta_date);
+      return etaMs !== null && etaMs < todayMs;
+    }).length;
+    const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
+    return { total, done, inProgress, blocked, open, overdue, completionRate };
+  }, [roadmapReportItems]);
+
+  const roadmapStatusSeries = useMemo(
+    () =>
+      ROADMAP_STATUS_ORDER.map((status) => ({
+        status,
+        label: getRoadmapStatusLabel(status),
+        color: ROADMAP_STATUS_CHART_COLOR[status],
+        count: roadmapReportItems.filter((item) => item.status === status).length,
+      })),
+    [roadmapReportItems]
+  );
+
+  const roadmapDonutBackground = useMemo(() => {
+    const total = roadmapStatusSeries.reduce((sum, item) => sum + item.count, 0);
+    if (!total) {
+      return 'conic-gradient(#E2E8F0 0deg, #E2E8F0 360deg)';
+    }
+    let cursor = 0;
+    const segments = roadmapStatusSeries
+      .filter((item) => item.count > 0)
+      .map((item) => {
+        const start = (cursor / total) * 360;
+        cursor += item.count;
+        const end = (cursor / total) * 360;
+        return `${item.color} ${start}deg ${end}deg`;
+      });
+    return `conic-gradient(${segments.join(', ')})`;
+  }, [roadmapStatusSeries]);
+
+  const roadmapBurnupSeries = useMemo(() => {
+    const now = startOfDay(new Date());
+    const points: { label: string; total: number; done: number }[] = [];
+    for (let step = 7; step >= 0; step -= 1) {
+      const checkpoint = new Date(now);
+      checkpoint.setDate(now.getDate() - step * 7);
+      const checkpointMs = checkpoint.getTime();
+
+      const total = roadmapReportItems.filter((item) => {
+        const createdMs = toTimeMs(item.created_at);
+        return createdMs !== null && createdMs <= checkpointMs;
+      }).length;
+
+      const done = roadmapReportItems.filter((item) => {
+        if (item.status !== 'done') return false;
+        const updatedMs = toTimeMs(item.updated_at) ?? toTimeMs(item.created_at);
+        return updatedMs !== null && updatedMs <= checkpointMs;
+      }).length;
+
+      points.push({
+        label: formatWeekLabel(checkpoint),
+        total,
+        done,
+      });
+    }
+    return points;
+  }, [roadmapReportItems]);
+
+  const roadmapBurnupMax = useMemo(
+    () => Math.max(1, ...roadmapBurnupSeries.map((item) => Math.max(item.total, item.done))),
+    [roadmapBurnupSeries]
+  );
+
+  const roadmapBurnupTotalPoints = useMemo(
+    () => buildLinePoints(roadmapBurnupSeries.map((item) => item.total), roadmapBurnupMax),
+    [roadmapBurnupSeries, roadmapBurnupMax]
+  );
+
+  const roadmapBurnupDonePoints = useMemo(
+    () => buildLinePoints(roadmapBurnupSeries.map((item) => item.done), roadmapBurnupMax),
+    [roadmapBurnupSeries, roadmapBurnupMax]
+  );
+
+  const roadmapFlowSeries = useMemo(() => {
+    const now = startOfDay(new Date());
+    const weeks = 6;
+    return Array.from({ length: weeks }).map((_, index) => {
+      const offset = weeks - index - 1;
+      const end = new Date(now);
+      end.setDate(now.getDate() - offset * 7);
+      end.setHours(23, 59, 59, 999);
+
+      const start = new Date(end);
+      start.setDate(end.getDate() - 6);
+      start.setHours(0, 0, 0, 0);
+
+      const counts: Record<RoadmapStatus, number> = {
+        planned: 0,
+        in_progress: 0,
+        blocked: 0,
+        done: 0,
+      };
+
+      roadmapReportItems.forEach((item) => {
+        const createdMs = toTimeMs(item.created_at);
+        if (createdMs === null) return;
+        if (createdMs >= start.getTime() && createdMs <= end.getTime()) {
+          counts[item.status] += 1;
+        }
+      });
+
+      const total = ROADMAP_STATUS_ORDER.reduce((sum, status) => sum + counts[status], 0);
+
+      return {
+        label: `${formatWeekLabel(start)} - ${formatWeekLabel(end)}`,
+        counts,
+        total,
+      };
+    });
+  }, [roadmapReportItems]);
+
+  const roadmapAgingItems = useMemo(() => {
+    const nowMs = Date.now();
+    return roadmapReportItems
+      .filter((item) => item.status === 'in_progress' || item.status === 'blocked')
+      .map((item) => {
+        const createdMs = toTimeMs(item.created_at) ?? nowMs;
+        return {
+          id: item.id,
+          title: item.title,
+          owner: item.owner,
+          status: item.status,
+          priority: item.priority,
+          daysOpen: Math.max(0, Math.round((nowMs - createdMs) / DAY_MS)),
+        };
+      })
+      .sort((a, b) => b.daysOpen - a.daysOpen)
+      .slice(0, 10);
+  }, [roadmapReportItems]);
+
+  const roadmapAgingMaxDays = useMemo(
+    () => Math.max(1, ...roadmapAgingItems.map((item) => item.daysOpen)),
+    [roadmapAgingItems]
+  );
+
+  const roadmapHeatmap = useMemo(
+    () =>
+      ROADMAP_AREA_OPTIONS.map((areaOption) => ({
+        area: areaOption.value,
+        label: areaOption.label,
+        values: ROADMAP_PRIORITY_OPTIONS.map((priorityOption) => ({
+          priority: priorityOption.value,
+          label: priorityOption.label,
+          count: roadmapReportItems.filter(
+            (item) =>
+              item.status !== 'done' && item.area === areaOption.value && item.priority === priorityOption.value
+          ).length,
+        })),
+      })),
+    [roadmapReportItems]
+  );
+
+  const roadmapHeatmapMax = useMemo(
+    () => Math.max(1, ...roadmapHeatmap.flatMap((row) => row.values.map((cell) => cell.count))),
+    [roadmapHeatmap]
+  );
 
   if (loadingSession) {
     return (
@@ -2255,7 +2473,247 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-6 xl:grid-cols-[360px,1fr]">
+              <p className="mt-3 text-xs text-slate-500">
+                Reportes calculados con filtros activos. Ideal para status semanal y seguimiento de bloqueos.
+              </p>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Avance</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{roadmapReportTotals.completionRate}%</p>
+                  <p className="text-xs text-slate-500">Done / Total filtrado</p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pendientes</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">{roadmapReportTotals.open}</p>
+                  <p className="text-xs text-slate-500">No resueltos</p>
+                </div>
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Bloqueados</p>
+                  <p className="mt-1 text-2xl font-semibold text-rose-700">{roadmapReportTotals.blocked}</p>
+                  <p className="text-xs text-rose-600">Necesitan destrabe</p>
+                </div>
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-amber-600">Vencidos</p>
+                  <p className="mt-1 text-2xl font-semibold text-amber-700">{roadmapReportTotals.overdue}</p>
+                  <p className="text-xs text-amber-700">ETA pasada</p>
+                </div>
+                <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-sky-600">En progreso</p>
+                  <p className="mt-1 text-2xl font-semibold text-sky-700">{roadmapReportTotals.inProgress}</p>
+                  <p className="text-xs text-sky-700">Ejecución activa</p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-600">Resueltos</p>
+                  <p className="mt-1 text-2xl font-semibold text-emerald-700">{roadmapReportTotals.done}</p>
+                  <p className="text-xs text-emerald-700">Cerrados</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Estado actual</p>
+                    <span className="text-xs text-slate-500">{roadmapReportTotals.total} items</span>
+                  </div>
+                  <div className="mt-4 flex items-center gap-4">
+                    <div
+                      className="relative h-32 w-32 rounded-full border border-slate-200"
+                      style={{ background: roadmapDonutBackground }}
+                    >
+                      <div className="absolute inset-4 flex items-center justify-center rounded-full bg-white text-center">
+                        <div>
+                          <p className="text-xl font-semibold text-slate-900">{roadmapReportTotals.completionRate}%</p>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Done</p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      {roadmapStatusSeries.map((item) => (
+                        <div key={item.status} className="flex items-center justify-between gap-3 text-xs">
+                          <div className="flex items-center gap-2">
+                            <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: item.color }} />
+                            <span className="font-medium text-slate-600">{item.label}</span>
+                          </div>
+                          <span className="font-semibold text-slate-900">{item.count}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Burnup semanal</p>
+                    <span className="text-xs text-slate-500">Total vs done</span>
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                    <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="h-36 w-full">
+                      <polyline points="0,38 100,38" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
+                      <polyline points="0,21 100,21" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
+                      {!!roadmapBurnupTotalPoints && (
+                        <polyline
+                          points={roadmapBurnupTotalPoints}
+                          fill="none"
+                          stroke="#0F172A"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
+                      {!!roadmapBurnupDonePoints && (
+                        <polyline
+                          points={roadmapBurnupDonePoints}
+                          fill="none"
+                          stroke="#10B981"
+                          strokeWidth="1.8"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      )}
+                    </svg>
+                    <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
+                      <span className="inline-flex items-center gap-2 text-slate-600">
+                        <span className="h-2 w-2 rounded-full bg-slate-900" />
+                        Total acumulado
+                      </span>
+                      <span className="inline-flex items-center gap-2 text-emerald-700">
+                        <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                        Done acumulado
+                      </span>
+                    </div>
+                    <div className="mt-3 flex justify-between text-[10px] text-slate-400">
+                      <span>{roadmapBurnupSeries[0]?.label || '-'}</span>
+                      <span>{roadmapBurnupSeries[roadmapBurnupSeries.length - 1]?.label || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-2">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Flujo semanal</p>
+                    <span className="text-xs text-slate-500">Items creados por estado actual</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {roadmapFlowSeries.map((week) => (
+                      <div key={week.label}>
+                        <div className="flex items-center justify-between text-xs text-slate-500">
+                          <span>{week.label}</span>
+                          <span>{week.total} item(s)</span>
+                        </div>
+                        <div className="mt-1 h-3 overflow-hidden rounded-full bg-slate-200">
+                          {week.total === 0 ? (
+                            <div className="h-full w-full bg-slate-100" />
+                          ) : (
+                            <div className="flex h-full w-full">
+                              {ROADMAP_STATUS_ORDER.map((status) => {
+                                const count = week.counts[status];
+                                if (!count) return null;
+                                const width = Math.max(4, Math.round((count / week.total) * 100));
+                                return (
+                                  <div
+                                    key={`${week.label}-${status}`}
+                                    className="h-full"
+                                    style={{
+                                      width: `${width}%`,
+                                      background: ROADMAP_STATUS_CHART_COLOR[status],
+                                    }}
+                                    title={`${getRoadmapStatusLabel(status)}: ${count}`}
+                                  />
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Aging pendientes</p>
+                    <span className="text-xs text-slate-500">Top 10 in_progress + blocked</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {roadmapAgingItems.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay pendientes activos para mostrar.</p>
+                    )}
+                    {roadmapAgingItems.map((item) => {
+                      const pct = Math.max(8, Math.round((item.daysOpen / roadmapAgingMaxDays) * 100));
+                      return (
+                        <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="line-clamp-1 text-xs font-semibold text-slate-700">{item.title}</p>
+                            <span className="text-xs font-semibold text-slate-900">{item.daysOpen}d</span>
+                          </div>
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                            <div
+                              className={`h-full rounded-full ${
+                                item.status === 'blocked' ? 'bg-rose-500' : 'bg-sky-500'
+                              }`}
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
+                          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>{item.owner || 'Sin owner'}</span>
+                            <span>{getRoadmapStatusLabel(item.status)} • {getRoadmapPriorityLabel(item.priority)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Heatmap prioridad x área</p>
+                  <span className="text-xs text-slate-500">Solo pendientes (sin done)</span>
+                </div>
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full border-separate border-spacing-2 text-xs">
+                    <thead>
+                      <tr>
+                        <th className="px-2 py-1 text-left font-semibold text-slate-500">Área</th>
+                        {ROADMAP_PRIORITY_OPTIONS.map((priorityOption) => (
+                          <th key={priorityOption.value} className="px-2 py-1 text-left font-semibold text-slate-500">
+                            {priorityOption.label}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {roadmapHeatmap.map((row) => (
+                        <tr key={row.area}>
+                          <td className="px-2 py-1 font-semibold text-slate-700">{row.label}</td>
+                          {row.values.map((cell) => {
+                            const ratio = cell.count / roadmapHeatmapMax;
+                            const alpha = cell.count === 0 ? 0.06 : 0.12 + ratio * 0.58;
+                            return (
+                              <td key={`${row.area}-${cell.priority}`} className="px-2 py-1">
+                                <div
+                                  className="rounded-xl border border-slate-200 px-3 py-2 text-center font-semibold"
+                                  style={{
+                                    backgroundColor: `rgba(15, 23, 42, ${alpha})`,
+                                    color: cell.count > 0 ? '#FFFFFF' : '#64748B',
+                                  }}
+                                >
+                                  {cell.count}
+                                </div>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="mt-8 grid gap-6 xl:grid-cols-[360px,1fr]">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva actualización</p>
                   <div className="mt-3 space-y-3">
