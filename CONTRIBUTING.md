@@ -43,6 +43,19 @@ Variables necesarias en cada PC (o en GitHub Secrets):
 - `ROADMAP_AUTOSYNC_URL` (endpoint `.../api/admin/roadmap/auto-sync`)
 - `ROADMAP_AUTOSYNC_TOKEN`
 
+Setup rapido por PC (Windows):
+
+```bash
+cmd /c scripts\setup-git-hooks.cmd
+cmd /c scripts\setup-roadmap-autosync.cmd https://urbanfix-web.vercel.app/api/admin/roadmap/auto-sync <TOKEN_REAL>
+```
+
+Luego cerrar/abrir terminal y validar:
+
+```bash
+npm run roadmap:sync
+```
+
 ## Reglas obligatorias
 
 1. Nunca trabajar directo en `master`.
