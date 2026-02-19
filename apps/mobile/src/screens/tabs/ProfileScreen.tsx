@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
   ActivityIndicator, Alert, Image, Platform, RefreshControl, TextInput, KeyboardAvoidingView 
@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native'; 
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 
 // --- IMPORTS DEL PROYECTO ---
 import { supabase } from '../../lib/supabase';
@@ -33,9 +34,45 @@ interface Profile {
   location_lng?: number | null;
 }
 
+const normalizeSemver = (rawVersion?: string | null) => {
+  const fallback = '0.0.0';
+  if (!rawVersion) return fallback;
+  const pieces = rawVersion
+    .split('.')
+    .map((piece) => piece.trim())
+    .filter(Boolean);
+  while (pieces.length < 3) {
+    pieces.push('0');
+  }
+  return pieces.slice(0, 3).join('.');
+};
+
+const getAppVersionLabel = () => {
+  const configVersion = Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? '0.0.0';
+  const nativeBuild = Constants.nativeBuildVersion;
+  const configBuild =
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode?.toString();
+  const build = nativeBuild || configBuild || 'dev';
+  return `${normalizeSemver(configVersion)} (${build})`;
+};
+
+const isMissingProfileLocationColumnsError = (error: unknown) => {
+  const details = error as { code?: string; message?: string; details?: string; hint?: string };
+  const source = `${details?.message || ''} ${details?.details || ''} ${details?.hint || ''}`.toLowerCase();
+  if (!source) return false;
+  return source.includes('location_lat') || source.includes('location_lng') || details?.code === 'PGRST204';
+};
+
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const isWeb = Platform.OS === 'web';
+  const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
+  const mobilePlacesApiKey =
+    process.env.EXPO_PUBLIC_PLACES_API_KEY ||
+    process.env.EXPO_PUBLIC_ANDROID_API_KEY ||
+    process.env.EXPO_PUBLIC_WEB_API_KEY;
   
   // Estados de UI
   const [loading, setLoading] = useState(true);
@@ -43,6 +80,8 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<'logo' | 'avatar' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   
   // Estados de Datos (Formulario)
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -51,11 +90,13 @@ export default function ProfileScreen() {
   const [address, setAddress] = useState('');
   const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const hasLoadedOnceRef = useRef(false);
 
   // --- 1. LÓGICA DE CARGA DE DATOS ---
-  const getProfile = async (isSilent = false) => {
+  const getProfile = useCallback(async (isSilent = false) => {
     try {
       if (!isSilent) setLoading(true);
+      setProfileError(null);
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
@@ -64,11 +105,23 @@ export default function ProfileScreen() {
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error) throw error;
       
-      const userProfile: Profile = { ...data, email: user.email };
+      const userProfile: Profile = {
+        id: user.id,
+        full_name: data?.full_name ?? null,
+        business_name: data?.business_name ?? null,
+        company_logo_url: data?.company_logo_url ?? null,
+        avatar_url: data?.avatar_url ?? null,
+        email: user.email,
+        phone: data?.phone ?? null,
+        company_address: data?.company_address ?? null,
+        default_discount: data?.default_discount ?? null,
+        location_lat: typeof data?.location_lat === 'number' ? data.location_lat : null,
+        location_lng: typeof data?.location_lng === 'number' ? data.location_lng : null,
+      };
       setProfile(userProfile);
 
       // Rellenar formulario local
@@ -76,28 +129,32 @@ export default function ProfileScreen() {
       setPhone(userProfile.phone || '');
       setAddress(userProfile.company_address || '');
       setDefaultDiscount(userProfile.default_discount !== null && userProfile.default_discount !== undefined ? String(userProfile.default_discount) : '');
-      if (userProfile.location_lat && userProfile.location_lng) {
+      if (typeof userProfile.location_lat === 'number' && typeof userProfile.location_lng === 'number') {
         setLocation({ lat: userProfile.location_lat, lng: userProfile.location_lng });
+      } else {
+        setLocation({ lat: 0, lng: 0 });
       }
 
     } catch (error) {
       console.log('Error perfil:', error);
+      setProfileError('No pudimos cargar tus datos. Revisá conexión y reintentá.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useFocusEffect(
     useCallback(() => { 
-        getProfile(!!profile); 
-    }, [])
+      getProfile(hasLoadedOnceRef.current);
+      hasLoadedOnceRef.current = true;
+    }, [getProfile])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     getProfile(true);
-  }, []);
+  }, [getProfile]);
 
   // --- 2. LÓGICA DE SUBIDA DE IMÁGENES ---
   const handleImagePick = async (type: 'logo' | 'avatar') => {
@@ -144,37 +201,72 @@ export default function ProfileScreen() {
 
   // --- 3. LÓGICA DE GUARDADO DE DATOS Y MAPA ---
   const handleLocationSelect = (data: { address: string, lat: number, lng: number }) => {
-    console.log("📍 Base operativa seleccionada:", data);
     setAddress(data.address);
     setLocation({ lat: data.lat, lng: data.lng });
+    setSaveError(null);
   };
 
   const saveProfileData = async () => {
     try {
+      if (saving) return;
       setSaving(true);
+      setSaveError(null);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
 
-      const updates = {
-        business_name: businessName,
-        phone: phone,
-        company_address: address, 
-        default_discount: parsePercent(defaultDiscount),
-        location_lat: location.lat !== 0 ? location.lat : null,
-        location_lng: location.lng !== 0 ? location.lng : null,
-        updated_at: new Date(),
+      const normalizedBusinessName = businessName.trim();
+      const normalizedPhone = phone.trim();
+      const normalizedAddress = address.trim();
+      const parsedDiscount = parsePercent(defaultDiscount);
+
+      const baseUpdates = {
+        business_name: normalizedBusinessName || null,
+        phone: normalizedPhone || null,
+        company_address: normalizedAddress || null,
+        default_discount: parsedDiscount,
+        updated_at: new Date().toISOString(),
       };
 
       const { error } = await supabase
         .from('profiles')
-        .update(updates)
+        .update(baseUpdates)
         .eq('id', user.id);
 
       if (error) throw error;
 
-      // Actualizar estado local del perfil
-      // TypeScript ahora estará feliz porque Profile acepta null en lat/lng
-      setProfile(prev => prev ? ({ ...prev, ...updates }) : null);
+      const locationPayload = {
+        location_lat: location.lat !== 0 ? location.lat : null,
+        location_lng: location.lng !== 0 ? location.lng : null,
+      };
+      const { error: locationError } = await supabase
+        .from('profiles')
+        .update(locationPayload)
+        .eq('id', user.id);
+
+      if (locationError && !isMissingProfileLocationColumnsError(locationError)) {
+        throw locationError;
+      }
+
+      const locationPatch: Partial<Profile> =
+        locationError && isMissingProfileLocationColumnsError(locationError)
+          ? {}
+          : {
+              location_lat: locationPayload.location_lat,
+              location_lng: locationPayload.location_lng,
+            };
+
+      setProfile((prev) =>
+        prev
+          ? ({
+              ...prev,
+              business_name: normalizedBusinessName || null,
+              phone: normalizedPhone || null,
+              company_address: normalizedAddress || null,
+              default_discount: parsedDiscount,
+              ...locationPatch,
+            })
+          : null
+      );
       setIsEditing(false);
 
       const msg = "Perfil actualizado correctamente";
@@ -183,6 +275,7 @@ export default function ProfileScreen() {
     } catch (error: any) {
       console.error(error);
       const msg = error.message || "Error al actualizar";
+      setSaveError(msg);
       isWeb ? alert(msg) : Alert.alert("Error", msg);
     } finally {
       setSaving(false);
@@ -214,8 +307,9 @@ export default function ProfileScreen() {
 
   const parsePercent = (value: string) => {
     const cleaned = (value || '').replace(',', '.').replace(/[^\d.]/g, '');
+    if (!cleaned) return null;
     const parsed = Number(cleaned);
-    if (!Number.isFinite(parsed)) return 0;
+    if (!Number.isFinite(parsed)) return null;
     return Math.min(100, Math.max(0, parsed));
   };
 
@@ -229,12 +323,13 @@ export default function ProfileScreen() {
           ? String(profile.default_discount)
           : ''
       );
-      if (profile.location_lat && profile.location_lng) {
+      if (typeof profile.location_lat === 'number' && typeof profile.location_lng === 'number') {
         setLocation({ lat: profile.location_lat, lng: profile.location_lng });
       } else {
         setLocation({ lat: 0, lng: 0 });
       }
     }
+    setSaveError(null);
     setIsEditing(false);
   };
 
@@ -265,6 +360,15 @@ export default function ProfileScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         keyboardShouldPersistTaps="handled"
       >
+        {!!profileError && (
+          <View style={styles.profileErrorCard}>
+            <Ionicons name="alert-circle-outline" size={16} color="#B45309" />
+            <Text style={styles.profileErrorText}>{profileError}</Text>
+            <TouchableOpacity style={styles.profileErrorBtn} onPress={() => getProfile(false)}>
+              <Text style={styles.profileErrorBtnText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         
         {/* === SECCIÓN 1: IMÁGENES === */}
         <View style={styles.brandCard}>
@@ -384,7 +488,7 @@ export default function ProfileScreen() {
                             <LocationAutocomplete 
                                 initialValue={address}
                                 onLocationSelect={handleLocationSelect}
-                                apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} 
+                                apiKey={mobilePlacesApiKey}
                             />
                         )
                     ) : (
@@ -394,6 +498,9 @@ export default function ProfileScreen() {
                         </View>
                     )}
                 </View>
+                {isEditing && (
+                  <Text style={styles.inputHint}>Selecciona una sugerencia para guardar la base operativa correctamente.</Text>
+                )}
             </View>
 
             {/* Botón Guardar Cambios de Texto */}
@@ -401,11 +508,12 @@ export default function ProfileScreen() {
               <TouchableOpacity 
                   style={[styles.saveButton, saving && { opacity: 0.7 }]} 
                   onPress={saveProfileData}
-                  disabled={saving}
+                  disabled={saving || uploadingImage !== null}
               >
                   {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>GUARDAR DATOS</Text>}
               </TouchableOpacity>
             )}
+            {isEditing && !!saveError && <Text style={styles.saveErrorText}>{saveError}</Text>}
         </View>
 
 
@@ -443,7 +551,7 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>UrbanFix App v1.2.0</Text>
+        <Text style={styles.versionText}>UrbanFix App v{appVersionLabel}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -560,6 +668,7 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#8B93A1', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' },
   inputField: { backgroundColor: '#FFF', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
   inputFieldDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
+  inputHint: { fontSize: 11, color: '#64748B', marginTop: 8, fontFamily: FONTS.body },
   readonlyField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -595,6 +704,27 @@ const styles = StyleSheet.create({
     },
   }),
   saveButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.6 },
+  saveErrorText: { marginTop: 10, color: '#B91C1C', fontSize: 12, fontFamily: FONTS.body },
+  profileErrorCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FEF3C7',
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  profileErrorText: { flex: 1, color: '#92400E', fontSize: 12, fontFamily: FONTS.body },
+  profileErrorBtn: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  profileErrorBtnText: { color: '#FFF', fontSize: 11, fontFamily: FONTS.subtitle },
 
   // --- MENU ---
   sectionHeader: {
