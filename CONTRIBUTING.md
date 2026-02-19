@@ -129,6 +129,24 @@ npx tsc --noEmit
 - Se deploya solo codigo que ya esta mergeado a `master`.
 - Si hay migraciones nuevas, aplicarlas antes de validar feature en produccion.
 
+Pre-check obligatorio antes de deploy web:
+
+```bash
+npm run deploy:web:precheck
+```
+
+Hace:
+- valida working tree limpio.
+- valida rama `master`.
+- valida `HEAD == origin/master`.
+- relink a Vercel correcto: `urbanfix-web` (`urbanfix01s-projects`).
+
+Deploy seguro:
+
+```bash
+npm run deploy:web:prod
+```
+
 ## Convencion de comentarios de Roadmap
 
 - `[PC1] avance tecnico ...`

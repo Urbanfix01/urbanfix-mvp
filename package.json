@@ -11,6 +11,8 @@
     "build:web": "npm --prefix apps/web run build",
     "start:web": "npm --prefix apps/web run start",
     "lint:web": "npm --prefix apps/web run lint",
+    "deploy:web:precheck": "node scripts/vercel-predeploy-check.mjs",
+    "deploy:web:prod": "npm run deploy:web:precheck && npx vercel deploy --prod --yes",
     "roadmap:sync": "node scripts/roadmap-auto-sync.mjs",
     "start:mobile": "npm --prefix apps/mobile run start",
     "android": "npm --prefix apps/mobile run android",
