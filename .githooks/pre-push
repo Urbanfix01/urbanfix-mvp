@@ -82,6 +82,6 @@ else
   echo "Aviso: define ROADMAP_AUTOSYNC_URL y ROADMAP_AUTOSYNC_TOKEN para auto-sync en pre-push."
 fi
 
-if [ "$ahead" -eq 0 ]; then
+if [ "$has_upstream" -eq 1 ] && [ "$ahead" -eq 0 ]; then
   echo "No hay commits para pushear."
 fi
