@@ -24,6 +24,39 @@ type SupportMessage = {
   sender?: AdminProfile | null;
 };
 
+type RoadmapStatus = 'planned' | 'in_progress' | 'done' | 'blocked';
+type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
+type RoadmapPriority = 'high' | 'medium' | 'low';
+type RoadmapSentiment = 'positive' | 'neutral' | 'negative';
+
+type RoadmapFeedbackItem = {
+  id: string;
+  roadmap_id: string;
+  body: string;
+  sentiment: RoadmapSentiment;
+  created_by?: string | null;
+  created_by_label?: string | null;
+  created_at: string;
+};
+
+type RoadmapUpdateItem = {
+  id: string;
+  title: string;
+  description?: string | null;
+  status: RoadmapStatus;
+  area: RoadmapArea;
+  priority: RoadmapPriority;
+  owner?: string | null;
+  eta_date?: string | null;
+  created_by?: string | null;
+  created_by_label?: string | null;
+  updated_by?: string | null;
+  updated_by_label?: string | null;
+  created_at: string;
+  updated_at: string;
+  feedback: RoadmapFeedbackItem[];
+};
+
 type SubscriptionItem = {
   id: string;
   user_id: string;
@@ -206,6 +239,98 @@ const normalizeText = (value?: string | null) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+const ROADMAP_STATUS_OPTIONS: { value: RoadmapStatus; label: string }[] = [
+  { value: 'planned', label: 'Planificado' },
+  { value: 'in_progress', label: 'En progreso' },
+  { value: 'done', label: 'Resuelto' },
+  { value: 'blocked', label: 'Bloqueado' },
+];
+
+const ROADMAP_AREA_OPTIONS: { value: RoadmapArea; label: string }[] = [
+  { value: 'web', label: 'Web' },
+  { value: 'mobile', label: 'Mobile' },
+  { value: 'backend', label: 'Backend' },
+  { value: 'ops', label: 'Ops' },
+];
+
+const ROADMAP_PRIORITY_OPTIONS: { value: RoadmapPriority; label: string }[] = [
+  { value: 'high', label: 'Alta' },
+  { value: 'medium', label: 'Media' },
+  { value: 'low', label: 'Baja' },
+];
+
+const ROADMAP_SENTIMENT_OPTIONS: { value: RoadmapSentiment; label: string }[] = [
+  { value: 'positive', label: 'Positivo' },
+  { value: 'neutral', label: 'Neutro' },
+  { value: 'negative', label: 'Negativo' },
+];
+
+const getRoadmapStatusLabel = (status: RoadmapStatus) =>
+  ROADMAP_STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
+const getRoadmapAreaLabel = (area: RoadmapArea) =>
+  ROADMAP_AREA_OPTIONS.find((item) => item.value === area)?.label || area;
+const getRoadmapPriorityLabel = (priority: RoadmapPriority) =>
+  ROADMAP_PRIORITY_OPTIONS.find((item) => item.value === priority)?.label || priority;
+const getRoadmapSentimentLabel = (sentiment: RoadmapSentiment) =>
+  ROADMAP_SENTIMENT_OPTIONS.find((item) => item.value === sentiment)?.label || sentiment;
+
+const toRoadmapStatus = (value: unknown): RoadmapStatus => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .trim();
+  if (normalized === 'in_progress') return 'in_progress';
+  if (normalized === 'done') return 'done';
+  if (normalized === 'blocked') return 'blocked';
+  return 'planned';
+};
+
+const toRoadmapArea = (value: unknown): RoadmapArea => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .trim();
+  if (normalized === 'mobile') return 'mobile';
+  if (normalized === 'backend') return 'backend';
+  if (normalized === 'ops') return 'ops';
+  return 'web';
+};
+
+const toRoadmapPriority = (value: unknown): RoadmapPriority => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .trim();
+  if (normalized === 'high') return 'high';
+  if (normalized === 'low') return 'low';
+  return 'medium';
+};
+
+const toRoadmapSentiment = (value: unknown): RoadmapSentiment => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .trim();
+  if (normalized === 'positive') return 'positive';
+  if (normalized === 'negative') return 'negative';
+  return 'neutral';
+};
+
+const ROADMAP_STATUS_BADGE_CLASS: Record<RoadmapStatus, string> = {
+  planned: 'border border-slate-200 bg-slate-100 text-slate-700',
+  in_progress: 'border border-sky-200 bg-sky-50 text-sky-700',
+  done: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  blocked: 'border border-rose-200 bg-rose-50 text-rose-700',
+};
+
+const ROADMAP_PRIORITY_BADGE_CLASS: Record<RoadmapPriority, string> = {
+  high: 'border border-rose-200 bg-rose-50 text-rose-700',
+  medium: 'border border-amber-200 bg-amber-50 text-amber-700',
+  low: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+};
+
+const ROADMAP_SENTIMENT_BADGE_CLASS: Record<RoadmapSentiment, string> = {
+  positive: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+  neutral: 'border border-slate-200 bg-slate-100 text-slate-700',
+  negative: 'border border-rose-200 bg-rose-50 text-rose-700',
+};
+
 const toCsvValue = (value: any) => {
   const text = value === null || value === undefined ? '' : String(value);
   return `"${text.replace(/"/g, '""')}"`;
@@ -270,7 +395,7 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [grantingId, setGrantingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'resumen' | 'usuarios' | 'facturacion' | 'mensajes' | 'accesos' | 'actividad' | 'mano_obra'
+    'resumen' | 'usuarios' | 'facturacion' | 'roadmap' | 'mensajes' | 'accesos' | 'actividad' | 'mano_obra'
   >('resumen');
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
@@ -321,6 +446,35 @@ export default function AdminPage() {
   const [laborPriceDrafts, setLaborPriceDrafts] = useState<Record<string, string>>({});
   const [laborSavingId, setLaborSavingId] = useState<string | null>(null);
   const [laborMessage, setLaborMessage] = useState('');
+  const [roadmapUpdates, setRoadmapUpdates] = useState<RoadmapUpdateItem[]>([]);
+  const [roadmapLoading, setRoadmapLoading] = useState(false);
+  const [roadmapError, setRoadmapError] = useState('');
+  const [roadmapMessage, setRoadmapMessage] = useState('');
+  const [roadmapSearch, setRoadmapSearch] = useState('');
+  const [roadmapStatusFilter, setRoadmapStatusFilter] = useState<'all' | RoadmapStatus>('all');
+  const [roadmapAreaFilter, setRoadmapAreaFilter] = useState<'all' | RoadmapArea>('all');
+  const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
+  const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
+  const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
+  const [roadmapFeedbackDrafts, setRoadmapFeedbackDrafts] = useState<Record<string, string>>({});
+  const [roadmapFeedbackSentiments, setRoadmapFeedbackSentiments] = useState<Record<string, RoadmapSentiment>>({});
+  const [roadmapForm, setRoadmapForm] = useState<{
+    title: string;
+    description: string;
+    status: RoadmapStatus;
+    area: RoadmapArea;
+    priority: RoadmapPriority;
+    owner: string;
+    eta_date: string;
+  }>({
+    title: '',
+    description: '',
+    status: 'planned',
+    area: 'web',
+    priority: 'medium',
+    owner: '',
+    eta_date: '',
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -514,6 +668,206 @@ export default function AdminPage() {
     }
   };
 
+  const loadRoadmap = async (token?: string) => {
+    if (!token) return;
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapLoading(true);
+    try {
+      const response = await fetch('/api/admin/roadmap', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data?.error || 'No se pudo cargar el roadmap.');
+      }
+
+      const data = await response.json();
+      const rows = Array.isArray(data?.updates) ? data.updates : [];
+      const mapped = rows.map((row: any) => ({
+        ...row,
+        status: toRoadmapStatus(row?.status),
+        area: toRoadmapArea(row?.area),
+        priority: toRoadmapPriority(row?.priority),
+        feedback: Array.isArray(row?.feedback)
+          ? row.feedback.map((feedback: any) => ({
+              ...feedback,
+              sentiment: toRoadmapSentiment(feedback?.sentiment),
+            }))
+          : [],
+      })) as RoadmapUpdateItem[];
+
+      setRoadmapUpdates(mapped);
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo cargar el roadmap.');
+    } finally {
+      setRoadmapLoading(false);
+    }
+  };
+
+  const handleRoadmapCreate = async () => {
+    if (!session?.access_token) return;
+    const title = roadmapForm.title.trim();
+    if (title.length < 3) {
+      setRoadmapError('Escribe un título de al menos 3 caracteres.');
+      return;
+    }
+
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapSubmitting(true);
+    try {
+      const response = await fetch('/api/admin/roadmap', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description: roadmapForm.description.trim() || null,
+          status: roadmapForm.status,
+          area: roadmapForm.area,
+          priority: roadmapForm.priority,
+          owner: roadmapForm.owner.trim() || null,
+          eta_date: roadmapForm.eta_date || null,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo crear el item.');
+      }
+
+      const created = data?.update
+        ? ({
+            ...data.update,
+            status: toRoadmapStatus(data.update.status),
+            area: toRoadmapArea(data.update.area),
+            priority: toRoadmapPriority(data.update.priority),
+            feedback: [],
+          } as RoadmapUpdateItem)
+        : null;
+      if (created) {
+        setRoadmapUpdates((prev) => [created, ...prev]);
+      } else {
+        await loadRoadmap(session.access_token);
+      }
+
+      setRoadmapForm((prev) => ({
+        ...prev,
+        title: '',
+        description: '',
+        owner: '',
+        eta_date: '',
+      }));
+      setRoadmapMessage('Actualización agregada.');
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo crear el item.');
+    } finally {
+      setRoadmapSubmitting(false);
+    }
+  };
+
+  const patchRoadmapUpdate = async (
+    roadmapId: string,
+    patch: Partial<{ status: RoadmapStatus; area: RoadmapArea; priority: RoadmapPriority; owner: string | null }>
+  ) => {
+    if (!session?.access_token) return;
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapUpdatingId(roadmapId);
+    try {
+      const response = await fetch(`/api/admin/roadmap/${roadmapId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(patch),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo actualizar el item.');
+      }
+      const updated = data?.update || null;
+      if (updated) {
+        setRoadmapUpdates((prev) =>
+          prev.map((item) =>
+            item.id === roadmapId
+              ? {
+                  ...item,
+                  ...updated,
+                  status: toRoadmapStatus(updated.status),
+                  area: toRoadmapArea(updated.area),
+                  priority: toRoadmapPriority(updated.priority),
+                }
+              : item
+          )
+        );
+      }
+      setRoadmapMessage('Roadmap actualizado.');
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo actualizar el item.');
+    } finally {
+      setRoadmapUpdatingId(null);
+    }
+  };
+
+  const addRoadmapFeedback = async (roadmapId: string) => {
+    if (!session?.access_token) return;
+    const body = (roadmapFeedbackDrafts[roadmapId] || '').trim();
+    if (body.length < 2) {
+      setRoadmapError('El feedback debe tener al menos 2 caracteres.');
+      return;
+    }
+
+    const sentiment = roadmapFeedbackSentiments[roadmapId] || 'neutral';
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapFeedbackSavingId(roadmapId);
+    try {
+      const response = await fetch(`/api/admin/roadmap/${roadmapId}/feedback`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ body, sentiment }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo guardar el feedback.');
+      }
+      const feedback = data?.feedback
+        ? ({
+            ...data.feedback,
+            sentiment: toRoadmapSentiment(data.feedback.sentiment),
+          } as RoadmapFeedbackItem)
+        : null;
+      if (feedback) {
+        setRoadmapUpdates((prev) =>
+          prev.map((item) =>
+            item.id === roadmapId
+              ? {
+                  ...item,
+                  feedback: [...(item.feedback || []), feedback],
+                }
+              : item
+          )
+        );
+      } else {
+        await loadRoadmap(session.access_token);
+      }
+
+      setRoadmapFeedbackDrafts((prev) => ({ ...prev, [roadmapId]: '' }));
+      setRoadmapMessage('Feedback agregado.');
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo guardar el feedback.');
+    } finally {
+      setRoadmapFeedbackSavingId(null);
+    }
+  };
+
   const patchLaborItem = async (
     itemId: string,
     patch: { active?: boolean; suggested_price?: number | null }
@@ -607,6 +961,11 @@ export default function AdminPage() {
   }, [activeTab, session?.access_token]);
 
   useEffect(() => {
+    if (!session?.access_token || activeTab !== 'roadmap') return;
+    loadRoadmap(session.access_token);
+  }, [activeTab, session?.access_token]);
+
+  useEffect(() => {
     if (!session?.access_token || activeTab !== 'actividad') return;
     loadActivity();
   }, [
@@ -665,6 +1024,10 @@ export default function AdminPage() {
     setSupportMessages([]);
     setSupportDraft('');
     setActiveSupportUserId(null);
+    setRoadmapUpdates([]);
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapSearch('');
   };
 
   const handleGrantAccess = async (userId: string) => {
@@ -715,6 +1078,7 @@ export default function AdminPage() {
     { key: 'usuarios', label: 'Usuarios' },
     { key: 'facturacion', label: 'Facturación' },
     { key: 'mano_obra', label: 'Mano de obra' },
+    { key: 'roadmap', label: 'Roadmap' },
     { key: 'mensajes', label: 'Mensajes' },
     { key: 'accesos', label: 'Accesos' },
     { key: 'actividad', label: 'Actividad' },
@@ -780,6 +1144,26 @@ export default function AdminPage() {
       return haystack.includes(query);
     });
   }, [laborItems, laborSearch, laborShowInactive, laborSourceFilter]);
+
+  const roadmapTotals = useMemo(() => {
+    const total = roadmapUpdates.length;
+    const done = roadmapUpdates.filter((item) => item.status === 'done').length;
+    const inProgress = roadmapUpdates.filter((item) => item.status === 'in_progress').length;
+    const blocked = roadmapUpdates.filter((item) => item.status === 'blocked').length;
+    return { total, done, inProgress, blocked };
+  }, [roadmapUpdates]);
+
+  const filteredRoadmapUpdates = useMemo(() => {
+    const query = normalizeText(roadmapSearch);
+    return roadmapUpdates.filter((item) => {
+      if (roadmapStatusFilter !== 'all' && item.status !== roadmapStatusFilter) return false;
+      if (roadmapAreaFilter !== 'all' && item.area !== roadmapAreaFilter) return false;
+      if (!query) return true;
+      const feedbackText = (item.feedback || []).map((feedback) => feedback.body).join(' ');
+      const haystack = normalizeText([item.title, item.description || '', item.owner || '', feedbackText].join(' '));
+      return haystack.includes(query);
+    });
+  }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter]);
 
   if (loadingSession) {
     return (
@@ -933,6 +1317,9 @@ export default function AdminPage() {
                 onClick={() => {
                   loadOverview(session.access_token);
                   loadPlayMetrics(session.access_token);
+                  if (activeTab === 'roadmap') {
+                    loadRoadmap(session.access_token);
+                  }
                 }}
                 className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
               >
@@ -1812,6 +2199,370 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          )}
+          {activeTab === 'roadmap' && (
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Producto</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Roadmap de actualizaciones</h3>
+                  <p className="text-sm text-slate-500">
+                    Carga mejoras, estado y feedback interno para coordinar trabajo entre equipos.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">
+                    Total: {roadmapTotals.total}
+                  </span>
+                  <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    Resueltos: {roadmapTotals.done}
+                  </span>
+                  <span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
+                    En curso: {roadmapTotals.inProgress}
+                  </span>
+                  {roadmapTotals.blocked > 0 && (
+                    <span className="rounded-full bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+                      Bloqueados: {roadmapTotals.blocked}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => loadRoadmap(session.access_token)}
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Actualizar
+                  </button>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-[360px,1fr]">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva actualización</p>
+                  <div className="mt-3 space-y-3">
+                    <input
+                      value={roadmapForm.title}
+                      onChange={(event) => setRoadmapForm((prev) => ({ ...prev, title: event.target.value }))}
+                      placeholder="Ej: Mejorar autocomplete de direcciones"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                    <textarea
+                      value={roadmapForm.description}
+                      onChange={(event) => setRoadmapForm((prev) => ({ ...prev, description: event.target.value }))}
+                      placeholder="Detalle técnico / criterio de aceptación..."
+                      rows={4}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <select
+                        value={roadmapForm.status}
+                        onChange={(event) =>
+                          setRoadmapForm((prev) => ({ ...prev, status: event.target.value as RoadmapStatus }))
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        {ROADMAP_STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={roadmapForm.area}
+                        onChange={(event) =>
+                          setRoadmapForm((prev) => ({ ...prev, area: event.target.value as RoadmapArea }))
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        {ROADMAP_AREA_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={roadmapForm.priority}
+                        onChange={(event) =>
+                          setRoadmapForm((prev) => ({ ...prev, priority: event.target.value as RoadmapPriority }))
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        {ROADMAP_PRIORITY_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        value={roadmapForm.owner}
+                        onChange={(event) => setRoadmapForm((prev) => ({ ...prev, owner: event.target.value }))}
+                        placeholder="Responsable (opcional)"
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-[0.2em] text-slate-400">ETA</label>
+                      <input
+                        type="date"
+                        value={roadmapForm.eta_date}
+                        onChange={(event) => setRoadmapForm((prev) => ({ ...prev, eta_date: event.target.value }))}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleRoadmapCreate}
+                      disabled={roadmapSubmitting}
+                      className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {roadmapSubmitting ? 'Guardando...' : 'Agregar actualización'}
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        value={roadmapSearch}
+                        onChange={(event) => setRoadmapSearch(event.target.value)}
+                        placeholder="Buscar por título, descripción o feedback..."
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
+                      />
+                      <select
+                        value={roadmapStatusFilter}
+                        onChange={(event) =>
+                          setRoadmapStatusFilter(event.target.value as 'all' | RoadmapStatus)
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="all">Todos los estados</option>
+                        {ROADMAP_STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={roadmapAreaFilter}
+                        onChange={(event) => setRoadmapAreaFilter(event.target.value as 'all' | RoadmapArea)}
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="all">Todas las áreas</option>
+                        {ROADMAP_AREA_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoadmapSearch('');
+                          setRoadmapStatusFilter('all');
+                          setRoadmapAreaFilter('all');
+                        }}
+                        className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                      >
+                        Limpiar
+                      </button>
+                    </div>
+                  </div>
+
+                  {roadmapError && (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                      {roadmapError}
+                    </div>
+                  )}
+                  {!roadmapError && roadmapMessage && (
+                    <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                      {roadmapMessage}
+                    </div>
+                  )}
+
+                  {roadmapLoading && (
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                      Cargando roadmap...
+                    </div>
+                  )}
+
+                  {!roadmapLoading && filteredRoadmapUpdates.length === 0 && (
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                      No hay items para los filtros actuales.
+                    </div>
+                  )}
+
+                  <div className="mt-4 space-y-4">
+                    {filteredRoadmapUpdates.map((item) => {
+                      const feedbackDraft = roadmapFeedbackDrafts[item.id] || '';
+                      const feedbackSentiment = roadmapFeedbackSentiments[item.id] || 'neutral';
+                      const savingUpdate = roadmapUpdatingId === item.id;
+                      const savingFeedback = roadmapFeedbackSavingId === item.id;
+                      return (
+                        <article
+                          key={item.id}
+                          className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-[260px] flex-1">
+                              <h4 className="text-base font-semibold text-slate-900">{item.title}</h4>
+                              {item.description && (
+                                <p className="mt-1 text-sm text-slate-600">{item.description}</p>
+                              )}
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <span
+                                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                                    ROADMAP_STATUS_BADGE_CLASS[item.status]
+                                  }`}
+                                >
+                                  {getRoadmapStatusLabel(item.status)}
+                                </span>
+                                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-700">
+                                  {getRoadmapAreaLabel(item.area)}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                                    ROADMAP_PRIORITY_BADGE_CLASS[item.priority]
+                                  }`}
+                                >
+                                  Prioridad {getRoadmapPriorityLabel(item.priority)}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-[11px] text-slate-400">
+                                Creado: {formatDateTime(item.created_at)} • Actualizado: {formatDateTime(item.updated_at)}
+                              </p>
+                              {(item.owner || item.eta_date) && (
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  {item.owner ? `Responsable: ${item.owner}` : 'Responsable sin asignar'}
+                                  {item.eta_date ? ` • ETA: ${formatShortDate(item.eta_date)}` : ''}
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+                              <select
+                                value={item.status}
+                                onChange={(event) => {
+                                  const status = event.target.value as RoadmapStatus;
+                                  if (status === item.status) return;
+                                  patchRoadmapUpdate(item.id, { status });
+                                }}
+                                disabled={savingUpdate}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                              >
+                                {ROADMAP_STATUS_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={item.area}
+                                onChange={(event) => {
+                                  const area = event.target.value as RoadmapArea;
+                                  if (area === item.area) return;
+                                  patchRoadmapUpdate(item.id, { area });
+                                }}
+                                disabled={savingUpdate}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                              >
+                                {ROADMAP_AREA_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={item.priority}
+                                onChange={(event) => {
+                                  const priority = event.target.value as RoadmapPriority;
+                                  if (priority === item.priority) return;
+                                  patchRoadmapUpdate(item.id, { priority });
+                                }}
+                                disabled={savingUpdate}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                              >
+                                {ROADMAP_PRIORITY_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                              Feedback interno ({item.feedback?.length || 0})
+                            </p>
+                            <div className="mt-3 max-h-[180px] space-y-2 overflow-y-auto pr-1">
+                              {(!item.feedback || item.feedback.length === 0) && (
+                                <p className="text-xs text-slate-500">Aun no hay feedback.</p>
+                              )}
+                              {(item.feedback || []).map((feedback) => (
+                                <div
+                                  key={feedback.id}
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2"
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span
+                                      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                                        ROADMAP_SENTIMENT_BADGE_CLASS[feedback.sentiment]
+                                      }`}
+                                    >
+                                      {getRoadmapSentimentLabel(feedback.sentiment)}
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      {feedback.created_by_label || 'Sistema'} • {formatDateTime(feedback.created_at)}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm text-slate-700">{feedback.body}</p>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-3 grid gap-2 md:grid-cols-[1fr_auto]">
+                              <textarea
+                                value={feedbackDraft}
+                                onChange={(event) =>
+                                  setRoadmapFeedbackDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))
+                                }
+                                rows={2}
+                                placeholder="Agregar feedback..."
+                                className="min-h-[70px] w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                              <div className="flex flex-col gap-2">
+                                <select
+                                  value={feedbackSentiment}
+                                  onChange={(event) =>
+                                    setRoadmapFeedbackSentiments((prev) => ({
+                                      ...prev,
+                                      [item.id]: event.target.value as RoadmapSentiment,
+                                    }))
+                                  }
+                                  className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                                >
+                                  {ROADMAP_SENTIMENT_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                      {option.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  onClick={() => addRoadmapFeedback(item.id)}
+                                  disabled={savingFeedback}
+                                  className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                                >
+                                  {savingFeedback ? 'Guardando...' : 'Comentar'}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </section>
           )}
