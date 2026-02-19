@@ -126,10 +126,6 @@ export default function AuthScreen() {
         throw new Error('Inicio con Google cancelado');
       }
 
-      if (result.type === 'error' && 'errorCode' in result) {
-        throw new Error(result.errorCode || 'No se pudo completar Google');
-      }
-
       await WebBrowser.openBrowserAsync(data.url);
       Alert.alert('Continuar en Google', 'Si completaste el login, la app debería abrirse automáticamente.');
     } catch (error: any) {

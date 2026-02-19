@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable
+  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable,
+  type DimensionValue, type ViewStyle
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,6 +39,7 @@ type TrendCoord = { x: number; totalY: number; paidY: number };
 
 const DASHBOARD_CACHE_KEY = 'dashboard_quotes_cache_v1';
 const DASHBOARD_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 horas
+const QUOTES_QUERY_KEY = ['quotes-list'] as const;
 
 const TrendChart = React.memo(
   ({
@@ -200,23 +202,12 @@ export default function JobsScreen() {
 
   const queryClient = useQueryClient();
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
-    queryKey: ['quotes-list'],
+  const { data: jobsData, isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
+    queryKey: QUOTES_QUERY_KEY,
     queryFn: getQuotes,
     staleTime: 60000,
-    onSuccess: async (data) => {
-      try {
-        const timestamp = Date.now();
-        await AsyncStorage.setItem(
-          DASHBOARD_CACHE_KEY,
-          JSON.stringify({ timestamp, data })
-        );
-        setLastUpdatedAt(new Date(timestamp));
-      } catch (_err) {
-        // cache best-effort
-      }
-    },
   });
+  const jobs: QuoteListItem[] = jobsData ?? [];
 
   useEffect(() => {
     let mounted = true;
@@ -224,12 +215,13 @@ export default function JobsScreen() {
       try {
         const raw = await AsyncStorage.getItem(DASHBOARD_CACHE_KEY);
         if (!raw) return;
-        const parsed = JSON.parse(raw);
+        const parsed = JSON.parse(raw) as { timestamp?: number; data?: QuoteListItem[] } | null;
         if (!parsed || !Array.isArray(parsed.data)) return;
-        if (parsed.timestamp && Date.now() - parsed.timestamp > DASHBOARD_CACHE_TTL) return;
+        const cacheTimestamp = typeof parsed.timestamp === 'number' ? parsed.timestamp : null;
+        if (cacheTimestamp && Date.now() - cacheTimestamp > DASHBOARD_CACHE_TTL) return;
         if (!mounted) return;
-        queryClient.setQueryData(['quotes-list'], parsed.data);
-        setLastUpdatedAt(parsed.timestamp ? new Date(parsed.timestamp) : null);
+        queryClient.setQueryData<QuoteListItem[]>(QUOTES_QUERY_KEY, parsed.data);
+        setLastUpdatedAt(cacheTimestamp ? new Date(cacheTimestamp) : null);
       } catch (_err) {
         // ignore cache errors
       }
@@ -239,6 +231,23 @@ export default function JobsScreen() {
       mounted = false;
     };
   }, [queryClient]);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const persistCache = async () => {
+      try {
+        const timestamp = Date.now();
+        await AsyncStorage.setItem(
+          DASHBOARD_CACHE_KEY,
+          JSON.stringify({ timestamp, data: jobs })
+        );
+        setLastUpdatedAt(new Date(timestamp));
+      } catch (_err) {
+        // cache best-effort
+      }
+    };
+    void persistCache();
+  }, [isLoading, jobs]);
 
   const visibleJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -618,7 +627,7 @@ export default function JobsScreen() {
       if (error) {
         await supabase.from('quotes').update({ status: 'sent' }).eq('id', job.id);
       }
-      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+      await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
     } catch (err) {
       console.warn('No se pudo confirmar el presupuesto antes de compartir.', err);
     }
@@ -673,8 +682,8 @@ export default function JobsScreen() {
     ({ item, index }: { item: typeof dashboardCards[number]; index: number }) => {
       const isLastInRow =
         dashboardColumns > 1 && (index + 1) % dashboardColumns === 0;
-      const cardStyle = {
-        width: dashboardCardWidth ?? '48%',
+      const cardStyle: ViewStyle = {
+        width: (dashboardCardWidth ?? '48%') as DimensionValue,
         marginRight: dashboardColumns === 1 || isLastInRow ? 0 : dashboardGap,
         marginBottom: dashboardGap,
       };
@@ -858,10 +867,6 @@ export default function JobsScreen() {
             contentContainerStyle={styles.listContent}
             estimatedItemSize={150}
             removeClippedSubviews={Platform.OS === 'android'}
-            initialNumToRender={8}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            updateCellsBatchingPeriod={50}
             onRefresh={refetch}
             refreshing={isFetching && !isLoading}
             ListHeaderComponent={
@@ -1141,7 +1146,7 @@ export default function JobsScreen() {
                   const { error } = await supabase.rpc('delete_quote', { p_quote_id: id });
                   if (error) throw error;
                 }
-                await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+                await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
                 setSelectedIds([]);
                 setSelectionMode(false);
               } catch (_err) {
@@ -1175,6 +1180,7 @@ export default function JobsScreen() {
       {mapSelection && (
         <MapDetailSheet
           point={mapSelection}
+          formatMoney={formatMoney}
           onClose={handleCloseMapDetail}
           onOpen={(id) => {
             handleCloseMapDetail();
@@ -1190,10 +1196,12 @@ export default function JobsScreen() {
 
 const MapDetailSheet = ({
   point,
+  formatMoney,
   onClose,
   onOpen,
 }: {
   point: MapPoint;
+  formatMoney: (value: number) => string;
   onClose: () => void;
   onOpen: (id: string) => void;
 }) => (

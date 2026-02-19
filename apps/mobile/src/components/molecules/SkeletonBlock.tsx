@@ -1,8 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, ViewStyle } from 'react-native';
+import { Animated, StyleSheet, type DimensionValue, type ViewStyle } from 'react-native';
 
 type Props = {
-  width?: number | string;
+  width?: DimensionValue;
   height?: number;
   radius?: number;
   style?: ViewStyle;
