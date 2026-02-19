@@ -38,6 +38,47 @@ Regla:
 5. No ejecutar ni editar SQL/migraciones desde `node_modules`.
 6. Commits chicos y con scope claro.
 
+## Protocolo Supabase (obligatorio)
+
+Fuente unica de migraciones:
+- `apps/web/lib/supabase/migrations`
+
+Reglas:
+- Todo cambio de DB se registra en una migracion nueva.
+- No se editan migraciones historicas ya aplicadas.
+- `PC2` y `Owner` no aplican cambios a produccion directo.
+- Solo `PC1` ejecuta `supabase db push` contra el proyecto remoto.
+- Queda prohibido usar archivos de `node_modules/.../migrations`.
+
+Flujo `PC2` para cambios de DB:
+
+```bash
+git fetch origin
+git switch master
+git pull --ff-only origin master
+git switch -c web/pc2-<tema-db>
+cd apps/web
+npx supabase migration new <nombre_cambio>
+# editar el .sql generado en lib/supabase/migrations
+git add lib/supabase/migrations/<timestamp>_<nombre_cambio>.sql
+git commit -m "db: <cambio puntual>"
+git push -u origin web/pc2-<tema-db>
+```
+
+Flujo `PC1` para aplicar a remoto:
+
+```bash
+git fetch origin
+git switch master
+git pull --ff-only origin master
+cd apps/web
+npx supabase db push
+```
+
+Si hubo SQL manual en dashboard (emergencia):
+- `PC1` debe crear migracion espejo el mismo dia.
+- Esa migracion se sube por PR y se documenta en Admin/Roadmap.
+
 ## Nomenclatura de ramas
 
 - Web: `web/pc1-<tema>` o `web/pc2-<tema>`
