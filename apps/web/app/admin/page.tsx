@@ -466,6 +466,8 @@ export default function AdminPage() {
     priority: RoadmapPriority;
     owner: string;
     eta_date: string;
+    initial_feedback: string;
+    initial_feedback_sentiment: RoadmapSentiment;
   }>({
     title: '',
     description: '',
@@ -474,6 +476,8 @@ export default function AdminPage() {
     priority: 'medium',
     owner: '',
     eta_date: '',
+    initial_feedback: '',
+    initial_feedback_sentiment: 'neutral',
   });
 
   useEffect(() => {
@@ -712,6 +716,11 @@ export default function AdminPage() {
       setRoadmapError('Escribe un título de al menos 3 caracteres.');
       return;
     }
+    const initialFeedback = roadmapForm.initial_feedback.trim();
+    if (initialFeedback.length < 2) {
+      setRoadmapError('Cada tarea nueva debe incluir feedback inicial.');
+      return;
+    }
 
     setRoadmapError('');
     setRoadmapMessage('');
@@ -731,6 +740,8 @@ export default function AdminPage() {
           priority: roadmapForm.priority,
           owner: roadmapForm.owner.trim() || null,
           eta_date: roadmapForm.eta_date || null,
+          feedback_body: initialFeedback,
+          feedback_sentiment: roadmapForm.initial_feedback_sentiment,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -744,7 +755,12 @@ export default function AdminPage() {
             status: toRoadmapStatus(data.update.status),
             area: toRoadmapArea(data.update.area),
             priority: toRoadmapPriority(data.update.priority),
-            feedback: [],
+            feedback: Array.isArray(data.update.feedback)
+              ? data.update.feedback.map((feedback: any) => ({
+                  ...feedback,
+                  sentiment: toRoadmapSentiment(feedback?.sentiment),
+                }))
+              : [],
           } as RoadmapUpdateItem)
         : null;
       if (created) {
@@ -759,6 +775,8 @@ export default function AdminPage() {
         description: '',
         owner: '',
         eta_date: '',
+        initial_feedback: '',
+        initial_feedback_sentiment: 'neutral',
       }));
       setRoadmapMessage('Actualización agregada.');
     } catch (error: any) {
@@ -2309,6 +2327,38 @@ export default function AdminPage() {
                         onChange={(event) => setRoadmapForm((prev) => ({ ...prev, eta_date: event.target.value }))}
                         className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
                       />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                        Feedback inicial (obligatorio)
+                      </label>
+                      <textarea
+                        value={roadmapForm.initial_feedback}
+                        onChange={(event) =>
+                          setRoadmapForm((prev) => ({ ...prev, initial_feedback: event.target.value }))
+                        }
+                        placeholder="Contexto inicial, riesgo o validacion pendiente..."
+                        rows={3}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <div className="mt-2">
+                        <select
+                          value={roadmapForm.initial_feedback_sentiment}
+                          onChange={(event) =>
+                            setRoadmapForm((prev) => ({
+                              ...prev,
+                              initial_feedback_sentiment: event.target.value as RoadmapSentiment,
+                            }))
+                          }
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                        >
+                          {ROADMAP_SENTIMENT_OPTIONS.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              Sentimiento inicial: {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
                     </div>
                     <button
                       type="button"

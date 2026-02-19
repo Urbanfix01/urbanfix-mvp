@@ -1,0 +1,33 @@
+name: Roadmap Auto Sync
+
+on:
+  push:
+    branches-ignore:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  roadmap-autosync:
+    runs-on: ubuntu-latest
+    if: ${{ secrets.ROADMAP_AUTOSYNC_URL != '' && secrets.ROADMAP_AUTOSYNC_TOKEN != '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Auto-sync roadmap
+        env:
+          ROADMAP_AUTOSYNC_URL: ${{ secrets.ROADMAP_AUTOSYNC_URL }}
+          ROADMAP_AUTOSYNC_TOKEN: ${{ secrets.ROADMAP_AUTOSYNC_TOKEN }}
+          ROADMAP_AUTOSYNC_BASE_REF: origin/master
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: node scripts/roadmap-auto-sync.mjs

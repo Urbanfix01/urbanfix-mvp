@@ -29,6 +29,20 @@ Regla:
 - Si te bloqueas, pasar a `blocked` y explicar causa concreta.
 - Si terminas, pasar a `done` y comentar que validaste.
 
+## Regla automatica de Roadmap
+
+- Toda tarea nueva de roadmap debe incluir feedback inicial (obligatorio).
+- Si hay cambios de codigo que no quedaron registrados en roadmap, se crea/actualiza tarjeta `AUTO` automaticamente.
+- Cada sincronizacion `AUTO` agrega feedback tecnico con rama, commit y cantidad de archivos.
+
+Auto-sync disponible por 2 vias:
+- Hook local `pre-push` (si hay token configurado).
+- GitHub Action (`.github/workflows/roadmap-auto-sync.yml`) en push/PR.
+
+Variables necesarias en cada PC (o en GitHub Secrets):
+- `ROADMAP_AUTOSYNC_URL` (endpoint `.../api/admin/roadmap/auto-sync`)
+- `ROADMAP_AUTOSYNC_TOKEN`
+
 ## Reglas obligatorias
 
 1. Nunca trabajar directo en `master`.

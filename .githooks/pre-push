@@ -21,6 +21,20 @@ if [ "$behind" -gt 0 ]; then
   exit 1
 fi
 
+if [ -n "${ROADMAP_AUTOSYNC_URL:-}" ] && [ -n "${ROADMAP_AUTOSYNC_TOKEN:-}" ]; then
+  if command -v node >/dev/null 2>&1; then
+    echo "Ejecutando roadmap auto-sync..."
+    node scripts/roadmap-auto-sync.mjs || {
+      echo "Roadmap auto-sync fallo. Aborta el push." >&2
+      exit 1
+    }
+  else
+    echo "Node no disponible; no se pudo ejecutar roadmap auto-sync." >&2
+  fi
+else
+  echo "Aviso: define ROADMAP_AUTOSYNC_URL y ROADMAP_AUTOSYNC_TOKEN para auto-sync en pre-push."
+fi
+
 if [ "$ahead" -eq 0 ]; then
   echo "No hay commits para pushear."
 fi
