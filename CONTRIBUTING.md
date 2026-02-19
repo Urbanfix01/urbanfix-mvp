@@ -126,6 +126,12 @@ cd apps/mobile
 npx tsc --noEmit
 ```
 
+Para preparacion de release iOS/TestFlight:
+
+```bash
+npm run release:ios:preflight -- --target-version <X.Y.Z> --target-build <N>
+```
+
 Hook local `pre-push`:
 - Si detecta cambios en `apps/web`, ejecuta automaticamente `npm --prefix apps/web run lint` y `npm --prefix apps/web run build`.
 - Si falla alguna validacion web, bloquea el push.
@@ -148,6 +154,8 @@ Hook local `pre-push`:
 - Si hay migraciones nuevas, aplicarlas antes de validar feature en produccion.
 - Para QA previo a release, usar checklist compartido:
   `docs/qa-cross-release-checklist.md`.
+- Para release iOS en TestFlight, usar checklist operativo:
+  `docs/ios-testflight-release-checklist.md`.
 
 ## Convencion de comentarios de Roadmap
 

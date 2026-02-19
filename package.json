@@ -11,6 +11,7 @@
     "build:web": "npm --prefix apps/web run build",
     "start:web": "npm --prefix apps/web run start",
     "lint:web": "npm --prefix apps/web run lint",
+    "release:ios:preflight": "node scripts/ios-release-preflight.mjs",
     "roadmap:sync": "node scripts/roadmap-auto-sync.mjs",
     "start:mobile": "npm --prefix apps/mobile run start",
     "android": "npm --prefix apps/mobile run android",
