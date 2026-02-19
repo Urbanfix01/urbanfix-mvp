@@ -384,7 +384,11 @@ export default function ProfileScreen() {
                             <LocationAutocomplete 
                                 initialValue={address}
                                 onLocationSelect={handleLocationSelect}
-                                apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} 
+                                apiKey={
+                                  process.env.EXPO_PUBLIC_PLACES_API_KEY ||
+                                  process.env.EXPO_PUBLIC_IOS_API_KEY ||
+                                  process.env.EXPO_PUBLIC_ANDROID_API_KEY
+                                }
                             />
                         )
                     ) : (

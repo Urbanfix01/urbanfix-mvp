@@ -8,10 +8,8 @@ import {
   TouchableOpacity,
   FlatList,
   ActivityIndicator,
-  Modal,
-  Pressable,
+  Keyboard,
 } from 'react-native';
-// Librería para WEB
 import ReactGoogleAutocomplete from 'react-google-autocomplete';
 
 interface LocationData {
@@ -33,225 +31,231 @@ interface Props {
   showLabel?: boolean;
 }
 
-export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, showLabel = false }: Props) => {
+const MIN_QUERY_LENGTH = 2;
+const DEBOUNCE_MS = 140;
+
+export const LocationAutocomplete = ({
+  onLocationSelect,
+  initialValue,
+  apiKey,
+  showLabel = false,
+}: Props) => {
   const nativeRef = useRef<any>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const sessionTokenRef = useRef<string | null>(null);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const [query, setQuery] = useState(initialValue || '');
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [inputLayout, setInputLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [debugStatus, setDebugStatus] = useState<string>('');
-  const abortRef = useRef<AbortController | null>(null);
-  const sessionTokenRef = useRef<string | null>(null);
-  const dismissRef = useRef(false);
+  const [errorText, setErrorText] = useState('');
 
-  // 1. Obtener API Key (Prioridad: Prop > Variable de Entorno)
-  const envKey = Platform.OS === 'web'
-    ? process.env.EXPO_PUBLIC_WEB_API_KEY
-    : process.env.EXPO_PUBLIC_PLACES_API_KEY || process.env.EXPO_PUBLIC_ANDROID_API_KEY;
+  const envKey =
+    Platform.OS === 'web'
+      ? process.env.EXPO_PUBLIC_WEB_API_KEY
+      : process.env.EXPO_PUBLIC_PLACES_API_KEY ||
+        process.env.EXPO_PUBLIC_IOS_API_KEY ||
+        process.env.EXPO_PUBLIC_ANDROID_API_KEY;
   const finalApiKey = apiKey || envKey;
 
-  if (!finalApiKey) console.warn("⚠️ FALTA API KEY en LocationAutocomplete");
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    if (!isFocused) setQuery(initialValue || '');
+  }, [initialValue, isFocused]);
+
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
+
+  const normalizedQuery = query.trim();
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    setQuery(initialValue || '');
-  }, [initialValue]);
 
-  useEffect(() => {
-    if (Platform.OS === 'web') return;
-    if (!finalApiKey) return;
-    if (!query || query.trim().length < 3) {
+    if (!finalApiKey) {
       setPredictions([]);
+      if (normalizedQuery.length >= MIN_QUERY_LENGTH) {
+        setErrorText('Falta configurar la API key de Google Places.');
+      } else {
+        setErrorText('');
+      }
       return;
     }
 
-    const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
-    sessionTokenRef.current = sessionToken;
+    if (normalizedQuery.length < MIN_QUERY_LENGTH) {
+      if (abortRef.current) abortRef.current.abort();
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      setPredictions([]);
+      setIsLoading(false);
+      setErrorText('');
+      return;
+    }
+
+    if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
 
     const controller = new AbortController();
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = controller;
     setIsLoading(true);
-    setDebugStatus('');
+    setErrorText('');
 
-    const timeoutId = setTimeout(async () => {
+    const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
+    sessionTokenRef.current = sessionToken;
+
+    debounceTimeoutRef.current = setTimeout(async () => {
       try {
         const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          query
-        )}&key=${finalApiKey}&language=es&types=address&components=country:ar&sessiontoken=${sessionToken}`;
+          normalizedQuery
+        )}&key=${finalApiKey}&language=es&types=geocode&components=country:ar&sessiontoken=${sessionToken}`;
         const res = await fetch(url, { signal: controller.signal });
         const data = await res.json();
-        setPredictions(Array.isArray(data?.predictions) ? data.predictions : []);
-        if (data?.status && data.status !== 'OK') {
-          const err = data?.error_message ? ` - ${data.error_message}` : '';
-          setDebugStatus(`${data.status}${err}`);
-        } else {
-          setDebugStatus(`OK (${Array.isArray(data?.predictions) ? data.predictions.length : 0})`);
+        const status = data?.status;
+
+        if (status === 'OK') {
+          const nextPredictions = Array.isArray(data?.predictions) ? data.predictions : [];
+          setPredictions(nextPredictions);
+          setErrorText(nextPredictions.length ? '' : 'No encontramos direcciones para esa busqueda.');
+          return;
         }
+
+        if (status === 'ZERO_RESULTS') {
+          setPredictions([]);
+          setErrorText('No encontramos direcciones para esa busqueda.');
+          return;
+        }
+
+        if (status === 'REQUEST_DENIED') {
+          setPredictions([]);
+          setErrorText('Google Places denego la solicitud. Revisa Billing y restricciones de API key.');
+          return;
+        }
+
+        const details = data?.error_message ? ` ${data.error_message}` : '';
+        setPredictions([]);
+        setErrorText(`No pudimos consultar direcciones.${details}`.trim());
       } catch (error) {
         if ((error as any)?.name !== 'AbortError') {
-          console.warn('Autocomplete error', error);
-          setDebugStatus('NETWORK_ERROR');
+          setPredictions([]);
+          setErrorText('Error de red al buscar direcciones.');
         }
       } finally {
         setIsLoading(false);
       }
-    }, 250);
+    }, DEBOUNCE_MS);
 
     return () => {
-      clearTimeout(timeoutId);
+      if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
       controller.abort();
     };
-  }, [finalApiKey, query]);
+  }, [finalApiKey, normalizedQuery]);
 
   const handleSelect = async (prediction: Prediction) => {
     if (!finalApiKey) return;
     try {
+      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
       setIsLoading(true);
+      setErrorText('');
       const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
       const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&key=${finalApiKey}&language=es&fields=geometry,formatted_address,place_id&sessiontoken=${sessionToken}`;
       const res = await fetch(url);
       const data = await res.json();
+      const status = data?.status;
       const location = data?.result?.geometry?.location;
-      const address = data?.result?.formatted_address || prediction.description;
 
+      if (status !== 'OK' || !location) {
+        setErrorText('No pudimos obtener la direccion seleccionada.');
+        return;
+      }
+
+      const address = data?.result?.formatted_address || prediction.description;
       setQuery(address);
       setPredictions([]);
       sessionTokenRef.current = null;
-
-      if (location) {
-        onLocationSelect({
-          address,
-          lat: location.lat,
-          lng: location.lng,
-          placeId: data?.result?.place_id || prediction.place_id,
-        });
-      }
-    } catch (error) {
-      console.warn('Place details error', error);
+      setIsFocused(false);
+      Keyboard.dismiss();
+      onLocationSelect({
+        address,
+        lat: location.lat,
+        lng: location.lng,
+        placeId: data?.result?.place_id || prediction.place_id,
+      });
+    } catch (_error) {
+      setErrorText('No pudimos obtener la direccion seleccionada.');
     } finally {
       setIsLoading(false);
-      dismissRef.current = true;
-      setIsFocused(false);
     }
   };
 
-  const shouldShowList = useMemo(
-    () => Platform.OS !== 'web' && isFocused && predictions.length > 0,
-    [isFocused, predictions.length]
-  );
-
-  useEffect(() => {
-    if (!shouldShowList) return;
-    const id = setTimeout(() => {
-      nativeRef.current?.focus();
-    }, 0);
-    return () => clearTimeout(id);
-  }, [shouldShowList]);
-
-  const measureInput = () => {
-    if (nativeRef.current?.measureInWindow) {
-      nativeRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
-        setInputLayout({ x, y, width, height });
-      });
-    }
-  };
+  const shouldShowList = useMemo(() => {
+    if (Platform.OS === 'web') return false;
+    if (!isFocused) return false;
+    if (normalizedQuery.length < MIN_QUERY_LENGTH) return false;
+    return isLoading || predictions.length > 0 || !!errorText;
+  }, [errorText, isFocused, isLoading, normalizedQuery.length, predictions.length]);
 
   return (
     <View style={styles.container}>
-      {showLabel && <Text style={styles.label}>DIRECCIÓN DE LA OBRA</Text>}
+      {showLabel && <Text style={styles.label}>DIRECCION DE LA OBRA</Text>}
 
       {Platform.OS === 'web' ? (
-        /* ================= VISTA WEB (React Google Autocomplete) ================= */
         <View style={styles.webContainer}>
           <ReactGoogleAutocomplete
             apiKey={finalApiKey}
             defaultValue={initialValue}
             options={{
               types: ['address'],
-              componentRestrictions: { country: "ar" },
+              componentRestrictions: { country: 'ar' },
             }}
-            placeholder="Buscar dirección..."
+            placeholder="Buscar direccion..."
             className="web-input"
             style={styles.webInput}
             onPlaceSelected={(place) => {
-              // --- CORRECCIÓN TYPESCRIPT ---
-              // Usamos 'as any' para evitar el error de tipos, pero mantenemos la lógica segura
               const loc = place.geometry?.location as any;
-
-              if (loc) {
-                onLocationSelect({
-                  address: place.formatted_address || '',
-                  // Verificamos si es función o número (Web suele devolver funciones)
-                  lat: typeof loc.lat === 'function' ? loc.lat() : loc.lat,
-                  lng: typeof loc.lng === 'function' ? loc.lng() : loc.lng,
-                  placeId: place.place_id || '',
-                });
-              }
+              if (!loc) return;
+              onLocationSelect({
+                address: place.formatted_address || '',
+                lat: typeof loc.lat === 'function' ? loc.lat() : loc.lat,
+                lng: typeof loc.lng === 'function' ? loc.lng() : loc.lng,
+                placeId: place.place_id || '',
+              });
             }}
           />
         </View>
       ) : (
-        /* ================= VISTA MÓVIL (Google Places REST) ================= */
         <View style={styles.nativeContainer}>
           <View style={styles.textInputContainer}>
             <TextInput
               ref={nativeRef}
               style={styles.input}
-              placeholder="Buscar dirección..."
+              placeholder="Buscar direccion..."
               placeholderTextColor="#9CA3AF"
               value={query}
               onChangeText={setQuery}
               onFocus={() => {
+                if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
                 setIsFocused(true);
-                measureInput();
               }}
               onBlur={() => {
-                setTimeout(() => {
-                  if (dismissRef.current) {
-                    dismissRef.current = false;
-                    setIsFocused(false);
-                    return;
-                  }
-                  if (predictions.length > 0) {
-                    nativeRef.current?.focus();
-                  } else {
-                    setIsFocused(false);
-                  }
-                }, 50);
+                blurTimeoutRef.current = setTimeout(() => {
+                  setIsFocused(false);
+                }, 150);
               }}
-              onLayout={measureInput}
+              autoCorrect={false}
+              autoCapitalize="words"
+              returnKeyType="done"
             />
             {isLoading && <ActivityIndicator size="small" color="#9CA3AF" />}
           </View>
-          {!!debugStatus && <Text style={styles.debugText}>Places: {debugStatus}</Text>}
 
-          <Modal
-            visible={shouldShowList}
-            transparent
-            animationType="fade"
-            onShow={() => nativeRef.current?.focus()}
-            onRequestClose={() => {
-              dismissRef.current = true;
-              setIsFocused(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => {
-                dismissRef.current = true;
-                setIsFocused(false);
-              }}
-            >
-              <Pressable
-                style={[
-                  styles.listView,
-                  inputLayout
-                    ? { top: inputLayout.y + inputLayout.height + 6, left: inputLayout.x, width: inputLayout.width }
-                    : { left: 16, right: 16, top: 0 },
-                ]}
-              >
+          {shouldShowList && (
+            <View style={styles.listView}>
+              {predictions.length > 0 ? (
                 <FlatList
                   keyboardShouldPersistTaps="handled"
                   data={predictions}
@@ -262,9 +266,21 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                     </TouchableOpacity>
                   )}
                 />
-              </Pressable>
-            </Pressable>
-          </Modal>
+              ) : (
+                <View style={styles.emptyState}>
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#94A3B8" />
+                  ) : (
+                    <Text style={styles.emptyStateText}>{errorText || 'Buscando direcciones...'}</Text>
+                  )}
+                </View>
+              )}
+            </View>
+          )}
+
+          {!shouldShowList && !!errorText && normalizedQuery.length >= MIN_QUERY_LENGTH && (
+            <Text style={styles.debugText}>{errorText}</Text>
+          )}
         </View>
       )}
     </View>
@@ -272,33 +288,28 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    zIndex: 9999, // <--- CLAVE: Asegura que el contenedor flote sobre lo demás
+  container: {
+    zIndex: 30,
     marginBottom: 20,
-    elevation: 10, // Para Android
     position: 'relative',
     overflow: 'visible',
   },
-  label: { 
-    fontSize: 12, 
-    fontFamily: 'Montserrat-Bold', 
-    marginBottom: 8, 
-    color: '#6B7280' 
+  label: {
+    fontSize: 12,
+    fontFamily: 'Montserrat-Bold',
+    marginBottom: 8,
+    color: '#6B7280',
   },
-  
-  // Estilos Móvil
   nativeContainer: {
     flex: 0,
-    zIndex: 9999,
-    elevation: 20,
+    zIndex: 50,
     position: 'relative',
   },
   textInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    zIndex: 10000,
-    elevation: 21,
+    zIndex: 60,
   },
   input: {
     flex: 1,
@@ -313,41 +324,51 @@ const styles = StyleSheet.create({
   },
   listView: {
     position: 'absolute',
-    zIndex: 10000, // <--- CLAVE: La lista debe ser lo más alto de todo
-    backgroundColor: 'white',
-    borderRadius: 8,
-    elevation: 30, // Sombra fuerte en Android
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
+    top: 61,
+    left: 0,
+    right: 0,
+    zIndex: 70,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     maxHeight: 260,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 9,
   },
   row: {
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: '#F1F5F9',
   },
   rowText: {
     fontSize: 14,
     color: '#111827',
   },
-  modalBackdrop: {
-    flex: 1,
+  emptyState: {
+    paddingHorizontal: 12,
+    paddingVertical: 14,
+    minHeight: 52,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 12,
+    color: '#64748B',
+    textAlign: 'center',
   },
   debugText: {
     marginTop: 6,
     fontSize: 11,
     color: '#6B7280',
   },
-
-  // Estilos Web
   webContainer: {
     width: '100%',
-    zIndex: 9999, // <--- Importante también aquí
+    zIndex: 9999,
     position: 'relative',
   },
   webInput: {
@@ -360,6 +381,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     color: '#1F2937',
-    outlineStyle: 'none', 
-  } as any, 
+    outlineStyle: 'none',
+  } as any,
 });
