@@ -6,7 +6,8 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "places:check": "node ./scripts/check-places-key.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/montserrat": "^0.4.2",
