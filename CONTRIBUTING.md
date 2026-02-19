@@ -133,6 +133,8 @@ Hook local `pre-push`:
 - Solo `PC1` ejecuta deploy a produccion.
 - Se deploya solo codigo que ya esta mergeado a `master`.
 - Si hay migraciones nuevas, aplicarlas antes de validar feature en produccion.
+- Para QA previo a release, usar checklist compartido:
+  `docs/qa-cross-release-checklist.md`.
 
 ## Convencion de comentarios de Roadmap
 
