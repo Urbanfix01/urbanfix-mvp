@@ -8,17 +8,64 @@ git fetch --quiet "$remote_name" || {
   exit 1
 }
 
+has_upstream=1
 if ! upstream=$(git rev-parse --abbrev-ref --symbolic-full-name "@{u}" 2>/dev/null); then
-  echo "Aviso: no hay upstream configurado. Para evitar pisadas usa: git push -u $remote_name <branch>" >&2
-  exit 0
+  has_upstream=0
+  upstream="${remote_name}/master"
+  echo "Aviso: no hay upstream configurado. Usando ${upstream} como base para validar." >&2
 fi
 
-ahead=$(git rev-list --count "${upstream}..HEAD" || echo 0)
-behind=$(git rev-list --count "HEAD..${upstream}" || echo 0)
+ahead=0
+behind=0
+if [ "$has_upstream" -eq 1 ]; then
+  ahead=$(git rev-list --count "${upstream}..HEAD" || echo 0)
+  behind=$(git rev-list --count "HEAD..${upstream}" || echo 0)
 
-if [ "$behind" -gt 0 ]; then
-  echo "El remoto tiene $behind commit(s) que no tienes. Corre: git pull --rebase" >&2
-  exit 1
+  if [ "$behind" -gt 0 ]; then
+    echo "El remoto tiene $behind commit(s) que no tienes. Corre: git pull --rebase" >&2
+    exit 1
+  fi
+fi
+
+base_ref="$upstream"
+if ! git rev-parse --verify --quiet "$base_ref" >/dev/null; then
+  base_ref="HEAD~1"
+fi
+
+changed_files="$(git diff --name-only "${base_ref}...HEAD" || true)"
+if [ -z "$changed_files" ]; then
+  changed_files="$(git diff --name-only HEAD~1..HEAD 2>/dev/null || true)"
+fi
+
+touches_web=0
+touches_mobile=0
+
+if printf '%s\n' "$changed_files" | grep -q '^apps/web/'; then
+  touches_web=1
+fi
+
+if printf '%s\n' "$changed_files" | grep -q '^apps/mobile/'; then
+  touches_mobile=1
+fi
+
+if [ "$touches_web" -eq 1 ]; then
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "npm no disponible; no se pudo validar apps/web. Aborta el push." >&2
+    exit 1
+  fi
+  echo "Validando apps/web (lint + build)..."
+  npm --prefix apps/web run lint || {
+    echo "Fallo lint en apps/web. Aborta el push." >&2
+    exit 1
+  }
+  npm --prefix apps/web run build || {
+    echo "Fallo build en apps/web. Aborta el push." >&2
+    exit 1
+  }
+fi
+
+if [ "$touches_mobile" -eq 1 ]; then
+  echo "Aviso: detectados cambios en apps/mobile. Corre validacion manual: npx --prefix apps/mobile tsc --noEmit" >&2
 fi
 
 if [ -n "${ROADMAP_AUTOSYNC_URL:-}" ] && [ -n "${ROADMAP_AUTOSYNC_TOKEN:-}" ]; then

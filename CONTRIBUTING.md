@@ -113,6 +113,11 @@ cd apps/mobile
 npx tsc --noEmit
 ```
 
+Hook local `pre-push`:
+- Si detecta cambios en `apps/web`, ejecuta automaticamente `npm --prefix apps/web run lint` y `npm --prefix apps/web run build`.
+- Si falla alguna validacion web, bloquea el push.
+- Si detecta cambios en `apps/mobile`, muestra recordatorio para correr `npx --prefix apps/mobile tsc --noEmit`.
+
 ## Checklist pre-push
 
 1. Rama correcta (nunca `master`).
