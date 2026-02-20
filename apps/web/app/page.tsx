@@ -440,7 +440,14 @@ export default function HomePage() {
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
                     />
-                    <Image src="/icon-48.png" alt="UrbanFix logo" width={34} height={34} priority className="sm:h-9 sm:w-9" />
+                    <Image
+                      src="/logo-ufx-main.png"
+                      alt="UrbanFix logo"
+                      width={40}
+                      height={40}
+                      priority
+                      className="h-9 w-9 object-contain sm:h-10 sm:w-10"
+                    />
                   </div>
                   <div className="min-w-0">
                     <p className={`${displayFont.className} hidden text-[12px] font-semibold uppercase tracking-[0.34em] text-[#647A9F] sm:block`}>
