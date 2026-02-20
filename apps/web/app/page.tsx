@@ -809,6 +809,26 @@ export default function HomePage() {
                       <span className="absolute left-3 top-3 rounded-full bg-[#0F172A]/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
                         Ventana
                       </span>
+                      {windowItem.id === 'ventana-personas' ? (
+                        <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            disabled
+                            className="cursor-not-allowed rounded-full border border-white/35 bg-[#0F172A]/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white opacity-90 backdrop-blur-sm"
+                            aria-label="Descarga Android proximamente"
+                          >
+                            Android - Proximamente
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            className="cursor-not-allowed rounded-full border border-white/35 bg-white/15 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white opacity-90 backdrop-blur-sm"
+                            aria-label="Descarga iOS proximamente"
+                          >
+                            iOS - Proximamente
+                          </button>
+                        </div>
+                      ) : null}
                     </div>
                     <div className="p-5">
                       <h3 className={`${displayFont.className} text-xl font-semibold text-slate-900`}>{windowItem.title}</h3>
