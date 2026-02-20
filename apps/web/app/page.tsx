@@ -581,7 +581,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                  <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
                     <Image
                       src="/playstore/feature-graphic.png"
                       alt="Vista general de UrbanFix para tecnicos"
@@ -590,23 +590,23 @@ export default function HomePage() {
                       priority
                       className="h-64 w-full object-cover"
                     />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href="https://play.google.com/apps/testing/com.urbanfix.app"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="rounded-full bg-[#0F172A] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Descargar Android
-                    </a>
-                    <button
-                      type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-500"
-                    >
-                      Descargar iOS (proximamente)
-                    </button>
+                    <div className="absolute inset-x-3 bottom-3 flex flex-wrap gap-2">
+                      <a
+                        href="https://play.google.com/apps/testing/com.urbanfix.app"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-full bg-[#0F172A]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition hover:bg-[#0F172A]"
+                      >
+                        Descargar Android
+                      </a>
+                      <button
+                        type="button"
+                        disabled
+                        className="cursor-not-allowed rounded-full border border-white/35 bg-white/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm"
+                      >
+                        iOS Proximamente
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -698,7 +698,7 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                  <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
                     <Image
                       src="/illustrations/PANEL DE CONTROL.jpeg"
                       alt="Operacion centralizada para negocio en UrbanFix"
@@ -706,23 +706,23 @@ export default function HomePage() {
                       height={630}
                       className="h-64 w-full object-cover"
                     />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <a
-                      href="https://play.google.com/apps/testing/com.urbanfix.app"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="rounded-full bg-[#0F172A] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
-                    >
-                      Descargar Android
-                    </a>
-                    <button
-                      type="button"
-                      disabled
-                      className="cursor-not-allowed rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-500"
-                    >
-                      Descargar iOS (proximamente)
-                    </button>
+                    <div className="absolute inset-x-3 bottom-3 flex flex-wrap gap-2">
+                      <a
+                        href="https://play.google.com/apps/testing/com.urbanfix.app"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-full bg-[#0F172A]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition hover:bg-[#0F172A]"
+                      >
+                        Descargar Android
+                      </a>
+                      <button
+                        type="button"
+                        disabled
+                        className="cursor-not-allowed rounded-full border border-white/35 bg-white/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm"
+                      >
+                        iOS Proximamente
+                      </button>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -734,6 +734,7 @@ export default function HomePage() {
                 }
 
                 const viewSuffix = item.viewId.replace('view-', '');
+                const isClientView = item.viewId === 'view-personas';
 
                 return (
                   <section
@@ -763,6 +764,26 @@ export default function HomePage() {
                           Ver vista negocio
                         </label>
                       </div>
+
+                      {isClientView ? (
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <a
+                            href="https://play.google.com/apps/testing/com.urbanfix.app"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded-full bg-[#0F172A] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            Descargar Android
+                          </a>
+                          <button
+                            type="button"
+                            disabled
+                            className="cursor-not-allowed rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-500"
+                          >
+                            Descargar iOS (proximamente)
+                          </button>
+                        </div>
+                      ) : null}
 
                       <ul className="mt-6 space-y-2.5">
                         {windowItem.bullets.map((bullet) => (
