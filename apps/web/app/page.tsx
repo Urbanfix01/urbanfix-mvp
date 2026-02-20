@@ -48,6 +48,15 @@ const navLinks = [
   { href: '#faq', label: 'FAQ' },
 ];
 
+const interfaceCaptures = {
+  panel: '/illustrations/PANEL%20DE%20CONTROL.jpg',
+  quoteBuilder: '/illustrations/PRESUPUESTADOR.jpg',
+  viewerLink: '/illustrations/LINK%20DEL%20PRESUPUESTO.jpg',
+  agenda: '/illustrations/AGENDA.jpg',
+  profile: '/illustrations/PERFIL%20TECNICO.jpg',
+  quotePdf: '/illustrations/PRESUPUESTO%20PDF.jpg',
+};
+
 const highlights = [
   {
     title: 'Presentacion profesional',
@@ -67,17 +76,17 @@ const serviceSegments = [
   {
     title: 'Electricidad y mantenimiento',
     description: 'Cotiza instalaciones, urgencias y mantenimientos con mejor control por item.',
-    image: '/illustrations/dashboard.svg',
+    image: interfaceCaptures.panel,
   },
   {
     title: 'Plomeria y gas',
     description: 'Muestra materiales y mano de obra con claridad para reducir idas y vueltas.',
-    image: '/illustrations/quotes.svg',
+    image: interfaceCaptures.quoteBuilder,
   },
   {
     title: 'Reformas y obras chicas',
     description: 'Ordena tareas por etapas para sostener seguimiento comercial hasta el cierre.',
-    image: '/illustrations/agenda.svg',
+    image: interfaceCaptures.agenda,
   },
 ];
 
@@ -104,25 +113,25 @@ const featureShowcase = [
   {
     title: 'Panel de control',
     description: 'Resumen de actividad, estados y accesos rapidos para arrancar el dia con foco.',
-    image: '/illustrations/dashboard.svg',
+    image: interfaceCaptures.panel,
     badge: 'Control',
   },
   {
     title: 'Presupuestos profesionales',
     description: 'Items por mano de obra y materiales, totales claros y estructura lista para enviar.',
-    image: '/illustrations/quotes.svg',
+    image: interfaceCaptures.quoteBuilder,
     badge: 'Cotizacion',
   },
   {
     title: 'Visualizador para clientes',
     description: 'Tu cliente abre el presupuesto por link, revisa el detalle y confirma.',
-    image: '/illustrations/viewer.svg',
+    image: interfaceCaptures.viewerLink,
     badge: 'Cliente',
   },
   {
     title: 'Agenda',
     description: 'Organiza trabajos aprobados y fechas comprometidas sin planillas paralelas.',
-    image: '/illustrations/agenda.svg',
+    image: interfaceCaptures.agenda,
     badge: 'Planificacion',
   },
   {
@@ -134,7 +143,7 @@ const featureShowcase = [
   {
     title: 'Perfil y marca',
     description: 'Logo, datos y presentacion profesional en cada propuesta que envias.',
-    image: '/illustrations/branding.svg',
+    image: interfaceCaptures.profile,
     badge: 'Marca',
   },
 ];
@@ -161,7 +170,7 @@ const comparisonRows = [
   {
     before: 'Cotizaciones repartidas en chats, notas y archivos sueltos',
     after: 'Presupuestos centralizados y listos para enviar en minutos',
-    image: '/illustrations/quotes.svg',
+    image: interfaceCaptures.quoteBuilder,
   },
   {
     before: 'Sin seguimiento despues del envio',
@@ -171,7 +180,7 @@ const comparisonRows = [
   {
     before: 'Imagen comercial improvisada frente al cliente',
     after: 'Presentacion profesional y consistente en cada propuesta',
-    image: '/illustrations/branding.svg',
+    image: interfaceCaptures.quotePdf,
   },
 ];
 
@@ -180,19 +189,19 @@ const testimonials = [
     quote:
       'Antes perdiamos horas por presupuesto. Con UrbanFix enviamos mas rapido y el cliente entiende mejor el alcance.',
     author: 'Equipo tecnico de mantenimiento',
-    image: '/illustrations/viewer.svg',
+    image: interfaceCaptures.viewerLink,
   },
   {
     quote:
       'El seguimiento por estados nos dio control real. Ya no se enfria una oportunidad por falta de orden.',
     author: 'Servicio de reformas domiciliarias',
-    image: '/illustrations/dashboard.svg',
+    image: interfaceCaptures.panel,
   },
   {
     quote:
       'Subio la calidad de presentacion y eso mejoro como nos perciben desde el primer contacto.',
     author: 'Tecnicos multi rubro',
-    image: '/illustrations/branding.svg',
+    image: interfaceCaptures.profile,
   },
 ];
 
@@ -204,12 +213,12 @@ const visualGallery = [
   },
   {
     title: 'Tablero comercial',
-    image: '/illustrations/dashboard.svg',
+    image: interfaceCaptures.panel,
     className: '',
   },
   {
     title: 'Presupuestos claros',
-    image: '/illustrations/quotes.svg',
+    image: interfaceCaptures.quoteBuilder,
     className: '',
   },
   {
@@ -219,7 +228,7 @@ const visualGallery = [
   },
   {
     title: 'Agenda operativa',
-    image: '/illustrations/agenda.svg',
+    image: interfaceCaptures.agenda,
     className: '',
   },
 ];
