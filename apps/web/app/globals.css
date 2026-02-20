@@ -103,6 +103,24 @@ header .header-view-option {
   display: grid;
 }
 
+.flow-zone .process-flow-pane {
+  display: none;
+  animation: home-view-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+#view-tech:checked ~ .flow-zone .process-flow-pane--tech {
+  display: block;
+}
+
+#view-biz:checked ~ .flow-zone .process-flow-pane--biz,
+#view-personas:checked ~ .flow-zone .process-flow-pane--biz,
+#view-guias:checked ~ .flow-zone .process-flow-pane--biz,
+#view-ciudades:checked ~ .flow-zone .process-flow-pane--biz,
+#view-rubros:checked ~ .flow-zone .process-flow-pane--biz,
+#view-android:checked ~ .flow-zone .process-flow-pane--biz {
+  display: block;
+}
+
 @keyframes home-view-in {
   from {
     opacity: 0;
@@ -116,6 +134,10 @@ header .header-view-option {
 
 @media (prefers-reduced-motion: reduce) {
   .view-zone .view-pane {
+    animation: none !important;
+  }
+
+  .flow-zone .process-flow-pane {
     animation: none !important;
   }
 }

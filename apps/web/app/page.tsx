@@ -145,10 +145,10 @@ const inPageWindows: Array<{
   },
 ];
 
-const processSteps = [
+const processStepsTech = [
   {
     title: '1. Armado',
-    description: 'Carga cliente, direccion, tareas y materiales en un solo flujo.',
+    description: 'Carga cliente, direccion, tareas y materiales en un solo flujo operativo.',
   },
   {
     title: '2. Envio',
@@ -161,6 +161,25 @@ const processSteps = [
   {
     title: '4. Seguimiento',
     description: 'Pasa a agenda, notificaciones e historial para cerrar la obra sin perder datos.',
+  },
+];
+
+const processStepsBiz = [
+  {
+    title: '1. Estandarizacion',
+    description: 'Define criterio comercial comun para todo el equipo y evita propuestas dispares.',
+  },
+  {
+    title: '2. Distribucion',
+    description: 'Asigna responsables y canaliza las propuestas con visibilidad por area.',
+  },
+  {
+    title: '3. Control',
+    description: 'Supervisa avance, aprobacion y conversion con lectura clara del pipeline.',
+  },
+  {
+    title: '4. Escala',
+    description: 'Replica el flujo en mas zonas o equipos sin perder trazabilidad de punta a punta.',
   },
 ];
 
@@ -785,6 +804,45 @@ export default function HomePage() {
               </section>
             </div>
 
+            <section
+              id="proceso"
+              className="flow-zone mt-8 rounded-[30px] border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-8 shadow-sm"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Como funciona</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Flujo simple para no perder tiempo</h2>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
+                El flujo se adapta automaticamente segun la audiencia seleccionada: tecnicos o negocio.
+              </p>
+
+              <div className="process-flow-pane process-flow-pane--tech mt-5">
+                <span className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700">
+                  Flujo para tecnicos
+                </span>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {processStepsTech.map((step) => (
+                    <article key={step.title} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600">{step.description}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
+              <div className="process-flow-pane process-flow-pane--biz mt-5">
+                <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold text-cyan-800">
+                  Flujo para negocio
+                </span>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {processStepsBiz.map((step) => (
+                    <article key={step.title} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600">{step.description}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </section>
+
             <section id="ventanas" className="mt-8 rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Navegacion integrada</p>
               <h2 className={`${displayFont.className} mt-2 text-2xl font-semibold text-slate-900`}>
@@ -865,22 +923,6 @@ export default function HomePage() {
                   <p className="mt-2 text-sm leading-relaxed text-slate-600">{panel.description}</p>
                 </article>
               ))}
-            </section>
-
-            <section
-              id="proceso"
-              className="mt-8 rounded-[30px] border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-8 shadow-sm"
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Como funciona</p>
-              <h2 className="mt-2 text-2xl font-semibold text-slate-900">Flujo simple para no perder tiempo</h2>
-              <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {processSteps.map((step) => (
-                  <div key={step.title} className="rounded-2xl border border-slate-200 bg-white p-4">
-                    <p className="text-sm font-semibold text-slate-900">{step.title}</p>
-                    <p className="mt-2 text-xs leading-relaxed text-slate-600">{step.description}</p>
-                  </div>
-                ))}
-              </div>
             </section>
 
             <section id="modulos" className="mt-8 rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
