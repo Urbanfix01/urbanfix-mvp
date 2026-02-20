@@ -45,6 +45,55 @@ body {
   }
 }
 
+/* --- AUDIENCE SWITCHER (HOME) --- */
+#aud-tech:checked ~ header .audience-toggle-option--tech,
+#aud-biz:checked ~ header .audience-toggle-option--biz {
+  color: #ffffff;
+}
+
+#aud-tech:checked ~ header .audience-toggle-option--biz,
+#aud-biz:checked ~ header .audience-toggle-option--tech {
+  color: #334155;
+}
+
+#aud-biz:checked ~ header .audience-toggle-pill {
+  transform: translateX(100%);
+}
+
+.hero-zone {
+  position: relative;
+}
+
+.hero-zone .audience-hero {
+  transition: opacity 320ms cubic-bezier(0.16, 1, 0.3, 1), transform 320ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.hero-zone .audience-hero--biz {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+}
+
+#aud-biz:checked ~ .hero-zone .audience-hero--tech {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-8px);
+}
+
+#aud-biz:checked ~ .hero-zone .audience-hero--biz {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-zone .audience-hero {
+    transition: none !important;
+  }
+}
+
 /* --- ESTILOS DE IMPRESIÓN (PDF/CTRL+P) --- */
 @media print {
   /* 1. Forzar al navegador a imprimir los colores de fondo (Header Azul, Badges, etc) */

@@ -75,19 +75,6 @@ const headerUtilityLinks = [
   },
 ];
 
-const headerAudienceLinks = [
-  {
-    label: 'Para tecnicos',
-    href: '/tecnicos',
-    active: true,
-  },
-  {
-    label: 'Para negocio',
-    href: '/urbanfix',
-    active: false,
-  },
-];
-
 const headerMainLinks = [
   { label: 'Personas', href: '/urbanfix' },
   { label: 'Guia precios', href: '/guias-precios' },
@@ -184,6 +171,39 @@ const kpiCards = [
   },
 ];
 
+const businessHighlights = [
+  {
+    title: 'Estandar operativo',
+    description: 'Criterio unificado de cotizacion para todo el equipo y menos desvio comercial.',
+  },
+  {
+    title: 'Trazabilidad completa',
+    description: 'Cada propuesta queda registrada con estado, historial y responsable.',
+  },
+  {
+    title: 'Escala comercial',
+    description: 'Mas volumen de presupuestos sin perder control ni calidad de entrega.',
+  },
+];
+
+const businessKpiCards = [
+  {
+    value: '1 tablero',
+    label: 'Para ver operaciones y pipeline comercial',
+    detail: 'Visibilidad central de avance, aprobacion y seguimiento por responsable.',
+  },
+  {
+    value: '0 caos',
+    label: 'En handoffs entre equipo y cliente',
+    detail: 'Misma informacion para ventas, ejecucion y cliente final en tiempo real.',
+  },
+  {
+    value: 'ROI',
+    label: 'Con foco en eficiencia del proceso',
+    detail: 'Menos retrabajo administrativo y mas tiempo en tareas de valor.',
+  },
+];
+
 const tradeBadges = [
   'Electricidad',
   'Plomeria',
@@ -194,6 +214,8 @@ const tradeBadges = [
   'Techos',
   'Gas',
 ];
+
+const businessBadges = ['Contratistas', 'Cuadrillas', 'Estudios tecnicos', 'Constructoras', 'Mantenimiento'];
 
 const impactPanels = [
   {
@@ -320,6 +342,9 @@ export default function HomePage() {
           <div className="absolute -right-24 bottom-20 h-80 w-80 rounded-full bg-[#F59E0B]/15 blur-3xl" />
 
           <main className="fx-page relative mx-auto w-full max-w-7xl px-6 py-10 md:py-12">
+            <input id="aud-tech" name="audience-home" type="radio" defaultChecked className="sr-only" />
+            <input id="aud-biz" name="audience-home" type="radio" className="sr-only" />
+
             <header className="overflow-hidden rounded-[32px] border border-slate-200/90 bg-white/95 shadow-[0_20px_65px_-42px_rgba(15,23,42,0.7)] backdrop-blur">
               <div className="border-b border-slate-200/60 bg-[#0B1E44] px-6 py-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-slate-200">
@@ -363,20 +388,20 @@ export default function HomePage() {
                   </div>
 
                   <div className="flex flex-wrap items-center justify-end gap-3">
-                    <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 p-1">
-                      {headerAudienceLinks.map((item) => (
-                        <Link
-                          key={item.label}
-                          href={item.href}
-                          className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
-                            item.active
-                              ? 'bg-[#0D3FA8] text-white shadow-sm shadow-blue-200/80'
-                              : 'text-slate-700 hover:bg-white hover:text-slate-900'
-                          }`}
-                        >
-                          {item.label}
-                        </Link>
-                      ))}
+                    <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
+                      <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
+                      <label
+                        htmlFor="aud-tech"
+                        className="audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition"
+                      >
+                        Para tecnicos
+                      </label>
+                      <label
+                        htmlFor="aud-biz"
+                        className="audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition"
+                      >
+                        Para negocio
+                      </label>
                     </div>
 
                     <div className="hidden items-center gap-2 xl:flex">
@@ -404,106 +429,207 @@ export default function HomePage() {
               </div>
             </header>
 
-            <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
-                <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
-                  Plataforma para tecnicos de Argentina
-                </p>
-                <h1 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
-                  Presupuestos de obra <span className="text-amber-500">sin caos</span>, desde el primer contacto
-                  hasta el cobro.
-                </h1>
-                <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
-                  UrbanFix une presupuesto, cliente y seguimiento en un flujo claro. Cotiza mas rapido, comparte por
-                  link y controla cada estado sin depender de planillas dispersas.
-                </p>
+            <div className="hero-zone mt-8">
+              <section className="audience-hero audience-hero--tech grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+                  <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
+                    Plataforma para tecnicos de Argentina
+                  </p>
+                  <h1 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
+                    Presupuestos de obra <span className="text-amber-500">sin caos</span>, desde el primer contacto
+                    hasta el cobro.
+                  </h1>
+                  <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
+                    UrbanFix une presupuesto, cliente y seguimiento en un flujo claro. Cotiza mas rapido, comparte por
+                    link y controla cada estado sin depender de planillas dispersas.
+                  </p>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  <Link
-                    href="/tecnicos"
-                    className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
-                  >
-                    Empezar como tecnico
-                  </Link>
-                  <Link
-                    href="/precios-mano-de-obra"
-                    className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
-                  >
-                    Ver guia de precios
-                  </Link>
-                </div>
-
-                <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                  {highlights.map((item) => (
-                    <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                      <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{item.description}</p>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-6 flex flex-wrap gap-2">
-                  {tradeBadges.map((trade) => (
-                    <span
-                      key={trade}
-                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href="/tecnicos"
+                      className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
-                      {trade}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {trustChips.map((chip) => (
-                    <span
-                      key={chip}
-                      className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
+                      Empezar como tecnico
+                    </Link>
+                    <Link
+                      href="/precios-mano-de-obra"
+                      className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
-                      {chip}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                      Ver guia de precios
+                    </Link>
+                  </div>
 
-              <div className="space-y-4">
-                <div className="relative overflow-hidden rounded-[30px] border border-slate-900/60 bg-[#071533] p-6 text-white shadow-[0_24px_80px_-38px_rgba(10,18,38,0.95)]">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(245,185,66,0.32),transparent_45%),radial-gradient(circle_at_88%_10%,rgba(14,165,233,0.22),transparent_38%)]" />
-                  <div className="pointer-events-none absolute -right-12 top-16 h-36 w-36 rounded-full border border-cyan-300/20" />
-                  <div className="relative">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Resultado operativo</p>
-                    <h2 className={`${displayFont.className} mt-2 text-[30px] font-semibold leading-[1.05] text-white`}>
-                      Operacion mas predecible
-                    </h2>
-                    <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-200">
-                      Menos friccion para cotizar, mas claridad para el cliente y seguimiento ordenado de punta a punta.
-                    </p>
-                    <div className="mt-5 grid gap-3">
-                      {kpiCards.map((metric) => (
-                        <div
-                          key={metric.value + metric.label}
-                          className="rounded-2xl border border-cyan-200/20 bg-slate-950/45 px-4 py-3.5 backdrop-blur-sm"
-                        >
-                          <p className={`${displayFont.className} text-[31px] leading-none text-amber-300`}>{metric.value}</p>
-                          <p className="mt-1 text-[13px] font-semibold text-slate-100">{metric.label}</p>
-                          <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{metric.detail}</p>
-                        </div>
-                      ))}
-                    </div>
+                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                    {highlights.map((item) => (
+                      <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{item.description}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {tradeBadges.map((trade) => (
+                      <span
+                        key={trade}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                      >
+                        {trade}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {trustChips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
+                      >
+                        {chip}
+                      </span>
+                    ))}
                   </div>
                 </div>
 
-                <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                  <Image
-                    src="/playstore/feature-graphic.png"
-                    alt="Vista general de UrbanFix para tecnicos"
-                    width={1200}
-                    height={630}
-                    priority
-                    className="h-64 w-full object-cover"
-                  />
+                <div className="space-y-4">
+                  <div className="relative overflow-hidden rounded-[30px] border border-slate-900/60 bg-[#071533] p-6 text-white shadow-[0_24px_80px_-38px_rgba(10,18,38,0.95)]">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(245,185,66,0.32),transparent_45%),radial-gradient(circle_at_88%_10%,rgba(14,165,233,0.22),transparent_38%)]" />
+                    <div className="pointer-events-none absolute -right-12 top-16 h-36 w-36 rounded-full border border-cyan-300/20" />
+                    <div className="relative">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Resultado operativo</p>
+                      <h2 className={`${displayFont.className} mt-2 text-[30px] font-semibold leading-[1.05] text-white`}>
+                        Operacion mas predecible
+                      </h2>
+                      <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-200">
+                        Menos friccion para cotizar, mas claridad para el cliente y seguimiento ordenado de punta a punta.
+                      </p>
+                      <div className="mt-5 grid gap-3">
+                        {kpiCards.map((metric) => (
+                          <div
+                            key={metric.value + metric.label}
+                            className="rounded-2xl border border-cyan-200/20 bg-slate-950/45 px-4 py-3.5 backdrop-blur-sm"
+                          >
+                            <p className={`${displayFont.className} text-[31px] leading-none text-amber-300`}>{metric.value}</p>
+                            <p className="mt-1 text-[13px] font-semibold text-slate-100">{metric.label}</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{metric.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                    <Image
+                      src="/playstore/feature-graphic.png"
+                      alt="Vista general de UrbanFix para tecnicos"
+                      width={1200}
+                      height={630}
+                      priority
+                      className="h-64 w-full object-cover"
+                    />
+                  </div>
                 </div>
-              </div>
-            </section>
+              </section>
+
+              <section className="audience-hero audience-hero--biz grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+                  <p className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-800">
+                    Propuesta para negocio y equipos
+                  </p>
+                  <h2 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
+                    Estandariza tu <span className="text-[#0D3FA8]">operacion comercial</span> y escala sin perder control.
+                  </h2>
+                  <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
+                    UrbanFix te da una base comun para ventas, ejecucion y seguimiento. Menos dispersion de informacion,
+                    mas velocidad de respuesta y mejor experiencia para cada cliente.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href="/urbanfix"
+                      className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    >
+                      Ver propuesta para negocio
+                    </Link>
+                    <Link
+                      href="/tecnicos"
+                      className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
+                    >
+                      Evaluar demo operativa
+                    </Link>
+                  </div>
+
+                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                    {businessHighlights.map((item) => (
+                      <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{item.description}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {businessBadges.map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {trustChips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="relative overflow-hidden rounded-[30px] border border-slate-900/60 bg-[#071533] p-6 text-white shadow-[0_24px_80px_-38px_rgba(10,18,38,0.95)]">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(14,165,233,0.3),transparent_45%),radial-gradient(circle_at_88%_10%,rgba(59,130,246,0.24),transparent_38%)]" />
+                    <div className="pointer-events-none absolute -right-12 top-16 h-36 w-36 rounded-full border border-cyan-300/20" />
+                    <div className="relative">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Resultado de negocio</p>
+                      <h2 className={`${displayFont.className} mt-2 text-[30px] font-semibold leading-[1.05] text-white`}>
+                        Operacion escalable y auditable
+                      </h2>
+                      <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-200">
+                        Una propuesta consistente para lideres de equipo: mejor control del flujo y menos dependencia de procesos manuales.
+                      </p>
+                      <div className="mt-5 grid gap-3">
+                        {businessKpiCards.map((metric) => (
+                          <div
+                            key={metric.value + metric.label}
+                            className="rounded-2xl border border-cyan-200/20 bg-slate-950/45 px-4 py-3.5 backdrop-blur-sm"
+                          >
+                            <p className={`${displayFont.className} text-[31px] leading-none text-cyan-200`}>{metric.value}</p>
+                            <p className="mt-1 text-[13px] font-semibold text-slate-100">{metric.label}</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{metric.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                    <Image
+                      src="/illustrations/PANEL DE CONTROL.jpeg"
+                      alt="Operacion centralizada para negocio en UrbanFix"
+                      width={1200}
+                      height={630}
+                      className="h-64 w-full object-cover"
+                    />
+                  </div>
+                </div>
+              </section>
+            </div>
 
             <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
