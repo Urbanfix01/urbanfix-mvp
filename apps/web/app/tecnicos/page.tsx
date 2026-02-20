@@ -361,7 +361,7 @@ const RUBRO_LABELS: Record<string, string> = {
   gas: 'Gas',
   sanitario: 'Sanitario',
   electricidad: 'Electricidad',
-  albanileria: 'Albañileria',
+  albanileria: 'AlbaÃ±ileria',
 };
 
 const resolveMasterRubro = (item: MasterItemRow) => {
@@ -1607,7 +1607,7 @@ export default function TechniciansPage() {
       });
       if (error) throw error;
       if (!data || !data.id) {
-        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o polÃ­ticas de seguridad.');
       }
       setQuotes((prev) =>
         prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote))
@@ -1750,7 +1750,7 @@ export default function TechniciansPage() {
   };
 
   const handleDeleteQuote = async (quote: QuoteRow) => {
-    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
+    if (!confirm(`Â¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acciÃ³n no se puede deshacer.`)) {
       return;
     }
       try {
@@ -2007,7 +2007,7 @@ export default function TechniciansPage() {
     setAuthNotice('');
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contraseña.');
+      setAuthError('Ingresa tu correo para recuperar la contraseÃ±a.');
       return;
     }
     setSendingRecovery(true);
@@ -2015,9 +2015,9 @@ export default function TechniciansPage() {
       const redirectTo = `${window.location.origin}/tecnicos`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseÃ±a.');
     } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos enviar el correo de recuperación.');
+      setAuthError(error?.message || 'No pudimos enviar el correo de recuperaciÃ³n.');
     } finally {
       setSendingRecovery(false);
     }
@@ -2027,28 +2027,28 @@ export default function TechniciansPage() {
     setRecoveryError('');
     setRecoveryMessage('');
     if (!session?.user) {
-      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
+      setRecoveryError('La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.');
       return;
     }
     const nextPassword = recoveryPassword.trim();
     const confirmPassword = recoveryConfirm.trim();
     if (!nextPassword) {
-      setRecoveryError('Ingresa una nueva contraseña.');
+      setRecoveryError('Ingresa una nueva contraseÃ±a.');
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setRecoveryError('Las contraseñas no coinciden.');
+      setRecoveryError('Las contraseÃ±as no coinciden.');
       return;
     }
     setUpdatingRecovery(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: nextPassword });
       if (error) throw error;
-      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
+      setRecoveryMessage('Listo. Tu contraseÃ±a fue actualizada.');
       setRecoveryPassword('');
       setRecoveryConfirm('');
     } catch (error: any) {
-      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseÃ±a.');
     } finally {
       setUpdatingRecovery(false);
     }
@@ -2166,7 +2166,7 @@ export default function TechniciansPage() {
           <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
             <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
             <p className="mt-3 text-sm text-slate-600">
-              Tu cuenta está configurada como admin. Te llevamos al panel de control.
+              Tu cuenta estÃ¡ configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
@@ -2227,9 +2227,9 @@ export default function TechniciansPage() {
                     <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseña</h1>
+                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseÃ±a</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Define una nueva contraseña para volver a acceder a tu cuenta.
+                  Define una nueva contraseÃ±a para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
@@ -2242,13 +2242,13 @@ export default function TechniciansPage() {
 
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseña</h2>
-                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseña para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseÃ±a</h2>
+                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseÃ±a para finalizar.</p>
                 </div>
 
                 {!session?.user && (
                   <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
+                    La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.
                   </div>
                 )}
 
@@ -2259,14 +2259,14 @@ export default function TechniciansPage() {
                         value={recoveryPassword}
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
-                        placeholder="Nueva contraseña"
+                        placeholder="Nueva contraseÃ±a"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
-                        placeholder="Repetir contraseña"
+                        placeholder="Repetir contraseÃ±a"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                     </div>
@@ -2281,7 +2281,7 @@ export default function TechniciansPage() {
                         disabled={updatingRecovery}
                         className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                       >
-                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
+                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseÃ±a'}
                       </button>
                     )}
 
@@ -2333,20 +2333,20 @@ export default function TechniciansPage() {
                 </div>
                 <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">Configura tu perfil</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Antes de crear presupuestos necesitamos tus datos bÃ¡sicos. Esto se muestra en el link pÃºblico y en el
+                  Antes de crear presupuestos necesitamos tus datos bÃƒÂ¡sicos. Esto se muestra en el link pÃƒÂºblico y en el
                   PDF que recibe tu cliente.
                 </p>
 
                 <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl shadow-slate-200/60">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por quÃ© te lo pedimos</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por quÃƒÂ© te lo pedimos</p>
                   <ul className="mt-4 space-y-3 text-sm text-slate-600">
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Tu cliente identifica rÃ¡pido tu negocio y confÃ­a mÃ¡s en el presupuesto.
+                      Tu cliente identifica rÃƒÂ¡pido tu negocio y confÃƒÂ­a mÃƒÂ¡s en el presupuesto.
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Evitas preguntas repetidas (telÃ©fono, direcciÃ³n, horarios) y aceleras la aprobaciÃ³n.
+                      Evitas preguntas repetidas (telÃƒÂ©fono, direcciÃƒÂ³n, horarios) y aceleras la aprobaciÃƒÂ³n.
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
@@ -2358,7 +2358,7 @@ export default function TechniciansPage() {
                 <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejo de marca</p>
                   <p className="mt-3 text-sm text-slate-600">
-                    Logo recomendado: fondo transparente o claro, alto contraste y versiÃ³n horizontal si es posible.
+                    Logo recomendado: fondo transparente o claro, alto contraste y versiÃƒÂ³n horizontal si es posible.
                     Foto recomendada: rostro visible, luz natural y fondo simple.
                   </p>
                 </div>
@@ -2560,94 +2560,159 @@ export default function TechniciansPage() {
               </a>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
-              <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-slate-900">Ingresa a tu cuenta</h2>
-                <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Continuar con Google
-              </button>
-
-              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-                <div className="h-px flex-1 bg-slate-200" />
-                o
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              {authMode === 'register' && (
-                <div className="space-y-3">
-                  <input
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Nombre completo"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <input
-                    value={businessName}
-                    onChange={(event) => setBusinessName(event.target.value)}
-                    placeholder="Nombre del negocio"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
+            <div className="relative overflow-hidden rounded-[32px] border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#F5B942]/20 to-transparent"
+              />
+              <div className="relative space-y-6">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Acceso seguro
+                  </span>
+                  <span className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white">
+                    Panel web
+                  </span>
                 </div>
-              )}
 
-              <div className="mt-4 space-y-3">
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Correo"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type="password"
-                  placeholder="Contrasena"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
-              </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {authMode === 'login' ? 'Ingresa a tu cuenta' : 'Crea tu cuenta tecnica'}
+                  </h2>
+                  <p className="text-sm text-slate-600">
+                    Accede con Google o correo y sincroniza presupuestos, agenda y perfil en un solo lugar.
+                  </p>
+                </div>
 
-              {authMode === 'login' && (
-                <div className="mt-3 flex justify-end">
+                <div className="grid gap-2 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cotizacion</p>
+                    <p className="mt-1 text-[11px] text-slate-600">Flujo ordenado de punta a punta</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Cliente</p>
+                    <p className="mt-1 text-[11px] text-slate-600">Visualizador por link</p>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Agenda</p>
+                    <p className="mt-1 text-[11px] text-slate-600">Seguimiento diario</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
                   <button
                     type="button"
-                    onClick={handlePasswordRecovery}
-                    disabled={sendingRecovery}
-                    className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthError('');
+                      setAuthNotice('');
+                    }}
+                    className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      authMode === 'login' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
                   >
-                    {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                    Ingresar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('register');
+                      setAuthError('');
+                      setAuthNotice('');
+                    }}
+                    className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      authMode === 'register'
+                        ? 'bg-white text-slate-900 shadow-sm'
+                        : 'text-slate-500 hover:text-slate-700'
+                    }`}
+                  >
+                    Crear cuenta
                   </button>
                 </div>
-              )}
 
-              {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
-              {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className="flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                >
+                  Continuar con Google
+                </button>
 
-              <button
-                type="button"
-                onClick={handleEmailAuth}
-                className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
-              >
-                {authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
-              </button>
+                <div className="flex items-center gap-3 text-xs text-slate-400">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  o con correo
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode(authMode === 'login' ? 'register' : 'login');
-                  setAuthError('');
-                  setAuthNotice('');
-                }}
-                className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
-              >
-                {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
-              </button>
+                {authMode === 'register' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-500">Nombre completo</label>
+                      <input
+                        value={fullName}
+                        onChange={(event) => setFullName(event.target.value)}
+                        placeholder="Ej: Juan Perez"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-slate-500">Nombre del negocio</label>
+                      <input
+                        value={businessName}
+                        onChange={(event) => setBusinessName(event.target.value)}
+                        placeholder="Ej: Servicios Tecnicos Norte"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Correo</label>
+                    <input
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="tu@correo.com"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-500">Contrasena</label>
+                    <input
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      type="password"
+                      placeholder="Minimo 6 caracteres"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                  </div>
+                </div>
+
+                {authMode === 'login' && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handlePasswordRecovery}
+                      disabled={sendingRecovery}
+                      className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                    >
+                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contrasena?'}
+                    </button>
+                  </div>
+                )}
+
+                {authNotice && <p className="rounded-xl bg-emerald-50 px-3 py-2 text-xs text-emerald-700">{authNotice}</p>}
+                {authError && <p className="rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-700">{authError}</p>}
+
+                <button
+                  type="button"
+                  onClick={handleEmailAuth}
+                  className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                >
+                  {authMode === 'login' ? 'Ingresar al panel' : 'Crear cuenta'}
+                </button>
+              </div>
             </div>
           </main>
         </div>
@@ -3566,7 +3631,7 @@ export default function TechniciansPage() {
                             </div>
                           </div>
                         <p className="mt-1 text-xs text-slate-500">
-                          {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                          {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                           {new Date(quote.created_at).toLocaleDateString('es-AR')}
                         </p>
                         <p className="mt-3 text-sm font-semibold text-slate-900">
@@ -3637,7 +3702,7 @@ export default function TechniciansPage() {
                       onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')}
                       className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                     >
-                      Abrir en pestaña
+                      Abrir en pestaÃ±a
                     </button>
                   )}
                 </div>
@@ -3758,7 +3823,7 @@ export default function TechniciansPage() {
                             )}
                           </div>
                           <p className="mt-1 text-xs text-slate-500">
-                            {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                            {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                             {new Date(quote.created_at).toLocaleDateString('es-AR')}
                           </p>
                           {durationDays > 0 && (
