@@ -375,10 +375,10 @@ export default function HomePage() {
             <input id="aud-tech" name="audience-home" type="radio" defaultChecked className="sr-only" />
             <input id="aud-biz" name="audience-home" type="radio" className="sr-only" />
 
-            <header className="overflow-hidden rounded-[32px] border border-slate-200/90 bg-white/95 px-6 py-5 shadow-[0_20px_65px_-42px_rgba(15,23,42,0.7)] backdrop-blur">
-                <div className="flex flex-wrap items-center justify-between gap-5">
-                  <div className="flex min-w-0 items-center gap-4">
-                    <div className="relative grid h-16 w-16 place-items-center rounded-[22px] bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_24px_42px_-24px_rgba(10,18,38,0.95)] ring-1 ring-slate-300/45">
+            <header className="sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45">
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute -inset-1 -z-10 rounded-[24px] bg-[radial-gradient(circle_at_30%_0%,rgba(59,130,246,0.35),transparent_62%)] blur-sm"
@@ -387,39 +387,39 @@ export default function HomePage() {
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
                       />
-                      <Image src="/icon-48.png" alt="UrbanFix logo" width={34} height={34} priority />
+                      <Image src="/icon-48.png" alt="UrbanFix logo" width={26} height={26} priority />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#647A9F]">UrbanFix</p>
-                      <p className={`${displayFont.className} mt-0.5 truncate text-[23px] font-semibold leading-none text-[#18213A] sm:text-[34px]`}>
+                      <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#647A9F] sm:block">UrbanFix</p>
+                      <p className={`${displayFont.className} truncate text-[18px] font-semibold leading-none text-[#18213A] sm:text-[30px]`}>
                         Gestion de <span className="text-[#0D3FA8]">presupuestos</span> de obra
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-end gap-3">
+                  <div className="flex shrink-0 items-center justify-end gap-2">
                     <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
                       <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
                       <label
                         htmlFor="aud-tech"
-                        className="audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition"
+                        className="audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                       >
                         Para tecnicos
                       </label>
                       <label
                         htmlFor="aud-biz"
-                        className="audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition"
+                        className="audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                       >
                         Para negocio
                       </label>
                     </div>
 
-                    <div className="hidden items-center gap-2 xl:flex">
+                    <div className="hidden items-center gap-1.5 2xl:flex">
                       {headerMainLinks.map((item) => (
                         <a
                           key={item.label}
                           href={`#${item.targetId}`}
-                          className="rounded-full px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                          className="rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                         >
                           {item.label}
                         </a>
@@ -430,7 +430,7 @@ export default function HomePage() {
                       href="https://play.google.com/apps/testing/com.urbanfix.app"
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="rounded-full bg-[#0F172A] px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                      className="rounded-full bg-[#0F172A] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800"
                     >
                       Android beta
                     </a>
