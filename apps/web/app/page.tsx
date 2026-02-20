@@ -60,12 +60,22 @@ const highlights = [
   },
 ];
 
-const headerMainLinks = [
-  { label: 'Personas', targetId: 'ventana-personas' },
-  { label: 'Guia precios', targetId: 'ventana-guias' },
-  { label: 'Ciudades', targetId: 'ventana-ciudades' },
-  { label: 'Rubros', targetId: 'ventana-rubros' },
-];
+const headerSecondaryViews = [
+  { label: 'Personas', viewId: 'view-personas', windowId: 'ventana-personas' },
+  { label: 'Guia precios', viewId: 'view-guias', windowId: 'ventana-guias' },
+  { label: 'Ciudades', viewId: 'view-ciudades', windowId: 'ventana-ciudades' },
+  { label: 'Rubros', viewId: 'view-rubros', windowId: 'ventana-rubros' },
+] as const;
+
+const homepageViewInputs = [
+  'view-tech',
+  'view-biz',
+  'view-personas',
+  'view-guias',
+  'view-ciudades',
+  'view-rubros',
+  'view-android',
+] as const;
 
 const trustChips = [
   'Producto en uso real en Argentina',
@@ -372,8 +382,16 @@ export default function HomePage() {
           <div className="absolute -right-24 bottom-20 h-80 w-80 rounded-full bg-[#F59E0B]/15 blur-3xl" />
 
           <main className="fx-page relative mx-auto w-full max-w-7xl px-6 py-10 md:py-12">
-            <input id="aud-tech" name="audience-home" type="radio" defaultChecked className="sr-only" />
-            <input id="aud-biz" name="audience-home" type="radio" className="sr-only" />
+            {homepageViewInputs.map((viewId, index) => (
+              <input
+                key={viewId}
+                id={viewId}
+                name="homepage-view"
+                type="radio"
+                defaultChecked={index === 0}
+                className="sr-only"
+              />
+            ))}
 
             <header className="sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
                 <div className="flex items-center justify-between gap-3">
@@ -401,29 +419,35 @@ export default function HomePage() {
                     <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
                       <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
                       <label
-                        htmlFor="aud-tech"
-                        className="audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
+                        htmlFor="view-tech"
+                        className="header-view-option audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                       >
                         Para tecnicos
                       </label>
                       <label
-                        htmlFor="aud-biz"
-                        className="audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
+                        htmlFor="view-biz"
+                        className="header-view-option audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                       >
                         Para negocio
                       </label>
                     </div>
 
-                    <div className="hidden items-center gap-1.5 2xl:flex">
-                      {headerMainLinks.map((item) => (
-                        <a
+                    <div className="hidden items-center gap-1.5 xl:flex">
+                      {headerSecondaryViews.map((item) => (
+                        <label
                           key={item.label}
-                          href={`#${item.targetId}`}
-                          className="rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                          htmlFor={item.viewId}
+                          className={`header-view-option header-view-option--${item.viewId.replace('view-', '')} cursor-pointer rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900`}
                         >
                           {item.label}
-                        </a>
+                        </label>
                       ))}
+                      <label
+                        htmlFor="view-android"
+                        className="header-view-option header-view-option--android cursor-pointer rounded-full border border-slate-300 px-3.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                      >
+                        Android beta
+                      </label>
                     </div>
 
                     <Link
@@ -432,20 +456,12 @@ export default function HomePage() {
                     >
                       Registro en 2s
                     </Link>
-                    <a
-                      href="https://play.google.com/apps/testing/com.urbanfix.app"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="hidden rounded-full border border-slate-300 px-3.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900 xl:inline-flex"
-                    >
-                      Android beta
-                    </a>
                   </div>
                 </div>
             </header>
 
-            <div className="hero-zone mt-8">
-              <section className="audience-hero audience-hero--tech grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="view-zone mt-8">
+              <section className="view-pane view-pane--tech grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
                     Plataforma para tecnicos de Argentina
@@ -466,12 +482,12 @@ export default function HomePage() {
                     >
                       Crear cuenta en 2 segundos
                     </Link>
-                    <a
-                      href="#ventana-guias"
-                      className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
+                    <label
+                      htmlFor="view-guias"
+                      className="cursor-pointer rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
                       Ver guia de precios
-                    </a>
+                    </label>
                   </div>
 
                   <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -546,7 +562,7 @@ export default function HomePage() {
                 </div>
               </section>
 
-              <section className="audience-hero audience-hero--biz grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <section className="view-pane view-pane--biz grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-800">
                     Propuesta para negocio y equipos
@@ -560,12 +576,12 @@ export default function HomePage() {
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <a
-                      href="#ventana-negocio"
-                      className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    <label
+                      htmlFor="view-personas"
+                      className="cursor-pointer rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
-                      Ver propuesta para negocio
-                    </a>
+                      Ver propuesta institucional
+                    </label>
                     <Link
                       href="/tecnicos?quick=1&mode=register"
                       className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
@@ -644,6 +660,124 @@ export default function HomePage() {
                   </div>
                 </div>
               </section>
+
+              {headerSecondaryViews.map((item) => {
+                const windowItem = inPageWindows.find((windowPanel) => windowPanel.id === item.windowId);
+                if (!windowItem) {
+                  return null;
+                }
+
+                const viewSuffix = item.viewId.replace('view-', '');
+
+                return (
+                  <section
+                    key={item.viewId}
+                    className={`view-pane view-pane--${viewSuffix} grid gap-6 lg:grid-cols-[1.05fr_0.95fr]`}
+                  >
+                    <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+                      <p className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-700">
+                        {item.label}
+                      </p>
+                      <h2 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
+                        {windowItem.title}
+                      </h2>
+                      <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">{windowItem.description}</p>
+
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <Link
+                          href="/tecnicos?quick=1&mode=register"
+                          className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                        >
+                          Probar registro tecnico
+                        </Link>
+                        <label
+                          htmlFor="view-biz"
+                          className="cursor-pointer rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
+                        >
+                          Ver vista negocio
+                        </label>
+                      </div>
+
+                      <ul className="mt-6 space-y-2.5">
+                        {windowItem.bullets.map((bullet) => (
+                          <li key={bullet} className="flex items-start gap-2 text-sm text-slate-700">
+                            <span className="mt-1.5 inline-block h-1.5 w-1.5 rounded-full bg-[#0D3FA8]" aria-hidden="true" />
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="space-y-4">
+                      <article className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                        <Image
+                          src={windowItem.image}
+                          alt={windowItem.title}
+                          width={1200}
+                          height={630}
+                          className="h-64 w-full object-cover"
+                        />
+                      </article>
+                      <article className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Transicion integrada</p>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                          Este panel cambia en la misma home sin redirigirte a otra pagina.
+                        </p>
+                      </article>
+                    </div>
+                  </section>
+                );
+              })}
+
+              <section className="view-pane view-pane--android grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+                  <p className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-700">
+                    Android beta
+                  </p>
+                  <h2 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
+                    Activa la app sin salir de esta experiencia
+                  </h2>
+                  <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
+                    El header se mantiene estable y este bloque se actualiza con la opcion seleccionada. Si quieres,
+                    abres el build de Android para prueba o sigues por web con registro rapido.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <a
+                      href="https://play.google.com/apps/testing/com.urbanfix.app"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    >
+                      Abrir Android beta
+                    </a>
+                    <Link
+                      href="/tecnicos?quick=1&mode=register"
+                      className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
+                    >
+                      Registro en 2 segundos
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <article className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                    <Image
+                      src="/playstore/feature-graphic.png"
+                      alt="UrbanFix disponible para Android"
+                      width={1200}
+                      height={630}
+                      className="h-64 w-full object-cover"
+                    />
+                  </article>
+                  <article className="rounded-[24px] border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Flujo continuo</p>
+                    <p className="mt-2 text-sm leading-relaxed text-slate-700">
+                      Sin saltos de layout: cambias entre audiencias y vistas desde la misma barra superior.
+                    </p>
+                  </article>
+                </div>
+              </section>
             </div>
 
             <section id="ventanas" className="mt-8 rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
@@ -652,8 +786,8 @@ export default function HomePage() {
                 Explora todas las ventanas sin salir de esta pagina
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
-                Cada acceso del header te trae a este bloque con transicion suave y enfoque directo en la ventana
-                seleccionada.
+                Cada acceso del header actualiza la vista superior con transicion suave y sin recargar la pagina.
+                Este bloque resume todas las ventanas disponibles.
               </p>
 
               <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
