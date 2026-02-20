@@ -239,6 +239,69 @@ const normalizeText = (value?: string | null) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+type ArgentinaZoneAnchor = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  aliases: string[];
+};
+
+type ArgentinaZonePoint = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  users: number;
+  quotes: number;
+  payments: number;
+  totalAmount: number;
+  zones: string[];
+  radius: number;
+};
+
+const ARGENTINA_SILHOUETTE_PATH =
+  'M127 12 L106 24 L95 54 L105 84 L98 114 L111 146 L102 176 L115 206 L108 236 L121 269 L112 302 L129 336 L120 372 L133 406 L149 420 L170 414 L177 392 L172 364 L183 336 L174 301 L186 268 L176 236 L187 206 L177 172 L187 142 L175 108 L183 80 L169 51 L172 26 L153 14 Z';
+
+const ARGENTINA_ZONE_ANCHORS: ArgentinaZoneAnchor[] = [
+  { id: 'salta', label: 'Salta', x: 114, y: 108, aliases: ['salta'] },
+  { id: 'jujuy', label: 'Jujuy', x: 108, y: 92, aliases: ['jujuy'] },
+  { id: 'tucuman', label: 'Tucuman', x: 122, y: 126, aliases: ['tucuman'] },
+  { id: 'chaco', label: 'Chaco', x: 152, y: 128, aliases: ['chaco', 'resistencia'] },
+  { id: 'corrientes', label: 'Corrientes', x: 164, y: 142, aliases: ['corrientes'] },
+  { id: 'misiones', label: 'Misiones', x: 176, y: 122, aliases: ['misiones', 'posadas'] },
+  { id: 'santiago', label: 'Santiago del Estero', x: 132, y: 146, aliases: ['santiago del estero'] },
+  { id: 'cordoba', label: 'Cordoba', x: 128, y: 188, aliases: ['cordoba'] },
+  { id: 'santa_fe', label: 'Santa Fe', x: 146, y: 186, aliases: ['santa fe', 'rosario'] },
+  { id: 'mendoza', label: 'Mendoza', x: 92, y: 194, aliases: ['mendoza'] },
+  { id: 'san_juan', label: 'San Juan', x: 95, y: 176, aliases: ['san juan'] },
+  { id: 'san_luis', label: 'San Luis', x: 112, y: 208, aliases: ['san luis'] },
+  { id: 'entre_rios', label: 'Entre Rios', x: 158, y: 200, aliases: ['entre rios', 'parana'] },
+  {
+    id: 'buenos_aires',
+    label: 'Buenos Aires / AMBA',
+    x: 162,
+    y: 244,
+    aliases: ['buenos aires', 'caba', 'capital federal', 'amba', 'la plata'],
+  },
+  { id: 'la_pampa', label: 'La Pampa', x: 122, y: 246, aliases: ['la pampa', 'santa rosa'] },
+  { id: 'neuquen', label: 'Neuquen', x: 102, y: 282, aliases: ['neuquen'] },
+  { id: 'rio_negro', label: 'Rio Negro', x: 118, y: 294, aliases: ['rio negro', 'bariloche', 'viedma'] },
+  { id: 'chubut', label: 'Chubut', x: 128, y: 334, aliases: ['chubut', 'comodoro'] },
+  { id: 'santa_cruz', label: 'Santa Cruz', x: 136, y: 374, aliases: ['santa cruz', 'caleta olivia'] },
+  { id: 'tierra_fuego', label: 'Tierra del Fuego', x: 151, y: 410, aliases: ['tierra del fuego', 'ushuaia'] },
+];
+
+const getAnchorByZone = (zone: string) => {
+  const normalized = normalizeText(zone);
+  if (!normalized) return null;
+  return (
+    ARGENTINA_ZONE_ANCHORS.find((anchor) =>
+      anchor.aliases.some((alias) => normalized.includes(normalizeText(alias)))
+    ) || null
+  );
+};
+
 const ROADMAP_STATUS_OPTIONS: { value: RoadmapStatus; label: string }[] = [
   { value: 'planned', label: 'Planificado' },
   { value: 'in_progress', label: 'En progreso' },
@@ -1134,6 +1197,61 @@ export default function AdminPage() {
       { label: 'Ingresos por suscripciones (12m)', value: formatCurrency(overview.kpis.revenueTotal) },
       { label: 'Mensajes soporte (7d)', value: formatNumber(overview.kpis.supportMessagesLast7) },
     ];
+  }, [overview]);
+
+  const argentinaZoneHeatmap = useMemo(() => {
+    if (!overview) {
+      return {
+        points: [] as ArgentinaZonePoint[],
+        unmappedZones: [] as string[],
+        totalUsers: 0,
+      };
+    }
+
+    const grouped = new Map<string, Omit<ArgentinaZonePoint, 'radius'>>();
+    const unmappedZones: string[] = [];
+    let totalUsers = 0;
+
+    overview.lists.incomeByZone.forEach((item) => {
+      totalUsers += Number(item.users_count || 0);
+      const anchor = getAnchorByZone(item.zone);
+      if (!anchor) {
+        unmappedZones.push(item.zone);
+        return;
+      }
+
+      const current = grouped.get(anchor.id) || {
+        id: anchor.id,
+        label: anchor.label,
+        x: anchor.x,
+        y: anchor.y,
+        users: 0,
+        quotes: 0,
+        payments: 0,
+        totalAmount: 0,
+        zones: [],
+      };
+
+      current.users += Number(item.users_count || 0);
+      current.quotes += Number(item.quotes_count || 0);
+      current.payments += Number(item.payments_count || 0);
+      current.totalAmount += Number(item.total_amount || 0);
+      current.zones.push(item.zone);
+      grouped.set(anchor.id, current);
+    });
+
+    const basePoints = Array.from(grouped.values()).sort((a, b) => b.users - a.users);
+    const maxUsers = Math.max(1, ...basePoints.map((point) => point.users || 0));
+    const points: ArgentinaZonePoint[] = basePoints.map((point) => ({
+      ...point,
+      radius: 6 + Math.round((Math.max(1, point.users) / maxUsers) * 10),
+    }));
+
+    return {
+      points,
+      unmappedZones: Array.from(new Set(unmappedZones)).slice(0, 6),
+      totalUsers,
+    };
   }, [overview]);
 
   const tabs = [
@@ -2146,43 +2264,98 @@ export default function AdminPage() {
                 </div>
               </section>
 
-              <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Zonas</p>
-                    <h3 className="text-lg font-semibold text-slate-900">Ingresos por zona</h3>
-                    <p className="text-xs text-slate-500">
-                      Basado en ciudad o área de cobertura del perfil.
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {overview.lists.incomeByZone.length === 0 && (
-                    <p className="text-sm text-slate-500">No hay datos de zona todavía.</p>
-                  )}
-                  {overview.lists.incomeByZone.map((item) => (
-                    <div
-                      key={item.zone}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500"
-                    >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-700">{item.zone}</p>
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          {item.users_count} usuario(s) • {item.quotes_count} presupuestos •{' '}
-                          {item.payments_count} pagos
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-semibold text-slate-700">
-                          {formatCurrency(item.total_amount)}
-                        </p>
-                        <p className="mt-1 text-[11px] text-slate-400">
-                          Presupuestos {formatCurrency(item.quotes_amount)} · Suscripciones{' '}
-                          {formatCurrency(item.subscriptions_amount)}
-                        </p>
-                      </div>
+              <section className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa</p>
+                      <h3 className="text-lg font-semibold text-slate-900">Argentina por zonas activas</h3>
+                      <p className="text-xs text-slate-500">
+                        Usuarios que ya se conectaron a presupuestar, agrupados por zona aproximada.
+                      </p>
                     </div>
-                  ))}
+                    <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                      {formatNumber(argentinaZoneHeatmap.totalUsers)} usuarios
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-3xl border border-slate-200 bg-gradient-to-b from-slate-50 to-white p-4">
+                    <svg viewBox="70 0 140 430" className="h-[360px] w-full">
+                      <path d={ARGENTINA_SILHOUETTE_PATH} fill="#E2E8F0" stroke="#94A3B8" strokeWidth="2" />
+                      {argentinaZoneHeatmap.points.map((point) => (
+                        <g key={point.id}>
+                          <title>
+                            {`${point.label}: ${point.users} usuario(s), ${point.quotes} presupuesto(s), ${point.payments} pago(s)`}
+                          </title>
+                          <circle
+                            cx={point.x}
+                            cy={point.y}
+                            r={point.radius + 2}
+                            fill="#FFFFFF"
+                            fillOpacity="0.75"
+                          />
+                          <circle cx={point.x} cy={point.y} r={point.radius} fill="#0F172A" fillOpacity="0.85" />
+                          <circle cx={point.x} cy={point.y} r={Math.max(2, point.radius - 6)} fill="#F5B942" />
+                        </g>
+                      ))}
+                    </svg>
+                  </div>
+
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {argentinaZoneHeatmap.points.slice(0, 6).map((point) => (
+                      <div
+                        key={`legend-${point.id}`}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2"
+                      >
+                        <p className="text-xs font-semibold text-slate-700">{point.label}</p>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          {point.users} usuario(s) • {point.quotes} presup.
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {argentinaZoneHeatmap.unmappedZones.length > 0 && (
+                    <p className="mt-3 text-[11px] text-slate-400">
+                      Zonas sin ubicar en el mapa: {argentinaZoneHeatmap.unmappedZones.join(', ')}
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Detalle</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Ingresos por zona</h3>
+                    <p className="text-xs text-slate-500">Basado en ciudad o área de cobertura del perfil.</p>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {overview.lists.incomeByZone.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay datos de zona todavía.</p>
+                    )}
+                    {overview.lists.incomeByZone.map((item) => (
+                      <div
+                        key={item.zone}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-700">{item.zone}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            {item.users_count} usuario(s) • {item.quotes_count} presupuestos •{' '}
+                            {item.payments_count} pagos
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-semibold text-slate-700">
+                            {formatCurrency(item.total_amount)}
+                          </p>
+                          <p className="mt-1 text-[11px] text-slate-400">
+                            Presupuestos {formatCurrency(item.quotes_amount)} · Suscripciones{' '}
+                            {formatCurrency(item.subscriptions_amount)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </section>
 
