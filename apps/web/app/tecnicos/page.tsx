@@ -448,6 +448,8 @@ export default function TechniciansPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
+  const [quickRegisterMode, setQuickRegisterMode] = useState(false);
+  const [autoGoogleStarted, setAutoGoogleStarted] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
   const [sendingRecovery, setSendingRecovery] = useState(false);
@@ -557,12 +559,29 @@ export default function TechniciansPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    if (params.get('mode') === 'register') {
+      setAuthMode('register');
+    }
+    if (params.get('quick') === '1') {
+      setQuickRegisterMode(true);
+      setAuthMode('register');
+      setAuthNotice('Modo rapido activo: recomendamos continuar con Google.');
+    }
     if (params.get('recovery') === '1') {
       setRecoveryMode(true);
       setAuthError('');
       setAuthNotice('');
     }
   }, []);
+
+  useEffect(() => {
+    if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted) return;
+    setAutoGoogleStarted(true);
+    const timer = window.setTimeout(() => {
+      handleGoogleLogin();
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [autoGoogleStarted, loadingSession, quickRegisterMode, recoveryMode, session]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2062,21 +2081,19 @@ export default function TechniciansPage() {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
-        if (!fullName.trim() || !businessName.trim()) {
-          setAuthError('Completa tu nombre y el de tu negocio.');
-          return;
-        }
+          const normalizedFullName = fullName.trim() || 'Tecnico UrbanFix';
+          const normalizedBusinessName = businessName.trim() || normalizedFullName;
           const { data: signUpData, error } = await supabase.auth.signUp({
             email,
             password,
-            options: { data: { full_name: fullName, business_name: businessName } },
+            options: { data: { full_name: normalizedFullName, business_name: normalizedBusinessName } },
           });
           if (error) throw error;
           if (signUpData?.user?.id) {
             const { error: profileError } = await supabase.from('profiles').upsert({
               id: signUpData.user.id,
-              full_name: fullName,
-              business_name: businessName,
+              full_name: normalizedFullName,
+              business_name: normalizedBusinessName,
               email,
             });
             if (profileError) throw profileError;
@@ -2562,17 +2579,31 @@ export default function TechniciansPage() {
 
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
               <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-slate-900">Ingresa a tu cuenta</h2>
-                <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
+                <h2 className="text-2xl font-bold text-slate-900">
+                  {quickRegisterMode ? 'Registro en 2 segundos' : 'Ingresa a tu cuenta'}
+                </h2>
+                <p className="text-sm text-slate-600">
+                  {quickRegisterMode
+                    ? 'Entra con Google o crea tu cuenta con correo en un paso.'
+                    : 'Accede con Google o con tu correo.'}
+                </p>
               </div>
 
               <button
                 type="button"
                 onClick={handleGoogleLogin}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
+                  quickRegisterMode
+                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-400/40 hover:bg-slate-800'
+                    : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900'
+                }`}
               >
-                Continuar con Google
+                {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
               </button>
+
+              {quickRegisterMode && (
+                <p className="mt-2 text-xs text-emerald-600">Acceso rapido activo. Completas tu perfil despues de entrar.</p>
+              )}
 
               <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
                 <div className="h-px flex-1 bg-slate-200" />
@@ -2580,7 +2611,7 @@ export default function TechniciansPage() {
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
 
-              {authMode === 'register' && (
+              {authMode === 'register' && !quickRegisterMode && (
                 <div className="space-y-3">
                   <input
                     value={fullName}
@@ -2594,6 +2625,19 @@ export default function TechniciansPage() {
                     placeholder="Nombre del negocio"
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   />
+                </div>
+              )}
+
+              {authMode === 'register' && quickRegisterMode && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                  Alta rapida por correo habilitada. Nombre y negocio se completan luego en perfil.
+                  <button
+                    type="button"
+                    onClick={() => setQuickRegisterMode(false)}
+                    className="ml-2 font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
+                  >
+                    Cargar datos ahora
+                  </button>
                 </div>
               )}
 
@@ -2634,7 +2678,7 @@ export default function TechniciansPage() {
                 onClick={handleEmailAuth}
                 className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
               >
-                {authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+                {authMode === 'login' ? 'Ingresar' : quickRegisterMode ? 'Crear cuenta en 1 paso' : 'Crear cuenta'}
               </button>
 
               <button
