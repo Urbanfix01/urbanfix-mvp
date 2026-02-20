@@ -345,15 +345,20 @@ export default function HomePage() {
 
               <div className="px-6 py-5">
                 <div className="flex flex-wrap items-center justify-between gap-5">
-                  <div className="flex items-center gap-3">
-                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0F172A] shadow-lg shadow-slate-300/70">
-                      <Image src="/icon-48.png" alt="UrbanFix logo" width={28} height={28} priority />
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#08142E] via-[#0F172A] to-[#1B2B54] shadow-[0_20px_40px_-22px_rgba(15,23,42,0.95)] ring-1 ring-slate-300/40">
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
+                      />
+                      <Image src="/icon-48.png" alt="UrbanFix logo" width={30} height={30} priority />
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#7C8BA5]">UrbanFix</p>
-                      <p className={`${displayFont.className} text-lg font-semibold leading-tight text-[#18213A] sm:text-2xl`}>
-                        Gestion de presupuestos de obra
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#647A9F]">UrbanFix Argentina</p>
+                      <p className={`${displayFont.className} mt-0.5 text-[23px] font-semibold leading-none text-[#18213A] sm:text-[34px]`}>
+                        Gestion de <span className="text-[#0D3FA8]">presupuestos</span> de obra
                       </p>
+                      <p className="mt-1 text-[12px] font-medium text-slate-500">Operacion comercial clara para tecnicos y cuadrillas.</p>
                     </div>
                   </div>
 
