@@ -442,20 +442,7 @@ export default function HomePage() {
                           {item.label}
                         </label>
                       ))}
-                      <label
-                        htmlFor="view-android"
-                        className="header-view-option header-view-option--android cursor-pointer rounded-full border border-slate-300 px-3.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
-                      >
-                        Android beta
-                      </label>
                     </div>
-
-                    <Link
-                      href="/tecnicos?quick=1&mode=register"
-                      className="rounded-full bg-[#0F172A] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                    >
-                      Registro en 2s
-                    </Link>
                   </div>
                 </div>
             </header>
