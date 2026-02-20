@@ -394,57 +394,59 @@ export default function HomePage() {
             ))}
 
             <header className="sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45">
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute -inset-1 -z-10 rounded-[24px] bg-[radial-gradient(circle_at_30%_0%,rgba(59,130,246,0.35),transparent_62%)] blur-sm"
-                      />
-                      <span
-                        aria-hidden="true"
-                        className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
-                      />
-                      <Image src="/icon-48.png" alt="UrbanFix logo" width={26} height={26} priority />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#647A9F] sm:block">UrbanFix</p>
-                      <p className={`${displayFont.className} truncate text-[18px] font-semibold leading-none text-[#18213A] sm:text-[30px]`}>
-                        Gestion de <span className="text-[#0D3FA8]">presupuestos</span> de obra
-                      </p>
-                    </div>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-3">
+                  <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45">
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute -inset-1 -z-10 rounded-[24px] bg-[radial-gradient(circle_at_30%_0%,rgba(59,130,246,0.35),transparent_62%)] blur-sm"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
+                    />
+                    <Image src="/icon-48.png" alt="UrbanFix logo" width={26} height={26} priority />
                   </div>
-
-                  <div className="flex shrink-0 items-center justify-end gap-2">
-                    <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
-                      <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
-                      <label
-                        htmlFor="view-tech"
-                        className="header-view-option audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
-                      >
-                        Para tecnicos
-                      </label>
-                      <label
-                        htmlFor="view-biz"
-                        className="header-view-option audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
-                      >
-                        Para negocio
-                      </label>
-                    </div>
-
-                    <div className="hidden items-center gap-1.5 xl:flex">
-                      {headerSecondaryViews.map((item) => (
-                        <label
-                          key={item.label}
-                          htmlFor={item.viewId}
-                          className={`header-view-option header-view-option--${item.viewId.replace('view-', '')} cursor-pointer rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900`}
-                        >
-                          {item.label}
-                        </label>
-                      ))}
-                    </div>
+                  <div className="min-w-0">
+                    <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#647A9F] sm:block">UrbanFix</p>
+                    <p className={`${displayFont.className} truncate text-[18px] font-semibold leading-none text-[#18213A] sm:text-[30px]`}>
+                      Gestion de <span className="text-[#0D3FA8]">presupuestos</span> de obra
+                    </p>
                   </div>
                 </div>
+
+                <div className="ml-auto flex shrink-0 items-center justify-end">
+                  <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
+                    <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
+                    <label
+                      htmlFor="view-tech"
+                      className="header-view-option audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
+                    >
+                      Para tecnicos
+                    </label>
+                    <label
+                      htmlFor="view-biz"
+                      className="header-view-option audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
+                    >
+                      Para negocio
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 border-t border-slate-200/80 pt-3">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {headerSecondaryViews.map((item) => (
+                    <label
+                      key={item.label}
+                      htmlFor={item.viewId}
+                      className={`header-view-option header-view-option--${item.viewId.replace('view-', '')} cursor-pointer rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900`}
+                    >
+                      {item.label}
+                    </label>
+                  ))}
+                </div>
+              </div>
             </header>
 
             <div className="view-zone mt-8">
