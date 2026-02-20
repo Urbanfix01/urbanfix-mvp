@@ -466,6 +466,11 @@ const formatShortDate = (value?: string | null) => {
   return parsed.toLocaleDateString('es-AR');
 };
 
+const getRoadmapOwnerLabel = (value?: string | null) => {
+  const label = String(value || '').trim();
+  return label || 'Sin responsable';
+};
+
 const getDeltaLabel = (current: number, previous: number) => {
   if (!previous) {
     if (!current) {
@@ -1524,6 +1529,138 @@ export default function AdminPage() {
     () => Math.max(1, ...roadmapHeatmap.flatMap((row) => row.values.map((cell) => cell.count))),
     [roadmapHeatmap]
   );
+
+  const roadmapPlannedCount = useMemo(
+    () => roadmapStatusSeries.find((item) => item.status === 'planned')?.count || 0,
+    [roadmapStatusSeries]
+  );
+
+  const roadmapDueSoonItems = useMemo(() => {
+    const todayMs = startOfDay(new Date()).getTime();
+    const nextWeekMs = todayMs + DAY_MS * 7;
+    const dueSoon: Array<{
+      id: string;
+      title: string;
+      owner: string | null;
+      status: RoadmapStatus;
+      priority: RoadmapPriority;
+      etaDate: string | null;
+      daysToEta: number;
+    }> = [];
+
+    roadmapReportItems.forEach((item) => {
+      if (item.status === 'done') return;
+      const etaMs = toTimeMs(item.eta_date);
+      if (etaMs === null) return;
+      if (etaMs < todayMs || etaMs > nextWeekMs) return;
+      dueSoon.push({
+        id: item.id,
+        title: item.title,
+        owner: item.owner || null,
+        status: item.status,
+        priority: item.priority,
+        etaDate: item.eta_date || null,
+        daysToEta: Math.max(0, Math.round((etaMs - todayMs) / DAY_MS)),
+      });
+    });
+
+    return dueSoon.sort((a, b) => {
+      const aEta = toTimeMs(a.etaDate) || 0;
+      const bEta = toTimeMs(b.etaDate) || 0;
+      return aEta - bEta;
+    });
+  }, [roadmapReportItems]);
+
+  const roadmapOverdueHighPriorityCount = useMemo(() => {
+    const todayMs = startOfDay(new Date()).getTime();
+    return roadmapReportItems.filter((item) => {
+      if (item.status === 'done' || item.priority !== 'high') return false;
+      const etaMs = toTimeMs(item.eta_date);
+      return etaMs !== null && etaMs < todayMs;
+    }).length;
+  }, [roadmapReportItems]);
+
+  const roadmapStaleInProgressCount = useMemo(() => {
+    const staleThresholdMs = Date.now() - DAY_MS * 7;
+    return roadmapReportItems.filter((item) => {
+      if (item.status !== 'in_progress') return false;
+      const referenceMs = toTimeMs(item.updated_at) ?? toTimeMs(item.created_at);
+      return referenceMs !== null && referenceMs < staleThresholdMs;
+    }).length;
+  }, [roadmapReportItems]);
+
+  const roadmapOwnerOpenLoad = useMemo(() => {
+    const todayMs = startOfDay(new Date()).getTime();
+    const groups = new Map<
+      string,
+      {
+        owner: string;
+        open: number;
+        inProgress: number;
+        blocked: number;
+        overdue: number;
+      }
+    >();
+
+    roadmapReportItems.forEach((item) => {
+      if (item.status === 'done') return;
+      const owner = getRoadmapOwnerLabel(item.owner);
+      const etaMs = toTimeMs(item.eta_date);
+      const current = groups.get(owner) || {
+        owner,
+        open: 0,
+        inProgress: 0,
+        blocked: 0,
+        overdue: 0,
+      };
+      current.open += 1;
+      if (item.status === 'in_progress') current.inProgress += 1;
+      if (item.status === 'blocked') current.blocked += 1;
+      if (etaMs !== null && etaMs < todayMs) current.overdue += 1;
+      groups.set(owner, current);
+    });
+
+    return Array.from(groups.values())
+      .sort((a, b) => b.open - a.open || b.blocked - a.blocked || a.owner.localeCompare(b.owner))
+      .slice(0, 8);
+  }, [roadmapReportItems]);
+
+  const roadmapOwnerMaxOpen = useMemo(
+    () => Math.max(1, ...roadmapOwnerOpenLoad.map((item) => item.open)),
+    [roadmapOwnerOpenLoad]
+  );
+
+  const roadmapExecutionSignal = useMemo(() => {
+    if (roadmapReportTotals.blocked > 0 || roadmapOverdueHighPriorityCount > 0) {
+      return {
+        label: 'Critico',
+        badgeClass: 'border border-rose-200 bg-rose-50 text-rose-700',
+        textClass: 'text-rose-700',
+        description: 'Hay bloqueos o tareas altas vencidas. Priorizar destrabes hoy.',
+      };
+    }
+
+    if (roadmapDueSoonItems.length >= 5 || roadmapStaleInProgressCount >= 3) {
+      return {
+        label: 'Atencion',
+        badgeClass: 'border border-amber-200 bg-amber-50 text-amber-700',
+        textClass: 'text-amber-700',
+        description: 'La carga de la semana subio. Conviene reasignar responsables.',
+      };
+    }
+
+    return {
+      label: 'En control',
+      badgeClass: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+      textClass: 'text-emerald-700',
+      description: 'Sin alertas fuertes en la ventana de ejecucion de 7 dias.',
+    };
+  }, [
+    roadmapDueSoonItems.length,
+    roadmapOverdueHighPriorityCount,
+    roadmapReportTotals.blocked,
+    roadmapStaleInProgressCount,
+  ]);
 
   if (loadingSession) {
     return (
@@ -2686,6 +2823,98 @@ export default function AdminPage() {
                   <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-600">Resueltos</p>
                   <p className="mt-1 text-2xl font-semibold text-emerald-700">{roadmapReportTotals.done}</p>
                   <p className="text-xs text-emerald-700">Cerrados</p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ventana de ejecución</p>
+                      <p className="text-sm font-semibold text-slate-900">Próximos 7 días</p>
+                    </div>
+                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roadmapExecutionSignal.badgeClass}`}>
+                      {roadmapExecutionSignal.label}
+                    </span>
+                  </div>
+
+                  <p className={`mt-2 text-xs ${roadmapExecutionSignal.textClass}`}>{roadmapExecutionSignal.description}</p>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Planificados</p>
+                      <p className="mt-1 text-lg font-semibold text-slate-900">{roadmapPlannedCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-sky-600">Vencen en 7 días</p>
+                      <p className="mt-1 text-lg font-semibold text-sky-700">{roadmapDueSoonItems.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-rose-600">Alta vencida</p>
+                      <p className="mt-1 text-lg font-semibold text-rose-700">{roadmapOverdueHighPriorityCount}</p>
+                    </div>
+                    <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-amber-600">En progreso +7d</p>
+                      <p className="mt-1 text-lg font-semibold text-amber-700">{roadmapStaleInProgressCount}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {roadmapDueSoonItems.length === 0 && (
+                      <p className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-500">
+                        No hay vencimientos en la próxima semana para los filtros activos.
+                      </p>
+                    )}
+                    {roadmapDueSoonItems.slice(0, 6).map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs"
+                      >
+                        <div className="min-w-[180px] flex-1">
+                          <p className="font-semibold text-slate-800">{item.title}</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            {getRoadmapOwnerLabel(item.owner)} • {getRoadmapStatusLabel(item.status)} •{' '}
+                            {getRoadmapPriorityLabel(item.priority)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-slate-700">{formatShortDate(item.etaDate)}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {item.daysToEta === 0 ? 'Hoy' : `${item.daysToEta} día(s)`}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Carga por responsable</p>
+                    <span className="text-xs text-slate-500">Top 8 abiertos</span>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {roadmapOwnerOpenLoad.length === 0 && (
+                      <p className="text-sm text-slate-500">No hay carga abierta para mostrar.</p>
+                    )}
+                    {roadmapOwnerOpenLoad.map((owner) => {
+                      const width = Math.max(8, Math.round((owner.open / roadmapOwnerMaxOpen) * 100));
+                      return (
+                        <div key={owner.owner} className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="truncate text-sm font-semibold text-slate-800">{owner.owner}</p>
+                            <p className="text-xs font-semibold text-slate-600">{owner.open} abierto(s)</p>
+                          </div>
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
+                            <div className="h-full rounded-full bg-slate-900" style={{ width: `${width}%` }} />
+                          </div>
+                          <p className="mt-2 text-[11px] text-slate-500">
+                            En progreso {owner.inProgress} • Bloqueados {owner.blocked} • Vencidos {owner.overdue}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               </div>
 
