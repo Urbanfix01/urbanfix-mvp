@@ -60,6 +60,41 @@ const highlights = [
   },
 ];
 
+const headerUtilityLinks = [
+  {
+    label: 'Contactanos',
+    href: 'mailto:info@urbanfixar.com',
+  },
+  {
+    label: 'Sucursales digitales',
+    href: '/urbanfix',
+  },
+  {
+    label: 'Turnos online',
+    href: '/tecnicos',
+  },
+];
+
+const headerAudienceLinks = [
+  {
+    label: 'Para tecnicos',
+    href: '/tecnicos',
+    active: true,
+  },
+  {
+    label: 'Para negocio',
+    href: '/urbanfix',
+    active: false,
+  },
+];
+
+const headerMainLinks = [
+  { label: 'Personas', href: '/urbanfix' },
+  { label: 'Guia precios', href: '/guias-precios' },
+  { label: 'Ciudades', href: '/ciudades' },
+  { label: 'Rubros', href: '/rubros' },
+];
+
 const processSteps = [
   {
     title: '1. Armado',
@@ -252,40 +287,82 @@ export default function HomePage() {
           <div className="absolute -right-24 bottom-20 h-80 w-80 rounded-full bg-[#F59E0B]/15 blur-3xl" />
 
           <main className="fx-page relative mx-auto w-full max-w-7xl px-6 py-10 md:py-12">
-            <header className="rounded-[28px] border border-slate-200/80 bg-white/90 px-6 py-5 shadow-sm backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0F172A] shadow-lg shadow-slate-300/70">
-                    <Image src="/icon-48.png" alt="UrbanFix logo" width={28} height={28} priority />
+            <header className="overflow-hidden rounded-[32px] border border-slate-200/90 bg-white/95 shadow-[0_20px_65px_-42px_rgba(15,23,42,0.7)] backdrop-blur">
+              <div className="border-b border-slate-200/60 bg-[#0B1E44] px-6 py-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-slate-200">
+                  <div className="flex flex-wrap items-center gap-2 md:gap-3">
+                    {headerUtilityLinks.map((item, index) => (
+                      <div key={item.label} className="flex items-center gap-2">
+                        {index > 0 ? <span className="h-3 w-px bg-slate-500/60" aria-hidden="true" /> : null}
+                        <Link href={item.href} className="transition hover:text-white">
+                          {item.label}
+                        </Link>
+                      </div>
+                    ))}
                   </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">UrbanFix</p>
-                    <p className="text-sm font-semibold text-slate-700">Gestion de presupuestos de obra</p>
-                  </div>
-                </div>
 
-                <nav className="flex flex-wrap items-center gap-2">
                   <Link
                     href="/tecnicos"
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                    className="rounded-full border border-cyan-200/35 bg-cyan-300/10 px-3 py-1 font-semibold text-cyan-100 transition hover:bg-cyan-200/15 hover:text-white"
                   >
-                    Acceso tecnico
+                    Panel tecnico
                   </Link>
-                  <Link
-                    href="/urbanfix"
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
-                  >
-                    Sobre UrbanFix
-                  </Link>
-                  <a
-                    href="https://play.google.com/apps/testing/com.urbanfix.app"
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="rounded-full bg-[#0F172A] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                  >
-                    Android beta
-                  </a>
-                </nav>
+                </div>
+              </div>
+
+              <div className="px-6 py-5">
+                <div className="flex flex-wrap items-center justify-between gap-5">
+                  <div className="flex items-center gap-3">
+                    <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0F172A] shadow-lg shadow-slate-300/70">
+                      <Image src="/icon-48.png" alt="UrbanFix logo" width={28} height={28} priority />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-[#7C8BA5]">UrbanFix</p>
+                      <p className={`${displayFont.className} text-lg font-semibold leading-tight text-[#18213A] sm:text-2xl`}>
+                        Gestion de presupuestos de obra
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-end gap-3">
+                    <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 p-1">
+                      {headerAudienceLinks.map((item) => (
+                        <Link
+                          key={item.label}
+                          href={item.href}
+                          className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                            item.active
+                              ? 'bg-[#0D3FA8] text-white shadow-sm shadow-blue-200/80'
+                              : 'text-slate-700 hover:bg-white hover:text-slate-900'
+                          }`}
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+
+                    <div className="hidden items-center gap-2 xl:flex">
+                      {headerMainLinks.map((item) => (
+                        <Link
+                          key={item.label}
+                          href={item.href}
+                          className="rounded-full px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
+                        >
+                          {item.label}
+                        </Link>
+                      ))}
+                    </div>
+
+                    <a
+                      href="https://play.google.com/apps/testing/com.urbanfix.app"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="rounded-full bg-[#0F172A] px-5 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                    >
+                      Android beta
+                    </a>
+                  </div>
+                </div>
               </div>
             </header>
 
