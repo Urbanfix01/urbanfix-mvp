@@ -1,0 +1,43 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgInst" x1="60" y1="0" x2="1140" y2="675" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1E44"/>
+      <stop offset="1" stop-color="#1D4ED8"/>
+    </linearGradient>
+    <linearGradient id="heroInst" x1="120" y1="120" x2="1080" y2="560" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#0F172A"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="675" rx="36" fill="url(#bgInst)"/>
+  <circle cx="1060" cy="84" r="120" fill="#F59E0B" fill-opacity="0.16"/>
+  <circle cx="140" cy="560" r="150" fill="#38BDF8" fill-opacity="0.14"/>
+
+  <rect x="96" y="82" width="1008" height="510" rx="30" fill="url(#heroInst)"/>
+  <rect x="96" y="82" width="1008" height="80" rx="30" fill="#0B1E44"/>
+  <rect x="130" y="106" width="190" height="30" rx="15" fill="#1D4ED8"/>
+  <text x="225" y="125" text-anchor="middle" font-size="12" fill="#E2E8F0" font-family="Arial, sans-serif" font-weight="700">VENTANA INSTITUCIONAL</text>
+
+  <rect x="150" y="206" width="156" height="156" rx="30" fill="#0F172A" stroke="#F59E0B" stroke-width="3"/>
+  <rect x="190" y="252" width="74" height="44" rx="10" fill="#F59E0B"/>
+  <polygon points="227,212 170,266 182,278 227,236 272,278 284,266" fill="#F59E0B"/>
+
+  <text x="342" y="252" font-size="28" fill="#E5E7EB" font-family="Arial, sans-serif" font-weight="700">UrbanFix</text>
+  <text x="342" y="286" font-size="20" fill="#CBD5E1" font-family="Arial, sans-serif">Gestion de presupuestos y clientes</text>
+  <rect x="342" y="314" width="328" height="3" rx="1.5" fill="#334155"/>
+  <text x="342" y="352" font-size="16" fill="#93C5FD" font-family="Arial, sans-serif">Propuesta clara, operacion trazable, crecimiento sostenible.</text>
+
+  <rect x="150" y="404" width="924" height="146" rx="24" fill="#F8FAFC"/>
+  <rect x="186" y="438" width="214" height="20" rx="10" fill="#CBD5E1"/>
+  <rect x="186" y="470" width="326" height="12" rx="6" fill="#E2E8F0"/>
+  <rect x="186" y="490" width="292" height="12" rx="6" fill="#E2E8F0"/>
+
+  <rect x="548" y="430" width="240" height="86" rx="16" fill="#EFF6FF"/>
+  <text x="668" y="466" text-anchor="middle" font-size="26" fill="#1D4ED8" font-family="Arial, sans-serif" font-weight="700">+ Confianza</text>
+  <text x="668" y="492" text-anchor="middle" font-size="14" fill="#334155" font-family="Arial, sans-serif">para tecnicos y equipos</text>
+
+  <rect x="816" y="430" width="224" height="86" rx="16" fill="#FEF3C7"/>
+  <text x="928" y="462" text-anchor="middle" font-size="24" fill="#92400E" font-family="Arial, sans-serif" font-weight="700">Roadmap</text>
+  <text x="928" y="488" text-anchor="middle" font-size="14" fill="#78350F" font-family="Arial, sans-serif">mejora continua activa</text>
+</svg>

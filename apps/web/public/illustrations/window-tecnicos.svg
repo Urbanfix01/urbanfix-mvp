@@ -1,0 +1,55 @@
+<svg width="1200" height="675" viewBox="0 0 1200 675" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bgTech" x1="40" y1="20" x2="1160" y2="655" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0E1E46"/>
+      <stop offset="1" stop-color="#1E3A8A"/>
+    </linearGradient>
+    <linearGradient id="panelTech" x1="150" y1="90" x2="1060" y2="620" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="675" rx="36" fill="url(#bgTech)"/>
+  <circle cx="1020" cy="90" r="120" fill="#38BDF8" fill-opacity="0.18"/>
+  <circle cx="210" cy="620" r="150" fill="#F59E0B" fill-opacity="0.14"/>
+
+  <rect x="92" y="72" width="1016" height="531" rx="28" fill="url(#panelTech)"/>
+  <rect x="92" y="72" width="1016" height="56" rx="28" fill="#0B1E44"/>
+  <circle cx="130" cy="100" r="7" fill="#F59E0B"/>
+  <circle cx="154" cy="100" r="7" fill="#38BDF8"/>
+  <circle cx="178" cy="100" r="7" fill="#22C55E"/>
+  <rect x="920" y="86" width="164" height="28" rx="14" fill="#1D4ED8"/>
+  <text x="1002" y="104" text-anchor="middle" font-size="12" fill="#E2E8F0" font-family="Arial, sans-serif" font-weight="700">VENTANA TECNICOS</text>
+
+  <rect x="120" y="146" width="184" height="430" rx="20" fill="#0F172A"/>
+  <rect x="140" y="176" width="144" height="18" rx="9" fill="#334155"/>
+  <rect x="140" y="216" width="120" height="12" rx="6" fill="#475569"/>
+  <rect x="140" y="244" width="106" height="12" rx="6" fill="#475569"/>
+  <rect x="140" y="272" width="128" height="12" rx="6" fill="#475569"/>
+  <rect x="140" y="300" width="98" height="12" rx="6" fill="#475569"/>
+
+  <rect x="330" y="146" width="358" height="130" rx="18" fill="#FFFFFF"/>
+  <rect x="354" y="172" width="160" height="14" rx="7" fill="#CBD5E1"/>
+  <rect x="354" y="198" width="130" height="10" rx="5" fill="#E2E8F0"/>
+  <rect x="354" y="222" width="110" height="10" rx="5" fill="#E2E8F0"/>
+  <rect x="534" y="188" width="128" height="52" rx="12" fill="#EFF6FF"/>
+  <text x="598" y="218" text-anchor="middle" font-size="22" fill="#1D4ED8" font-family="Arial, sans-serif" font-weight="700">$47.2k</text>
+
+  <rect x="706" y="146" width="374" height="130" rx="18" fill="#FFFFFF"/>
+  <rect x="732" y="172" width="168" height="14" rx="7" fill="#CBD5E1"/>
+  <rect x="732" y="200" width="324" height="58" rx="14" fill="#F8FAFC"/>
+  <polyline points="748,238 790,224 832,230 874,208 916,214 958,190 1000,196 1042,174"
+    fill="none" stroke="#22C55E" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <rect x="330" y="296" width="750" height="280" rx="18" fill="#FFFFFF"/>
+  <rect x="356" y="324" width="210" height="16" rx="8" fill="#CBD5E1"/>
+  <rect x="356" y="354" width="698" height="186" rx="14" fill="#F8FAFC"/>
+  <rect x="388" y="510" width="86" height="20" rx="10" fill="#DBEAFE"/>
+  <rect x="488" y="486" width="86" height="44" rx="10" fill="#BFDBFE"/>
+  <rect x="588" y="462" width="86" height="68" rx="10" fill="#93C5FD"/>
+  <rect x="688" y="438" width="86" height="92" rx="10" fill="#60A5FA"/>
+  <rect x="788" y="414" width="86" height="116" rx="10" fill="#3B82F6"/>
+  <rect x="888" y="396" width="86" height="134" rx="10" fill="#2563EB"/>
+  <rect x="988" y="372" width="66" height="158" rx="10" fill="#1D4ED8"/>
+</svg>
