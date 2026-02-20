@@ -152,7 +152,6 @@ export default function JobConfigScreen() {
   const [attachments, setAttachments] = useState<QuoteAttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
-  const [showCalculator, setShowCalculator] = useState(false);
   const isHeaderCompact = true;
   
   const hasLoadedData = useRef<string | null>(null);
@@ -303,7 +302,6 @@ export default function JobConfigScreen() {
   useEffect(() => {
     if (activeCategory !== 'labor') {
       setLaborToolOpen(false);
-      setShowCalculator(false);
     }
   }, [activeCategory]);
 
@@ -1043,92 +1041,74 @@ export default function JobConfigScreen() {
                                         </View>
 
                                         {activeCategory === 'labor' && (
-                                            <View style={styles.optionalBlock}>
-                                                <TouchableOpacity
-                                                    style={styles.optionalHeader}
-                                                    onPress={() => setShowCalculator((prev) => !prev)}
-                                                    activeOpacity={0.85}
-                                                >
-                                                    <View>
-                                                        <Text style={styles.optionalTitle}>Calculadora rapida</Text>
-                                                        <Text style={styles.optionalHint}>Opcional para m2 / ml</Text>
-                                                    </View>
-                                                    <Ionicons
-                                                        name={showCalculator ? 'chevron-up' : 'chevron-down'}
-                                                        size={18}
-                                                        color="#64748B"
-                                                    />
-                                                </TouchableOpacity>
+                                            <>
+                                                <View style={styles.laborTools}>
+                                                    <TouchableOpacity
+                                                        style={styles.laborToolsHeader}
+                                                        onPress={() => setLaborToolOpen(prev => !prev)}
+                                                        activeOpacity={0.8}
+                                                    >
+                                                        <View>
+                                                        <Text style={styles.laborToolsLabel}>Presupuestador por m2/ml</Text>
+                                                        <Text style={styles.laborToolsHint}>Selecciona una plantilla o personalizado.</Text>
+                                                        </View>
+                                                    <View style={styles.laborToolsValue}>
+                                                        <Text style={styles.laborToolsValueText} numberOfLines={1}>
+                                                            {laborToolDisplay}
+                                                        </Text>
+                                                        <Ionicons
+                                                            name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
+                                                            size={18}
+                                                            color="#64748B"
+                                                            />
+                                                        </View>
+                                                    </TouchableOpacity>
 
-                                                {showCalculator && (
-                                                    <>
-                                                        <View style={styles.laborTools}>
+                                                    {laborToolOpen && (
+                                                        <View style={styles.laborToolsMenu}>
+                                                            {LABOR_TOOLS.map((tool) => (
                                                             <TouchableOpacity
-                                                                style={styles.laborToolsHeader}
-                                                                onPress={() => setLaborToolOpen(prev => !prev)}
-                                                                activeOpacity={0.8}
+                                                                key={tool.key}
+                                                                style={styles.laborToolsOption}
+                                                                onPress={() => {
+                                                                    setSelectedLaborTool(tool.key);
+                                                                    setLaborToolOpen(false);
+                                                                    setToolQuantity('');
+                                                                    setToolRate('');
+                                                                    if (tool.key !== 'custom') {
+                                                                        setCustomToolName('');
+                                                                        setCustomToolUnit('m2');
+                                                                    }
+                                                                }}
                                                             >
-                                                                <View>
-                                                                <Text style={styles.laborToolsLabel}>Presupuestador (m2 / ml)</Text>
-                                                                <Text style={styles.laborToolsHint}>Calculadora rapida por unidad (m2 o ml)</Text>
-                                                                </View>
-                                                            <View style={styles.laborToolsValue}>
-                                                                <Text style={styles.laborToolsValueText} numberOfLines={1}>
-                                                                    {laborToolDisplay}
-                                                                </Text>
-                                                                <Ionicons
-                                                                    name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
-                                                                    size={18}
-                                                                    color="#64748B"
-                                                                    />
-                                                                </View>
+                                                                <Text style={styles.laborToolsOptionText}>{tool.label}</Text>
                                                             </TouchableOpacity>
-
-                                                            {laborToolOpen && (
-                                                                <View style={styles.laborToolsMenu}>
-                                                                    {LABOR_TOOLS.map((tool) => (
-                                                                    <TouchableOpacity
-                                                                        key={tool.key}
-                                                                        style={styles.laborToolsOption}
-                                                                        onPress={() => {
-                                                                            setSelectedLaborTool(tool.key);
-                                                                            setLaborToolOpen(false);
-                                                                            setToolQuantity('');
-                                                                            setToolRate('');
-                                                                            if (tool.key !== 'custom') {
-                                                                                setCustomToolName('');
-                                                                                setCustomToolUnit('m2');
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <Text style={styles.laborToolsOptionText}>{tool.label}</Text>
-                                                                    </TouchableOpacity>
-                                                                ))}
-                                                                {selectedLaborTool !== 'none' && (
-                                                                    <TouchableOpacity
-                                                                        style={styles.laborToolsOption}
-                                                                        onPress={() => {
-                                                                            setSelectedLaborTool('none');
-                                                                            setLaborToolOpen(false);
-                                                                            setToolQuantity('');
-                                                                            setToolRate('');
-                                                                            setCustomToolName('');
-                                                                            setCustomToolUnit('m2');
-                                                                        }}
-                                                                    >
-                                                                        <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
-                                                                    </TouchableOpacity>
-                                                                )}
-                                                            </View>
+                                                        ))}
+                                                        {selectedLaborTool !== 'none' && (
+                                                            <TouchableOpacity
+                                                                style={styles.laborToolsOption}
+                                                                onPress={() => {
+                                                                    setSelectedLaborTool('none');
+                                                                    setLaborToolOpen(false);
+                                                                    setToolQuantity('');
+                                                                    setToolRate('');
+                                                                    setCustomToolName('');
+                                                                    setCustomToolUnit('m2');
+                                                                }}
+                                                            >
+                                                                <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
+                                                            </TouchableOpacity>
                                                         )}
                                                     </View>
+                                                )}
+                                            </View>
 
-                                                    {effectiveTool && (
-                                                        <View style={styles.calculatorCard}>
-                                                            <View style={styles.calculatorHeader}>
-                                                                <Ionicons name="grid-outline" size={18} color={COLORS.primary} />
-                                                                <Text style={styles.calculatorTitle}>{effectiveTool.label}</Text>
-                                                            </View>
+                                            {effectiveTool && (
+                                                <View style={styles.calculatorCard}>
+                                                    <View style={styles.calculatorHeader}>
+                                                        <Ionicons name="grid-outline" size={18} color={COLORS.primary} />
+                                                        <Text style={styles.calculatorTitle}>{effectiveTool.label}</Text>
+                                                    </View>
 
                                                             {effectiveTool.key === 'custom' && (
                                                                 <View style={styles.customToolRow}>
@@ -1209,19 +1189,17 @@ export default function JobConfigScreen() {
                                                                     <Text style={styles.calculatorTotalValue}>${formatCurrency(toolTotal)}</Text>
                                                                 </View>
 
-                                                                <TouchableOpacity
-                                                                    style={styles.calculatorAddBtn}
-                                                                    onPress={handleAddLaborCalculator}
-                                                                    activeOpacity={0.9}
-                                                                >
-                                                                    <Ionicons name="add-circle" size={20} color="#FFF" />
-                                                                    <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
-                                                                </TouchableOpacity>
-                                                            </View>
-                                                        )}
-                                                    </>
+                                                    <TouchableOpacity
+                                                            style={styles.calculatorAddBtn}
+                                                            onPress={handleAddLaborCalculator}
+                                                            activeOpacity={0.9}
+                                                        >
+                                                            <Ionicons name="add-circle" size={20} color="#FFF" />
+                                                            <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 )}
-                                            </View>
+                                            </>
                                         )}
 
                                         <View style={styles.listHeader}>
@@ -1434,23 +1412,11 @@ const styles = StyleSheet.create({
   tabBadgeText: { fontSize: 11, fontWeight: '800', color: '#475569' },
   tabBadgeTextActive: { color: '#0F172A' },
 
-  optionalBlock: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    marginBottom: 14,
-  },
-  optionalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  optionalTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
-  optionalHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
-
   laborTools: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14, overflow: 'hidden' },
   laborToolsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, gap: 12 },
   laborToolsLabel: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   laborToolsHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
-  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0' },
+  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0' },
   laborToolsValueText: { fontSize: 12, color: '#334155', fontWeight: '600', maxWidth: 170 },
   laborToolsMenu: { borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
   laborToolsOption: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
