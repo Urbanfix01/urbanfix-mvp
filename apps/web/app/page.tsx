@@ -60,21 +60,6 @@ const highlights = [
   },
 ];
 
-const headerUtilityLinks = [
-  {
-    label: 'Contactanos',
-    href: 'mailto:info@urbanfixar.com',
-  },
-  {
-    label: 'Sucursales digitales',
-    href: '/urbanfix',
-  },
-  {
-    label: 'Turnos online',
-    href: '/tecnicos',
-  },
-];
-
 const headerMainLinks = [
   { label: 'Personas', href: '/urbanfix' },
   { label: 'Guia precios', href: '/guias-precios' },
@@ -345,45 +330,25 @@ export default function HomePage() {
             <input id="aud-tech" name="audience-home" type="radio" defaultChecked className="sr-only" />
             <input id="aud-biz" name="audience-home" type="radio" className="sr-only" />
 
-            <header className="overflow-hidden rounded-[32px] border border-slate-200/90 bg-white/95 shadow-[0_20px_65px_-42px_rgba(15,23,42,0.7)] backdrop-blur">
-              <div className="border-b border-slate-200/60 bg-[#0B1E44] px-6 py-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-slate-200">
-                  <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                    {headerUtilityLinks.map((item, index) => (
-                      <div key={item.label} className="flex items-center gap-2">
-                        {index > 0 ? <span className="h-3 w-px bg-slate-500/60" aria-hidden="true" /> : null}
-                        <Link href={item.href} className="transition hover:text-white">
-                          {item.label}
-                        </Link>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Link
-                    href="/tecnicos"
-                    className="rounded-full border border-cyan-200/35 bg-cyan-300/10 px-3 py-1 font-semibold text-cyan-100 transition hover:bg-cyan-200/15 hover:text-white"
-                  >
-                    Panel tecnico
-                  </Link>
-                </div>
-              </div>
-
-              <div className="px-6 py-5">
+            <header className="overflow-hidden rounded-[32px] border border-slate-200/90 bg-white/95 px-6 py-5 shadow-[0_20px_65px_-42px_rgba(15,23,42,0.7)] backdrop-blur">
                 <div className="flex flex-wrap items-center justify-between gap-5">
-                  <div className="flex items-center gap-3.5">
-                    <div className="relative grid h-14 w-14 place-items-center rounded-2xl bg-gradient-to-br from-[#08142E] via-[#0F172A] to-[#1B2B54] shadow-[0_20px_40px_-22px_rgba(15,23,42,0.95)] ring-1 ring-slate-300/40">
+                  <div className="flex min-w-0 items-center gap-4">
+                    <div className="relative grid h-16 w-16 place-items-center rounded-[22px] bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_24px_42px_-24px_rgba(10,18,38,0.95)] ring-1 ring-slate-300/45">
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -inset-1 -z-10 rounded-[24px] bg-[radial-gradient(circle_at_30%_0%,rgba(59,130,246,0.35),transparent_62%)] blur-sm"
+                      />
                       <span
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
                       />
-                      <Image src="/icon-48.png" alt="UrbanFix logo" width={30} height={30} priority />
+                      <Image src="/icon-48.png" alt="UrbanFix logo" width={34} height={34} priority />
                     </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.34em] text-[#647A9F]">UrbanFix Argentina</p>
-                      <p className={`${displayFont.className} mt-0.5 text-[23px] font-semibold leading-none text-[#18213A] sm:text-[34px]`}>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.32em] text-[#647A9F]">UrbanFix</p>
+                      <p className={`${displayFont.className} mt-0.5 truncate text-[23px] font-semibold leading-none text-[#18213A] sm:text-[34px]`}>
                         Gestion de <span className="text-[#0D3FA8]">presupuestos</span> de obra
                       </p>
-                      <p className="mt-1 text-[12px] font-medium text-slate-500">Operacion comercial clara para tecnicos y cuadrillas.</p>
                     </div>
                   </div>
 
@@ -426,7 +391,6 @@ export default function HomePage() {
                     </a>
                   </div>
                 </div>
-              </div>
             </header>
 
             <div className="hero-zone mt-8">
