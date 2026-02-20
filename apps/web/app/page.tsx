@@ -431,7 +431,7 @@ export default function HomePage() {
             <header className="sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="relative grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45">
+                  <div className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45 sm:h-16 sm:w-16">
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute -inset-1 -z-10 rounded-[24px] bg-[radial-gradient(circle_at_30%_0%,rgba(59,130,246,0.35),transparent_62%)] blur-sm"
@@ -440,10 +440,12 @@ export default function HomePage() {
                       aria-hidden="true"
                       className="pointer-events-none absolute inset-x-2 top-1 h-px bg-gradient-to-r from-transparent via-cyan-200/60 to-transparent"
                     />
-                    <Image src="/icon-48.png" alt="UrbanFix logo" width={26} height={26} priority />
+                    <Image src="/icon-48.png" alt="UrbanFix logo" width={34} height={34} priority className="sm:h-9 sm:w-9" />
                   </div>
                   <div className="min-w-0">
-                    <p className="hidden text-[10px] font-semibold uppercase tracking-[0.28em] text-[#647A9F] sm:block">UrbanFix</p>
+                    <p className={`${displayFont.className} hidden text-[12px] font-semibold uppercase tracking-[0.34em] text-[#647A9F] sm:block`}>
+                      UrbanFix
+                    </p>
                     <p className={`${displayFont.className} truncate text-[18px] font-semibold leading-none text-[#18213A] sm:text-[30px]`}>
                       Gestion de <span className="text-[#0D3FA8]">presupuestos</span> de obra
                     </p>
