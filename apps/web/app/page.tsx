@@ -42,6 +42,7 @@ export const metadata: Metadata = {
 
 const navLinks = [
   { href: '#resultados', label: 'Resultados' },
+  { href: '#galeria', label: 'Galeria' },
   { href: '#proceso', label: 'Proceso' },
   { href: '#modulos', label: 'Modulos' },
   { href: '#faq', label: 'FAQ' },
@@ -66,14 +67,17 @@ const serviceSegments = [
   {
     title: 'Electricidad y mantenimiento',
     description: 'Cotiza instalaciones, urgencias y mantenimientos con mejor control por item.',
+    image: '/illustrations/dashboard.svg',
   },
   {
     title: 'Plomeria y gas',
     description: 'Muestra materiales y mano de obra con claridad para reducir idas y vueltas.',
+    image: '/illustrations/quotes.svg',
   },
   {
     title: 'Reformas y obras chicas',
     description: 'Ordena tareas por etapas para sostener seguimiento comercial hasta el cierre.',
+    image: '/illustrations/agenda.svg',
   },
 ];
 
@@ -157,14 +161,17 @@ const comparisonRows = [
   {
     before: 'Cotizaciones repartidas en chats, notas y archivos sueltos',
     after: 'Presupuestos centralizados y listos para enviar en minutos',
+    image: '/illustrations/quotes.svg',
   },
   {
     before: 'Sin seguimiento despues del envio',
     after: 'Estados visibles para saber que requiere accion hoy',
+    image: '/illustrations/notifications.svg',
   },
   {
     before: 'Imagen comercial improvisada frente al cliente',
     after: 'Presentacion profesional y consistente en cada propuesta',
+    image: '/illustrations/branding.svg',
   },
 ];
 
@@ -173,16 +180,47 @@ const testimonials = [
     quote:
       'Antes perdiamos horas por presupuesto. Con UrbanFix enviamos mas rapido y el cliente entiende mejor el alcance.',
     author: 'Equipo tecnico de mantenimiento',
+    image: '/illustrations/viewer.svg',
   },
   {
     quote:
       'El seguimiento por estados nos dio control real. Ya no se enfria una oportunidad por falta de orden.',
     author: 'Servicio de reformas domiciliarias',
+    image: '/illustrations/dashboard.svg',
   },
   {
     quote:
       'Subio la calidad de presentacion y eso mejoro como nos perciben desde el primer contacto.',
     author: 'Tecnicos multi rubro',
+    image: '/illustrations/branding.svg',
+  },
+];
+
+const visualGallery = [
+  {
+    title: 'Vista integral de plataforma',
+    image: '/playstore/feature-graphic.png',
+    className: 'md:col-span-2 md:row-span-2',
+  },
+  {
+    title: 'Tablero comercial',
+    image: '/illustrations/dashboard.svg',
+    className: '',
+  },
+  {
+    title: 'Presupuestos claros',
+    image: '/illustrations/quotes.svg',
+    className: '',
+  },
+  {
+    title: 'Seguimiento y alertas',
+    image: '/illustrations/notifications.svg',
+    className: '',
+  },
+  {
+    title: 'Agenda operativa',
+    image: '/illustrations/agenda.svg',
+    className: '',
   },
 ];
 
@@ -406,11 +444,53 @@ export default function HomePage() {
                 {serviceSegments.map((segment) => (
                   <article
                     key={segment.title}
-                    className="rounded-3xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-5"
+                    className="overflow-hidden rounded-3xl border border-slate-200 bg-gradient-to-b from-white to-slate-50"
                   >
-                    <p className="text-base font-semibold text-slate-900">{segment.title}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{segment.description}</p>
+                    <Image
+                      src={segment.image}
+                      alt={segment.title}
+                      width={960}
+                      height={540}
+                      loading="lazy"
+                      className="h-36 w-full border-b border-slate-200 bg-slate-100 object-cover"
+                    />
+                    <div className="p-5">
+                      <p className="text-base font-semibold text-slate-900">{segment.title}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600">{segment.description}</p>
+                    </div>
                   </article>
+                ))}
+              </div>
+            </section>
+
+            <section id="galeria" className="mt-8 rounded-[30px] border border-slate-200 bg-white p-7 shadow-sm sm:p-8">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Galeria</p>
+              <h2 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">
+                Imagenes de producto para comunicar valor en segundos
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
+                Una vista visual clara mejora la confianza desde la primera visita y acelera la decision de probar la
+                plataforma.
+              </p>
+
+              <div className="mt-6 grid gap-3 md:grid-cols-3">
+                {visualGallery.map((item) => (
+                  <figure
+                    key={item.title}
+                    className={`group overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 ${item.className}`}
+                  >
+                    <Image
+                      src={item.image}
+                      alt={item.title}
+                      width={1200}
+                      height={700}
+                      loading="lazy"
+                      className="h-48 w-full object-cover transition duration-300 group-hover:scale-[1.02] md:h-full"
+                    />
+                    <figcaption className="border-t border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600">
+                      {item.title}
+                    </figcaption>
+                  </figure>
                 ))}
               </div>
             </section>
@@ -476,8 +556,20 @@ export default function HomePage() {
                 <div className="mt-5 space-y-3">
                   {comparisonRows.map((row) => (
                     <article key={row.before} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-xs font-semibold text-rose-700">Antes: {row.before}</p>
-                      <p className="mt-2 text-xs font-semibold text-emerald-700">Con UrbanFix: {row.after}</p>
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={row.image}
+                          alt={row.after}
+                          width={64}
+                          height={64}
+                          loading="lazy"
+                          className="h-12 w-12 rounded-xl border border-slate-200 bg-white object-cover"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-rose-700">Antes: {row.before}</p>
+                          <p className="mt-2 text-xs font-semibold text-emerald-700">Con UrbanFix: {row.after}</p>
+                        </div>
+                      </div>
                     </article>
                   ))}
                 </div>
@@ -491,6 +583,17 @@ export default function HomePage() {
                 <div className="mt-5 space-y-3">
                   {testimonials.map((item) => (
                     <blockquote key={item.quote} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="mb-3 flex items-center gap-3">
+                        <Image
+                          src={item.image}
+                          alt={item.author}
+                          width={80}
+                          height={80}
+                          loading="lazy"
+                          className="h-12 w-12 rounded-full border border-slate-200 bg-white p-1"
+                        />
+                        <div className="h-px flex-1 bg-slate-200" />
+                      </div>
                       <p className="text-sm leading-relaxed text-slate-700">"{item.quote}"</p>
                       <p className="mt-3 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         {item.author}
