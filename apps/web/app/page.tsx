@@ -61,10 +61,10 @@ const highlights = [
 ];
 
 const headerMainLinks = [
-  { label: 'Personas', href: '/urbanfix' },
-  { label: 'Guia precios', href: '/guias-precios' },
-  { label: 'Ciudades', href: '/ciudades' },
-  { label: 'Rubros', href: '/rubros' },
+  { label: 'Personas', targetId: 'ventana-personas' },
+  { label: 'Guia precios', targetId: 'ventana-guias' },
+  { label: 'Ciudades', targetId: 'ventana-ciudades' },
+  { label: 'Rubros', targetId: 'ventana-rubros' },
 ];
 
 const trustChips = [
@@ -72,6 +72,51 @@ const trustChips = [
   'Capturas reales del sistema',
   'Soporte humano',
   'Politicas publicas y claras',
+];
+
+const inPageWindows = [
+  {
+    id: 'ventana-tecnicos',
+    title: 'Ventana Tecnicos',
+    description: 'Operacion diaria para crear, enviar y seguir presupuestos con trazabilidad.',
+    bullets: ['Panel y actividad del dia', 'Presupuestador operativo', 'Seguimiento por estados'],
+    image: '/illustrations/PANEL DE CONTROL.jpeg',
+  },
+  {
+    id: 'ventana-negocio',
+    title: 'Ventana Negocio',
+    description: 'Control de pipeline comercial y estandar operativo para equipos y lideres.',
+    bullets: ['Estandarizacion de propuestas', 'Visibilidad por responsable', 'Escala sin perder control'],
+    image: '/illustrations/PRESUPUESTADOR.jpeg',
+  },
+  {
+    id: 'ventana-personas',
+    title: 'Ventana Institucional',
+    description: 'Presentacion de UrbanFix, propuesta de valor y enfoque de implementacion.',
+    bullets: ['Mensaje de confianza', 'Posicionamiento claro', 'Direccion de producto'],
+    image: '/playstore/feature-graphic.png',
+  },
+  {
+    id: 'ventana-guias',
+    title: 'Ventana Guias y Precios',
+    description: 'Acceso simple a referencias de precios y buenas practicas comerciales.',
+    bullets: ['Guias por categoria', 'Contexto para cotizar', 'Base de consulta rapida'],
+    image: '/illustrations/PRESUPUESTADOR.jpeg',
+  },
+  {
+    id: 'ventana-ciudades',
+    title: 'Ventana Ciudades',
+    description: 'Cobertura geografica y lectura por zona para orientar la operacion.',
+    bullets: ['Foco regional', 'Demanda por zonas', 'Expansion planificada'],
+    image: '/illustrations/AGENDA.jpeg',
+  },
+  {
+    id: 'ventana-rubros',
+    title: 'Ventana Rubros',
+    description: 'Especialidades y segmentos para comunicar servicios con mas precision.',
+    bullets: ['Rubros priorizados', 'Lenguaje por especialidad', 'Oferta mas clara al cliente'],
+    image: '/illustrations/PERFIL TECNICO.jpeg',
+  },
 ];
 
 const processSteps = [
@@ -371,13 +416,13 @@ export default function HomePage() {
 
                     <div className="hidden items-center gap-2 xl:flex">
                       {headerMainLinks.map((item) => (
-                        <Link
+                        <a
                           key={item.label}
-                          href={item.href}
+                          href={`#${item.targetId}`}
                           className="rounded-full px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900"
                         >
                           {item.label}
-                        </Link>
+                        </a>
                       ))}
                     </div>
 
@@ -409,18 +454,18 @@ export default function HomePage() {
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <Link
-                      href="/tecnicos"
+                    <a
+                      href="#ventana-tecnicos"
                       className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
                       Empezar como tecnico
-                    </Link>
-                    <Link
-                      href="/precios-mano-de-obra"
+                    </a>
+                    <a
+                      href="#ventana-guias"
                       className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
                       Ver guia de precios
-                    </Link>
+                    </a>
                   </div>
 
                   <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -509,18 +554,18 @@ export default function HomePage() {
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <Link
-                      href="/urbanfix"
+                    <a
+                      href="#ventana-negocio"
                       className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
                       Ver propuesta para negocio
-                    </Link>
-                    <Link
-                      href="/tecnicos"
+                    </a>
+                    <a
+                      href="#ventana-tecnicos"
                       className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
                       Evaluar demo operativa
-                    </Link>
+                    </a>
                   </div>
 
                   <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -594,6 +639,53 @@ export default function HomePage() {
                 </div>
               </section>
             </div>
+
+            <section id="ventanas" className="mt-8 rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Navegacion integrada</p>
+              <h2 className={`${displayFont.className} mt-2 text-2xl font-semibold text-slate-900`}>
+                Explora todas las ventanas sin salir de esta pagina
+              </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
+                Cada acceso del header te trae a este bloque con transicion suave y enfoque directo en la ventana
+                seleccionada.
+              </p>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {inPageWindows.map((windowItem) => (
+                  <article
+                    key={windowItem.id}
+                    id={windowItem.id}
+                    className="window-panel-target overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                  >
+                    <div className="relative">
+                      <Image
+                        src={windowItem.image}
+                        alt={windowItem.title}
+                        width={960}
+                        height={540}
+                        className="h-36 w-full object-cover"
+                        loading="lazy"
+                      />
+                      <span className="absolute left-3 top-3 rounded-full bg-[#0F172A]/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                        Ventana
+                      </span>
+                    </div>
+                    <div className="p-5">
+                      <h3 className={`${displayFont.className} text-xl font-semibold text-slate-900`}>{windowItem.title}</h3>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600">{windowItem.description}</p>
+                      <ul className="mt-3 space-y-1.5">
+                        {windowItem.bullets.map((bullet) => (
+                          <li key={bullet} className="flex items-start gap-2 text-[11px] font-medium text-slate-700">
+                            <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[#0D3FA8]" aria-hidden="true" />
+                            <span>{bullet}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
 
             <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">

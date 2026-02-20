@@ -13,6 +13,10 @@ body {
   font-family: var(--font-display);
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 p {
   font-family: var(--font-body);
 }
@@ -42,6 +46,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .fx-page {
     animation: none !important;
+  }
+
+  html {
+    scroll-behavior: auto;
   }
 }
 
@@ -92,6 +100,24 @@ body {
   .hero-zone .audience-hero {
     transition: none !important;
   }
+}
+
+/* --- WINDOW NAVIGATION (HOME) --- */
+.window-panel-target {
+  scroll-margin-top: 120px;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.window-panel-target:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.55);
+}
+
+.window-panel-target:target {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 22px 48px -30px rgba(59, 130, 246, 0.45);
+  transform: translateY(-2px);
 }
 
 /* --- ESTILOS DE IMPRESIÓN (PDF/CTRL+P) --- */
