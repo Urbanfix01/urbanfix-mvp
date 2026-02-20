@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Plus_Jakarta_Sans, Syne } from 'next/font/google';
+import HomeWindowNavCards from '../components/HomeWindowNavCards';
 
 const displayFont = Syne({
   subsets: ['latin'],
@@ -77,6 +78,8 @@ const homepageViewInputs = [
   'view-android',
 ] as const;
 
+type HomeViewId = (typeof homepageViewInputs)[number];
+
 const trustChips = [
   'Producto en uso real en Argentina',
   'Capturas reales del sistema',
@@ -84,9 +87,17 @@ const trustChips = [
   'Politicas publicas y claras',
 ];
 
-const inPageWindows = [
+const inPageWindows: Array<{
+  id: string;
+  viewId: HomeViewId;
+  title: string;
+  description: string;
+  bullets: string[];
+  image: string;
+}> = [
   {
     id: 'ventana-tecnicos',
+    viewId: 'view-tech',
     title: 'Ventana Tecnicos',
     description: 'Operacion diaria para crear, enviar y seguir presupuestos con trazabilidad.',
     bullets: ['Panel y actividad del dia', 'Presupuestador operativo', 'Seguimiento por estados'],
@@ -94,6 +105,7 @@ const inPageWindows = [
   },
   {
     id: 'ventana-negocio',
+    viewId: 'view-biz',
     title: 'Ventana Negocio',
     description: 'Control de pipeline comercial y estandar operativo para equipos y lideres.',
     bullets: ['Estandarizacion de propuestas', 'Visibilidad por responsable', 'Escala sin perder control'],
@@ -101,6 +113,7 @@ const inPageWindows = [
   },
   {
     id: 'ventana-personas',
+    viewId: 'view-personas',
     title: 'Ventana Institucional',
     description: 'Presentacion de UrbanFix, propuesta de valor y enfoque de implementacion.',
     bullets: ['Mensaje de confianza', 'Posicionamiento claro', 'Direccion de producto'],
@@ -108,6 +121,7 @@ const inPageWindows = [
   },
   {
     id: 'ventana-guias',
+    viewId: 'view-guias',
     title: 'Ventana Guias y Precios',
     description: 'Acceso simple a referencias de precios y buenas practicas comerciales.',
     bullets: ['Guias por categoria', 'Contexto para cotizar', 'Base de consulta rapida'],
@@ -115,6 +129,7 @@ const inPageWindows = [
   },
   {
     id: 'ventana-ciudades',
+    viewId: 'view-ciudades',
     title: 'Ventana Ciudades',
     description: 'Cobertura geografica y lectura por zona para orientar la operacion.',
     bullets: ['Foco regional', 'Demanda por zonas', 'Expansion planificada'],
@@ -122,6 +137,7 @@ const inPageWindows = [
   },
   {
     id: 'ventana-rubros',
+    viewId: 'view-rubros',
     title: 'Ventana Rubros',
     description: 'Especialidades y segmentos para comunicar servicios con mas precision.',
     bullets: ['Rubros priorizados', 'Lenguaje por especialidad', 'Oferta mas clara al cliente'],
@@ -449,7 +465,7 @@ export default function HomePage() {
               </div>
             </header>
 
-            <div className="view-zone mt-8">
+            <div id="vista-principal" className="view-zone mt-8">
               <section className="view-pane view-pane--tech grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
@@ -779,61 +795,7 @@ export default function HomePage() {
                 Este bloque resume todas las ventanas disponibles.
               </p>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {inPageWindows.map((windowItem) => (
-                  <article
-                    key={windowItem.id}
-                    id={windowItem.id}
-                    className="window-panel-target overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
-                  >
-                    <div className="relative">
-                      <Image
-                        src={windowItem.image}
-                        alt={windowItem.title}
-                        width={960}
-                        height={540}
-                        className="h-36 w-full object-cover"
-                        loading="lazy"
-                      />
-                      <span className="absolute left-3 top-3 rounded-full bg-[#0F172A]/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
-                        Ventana
-                      </span>
-                      {windowItem.id === 'ventana-personas' ? (
-                        <div className="absolute inset-x-3 bottom-3 flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            disabled
-                            className="cursor-not-allowed rounded-full border border-white/35 bg-[#0F172A]/85 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white opacity-90 backdrop-blur-sm"
-                            aria-label="Descarga Android proximamente"
-                          >
-                            Android - Proximamente
-                          </button>
-                          <button
-                            type="button"
-                            disabled
-                            className="cursor-not-allowed rounded-full border border-white/35 bg-white/15 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white opacity-90 backdrop-blur-sm"
-                            aria-label="Descarga iOS proximamente"
-                          >
-                            iOS - Proximamente
-                          </button>
-                        </div>
-                      ) : null}
-                    </div>
-                    <div className="p-5">
-                      <h3 className={`${displayFont.className} text-xl font-semibold text-slate-900`}>{windowItem.title}</h3>
-                      <p className="mt-2 text-xs leading-relaxed text-slate-600">{windowItem.description}</p>
-                      <ul className="mt-3 space-y-1.5">
-                        {windowItem.bullets.map((bullet) => (
-                          <li key={bullet} className="flex items-start gap-2 text-[11px] font-medium text-slate-700">
-                            <span className="mt-1 inline-block h-1.5 w-1.5 rounded-full bg-[#0D3FA8]" aria-hidden="true" />
-                            <span>{bullet}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </article>
-                ))}
-              </div>
+              <HomeWindowNavCards windows={inPageWindows} focusTargetId="vista-principal" />
             </section>
 
             <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
