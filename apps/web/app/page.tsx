@@ -95,6 +95,13 @@ const headerMainLinks = [
   { label: 'Rubros', href: '/rubros' },
 ];
 
+const trustChips = [
+  'Producto en uso real en Argentina',
+  'Capturas reales del sistema',
+  'Soporte humano',
+  'Politicas publicas y claras',
+];
+
 const processSteps = [
   {
     title: '1. Armado',
@@ -201,6 +208,32 @@ const impactPanels = [
     title: 'Seguimiento accionable',
     description: 'Estado real de cada presupuesto para priorizar el dia.',
   },
+];
+
+const trustSignals = [
+  {
+    title: 'Transparencia comercial',
+    description: 'Propuesta de valor clara, sin letra chica y con foco en resultados operativos.',
+  },
+  {
+    title: 'Operacion centralizada',
+    description: 'Cliente, cotizacion, adjuntos y seguimiento viven en el mismo flujo.',
+  },
+  {
+    title: 'Soporte y mejora continua',
+    description: 'El equipo acompana implementacion y toma feedback para iterar rapido.',
+  },
+  {
+    title: 'Base legal visible',
+    description: 'Privacidad y terminos accesibles para trabajar con respaldo formal.',
+  },
+];
+
+const commitmentItems = [
+  'Sin permanencia obligatoria para empezar.',
+  'Proceso trazable desde primer contacto hasta cierre.',
+  'Acceso web y app con experiencia consistente.',
+  'Feedback de producto incorporado en roadmap activo.',
 ];
 
 const faq = [
@@ -414,6 +447,17 @@ export default function HomePage() {
                     </span>
                   ))}
                 </div>
+
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {trustChips.map((chip) => (
+                    <span
+                      key={chip}
+                      className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
+                    >
+                      {chip}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-4">
@@ -454,6 +498,62 @@ export default function HomePage() {
                   />
                 </div>
               </div>
+            </section>
+
+            <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Confianza de producto</p>
+                <h2 className={`${displayFont.className} mt-2 text-2xl font-semibold text-slate-900`}>
+                  Base solida para vender y ejecutar con menos riesgo
+                </h2>
+                <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
+                  La plataforma esta pensada para operar de forma consistente: mismo criterio comercial, mismo flujo
+                  operativo y misma informacion para todo el equipo.
+                </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {trustSignals.map((signal) => (
+                    <article key={signal.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-900">{signal.title}</p>
+                      <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{signal.description}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
+              <aside className="rounded-[30px] border border-slate-200 bg-gradient-to-b from-[#0F172A] to-[#1E293B] p-8 text-white shadow-sm">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Compromiso UrbanFix</p>
+                <h3 className={`${displayFont.className} mt-2 text-2xl font-semibold leading-tight`}>
+                  Implementacion clara y controlada
+                </h3>
+                <p className="mt-3 text-sm leading-relaxed text-slate-300">
+                  El objetivo no es solo cotizar mas rapido, sino sostener una operacion confiable en el tiempo.
+                </p>
+
+                <ul className="mt-5 space-y-2.5">
+                  {commitmentItems.map((item) => (
+                    <li key={item} className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-200">
+                      <span className="mt-1 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-300" aria-hidden="true" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <Link
+                    href="/privacidad"
+                    className="rounded-full border border-slate-500 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300"
+                  >
+                    Politica de privacidad
+                  </Link>
+                  <Link
+                    href="/terminos"
+                    className="rounded-full border border-slate-500 px-3 py-1 text-[11px] font-semibold text-slate-100 transition hover:border-slate-300"
+                  >
+                    Terminos de uso
+                  </Link>
+                </div>
+              </aside>
             </section>
 
             <section className="mt-8 grid gap-4 md:grid-cols-3">
