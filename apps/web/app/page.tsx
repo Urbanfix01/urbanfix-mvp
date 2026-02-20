@@ -62,7 +62,6 @@ const highlights = [
 ];
 
 const headerSecondaryViews = [
-  { label: 'Personas', viewId: 'view-personas', windowId: 'ventana-personas' },
   { label: 'Guia precios', viewId: 'view-guias', windowId: 'ventana-guias' },
   { label: 'Ciudades', viewId: 'view-ciudades', windowId: 'ventana-ciudades' },
   { label: 'Rubros', viewId: 'view-rubros', windowId: 'ventana-rubros' },
@@ -114,9 +113,9 @@ const inPageWindows: Array<{
   {
     id: 'ventana-personas',
     viewId: 'view-personas',
-    title: 'Ventana Institucional',
-    description: 'Presentacion de UrbanFix, propuesta de valor y enfoque de implementacion.',
-    bullets: ['Mensaje de confianza', 'Posicionamiento claro', 'Direccion de producto'],
+    title: 'Ventana Clientes',
+    description: 'Personas que necesitan una reparacion y quieren comparar, aprobar y coordinar sin friccion.',
+    bullets: ['Pedido en 30 segundos', 'Comparacion clara de alcance y precio', 'Confirmacion por link o WhatsApp'],
     image: '/illustrations/window-institucional.svg',
   },
   {
@@ -180,6 +179,25 @@ const processStepsBiz = [
   {
     title: '4. Escala',
     description: 'Replica el flujo en mas zonas o equipos sin perder trazabilidad de punta a punta.',
+  },
+];
+
+const processStepsClients = [
+  {
+    title: '1. Pedido rapido',
+    description: 'Describe la reparacion, agrega direccion y define necesidad en pocos segundos.',
+  },
+  {
+    title: '2. Cotizacion clara',
+    description: 'Recibe propuesta con alcance, materiales y total en formato facil de entender.',
+  },
+  {
+    title: '3. Confirmacion simple',
+    description: 'Aprueba por link o WhatsApp sin crear cuenta ni perder tiempo.',
+  },
+  {
+    title: '4. Seguimiento',
+    description: 'Consulta estado de la obra y proximos pasos desde un mismo hilo.',
   },
 ];
 
@@ -261,6 +279,21 @@ const businessHighlights = [
   },
 ];
 
+const clientHighlights = [
+  {
+    title: 'Pedido en segundos',
+    description: 'Solicita una reparacion desde celular con datos clave y sin formularios largos.',
+  },
+  {
+    title: 'Comparacion transparente',
+    description: 'Visualiza tareas, materiales y montos para decidir con confianza.',
+  },
+  {
+    title: 'Confirmacion inmediata',
+    description: 'Aprueba por link y coordina avance sin llamadas interminables.',
+  },
+];
+
 const businessKpiCards = [
   {
     value: '1 tablero',
@@ -279,6 +312,24 @@ const businessKpiCards = [
   },
 ];
 
+const clientKpiCards = [
+  {
+    value: '<30s',
+    label: 'Para iniciar una solicitud',
+    detail: 'Carga minima de datos para activar una cotizacion real.',
+  },
+  {
+    value: '1 link',
+    label: 'Para revisar y confirmar',
+    detail: 'El cliente visualiza detalle completo y responde sin fricciones.',
+  },
+  {
+    value: '100%',
+    label: 'Del proceso en una vista',
+    detail: 'Pedido, propuesta y seguimiento unificados en el mismo flujo.',
+  },
+];
+
 const tradeBadges = [
   'Electricidad',
   'Plomeria',
@@ -291,6 +342,8 @@ const tradeBadges = [
 ];
 
 const businessBadges = ['Contratistas', 'Cuadrillas', 'Estudios tecnicos', 'Constructoras', 'Mantenimiento'];
+
+const clientBadges = ['Hogar', 'Comercio', 'Urgencias', 'Mantenimiento', 'Refacciones'];
 
 const impactPanels = [
   {
@@ -466,13 +519,13 @@ export default function HomePage() {
                       htmlFor="view-tech"
                       className="header-view-option audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                     >
-                      Para tecnicos
+                      Tecnicos
                     </label>
                     <label
                       htmlFor="view-biz"
                       className="header-view-option audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                     >
-                      Para negocio
+                      Empresas
                     </label>
                     <label
                       htmlFor="view-personas"
@@ -621,7 +674,7 @@ export default function HomePage() {
               <section className="view-pane view-pane--biz grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-800">
-                    Propuesta para negocio y equipos
+                    Propuesta para empresas y equipos
                   </p>
                   <h2 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
                     Estandariza tu <span className="text-[#0D3FA8]">operacion comercial</span> y escala sin perder control.
@@ -636,7 +689,7 @@ export default function HomePage() {
                       htmlFor="view-personas"
                       className="cursor-pointer rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
-                      Ver propuesta institucional
+                      Ver propuesta clientes
                     </label>
                     <Link
                       href="/tecnicos?quick=1&mode=register"
@@ -734,6 +787,123 @@ export default function HomePage() {
                 </div>
               </section>
 
+              <section className="view-pane view-pane--personas grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
+                  <p className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800">
+                    Para clientes que necesitan una reparacion
+                  </p>
+                  <h2 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
+                    Cotiza y confirma <span className="text-emerald-600">sin vueltas</span>, desde tu celular.
+                  </h2>
+                  <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
+                    UrbanFix te permite pedir una reparacion, revisar el detalle y aprobar de forma simple. Todo en
+                    una vista clara para decidir rapido y seguir el avance.
+                  </p>
+
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <label
+                      htmlFor="view-tech"
+                      className="cursor-pointer rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    >
+                      Ver tecnicos
+                    </label>
+                    <label
+                      htmlFor="view-guias"
+                      className="cursor-pointer rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
+                    >
+                      Ver guia de precios
+                    </label>
+                  </div>
+
+                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                    {clientHighlights.map((item) => (
+                      <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                        <p className="mt-1.5 text-xs leading-relaxed text-slate-600">{item.description}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {clientBadges.map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {trustChips.map((chip) => (
+                      <span
+                        key={chip}
+                        className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800"
+                      >
+                        {chip}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="relative overflow-hidden rounded-[30px] border border-slate-900/60 bg-[#071533] p-6 text-white shadow-[0_24px_80px_-38px_rgba(10,18,38,0.95)]">
+                    <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(16,185,129,0.32),transparent_45%),radial-gradient(circle_at_88%_10%,rgba(56,189,248,0.18),transparent_38%)]" />
+                    <div className="pointer-events-none absolute -right-12 top-16 h-36 w-36 rounded-full border border-emerald-200/20" />
+                    <div className="relative">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Resultado para clientes</p>
+                      <h2 className={`${displayFont.className} mt-2 text-[30px] font-semibold leading-[1.05] text-white`}>
+                        Reparaciones con decision mas simple
+                      </h2>
+                      <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-200">
+                        Menos incertidumbre al pedir una obra: recibes detalle claro, costo visible y confirmacion en
+                        un solo paso.
+                      </p>
+                      <div className="mt-5 grid gap-3">
+                        {clientKpiCards.map((metric) => (
+                          <div
+                            key={metric.value + metric.label}
+                            className="rounded-2xl border border-emerald-200/20 bg-slate-950/45 px-4 py-3.5 backdrop-blur-sm"
+                          >
+                            <p className={`${displayFont.className} text-[31px] leading-none text-emerald-300`}>{metric.value}</p>
+                            <p className="mt-1 text-[13px] font-semibold text-slate-100">{metric.label}</p>
+                            <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{metric.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="relative overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                    <Image
+                      src="/illustrations/LINK DEL PRESUPUESTO.jpeg"
+                      alt="Vista del presupuesto para clientes en UrbanFix"
+                      width={1200}
+                      height={630}
+                      className="h-64 w-full object-cover"
+                    />
+                    <div className="absolute inset-x-3 bottom-3 flex flex-wrap gap-2">
+                      <a
+                        href="https://play.google.com/apps/testing/com.urbanfix.app"
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-full bg-[#0F172A]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition hover:bg-[#0F172A]"
+                      >
+                        Descargar Android
+                      </a>
+                      <button
+                        type="button"
+                        disabled
+                        className="cursor-not-allowed rounded-full border border-white/35 bg-white/20 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm"
+                      >
+                        iOS Proximamente
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
               {headerSecondaryViews.map((item) => {
                 const windowItem = inPageWindows.find((windowPanel) => windowPanel.id === item.windowId);
                 if (!windowItem) {
@@ -741,7 +911,6 @@ export default function HomePage() {
                 }
 
                 const viewSuffix = item.viewId.replace('view-', '');
-                const isClientView = item.viewId === 'view-personas';
 
                 return (
                   <section
@@ -771,26 +940,6 @@ export default function HomePage() {
                           Ver vista negocio
                         </label>
                       </div>
-
-                      {isClientView ? (
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <a
-                            href="https://play.google.com/apps/testing/com.urbanfix.app"
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="rounded-full bg-[#0F172A] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
-                          >
-                            Descargar Android
-                          </a>
-                          <button
-                            type="button"
-                            disabled
-                            className="cursor-not-allowed rounded-full border border-slate-300 bg-slate-100 px-4 py-2 text-[11px] font-semibold text-slate-500"
-                          >
-                            Descargar iOS (proximamente)
-                          </button>
-                        </div>
-                      ) : null}
 
                       <ul className="mt-6 space-y-2.5">
                         {windowItem.bullets.map((bullet) => (
@@ -881,7 +1030,7 @@ export default function HomePage() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Como funciona</p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Flujo simple para no perder tiempo</h2>
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
-                El flujo se adapta automaticamente segun la audiencia seleccionada: tecnicos o negocio.
+                El flujo se adapta automaticamente segun la audiencia seleccionada: tecnicos, empresas o clientes.
               </p>
 
               <div className="process-flow-pane process-flow-pane--tech mt-5">
@@ -900,10 +1049,24 @@ export default function HomePage() {
 
               <div className="process-flow-pane process-flow-pane--biz mt-5">
                 <span className="inline-flex rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold text-cyan-800">
-                  Flujo para negocio
+                  Flujo para empresas
                 </span>
                 <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   {processStepsBiz.map((step) => (
+                    <article key={step.title} className="rounded-2xl border border-slate-200 bg-white p-4">
+                      <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                      <p className="mt-2 text-xs leading-relaxed text-slate-600">{step.description}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+
+              <div className="process-flow-pane process-flow-pane--clients mt-5">
+                <span className="inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-800">
+                  Flujo para clientes
+                </span>
+                <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  {processStepsClients.map((step) => (
                     <article key={step.title} className="rounded-2xl border border-slate-200 bg-white p-4">
                       <p className="text-sm font-semibold text-slate-900">{step.title}</p>
                       <p className="mt-2 text-xs leading-relaxed text-slate-600">{step.description}</p>

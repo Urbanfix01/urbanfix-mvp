@@ -122,11 +122,14 @@ header .header-view-option {
 }
 
 #view-biz:checked ~ .flow-zone .process-flow-pane--biz,
-#view-personas:checked ~ .flow-zone .process-flow-pane--biz,
 #view-guias:checked ~ .flow-zone .process-flow-pane--biz,
 #view-ciudades:checked ~ .flow-zone .process-flow-pane--biz,
 #view-rubros:checked ~ .flow-zone .process-flow-pane--biz,
 #view-android:checked ~ .flow-zone .process-flow-pane--biz {
+  display: block;
+}
+
+#view-personas:checked ~ .flow-zone .process-flow-pane--clients {
   display: block;
 }
 
