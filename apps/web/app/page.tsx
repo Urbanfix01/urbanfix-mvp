@@ -78,37 +78,43 @@ const featureShowcase = [
   {
     title: 'Panel de control',
     description: 'Resumen de actividad, estados y accesos rapidos para arrancar el dia con foco.',
-    image: '/illustrations/dashboard.svg',
+    image: '/illustrations/PANEL DE CONTROL.jpeg',
+    imagePosition: 'center center',
     badge: 'Control',
   },
   {
     title: 'Presupuestos profesionales',
     description: 'Items por mano de obra y materiales, totales claros y estructura lista para enviar.',
-    image: '/illustrations/quotes.svg',
+    image: '/illustrations/PRESUPUESTADOR.jpeg',
+    imagePosition: 'center center',
     badge: 'Cotizacion',
   },
   {
     title: 'Visualizador para clientes',
     description: 'Tu cliente abre el presupuesto por link, revisa el detalle y confirma.',
-    image: '/illustrations/viewer.svg',
+    image: '/illustrations/LINK DEL PRESUPUESTO.jpeg',
+    imagePosition: 'center center',
     badge: 'Cliente',
   },
   {
     title: 'Agenda',
     description: 'Organiza trabajos aprobados y fechas comprometidas sin planillas paralelas.',
-    image: '/illustrations/agenda.svg',
+    image: '/illustrations/AGENDA.jpeg',
+    imagePosition: 'center center',
     badge: 'Planificacion',
   },
   {
     title: 'Notificaciones',
     description: 'Mantente al dia con eventos importantes: respuestas, cambios y tareas pendientes.',
-    image: '/illustrations/notifications.svg',
+    image: '/illustrations/PRESUPUESTO PDF.jpeg',
+    imagePosition: 'center center',
     badge: 'Alertas',
   },
   {
     title: 'Perfil y marca',
     description: 'Logo, datos y presentacion profesional en cada propuesta que envias.',
-    image: '/illustrations/branding.svg',
+    image: '/illustrations/PERFIL TECNICO.jpeg',
+    imagePosition: 'center center',
     badge: 'Marca',
   },
 ];
@@ -408,14 +414,18 @@ export default function HomePage() {
                     <div className="relative bg-slate-50">
                       <Image
                         src={feature.image}
-                        alt={feature.title}
+                        alt={`${feature.title} - captura real de UrbanFix`}
                         width={960}
                         height={540}
                         loading="lazy"
-                        className="h-40 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        className="h-44 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
+                        style={{ objectPosition: feature.imagePosition }}
                       />
                       <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
                         {feature.badge}
+                      </span>
+                      <span className="absolute bottom-3 right-3 rounded-full bg-[#0F172A]/85 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white">
+                        Captura real
                       </span>
                     </div>
                     <div className="p-5">
