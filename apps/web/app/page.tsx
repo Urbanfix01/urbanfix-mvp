@@ -1,11 +1,16 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Sora } from 'next/font/google';
+import { Plus_Jakarta_Sans, Syne } from 'next/font/google';
 
-const sora = Sora({
+const displayFont = Syne({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+  weight: ['500', '600', '700', '800'],
+});
+
+const bodyFont = Plus_Jakarta_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -123,14 +128,17 @@ const kpiCards = [
   {
     value: '3x',
     label: 'Mas velocidad para armar presupuestos',
+    detail: 'Plantillas y flujo guiado para cotizar sin rehacer trabajo.',
   },
   {
     value: '1 link',
     label: 'Para que el cliente vea y confirme',
+    detail: 'Un solo enlace con detalle completo y aprobacion sin friccion.',
   },
   {
     value: '100%',
     label: 'Del flujo en un solo lugar',
+    detail: 'Cliente, cotizacion y seguimiento conectados de punta a punta.',
   },
 ];
 
@@ -223,7 +231,7 @@ const organizationJsonLd = {
 
 export default function HomePage() {
   return (
-    <div className={sora.className}>
+    <div className={bodyFont.className}>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd) }}
@@ -286,7 +294,7 @@ export default function HomePage() {
                 <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
                   Plataforma para tecnicos de Argentina
                 </p>
-                <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl">
+                <h1 className={`${displayFont.className} mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl`}>
                   Presupuestos de obra <span className="text-amber-500">sin caos</span>, desde el primer contacto
                   hasta el cobro.
                 </h1>
@@ -332,23 +340,26 @@ export default function HomePage() {
               </div>
 
               <div className="space-y-4">
-                <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-[#0F172A] p-6 text-white shadow-sm">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(245,185,66,0.3),transparent_45%),radial-gradient(circle_at_100%_10%,rgba(56,189,248,0.2),transparent_40%)]" />
+                <div className="relative overflow-hidden rounded-[30px] border border-slate-900/60 bg-[#071533] p-6 text-white shadow-[0_24px_80px_-38px_rgba(10,18,38,0.95)]">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_8%_0%,rgba(245,185,66,0.32),transparent_45%),radial-gradient(circle_at_88%_10%,rgba(14,165,233,0.22),transparent_38%)]" />
+                  <div className="pointer-events-none absolute -right-12 top-16 h-36 w-36 rounded-full border border-cyan-300/20" />
                   <div className="relative">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Resultado</p>
-                    <h2 className="mt-2 text-xl font-semibold">Operacion mas predecible</h2>
-                    <p className="mt-2 text-sm text-slate-200">
-                      Menos friccion para cotizar y mas claridad para el cliente. Eso acelera aprobaciones y ordena tu
-                      agenda.
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-300">Resultado operativo</p>
+                    <h2 className={`${displayFont.className} mt-2 text-[30px] font-semibold leading-[1.05] text-white`}>
+                      Operacion mas predecible
+                    </h2>
+                    <p className="mt-3 max-w-md text-sm leading-relaxed text-slate-200">
+                      Menos friccion para cotizar, mas claridad para el cliente y seguimiento ordenado de punta a punta.
                     </p>
-                    <div className="mt-4 grid gap-3">
+                    <div className="mt-5 grid gap-3">
                       {kpiCards.map((metric) => (
                         <div
                           key={metric.value + metric.label}
-                          className="rounded-2xl border border-slate-700 bg-slate-900/60 px-4 py-3"
+                          className="rounded-2xl border border-cyan-200/20 bg-slate-950/45 px-4 py-3.5 backdrop-blur-sm"
                         >
-                          <p className="text-lg font-semibold text-amber-300">{metric.value}</p>
-                          <p className="text-xs text-slate-200">{metric.label}</p>
+                          <p className={`${displayFont.className} text-[31px] leading-none text-amber-300`}>{metric.value}</p>
+                          <p className="mt-1 text-[13px] font-semibold text-slate-100">{metric.label}</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{metric.detail}</p>
                         </div>
                       ))}
                     </div>
