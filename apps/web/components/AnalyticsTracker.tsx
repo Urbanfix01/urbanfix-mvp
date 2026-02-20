@@ -65,6 +65,17 @@ export default function AnalyticsTracker() {
     }
   };
 
+  const sendFunnelEvent = (eventName: string, eventContext?: Record<string, unknown>) => {
+    const nextPath =
+      typeof window !== 'undefined' ? window.location.pathname || pathname || '/' : pathname || '/';
+    sendEvent({
+      event_type: 'funnel',
+      event_name: eventName,
+      event_context: eventContext || {},
+      path: nextPath,
+    });
+  };
+
   const flushDuration = () => {
     const start = startTimeRef.current;
     const path = lastPathRef.current;
@@ -82,6 +93,34 @@ export default function AnalyticsTracker() {
     lastPathRef.current = pathname || '/';
     startTimeRef.current = now;
     sendEvent({ event_type: 'page_view', path: pathname || '/' });
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target) return;
+
+      const tracked = target.closest<HTMLElement>('[data-analytics-event]');
+      if (!tracked) return;
+
+      const eventName = (tracked.dataset.analyticsEvent || '').trim();
+      if (!eventName) return;
+
+      const eventContext: Record<string, string> = {};
+      const label = (tracked.dataset.analyticsLabel || '').trim();
+      const location = (tracked.dataset.analyticsLocation || '').trim();
+      const targetValue = (tracked.dataset.analyticsTarget || '').trim();
+      if (label) eventContext.label = label.slice(0, 180);
+      if (location) eventContext.location = location.slice(0, 180);
+      if (targetValue) eventContext.target = targetValue.slice(0, 180);
+
+      sendFunnelEvent(eventName.slice(0, 80), eventContext);
+    };
+
+    document.addEventListener('click', handleClick, true);
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+    };
   }, [pathname]);
 
   useEffect(() => {

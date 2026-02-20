@@ -114,16 +114,41 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: true })
     .limit(50000);
 
+  let funnelQuery = supabase
+    .from('analytics_events')
+    .select('event_name, created_at, session_id, user_id, path')
+    .eq('event_type', 'funnel')
+    .gte('created_at', startDate.toISOString())
+    .lte('created_at', endDate.toISOString())
+    .order('created_at', { ascending: true })
+    .limit(50000);
+
+  let prevFunnelQuery = supabase
+    .from('analytics_events')
+    .select('event_name, created_at, session_id, user_id, path')
+    .eq('event_type', 'funnel')
+    .gte('created_at', prevStart.toISOString())
+    .lte('created_at', prevEnd.toISOString())
+    .order('created_at', { ascending: true })
+    .limit(50000);
+
   query = applyFilters(query);
   prevQuery = applyFilters(prevQuery);
+  funnelQuery = applyFilters(funnelQuery);
+  prevFunnelQuery = applyFilters(prevFunnelQuery);
 
-  const [{ data: events, error }, { data: prevEvents, error: prevError }] = await Promise.all([
-    query,
-    prevQuery,
-  ]);
+  const [
+    { data: events, error },
+    { data: prevEvents, error: prevError },
+    { data: funnelEvents, error: funnelError },
+    { data: prevFunnelEvents, error: prevFunnelError },
+  ] = await Promise.all([query, prevQuery, funnelQuery, prevFunnelQuery]);
 
-  if (error || prevError) {
-    return NextResponse.json({ error: error?.message || prevError?.message }, { status: 500 });
+  if (error || prevError || funnelError || prevFunnelError) {
+    return NextResponse.json(
+      { error: error?.message || prevError?.message || funnelError?.message || prevFunnelError?.message },
+      { status: 500 }
+    );
   }
 
   const seriesMap = new Map<string, { views: number; durationMs: number }>();
@@ -286,6 +311,58 @@ export async function GET(request: NextRequest) {
     }
   });
 
+  const funnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
+  const prevFunnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
+
+  (funnelEvents || []).forEach((event: any) => {
+    const key = (event.event_name || 'unknown').toString().slice(0, 80);
+    if (!key) return;
+    const current = funnelCounts.get(key) || { count: 0, sessions: new Set<string>() };
+    current.count += 1;
+    if (event.session_id) current.sessions.add(event.session_id);
+    funnelCounts.set(key, current);
+  });
+
+  (prevFunnelEvents || []).forEach((event: any) => {
+    const key = (event.event_name || 'unknown').toString().slice(0, 80);
+    if (!key) return;
+    const current = prevFunnelCounts.get(key) || { count: 0, sessions: new Set<string>() };
+    current.count += 1;
+    if (event.session_id) current.sessions.add(event.session_id);
+    prevFunnelCounts.set(key, current);
+  });
+
+  const funnelSteps = [
+    { key: 'home_audience_tecnicos', label: 'Audiencia: Tecnicos' },
+    { key: 'home_audience_empresas', label: 'Audiencia: Empresas' },
+    { key: 'home_audience_clientes', label: 'Audiencia: Clientes' },
+    { key: 'home_open_guia_precios', label: 'Apertura de guia de precios' },
+    { key: 'home_register_start', label: 'Registro tecnico desde home' },
+    { key: 'home_register_start_from_empresas', label: 'Registro tecnico desde empresas' },
+    { key: 'home_download_android_click', label: 'Click descarga Android' },
+  ];
+
+  const funnel = {
+    totalEvents: Array.from(funnelCounts.values()).reduce((sum, item) => sum + item.count, 0),
+    prevTotalEvents: Array.from(prevFunnelCounts.values()).reduce((sum, item) => sum + item.count, 0),
+    steps: funnelSteps.map((step) => ({
+      key: step.key,
+      label: step.label,
+      count: funnelCounts.get(step.key)?.count || 0,
+      prevCount: prevFunnelCounts.get(step.key)?.count || 0,
+      sessions: funnelCounts.get(step.key)?.sessions.size || 0,
+    })),
+    topEvents: Array.from(funnelCounts.entries())
+      .map(([event_name, stats]) => ({
+        event_name,
+        count: stats.count,
+        sessions: stats.sessions.size,
+        prevCount: prevFunnelCounts.get(event_name)?.count || 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12),
+  };
+
   const totals = {
     views: totalViews,
     minutes: totalDurationMs / 1000 / 60,
@@ -307,6 +384,7 @@ export async function GET(request: NextRequest) {
     topScreens,
     topRoutes,
     topUsers,
+    funnel,
     totals,
     prevTotals,
   });

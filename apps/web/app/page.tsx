@@ -517,18 +517,30 @@ export default function HomePage() {
                     <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(33.333%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
                     <label
                       htmlFor="view-tech"
+                      data-analytics-event="home_audience_tecnicos"
+                      data-analytics-label="tecnicos"
+                      data-analytics-location="home_header_switch"
+                      data-analytics-target="view-tech"
                       className="header-view-option audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                     >
                       Tecnicos
                     </label>
                     <label
                       htmlFor="view-biz"
+                      data-analytics-event="home_audience_empresas"
+                      data-analytics-label="empresas"
+                      data-analytics-location="home_header_switch"
+                      data-analytics-target="view-biz"
                       className="header-view-option audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                     >
                       Empresas
                     </label>
                     <label
                       htmlFor="view-personas"
+                      data-analytics-event="home_audience_clientes"
+                      data-analytics-label="clientes"
+                      data-analytics-location="home_header_switch"
+                      data-analytics-target="view-personas"
                       className="header-view-option audience-toggle-option audience-toggle-option--clients relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                     >
                       Clientes
@@ -543,6 +555,10 @@ export default function HomePage() {
                     <label
                       key={item.label}
                       htmlFor={item.viewId}
+                      data-analytics-event="home_secondary_view_switch"
+                      data-analytics-label={item.label}
+                      data-analytics-location="home_header_secondary"
+                      data-analytics-target={item.viewId}
                       className={`header-view-option header-view-option--${item.viewId.replace('view-', '')} cursor-pointer rounded-full px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-slate-900`}
                     >
                       {item.label}
@@ -570,12 +586,20 @@ export default function HomePage() {
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link
                       href="/tecnicos?quick=1&mode=register"
+                      data-analytics-event="home_register_start"
+                      data-analytics-label="crear_cuenta_2s"
+                      data-analytics-location="home_view_tecnicos"
+                      data-analytics-target="/tecnicos?quick=1&mode=register"
                       className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
                       Crear cuenta en 2 segundos
                     </Link>
                     <label
                       htmlFor="view-guias"
+                      data-analytics-event="home_open_guia_precios"
+                      data-analytics-label="ver_guia_precios"
+                      data-analytics-location="home_view_tecnicos"
+                      data-analytics-target="view-guias"
                       className="cursor-pointer rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
                       Ver guia de precios
@@ -648,11 +672,16 @@ export default function HomePage() {
                       width={1200}
                       height={630}
                       priority
+                      sizes="(max-width: 1024px) 100vw, 42vw"
                       className="h-64 w-full object-cover"
                     />
                     <div className="absolute inset-x-3 bottom-3 flex flex-wrap gap-2">
                       <a
                         href="https://play.google.com/apps/testing/com.urbanfix.app"
+                        data-analytics-event="home_download_android_click"
+                        data-analytics-label="android_beta"
+                        data-analytics-location="home_view_tecnicos"
+                        data-analytics-target="playstore_testing"
                         target="_blank"
                         rel="noreferrer noopener"
                         className="rounded-full bg-[#0F172A]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition hover:bg-[#0F172A]"
@@ -687,12 +716,20 @@ export default function HomePage() {
                   <div className="mt-6 flex flex-wrap gap-3">
                     <label
                       htmlFor="view-personas"
+                      data-analytics-event="home_open_clientes_from_empresas"
+                      data-analytics-label="ver_propuesta_clientes"
+                      data-analytics-location="home_view_empresas"
+                      data-analytics-target="view-personas"
                       className="cursor-pointer rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
                       Ver propuesta clientes
                     </label>
                     <Link
                       href="/tecnicos?quick=1&mode=register"
+                      data-analytics-event="home_register_start_from_empresas"
+                      data-analytics-label="alta_tecnica_inmediata"
+                      data-analytics-location="home_view_empresas"
+                      data-analytics-target="/tecnicos?quick=1&mode=register"
                       className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
                       Alta tecnica inmediata
@@ -764,11 +801,16 @@ export default function HomePage() {
                       alt="Operacion centralizada para negocio en UrbanFix"
                       width={1200}
                       height={630}
+                      sizes="(max-width: 1024px) 100vw, 42vw"
                       className="h-64 w-full object-cover"
                     />
                     <div className="absolute inset-x-3 bottom-3 flex flex-wrap gap-2">
                       <a
                         href="https://play.google.com/apps/testing/com.urbanfix.app"
+                        data-analytics-event="home_download_android_click"
+                        data-analytics-label="android_beta"
+                        data-analytics-location="home_view_empresas"
+                        data-analytics-target="playstore_testing"
                         target="_blank"
                         rel="noreferrer noopener"
                         className="rounded-full bg-[#0F172A]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition hover:bg-[#0F172A]"
@@ -803,12 +845,20 @@ export default function HomePage() {
                   <div className="mt-6 flex flex-wrap gap-3">
                     <label
                       htmlFor="view-tech"
+                      data-analytics-event="home_open_tecnicos_from_clientes"
+                      data-analytics-label="ver_tecnicos"
+                      data-analytics-location="home_view_clientes"
+                      data-analytics-target="view-tech"
                       className="cursor-pointer rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                     >
                       Ver tecnicos
                     </label>
                     <label
                       htmlFor="view-guias"
+                      data-analytics-event="home_open_guia_from_clientes"
+                      data-analytics-label="ver_guia_precios"
+                      data-analytics-location="home_view_clientes"
+                      data-analytics-target="view-guias"
                       className="cursor-pointer rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                     >
                       Ver guia de precios
@@ -881,11 +931,16 @@ export default function HomePage() {
                       alt="Vista del presupuesto para clientes en UrbanFix"
                       width={1200}
                       height={630}
+                      sizes="(max-width: 1024px) 100vw, 42vw"
                       className="h-64 w-full object-cover"
                     />
                     <div className="absolute inset-x-3 bottom-3 flex flex-wrap gap-2">
                       <a
                         href="https://play.google.com/apps/testing/com.urbanfix.app"
+                        data-analytics-event="home_download_android_click"
+                        data-analytics-label="android_beta"
+                        data-analytics-location="home_view_clientes"
+                        data-analytics-target="playstore_testing"
                         target="_blank"
                         rel="noreferrer noopener"
                         className="rounded-full bg-[#0F172A]/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white backdrop-blur-sm transition hover:bg-[#0F172A]"
@@ -958,6 +1013,7 @@ export default function HomePage() {
                           alt={windowItem.title}
                           width={1200}
                           height={630}
+                          sizes="(max-width: 1024px) 100vw, 42vw"
                           className="h-64 w-full object-cover"
                         />
                       </article>
@@ -1010,6 +1066,7 @@ export default function HomePage() {
                       alt="UrbanFix disponible para Android"
                       width={1200}
                       height={630}
+                      sizes="(max-width: 1024px) 100vw, 42vw"
                       className="h-64 w-full object-cover"
                     />
                   </article>

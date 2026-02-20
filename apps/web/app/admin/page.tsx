@@ -523,6 +523,12 @@ export default function AdminPage() {
     series: { date: string; views: number; minutes: number }[];
     totals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
     prevTotals: { views: number; minutes: number; uniqueSessions: number; uniqueUsers: number };
+    funnel?: {
+      totalEvents: number;
+      prevTotalEvents: number;
+      steps: { key: string; label: string; count: number; prevCount: number; sessions: number }[];
+      topEvents: { event_name: string; count: number; sessions: number; prevCount: number }[];
+    };
     topScreens: ScreenMetric[];
     topRoutes: { path: string; views: number; total_minutes: number; avg_seconds: number }[];
     topUsers: {
@@ -3570,6 +3576,23 @@ export default function AdminPage() {
                     >
                       Exportar usuarios
                     </button>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        downloadCsv(
+                          'actividad_embudo.csv',
+                          (activityData.funnel?.topEvents || []).map((item) => ({
+                            evento: item.event_name,
+                            eventos: item.count,
+                            sesiones: item.sessions,
+                            periodo_anterior: item.prevCount,
+                          }))
+                        )
+                      }
+                      className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                    >
+                      Exportar embudo
+                    </button>
                   </div>
 
                   <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -3638,6 +3661,64 @@ export default function AdminPage() {
                       </p>
                     </div>
                   </div>
+
+                  {activityData.funnel && (
+                    <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <h4 className="text-lg font-semibold text-slate-900">Embudo de conversion web</h4>
+                          <p className="text-xs text-slate-500">Eventos clave de conversion y cambio de audiencia.</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Total eventos</p>
+                          <p className="text-xl font-semibold text-slate-900">{formatNumber(activityData.funnel.totalEvents)}</p>
+                          <p className={`text-xs ${getDeltaLabel(activityData.funnel.totalEvents, activityData.funnel.prevTotalEvents).tone}`}>
+                            {getDeltaLabel(activityData.funnel.totalEvents, activityData.funnel.prevTotalEvents).text}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {activityData.funnel.steps.map((step) => (
+                          <article key={step.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{step.label}</p>
+                            <p className="mt-2 text-xl font-semibold text-slate-900">{formatNumber(step.count)}</p>
+                            <p className="text-xs text-slate-500">{formatNumber(step.sessions)} sesion(es)</p>
+                            <p className={`mt-1 text-xs ${getDeltaLabel(step.count, step.prevCount).tone}`}>
+                              {getDeltaLabel(step.count, step.prevCount).text}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+
+                      <div className="mt-6 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-sm font-semibold text-slate-800">Eventos mas frecuentes</h5>
+                          <span className="text-xs text-slate-400">Top 12</span>
+                        </div>
+                        {activityData.funnel.topEvents.length === 0 && (
+                          <p className="text-sm text-slate-500">Todavia no hay eventos de embudo registrados.</p>
+                        )}
+                        {activityData.funnel.topEvents.map((item) => (
+                          <div
+                            key={item.event_name}
+                            className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"
+                          >
+                            <div>
+                              <p className="text-sm font-semibold text-slate-700">{item.event_name}</p>
+                              <p className="mt-1 text-[11px] text-slate-400">{item.sessions} sesion(es) unicas</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-sm font-semibold text-slate-700">{formatNumber(item.count)} eventos</p>
+                              <p className={`text-[11px] ${getDeltaLabel(item.count, item.prevCount).tone}`}>
+                                {getDeltaLabel(item.count, item.prevCount).text}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   {presenceError && <p className="mt-4 text-xs text-rose-500">{presenceError}</p>}
 
