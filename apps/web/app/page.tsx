@@ -454,7 +454,7 @@ export default function HomePage() {
 
                 <div className="ml-auto flex shrink-0 items-center justify-end">
                   <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
-                    <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(50%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
+                    <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(33.333%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
                     <label
                       htmlFor="view-tech"
                       className="header-view-option audience-toggle-option audience-toggle-option--tech relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
@@ -466,6 +466,12 @@ export default function HomePage() {
                       className="header-view-option audience-toggle-option audience-toggle-option--biz relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
                     >
                       Para negocio
+                    </label>
+                    <label
+                      htmlFor="view-personas"
+                      className="header-view-option audience-toggle-option audience-toggle-option--clients relative z-10 cursor-pointer rounded-full px-3 py-1.5 text-[11px] font-semibold transition"
+                    >
+                      Clientes
                     </label>
                   </div>
                 </div>

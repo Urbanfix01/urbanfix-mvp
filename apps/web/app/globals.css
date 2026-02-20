@@ -60,17 +60,26 @@ header .header-view-option {
 }
 
 #view-tech:checked ~ header .audience-toggle-option--tech,
-#view-biz:checked ~ header .audience-toggle-option--biz {
+#view-biz:checked ~ header .audience-toggle-option--biz,
+#view-personas:checked ~ header .audience-toggle-option--clients {
   color: #ffffff;
 }
 
 #view-tech:checked ~ header .audience-toggle-option--biz,
-#view-biz:checked ~ header .audience-toggle-option--tech {
+#view-tech:checked ~ header .audience-toggle-option--clients,
+#view-biz:checked ~ header .audience-toggle-option--tech,
+#view-biz:checked ~ header .audience-toggle-option--clients,
+#view-personas:checked ~ header .audience-toggle-option--tech,
+#view-personas:checked ~ header .audience-toggle-option--biz {
   color: #334155;
 }
 
 #view-biz:checked ~ header .audience-toggle-pill {
   transform: translateX(100%);
+}
+
+#view-personas:checked ~ header .audience-toggle-pill {
+  transform: translateX(200%);
 }
 
 #view-personas:checked ~ header .header-view-option--personas,
