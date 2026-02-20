@@ -128,6 +128,32 @@ const kpiCards = [
   },
 ];
 
+const tradeBadges = [
+  'Electricidad',
+  'Plomeria',
+  'Pintura',
+  'Albanileria',
+  'Herreria',
+  'Mantenimiento',
+  'Techos',
+  'Gas',
+];
+
+const impactPanels = [
+  {
+    title: 'Entrada ordenada',
+    description: 'Cliente, direccion y alcance en un punto de inicio limpio.',
+  },
+  {
+    title: 'Cotizacion clara',
+    description: 'Items y totales legibles para que el cliente decida mas rapido.',
+  },
+  {
+    title: 'Seguimiento accionable',
+    description: 'Estado real de cada presupuesto para priorizar el dia.',
+  },
+];
+
 const faq = [
   {
     question: 'UrbanFix sirve para una sola especialidad o varias?',
@@ -211,7 +237,7 @@ export default function HomePage() {
           <div className="absolute -left-24 top-24 h-72 w-72 rounded-full bg-[#0F172A]/8 blur-3xl" />
           <div className="absolute -right-24 bottom-20 h-80 w-80 rounded-full bg-[#F59E0B]/15 blur-3xl" />
 
-          <main className="relative mx-auto w-full max-w-6xl px-6 py-10 md:py-12">
+          <main className="fx-page relative mx-auto w-full max-w-7xl px-6 py-10 md:py-12">
             <header className="rounded-[28px] border border-slate-200/80 bg-white/90 px-6 py-5 shadow-sm backdrop-blur">
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
@@ -250,12 +276,13 @@ export default function HomePage() {
             </header>
 
             <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                 <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
                   Plataforma para tecnicos de Argentina
                 </p>
                 <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-900 sm:text-5xl">
-                  Presupuestos de obra sin caos, desde el primer contacto hasta el cobro.
+                  Presupuestos de obra <span className="text-amber-500">sin caos</span>, desde el primer contacto
+                  hasta el cobro.
                 </h1>
                 <p className="mt-5 max-w-2xl text-sm leading-relaxed text-slate-600">
                   UrbanFix une presupuesto, cliente y seguimiento en un flujo claro. Cotiza mas rapido, comparte por
@@ -265,13 +292,13 @@ export default function HomePage() {
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Link
                     href="/tecnicos"
-                    className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                    className="rounded-full bg-[#0F172A] px-5 py-2.5 text-xs font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                   >
                     Empezar como tecnico
                   </Link>
                   <Link
                     href="/precios-mano-de-obra"
-                    className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
+                    className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:-translate-y-0.5 hover:border-slate-500 hover:text-slate-900"
                   >
                     Ver guia de precios
                   </Link>
@@ -285,26 +312,40 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  {tradeBadges.map((trade) => (
+                    <span
+                      key={trade}
+                      className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                    >
+                      {trade}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-4">
-                <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Resultado</p>
-                  <h2 className="mt-2 text-xl font-semibold text-slate-900">Operacion mas predecible</h2>
-                  <p className="mt-2 text-sm text-slate-600">
-                    Menos friccion para cotizar y mas claridad para el cliente. Eso acelera aprobaciones y ordena tu
-                    agenda.
-                  </p>
-                  <div className="mt-4 grid gap-3">
-                    {kpiCards.map((metric) => (
-                      <div
-                        key={metric.value + metric.label}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <p className="text-lg font-semibold text-slate-900">{metric.value}</p>
-                        <p className="text-xs text-slate-600">{metric.label}</p>
-                      </div>
-                    ))}
+                <div className="relative overflow-hidden rounded-[30px] border border-slate-200 bg-[#0F172A] p-6 text-white shadow-sm">
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(245,185,66,0.3),transparent_45%),radial-gradient(circle_at_100%_10%,rgba(56,189,248,0.2),transparent_40%)]" />
+                  <div className="relative">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Resultado</p>
+                    <h2 className="mt-2 text-xl font-semibold">Operacion mas predecible</h2>
+                    <p className="mt-2 text-sm text-slate-200">
+                      Menos friccion para cotizar y mas claridad para el cliente. Eso acelera aprobaciones y ordena tu
+                      agenda.
+                    </p>
+                    <div className="mt-4 grid gap-3">
+                      {kpiCards.map((metric) => (
+                        <div
+                          key={metric.value + metric.label}
+                          className="rounded-2xl border border-slate-700 bg-slate-900/60 px-4 py-3"
+                        >
+                          <p className="text-lg font-semibold text-amber-300">{metric.value}</p>
+                          <p className="text-xs text-slate-200">{metric.label}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
@@ -321,12 +362,28 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section id="proceso" className="mt-8 rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm">
+            <section className="mt-8 grid gap-4 md:grid-cols-3">
+              {impactPanels.map((panel) => (
+                <article
+                  key={panel.title}
+                  className="rounded-[24px] border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Impacto</p>
+                  <h3 className="mt-2 text-lg font-semibold text-slate-900">{panel.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-slate-600">{panel.description}</p>
+                </article>
+              ))}
+            </section>
+
+            <section
+              id="proceso"
+              className="mt-8 rounded-[30px] border border-slate-200 bg-gradient-to-b from-white to-slate-50 p-8 shadow-sm"
+            >
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Como funciona</p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Flujo simple para no perder tiempo</h2>
               <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {processSteps.map((step) => (
-                  <div key={step.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div key={step.title} className="rounded-2xl border border-slate-200 bg-white p-4">
                     <p className="text-sm font-semibold text-slate-900">{step.title}</p>
                     <p className="mt-2 text-xs leading-relaxed text-slate-600">{step.description}</p>
                   </div>
@@ -334,7 +391,7 @@ export default function HomePage() {
               </div>
             </section>
 
-            <section id="modulos" className="mt-8 rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm">
+            <section id="modulos" className="mt-8 rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Modulos</p>
               <h2 className="mt-2 text-2xl font-semibold text-slate-900">Todo el sistema en una sola vista</h2>
               <p className="mt-3 max-w-3xl text-sm text-slate-600">
@@ -346,7 +403,7 @@ export default function HomePage() {
                 {featureShowcase.map((feature) => (
                   <article
                     key={feature.title}
-                    className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm"
+                    className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                   >
                     <div className="relative bg-slate-50">
                       <Image
@@ -355,7 +412,7 @@ export default function HomePage() {
                         width={960}
                         height={540}
                         loading="lazy"
-                        className="h-40 w-full object-cover"
+                        className="h-40 w-full object-cover transition duration-500 group-hover:scale-[1.03]"
                       />
                       <span className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-700">
                         {feature.badge}
@@ -371,7 +428,7 @@ export default function HomePage() {
             </section>
 
             <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-8 shadow-sm">
+              <div className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">FAQ</p>
                 <h2 className="mt-2 text-2xl font-semibold text-slate-900">Preguntas frecuentes</h2>
                 <div className="mt-5 space-y-3">
@@ -386,7 +443,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-[#0F172A] p-8 text-white shadow-sm">
+              <div className="rounded-[30px] border border-slate-200 bg-[#0F172A] p-8 text-white shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Siguiente paso</p>
                 <h2 className="mt-2 text-2xl font-semibold leading-tight">Empieza a cotizar con un flujo mas ordenado</h2>
                 <p className="mt-3 text-sm leading-relaxed text-slate-300">
