@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 
   const user = await getAuthUser(request);
 
-  const { error } = await supabase.from('analytics_events').insert({
+  const payloadWithFunnelColumns = {
     user_id: user?.id || null,
     session_id: sessionId,
     event_type: eventType,
@@ -100,7 +100,26 @@ export async function POST(request: NextRequest) {
     duration_ms: eventType === 'page_duration' ? Math.min(24 * 60 * 60 * 1000, durationMs) : null,
     referrer,
     user_agent: userAgent,
-  });
+  };
+
+  let { error } = await supabase.from('analytics_events').insert(payloadWithFunnelColumns);
+
+  // Backward compatibility while remote schema catches up with event_name/event_context columns.
+  if (
+    error &&
+    /event_name|event_context|column.*does not exist|schema cache/i.test(error.message || '')
+  ) {
+    const { error: legacyError } = await supabase.from('analytics_events').insert({
+      user_id: user?.id || null,
+      session_id: sessionId,
+      event_type: eventType,
+      path,
+      duration_ms: eventType === 'page_duration' ? Math.min(24 * 60 * 60 * 1000, durationMs) : null,
+      referrer,
+      user_agent: userAgent,
+    });
+    error = legacyError;
+  }
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

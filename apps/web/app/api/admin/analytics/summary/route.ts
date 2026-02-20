@@ -137,18 +137,30 @@ export async function GET(request: NextRequest) {
   funnelQuery = applyFilters(funnelQuery);
   prevFunnelQuery = applyFilters(prevFunnelQuery);
 
-  const [
-    { data: events, error },
-    { data: prevEvents, error: prevError },
-    { data: funnelEvents, error: funnelError },
-    { data: prevFunnelEvents, error: prevFunnelError },
-  ] = await Promise.all([query, prevQuery, funnelQuery, prevFunnelQuery]);
+  const [{ data: events, error }, { data: prevEvents, error: prevError }] = await Promise.all([
+    query,
+    prevQuery,
+  ]);
 
-  if (error || prevError || funnelError || prevFunnelError) {
-    return NextResponse.json(
-      { error: error?.message || prevError?.message || funnelError?.message || prevFunnelError?.message },
-      { status: 500 }
-    );
+  if (error || prevError) {
+    return NextResponse.json({ error: error?.message || prevError?.message }, { status: 500 });
+  }
+
+  let funnelEvents: any[] = [];
+  let prevFunnelEvents: any[] = [];
+  const [{ data: funnelData, error: funnelError }, { data: prevFunnelData, error: prevFunnelError }] =
+    await Promise.all([funnelQuery, prevFunnelQuery]);
+
+  if (funnelError || prevFunnelError) {
+    const funnelMessage = funnelError?.message || prevFunnelError?.message || '';
+    const isSchemaLag =
+      /event_name|event_context|column.*does not exist|schema cache/i.test(funnelMessage);
+    if (!isSchemaLag) {
+      return NextResponse.json({ error: funnelMessage }, { status: 500 });
+    }
+  } else {
+    funnelEvents = funnelData || [];
+    prevFunnelEvents = prevFunnelData || [];
   }
 
   const seriesMap = new Map<string, { views: number; durationMs: number }>();
