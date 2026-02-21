@@ -511,10 +511,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'web_inicio',
     column: 'captacion',
     shape: 'start',
-    x: 110,
-    y: 92,
-    width: 176,
-    height: 42,
+    x: 104,
+    y: 96,
+    width: 190,
+    height: 44,
     title: 'Inicio',
     subtitle: 'Entrada de visitante',
     description: 'Punto inicial del visitante en la web comercial.',
@@ -527,10 +527,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'web_landing',
     column: 'captacion',
     shape: 'process',
-    x: 88,
-    y: 166,
-    width: 220,
-    height: 70,
+    x: 83,
+    y: 172,
+    width: 232,
+    height: 74,
     title: 'Landing multisegmento',
     subtitle: 'Tecnicos, empresas y clientes',
     description: 'Presenta propuesta para cada perfil sin salir de la misma experiencia.',
@@ -543,10 +543,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'web_valor',
     column: 'captacion',
     shape: 'decision',
-    x: 115,
-    y: 272,
-    width: 166,
-    height: 96,
+    x: 110,
+    y: 282,
+    width: 178,
+    height: 98,
     title: 'Decision de valor',
     subtitle: 'Engagement',
     description: 'Valida si la propuesta es clara para continuar al acceso.',
@@ -559,8 +559,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'web_guias',
     column: 'captacion',
     shape: 'process',
-    x: 18,
-    y: 404,
+    x: 42,
+    y: 408,
     width: 220,
     height: 70,
     title: 'Guias y rubros',
@@ -575,10 +575,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'web_acceso',
     column: 'captacion',
     shape: 'process',
-    x: 128,
-    y: 532,
+    x: 83,
+    y: 534,
     width: 220,
-    height: 70,
+    height: 72,
     title: 'Acceso tecnico',
     subtitle: 'Entrada operativa',
     description: 'Activa ingreso para continuar con creacion y envio de presupuestos.',
@@ -591,8 +591,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_login',
     column: 'operacion',
     shape: 'process',
-    x: 444,
-    y: 142,
+    x: 469,
+    y: 148,
     width: 220,
     height: 70,
     title: 'Login y panel',
@@ -607,8 +607,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_crear',
     column: 'operacion',
     shape: 'process',
-    x: 444,
-    y: 236,
+    x: 469,
+    y: 244,
     width: 220,
     height: 70,
     title: 'Crear presupuesto',
@@ -623,8 +623,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_compartir',
     column: 'operacion',
     shape: 'process',
-    x: 444,
-    y: 330,
+    x: 469,
+    y: 340,
     width: 220,
     height: 70,
     title: 'Compartir propuesta',
@@ -639,9 +639,9 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_confirma',
     column: 'operacion',
     shape: 'decision',
-    x: 471,
-    y: 438,
-    width: 166,
+    x: 430,
+    y: 446,
+    width: 156,
     height: 96,
     title: 'Decision cliente',
     subtitle: 'Aprobacion',
@@ -655,10 +655,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_ajustar',
     column: 'operacion',
     shape: 'process',
-    x: 530,
-    y: 438,
-    width: 200,
-    height: 70,
+    x: 598,
+    y: 446,
+    width: 156,
+    height: 72,
     title: 'Ajustar propuesta',
     subtitle: 'Nueva iteracion',
     description: 'Cuando no confirma, vuelve al armado con contexto de objeciones.',
@@ -671,8 +671,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_seguir',
     column: 'operacion',
     shape: 'process',
-    x: 444,
-    y: 558,
+    x: 469,
+    y: 568,
     width: 220,
     height: 70,
     title: 'Seguimiento y agenda',
@@ -687,8 +687,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_control',
     column: 'operacion',
     shape: 'process',
-    x: 444,
-    y: 652,
+    x: 469,
+    y: 664,
     width: 220,
     height: 62,
     title: 'Subir datos a admin',
@@ -703,8 +703,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'admin_resumen',
     column: 'control',
     shape: 'process',
-    x: 824,
-    y: 148,
+    x: 849,
+    y: 154,
     width: 220,
     height: 70,
     title: 'Resumen ejecutivo',
@@ -719,8 +719,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'admin_fact',
     column: 'control',
     shape: 'process',
-    x: 824,
-    y: 242,
+    x: 849,
+    y: 248,
     width: 220,
     height: 70,
     title: 'Facturacion',
@@ -735,8 +735,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'admin_roadmap',
     column: 'control',
     shape: 'process',
-    x: 824,
-    y: 336,
+    x: 849,
+    y: 342,
     width: 220,
     height: 70,
     title: 'Roadmap',
@@ -751,8 +751,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'admin_msg',
     column: 'control',
     shape: 'process',
-    x: 824,
-    y: 430,
+    x: 849,
+    y: 436,
     width: 220,
     height: 70,
     title: 'Mensajes',
@@ -767,8 +767,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'admin_act',
     column: 'control',
     shape: 'process',
-    x: 824,
-    y: 524,
+    x: 849,
+    y: 530,
     width: 220,
     height: 70,
     title: 'Actividad',
@@ -783,10 +783,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'admin_fin',
     column: 'control',
     shape: 'end',
-    x: 848,
-    y: 640,
+    x: 873,
+    y: 652,
     width: 172,
-    height: 46,
+    height: 48,
     title: 'Mejora continua',
     subtitle: 'Cierre de ciclo',
     description: 'El control cierra el ciclo y relanza iteraciones en producto.',
@@ -806,24 +806,36 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     to: 'web_guias',
     fromSide: 'left',
     toSide: 'top',
-    via: [{ x: 46, y: 320 }, { x: 46, y: 392 }],
+    via: [{ x: 34, y: 331 }, { x: 34, y: 384 }, { x: 152, y: 384 }],
     label: 'no',
-    labelX: 80,
-    labelY: 356,
+    labelX: 66,
+    labelY: 346,
   },
   {
     id: 'e4',
     from: 'web_guias',
     to: 'web_landing',
+    fromSide: 'top',
+    toSide: 'left',
+    via: [{ x: 152, y: 384 }, { x: 72, y: 384 }, { x: 72, y: 209 }],
+  },
+  { id: 'e5', from: 'web_valor', to: 'web_acceso', label: 'si', labelX: 228, labelY: 498 },
+  {
+    id: 'e6',
+    from: 'web_acceso',
+    to: 'op_login',
     fromSide: 'right',
     toSide: 'left',
-    via: [{ x: 340, y: 438 }, { x: 340, y: 201 }],
+    via: [{ x: 364, y: 570 }, { x: 364, y: 183 }],
   },
-  { id: 'e5', from: 'web_valor', to: 'web_acceso', label: 'si', labelX: 210, labelY: 438 },
-  { id: 'e6', from: 'web_acceso', to: 'op_login', fromSide: 'right', toSide: 'left', label: 'continuar' },
   { id: 'e7', from: 'op_login', to: 'op_crear' },
   { id: 'e8', from: 'op_crear', to: 'op_compartir' },
-  { id: 'e9', from: 'op_compartir', to: 'op_confirma' },
+  {
+    id: 'e9',
+    from: 'op_compartir',
+    to: 'op_confirma',
+    via: [{ x: 579, y: 430 }, { x: 508, y: 430 }],
+  },
   { id: 'e10', from: 'op_confirma', to: 'op_ajustar', fromSide: 'right', toSide: 'left', label: 'no' },
   {
     id: 'e11',
@@ -831,9 +843,17 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     to: 'op_crear',
     fromSide: 'right',
     toSide: 'right',
-    via: [{ x: 748, y: 473 }, { x: 748, y: 271 }],
+    via: [{ x: 770, y: 482 }, { x: 770, y: 279 }],
   },
-  { id: 'e12', from: 'op_confirma', to: 'op_seguir', label: 'si', labelX: 554, labelY: 548 },
+  {
+    id: 'e12',
+    from: 'op_confirma',
+    to: 'op_seguir',
+    via: [{ x: 508, y: 548 }, { x: 579, y: 548 }],
+    label: 'si',
+    labelX: 546,
+    labelY: 548,
+  },
   { id: 'e13', from: 'op_seguir', to: 'op_control' },
   {
     id: 'e14',
@@ -841,7 +861,7 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     to: 'admin_resumen',
     fromSide: 'right',
     toSide: 'left',
-    via: [{ x: 760, y: 683 }, { x: 760, y: 183 }],
+    via: [{ x: 770, y: 695 }, { x: 770, y: 189 }],
   },
   { id: 'e15', from: 'admin_resumen', to: 'admin_fact' },
   { id: 'e16', from: 'admin_fact', to: 'admin_roadmap' },
@@ -854,7 +874,7 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     to: 'web_landing',
     fromSide: 'left',
     toSide: 'top',
-    via: [{ x: 760, y: 664 }, { x: 760, y: 720 }, { x: 198, y: 720 }, { x: 198, y: 156 }],
+    via: [{ x: 760, y: 676 }, { x: 760, y: 724 }, { x: 199, y: 724 }, { x: 199, y: 172 }],
   },
 ];
 
@@ -3758,6 +3778,20 @@ export default function AdminPage() {
                           </g>
                         ))}
 
+                        {[132, 228, 324, 440, 566, 662].map((guideY) => (
+                          <line
+                            key={`flow-grid-${guideY}`}
+                            x1={30}
+                            y1={guideY}
+                            x2={1130}
+                            y2={guideY}
+                            stroke="#E2E8F0"
+                            strokeDasharray="2 6"
+                            strokeWidth={0.9}
+                            opacity={0.55}
+                          />
+                        ))}
+
                         {APP_WEB_FLOW_EDGES.map((edge) => {
                           const path = buildFlowEdgePath(edge);
                           if (!path) return null;
@@ -3800,9 +3834,14 @@ export default function AdminPage() {
                             : node.shape === 'decision'
                               ? '#1D4ED8'
                               : node.shape === 'start' || node.shape === 'end'
-                                ? '#2563EB'
+                                ? '#1E40AF'
                                 : '#3B82F6';
-                          const strokeColor = isSelected ? '#020617' : '#1E40AF';
+                          const strokeColor = isSelected ? '#020617' : '#1E3A8A';
+                          const nodeFontSize = node.shape === 'start' || node.shape === 'end'
+                            ? 18
+                            : node.flowLabel.length > 1
+                              ? 13
+                              : 15;
                           return (
                             <g
                               key={node.id}
@@ -3834,13 +3873,13 @@ export default function AdminPage() {
                                 y={centerY + titleOffset}
                                 textAnchor="middle"
                                 dominantBaseline="middle"
-                                fontSize={node.shape === 'start' || node.shape === 'end' ? 18 : 15}
+                                fontSize={nodeFontSize}
                                 fontWeight={800}
                                 fill="#FFFFFF"
                                 letterSpacing="0.2px"
                               >
                                 {node.flowLabel.map((line, index) => (
-                                  <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 15}>
+                                  <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 14}>
                                     {line}
                                   </tspan>
                                 ))}
