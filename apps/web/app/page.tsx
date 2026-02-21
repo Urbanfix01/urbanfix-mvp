@@ -512,7 +512,7 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="ml-auto flex shrink-0 items-center justify-end">
+                <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
                   <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
                     <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(33.333%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
                     <label
@@ -546,6 +546,16 @@ export default function HomePage() {
                       Clientes
                     </label>
                   </div>
+                  <Link
+                    href="/tecnicos?mode=login"
+                    data-analytics-event="home_header_login_click"
+                    data-analytics-label="iniciar_sesion"
+                    data-analytics-location="home_header"
+                    data-analytics-target="/tecnicos?mode=login"
+                    className="inline-flex items-center rounded-full bg-[#0F172A] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                  >
+                    Iniciar sesion
+                  </Link>
                 </div>
               </div>
 
