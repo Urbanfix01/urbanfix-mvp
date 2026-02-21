@@ -588,43 +588,139 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     target: { type: 'web', href: '/guias-precios' },
   },
   {
-    id: 'web_acceso',
+    id: 'web_perfil',
+    column: 'captacion',
+    shape: 'decision',
+    x: 110,
+    y: 520,
+    width: 178,
+    height: 98,
+    title: 'Seleccion de perfil',
+    subtitle: 'Ramificacion principal',
+    description: 'Define el carril de ingreso para tecnico, empresa o cliente.',
+    flowLabel: ['Perfil', 'T/E/C?'],
+    preview: '/illustrations/window-negocio.svg',
+    highlights: ['Técnico', 'Empresa', 'Cliente'],
+    target: { type: 'web', href: '/tecnicos' },
+  },
+  {
+    id: 'web_acceso_tecnico',
     column: 'captacion',
     shape: 'process',
-    x: 83,
-    y: 534,
+    x: 30,
+    y: 648,
     width: 220,
     height: 72,
     title: 'Acceso tecnico',
     subtitle: 'Entrada operativa',
-    description: 'Activa ingreso para continuar con creacion y envio de presupuestos.',
-    flowLabel: ['Ir a acceso', 'tecnico'],
+    description: 'Login para crear presupuestos y seguir obras.',
+    flowLabel: ['Acceso', 'tecnico'],
     preview: '/illustrations/window-tecnicos.svg',
-    highlights: ['Login', 'Cuenta activa', 'Continuidad operativa'],
-    target: { type: 'web', href: '/tecnicos?mode=login' },
+    highlights: ['Login', 'Presupuestos', 'Seguimiento'],
+    target: { type: 'web', href: '/tecnicos?mode=login&perfil=tecnico' },
   },
   {
-    id: 'op_login',
+    id: 'web_acceso_empresa',
+    column: 'captacion',
+    shape: 'process',
+    x: 268,
+    y: 648,
+    width: 220,
+    height: 72,
+    title: 'Acceso empresa',
+    subtitle: 'Control de equipo',
+    description: 'Ingreso para gestión comercial, responsables y operación.',
+    flowLabel: ['Acceso', 'empresa'],
+    preview: '/illustrations/window-negocio.svg',
+    highlights: ['Equipo', 'Pipeline', 'Control'],
+    target: { type: 'web', href: '/tecnicos?mode=login&perfil=empresa' },
+  },
+  {
+    id: 'web_acceso_cliente',
+    column: 'captacion',
+    shape: 'process',
+    x: 506,
+    y: 648,
+    width: 220,
+    height: 72,
+    title: 'Acceso cliente',
+    subtitle: 'Solicitud y confirmacion',
+    description: 'Ingreso para pedir, revisar y confirmar cotizaciones.',
+    flowLabel: ['Acceso', 'cliente'],
+    preview: '/illustrations/window-institucional.svg',
+    highlights: ['Solicitud', 'Cotización', 'Aprobación'],
+    target: { type: 'web', href: '/urbanfix?view=personas' },
+  },
+  {
+    id: 'op_login_tec',
     column: 'operacion',
     shape: 'process',
     x: 469,
     y: 148,
     width: 220,
     height: 70,
-    title: 'Login y panel',
-    subtitle: 'Operador tecnico',
-    description: 'Ingreso al panel de trabajo para iniciar cotizacion.',
-    flowLabel: ['Login y panel', 'de trabajo'],
+    title: 'Login tecnico',
+    subtitle: 'Operador de campo',
+    description: 'Ingreso al panel técnico para iniciar cotizaciones.',
+    flowLabel: ['Login', 'tecnico'],
     preview: '/illustrations/PANEL DE CONTROL.jpeg',
-    highlights: ['Autenticacion', 'Panel operativo', 'Accion inmediata'],
-    target: { type: 'web', href: '/tecnicos?mode=login' },
+    highlights: ['Autenticación', 'Panel técnico', 'Acción inmediata'],
+    target: { type: 'web', href: '/tecnicos?mode=login&perfil=tecnico' },
+  },
+  {
+    id: 'op_login_emp',
+    column: 'operacion',
+    shape: 'process',
+    x: 469,
+    y: 240,
+    width: 220,
+    height: 70,
+    title: 'Login empresa',
+    subtitle: 'Responsable comercial',
+    description: 'Ingreso del perfil empresa para coordinar equipo y pipeline.',
+    flowLabel: ['Login', 'empresa'],
+    preview: '/illustrations/window-negocio.svg',
+    highlights: ['Responsables', 'Comercial', 'Operación'],
+    target: { type: 'web', href: '/tecnicos?mode=login&perfil=empresa' },
+  },
+  {
+    id: 'op_login_cli',
+    column: 'operacion',
+    shape: 'process',
+    x: 469,
+    y: 332,
+    width: 220,
+    height: 70,
+    title: 'Ingreso cliente',
+    subtitle: 'Portal de solicitud',
+    description: 'Entrada del cliente para generar pedido y revisar propuesta.',
+    flowLabel: ['Ingreso', 'cliente'],
+    preview: '/illustrations/window-institucional.svg',
+    highlights: ['Pedido', 'Revisión', 'Confirmación'],
+    target: { type: 'web', href: '/urbanfix?view=personas' },
+  },
+  {
+    id: 'op_hub',
+    column: 'operacion',
+    shape: 'process',
+    x: 469,
+    y: 424,
+    width: 260,
+    height: 74,
+    title: 'Hub operativo compartido',
+    subtitle: 'Convergencia T/E/C',
+    description: 'Técnicos, empresas y clientes convergen en el mismo motor operativo de presupuesto.',
+    flowLabel: ['Hub operativo', 'compartido'],
+    preview: '/illustrations/dashboard.svg',
+    highlights: ['Motor único', 'Estados comunes', 'Escalabilidad'],
+    target: { type: 'admin', tab: 'resumen' },
   },
   {
     id: 'op_crear',
     column: 'operacion',
     shape: 'process',
     x: 469,
-    y: 244,
+    y: 520,
     width: 220,
     height: 70,
     title: 'Crear presupuesto',
@@ -640,7 +736,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     column: 'operacion',
     shape: 'process',
     x: 469,
-    y: 340,
+    y: 616,
     width: 220,
     height: 70,
     title: 'Compartir propuesta',
@@ -656,7 +752,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     column: 'operacion',
     shape: 'decision',
     x: 430,
-    y: 446,
+    y: 722,
     width: 156,
     height: 96,
     title: 'Decision cliente',
@@ -672,7 +768,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     column: 'operacion',
     shape: 'process',
     x: 598,
-    y: 446,
+    y: 722,
     width: 156,
     height: 72,
     title: 'Ajustar propuesta',
@@ -688,7 +784,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     column: 'operacion',
     shape: 'process',
     x: 469,
-    y: 568,
+    y: 844,
     width: 220,
     height: 70,
     title: 'Seguimiento y agenda',
@@ -704,7 +800,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     column: 'operacion',
     shape: 'process',
     x: 469,
-    y: 664,
+    y: 940,
     width: 220,
     height: 62,
     title: 'Subir datos a admin',
@@ -835,26 +931,27 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     toSide: 'left',
     via: [{ x: 152, y: 384 }, { x: 72, y: 384 }, { x: 72, y: 209 }],
   },
-  { id: 'e5', from: 'web_valor', to: 'web_acceso', label: 'si', labelX: 228, labelY: 498 },
+  { id: 'e5', from: 'web_valor', to: 'web_perfil', label: 'si', labelX: 228, labelY: 498 },
+  { id: 'e6', from: 'web_perfil', to: 'web_acceso_tecnico', label: 'tecnico' },
+  { id: 'e7', from: 'web_perfil', to: 'web_acceso_empresa', label: 'empresa' },
+  { id: 'e8', from: 'web_perfil', to: 'web_acceso_cliente', label: 'cliente' },
+  { id: 'e9', from: 'web_acceso_tecnico', to: 'op_login_tec', fromSide: 'right', toSide: 'left' },
+  { id: 'e10', from: 'web_acceso_empresa', to: 'op_login_emp', fromSide: 'right', toSide: 'left' },
+  { id: 'e11', from: 'web_acceso_cliente', to: 'op_login_cli', fromSide: 'right', toSide: 'left' },
+  { id: 'e12', from: 'op_login_tec', to: 'op_hub' },
+  { id: 'e13', from: 'op_login_emp', to: 'op_hub' },
+  { id: 'e14', from: 'op_login_cli', to: 'op_hub' },
+  { id: 'e15', from: 'op_hub', to: 'op_crear' },
+  { id: 'e16', from: 'op_crear', to: 'op_compartir' },
   {
-    id: 'e6',
-    from: 'web_acceso',
-    to: 'op_login',
-    fromSide: 'right',
-    toSide: 'left',
-    via: [{ x: 364, y: 570 }, { x: 364, y: 183 }],
-  },
-  { id: 'e7', from: 'op_login', to: 'op_crear' },
-  { id: 'e8', from: 'op_crear', to: 'op_compartir' },
-  {
-    id: 'e9',
+    id: 'e17',
     from: 'op_compartir',
     to: 'op_confirma',
     via: [{ x: 579, y: 430 }, { x: 508, y: 430 }],
   },
-  { id: 'e10', from: 'op_confirma', to: 'op_ajustar', fromSide: 'right', toSide: 'left', label: 'no' },
+  { id: 'e18', from: 'op_confirma', to: 'op_ajustar', fromSide: 'right', toSide: 'left', label: 'no' },
   {
-    id: 'e11',
+    id: 'e19',
     from: 'op_ajustar',
     to: 'op_crear',
     fromSide: 'right',
@@ -862,7 +959,7 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     via: [{ x: 770, y: 482 }, { x: 770, y: 279 }],
   },
   {
-    id: 'e12',
+    id: 'e20',
     from: 'op_confirma',
     to: 'op_seguir',
     via: [{ x: 508, y: 548 }, { x: 579, y: 548 }],
@@ -870,22 +967,22 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     labelX: 546,
     labelY: 548,
   },
-  { id: 'e13', from: 'op_seguir', to: 'op_control' },
+  { id: 'e21', from: 'op_seguir', to: 'op_control' },
   {
-    id: 'e14',
+    id: 'e22',
     from: 'op_control',
     to: 'admin_resumen',
     fromSide: 'right',
     toSide: 'left',
     via: [{ x: 770, y: 695 }, { x: 770, y: 189 }],
   },
-  { id: 'e15', from: 'admin_resumen', to: 'admin_fact' },
-  { id: 'e16', from: 'admin_fact', to: 'admin_roadmap' },
-  { id: 'e17', from: 'admin_roadmap', to: 'admin_msg' },
-  { id: 'e18', from: 'admin_msg', to: 'admin_act' },
-  { id: 'e19', from: 'admin_act', to: 'admin_fin' },
+  { id: 'e23', from: 'admin_resumen', to: 'admin_fact' },
+  { id: 'e24', from: 'admin_fact', to: 'admin_roadmap' },
+  { id: 'e25', from: 'admin_roadmap', to: 'admin_msg' },
+  { id: 'e26', from: 'admin_msg', to: 'admin_act' },
+  { id: 'e27', from: 'admin_act', to: 'admin_fin' },
   {
-    id: 'e20',
+    id: 'e28',
     from: 'admin_fin',
     to: 'web_landing',
     fromSide: 'left',
@@ -1142,6 +1239,7 @@ export default function AdminPage() {
     panY: number;
   } | null>(null);
   const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
+  const [flowProcessDialogNodeId, setFlowProcessDialogNodeId] = useState<string | null>(null);
   const flowCanvasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -1194,12 +1292,20 @@ export default function AdminPage() {
       if (!fullscreenElement && flowDragStart) {
         setFlowDragStart(null);
       }
+      if (!fullscreenElement) {
+        setFlowProcessDialogNodeId(null);
+      }
     };
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [flowDragStart]);
+
+  useEffect(() => {
+    if (!isFlowFullscreen) return;
+    setFlowProcessDialogNodeId((prev) => prev || selectedFlowNodeId);
+  }, [isFlowFullscreen, selectedFlowNodeId]);
 
   const loadOverview = async (token?: string) => {
     if (!token) return;
@@ -1772,6 +1878,13 @@ export default function AdminPage() {
     }
   };
 
+  const handleFlowNodeSelect = (nodeId: string) => {
+    setSelectedFlowNodeId(nodeId);
+    if (isFlowFullscreen) {
+      setFlowProcessDialogNodeId(nodeId);
+    }
+  };
+
   const adjustFlowZoom = (delta: number) => {
     setFlowZoom((prev) => Math.min(FLOW_MAX_ZOOM, Math.max(FLOW_MIN_ZOOM, Number((prev + delta).toFixed(2)))));
   };
@@ -1821,11 +1934,11 @@ export default function AdminPage() {
     if (!svgMarkup.includes('xmlns=')) {
       svgMarkup = svgMarkup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
     }
+    if (!svgMarkup.includes('xmlns:xlink=')) {
+      svgMarkup = svgMarkup.replace('<svg', '<svg xmlns:xlink="http://www.w3.org/1999/xlink"');
+    }
 
-    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1280,height=920');
-    if (!printWindow) return;
-
-    printWindow.document.write(`
+    const printHtml = `
       <!doctype html>
       <html lang="es">
         <head>
@@ -1848,15 +1961,67 @@ export default function AdminPage() {
             <p class="hint">Usa "Guardar como PDF" en el diálogo de impresión.</p>
             <div class="diagram">${svgMarkup}</div>
           </div>
-          <script>
-            window.addEventListener('load', function () {
-              setTimeout(function () { window.print(); }, 250);
-            });
-          </script>
         </body>
       </html>
-    `);
-    printWindow.document.close();
+    `;
+
+    const openAndPrintPopup = () => {
+      const printWindow = window.open('', '_blank', 'width=1280,height=920');
+      if (!printWindow) return false;
+      printWindow.document.open();
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      window.setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch (error) {
+          console.error('No se pudo abrir impresion en popup.', error);
+        }
+      }, 250);
+      return true;
+    };
+
+    const openAndPrintIframe = () => {
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(iframe);
+
+      const cleanup = () => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      };
+
+      iframe.onload = () => {
+        try {
+          const frameWindow = iframe.contentWindow;
+          if (!frameWindow) {
+            cleanup();
+            return;
+          }
+          frameWindow.focus();
+          frameWindow.print();
+          window.setTimeout(cleanup, 1200);
+        } catch (error) {
+          console.error('No se pudo abrir impresion en iframe.', error);
+          cleanup();
+        }
+      };
+
+      iframe.srcdoc = printHtml;
+    };
+
+    const popupOk = openAndPrintPopup();
+    if (!popupOk) {
+      openAndPrintIframe();
+    }
   };
 
   const handleGrantAccess = async (userId: string) => {
@@ -2265,6 +2430,11 @@ export default function AdminPage() {
     [selectedFlowNodeId]
   );
 
+  const flowProcessDialogNode = useMemo<AppWebFlowNode | null>(
+    () => APP_WEB_FLOW_NODES.find((node) => node.id === flowProcessDialogNodeId) || null,
+    [flowProcessDialogNodeId]
+  );
+
   const selectedFlowEdgeIds = useMemo(() => {
     if (!selectedFlowNode) return new Set<string>();
     return new Set(
@@ -2283,6 +2453,16 @@ export default function AdminPage() {
     const tabLabel = tabs.find((tab) => tab.key === target.tab)?.label || target.tab;
     return `Tab admin: ${tabLabel}`;
   }, [selectedFlowNode, tabs]);
+
+  const flowProcessDialogTargetLabel = useMemo(() => {
+    if (!flowProcessDialogNode) return '';
+    const target = flowProcessDialogNode.target;
+    if (target.type === 'web') {
+      return `Ruta web: ${target.href}`;
+    }
+    const tabLabel = tabs.find((tab) => tab.key === target.tab)?.label || target.tab;
+    return `Tab admin: ${tabLabel}`;
+  }, [flowProcessDialogNode, tabs]);
 
   const flowLaneRows = useMemo(
     () =>
@@ -3989,7 +4169,7 @@ export default function AdminPage() {
 
                 <div
                   ref={flowCanvasRef}
-                  className={`rounded-2xl border border-slate-200 bg-slate-50 p-4 ${
+                  className={`relative rounded-2xl border border-slate-200 bg-slate-50 p-4 ${
                     isFlowFullscreen ? 'h-screen overflow-auto rounded-none border-0 p-5' : ''
                   }`}
                 >
@@ -4133,7 +4313,7 @@ export default function AdminPage() {
                           return (
                             <g
                               key={node.id}
-                              onClick={() => setSelectedFlowNodeId(node.id)}
+                              onClick={() => handleFlowNodeSelect(node.id)}
                               style={{ cursor: 'pointer' }}
                               aria-label={`Paso ${code} - ${node.title}`}
                             >
@@ -4182,6 +4362,46 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </div>
+
+                  {isFlowFullscreen && flowProcessDialogNode && (
+                    <div className="pointer-events-none absolute right-5 top-20 z-40 max-w-sm">
+                      <div className="pointer-events-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/40">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Proceso seleccionado</p>
+                            <h4 className="mt-1 text-lg font-semibold text-slate-900">{flowProcessDialogNode.title}</h4>
+                            <p className="text-xs text-slate-500">{flowProcessDialogNode.subtitle}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setFlowProcessDialogNodeId(null)}
+                            className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                          >
+                            Cerrar
+                          </button>
+                        </div>
+                        <p className="mt-3 text-sm text-slate-600">{flowProcessDialogNode.description}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {flowProcessDialogNode.highlights.slice(0, 3).map((highlight) => (
+                            <span
+                              key={`${flowProcessDialogNode.id}-${highlight}`}
+                              className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-600"
+                            >
+                              {highlight}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="mt-3 text-[11px] text-slate-500">{flowProcessDialogTargetLabel}</p>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenFlowNode(flowProcessDialogNode)}
+                          className="mt-3 w-full rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Ir a este paso
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
