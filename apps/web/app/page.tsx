@@ -484,7 +484,7 @@ export default function HomePage() {
             <header className="sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
-                  <div className="relative grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45 sm:h-16 sm:w-16">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45 sm:h-16 sm:w-16">
                     <span
                       aria-hidden="true"
                       className="pointer-events-none absolute -inset-1 -z-10 rounded-[24px] bg-[radial-gradient(circle_at_30%_0%,rgba(59,130,246,0.35),transparent_62%)] blur-sm"
@@ -496,10 +496,10 @@ export default function HomePage() {
                     <Image
                       src="/logo-ufx-main.png"
                       alt="UrbanFix logo"
-                      width={40}
-                      height={40}
+                      fill
                       priority
-                      className="h-9 w-9 object-contain sm:h-10 sm:w-10"
+                      sizes="(max-width: 640px) 56px, 64px"
+                      className="object-cover scale-[1.18]"
                     />
                   </div>
                   <div className="min-w-0">
