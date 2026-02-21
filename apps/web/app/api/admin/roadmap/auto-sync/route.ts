@@ -10,6 +10,7 @@ const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, servi
 const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
+const ROADMAP_SECTOR = new Set(['interfaz', 'operativo', 'clientes', 'web', 'app', 'funcionalidades']);
 const ROADMAP_SENTIMENT = new Set(['positive', 'neutral', 'negative']);
 
 type RoadmapUpdateRow = {
@@ -19,6 +20,7 @@ type RoadmapUpdateRow = {
   status: string;
   area: string;
   priority: string;
+  sector?: string | null;
   owner?: string | null;
   eta_date?: string | null;
   source_key?: string | null;
@@ -53,6 +55,12 @@ const normalizeArea = (value: unknown) => {
 const normalizePriority = (value: unknown) => {
   const normalized = String(value || '').toLowerCase().trim();
   if (!ROADMAP_PRIORITY.has(normalized)) return null;
+  return normalized;
+};
+
+const normalizeSector = (value: unknown) => {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!ROADMAP_SECTOR.has(normalized)) return null;
   return normalized;
 };
 
@@ -97,6 +105,30 @@ const inferAreaFromFiles = (files: string[]) => {
   if (hasMobile) return 'mobile';
   if (hasWeb) return 'web';
   return 'ops';
+};
+
+const inferSectorFromContext = (
+  area: string,
+  sourceBranch: string,
+  title: string | null,
+  description: string | null,
+  files: string[]
+) => {
+  const sourceText = [sourceBranch, title || '', description || '', ...files].join(' ').toLowerCase();
+  if (sourceText.includes('cliente')) return 'clientes';
+  if (
+    sourceText.includes('interfaz') ||
+    sourceText.includes('visual') ||
+    sourceText.includes('ui') ||
+    sourceText.includes('header') ||
+    sourceText.includes('landing')
+  ) {
+    return 'interfaz';
+  }
+  if (area === 'web') return 'web';
+  if (area === 'mobile') return 'app';
+  if (area === 'ops') return 'operativo';
+  return 'funcionalidades';
 };
 
 const buildAutoDescription = (branch: string, commit: string | null, files: string[]) => {
@@ -162,12 +194,14 @@ export async function POST(request: NextRequest) {
   const title = toOptionalText(body?.title, 220) || `[AUTO] Cambios fuera de roadmap · ${sourceBranch}`;
   const description =
     toOptionalText(body?.description, 6000) || buildAutoDescription(sourceBranch, sourceCommit, sourceFiles);
+  const sector =
+    normalizeSector(body?.sector) || inferSectorFromContext(area, sourceBranch, title, description, sourceFiles);
   const feedbackBody =
     toOptionalText(body?.feedback_body, 6000) || buildAutoFeedback(sourceBranch, sourceCommit, sourceFiles);
   const feedbackSentiment = normalizeSentiment(body?.feedback_sentiment);
 
   const selectFields =
-    'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
+    'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
 
   const { data: existing, error: existingError } = await supabase
     .from('roadmap_updates')
@@ -191,6 +225,7 @@ export async function POST(request: NextRequest) {
         status,
         area,
         priority,
+        sector,
         owner,
         eta_date: etaDate,
         source_key: sourceKey,
@@ -213,6 +248,7 @@ export async function POST(request: NextRequest) {
       source_branch: sourceBranch,
       source_commit: sourceCommit,
       source_files: sourceFiles,
+      sector,
       updated_by: null,
     };
 
@@ -273,6 +309,7 @@ export async function POST(request: NextRequest) {
       status: updateRow.status,
       area: updateRow.area,
       priority: updateRow.priority,
+      sector: updateRow.sector,
       source_key: updateRow.source_key,
       source_branch: updateRow.source_branch,
       source_commit: updateRow.source_commit,

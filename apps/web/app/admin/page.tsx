@@ -27,6 +27,7 @@ type SupportMessage = {
 type RoadmapStatus = 'planned' | 'in_progress' | 'done' | 'blocked';
 type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
 type RoadmapPriority = 'high' | 'medium' | 'low';
+type RoadmapSector = 'interfaz' | 'operativo' | 'clientes' | 'web' | 'app' | 'funcionalidades';
 type RoadmapSentiment = 'positive' | 'neutral' | 'negative';
 type AdminTabKey =
   | 'resumen'
@@ -95,6 +96,7 @@ type RoadmapUpdateItem = {
   status: RoadmapStatus;
   area: RoadmapArea;
   priority: RoadmapPriority;
+  sector: RoadmapSector;
   owner?: string | null;
   eta_date?: string | null;
   created_by?: string | null;
@@ -410,6 +412,15 @@ const ROADMAP_PRIORITY_OPTIONS: { value: RoadmapPriority; label: string }[] = [
   { value: 'low', label: 'Baja' },
 ];
 
+const ROADMAP_SECTOR_OPTIONS: { value: RoadmapSector; label: string }[] = [
+  { value: 'interfaz', label: 'Interfaz' },
+  { value: 'operativo', label: 'Operativo' },
+  { value: 'clientes', label: 'Clientes' },
+  { value: 'web', label: 'Web' },
+  { value: 'app', label: 'App' },
+  { value: 'funcionalidades', label: 'Funcionalidades' },
+];
+
 const ROADMAP_SENTIMENT_OPTIONS: { value: RoadmapSentiment; label: string }[] = [
   { value: 'positive', label: 'Positivo' },
   { value: 'neutral', label: 'Neutro' },
@@ -422,6 +433,8 @@ const getRoadmapAreaLabel = (area: RoadmapArea) =>
   ROADMAP_AREA_OPTIONS.find((item) => item.value === area)?.label || area;
 const getRoadmapPriorityLabel = (priority: RoadmapPriority) =>
   ROADMAP_PRIORITY_OPTIONS.find((item) => item.value === priority)?.label || priority;
+const getRoadmapSectorLabel = (sector: RoadmapSector) =>
+  ROADMAP_SECTOR_OPTIONS.find((item) => item.value === sector)?.label || sector;
 const getRoadmapSentimentLabel = (sentiment: RoadmapSentiment) =>
   ROADMAP_SENTIMENT_OPTIONS.find((item) => item.value === sentiment)?.label || sentiment;
 
@@ -452,6 +465,18 @@ const toRoadmapPriority = (value: unknown): RoadmapPriority => {
   if (normalized === 'high') return 'high';
   if (normalized === 'low') return 'low';
   return 'medium';
+};
+
+const toRoadmapSector = (value: unknown): RoadmapSector => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .trim();
+  if (normalized === 'interfaz') return 'interfaz';
+  if (normalized === 'operativo') return 'operativo';
+  if (normalized === 'clientes') return 'clientes';
+  if (normalized === 'web') return 'web';
+  if (normalized === 'app') return 'app';
+  return 'funcionalidades';
 };
 
 const toRoadmapSentiment = (value: unknown): RoadmapSentiment => {
@@ -521,6 +546,13 @@ const FLOW_SHAPE_LABEL: Record<FlowDiagramNodeShape, string> = {
 
 const FLOW_MIN_ZOOM = 0.7;
 const FLOW_MAX_ZOOM = 2.2;
+const FLOW_CLASSIC_Y_SCALE = 1.22;
+const FLOW_CLASSIC_BASE_Y = 80;
+const FLOW_CLASSIC_COLUMN_SHIFT: Record<FlowDiagramColumnId, number> = {
+  captacion: 0,
+  operacion: 250,
+  control: 520,
+};
 
 const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
   {
@@ -1203,6 +1235,7 @@ export default function AdminPage() {
   const [roadmapSearch, setRoadmapSearch] = useState('');
   const [roadmapStatusFilter, setRoadmapStatusFilter] = useState<'all' | RoadmapStatus>('all');
   const [roadmapAreaFilter, setRoadmapAreaFilter] = useState<'all' | RoadmapArea>('all');
+  const [roadmapSectorFilter, setRoadmapSectorFilter] = useState<'all' | RoadmapSector>('all');
   const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
   const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
@@ -1214,6 +1247,7 @@ export default function AdminPage() {
     status: RoadmapStatus;
     area: RoadmapArea;
     priority: RoadmapPriority;
+    sector: RoadmapSector;
     owner: string;
     eta_date: string;
     initial_feedback: string;
@@ -1224,6 +1258,7 @@ export default function AdminPage() {
     status: 'planned',
     area: 'web',
     priority: 'medium',
+    sector: 'funcionalidades',
     owner: '',
     eta_date: '',
     initial_feedback: '',
@@ -1254,16 +1289,6 @@ export default function AdminPage() {
       data.subscription.unsubscribe();
     };
   }, []);
-
-  useEffect(() => {
-    if (flowZoom > 1) return;
-    if (flowPan.x !== 0 || flowPan.y !== 0) {
-      setFlowPan({ x: 0, y: 0 });
-    }
-    if (flowDragStart) {
-      setFlowDragStart(null);
-    }
-  }, [flowZoom, flowPan.x, flowPan.y, flowDragStart]);
 
   useEffect(() => {
     if (!flowDragStart) return;
@@ -1513,6 +1538,7 @@ export default function AdminPage() {
         status: toRoadmapStatus(row?.status),
         area: toRoadmapArea(row?.area),
         priority: toRoadmapPriority(row?.priority),
+        sector: toRoadmapSector(row?.sector),
         feedback: Array.isArray(row?.feedback)
           ? row.feedback.map((feedback: any) => ({
               ...feedback,
@@ -1558,6 +1584,7 @@ export default function AdminPage() {
           status: roadmapForm.status,
           area: roadmapForm.area,
           priority: roadmapForm.priority,
+          sector: roadmapForm.sector,
           owner: roadmapForm.owner.trim() || null,
           eta_date: roadmapForm.eta_date || null,
           feedback_body: initialFeedback,
@@ -1575,6 +1602,7 @@ export default function AdminPage() {
             status: toRoadmapStatus(data.update.status),
             area: toRoadmapArea(data.update.area),
             priority: toRoadmapPriority(data.update.priority),
+            sector: toRoadmapSector(data.update.sector),
             feedback: Array.isArray(data.update.feedback)
               ? data.update.feedback.map((feedback: any) => ({
                   ...feedback,
@@ -1595,6 +1623,7 @@ export default function AdminPage() {
         description: '',
         owner: '',
         eta_date: '',
+        sector: 'funcionalidades',
         initial_feedback: '',
         initial_feedback_sentiment: 'neutral',
       }));
@@ -1608,7 +1637,13 @@ export default function AdminPage() {
 
   const patchRoadmapUpdate = async (
     roadmapId: string,
-    patch: Partial<{ status: RoadmapStatus; area: RoadmapArea; priority: RoadmapPriority; owner: string | null }>
+    patch: Partial<{
+      status: RoadmapStatus;
+      area: RoadmapArea;
+      priority: RoadmapPriority;
+      sector: RoadmapSector;
+      owner: string | null;
+    }>
   ) => {
     if (!session?.access_token) return;
     setRoadmapError('');
@@ -1638,6 +1673,7 @@ export default function AdminPage() {
                   status: toRoadmapStatus(updated.status),
                   area: toRoadmapArea(updated.area),
                   priority: toRoadmapPriority(updated.priority),
+                  sector: toRoadmapSector(updated.sector),
                 }
               : item
           )
@@ -1896,7 +1932,7 @@ export default function AdminPage() {
   };
 
   const handleFlowMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.button !== 0 || flowZoom <= 1) return;
+    if (event.button !== 0) return;
     event.preventDefault();
     setFlowDragStart({
       clientX: event.clientX,
@@ -2487,10 +2523,14 @@ export default function AdminPage() {
   const flowBranchNodes = useMemo(
     () =>
       APP_WEB_FLOW_NODES.map((node, index) => ({
-        node,
+        node: {
+          ...node,
+          x: Math.round(node.x + FLOW_CLASSIC_COLUMN_SHIFT[node.column]),
+          y: Math.round(FLOW_CLASSIC_BASE_Y + (node.y - FLOW_CLASSIC_BASE_Y) * FLOW_CLASSIC_Y_SCALE),
+        },
         index,
-        x: node.x,
-        y: node.y,
+        x: Math.round(node.x + FLOW_CLASSIC_COLUMN_SHIFT[node.column]),
+        y: Math.round(FLOW_CLASSIC_BASE_Y + (node.y - FLOW_CLASSIC_BASE_Y) * FLOW_CLASSIC_Y_SCALE),
         width: node.width,
         height: node.height,
       })),
@@ -2505,8 +2545,8 @@ export default function AdminPage() {
   const flowDiagramFrame = useMemo(() => {
     if (!flowBranchNodes.length) {
       return {
-        width: 1200,
-        height: 900,
+        width: 1700,
+        height: 1320,
         offsetX: 0,
         offsetY: 0,
       };
@@ -2533,11 +2573,11 @@ export default function AdminPage() {
       });
     });
 
-    const horizontalPadding = 100;
-    const verticalPadding = 120;
-    const titlePadding = 24;
-    const width = Math.max(1200, maxX - minX + horizontalPadding * 2);
-    const height = Math.max(980, maxY - minY + verticalPadding * 2 + titlePadding);
+    const horizontalPadding = 180;
+    const verticalPadding = 190;
+    const titlePadding = 36;
+    const width = Math.max(1700, maxX - minX + horizontalPadding * 2);
+    const height = Math.max(1320, maxY - minY + verticalPadding * 2 + titlePadding);
     const offsetX = horizontalPadding - minX;
     const offsetY = verticalPadding + titlePadding - minY;
 
@@ -2645,12 +2685,13 @@ export default function AdminPage() {
     return roadmapUpdates.filter((item) => {
       if (roadmapStatusFilter !== 'all' && item.status !== roadmapStatusFilter) return false;
       if (roadmapAreaFilter !== 'all' && item.area !== roadmapAreaFilter) return false;
+      if (roadmapSectorFilter !== 'all' && item.sector !== roadmapSectorFilter) return false;
       if (!query) return true;
       const feedbackText = (item.feedback || []).map((feedback) => feedback.body).join(' ');
       const haystack = normalizeText([item.title, item.description || '', item.owner || '', feedbackText].join(' '));
       return haystack.includes(query);
     });
-  }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter]);
+  }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter, roadmapSectorFilter]);
 
   const roadmapTotals = useMemo(() => {
     const total = roadmapUpdates.length;
@@ -4209,7 +4250,9 @@ export default function AdminPage() {
                     <p className="text-xs font-semibold text-slate-700">
                       Diagrama de flujo clásico (estilo ingeniería de procesos)
                     </p>
-                    <span className="text-[11px] text-slate-500">Inicio → Proceso → Decisión → Fin + ramas de retorno</span>
+                    <span className="text-[11px] text-slate-500">
+                      Inicio → Proceso → Decisión → Fin + ramas de retorno · arrastre activo en cualquier zoom
+                    </span>
                   </div>
 
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -4261,7 +4304,7 @@ export default function AdminPage() {
                       <div
                         onMouseDown={handleFlowMouseDown}
                         className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white select-none ${
-                          flowZoom > 1 ? (flowDragStart ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                          flowDragStart ? 'cursor-grabbing' : 'cursor-grab'
                         }`}
                       >
                         <div
@@ -4882,6 +4925,19 @@ export default function AdminPage() {
                           </option>
                         ))}
                       </select>
+                      <select
+                        value={roadmapForm.sector}
+                        onChange={(event) =>
+                          setRoadmapForm((prev) => ({ ...prev, sector: event.target.value as RoadmapSector }))
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        {ROADMAP_SECTOR_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            Sector: {option.label}
+                          </option>
+                        ))}
+                      </select>
                       <input
                         value={roadmapForm.owner}
                         onChange={(event) => setRoadmapForm((prev) => ({ ...prev, owner: event.target.value }))}
@@ -4976,12 +5032,25 @@ export default function AdminPage() {
                           </option>
                         ))}
                       </select>
+                      <select
+                        value={roadmapSectorFilter}
+                        onChange={(event) => setRoadmapSectorFilter(event.target.value as 'all' | RoadmapSector)}
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="all">Todos los sectores</option>
+                        {ROADMAP_SECTOR_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
                       <button
                         type="button"
                         onClick={() => {
                           setRoadmapSearch('');
                           setRoadmapStatusFilter('all');
                           setRoadmapAreaFilter('all');
+                          setRoadmapSectorFilter('all');
                         }}
                         className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                       >
@@ -5048,6 +5117,9 @@ export default function AdminPage() {
                                 >
                                   Prioridad {getRoadmapPriorityLabel(item.priority)}
                                 </span>
+                                <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700">
+                                  Sector {getRoadmapSectorLabel(item.sector)}
+                                </span>
                               </div>
                               <p className="mt-2 text-[11px] text-slate-400">
                                 Creado: {formatDateTime(item.created_at)} • Actualizado: {formatDateTime(item.updated_at)}
@@ -5105,6 +5177,22 @@ export default function AdminPage() {
                                 {ROADMAP_PRIORITY_OPTIONS.map((option) => (
                                   <option key={option.value} value={option.value}>
                                     {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                              <select
+                                value={item.sector}
+                                onChange={(event) => {
+                                  const sector = event.target.value as RoadmapSector;
+                                  if (sector === item.sector) return;
+                                  patchRoadmapUpdate(item.id, { sector });
+                                }}
+                                disabled={savingUpdate}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                              >
+                                {ROADMAP_SECTOR_OPTIONS.map((option) => (
+                                  <option key={option.value} value={option.value}>
+                                    Sector: {option.label}
                                   </option>
                                 ))}
                               </select>

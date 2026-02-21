@@ -9,6 +9,7 @@ const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, servi
 const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
+const ROADMAP_SECTOR = new Set(['interfaz', 'operativo', 'clientes', 'web', 'app', 'funcionalidades']);
 
 const getAuthUser = async (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || '';
@@ -51,6 +52,13 @@ const normalizePriority = (value: unknown) => {
   if (typeof value !== 'string') return undefined;
   const normalized = value.toLowerCase().trim();
   if (!ROADMAP_PRIORITY.has(normalized)) return undefined;
+  return normalized;
+};
+
+const normalizeSector = (value: unknown) => {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.toLowerCase().trim();
+  if (!ROADMAP_SECTOR.has(normalized)) return undefined;
   return normalized;
 };
 
@@ -150,6 +158,15 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     hasChanges = true;
   }
 
+  if (body && Object.prototype.hasOwnProperty.call(body, 'sector')) {
+    const sector = normalizeSector(body.sector);
+    if (sector === undefined) {
+      return NextResponse.json({ error: 'Sector inválido.' }, { status: 400 });
+    }
+    patch.sector = sector;
+    hasChanges = true;
+  }
+
   if (body && Object.prototype.hasOwnProperty.call(body, 'eta_date')) {
     const etaDate = normalizeEtaDate(body.eta_date);
     if (etaDate === undefined) {
@@ -167,7 +184,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from('roadmap_updates')
     .update(patch)
     .eq('id', roadmapId)
-    .select('id,title,description,status,area,priority,owner,eta_date,created_by,updated_by,created_at,updated_at')
+    .select('id,title,description,status,area,priority,sector,owner,eta_date,created_by,updated_by,created_at,updated_at')
     .maybeSingle();
 
   if (error) {

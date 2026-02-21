@@ -9,6 +9,7 @@ const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, servi
 const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
+const ROADMAP_SECTOR = new Set(['interfaz', 'operativo', 'clientes', 'web', 'app', 'funcionalidades']);
 const ROADMAP_SENTIMENT = new Set(['positive', 'neutral', 'negative']);
 
 type RoadmapUpdateRow = {
@@ -18,6 +19,7 @@ type RoadmapUpdateRow = {
   status: string;
   area: string;
   priority: string;
+  sector?: string | null;
   owner?: string | null;
   eta_date?: string | null;
   source_key?: string | null;
@@ -103,6 +105,19 @@ const normalizePriority = (value: unknown) => {
   return normalized;
 };
 
+const normalizeSector = (value: unknown) => {
+  const normalized = String(value || '').toLowerCase().trim();
+  if (!ROADMAP_SECTOR.has(normalized)) return null;
+  return normalized;
+};
+
+const inferSectorFromArea = (area: string) => {
+  if (area === 'web') return 'web';
+  if (area === 'mobile') return 'app';
+  if (area === 'ops') return 'operativo';
+  return 'funcionalidades';
+};
+
 const normalizeSentiment = (value: unknown) => {
   const normalized = String(value || '').toLowerCase().trim();
   if (!ROADMAP_SENTIMENT.has(normalized)) return 'neutral';
@@ -142,6 +157,7 @@ const mapUpdate = (
   status: normalizeStatus(item.status) || 'planned',
   area: normalizeArea(item.area) || 'web',
   priority: normalizePriority(item.priority) || 'medium',
+  sector: normalizeSector(item.sector) || inferSectorFromArea(normalizeArea(item.area) || 'web'),
   owner: item.owner || '',
   eta_date: item.eta_date || null,
   source_key: item.source_key || null,
@@ -175,7 +191,7 @@ export async function GET(request: NextRequest) {
     supabase
       .from('roadmap_updates')
       .select(
-        'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
+        'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
       )
       .order('created_at', { ascending: false })
       .limit(400),
@@ -248,6 +264,7 @@ export async function POST(request: NextRequest) {
   const status = normalizeStatus(body?.status) || 'planned';
   const area = normalizeArea(body?.area) || 'web';
   const priority = normalizePriority(body?.priority) || 'medium';
+  const sector = normalizeSector(body?.sector) || inferSectorFromArea(area);
   const feedbackBody = toOptionalText(body?.feedback_body);
   if (!feedbackBody || feedbackBody.length < 2) {
     return NextResponse.json(
@@ -265,6 +282,7 @@ export async function POST(request: NextRequest) {
     status,
     area,
     priority,
+    sector,
     owner: toOptionalText(body?.owner),
     eta_date: toOptionalText(body?.eta_date),
     source_key: toOptionalText(body?.source_key),
@@ -279,7 +297,7 @@ export async function POST(request: NextRequest) {
     .from('roadmap_updates')
     .insert(payload)
     .select(
-      'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
+      'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
     )
     .maybeSingle();
 
