@@ -655,9 +655,9 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     id: 'op_ajustar',
     column: 'operacion',
     shape: 'process',
-    x: 684,
+    x: 530,
     y: 438,
-    width: 220,
+    width: 200,
     height: 70,
     title: 'Ajustar propuesta',
     subtitle: 'Nueva iteracion',
@@ -829,9 +829,9 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     id: 'e11',
     from: 'op_ajustar',
     to: 'op_crear',
-    fromSide: 'left',
+    fromSide: 'right',
     toSide: 'right',
-    via: [{ x: 700, y: 360 }],
+    via: [{ x: 748, y: 473 }, { x: 748, y: 271 }],
   },
   { id: 'e12', from: 'op_confirma', to: 'op_seguir', label: 'si', labelX: 554, labelY: 548 },
   { id: 'e13', from: 'op_seguir', to: 'op_control' },
@@ -854,10 +854,7 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
     to: 'web_landing',
     fromSide: 'left',
     toSide: 'top',
-    via: [{ x: 760, y: 664 }, { x: 760, y: 62 }, { x: 198, y: 62 }, { x: 198, y: 156 }],
-    label: 'iterar',
-    labelX: 596,
-    labelY: 48,
+    via: [{ x: 760, y: 664 }, { x: 760, y: 720 }, { x: 198, y: 720 }, { x: 198, y: 156 }],
   },
 ];
 
@@ -3696,13 +3693,13 @@ export default function AdminPage() {
                     <div className="min-w-[1160px]">
                       <svg
                         viewBox={`0 0 ${FLOW_DIAGRAM_WIDTH} ${FLOW_DIAGRAM_HEIGHT}`}
-                        className="h-[760px] w-full rounded-2xl border border-slate-200 bg-white"
+                        className="h-[740px] w-full rounded-2xl border border-slate-200 bg-white"
                         role="img"
                         aria-label="Diagrama de flujo interactivo de UrbanFix"
                       >
                         <defs>
                           <marker id="flow-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8" />
                           </marker>
                           <marker
                             id="flow-arrow-active"
@@ -3712,7 +3709,7 @@ export default function AdminPage() {
                             refY="5"
                             orient="auto"
                           >
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0F172A" />
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8" />
                           </marker>
                         </defs>
 
@@ -3770,11 +3767,12 @@ export default function AdminPage() {
                               <path
                                 d={path}
                                 fill="none"
-                                stroke={isActive ? '#0F172A' : '#475569'}
-                                strokeWidth={isActive ? 2.5 : 1.7}
+                                stroke={isActive ? '#1D4ED8' : '#94A3B8'}
+                                strokeWidth={isActive ? 2.3 : 1.35}
                                 markerEnd={isActive ? 'url(#flow-arrow-active)' : 'url(#flow-arrow)'}
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
+                                opacity={isActive ? 0.95 : 0.9}
                               />
                               {edge.label && (
                                 <text
