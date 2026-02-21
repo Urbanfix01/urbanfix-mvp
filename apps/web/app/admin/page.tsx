@@ -3758,8 +3758,8 @@ export default function AdminPage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-slate-700">Diagrama horizontal por áreas (click para foco)</p>
-                    <span className="text-[11px] text-slate-500">Flechas = sentido de operacion</span>
+                    <p className="text-xs font-semibold text-slate-700">Diagrama vertical por áreas (click para foco)</p>
+                    <span className="text-[11px] text-slate-500">Flechas ↓ = sentido de operacion</span>
                   </div>
 
                   <div className="space-y-4">
@@ -3775,51 +3775,49 @@ export default function AdminPage() {
                           </span>
                         </div>
 
-                        <div className="mt-3 overflow-x-auto pb-1">
-                          <div className="flex min-w-max items-center gap-2">
-                            {lane.nodes.map((node, index) => {
-                              const isSelected = selectedFlowNode?.id === node.id;
-                              const isDecision = node.shape === 'decision';
-                              return (
-                                <React.Fragment key={node.id}>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSelectedFlowNodeId(node.id)}
-                                    className={`w-[190px] rounded-2xl border px-3 py-3 text-left transition ${
-                                      isSelected
-                                        ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                        : isDecision
-                                          ? 'border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400'
-                                          : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                        <div className="mt-4 flex flex-col items-center gap-2">
+                          {lane.nodes.map((node, index) => {
+                            const isSelected = selectedFlowNode?.id === node.id;
+                            const isDecision = node.shape === 'decision';
+                            return (
+                              <React.Fragment key={node.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedFlowNodeId(node.id)}
+                                  className={`w-full max-w-[420px] rounded-2xl border px-4 py-3 text-left transition ${
+                                    isSelected
+                                      ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                      : isDecision
+                                        ? 'border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400'
+                                        : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                                  }`}
+                                >
+                                  <p
+                                    className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                                      isSelected ? 'text-slate-200' : 'text-slate-500'
                                     }`}
                                   >
-                                    <p
-                                      className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                                        isSelected ? 'text-slate-200' : 'text-slate-500'
-                                      }`}
-                                    >
-                                      {isDecision
-                                        ? 'Decision'
-                                        : node.shape === 'start'
-                                          ? 'Inicio'
-                                          : node.shape === 'end'
-                                            ? 'Fin'
-                                            : 'Paso'}
-                                    </p>
-                                    <p className="mt-1 text-sm font-semibold leading-snug">{node.flowLabel.join(' ')}</p>
-                                    <p className={`mt-2 text-xs ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                                      {node.subtitle}
-                                    </p>
-                                  </button>
-                                  {index < lane.nodes.length - 1 && (
-                                    <span className="text-xl font-bold text-slate-300" aria-hidden="true">
-                                      →
-                                    </span>
-                                  )}
-                                </React.Fragment>
-                              );
-                            })}
-                          </div>
+                                    {isDecision
+                                      ? 'Decision'
+                                      : node.shape === 'start'
+                                        ? 'Inicio'
+                                        : node.shape === 'end'
+                                          ? 'Fin'
+                                          : 'Paso'}
+                                  </p>
+                                  <p className="mt-1 text-sm font-semibold leading-snug">{node.flowLabel.join(' ')}</p>
+                                  <p className={`mt-2 text-xs ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                                    {node.subtitle}
+                                  </p>
+                                </button>
+                                {index < lane.nodes.length - 1 && (
+                                  <span className="text-2xl font-bold leading-none text-slate-300" aria-hidden="true">
+                                    ↓
+                                  </span>
+                                )}
+                              </React.Fragment>
+                            );
+                          })}
                         </div>
                       </div>
                     ))}
