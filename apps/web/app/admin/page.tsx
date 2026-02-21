@@ -38,14 +38,21 @@ type AdminTabKey =
   | 'actividad'
   | 'mano_obra'
   | 'flujo';
-type FlowLaneId = 'captacion' | 'conversion' | 'operacion' | 'control';
+type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
+type FlowDiagramNodeShape = 'start' | 'process' | 'decision' | 'end';
 
 type AppWebFlowNode = {
   id: string;
-  lane: FlowLaneId;
+  column: FlowDiagramColumnId;
+  shape: FlowDiagramNodeShape;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
   title: string;
   subtitle: string;
   description: string;
+  flowLabel: string[];
   preview: string;
   highlights: string[];
   target:
@@ -57,6 +64,18 @@ type AppWebFlowNode = {
         type: 'web';
         href: string;
       };
+};
+
+type AppWebFlowEdge = {
+  id: string;
+  from: string;
+  to: string;
+  fromSide?: 'top' | 'right' | 'bottom' | 'left';
+  toSide?: 'top' | 'right' | 'bottom' | 'left';
+  via?: Array<{ x: number; y: number }>;
+  label?: 'si' | 'no' | string;
+  labelX?: number;
+  labelY?: number;
 };
 
 type RoadmapFeedbackItem = {
@@ -433,160 +452,401 @@ const ROADMAP_STATUS_CHART_COLOR: Record<RoadmapStatus, string> = {
   done: '#10B981',
 };
 
-const FLOW_LANES: Array<{ id: FlowLaneId; label: string; helper: string }> = [
-  { id: 'captacion', label: '1. Captacion', helper: 'Primer contacto y propuesta de valor' },
-  { id: 'conversion', label: '2. Conversion', helper: 'Exploracion guiada + decision' },
-  { id: 'operacion', label: '3. Operacion', helper: 'Ejecucion diaria y control operativo' },
-  { id: 'control', label: '4. Control', helper: 'Soporte, permisos y seguimiento continuo' },
+const FLOW_DIAGRAM_WIDTH = 1160;
+const FLOW_DIAGRAM_HEIGHT = 760;
+
+const FLOW_DIAGRAM_COLUMNS: Array<{
+  id: FlowDiagramColumnId;
+  label: string;
+  helper: string;
+  x: number;
+  width: number;
+}> = [
+  { id: 'captacion', label: 'Departamento de captacion web', helper: 'Visita, valor y decision', x: 24, width: 350 },
+  { id: 'operacion', label: 'Departamento de operacion', helper: 'Trabajo diario y entrega', x: 404, width: 350 },
+  { id: 'control', label: 'Departamento de control admin', helper: 'Metricas, soporte y mejora', x: 784, width: 350 },
 ];
 
 const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
   {
-    id: 'web-tecnicos',
-    lane: 'captacion',
-    title: 'Landing Tecnicos',
-    subtitle: 'Home principal para tecnicos',
-    description: 'Presenta la propuesta para tecnicos y activa CTA de acceso.',
+    id: 'web_inicio',
+    column: 'captacion',
+    shape: 'start',
+    x: 110,
+    y: 92,
+    width: 176,
+    height: 42,
+    title: 'Inicio',
+    subtitle: 'Entrada de visitante',
+    description: 'Punto inicial del visitante en la web comercial.',
+    flowLabel: ['Inicio'],
     preview: '/illustrations/window-tecnicos.svg',
-    highlights: ['Hero comercial', 'CTA principal', 'Prueba de valor'],
+    highlights: ['Entrada publica', 'Carga rapida', 'Primer impacto'],
     target: { type: 'web', href: '/tecnicos' },
   },
   {
-    id: 'web-empresas',
-    lane: 'captacion',
-    title: 'Landing Empresas',
-    subtitle: 'Vista comercial para equipos',
-    description: 'Muestra enfoque de pipeline y estandar para empresas.',
+    id: 'web_landing',
+    column: 'captacion',
+    shape: 'process',
+    x: 88,
+    y: 166,
+    width: 220,
+    height: 70,
+    title: 'Landing multisegmento',
+    subtitle: 'Tecnicos, empresas y clientes',
+    description: 'Presenta propuesta para cada perfil sin salir de la misma experiencia.',
+    flowLabel: ['Landing tecnicos', 'empresas y clientes'],
     preview: '/illustrations/window-negocio.svg',
-    highlights: ['Propuesta B2B', 'Escala operativa', 'Segmentacion por rol'],
-    target: { type: 'web', href: '/tecnicos?segment=empresas' },
+    highlights: ['Segmentacion por perfil', 'Hero + CTA', 'Navegacion integrada'],
+    target: { type: 'web', href: '/tecnicos' },
   },
   {
-    id: 'web-clientes',
-    lane: 'captacion',
-    title: 'Landing Clientes',
-    subtitle: 'Solicitud de cotizacion rapida',
-    description: 'Entrada para clientes finales que necesitan cotizar una reparacion.',
+    id: 'web_valor',
+    column: 'captacion',
+    shape: 'decision',
+    x: 115,
+    y: 272,
+    width: 166,
+    height: 96,
+    title: 'Decision de valor',
+    subtitle: 'Engagement',
+    description: 'Valida si la propuesta es clara para continuar al acceso.',
+    flowLabel: ['Encuentra', 'valor?'],
     preview: '/illustrations/window-institucional.svg',
-    highlights: ['Mensaje de confianza', 'Solicitud rapida', 'Conversión a contacto'],
-    target: { type: 'web', href: '/tecnicos?segment=clientes' },
+    highlights: ['Mensaje claro', 'Objecion detectada', 'Siguiente accion'],
+    target: { type: 'web', href: '/tecnicos' },
   },
   {
-    id: 'web-guias',
-    lane: 'conversion',
-    title: 'Guias y Precios',
-    subtitle: 'Referencia comercial para cotizar',
-    description: 'Ayuda a validar precios y contexto antes de cerrar una propuesta.',
+    id: 'web_guias',
+    column: 'captacion',
+    shape: 'process',
+    x: 18,
+    y: 404,
+    width: 220,
+    height: 70,
+    title: 'Guias y rubros',
+    subtitle: 'Si aun no decide',
+    description: 'Canal secundario para reforzar confianza con informacion util.',
+    flowLabel: ['Ver guias y', 'rubros'],
     preview: '/illustrations/window-guias.svg',
-    highlights: ['Base de consulta', 'Categorias', 'Contexto para cierres'],
+    highlights: ['FAQ comercial', 'Referencia de precios', 'Retorno al flujo'],
     target: { type: 'web', href: '/guias-precios' },
   },
   {
-    id: 'web-ciudades',
-    lane: 'conversion',
-    title: 'Cobertura por Ciudades',
-    subtitle: 'Lectura geografica de demanda',
-    description: 'Permite ubicar zonas activas y oportunidades por region.',
-    preview: '/illustrations/window-ciudades.svg',
-    highlights: ['Mapa de alcance', 'Zonas activas', 'Expansion planificada'],
-    target: { type: 'web', href: '/ciudades' },
+    id: 'web_acceso',
+    column: 'captacion',
+    shape: 'process',
+    x: 128,
+    y: 532,
+    width: 220,
+    height: 70,
+    title: 'Acceso tecnico',
+    subtitle: 'Entrada operativa',
+    description: 'Activa ingreso para continuar con creacion y envio de presupuestos.',
+    flowLabel: ['Ir a acceso', 'tecnico'],
+    preview: '/illustrations/window-tecnicos.svg',
+    highlights: ['Login', 'Cuenta activa', 'Continuidad operativa'],
+    target: { type: 'web', href: '/tecnicos?mode=login' },
   },
   {
-    id: 'web-rubros',
-    lane: 'conversion',
-    title: 'Rubros',
-    subtitle: 'Oferta por especialidad',
-    description: 'Segmenta servicios por especialidad para clientes y empresas.',
-    preview: '/illustrations/window-rubros.svg',
-    highlights: ['Rubros priorizados', 'Especialidades', 'Oferta clara'],
-    target: { type: 'web', href: '/rubros' },
+    id: 'op_login',
+    column: 'operacion',
+    shape: 'process',
+    x: 444,
+    y: 142,
+    width: 220,
+    height: 70,
+    title: 'Login y panel',
+    subtitle: 'Operador tecnico',
+    description: 'Ingreso al panel de trabajo para iniciar cotizacion.',
+    flowLabel: ['Login y panel', 'de trabajo'],
+    preview: '/illustrations/PANEL DE CONTROL.jpeg',
+    highlights: ['Autenticacion', 'Panel operativo', 'Accion inmediata'],
+    target: { type: 'web', href: '/tecnicos?mode=login' },
   },
   {
-    id: 'admin-resumen',
-    lane: 'operacion',
-    title: 'Admin - Resumen',
-    subtitle: 'KPIs generales',
-    description: 'Vista ejecutiva del estado general del negocio y operacion.',
+    id: 'op_crear',
+    column: 'operacion',
+    shape: 'process',
+    x: 444,
+    y: 236,
+    width: 220,
+    height: 70,
+    title: 'Crear presupuesto',
+    subtitle: 'Carga completa',
+    description: 'Carga cliente, direccion, mano de obra y materiales en un solo flujo.',
+    flowLabel: ['Armar', 'presupuesto'],
+    preview: '/illustrations/PRESUPUESTADOR.jpeg',
+    highlights: ['Formulario integral', 'Items m2/ml', 'Total en vivo'],
+    target: { type: 'web', href: '/nueva' },
+  },
+  {
+    id: 'op_compartir',
+    column: 'operacion',
+    shape: 'process',
+    x: 444,
+    y: 330,
+    width: 220,
+    height: 70,
+    title: 'Compartir propuesta',
+    subtitle: 'Link al cliente',
+    description: 'Envia presupuesto por link para revision y aprobacion del cliente.',
+    flowLabel: ['Compartir link', 'de presupuesto'],
+    preview: '/illustrations/LINK DEL PRESUPUESTO.jpeg',
+    highlights: ['Envio directo', 'Formato claro', 'Trazabilidad'],
+    target: { type: 'web', href: '/pagina' },
+  },
+  {
+    id: 'op_confirma',
+    column: 'operacion',
+    shape: 'decision',
+    x: 471,
+    y: 438,
+    width: 166,
+    height: 96,
+    title: 'Decision cliente',
+    subtitle: 'Aprobacion',
+    description: 'Valida si el cliente confirma para avanzar o volver a ajustar.',
+    flowLabel: ['Cliente', 'confirma?'],
+    preview: '/illustrations/PRESUPUESTO PDF.jpeg',
+    highlights: ['Revision cliente', 'Si/no', 'Rama automatica'],
+    target: { type: 'web', href: '/pagina' },
+  },
+  {
+    id: 'op_ajustar',
+    column: 'operacion',
+    shape: 'process',
+    x: 684,
+    y: 438,
+    width: 220,
+    height: 70,
+    title: 'Ajustar propuesta',
+    subtitle: 'Nueva iteracion',
+    description: 'Cuando no confirma, vuelve al armado con contexto de objeciones.',
+    flowLabel: ['Ajustar y', 're-cotizar'],
+    preview: '/illustrations/window-guias.svg',
+    highlights: ['Feedback comercial', 'Revision rapida', 'Loop controlado'],
+    target: { type: 'web', href: '/guias-precios' },
+  },
+  {
+    id: 'op_seguir',
+    column: 'operacion',
+    shape: 'process',
+    x: 444,
+    y: 558,
+    width: 220,
+    height: 70,
+    title: 'Seguimiento y agenda',
+    subtitle: 'Entrega y estado',
+    description: 'Con aprobacion, sigue la ejecucion y control de estado de obra.',
+    flowLabel: ['Seguimiento', 'de obra'],
+    preview: '/illustrations/AGENDA.jpeg',
+    highlights: ['Agenda', 'Estados', 'Notificaciones'],
+    target: { type: 'web', href: '/tecnicos' },
+  },
+  {
+    id: 'op_control',
+    column: 'operacion',
+    shape: 'process',
+    x: 444,
+    y: 652,
+    width: 220,
+    height: 62,
+    title: 'Subir datos a admin',
+    subtitle: 'Control de negocio',
+    description: 'La operacion alimenta metricas y reportes para gestion ejecutiva.',
+    flowLabel: ['Sincronizar con', 'panel admin'],
     preview: '/illustrations/dashboard.svg',
-    highlights: ['KPIs', 'Tendencias', 'Estado rapido'],
-    target: { type: 'admin', tab: 'resumen' },
-  },
-  {
-    id: 'admin-usuarios',
-    lane: 'operacion',
-    title: 'Admin - Usuarios',
-    subtitle: 'Usuarios y accesos',
-    description: 'Gestiona usuarios, altas y estado de acceso de la plataforma.',
-    preview: '/illustrations/agenda.svg',
-    highlights: ['Busqueda', 'Altas', 'Estado de cuentas'],
-    target: { type: 'admin', tab: 'usuarios' },
-  },
-  {
-    id: 'admin-facturacion',
-    lane: 'operacion',
-    title: 'Admin - Facturacion',
-    subtitle: 'Ingresos, pagos y zonas',
-    description: 'Controla ingresos por pagos, suscripciones y rendimiento por zona.',
-    preview: '/illustrations/quotes.svg',
-    highlights: ['Ingresos', 'Exportables', 'Mapa de zonas'],
+    highlights: ['Metricas', 'Ingresos', 'Visibilidad'],
     target: { type: 'admin', tab: 'facturacion' },
   },
   {
-    id: 'admin-mano-obra',
-    lane: 'operacion',
-    title: 'Admin - Mano de obra',
-    subtitle: 'Catalogo y precios sugeridos',
-    description: 'Ajusta valores de mano de obra que impactan el presupuestador.',
-    preview: '/illustrations/branding.svg',
-    highlights: ['Items activos', 'Precios sugeridos', 'Fuente de referencia'],
-    target: { type: 'admin', tab: 'mano_obra' },
+    id: 'admin_resumen',
+    column: 'control',
+    shape: 'process',
+    x: 824,
+    y: 148,
+    width: 220,
+    height: 70,
+    title: 'Resumen ejecutivo',
+    subtitle: 'Vista gerencial',
+    description: 'KPIs centrales para lectura rapida del negocio.',
+    flowLabel: ['Resumen', 'ejecutivo'],
+    preview: '/illustrations/dashboard.svg',
+    highlights: ['KPIs', 'Usuarios', 'Health general'],
+    target: { type: 'admin', tab: 'resumen' },
   },
   {
-    id: 'admin-roadmap',
-    lane: 'control',
-    title: 'Admin - Roadmap',
-    subtitle: 'Planificacion y feedback',
-    description: 'Centraliza prioridades, estado y feedback para trabajo en equipo.',
+    id: 'admin_fact',
+    column: 'control',
+    shape: 'process',
+    x: 824,
+    y: 242,
+    width: 220,
+    height: 70,
+    title: 'Facturacion',
+    subtitle: 'Ingresos por zona',
+    description: 'Control de ingresos, pagos y mapa comercial por zonas.',
+    flowLabel: ['Facturacion', 'y zonas'],
+    preview: '/illustrations/quotes.svg',
+    highlights: ['Ingresos', 'Zonas', 'Exportables'],
+    target: { type: 'admin', tab: 'facturacion' },
+  },
+  {
+    id: 'admin_roadmap',
+    column: 'control',
+    shape: 'process',
+    x: 824,
+    y: 336,
+    width: 220,
+    height: 70,
+    title: 'Roadmap',
+    subtitle: 'Plan + feedback',
+    description: 'Prioriza mejoras y coordina ejecucion entre equipos y PCs.',
+    flowLabel: ['Roadmap', 'operativo'],
     preview: '/illustrations/viewer.svg',
-    highlights: ['Backlog', 'Estado', 'Feedback interno'],
+    highlights: ['Prioridades', 'Estado', 'Feedback'],
     target: { type: 'admin', tab: 'roadmap' },
   },
   {
-    id: 'admin-mensajes',
-    lane: 'control',
-    title: 'Admin - Mensajes',
-    subtitle: 'Soporte y conversaciones',
-    description: 'Gestion de mensajes y respuestas desde el panel.',
+    id: 'admin_msg',
+    column: 'control',
+    shape: 'process',
+    x: 824,
+    y: 430,
+    width: 220,
+    height: 70,
+    title: 'Mensajes',
+    subtitle: 'Soporte activo',
+    description: 'Gestion de conversaciones para soporte y cierre de dudas.',
+    flowLabel: ['Mensajes y', 'soporte'],
     preview: '/illustrations/notifications.svg',
-    highlights: ['Inbox', 'Seguimiento', 'Respuesta directa'],
+    highlights: ['Inbox', 'Respuesta', 'Seguimiento'],
     target: { type: 'admin', tab: 'mensajes' },
   },
   {
-    id: 'admin-accesos',
-    lane: 'control',
-    title: 'Admin - Accesos',
-    subtitle: 'Pendientes de habilitacion',
-    description: 'Revisa y habilita accesos pendientes por usuario.',
-    preview: '/illustrations/agenda.svg',
-    highlights: ['Pendientes', 'Aprobaciones', 'Control de permisos'],
-    target: { type: 'admin', tab: 'accesos' },
-  },
-  {
-    id: 'admin-actividad',
-    lane: 'control',
-    title: 'Admin - Actividad',
-    subtitle: 'Uso real de plataforma',
-    description: 'Analiza rutas, usuarios activos y embudo de uso.',
+    id: 'admin_act',
+    column: 'control',
+    shape: 'process',
+    x: 824,
+    y: 524,
+    width: 220,
+    height: 70,
+    title: 'Actividad',
+    subtitle: 'Uso real',
+    description: 'Analiza embudo, rutas y uso real para decisiones de producto.',
+    flowLabel: ['Actividad', 'y embudo'],
     preview: '/illustrations/dashboard.svg',
     highlights: ['Embudo', 'Rutas', 'Usuarios online'],
     target: { type: 'admin', tab: 'actividad' },
   },
+  {
+    id: 'admin_fin',
+    column: 'control',
+    shape: 'end',
+    x: 848,
+    y: 640,
+    width: 172,
+    height: 46,
+    title: 'Mejora continua',
+    subtitle: 'Cierre de ciclo',
+    description: 'El control cierra el ciclo y relanza iteraciones en producto.',
+    flowLabel: ['Fin / mejora'],
+    preview: '/illustrations/window-institucional.svg',
+    highlights: ['Decision', 'Iteracion', 'Escala'],
+    target: { type: 'admin', tab: 'roadmap' },
+  },
 ];
 
-const APP_WEB_FLOW_LANE_MAP = FLOW_LANES.map((lane) => ({
-  ...lane,
-  nodes: APP_WEB_FLOW_NODES.filter((node) => node.lane === lane.id),
-}));
+const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
+  { id: 'e1', from: 'web_inicio', to: 'web_landing' },
+  { id: 'e2', from: 'web_landing', to: 'web_valor' },
+  {
+    id: 'e3',
+    from: 'web_valor',
+    to: 'web_guias',
+    fromSide: 'left',
+    toSide: 'top',
+    via: [{ x: 46, y: 320 }, { x: 46, y: 392 }],
+    label: 'no',
+    labelX: 80,
+    labelY: 356,
+  },
+  {
+    id: 'e4',
+    from: 'web_guias',
+    to: 'web_landing',
+    fromSide: 'right',
+    toSide: 'left',
+    via: [{ x: 340, y: 438 }, { x: 340, y: 201 }],
+  },
+  { id: 'e5', from: 'web_valor', to: 'web_acceso', label: 'si', labelX: 210, labelY: 438 },
+  { id: 'e6', from: 'web_acceso', to: 'op_login', fromSide: 'right', toSide: 'left', label: 'continuar' },
+  { id: 'e7', from: 'op_login', to: 'op_crear' },
+  { id: 'e8', from: 'op_crear', to: 'op_compartir' },
+  { id: 'e9', from: 'op_compartir', to: 'op_confirma' },
+  { id: 'e10', from: 'op_confirma', to: 'op_ajustar', fromSide: 'right', toSide: 'left', label: 'no' },
+  {
+    id: 'e11',
+    from: 'op_ajustar',
+    to: 'op_crear',
+    fromSide: 'left',
+    toSide: 'right',
+    via: [{ x: 700, y: 360 }],
+  },
+  { id: 'e12', from: 'op_confirma', to: 'op_seguir', label: 'si', labelX: 554, labelY: 548 },
+  { id: 'e13', from: 'op_seguir', to: 'op_control' },
+  {
+    id: 'e14',
+    from: 'op_control',
+    to: 'admin_resumen',
+    fromSide: 'right',
+    toSide: 'left',
+    via: [{ x: 760, y: 683 }, { x: 760, y: 183 }],
+  },
+  { id: 'e15', from: 'admin_resumen', to: 'admin_fact' },
+  { id: 'e16', from: 'admin_fact', to: 'admin_roadmap' },
+  { id: 'e17', from: 'admin_roadmap', to: 'admin_msg' },
+  { id: 'e18', from: 'admin_msg', to: 'admin_act' },
+  { id: 'e19', from: 'admin_act', to: 'admin_fin' },
+  {
+    id: 'e20',
+    from: 'admin_fin',
+    to: 'web_landing',
+    fromSide: 'left',
+    toSide: 'top',
+    via: [{ x: 760, y: 664 }, { x: 760, y: 62 }, { x: 198, y: 62 }, { x: 198, y: 156 }],
+    label: 'iterar',
+    labelX: 596,
+    labelY: 48,
+  },
+];
+
+const getFlowNodeById = (nodeId: string) => APP_WEB_FLOW_NODES.find((node) => node.id === nodeId) || null;
+
+const getFlowNodeAnchor = (
+  node: AppWebFlowNode,
+  side: 'top' | 'right' | 'bottom' | 'left' = 'bottom'
+) => {
+  const centerX = node.x + node.width / 2;
+  const centerY = node.y + node.height / 2;
+  if (side === 'top') return { x: centerX, y: node.y };
+  if (side === 'right') return { x: node.x + node.width, y: centerY };
+  if (side === 'left') return { x: node.x, y: centerY };
+  return { x: centerX, y: node.y + node.height };
+};
+
+const buildFlowEdgePath = (edge: AppWebFlowEdge) => {
+  const fromNode = getFlowNodeById(edge.from);
+  const toNode = getFlowNodeById(edge.to);
+  if (!fromNode || !toNode) return '';
+  const start = getFlowNodeAnchor(fromNode, edge.fromSide || 'bottom');
+  const end = getFlowNodeAnchor(toNode, edge.toSide || 'top');
+  const points = [start, ...(edge.via || []), end];
+  return points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${Math.round(point.x)} ${Math.round(point.y)}`)
+    .join(' ');
+};
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -1749,6 +2009,15 @@ export default function AdminPage() {
     () => APP_WEB_FLOW_NODES.find((node) => node.id === selectedFlowNodeId) || APP_WEB_FLOW_NODES[0] || null,
     [selectedFlowNodeId]
   );
+
+  const selectedFlowEdgeIds = useMemo(() => {
+    if (!selectedFlowNode) return new Set<string>();
+    return new Set(
+      APP_WEB_FLOW_EDGES.filter((edge) => edge.from === selectedFlowNode.id || edge.to === selectedFlowNode.id).map(
+        (edge) => edge.id
+      )
+    );
+  }, [selectedFlowNode]);
 
   const selectedFlowTargetLabel = useMemo(() => {
     if (!selectedFlowNode) return '';
@@ -3309,49 +3578,186 @@ export default function AdminPage() {
             <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Navegacion guiada</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Diagrama de flujo App/Web</h3>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa operativo</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Diagrama de flujo interactivo App/Web</h3>
                   <p className="text-sm text-slate-500">
-                    Recorre todas las ventanas existentes y previsualiza cada pantalla antes de entrar.
+                    Flujo completo desde captacion hasta control admin, con decisiones, ramas y previsualizacion por
+                    paso.
                   </p>
                 </div>
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700">
-                  {APP_WEB_FLOW_NODES.length} ventanas mapeadas
+                  {APP_WEB_FLOW_NODES.length} nodos activos
                 </span>
               </div>
 
-              <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-                <div className="space-y-4">
-                  {APP_WEB_FLOW_LANE_MAP.map((lane) => (
-                    <article key={lane.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-slate-800">{lane.label}</p>
-                        <span className="text-xs text-slate-500">{lane.helper}</span>
-                      </div>
+              <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-xs font-semibold text-slate-700">Click en cualquier bloque para previsualizar</p>
+                    <span className="text-[11px] text-slate-500">Flechas = sentido de operacion</span>
+                  </div>
 
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {lane.nodes.map((node, index) => (
-                          <React.Fragment key={node.id}>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedFlowNodeId(node.id)}
-                              className={`rounded-2xl border px-3 py-2 text-left text-xs transition ${
-                                selectedFlowNode?.id === node.id
-                                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                              }`}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[1160px]">
+                      <svg
+                        viewBox={`0 0 ${FLOW_DIAGRAM_WIDTH} ${FLOW_DIAGRAM_HEIGHT}`}
+                        className="h-[760px] w-full rounded-2xl border border-slate-200 bg-white"
+                        role="img"
+                        aria-label="Diagrama de flujo interactivo de UrbanFix"
+                      >
+                        <defs>
+                          <marker id="flow-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                          </marker>
+                          <marker
+                            id="flow-arrow-active"
+                            markerWidth="10"
+                            markerHeight="10"
+                            refX="8.5"
+                            refY="5"
+                            orient="auto"
+                          >
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#0F172A" />
+                          </marker>
+                        </defs>
+
+                        {FLOW_DIAGRAM_COLUMNS.map((column, columnIndex) => (
+                          <g key={column.id}>
+                            <rect
+                              x={column.x}
+                              y={56}
+                              width={column.width}
+                              height={680}
+                              rx={22}
+                              fill="#F8FAFC"
+                              stroke="#E2E8F0"
+                              strokeWidth={1.5}
+                            />
+                            <text
+                              x={column.x + column.width / 2}
+                              y={36}
+                              textAnchor="middle"
+                              fontSize={15}
+                              fontWeight={700}
+                              fill="#0F172A"
                             >
-                              <p className="font-semibold">{node.title}</p>
-                              <p className="mt-0.5 text-[11px] opacity-80">{node.subtitle}</p>
-                            </button>
-                            {index < lane.nodes.length - 1 && (
-                              <span className="text-xs font-semibold text-slate-400">→</span>
+                              {column.label}
+                            </text>
+                            <text
+                              x={column.x + column.width / 2}
+                              y={52}
+                              textAnchor="middle"
+                              fontSize={11}
+                              fontWeight={500}
+                              fill="#64748B"
+                            >
+                              {column.helper}
+                            </text>
+                            {columnIndex < FLOW_DIAGRAM_COLUMNS.length - 1 && (
+                              <line
+                                x1={column.x + column.width + 15}
+                                y1={66}
+                                x2={column.x + column.width + 15}
+                                y2={728}
+                                stroke="#CBD5E1"
+                                strokeDasharray="5 6"
+                              />
                             )}
-                          </React.Fragment>
+                          </g>
                         ))}
-                      </div>
-                    </article>
-                  ))}
+
+                        {APP_WEB_FLOW_EDGES.map((edge) => {
+                          const path = buildFlowEdgePath(edge);
+                          if (!path) return null;
+                          const isActive = selectedFlowEdgeIds.has(edge.id);
+                          return (
+                            <g key={edge.id}>
+                              <path
+                                d={path}
+                                fill="none"
+                                stroke={isActive ? '#0F172A' : '#475569'}
+                                strokeWidth={isActive ? 2.5 : 1.7}
+                                markerEnd={isActive ? 'url(#flow-arrow-active)' : 'url(#flow-arrow)'}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              />
+                              {edge.label && (
+                                <text
+                                  x={edge.labelX || 0}
+                                  y={edge.labelY || 0}
+                                  textAnchor="middle"
+                                  fontSize={12}
+                                  fontWeight={700}
+                                  fill={edge.label === 'no' ? '#B91C1C' : '#0F172A'}
+                                >
+                                  {edge.label}
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
+
+                        {APP_WEB_FLOW_NODES.map((node) => {
+                          const isSelected = selectedFlowNode?.id === node.id;
+                          const centerX = node.x + node.width / 2;
+                          const centerY = node.y + node.height / 2;
+                          const titleOffset = node.flowLabel.length > 1 ? -8 : 0;
+                          const fillColor = isSelected
+                            ? '#0F172A'
+                            : node.shape === 'decision'
+                              ? '#1D4ED8'
+                              : node.shape === 'start' || node.shape === 'end'
+                                ? '#2563EB'
+                                : '#3B82F6';
+                          const strokeColor = isSelected ? '#020617' : '#1E40AF';
+                          return (
+                            <g
+                              key={node.id}
+                              onClick={() => setSelectedFlowNodeId(node.id)}
+                              style={{ cursor: 'pointer' }}
+                              aria-label={`Nodo ${node.title}`}
+                            >
+                              {node.shape === 'decision' ? (
+                                <polygon
+                                  points={`${centerX},${node.y} ${node.x + node.width},${centerY} ${centerX},${node.y + node.height} ${node.x},${centerY}`}
+                                  fill={fillColor}
+                                  stroke={strokeColor}
+                                  strokeWidth={isSelected ? 2.8 : 1.8}
+                                />
+                              ) : (
+                                <rect
+                                  x={node.x}
+                                  y={node.y}
+                                  width={node.width}
+                                  height={node.height}
+                                  rx={node.shape === 'start' || node.shape === 'end' ? 24 : 10}
+                                  fill={fillColor}
+                                  stroke={strokeColor}
+                                  strokeWidth={isSelected ? 2.8 : 1.8}
+                                />
+                              )}
+                              <text
+                                x={centerX}
+                                y={centerY + titleOffset}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize={node.shape === 'start' || node.shape === 'end' ? 18 : 15}
+                                fontWeight={800}
+                                fill="#FFFFFF"
+                                letterSpacing="0.2px"
+                              >
+                                {node.flowLabel.map((line, index) => (
+                                  <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 15}>
+                                    {line}
+                                  </tspan>
+                                ))}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
+                    </div>
+                  </div>
                 </div>
 
                 {selectedFlowNode && (
