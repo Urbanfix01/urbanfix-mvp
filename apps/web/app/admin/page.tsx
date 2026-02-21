@@ -1134,6 +1134,13 @@ export default function AdminPage() {
   });
   const [selectedFlowNodeId, setSelectedFlowNodeId] = useState(APP_WEB_FLOW_NODES[0]?.id || '');
   const [flowZoom, setFlowZoom] = useState(1);
+  const [flowPan, setFlowPan] = useState({ x: 0, y: 0 });
+  const [flowDragStart, setFlowDragStart] = useState<{
+    clientX: number;
+    clientY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -1147,6 +1154,35 @@ export default function AdminPage() {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (flowZoom > 1) return;
+    if (flowPan.x !== 0 || flowPan.y !== 0) {
+      setFlowPan({ x: 0, y: 0 });
+    }
+    if (flowDragStart) {
+      setFlowDragStart(null);
+    }
+  }, [flowZoom, flowPan.x, flowPan.y, flowDragStart]);
+
+  useEffect(() => {
+    if (!flowDragStart) return;
+    const handleMove = (event: MouseEvent) => {
+      const dx = event.clientX - flowDragStart.clientX;
+      const dy = event.clientY - flowDragStart.clientY;
+      setFlowPan({
+        x: flowDragStart.panX + dx,
+        y: flowDragStart.panY + dy,
+      });
+    };
+    const handleUp = () => setFlowDragStart(null);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [flowDragStart]);
 
   const loadOverview = async (token?: string) => {
     if (!token) return;
@@ -1723,7 +1759,22 @@ export default function AdminPage() {
     setFlowZoom((prev) => Math.min(FLOW_MAX_ZOOM, Math.max(FLOW_MIN_ZOOM, Number((prev + delta).toFixed(2)))));
   };
 
-  const resetFlowZoom = () => setFlowZoom(1);
+  const resetFlowZoom = () => {
+    setFlowZoom(1);
+    setFlowPan({ x: 0, y: 0 });
+    setFlowDragStart(null);
+  };
+
+  const handleFlowMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (event.button !== 0 || flowZoom <= 1) return;
+    event.preventDefault();
+    setFlowDragStart({
+      clientX: event.clientX,
+      clientY: event.clientY,
+      panX: flowPan.x,
+      panY: flowPan.y,
+    });
+  };
 
   const handleExportFlowPdf = () => {
     if (typeof window === 'undefined') return;
@@ -3947,14 +3998,27 @@ export default function AdminPage() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <div className="min-w-[860px]" style={{ zoom: flowZoom }}>
-                      <svg
+                    <div className="min-w-[860px]">
+                      <div
+                        onMouseDown={handleFlowMouseDown}
+                        className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white select-none ${
+                          flowZoom > 1 ? (flowDragStart ? 'cursor-grabbing' : 'cursor-grab') : 'cursor-default'
+                        }`}
+                      >
+                        <div
+                          style={{
+                            transform: `translate(${flowPan.x}px, ${flowPan.y}px) scale(${flowZoom})`,
+                            transformOrigin: 'top left',
+                            width: '100%',
+                          }}
+                        >
+                          <svg
                         id="admin-flow-classic-svg"
                         viewBox={`0 0 860 ${flowDiagramHeight}`}
-                        className="h-[860px] w-full rounded-2xl border border-slate-200 bg-white"
+                        className="h-[860px] w-full bg-white"
                         role="img"
                         aria-label="Diagrama de flujo vertical clásico"
-                      >
+                          >
                         <defs>
                           <marker id="flow-classic-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
                             <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
@@ -4066,7 +4130,9 @@ export default function AdminPage() {
                             </g>
                           );
                         })}
-                      </svg>
+                          </svg>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
