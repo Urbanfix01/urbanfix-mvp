@@ -110,6 +110,8 @@ type NavItem = {
   icon: LucideIcon;
 };
 
+type AccessProfile = 'tecnico' | 'empresa' | 'cliente';
+
 const TAX_RATE = 0.21;
 const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
@@ -440,6 +442,9 @@ const getSupportUploadExtension = (file: File) => {
   return 'jpg';
 };
 
+const isAccessProfile = (value: string | null): value is AccessProfile =>
+  value === 'tecnico' || value === 'empresa' || value === 'cliente';
+
 export default function TechniciansPage() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -454,6 +459,7 @@ export default function TechniciansPage() {
   const [authNotice, setAuthNotice] = useState('');
   const [sendingRecovery, setSendingRecovery] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [selectedAccessProfile, setSelectedAccessProfile] = useState<AccessProfile | null>(null);
   const [recoveryPassword, setRecoveryPassword] = useState('');
   const [recoveryConfirm, setRecoveryConfirm] = useState('');
   const [recoveryError, setRecoveryError] = useState('');
@@ -559,6 +565,10 @@ export default function TechniciansPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
+    if (isAccessProfile(incomingProfile)) {
+      setSelectedAccessProfile(incomingProfile);
+    }
     if (params.get('mode') === 'register') {
       setAuthMode('register');
     }
@@ -566,6 +576,9 @@ export default function TechniciansPage() {
       setQuickRegisterMode(true);
       setAuthMode('register');
       setAuthNotice('Modo rapido activo: recomendamos continuar con Google.');
+      if (!incomingProfile) {
+        setSelectedAccessProfile('tecnico');
+      }
     }
     if (params.get('recovery') === '1') {
       setRecoveryMode(true);
@@ -575,13 +588,14 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
-    if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted) return;
+    if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted || !selectedAccessProfile)
+      return;
     setAutoGoogleStarted(true);
     const timer = window.setTimeout(() => {
       handleGoogleLogin();
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [autoGoogleStarted, loadingSession, quickRegisterMode, recoveryMode, session]);
+  }, [autoGoogleStarted, loadingSession, quickRegisterMode, recoveryMode, selectedAccessProfile, session]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -599,6 +613,45 @@ export default function TechniciansPage() {
     window.localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme);
     document.documentElement.style.colorScheme = uiTheme;
   }, [uiTheme]);
+
+  const setAccessProfileInUrl = (profile: AccessProfile | null) => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (profile) {
+      params.set('perfil', profile);
+    } else {
+      params.delete('perfil');
+      params.delete('audience');
+    }
+    if (!params.get('recovery')) {
+      params.set('mode', authMode);
+    }
+    const query = params.toString();
+    const nextUrl = `${window.location.pathname}${query ? `?${query}` : ''}`;
+    window.history.replaceState({}, '', nextUrl);
+  };
+
+  const handleAccessProfileSelect = (profile: AccessProfile) => {
+    if (profile === 'cliente') {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/urbanfix?view=personas';
+      }
+      return;
+    }
+    setSelectedAccessProfile(profile);
+    setAuthError('');
+    setAuthNotice('');
+    setAccessProfileInUrl(profile);
+  };
+
+  const handleBackToProfileSelector = () => {
+    setSelectedAccessProfile(null);
+    setAutoGoogleStarted(false);
+    setQuickRegisterMode(false);
+    setAuthError('');
+    setAuthNotice('');
+    setAccessProfileInUrl(null);
+  };
 
   const geoMapUrl = useMemo(() => {
     if (!geoSelected) return '';
@@ -1540,6 +1593,21 @@ export default function TechniciansPage() {
     if (profile?.logo_shape && profile?.avatar_url) return profile.avatar_url as string;
     return '';
   }, [profile?.avatar_url, profile?.company_logo_url, profile?.logo_shape]);
+  const accessProfileCopy = useMemo(() => {
+    if (selectedAccessProfile === 'empresa') {
+      return {
+        panelLabel: 'Panel empresa',
+        heading: 'Acceso para empresas',
+        description:
+          'Centraliza presupuestos, responsables y seguimiento comercial desde la web en una sola cuenta.',
+      };
+    }
+    return {
+      panelLabel: 'Panel tecnico',
+      heading: 'Acceso para tecnicos',
+      description: 'Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.',
+    };
+  }, [selectedAccessProfile]);
   const agendaCounts = useMemo(() => {
     const scheduled = approvedJobs.filter((quote) => Boolean(quote.start_date)).length;
     const pending = approvedJobs.length - scheduled;
@@ -2568,171 +2636,225 @@ export default function TechniciansPage() {
                 </div>
                 <div className="text-left">
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
+                  <p className="text-sm font-semibold text-slate-700">
+                    {!selectedAccessProfile ? 'Acceso inicial' : accessProfileCopy.panelLabel}
+                  </p>
                 </div>
               </div>
-              <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Acceso para tecnicos</h1>
+              <h1 className="text-5xl font-black text-slate-900 md:text-6xl">
+                {!selectedAccessProfile ? 'Elige como quieres ingresar' : accessProfileCopy.heading}
+              </h1>
               <p className="text-base text-slate-600 md:text-lg">
-                Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.
+                {!selectedAccessProfile
+                  ? 'Antes de entrar, selecciona si eres tecnico, empresa o cliente para ir al flujo correcto.'
+                  : accessProfileCopy.description}
               </p>
-              <a
-                href="https://www.urbanfixar.com"
-                className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-              >
-                Volver al inicio
-              </a>
+              <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
+                {selectedAccessProfile && (
+                  <button
+                    type="button"
+                    onClick={handleBackToProfileSelector}
+                    className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Cambiar perfil
+                  </button>
+                )}
+                <a
+                  href="https://www.urbanfixar.com"
+                  className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Volver al inicio
+                </a>
+              </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
-              <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-slate-900">
-                  {quickRegisterMode ? 'Registro en 2 segundos' : 'Ingresa a tu cuenta'}
-                </h2>
-                <p className="text-sm text-slate-600">
-                  {quickRegisterMode
-                    ? 'Entra con Google o crea tu cuenta con correo en un paso.'
-                    : 'Accede con Google o con tu correo.'}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
-                  quickRegisterMode
-                    ? 'bg-slate-900 text-white shadow-lg shadow-slate-400/40 hover:bg-slate-800'
-                    : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900'
-                }`}
-              >
-                {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
-              </button>
-
-              {quickRegisterMode && (
-                <p className="mt-2 text-xs text-emerald-600">Acceso rapido activo. Completas tu perfil despues de entrar.</p>
-              )}
-
-              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-                <div className="h-px flex-1 bg-slate-200" />
-                o
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('login');
-                    setQuickRegisterMode(false);
-                    setAuthError('');
-                    setAuthNotice('');
-                  }}
-                  className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                    authMode === 'login'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
-                  }`}
-                >
-                  Iniciar sesion
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('register');
-                    setAuthError('');
-                    setAuthNotice('');
-                  }}
-                  className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                    authMode === 'register'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
-                  }`}
-                >
-                  Crear cuenta
-                </button>
-              </div>
-
-              {authMode === 'register' && !quickRegisterMode && (
+            {!selectedAccessProfile ? (
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
-                  <input
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Nombre completo"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <input
-                    value={businessName}
-                    onChange={(event) => setBusinessName(event.target.value)}
-                    placeholder="Nombre del negocio"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
+                  <h2 className="text-2xl font-bold text-slate-900">Selecciona tu perfil</h2>
+                  <p className="text-sm text-slate-600">Esto define a qué panel o vista te llevamos.</p>
                 </div>
-              )}
-
-              {authMode === 'register' && quickRegisterMode && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
-                  Alta rapida por correo habilitada. Nombre y negocio se completan luego en perfil.
+                <div className="mt-6 space-y-3">
                   <button
                     type="button"
-                    onClick={() => setQuickRegisterMode(false)}
-                    className="ml-2 font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
+                    onClick={() => handleAccessProfileSelect('tecnico')}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
                   >
-                    Cargar datos ahora
+                    <p className="text-sm font-bold text-slate-900">Tecnico</p>
+                    <p className="mt-1 text-xs text-slate-600">Crear presupuestos y hacer seguimiento de obras.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAccessProfileSelect('empresa')}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                  >
+                    <p className="text-sm font-bold text-slate-900">Empresa</p>
+                    <p className="mt-1 text-xs text-slate-600">Gestion comercial, responsables y operacion.</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleAccessProfileSelect('cliente')}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                  >
+                    <p className="text-sm font-bold text-slate-900">Cliente</p>
+                    <p className="mt-1 text-xs text-slate-600">Quiero pedir y revisar una cotizacion de reparacion.</p>
                   </button>
                 </div>
-              )}
-
-              <div className="mt-4 space-y-3">
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Correo"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type="password"
-                  placeholder="Contrasena"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
               </div>
+            ) : (
+              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+                <div className="space-y-3">
+                  <h2 className="text-2xl font-bold text-slate-900">
+                    {quickRegisterMode ? 'Registro en 2 segundos' : 'Ingresa a tu cuenta'}
+                  </h2>
+                  <p className="text-sm text-slate-600">
+                    {quickRegisterMode
+                      ? 'Entra con Google o crea tu cuenta con correo en un paso.'
+                      : 'Accede con Google o con tu correo.'}
+                  </p>
+                </div>
 
-              {authMode === 'login' && (
-                <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={handleGoogleLogin}
+                  className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
+                    quickRegisterMode
+                      ? 'bg-slate-900 text-white shadow-lg shadow-slate-400/40 hover:bg-slate-800'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900'
+                  }`}
+                >
+                  {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
+                </button>
+
+                {quickRegisterMode && (
+                  <p className="mt-2 text-xs text-emerald-600">
+                    Acceso rapido activo. Completas tu perfil despues de entrar.
+                  </p>
+                )}
+
+                <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  o
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
+
+                <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
                   <button
                     type="button"
-                    onClick={handlePasswordRecovery}
-                    disabled={sendingRecovery}
-                    className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setQuickRegisterMode(false);
+                      setAuthError('');
+                      setAuthNotice('');
+                    }}
+                    className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      authMode === 'login'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                    }`}
                   >
-                    {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                    Iniciar sesion
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('register');
+                      setAuthError('');
+                      setAuthNotice('');
+                    }}
+                    className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                      authMode === 'register'
+                        ? 'bg-slate-900 text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                    }`}
+                  >
+                    Crear cuenta
                   </button>
                 </div>
-              )}
 
-              {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
-              {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+                {authMode === 'register' && !quickRegisterMode && (
+                  <div className="space-y-3">
+                    <input
+                      value={fullName}
+                      onChange={(event) => setFullName(event.target.value)}
+                      placeholder="Nombre completo"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                    <input
+                      value={businessName}
+                      onChange={(event) => setBusinessName(event.target.value)}
+                      placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                  </div>
+                )}
 
-              <button
-                type="button"
-                onClick={handleEmailAuth}
-                className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
-              >
-                {authMode === 'login' ? 'Iniciar sesion' : quickRegisterMode ? 'Crear cuenta en 1 paso' : 'Crear cuenta'}
-              </button>
+                {authMode === 'register' && quickRegisterMode && (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                    Alta rapida por correo habilitada. Nombre y negocio se completan luego en perfil.
+                    <button
+                      type="button"
+                      onClick={() => setQuickRegisterMode(false)}
+                      className="ml-2 font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
+                    >
+                      Cargar datos ahora
+                    </button>
+                  </div>
+                )}
 
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode(authMode === 'login' ? 'register' : 'login');
-                  setAuthError('');
-                  setAuthNotice('');
-                }}
-                className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
-              >
-                {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
-              </button>
-            </div>
+                <div className="mt-4 space-y-3">
+                  <input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="Correo"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type="password"
+                    placeholder="Contrasena"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                </div>
+
+                {authMode === 'login' && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handlePasswordRecovery}
+                      disabled={sendingRecovery}
+                      className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                    >
+                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                    </button>
+                  </div>
+                )}
+
+                {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
+                {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+
+                <button
+                  type="button"
+                  onClick={handleEmailAuth}
+                  className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                >
+                  {authMode === 'login' ? 'Iniciar sesion' : quickRegisterMode ? 'Crear cuenta en 1 paso' : 'Crear cuenta'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode(authMode === 'login' ? 'register' : 'login');
+                    setAuthError('');
+                    setAuthNotice('');
+                  }}
+                  className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
+                >
+                  {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
+                </button>
+              </div>
+            )}
           </main>
         </div>
         </div>
