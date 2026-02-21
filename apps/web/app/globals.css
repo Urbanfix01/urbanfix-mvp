@@ -172,6 +172,61 @@ header .header-view-option {
   transform: translateY(-2px);
 }
 
+/* --- THEME SCOPE (PANEL TECNICOS) --- */
+.ufx-theme-scope[data-ui-theme='dark'] .bg-white {
+  background-color: #0f172a !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .bg-white\/80 {
+  background-color: rgba(15, 23, 42, 0.86) !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .bg-slate-50 {
+  background-color: #111b2f !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .bg-slate-100 {
+  background-color: #1b2a44 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .border-slate-300 {
+  border-color: #475569 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-900,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-800,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-700,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-500,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] input,
+.ufx-theme-scope[data-ui-theme='dark'] textarea,
+.ufx-theme-scope[data-ui-theme='dark'] select {
+  color: #e2e8f0 !important;
+  background-color: #111b2f !important;
+  border-color: #334155 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] input::placeholder,
+.ufx-theme-scope[data-ui-theme='dark'] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .shadow-slate-200\/60,
+.ufx-theme-scope[data-ui-theme='dark'] .shadow-slate-200\/50 {
+  --tw-shadow-color: rgba(2, 6, 23, 0.5) !important;
+}
+
 /* --- MODO MOVIL HOME (DISTINTO A DESKTOP) --- */
 @media (max-width: 900px) {
   .home-main {

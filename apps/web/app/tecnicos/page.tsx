@@ -2146,7 +2146,8 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={activeThemeStyles}
-          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
             Cargando...
@@ -2162,7 +2163,8 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={activeThemeStyles}
-          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
             Validando acceso...
@@ -2178,7 +2180,8 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={activeThemeStyles}
-          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
         >
           <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
             <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
@@ -2203,7 +2206,8 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={activeThemeStyles}
-          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
             <div
@@ -2327,7 +2331,8 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={activeThemeStyles}
-          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
             <div
@@ -2524,7 +2529,8 @@ export default function TechniciansPage() {
         <AuthHashHandler />
         <div
           style={activeThemeStyles}
-          className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden">
           <div
@@ -2737,7 +2743,8 @@ export default function TechniciansPage() {
   return (
     <div
       style={activeThemeStyles}
-      className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+      data-ui-theme={uiTheme}
+      className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
       <div className="relative overflow-hidden">
