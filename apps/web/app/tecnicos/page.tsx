@@ -2619,6 +2619,39 @@ export default function TechniciansPage() {
                 <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
               </div>
 
+              <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setAuthError('');
+                    setAuthNotice('');
+                  }}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    authMode === 'login'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                  }`}
+                >
+                  Iniciar sesión
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('register');
+                    setAuthError('');
+                    setAuthNotice('');
+                  }}
+                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    authMode === 'register'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                  }`}
+                >
+                  Crear cuenta
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={handleGoogleLogin}
@@ -2687,7 +2720,7 @@ export default function TechniciansPage() {
                 onClick={handleEmailAuth}
                 className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
               >
-                {authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+                {authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
               </button>
 
               <button
@@ -2699,7 +2732,7 @@ export default function TechniciansPage() {
                 }}
                 className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
               >
-                {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
+                {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Inicia sesión'}
               </button>
             </div>
           </main>
