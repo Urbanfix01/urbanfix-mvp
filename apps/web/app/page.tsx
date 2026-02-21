@@ -469,7 +469,7 @@ export default function HomePage() {
           <div className="absolute -left-24 top-24 h-72 w-72 rounded-full bg-[#0F172A]/8 blur-3xl" />
           <div className="absolute -right-24 bottom-20 h-80 w-80 rounded-full bg-[#F59E0B]/15 blur-3xl" />
 
-          <main className="fx-page relative mx-auto w-full max-w-7xl px-6 py-10 md:py-12">
+          <main className="fx-page home-main relative mx-auto w-full max-w-7xl px-6 py-10 md:py-12">
             {homepageViewInputs.map((viewId, index) => (
               <input
                 key={viewId}
@@ -481,9 +481,9 @@ export default function HomePage() {
               />
             ))}
 
-            <header className="sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3">
+            <header className="home-header-shell sticky top-3 z-50 overflow-hidden rounded-2xl border border-slate-200/90 bg-white/90 px-4 py-3 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.72)] backdrop-blur">
+              <div className="home-header-row flex items-center justify-between gap-3">
+                <div className="home-brand-block flex min-w-0 items-center gap-3">
                   <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-gradient-to-br from-[#071127] via-[#0F172A] to-[#1D366F] shadow-[0_16px_30px_-20px_rgba(10,18,38,0.9)] ring-1 ring-slate-300/45 sm:h-16 sm:w-16">
                     <span
                       aria-hidden="true"
@@ -512,8 +512,8 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="ml-auto flex shrink-0 items-center justify-end gap-2">
-                  <div className="audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
+                <div className="home-header-actions ml-auto flex shrink-0 items-center justify-end gap-2">
+                  <div className="home-audience-toggle audience-toggle relative flex items-center rounded-full border border-slate-200 bg-slate-50 p-1">
                     <span className="audience-toggle-pill absolute bottom-1 left-1 top-1 w-[calc(33.333%-4px)] rounded-full bg-[#0D3FA8] shadow-sm shadow-blue-200/80 transition-transform duration-300 ease-out" />
                     <label
                       htmlFor="view-tech"
@@ -552,15 +552,15 @@ export default function HomePage() {
                     data-analytics-label="iniciar_sesion"
                     data-analytics-location="home_header"
                     data-analytics-target="/tecnicos?mode=login"
-                    className="inline-flex items-center rounded-full bg-[#0F172A] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
+                    className="home-header-login inline-flex items-center rounded-full bg-[#0F172A] px-3.5 py-1.5 text-[11px] font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-800"
                   >
                     Iniciar sesion
                   </Link>
                 </div>
               </div>
 
-              <div className="mt-3 border-t border-slate-200/80 pt-3">
-                <div className="flex flex-wrap items-center gap-1.5">
+              <div className="home-secondary-wrap mt-3 border-t border-slate-200/80 pt-3">
+                <div className="home-secondary-nav flex flex-wrap items-center gap-1.5">
                   {headerSecondaryViews.map((item) => (
                     <label
                       key={item.label}
@@ -578,8 +578,8 @@ export default function HomePage() {
               </div>
             </header>
 
-            <div id="vista-principal" className="view-zone mt-8">
-              <section className="view-pane view-pane--tech grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div id="vista-principal" className="home-view-zone view-zone mt-8">
+              <section className="home-hero-pane view-pane view-pane--tech grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
                     Plataforma para tecnicos de Argentina
@@ -710,7 +710,7 @@ export default function HomePage() {
                 </div>
               </section>
 
-              <section className="view-pane view-pane--biz grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <section className="home-hero-pane view-pane view-pane--biz grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-800">
                     Propuesta para empresas y equipos
@@ -839,7 +839,7 @@ export default function HomePage() {
                 </div>
               </section>
 
-              <section className="view-pane view-pane--personas grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <section className="home-hero-pane view-pane view-pane--personas grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                 <div className="rounded-[34px] border border-slate-200 bg-white p-8 shadow-sm lg:p-10">
                   <p className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-emerald-800">
                     Para clientes que necesitan una reparacion
@@ -1334,6 +1334,15 @@ export default function HomePage() {
                 </div>
               </div>
             </section>
+
+            <div className="home-mobile-dock md:hidden" aria-label="Accesos rápidos móvil">
+              <Link href="/tecnicos?quick=1&mode=register" className="dock-primary">
+                Registro rapido
+              </Link>
+              <Link href="/tecnicos?mode=login" className="dock-secondary">
+                Iniciar sesion
+              </Link>
+            </div>
 
             <footer className="mt-8 rounded-[28px] border border-slate-200 bg-white px-6 py-5 text-xs text-slate-500 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
