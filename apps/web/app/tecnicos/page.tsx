@@ -2611,6 +2611,40 @@ export default function TechniciansPage() {
                 <div className="h-px flex-1 bg-slate-200" />
               </div>
 
+              <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setQuickRegisterMode(false);
+                    setAuthError('');
+                    setAuthNotice('');
+                  }}
+                  className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                    authMode === 'login'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                  }`}
+                >
+                  Iniciar sesion
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('register');
+                    setAuthError('');
+                    setAuthNotice('');
+                  }}
+                  className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                    authMode === 'register'
+                      ? 'bg-slate-900 text-white shadow-sm'
+                      : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                  }`}
+                >
+                  Crear cuenta
+                </button>
+              </div>
+
               {authMode === 'register' && !quickRegisterMode && (
                 <div className="space-y-3">
                   <input
@@ -2678,7 +2712,7 @@ export default function TechniciansPage() {
                 onClick={handleEmailAuth}
                 className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
               >
-                {authMode === 'login' ? 'Ingresar' : quickRegisterMode ? 'Crear cuenta en 1 paso' : 'Crear cuenta'}
+                {authMode === 'login' ? 'Iniciar sesion' : quickRegisterMode ? 'Crear cuenta en 1 paso' : 'Crear cuenta'}
               </button>
 
               <button
