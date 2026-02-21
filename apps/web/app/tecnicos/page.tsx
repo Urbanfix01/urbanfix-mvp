@@ -2374,18 +2374,18 @@ export default function TechniciansPage() {
               className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
             />
 
-            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="space-y-6 text-center lg:text-left">
+            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-start gap-6 px-4 py-8 sm:gap-8 sm:px-6 sm:py-12 lg:items-center lg:gap-10 lg:py-16 lg:grid-cols-[1.05fr_0.95fr]">
+              <div className="space-y-5 text-left lg:space-y-6">
                 <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
                   Primer ingreso
                 </div>
-                <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">Configura tu perfil</h1>
-                <p className="text-base text-slate-600 md:text-lg">
+                <h1 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl lg:text-5xl">Configura tu perfil</h1>
+                <p className="text-sm text-slate-600 sm:text-base md:text-lg">
                   Antes de crear presupuestos necesitamos tus datos bÃ¡sicos. Esto se muestra en el link pÃºblico y en el
                   PDF que recibe tu cliente.
                 </p>
 
-                <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl shadow-slate-200/60">
+                <div className="rounded-3xl border border-slate-200 bg-white/85 p-4 shadow-xl shadow-slate-200/60 sm:p-6">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por quÃ© te lo pedimos</p>
                   <ul className="mt-4 space-y-3 text-sm text-slate-600">
                     <li className="flex gap-3">
@@ -2403,7 +2403,7 @@ export default function TechniciansPage() {
                   </ul>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm">
+                <div className="rounded-3xl border border-slate-200 bg-white/70 p-4 shadow-sm sm:p-6">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejo de marca</p>
                   <p className="mt-3 text-sm text-slate-600">
                     Logo recomendado: fondo transparente o claro, alto contraste y versiÃ³n horizontal si es posible.
@@ -2412,9 +2412,9 @@ export default function TechniciansPage() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-200/60 sm:p-8">
                 <div className="rounded-3xl border border-slate-200 bg-slate-50 overflow-hidden">
-                  <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                  <div className="relative flex h-32 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 sm:h-40">
                     {profileForm.companyLogoUrl ? (
                       <img
                         src={profileForm.companyLogoUrl}
@@ -2434,7 +2434,7 @@ export default function TechniciansPage() {
                     </label>
                   </div>
 
-                  <div className="relative flex flex-wrap items-end gap-4 px-6 pb-6 pt-0">
+                  <div className="relative flex flex-wrap items-end gap-4 px-4 pb-5 pt-0 sm:px-6 sm:pb-6">
                     <div className="-mt-8 flex items-end gap-4">
                       <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
                         {profileForm.avatarUrl ? (
@@ -2571,9 +2571,9 @@ export default function TechniciansPage() {
             className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
           />
 
-          <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
-            <div className="space-y-6 text-center md:text-left">
-              <div className="flex items-center justify-center gap-3 md:justify-start">
+          <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-5xl items-start gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-10 md:min-h-screen md:items-center md:grid-cols-[1.05fr_0.95fr]">
+            <div className="order-2 space-y-4 text-left sm:space-y-6 md:order-1">
+              <div className="flex items-center gap-3">
                 <div
                   style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
                   className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
@@ -2596,21 +2596,26 @@ export default function TechniciansPage() {
                   <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
                 </div>
               </div>
-              <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Acceso para tecnicos</h1>
-              <p className="text-base text-slate-600 md:text-lg">
+              <h1 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl md:text-5xl lg:text-6xl">Acceso para tecnicos</h1>
+              <p className="text-sm text-slate-600 sm:text-base md:text-lg">
                 Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.
               </p>
+              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Acceso en segundos</span>
+                <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Sin configuracion inicial compleja</span>
+                <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Listo para cotizar rapido</span>
+              </div>
               <a
                 href="https://www.urbanfixar.com"
-                className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                className="inline-flex w-full items-center justify-center rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 sm:w-auto"
               >
                 Volver al inicio
               </a>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+            <div className="order-1 rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-200/60 sm:p-8 md:order-2">
               <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-slate-900">Ingresa a tu cuenta</h2>
+                <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Ingresa a tu cuenta</h2>
                 <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
               </div>
 
