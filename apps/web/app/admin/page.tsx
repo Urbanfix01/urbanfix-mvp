@@ -495,6 +495,23 @@ const getProfileLabel = (profile?: ProfileLike | null) => {
   return profile.business_name || profile.full_name || profile.email || 'Sin nombre';
 };
 
+type BillingRange = '7d' | '30d' | '90d' | 'ytd';
+type BillingExportType = 'subscriptions' | 'payments' | 'zones';
+
+const BILLING_RANGE_OPTIONS: { value: BillingRange; label: string }[] = [
+  { value: '7d', label: '7d' },
+  { value: '30d', label: '30d' },
+  { value: '90d', label: '90d' },
+  { value: 'ytd', label: 'YTD' },
+];
+
+const toDateKey = (date: Date) => {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function AdminPage() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -519,6 +536,8 @@ export default function AdminPage() {
   const [supportSending, setSupportSending] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [messageSearch, setMessageSearch] = useState('');
+  const [billingRange, setBillingRange] = useState<BillingRange>('30d');
+  const [billingExportType, setBillingExportType] = useState<BillingExportType>('subscriptions');
   const [activityRange, setActivityRange] = useState<7 | 30 | 90>(30);
   const [activityStart, setActivityStart] = useState('');
   const [activityEnd, setActivityEnd] = useState('');
@@ -1191,6 +1210,51 @@ export default function AdminPage() {
     }
   };
 
+  const handleBillingExport = () => {
+    if (!overview) return;
+    if (billingExportType === 'subscriptions') {
+      downloadCsv(
+        'suscripciones_recientes.csv',
+        overview.lists.recentSubscriptions.map((sub) => ({
+          usuario: getProfileLabel(sub.profile),
+          email: sub.profile?.email || '',
+          estado: sub.status || '',
+          plan: sub.plan?.name || '',
+          periodo_meses: sub.plan?.period_months || '',
+          precio: sub.plan?.price_ars || '',
+          creado: sub.created_at,
+          renueva: sub.current_period_end || '',
+        }))
+      );
+      return;
+    }
+    if (billingExportType === 'payments') {
+      downloadCsv(
+        'pagos_recientes.csv',
+        overview.lists.recentPayments.map((payment) => ({
+          usuario: getProfileLabel(payment.profile),
+          email: payment.profile?.email || '',
+          estado: payment.status || '',
+          monto: payment.amount || 0,
+          pagado: payment.paid_at || payment.created_at,
+        }))
+      );
+      return;
+    }
+    downloadCsv(
+      'ingresos_por_zona.csv',
+      overview.lists.incomeByZone.map((item) => ({
+        zona: item.zone,
+        total: item.total_amount,
+        presupuestos: item.quotes_amount,
+        suscripciones: item.subscriptions_amount,
+        presupuestos_cobrados: item.quotes_count,
+        pagos: item.payments_count,
+        usuarios: item.users_count,
+      }))
+    );
+  };
+
   const kpis = useMemo(() => {
     if (!overview) return [];
     return [
@@ -1264,6 +1328,216 @@ export default function AdminPage() {
       totalUsers,
     };
   }, [overview]);
+
+  const billingWindow = useMemo(() => {
+    const today = startOfDay(new Date());
+    const start = new Date(today);
+    if (billingRange === '7d') {
+      start.setDate(today.getDate() - 6);
+    } else if (billingRange === '30d') {
+      start.setDate(today.getDate() - 29);
+    } else if (billingRange === '90d') {
+      start.setDate(today.getDate() - 89);
+    } else {
+      start.setMonth(0, 1);
+    }
+    start.setHours(0, 0, 0, 0);
+
+    const end = new Date(today);
+    end.setHours(23, 59, 59, 999);
+
+    const days = Math.max(1, Math.round((startOfDay(end).getTime() - start.getTime()) / DAY_MS) + 1);
+    const previousEnd = new Date(start.getTime() - 1);
+    const previousStart = new Date(previousEnd);
+    previousStart.setDate(previousEnd.getDate() - (days - 1));
+    previousStart.setHours(0, 0, 0, 0);
+
+    return {
+      startMs: start.getTime(),
+      endMs: end.getTime(),
+      previousStartMs: previousStart.getTime(),
+      previousEndMs: previousEnd.getTime(),
+      label: `${start.toLocaleDateString('es-AR')} - ${today.toLocaleDateString('es-AR')}`,
+      shortLabel:
+        billingRange === 'ytd'
+          ? 'Año actual'
+          : billingRange === '7d'
+            ? 'Últimos 7 días'
+            : billingRange === '30d'
+              ? 'Últimos 30 días'
+              : 'Últimos 90 días',
+      days,
+    };
+  }, [billingRange]);
+
+  const billingTimeline = useMemo(() => {
+    if (!overview) {
+      return {
+        series: [] as { date: string; payments: number; subscriptions: number; total: number }[],
+        totalCurrent: 0,
+        totalPrevious: 0,
+        paymentsCurrent: 0,
+        paymentsPrevious: 0,
+        subscriptionsCurrent: 0,
+        subscriptionsPrevious: 0,
+        paymentsCountCurrent: 0,
+        paymentsCountPrevious: 0,
+        averageTicketCurrent: 0,
+        averageTicketPrevious: 0,
+        totalPoints: '',
+        paymentsPoints: '',
+        subscriptionsPoints: '',
+        maxSeriesValue: 1,
+        topZones: [] as IncomeZoneItem[],
+        maxZoneTotal: 1,
+      };
+    }
+
+    const buckets = new Map<string, { date: string; payments: number; subscriptions: number; total: number }>();
+    const startDate = new Date(billingWindow.startMs);
+    for (let dayIndex = 0; dayIndex < billingWindow.days; dayIndex += 1) {
+      const day = new Date(startDate);
+      day.setDate(startDate.getDate() + dayIndex);
+      const key = toDateKey(day);
+      buckets.set(key, { date: key, payments: 0, subscriptions: 0, total: 0 });
+    }
+
+    const isWithin = (time: number | null, startMs: number, endMs: number) =>
+      time !== null && time >= startMs && time <= endMs;
+
+    let paymentsCurrent = 0;
+    let paymentsPrevious = 0;
+    let subscriptionsCurrent = 0;
+    let subscriptionsPrevious = 0;
+    let paymentsCountCurrent = 0;
+    let paymentsCountPrevious = 0;
+
+    overview.lists.recentPayments.forEach((payment) => {
+      const amount = Number(payment.amount || 0);
+      if (!amount) return;
+      const time = toTimeMs(payment.paid_at || payment.created_at);
+      if (isWithin(time, billingWindow.startMs, billingWindow.endMs)) {
+        paymentsCurrent += amount;
+        paymentsCountCurrent += 1;
+        const key = toDateKey(startOfDay(new Date(time as number)));
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.payments += amount;
+          bucket.total += amount;
+        }
+        return;
+      }
+      if (isWithin(time, billingWindow.previousStartMs, billingWindow.previousEndMs)) {
+        paymentsPrevious += amount;
+        paymentsCountPrevious += 1;
+      }
+    });
+
+    overview.lists.recentSubscriptions.forEach((subscription) => {
+      const amount = Number(subscription.plan?.price_ars || 0);
+      if (!amount) return;
+      const time = toTimeMs(subscription.created_at);
+      if (isWithin(time, billingWindow.startMs, billingWindow.endMs)) {
+        subscriptionsCurrent += amount;
+        const key = toDateKey(startOfDay(new Date(time as number)));
+        const bucket = buckets.get(key);
+        if (bucket) {
+          bucket.subscriptions += amount;
+          bucket.total += amount;
+        }
+        return;
+      }
+      if (isWithin(time, billingWindow.previousStartMs, billingWindow.previousEndMs)) {
+        subscriptionsPrevious += amount;
+      }
+    });
+
+    const series = Array.from(buckets.values());
+    const maxSeriesValue = Math.max(
+      1,
+      ...series.map((item) => Math.max(item.total, item.payments, item.subscriptions))
+    );
+    const totalPoints = buildLinePoints(
+      series.map((item) => item.total),
+      maxSeriesValue
+    );
+    const paymentsPoints = buildLinePoints(
+      series.map((item) => item.payments),
+      maxSeriesValue
+    );
+    const subscriptionsPoints = buildLinePoints(
+      series.map((item) => item.subscriptions),
+      maxSeriesValue
+    );
+
+    const topZones = [...overview.lists.incomeByZone]
+      .sort((a, b) => Number(b.total_amount || 0) - Number(a.total_amount || 0))
+      .slice(0, 5);
+    const maxZoneTotal = Math.max(1, ...topZones.map((item) => Number(item.total_amount || 0)));
+
+    const averageTicketCurrent = paymentsCountCurrent ? paymentsCurrent / paymentsCountCurrent : 0;
+    const averageTicketPrevious = paymentsCountPrevious ? paymentsPrevious / paymentsCountPrevious : 0;
+
+    return {
+      series,
+      totalCurrent: paymentsCurrent + subscriptionsCurrent,
+      totalPrevious: paymentsPrevious + subscriptionsPrevious,
+      paymentsCurrent,
+      paymentsPrevious,
+      subscriptionsCurrent,
+      subscriptionsPrevious,
+      paymentsCountCurrent,
+      paymentsCountPrevious,
+      averageTicketCurrent,
+      averageTicketPrevious,
+      totalPoints,
+      paymentsPoints,
+      subscriptionsPoints,
+      maxSeriesValue,
+      topZones,
+      maxZoneTotal,
+    };
+  }, [overview, billingWindow]);
+
+  const billingKpiCards = useMemo(() => {
+    const totalDelta = getDeltaLabel(billingTimeline.totalCurrent, billingTimeline.totalPrevious);
+    const paymentsDelta = getDeltaLabel(billingTimeline.paymentsCurrent, billingTimeline.paymentsPrevious);
+    const subscriptionsDelta = getDeltaLabel(
+      billingTimeline.subscriptionsCurrent,
+      billingTimeline.subscriptionsPrevious
+    );
+    const ticketDelta = getDeltaLabel(billingTimeline.averageTicketCurrent, billingTimeline.averageTicketPrevious);
+    return [
+      {
+        key: 'total',
+        label: `Total del periodo (${billingWindow.shortLabel})`,
+        value: formatCurrency(billingTimeline.totalCurrent),
+        helper: `${billingTimeline.paymentsCountCurrent} pagos registrados`,
+        delta: totalDelta,
+      },
+      {
+        key: 'payments',
+        label: 'Ingresos por pagos',
+        value: formatCurrency(billingTimeline.paymentsCurrent),
+        helper: `${billingTimeline.paymentsCountCurrent} pago(s)`,
+        delta: paymentsDelta,
+      },
+      {
+        key: 'subscriptions',
+        label: 'Ingresos por suscripciones',
+        value: formatCurrency(billingTimeline.subscriptionsCurrent),
+        helper: `${overview?.lists.recentSubscriptions.length || 0} suscripción(es) recientes`,
+        delta: subscriptionsDelta,
+      },
+      {
+        key: 'ticket',
+        label: 'Ticket promedio (pagos)',
+        value: formatCurrency(billingTimeline.averageTicketCurrent),
+        helper: 'Promedio por pago confirmado',
+        delta: ticketDelta,
+      },
+    ];
+  }, [billingTimeline, billingWindow.shortLabel, overview?.lists.recentSubscriptions.length]);
 
   const tabs = [
     { key: 'resumen', label: 'Resumen' },
@@ -2310,100 +2584,137 @@ export default function AdminPage() {
           {activeTab === 'facturacion' && (
             <>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <div className="text-xs text-slate-400">
-                  Ingresos calculados desde {formatDateTime(overview.kpis.revenueSince)}
+                <div>
+                  <p className="text-xs text-slate-400">
+                    Ingresos calculados desde {formatDateTime(overview.kpis.revenueSince)}
+                  </p>
+                  <p className="mt-1 text-xs text-slate-500">Periodo activo: {billingWindow.label}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1">
+                    {BILLING_RANGE_OPTIONS.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => setBillingRange(option.value)}
+                        className={`rounded-xl px-3 py-1.5 text-[11px] font-semibold transition ${
+                          billingRange === option.value
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-slate-100'
+                        }`}
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <select
+                    value={billingExportType}
+                    onChange={(event) => setBillingExportType(event.target.value as BillingExportType)}
+                    className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                  >
+                    <option value="subscriptions">Exportar suscripciones</option>
+                    <option value="payments">Exportar pagos</option>
+                    <option value="zones">Exportar zonas</option>
+                  </select>
                   <button
                     type="button"
-                    onClick={() =>
-                      downloadCsv(
-                        'suscripciones_recientes.csv',
-                        overview.lists.recentSubscriptions.map((sub) => ({
-                          usuario: getProfileLabel(sub.profile),
-                          email: sub.profile?.email || '',
-                          estado: sub.status || '',
-                          plan: sub.plan?.name || '',
-                          periodo_meses: sub.plan?.period_months || '',
-                          precio: sub.plan?.price_ars || '',
-                          creado: sub.created_at,
-                          renueva: sub.current_period_end || '',
-                        }))
-                      )
-                    }
+                    onClick={handleBillingExport}
                     className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                   >
-                    Exportar suscripciones
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      downloadCsv(
-                        'pagos_recientes.csv',
-                        overview.lists.recentPayments.map((payment) => ({
-                          usuario: getProfileLabel(payment.profile),
-                          email: payment.profile?.email || '',
-                          estado: payment.status || '',
-                          monto: payment.amount || 0,
-                          pagado: payment.paid_at || payment.created_at,
-                        }))
-                      )
-                    }
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                  >
-                    Exportar pagos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      downloadCsv(
-                        'ingresos_por_zona.csv',
-                        overview.lists.incomeByZone.map((item) => ({
-                          zona: item.zone,
-                          total: item.total_amount,
-                          presupuestos: item.quotes_amount,
-                          suscripciones: item.subscriptions_amount,
-                          presupuestos_cobrados: item.quotes_count,
-                          pagos: item.payments_count,
-                          usuarios: item.users_count,
-                        }))
-                      )
-                    }
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                  >
-                    Exportar zonas
+                    Exportar
                   </button>
                 </div>
               </div>
 
               <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                    Ingresos suscripciones (12m)
-                  </p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatCurrency(overview.kpis.revenueTotal)}
-                  </p>
+                {billingKpiCards.map((card, index) => (
+                  <div
+                    key={card.key}
+                    className={`rounded-3xl border bg-white p-5 shadow-sm ${
+                      index === 0 ? 'border-slate-300 md:col-span-2 lg:col-span-2' : 'border-slate-200'
+                    }`}
+                  >
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
+                    <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
+                    <p className={`mt-2 text-xs font-semibold ${card.delta.tone}`}>{card.delta.text}</p>
+                    <p className="mt-1 text-[11px] text-slate-500">{card.helper}</p>
+                  </div>
+                ))}
+              </section>
+
+              <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Evolución</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Facturación del periodo</h3>
+                    <p className="text-xs text-slate-500">Pagos y suscripciones agregados por día.</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+                      Total: {formatCurrency(billingTimeline.totalCurrent)}
+                    </span>
+                    <span className="rounded-full bg-sky-50 px-3 py-1 font-semibold text-sky-700">
+                      Suscripciones: {formatCurrency(billingTimeline.subscriptionsCurrent)}
+                    </span>
+                    <span className="rounded-full bg-amber-50 px-3 py-1 font-semibold text-amber-700">
+                      Pagos: {formatCurrency(billingTimeline.paymentsCurrent)}
+                    </span>
+                  </div>
                 </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">MRR estimado</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatCurrency(overview.kpis.mrr)}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">ARR estimado</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatCurrency(overview.kpis.arr)}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                    Ingresos por presupuestos
-                  </p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatCurrency(overview.kpis.paidQuotesTotal)}
-                  </p>
+
+                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="h-36 w-full">
+                    <polyline points="0,38 100,38" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
+                    <polyline points="0,21 100,21" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
+                    {!!billingTimeline.totalPoints && (
+                      <polyline
+                        points={billingTimeline.totalPoints}
+                        fill="none"
+                        stroke="#0F172A"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                    {!!billingTimeline.subscriptionsPoints && (
+                      <polyline
+                        points={billingTimeline.subscriptionsPoints}
+                        fill="none"
+                        stroke="#0EA5E9"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                    {!!billingTimeline.paymentsPoints && (
+                      <polyline
+                        points={billingTimeline.paymentsPoints}
+                        fill="none"
+                        stroke="#F59E0B"
+                        strokeWidth="1.6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                  </svg>
+                  <div className="mt-3 flex flex-wrap items-center gap-4 text-xs">
+                    <span className="inline-flex items-center gap-2 text-slate-600">
+                      <span className="h-2 w-2 rounded-full bg-slate-900" />
+                      Total
+                    </span>
+                    <span className="inline-flex items-center gap-2 text-sky-700">
+                      <span className="h-2 w-2 rounded-full bg-sky-500" />
+                      Suscripciones
+                    </span>
+                    <span className="inline-flex items-center gap-2 text-amber-700">
+                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      Pagos
+                    </span>
+                  </div>
+                  <div className="mt-3 flex justify-between text-[10px] text-slate-400">
+                    <span>{billingTimeline.series[0]?.date || '-'}</span>
+                    <span>{billingTimeline.series[billingTimeline.series.length - 1]?.date || '-'}</span>
+                  </div>
                 </div>
               </section>
 
@@ -2471,11 +2782,41 @@ export default function AdminPage() {
                     <h3 className="text-lg font-semibold text-slate-900">Ingresos por zona</h3>
                     <p className="text-xs text-slate-500">Basado en ciudad o área de cobertura del perfil.</p>
                   </div>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 space-y-4">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Top 5 zonas</p>
+                        <span className="text-[11px] text-slate-400">Ranking por total</span>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {billingTimeline.topZones.map((zone) => {
+                          const total = Number(zone.total_amount || 0);
+                          const width = Math.max(
+                            8,
+                            Math.round((total / Math.max(1, billingTimeline.maxZoneTotal)) * 100)
+                          );
+                          return (
+                            <div key={`top-zone-${zone.zone}`}>
+                              <div className="flex items-center justify-between gap-2 text-xs">
+                                <span className="truncate font-semibold text-slate-700">{zone.zone}</span>
+                                <span className="font-semibold text-slate-700">{formatCurrency(total)}</span>
+                              </div>
+                              <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-200">
+                                <div className="h-full rounded-full bg-slate-900" style={{ width: `${width}%` }} />
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {billingTimeline.topZones.length === 0 && (
+                          <p className="text-xs text-slate-500">Sin zonas con datos para el periodo actual.</p>
+                        )}
+                      </div>
+                    </div>
+
                     {overview.lists.incomeByZone.length === 0 && (
                       <p className="text-sm text-slate-500">No hay datos de zona todavía.</p>
                     )}
-                    {overview.lists.incomeByZone.map((item) => (
+                    {overview.lists.incomeByZone.slice(0, 8).map((item) => (
                       <div
                         key={item.zone}
                         className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500"
