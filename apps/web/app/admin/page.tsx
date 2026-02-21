@@ -2127,6 +2127,15 @@ export default function AdminPage() {
     return `Tab admin: ${tabLabel}`;
   }, [selectedFlowNode, tabs]);
 
+  const flowLaneRows = useMemo(
+    () =>
+      FLOW_DIAGRAM_COLUMNS.map((column) => ({
+        ...column,
+        nodes: APP_WEB_FLOW_NODES.filter((node) => node.column === column.id).sort((a, b) => a.y - b.y),
+      })),
+    []
+  );
+
   const filteredRecentUsers = useMemo(() => {
     if (!overview) return [];
     const query = normalizeText(userSearch);
@@ -3702,237 +3711,120 @@ export default function AdminPage() {
                 </span>
               </div>
 
-              <div className="mt-6 grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+              <div className="mt-6 space-y-6">
+                {selectedFlowNode && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Previsualizacion activa</p>
+                    <div className="mt-3 grid gap-4 lg:grid-cols-[280px,1fr,220px] lg:items-center">
+                      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        <img
+                          src={selectedFlowNode.preview}
+                          alt={`Preview ${selectedFlowNode.title}`}
+                          className="h-44 w-full object-cover"
+                        />
+                        <span className="absolute left-3 top-3 rounded-full bg-slate-900/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                          Preview
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-xl font-semibold text-slate-900">{selectedFlowNode.title}</h4>
+                        <p className="mt-1 text-sm text-slate-600">{selectedFlowNode.description}</p>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {selectedFlowNode.highlights.map((highlight) => (
+                            <span
+                              key={highlight}
+                              className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                            >
+                              {highlight}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="mt-3 text-xs text-slate-500">{selectedFlowTargetLabel}</p>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleOpenFlowNode(selectedFlowNode)}
+                        className="h-fit w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                      >
+                        {selectedFlowNode.target.type === 'admin'
+                          ? 'Abrir en este panel'
+                          : 'Abrir pagina en nueva pestaña'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-slate-700">Click en cualquier bloque para previsualizar</p>
+                    <p className="text-xs font-semibold text-slate-700">Diagrama horizontal por áreas (click para foco)</p>
                     <span className="text-[11px] text-slate-500">Flechas = sentido de operacion</span>
                   </div>
 
-                  <div className="overflow-x-auto">
-                    <div className="min-w-[1160px]">
-                      <svg
-                        viewBox={`0 0 ${FLOW_DIAGRAM_WIDTH} ${FLOW_DIAGRAM_HEIGHT}`}
-                        className="h-[740px] w-full rounded-2xl border border-slate-200 bg-white"
-                        role="img"
-                        aria-label="Diagrama de flujo interactivo de UrbanFix"
-                      >
-                        <defs>
-                          <marker id="flow-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8" />
-                          </marker>
-                          <marker
-                            id="flow-arrow-active"
-                            markerWidth="10"
-                            markerHeight="10"
-                            refX="8.5"
-                            refY="5"
-                            orient="auto"
-                          >
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8" />
-                          </marker>
-                        </defs>
+                  <div className="space-y-4">
+                    {flowLaneRows.map((lane) => (
+                      <div key={lane.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="flex flex-wrap items-end justify-between gap-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{lane.label}</p>
+                            <p className="text-xs text-slate-500">{lane.helper}</p>
+                          </div>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
+                            {lane.nodes.length} pasos
+                          </span>
+                        </div>
 
-                        {FLOW_DIAGRAM_COLUMNS.map((column, columnIndex) => (
-                          <g key={column.id}>
-                            <rect
-                              x={column.x}
-                              y={56}
-                              width={column.width}
-                              height={680}
-                              rx={22}
-                              fill="#F8FAFC"
-                              stroke="#E2E8F0"
-                              strokeWidth={1.5}
-                            />
-                            <text
-                              x={column.x + column.width / 2}
-                              y={36}
-                              textAnchor="middle"
-                              fontSize={15}
-                              fontWeight={700}
-                              fill="#0F172A"
-                            >
-                              {column.label}
-                            </text>
-                            <text
-                              x={column.x + column.width / 2}
-                              y={52}
-                              textAnchor="middle"
-                              fontSize={11}
-                              fontWeight={500}
-                              fill="#64748B"
-                            >
-                              {column.helper}
-                            </text>
-                            {columnIndex < FLOW_DIAGRAM_COLUMNS.length - 1 && (
-                              <line
-                                x1={column.x + column.width + 15}
-                                y1={66}
-                                x2={column.x + column.width + 15}
-                                y2={728}
-                                stroke="#CBD5E1"
-                                strokeDasharray="5 6"
-                              />
-                            )}
-                          </g>
-                        ))}
-
-                        {[132, 228, 324, 440, 566, 662].map((guideY) => (
-                          <line
-                            key={`flow-grid-${guideY}`}
-                            x1={30}
-                            y1={guideY}
-                            x2={1130}
-                            y2={guideY}
-                            stroke="#E2E8F0"
-                            strokeDasharray="2 6"
-                            strokeWidth={0.9}
-                            opacity={0.55}
-                          />
-                        ))}
-
-                        {APP_WEB_FLOW_EDGES.map((edge) => {
-                          const path = buildFlowEdgePath(edge);
-                          if (!path) return null;
-                          const isActive = selectedFlowEdgeIds.has(edge.id);
-                          return (
-                            <g key={edge.id}>
-                              <path
-                                d={path}
-                                fill="none"
-                                stroke={isActive ? '#1D4ED8' : '#94A3B8'}
-                                strokeWidth={isActive ? 2.3 : 1.35}
-                                markerEnd={isActive ? 'url(#flow-arrow-active)' : 'url(#flow-arrow)'}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                opacity={isActive ? 0.95 : 0.9}
-                              />
-                              {edge.label && (
-                                <text
-                                  x={edge.labelX || 0}
-                                  y={edge.labelY || 0}
-                                  textAnchor="middle"
-                                  fontSize={12}
-                                  fontWeight={700}
-                                  fill={edge.label === 'no' ? '#B91C1C' : '#0F172A'}
-                                >
-                                  {edge.label}
-                                </text>
-                              )}
-                            </g>
-                          );
-                        })}
-
-                        {APP_WEB_FLOW_NODES.map((node) => {
-                          const isSelected = selectedFlowNode?.id === node.id;
-                          const centerX = node.x + node.width / 2;
-                          const centerY = node.y + node.height / 2;
-                          const titleOffset = node.flowLabel.length > 1 ? -8 : 0;
-                          const fillColor = isSelected
-                            ? '#0F172A'
-                            : node.shape === 'decision'
-                              ? '#1D4ED8'
-                              : node.shape === 'start' || node.shape === 'end'
-                                ? '#1E40AF'
-                                : '#3B82F6';
-                          const strokeColor = isSelected ? '#020617' : '#1E3A8A';
-                          const nodeFontSize = node.shape === 'start' || node.shape === 'end'
-                            ? 18
-                            : node.flowLabel.length > 1
-                              ? 13
-                              : 15;
-                          return (
-                            <g
-                              key={node.id}
-                              onClick={() => setSelectedFlowNodeId(node.id)}
-                              style={{ cursor: 'pointer' }}
-                              aria-label={`Nodo ${node.title}`}
-                            >
-                              {node.shape === 'decision' ? (
-                                <polygon
-                                  points={`${centerX},${node.y} ${node.x + node.width},${centerY} ${centerX},${node.y + node.height} ${node.x},${centerY}`}
-                                  fill={fillColor}
-                                  stroke={strokeColor}
-                                  strokeWidth={isSelected ? 2.8 : 1.8}
-                                />
-                              ) : (
-                                <rect
-                                  x={node.x}
-                                  y={node.y}
-                                  width={node.width}
-                                  height={node.height}
-                                  rx={node.shape === 'start' || node.shape === 'end' ? 24 : 10}
-                                  fill={fillColor}
-                                  stroke={strokeColor}
-                                  strokeWidth={isSelected ? 2.8 : 1.8}
-                                />
-                              )}
-                              <text
-                                x={centerX}
-                                y={centerY + titleOffset}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                fontSize={nodeFontSize}
-                                fontWeight={800}
-                                fill="#FFFFFF"
-                                letterSpacing="0.2px"
-                              >
-                                {node.flowLabel.map((line, index) => (
-                                  <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 14}>
-                                    {line}
-                                  </tspan>
-                                ))}
-                              </text>
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    </div>
+                        <div className="mt-3 overflow-x-auto pb-1">
+                          <div className="flex min-w-max items-center gap-2">
+                            {lane.nodes.map((node, index) => {
+                              const isSelected = selectedFlowNode?.id === node.id;
+                              const isDecision = node.shape === 'decision';
+                              return (
+                                <React.Fragment key={node.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedFlowNodeId(node.id)}
+                                    className={`w-[190px] rounded-2xl border px-3 py-3 text-left transition ${
+                                      isSelected
+                                        ? 'border-slate-900 bg-slate-900 text-white shadow-md'
+                                        : isDecision
+                                          ? 'border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400'
+                                          : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                                    }`}
+                                  >
+                                    <p
+                                      className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
+                                        isSelected ? 'text-slate-200' : 'text-slate-500'
+                                      }`}
+                                    >
+                                      {isDecision
+                                        ? 'Decision'
+                                        : node.shape === 'start'
+                                          ? 'Inicio'
+                                          : node.shape === 'end'
+                                            ? 'Fin'
+                                            : 'Paso'}
+                                    </p>
+                                    <p className="mt-1 text-sm font-semibold leading-snug">{node.flowLabel.join(' ')}</p>
+                                    <p className={`mt-2 text-xs ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
+                                      {node.subtitle}
+                                    </p>
+                                  </button>
+                                  {index < lane.nodes.length - 1 && (
+                                    <span className="text-xl font-bold text-slate-300" aria-hidden="true">
+                                      →
+                                    </span>
+                                  )}
+                                </React.Fragment>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-
-                {selectedFlowNode && (
-                  <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Previsualizacion</p>
-                    <h4 className="mt-2 text-lg font-semibold text-slate-900">{selectedFlowNode.title}</h4>
-                    <p className="text-sm text-slate-500">{selectedFlowNode.description}</p>
-
-                    <div className="relative mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                      <img
-                        src={selectedFlowNode.preview}
-                        alt={`Preview ${selectedFlowNode.title}`}
-                        className="h-52 w-full object-cover"
-                      />
-                      <span className="absolute left-3 top-3 rounded-full bg-slate-900/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
-                        Preview
-                      </span>
-                    </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {selectedFlowNode.highlights.map((highlight) => (
-                        <span
-                          key={highlight}
-                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
-                        >
-                          {highlight}
-                        </span>
-                      ))}
-                    </div>
-
-                    <p className="mt-4 text-xs text-slate-500">{selectedFlowTargetLabel}</p>
-
-                    <button
-                      type="button"
-                      onClick={() => handleOpenFlowNode(selectedFlowNode)}
-                      className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                    >
-                      {selectedFlowNode.target.type === 'admin'
-                        ? 'Abrir en este panel'
-                        : 'Abrir pagina en nueva pestaña'}
-                    </button>
-                  </aside>
-                )}
               </div>
             </section>
           )}
