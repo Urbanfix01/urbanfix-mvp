@@ -152,6 +152,11 @@ type IncomeZoneItem = {
   users_count: number;
 };
 
+type RegisteredZoneItem = {
+  zone: string;
+  users_count: number;
+};
+
 type RecentUserItem = {
   id: string;
   email?: string | null;
@@ -253,6 +258,7 @@ type AdminOverview = {
     recentPayments: PaymentItem[];
     pendingAccess: PendingAccessItem[];
     recentUsers: RecentUserItem[];
+    registeredUsersByZone: RegisteredZoneItem[];
     incomeByZone: IncomeZoneItem[];
     topScreens: ScreenMetric[];
   };
@@ -307,6 +313,8 @@ type ArgentinaZonePoint = {
   totalAmount: number;
   zones: string[];
   radius: number;
+  intensity: number;
+  heatColor: string;
 };
 
 const ARGENTINA_SILHOUETTE_PATH =
@@ -320,7 +328,7 @@ const ARGENTINA_ZONE_ANCHORS: ArgentinaZoneAnchor[] = [
   { id: 'corrientes', label: 'Corrientes', x: 164, y: 142, aliases: ['corrientes'] },
   { id: 'misiones', label: 'Misiones', x: 176, y: 122, aliases: ['misiones', 'posadas'] },
   { id: 'santiago', label: 'Santiago del Estero', x: 132, y: 146, aliases: ['santiago del estero'] },
-  { id: 'cordoba', label: 'Cordoba', x: 128, y: 188, aliases: ['cordoba'] },
+  { id: 'cordoba', label: 'Cordoba', x: 128, y: 188, aliases: ['cordoba', 'villa carlos paz', 'rio cuarto'] },
   { id: 'santa_fe', label: 'Santa Fe', x: 146, y: 186, aliases: ['santa fe', 'rosario'] },
   { id: 'mendoza', label: 'Mendoza', x: 92, y: 194, aliases: ['mendoza'] },
   { id: 'san_juan', label: 'San Juan', x: 95, y: 176, aliases: ['san juan'] },
@@ -331,7 +339,30 @@ const ARGENTINA_ZONE_ANCHORS: ArgentinaZoneAnchor[] = [
     label: 'Buenos Aires / AMBA',
     x: 162,
     y: 244,
-    aliases: ['buenos aires', 'caba', 'capital federal', 'amba', 'la plata'],
+    aliases: [
+      'buenos aires',
+      'caba',
+      'capital federal',
+      'amba',
+      'la plata',
+      'sourdeaux',
+      'san miguel',
+      'tigre',
+      'moron',
+      'quilmes',
+      'lanus',
+      'avellaneda',
+      'san isidro',
+      'vicente lopez',
+      'pilar',
+      'escobar',
+      'belen de escobar',
+      'lomas de zamora',
+      'almirante brown',
+      'ituzaingo',
+      'haedo',
+      'castelar',
+    ],
   },
   { id: 'la_pampa', label: 'La Pampa', x: 122, y: 246, aliases: ['la pampa', 'santa rosa'] },
   { id: 'neuquen', label: 'Neuquen', x: 102, y: 282, aliases: ['neuquen'] },
@@ -349,6 +380,14 @@ const getAnchorByZone = (zone: string) => {
       anchor.aliases.some((alias) => normalized.includes(normalizeText(alias)))
     ) || null
   );
+};
+
+const getHeatColor = (intensity: number) => {
+  const clamped = Math.max(0, Math.min(1, intensity));
+  const hue = 212 - clamped * 190;
+  const saturation = 88;
+  const lightness = 58 - clamped * 14;
+  return `hsl(${hue} ${saturation}% ${lightness}%)`;
 };
 
 const ROADMAP_STATUS_OPTIONS: { value: RoadmapStatus; label: string }[] = [
@@ -1094,7 +1133,13 @@ export default function AdminPage() {
       }
       const data = await response.json();
       setIsAdmin(true);
-      setOverview(data);
+      setOverview({
+        ...data,
+        lists: {
+          ...data?.lists,
+          registeredUsersByZone: data?.lists?.registeredUsersByZone || [],
+        },
+      });
     } catch (error: any) {
       setOverviewError(error?.message || 'No se pudo cargar el panel.');
     } finally {
@@ -1741,8 +1786,10 @@ export default function AdminPage() {
     const unmappedZones: string[] = [];
     let totalUsers = 0;
 
-    overview.lists.incomeByZone.forEach((item) => {
-      totalUsers += Number(item.users_count || 0);
+    overview.lists.registeredUsersByZone.forEach((item) => {
+      const users = Number(item.users_count || 0);
+      if (!users) return;
+      totalUsers += users;
       const anchor = getAnchorByZone(item.zone);
       if (!anchor) {
         unmappedZones.push(item.zone);
@@ -1759,22 +1806,56 @@ export default function AdminPage() {
         payments: 0,
         totalAmount: 0,
         zones: [],
+        intensity: 0,
+        heatColor: '#60A5FA',
       };
 
-      current.users += Number(item.users_count || 0);
-      current.quotes += Number(item.quotes_count || 0);
-      current.payments += Number(item.payments_count || 0);
-      current.totalAmount += Number(item.total_amount || 0);
+      current.users += users;
       current.zones.push(item.zone);
       grouped.set(anchor.id, current);
     });
 
+    overview.lists.incomeByZone.forEach((item) => {
+      const anchor = getAnchorByZone(item.zone);
+      if (!anchor) return;
+
+      const current = grouped.get(anchor.id) || {
+        id: anchor.id,
+        label: anchor.label,
+        x: anchor.x,
+        y: anchor.y,
+        users: 0,
+        quotes: 0,
+        payments: 0,
+        totalAmount: 0,
+        zones: [],
+        intensity: 0,
+        heatColor: '#60A5FA',
+      };
+
+      current.quotes += Number(item.quotes_count || 0);
+      current.payments += Number(item.payments_count || 0);
+      current.totalAmount += Number(item.total_amount || 0);
+      current.users = Math.max(current.users, Number(item.users_count || 0));
+      current.zones.push(item.zone);
+      grouped.set(anchor.id, current);
+    });
+
+    if (!totalUsers) {
+      totalUsers = overview.lists.incomeByZone.reduce((sum, item) => sum + Number(item.users_count || 0), 0);
+    }
+
     const basePoints = Array.from(grouped.values()).sort((a, b) => b.users - a.users);
     const maxUsers = Math.max(1, ...basePoints.map((point) => point.users || 0));
-    const points: ArgentinaZonePoint[] = basePoints.map((point) => ({
-      ...point,
-      radius: 6 + Math.round((Math.max(1, point.users) / maxUsers) * 10),
-    }));
+    const points: ArgentinaZonePoint[] = basePoints.map((point) => {
+      const intensity = Math.max(0.08, Math.min(1, point.users / maxUsers));
+      return {
+        ...point,
+        intensity,
+        heatColor: getHeatColor(intensity),
+        radius: 7 + Math.round(intensity * 14),
+      };
+    });
 
     return {
       points,
@@ -3202,9 +3283,9 @@ export default function AdminPage() {
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa</p>
-                      <h3 className="text-lg font-semibold text-slate-900">Argentina por zonas activas</h3>
+                      <h3 className="text-lg font-semibold text-slate-900">Argentina por usuarios registrados</h3>
                       <p className="text-xs text-slate-500">
-                        Usuarios que ya se conectaron a presupuestar, agrupados por zona aproximada.
+                        Mapa de calor por zona aproximada, basado en ciudad o cobertura de perfiles registrados.
                       </p>
                     </div>
                     <div className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
@@ -3223,15 +3304,29 @@ export default function AdminPage() {
                           <circle
                             cx={point.x}
                             cy={point.y}
-                            r={point.radius + 2}
-                            fill="#FFFFFF"
-                            fillOpacity="0.75"
+                            r={point.radius * 2.25}
+                            fill={point.heatColor}
+                            fillOpacity={0.18 + point.intensity * 0.22}
                           />
-                          <circle cx={point.x} cy={point.y} r={point.radius} fill="#0F172A" fillOpacity="0.85" />
-                          <circle cx={point.x} cy={point.y} r={Math.max(2, point.radius - 6)} fill="#F5B942" />
+                          <circle
+                            cx={point.x}
+                            cy={point.y}
+                            r={point.radius * 1.35}
+                            fill={point.heatColor}
+                            fillOpacity={0.45 + point.intensity * 0.25}
+                          />
+                          <circle cx={point.x} cy={point.y} r={point.radius} fill={point.heatColor} fillOpacity="0.95" />
+                          <circle cx={point.x} cy={point.y} r={Math.max(2.2, point.radius * 0.26)} fill="#F8FAFC" />
                         </g>
                       ))}
                     </svg>
+                    <div className="mt-3 rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <div className="h-2 w-full rounded-full bg-gradient-to-r from-sky-500 via-amber-400 to-rose-600" />
+                      <div className="mt-1 flex items-center justify-between text-[10px] font-semibold text-slate-500">
+                        <span>Baja densidad</span>
+                        <span>Alta densidad</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">

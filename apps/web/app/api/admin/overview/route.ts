@@ -327,6 +327,31 @@ export async function GET(request: NextRequest) {
       return 'Sin zona';
     };
 
+    const { data: profileZoneRows, error: profileZoneError } = await supabase
+      .from('profiles')
+      .select('id, city, coverage_area, address')
+      .range(0, 9999);
+    if (profileZoneError) throw profileZoneError;
+
+    const registeredUsersByZoneMap = new Map<string, Set<string>>();
+    (profileZoneRows || []).forEach((profile: any) => {
+      const zone = getZoneLabel(profile);
+      if (!registeredUsersByZoneMap.has(zone)) {
+        registeredUsersByZoneMap.set(zone, new Set());
+      }
+      if (profile?.id) {
+        registeredUsersByZoneMap.get(zone)?.add(profile.id);
+      }
+    });
+
+    const registeredUsersByZone = Array.from(registeredUsersByZoneMap.entries())
+      .map(([zone, users]) => ({
+        zone,
+        users_count: users.size,
+      }))
+      .sort((a, b) => b.users_count - a.users_count || a.zone.localeCompare(b.zone))
+      .slice(0, 80);
+
     const incomeByZoneMap = new Map<
       string,
       {
@@ -428,6 +453,7 @@ export async function GET(request: NextRequest) {
           profile: profiles[user.id] || null,
           subscription: subscriptionsByUser[user.id] || null,
         })),
+        registeredUsersByZone,
         incomeByZone,
         topScreens,
       },
