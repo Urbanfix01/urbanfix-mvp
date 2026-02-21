@@ -2160,64 +2160,68 @@ export default function AdminPage() {
     return map;
   }, [flowLaneRows]);
 
-  const flowNodeIoMap = useMemo(() => {
-    const incoming = new Map<string, AppWebFlowEdge[]>();
-    const outgoing = new Map<string, AppWebFlowEdge[]>();
-    APP_WEB_FLOW_EDGES.forEach((edge) => {
-      if (!incoming.has(edge.to)) incoming.set(edge.to, []);
-      incoming.get(edge.to)!.push(edge);
-      if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
-      outgoing.get(edge.from)!.push(edge);
+  const flowVerticalNodes = useMemo(() => {
+    const orderedNodes = FLOW_DIAGRAM_COLUMNS.flatMap((column) =>
+      APP_WEB_FLOW_NODES.filter((node) => node.column === column.id).sort((a, b) => a.y - b.y)
+    );
+    const centerX = 430;
+    let cursorY = 34;
+    return orderedNodes.map((node, index) => {
+      const dimensions =
+        node.shape === 'decision'
+          ? { width: 220, height: 120 }
+          : node.shape === 'start' || node.shape === 'end'
+            ? { width: 220, height: 54 }
+            : { width: 290, height: 74 };
+      const next = {
+        node,
+        index,
+        x: centerX - dimensions.width / 2,
+        y: cursorY,
+        width: dimensions.width,
+        height: dimensions.height,
+      };
+      cursorY += dimensions.height + 44;
+      return next;
     });
-    return { incoming, outgoing };
   }, []);
 
-  const flowEngineeringRows = useMemo(
-    () =>
-      flowLaneRows.map((lane) => ({
-        ...lane,
-        steps: lane.nodes.map((node) => {
-          const incomingEdges = flowNodeIoMap.incoming.get(node.id) || [];
-          const outgoingEdges = flowNodeIoMap.outgoing.get(node.id) || [];
-          const inputs = incomingEdges.map((edge) => {
-            const sourceCode = flowNodeCodeMap.get(edge.from) || edge.from;
-            return edge.label ? `${sourceCode} (${edge.label})` : sourceCode;
-          });
-          const outputs = outgoingEdges.map((edge) => {
-            const targetCode = flowNodeCodeMap.get(edge.to) || edge.to;
-            return edge.label ? `${targetCode} (${edge.label})` : targetCode;
-          });
-          return {
-            node,
-            code: flowNodeCodeMap.get(node.id) || node.id,
-            typeLabel: FLOW_SHAPE_LABEL[node.shape],
-            inputs,
-            outputs,
-          };
-        }),
-      })),
-    [flowLaneRows, flowNodeCodeMap, flowNodeIoMap]
+  const flowVerticalNodeMap = useMemo(
+    () => new Map(flowVerticalNodes.map((item) => [item.node.id, item] as const)),
+    [flowVerticalNodes]
   );
 
-  const flowCrossStageLinks = useMemo(
-    () =>
-      APP_WEB_FLOW_EDGES.flatMap((edge) => {
-        const fromNode = getFlowNodeById(edge.from);
-        const toNode = getFlowNodeById(edge.to);
-        if (!fromNode || !toNode || fromNode.column === toNode.column) return [];
-        return [
-          {
-            id: edge.id,
-            fromCode: flowNodeCodeMap.get(edge.from) || edge.from,
-            toCode: flowNodeCodeMap.get(edge.to) || edge.to,
-            fromTitle: fromNode.title,
-            toTitle: toNode.title,
-            label: edge.label || 'flujo',
-          },
-        ];
-      }),
-    [flowNodeCodeMap]
-  );
+  const flowDiagramHeight = useMemo(() => {
+    const last = flowVerticalNodes[flowVerticalNodes.length - 1];
+    return last ? last.y + last.height + 40 : 1000;
+  }, [flowVerticalNodes]);
+
+  const flowVerticalEdges = useMemo(() => {
+    return APP_WEB_FLOW_EDGES.flatMap((edge, index) => {
+      const from = flowVerticalNodeMap.get(edge.from);
+      const to = flowVerticalNodeMap.get(edge.to);
+      if (!from || !to) return [];
+
+      const start = { x: from.x + from.width / 2, y: from.y + from.height };
+      const end = { x: to.x + to.width / 2, y: to.y };
+      const isDirect = to.index === from.index + 1;
+      const branchX = 760 + (index % 3) * 36;
+      const branchY = start.y + 16;
+      const toY = Math.max(18, end.y - 12);
+      const path = isDirect
+        ? `M ${start.x} ${start.y} L ${end.x} ${end.y}`
+        : `M ${start.x} ${start.y} L ${start.x} ${branchY} L ${branchX} ${branchY} L ${branchX} ${toY} L ${end.x} ${end.y}`;
+
+      return [
+        {
+          ...edge,
+          path,
+          labelX: isDirect ? start.x + 12 : branchX - 12,
+          labelY: isDirect ? (start.y + end.y) / 2 : branchY - 8,
+        },
+      ];
+    });
+  }, [flowVerticalNodeMap]);
 
   const filteredRecentUsers = useMemo(() => {
     if (!overview) return [];
@@ -3842,137 +3846,131 @@ export default function AdminPage() {
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-slate-700">
-                      Diagrama de ingenieria del proceso (lectura vertical por area)
+                      Diagrama de flujo clásico (estilo ingeniería de procesos)
                     </p>
-                    <span className="text-[11px] text-slate-500">Trazabilidad: entradas / salidas por paso</span>
+                    <span className="text-[11px] text-slate-500">Inicio → Proceso → Decisión → Fin + ramas de retorno</span>
                   </div>
 
-                  <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Formato</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-700">Diagrama vertical por departamento</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Codificación</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-700">CAP / OPE / ADM + correlativo</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Tipos</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-700">Inicio, Proceso, Decisión, Fin</p>
-                    </div>
-                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Trazabilidad</p>
-                      <p className="mt-1 text-xs font-semibold text-slate-700">Entrada y salida de cada paso</p>
-                    </div>
-                  </div>
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[860px]">
+                      <svg
+                        viewBox={`0 0 860 ${flowDiagramHeight}`}
+                        className="h-[860px] w-full rounded-2xl border border-slate-200 bg-white"
+                        role="img"
+                        aria-label="Diagrama de flujo vertical clásico"
+                      >
+                        <defs>
+                          <marker id="flow-classic-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                          </marker>
+                          <marker
+                            id="flow-classic-arrow-active"
+                            markerWidth="10"
+                            markerHeight="10"
+                            refX="8.5"
+                            refY="5"
+                            orient="auto"
+                          >
+                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8" />
+                          </marker>
+                        </defs>
 
-                  <div className="grid gap-4 xl:grid-cols-3">
-                    {flowEngineeringRows.map((lane) => (
-                      <article key={lane.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                        <div className="flex flex-wrap items-end justify-between gap-2">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">{lane.label}</p>
-                            <p className="text-xs text-slate-500">{lane.helper}</p>
-                          </div>
-                          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
-                            {lane.steps.length} pasos
-                          </span>
-                        </div>
+                        <text x={430} y={24} textAnchor="middle" fontSize={16} fontWeight={800} fill="#0F172A">
+                          Diagrama de flujo operativo App/Web
+                        </text>
 
-                        <div className="mt-3 flex flex-col items-center gap-2">
-                          {lane.steps.map((step, index) => {
-                            const isSelected = selectedFlowNode?.id === step.node.id;
-                            return (
-                              <React.Fragment key={step.node.id}>
-                                <button
-                                  type="button"
-                                  onClick={() => setSelectedFlowNodeId(step.node.id)}
-                                  className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
-                                    isSelected
-                                      ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                      : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 hover:bg-white'
-                                  }`}
+                        {flowVerticalEdges.map((edge) => {
+                          const isActive = selectedFlowEdgeIds.has(edge.id);
+                          return (
+                            <g key={edge.id}>
+                              <path
+                                d={edge.path}
+                                fill="none"
+                                stroke={isActive ? '#1D4ED8' : '#334155'}
+                                strokeWidth={isActive ? 2.5 : 1.7}
+                                markerEnd={isActive ? 'url(#flow-classic-arrow-active)' : 'url(#flow-classic-arrow)'}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                opacity={isActive ? 0.96 : 0.86}
+                              />
+                              {edge.label && (
+                                <text
+                                  x={edge.labelX}
+                                  y={edge.labelY}
+                                  textAnchor="middle"
+                                  fontSize={12}
+                                  fontWeight={700}
+                                  fill={edge.label === 'no' ? '#B91C1C' : '#0F172A'}
                                 >
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <span
-                                      className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.12em] ${
-                                        isSelected
-                                          ? 'border border-white/30 bg-white/10 text-white'
-                                          : 'border border-slate-300 bg-white text-slate-700'
-                                      }`}
-                                    >
-                                      {step.code}
-                                    </span>
-                                    <span
-                                      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                                        isSelected
-                                          ? 'border border-white/20 bg-white/10 text-slate-100'
-                                          : 'border border-slate-200 bg-white text-slate-600'
-                                      }`}
-                                    >
-                                      {step.typeLabel}
-                                    </span>
-                                  </div>
-                                  <p className="mt-2 text-sm font-semibold">{step.node.title}</p>
-                                  <p className={`mt-1 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
-                                    {step.node.subtitle}
-                                  </p>
-                                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                    <div
-                                      className={`rounded-xl border px-2 py-1.5 ${
-                                        isSelected ? 'border-white/25 bg-white/5' : 'border-slate-200 bg-white'
-                                      }`}
-                                    >
-                                      <p className={`text-[10px] uppercase ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
-                                        Entrada
-                                      </p>
-                                      <p className="mt-0.5 text-[11px] font-medium">
-                                        {step.inputs.length ? step.inputs.join(' / ') : 'Origen externo'}
-                                      </p>
-                                    </div>
-                                    <div
-                                      className={`rounded-xl border px-2 py-1.5 ${
-                                        isSelected ? 'border-white/25 bg-white/5' : 'border-slate-200 bg-white'
-                                      }`}
-                                    >
-                                      <p className={`text-[10px] uppercase ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
-                                        Salida
-                                      </p>
-                                      <p className="mt-0.5 text-[11px] font-medium">
-                                        {step.outputs.length ? step.outputs.join(' / ') : 'Termino de flujo'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </button>
-                                {index < lane.steps.length - 1 && (
-                                  <span className="text-2xl font-bold leading-none text-slate-300" aria-hidden="true">
-                                    ↓
-                                  </span>
-                                )}
-                              </React.Fragment>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    ))}
-                  </div>
+                                  {edge.label}
+                                </text>
+                              )}
+                            </g>
+                          );
+                        })}
 
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Interconexiones entre departamentos</p>
-                    <div className="mt-2 grid gap-2 lg:grid-cols-2">
-                      {flowCrossStageLinks.length === 0 && (
-                        <p className="text-xs text-slate-500">No hay cruces entre departamentos definidos.</p>
-                      )}
-                      {flowCrossStageLinks.map((link) => (
-                        <div key={link.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
-                          <p className="text-xs font-semibold text-slate-800">
-                            {link.fromCode} → {link.toCode}
-                          </p>
-                          <p className="mt-0.5 text-[11px] text-slate-500">
-                            {link.fromTitle} → {link.toTitle} ({link.label})
-                          </p>
-                        </div>
-                      ))}
+                        {flowVerticalNodes.map((item) => {
+                          const { node, x, y, width, height } = item;
+                          const isSelected = selectedFlowNode?.id === node.id;
+                          const centerX = x + width / 2;
+                          const centerY = y + height / 2;
+                          const fillColor = isSelected
+                            ? '#0F172A'
+                            : node.shape === 'decision'
+                              ? '#1D4ED8'
+                              : node.shape === 'start' || node.shape === 'end'
+                                ? '#1E40AF'
+                                : '#2563EB';
+                          const strokeColor = isSelected ? '#020617' : '#1E3A8A';
+                          const code = flowNodeCodeMap.get(node.id) || node.id;
+                          return (
+                            <g
+                              key={node.id}
+                              onClick={() => setSelectedFlowNodeId(node.id)}
+                              style={{ cursor: 'pointer' }}
+                              aria-label={`Paso ${code} - ${node.title}`}
+                            >
+                              <text x={x + 2} y={Math.max(18, y - 8)} fontSize={11} fontWeight={700} fill="#475569">
+                                {code} • {FLOW_SHAPE_LABEL[node.shape]}
+                              </text>
+                              {node.shape === 'decision' ? (
+                                <polygon
+                                  points={`${centerX},${y} ${x + width},${centerY} ${centerX},${y + height} ${x},${centerY}`}
+                                  fill={fillColor}
+                                  stroke={strokeColor}
+                                  strokeWidth={isSelected ? 2.8 : 2}
+                                />
+                              ) : (
+                                <rect
+                                  x={x}
+                                  y={y}
+                                  width={width}
+                                  height={height}
+                                  rx={node.shape === 'start' || node.shape === 'end' ? 24 : 8}
+                                  fill={fillColor}
+                                  stroke={strokeColor}
+                                  strokeWidth={isSelected ? 2.8 : 2}
+                                />
+                              )}
+                              <text
+                                x={centerX}
+                                y={centerY - (node.flowLabel.length > 1 ? 8 : 0)}
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fontSize={node.shape === 'start' || node.shape === 'end' ? 21 : 16}
+                                fontWeight={800}
+                                fill="#FFFFFF"
+                              >
+                                {node.flowLabel.map((line, index) => (
+                                  <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 16}>
+                                    {line}
+                                  </tspan>
+                                ))}
+                              </text>
+                            </g>
+                          );
+                        })}
+                      </svg>
                     </div>
                   </div>
                 </div>
