@@ -28,6 +28,36 @@ type RoadmapStatus = 'planned' | 'in_progress' | 'done' | 'blocked';
 type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
 type RoadmapPriority = 'high' | 'medium' | 'low';
 type RoadmapSentiment = 'positive' | 'neutral' | 'negative';
+type AdminTabKey =
+  | 'resumen'
+  | 'usuarios'
+  | 'facturacion'
+  | 'roadmap'
+  | 'mensajes'
+  | 'accesos'
+  | 'actividad'
+  | 'mano_obra'
+  | 'flujo';
+type FlowLaneId = 'captacion' | 'conversion' | 'operacion' | 'control';
+
+type AppWebFlowNode = {
+  id: string;
+  lane: FlowLaneId;
+  title: string;
+  subtitle: string;
+  description: string;
+  preview: string;
+  highlights: string[];
+  target:
+    | {
+        type: 'admin';
+        tab: Exclude<AdminTabKey, 'flujo'>;
+      }
+    | {
+        type: 'web';
+        href: string;
+      };
+};
 
 type RoadmapFeedbackItem = {
   id: string;
@@ -403,6 +433,161 @@ const ROADMAP_STATUS_CHART_COLOR: Record<RoadmapStatus, string> = {
   done: '#10B981',
 };
 
+const FLOW_LANES: Array<{ id: FlowLaneId; label: string; helper: string }> = [
+  { id: 'captacion', label: '1. Captacion', helper: 'Primer contacto y propuesta de valor' },
+  { id: 'conversion', label: '2. Conversion', helper: 'Exploracion guiada + decision' },
+  { id: 'operacion', label: '3. Operacion', helper: 'Ejecucion diaria y control operativo' },
+  { id: 'control', label: '4. Control', helper: 'Soporte, permisos y seguimiento continuo' },
+];
+
+const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
+  {
+    id: 'web-tecnicos',
+    lane: 'captacion',
+    title: 'Landing Tecnicos',
+    subtitle: 'Home principal para tecnicos',
+    description: 'Presenta la propuesta para tecnicos y activa CTA de acceso.',
+    preview: '/illustrations/window-tecnicos.svg',
+    highlights: ['Hero comercial', 'CTA principal', 'Prueba de valor'],
+    target: { type: 'web', href: '/tecnicos' },
+  },
+  {
+    id: 'web-empresas',
+    lane: 'captacion',
+    title: 'Landing Empresas',
+    subtitle: 'Vista comercial para equipos',
+    description: 'Muestra enfoque de pipeline y estandar para empresas.',
+    preview: '/illustrations/window-negocio.svg',
+    highlights: ['Propuesta B2B', 'Escala operativa', 'Segmentacion por rol'],
+    target: { type: 'web', href: '/tecnicos?segment=empresas' },
+  },
+  {
+    id: 'web-clientes',
+    lane: 'captacion',
+    title: 'Landing Clientes',
+    subtitle: 'Solicitud de cotizacion rapida',
+    description: 'Entrada para clientes finales que necesitan cotizar una reparacion.',
+    preview: '/illustrations/window-institucional.svg',
+    highlights: ['Mensaje de confianza', 'Solicitud rapida', 'Conversión a contacto'],
+    target: { type: 'web', href: '/tecnicos?segment=clientes' },
+  },
+  {
+    id: 'web-guias',
+    lane: 'conversion',
+    title: 'Guias y Precios',
+    subtitle: 'Referencia comercial para cotizar',
+    description: 'Ayuda a validar precios y contexto antes de cerrar una propuesta.',
+    preview: '/illustrations/window-guias.svg',
+    highlights: ['Base de consulta', 'Categorias', 'Contexto para cierres'],
+    target: { type: 'web', href: '/guias-precios' },
+  },
+  {
+    id: 'web-ciudades',
+    lane: 'conversion',
+    title: 'Cobertura por Ciudades',
+    subtitle: 'Lectura geografica de demanda',
+    description: 'Permite ubicar zonas activas y oportunidades por region.',
+    preview: '/illustrations/window-ciudades.svg',
+    highlights: ['Mapa de alcance', 'Zonas activas', 'Expansion planificada'],
+    target: { type: 'web', href: '/ciudades' },
+  },
+  {
+    id: 'web-rubros',
+    lane: 'conversion',
+    title: 'Rubros',
+    subtitle: 'Oferta por especialidad',
+    description: 'Segmenta servicios por especialidad para clientes y empresas.',
+    preview: '/illustrations/window-rubros.svg',
+    highlights: ['Rubros priorizados', 'Especialidades', 'Oferta clara'],
+    target: { type: 'web', href: '/rubros' },
+  },
+  {
+    id: 'admin-resumen',
+    lane: 'operacion',
+    title: 'Admin - Resumen',
+    subtitle: 'KPIs generales',
+    description: 'Vista ejecutiva del estado general del negocio y operacion.',
+    preview: '/illustrations/dashboard.svg',
+    highlights: ['KPIs', 'Tendencias', 'Estado rapido'],
+    target: { type: 'admin', tab: 'resumen' },
+  },
+  {
+    id: 'admin-usuarios',
+    lane: 'operacion',
+    title: 'Admin - Usuarios',
+    subtitle: 'Usuarios y accesos',
+    description: 'Gestiona usuarios, altas y estado de acceso de la plataforma.',
+    preview: '/illustrations/agenda.svg',
+    highlights: ['Busqueda', 'Altas', 'Estado de cuentas'],
+    target: { type: 'admin', tab: 'usuarios' },
+  },
+  {
+    id: 'admin-facturacion',
+    lane: 'operacion',
+    title: 'Admin - Facturacion',
+    subtitle: 'Ingresos, pagos y zonas',
+    description: 'Controla ingresos por pagos, suscripciones y rendimiento por zona.',
+    preview: '/illustrations/quotes.svg',
+    highlights: ['Ingresos', 'Exportables', 'Mapa de zonas'],
+    target: { type: 'admin', tab: 'facturacion' },
+  },
+  {
+    id: 'admin-mano-obra',
+    lane: 'operacion',
+    title: 'Admin - Mano de obra',
+    subtitle: 'Catalogo y precios sugeridos',
+    description: 'Ajusta valores de mano de obra que impactan el presupuestador.',
+    preview: '/illustrations/branding.svg',
+    highlights: ['Items activos', 'Precios sugeridos', 'Fuente de referencia'],
+    target: { type: 'admin', tab: 'mano_obra' },
+  },
+  {
+    id: 'admin-roadmap',
+    lane: 'control',
+    title: 'Admin - Roadmap',
+    subtitle: 'Planificacion y feedback',
+    description: 'Centraliza prioridades, estado y feedback para trabajo en equipo.',
+    preview: '/illustrations/viewer.svg',
+    highlights: ['Backlog', 'Estado', 'Feedback interno'],
+    target: { type: 'admin', tab: 'roadmap' },
+  },
+  {
+    id: 'admin-mensajes',
+    lane: 'control',
+    title: 'Admin - Mensajes',
+    subtitle: 'Soporte y conversaciones',
+    description: 'Gestion de mensajes y respuestas desde el panel.',
+    preview: '/illustrations/notifications.svg',
+    highlights: ['Inbox', 'Seguimiento', 'Respuesta directa'],
+    target: { type: 'admin', tab: 'mensajes' },
+  },
+  {
+    id: 'admin-accesos',
+    lane: 'control',
+    title: 'Admin - Accesos',
+    subtitle: 'Pendientes de habilitacion',
+    description: 'Revisa y habilita accesos pendientes por usuario.',
+    preview: '/illustrations/agenda.svg',
+    highlights: ['Pendientes', 'Aprobaciones', 'Control de permisos'],
+    target: { type: 'admin', tab: 'accesos' },
+  },
+  {
+    id: 'admin-actividad',
+    lane: 'control',
+    title: 'Admin - Actividad',
+    subtitle: 'Uso real de plataforma',
+    description: 'Analiza rutas, usuarios activos y embudo de uso.',
+    preview: '/illustrations/dashboard.svg',
+    highlights: ['Embudo', 'Rutas', 'Usuarios online'],
+    target: { type: 'admin', tab: 'actividad' },
+  },
+];
+
+const APP_WEB_FLOW_LANE_MAP = FLOW_LANES.map((lane) => ({
+  ...lane,
+  nodes: APP_WEB_FLOW_NODES.filter((node) => node.lane === lane.id),
+}));
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 const toTimeMs = (value?: string | null) => {
@@ -524,9 +709,7 @@ export default function AdminPage() {
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [grantingId, setGrantingId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<
-    'resumen' | 'usuarios' | 'facturacion' | 'roadmap' | 'mensajes' | 'accesos' | 'actividad' | 'mano_obra'
-  >('resumen');
+  const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
@@ -617,6 +800,7 @@ export default function AdminPage() {
     initial_feedback: '',
     initial_feedback_sentiment: 'neutral',
   });
+  const [selectedFlowNodeId, setSelectedFlowNodeId] = useState(APP_WEB_FLOW_NODES[0]?.id || '');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -1186,6 +1370,16 @@ export default function AdminPage() {
     setRoadmapSearch('');
   };
 
+  const handleOpenFlowNode = (node: AppWebFlowNode) => {
+    if (node.target.type === 'admin') {
+      setActiveTab(node.target.tab);
+      return;
+    }
+    if (typeof window !== 'undefined') {
+      window.open(node.target.href, '_blank', 'noopener,noreferrer');
+    }
+  };
+
   const handleGrantAccess = async (userId: string) => {
     if (!session?.access_token) return;
     setGrantingId(userId);
@@ -1544,11 +1738,27 @@ export default function AdminPage() {
     { key: 'usuarios', label: 'Usuarios' },
     { key: 'facturacion', label: 'Facturación' },
     { key: 'mano_obra', label: 'Mano de obra' },
+    { key: 'flujo', label: 'Flujo App/Web' },
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'mensajes', label: 'Mensajes' },
     { key: 'accesos', label: 'Accesos' },
     { key: 'actividad', label: 'Actividad' },
   ] as const;
+
+  const selectedFlowNode = useMemo<AppWebFlowNode | null>(
+    () => APP_WEB_FLOW_NODES.find((node) => node.id === selectedFlowNodeId) || APP_WEB_FLOW_NODES[0] || null,
+    [selectedFlowNodeId]
+  );
+
+  const selectedFlowTargetLabel = useMemo(() => {
+    if (!selectedFlowNode) return '';
+    const target = selectedFlowNode.target;
+    if (target.type === 'web') {
+      return `Ruta web: ${target.href}`;
+    }
+    const tabLabel = tabs.find((tab) => tab.key === target.tab)?.label || target.tab;
+    return `Tab admin: ${tabLabel}`;
+  }, [selectedFlowNode, tabs]);
 
   const filteredRecentUsers = useMemo(() => {
     if (!overview) return [];
@@ -3092,6 +3302,99 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              </div>
+            </section>
+          )}
+          {activeTab === 'flujo' && (
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Navegacion guiada</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Diagrama de flujo App/Web</h3>
+                  <p className="text-sm text-slate-500">
+                    Recorre todas las ventanas existentes y previsualiza cada pantalla antes de entrar.
+                  </p>
+                </div>
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700">
+                  {APP_WEB_FLOW_NODES.length} ventanas mapeadas
+                </span>
+              </div>
+
+              <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+                <div className="space-y-4">
+                  {APP_WEB_FLOW_LANE_MAP.map((lane) => (
+                    <article key={lane.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800">{lane.label}</p>
+                        <span className="text-xs text-slate-500">{lane.helper}</span>
+                      </div>
+
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {lane.nodes.map((node, index) => (
+                          <React.Fragment key={node.id}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedFlowNodeId(node.id)}
+                              className={`rounded-2xl border px-3 py-2 text-left text-xs transition ${
+                                selectedFlowNode?.id === node.id
+                                  ? 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                              }`}
+                            >
+                              <p className="font-semibold">{node.title}</p>
+                              <p className="mt-0.5 text-[11px] opacity-80">{node.subtitle}</p>
+                            </button>
+                            {index < lane.nodes.length - 1 && (
+                              <span className="text-xs font-semibold text-slate-400">→</span>
+                            )}
+                          </React.Fragment>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+
+                {selectedFlowNode && (
+                  <aside className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Previsualizacion</p>
+                    <h4 className="mt-2 text-lg font-semibold text-slate-900">{selectedFlowNode.title}</h4>
+                    <p className="text-sm text-slate-500">{selectedFlowNode.description}</p>
+
+                    <div className="relative mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                      <img
+                        src={selectedFlowNode.preview}
+                        alt={`Preview ${selectedFlowNode.title}`}
+                        className="h-52 w-full object-cover"
+                      />
+                      <span className="absolute left-3 top-3 rounded-full bg-slate-900/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
+                        Preview
+                      </span>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {selectedFlowNode.highlights.map((highlight) => (
+                        <span
+                          key={highlight}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600"
+                        >
+                          {highlight}
+                        </span>
+                      ))}
+                    </div>
+
+                    <p className="mt-4 text-xs text-slate-500">{selectedFlowTargetLabel}</p>
+
+                    <button
+                      type="button"
+                      onClick={() => handleOpenFlowNode(selectedFlowNode)}
+                      className="mt-4 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                    >
+                      {selectedFlowNode.target.type === 'admin'
+                        ? 'Abrir en este panel'
+                        : 'Abrir pagina en nueva pestaña'}
+                    </button>
+                  </aside>
+                )}
               </div>
             </section>
           )}
