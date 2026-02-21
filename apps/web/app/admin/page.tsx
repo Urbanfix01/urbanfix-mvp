@@ -2484,68 +2484,100 @@ export default function AdminPage() {
     return map;
   }, [flowLaneRows]);
 
-  const flowVerticalNodes = useMemo(() => {
-    const orderedNodes = FLOW_DIAGRAM_COLUMNS.flatMap((column) =>
-      APP_WEB_FLOW_NODES.filter((node) => node.column === column.id).sort((a, b) => a.y - b.y)
-    );
-    const centerX = 430;
-    let cursorY = 34;
-    return orderedNodes.map((node, index) => {
-      const dimensions =
-        node.shape === 'decision'
-          ? { width: 220, height: 120 }
-          : node.shape === 'start' || node.shape === 'end'
-            ? { width: 220, height: 54 }
-            : { width: 290, height: 74 };
-      const next = {
+  const flowBranchNodes = useMemo(
+    () =>
+      APP_WEB_FLOW_NODES.map((node, index) => ({
         node,
         index,
-        x: centerX - dimensions.width / 2,
-        y: cursorY,
-        width: dimensions.width,
-        height: dimensions.height,
-      };
-      cursorY += dimensions.height + 44;
-      return next;
-    });
-  }, []);
-
-  const flowVerticalNodeMap = useMemo(
-    () => new Map(flowVerticalNodes.map((item) => [item.node.id, item] as const)),
-    [flowVerticalNodes]
+        x: node.x,
+        y: node.y,
+        width: node.width,
+        height: node.height,
+      })),
+    []
   );
 
-  const flowDiagramHeight = useMemo(() => {
-    const last = flowVerticalNodes[flowVerticalNodes.length - 1];
-    return last ? last.y + last.height + 40 : 1000;
-  }, [flowVerticalNodes]);
+  const flowBranchNodeMap = useMemo(
+    () => new Map(flowBranchNodes.map((item) => [item.node.id, item] as const)),
+    [flowBranchNodes]
+  );
 
-  const flowVerticalEdges = useMemo(() => {
-    return APP_WEB_FLOW_EDGES.flatMap((edge, index) => {
-      const from = flowVerticalNodeMap.get(edge.from);
-      const to = flowVerticalNodeMap.get(edge.to);
+  const flowDiagramFrame = useMemo(() => {
+    if (!flowBranchNodes.length) {
+      return {
+        width: 1200,
+        height: 900,
+        offsetX: 0,
+        offsetY: 0,
+      };
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    flowBranchNodes.forEach((item) => {
+      minX = Math.min(minX, item.x);
+      minY = Math.min(minY, item.y);
+      maxX = Math.max(maxX, item.x + item.width);
+      maxY = Math.max(maxY, item.y + item.height);
+    });
+
+    APP_WEB_FLOW_EDGES.forEach((edge) => {
+      (edge.via || []).forEach((point) => {
+        minX = Math.min(minX, point.x);
+        minY = Math.min(minY, point.y);
+        maxX = Math.max(maxX, point.x);
+        maxY = Math.max(maxY, point.y);
+      });
+    });
+
+    const horizontalPadding = 100;
+    const verticalPadding = 120;
+    const titlePadding = 24;
+    const width = Math.max(1200, maxX - minX + horizontalPadding * 2);
+    const height = Math.max(980, maxY - minY + verticalPadding * 2 + titlePadding);
+    const offsetX = horizontalPadding - minX;
+    const offsetY = verticalPadding + titlePadding - minY;
+
+    return { width, height, offsetX, offsetY };
+  }, [flowBranchNodes]);
+
+  const flowBranchEdges = useMemo(() => {
+    return APP_WEB_FLOW_EDGES.flatMap((edge) => {
+      const from = flowBranchNodeMap.get(edge.from);
+      const to = flowBranchNodeMap.get(edge.to);
       if (!from || !to) return [];
 
-      const start = { x: from.x + from.width / 2, y: from.y + from.height };
-      const end = { x: to.x + to.width / 2, y: to.y };
-      const isDirect = to.index === from.index + 1;
-      const branchX = 760 + (index % 3) * 36;
-      const branchY = start.y + 16;
-      const toY = Math.max(18, end.y - 12);
-      const path = isDirect
-        ? `M ${start.x} ${start.y} L ${end.x} ${end.y}`
-        : `M ${start.x} ${start.y} L ${start.x} ${branchY} L ${branchX} ${branchY} L ${branchX} ${toY} L ${end.x} ${end.y}`;
+      const start = getFlowNodeAnchor(from.node, edge.fromSide || 'bottom');
+      const end = getFlowNodeAnchor(to.node, edge.toSide || 'top');
+      const deltaX = end.x - start.x;
+      const deltaY = end.y - start.y;
+
+      let path = '';
+      if (Math.abs(deltaX) < 8 || Math.abs(deltaY) < 8) {
+        path = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
+      } else if (deltaY >= 0) {
+        const midY = start.y + Math.max(28, Math.min(130, deltaY * 0.45));
+        path = `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
+      } else {
+        const sideOffset = start.x < end.x ? -78 : 78;
+        const midX = start.x + sideOffset;
+        const midY = start.y - Math.max(44, Math.min(150, Math.abs(deltaY) * 0.45));
+        path = `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
+      }
 
       return [
         {
           ...edge,
           path,
-          labelX: isDirect ? start.x + 12 : branchX - 12,
-          labelY: isDirect ? (start.y + end.y) / 2 : branchY - 8,
+          labelX: (start.x + end.x) / 2,
+          labelY: (start.y + end.y) / 2 - 8,
         },
       ];
     });
-  }, [flowVerticalNodeMap]);
+  }, [flowBranchNodeMap]);
 
   const filteredRecentUsers = useMemo(() => {
     if (!overview) return [];
@@ -4225,7 +4257,7 @@ export default function AdminPage() {
                   </div>
 
                   <div className="overflow-x-auto">
-                    <div className="min-w-[860px]">
+                    <div style={{ minWidth: `${Math.round(flowDiagramFrame.width)}px` }}>
                       <div
                         onMouseDown={handleFlowMouseDown}
                         className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white select-none ${
@@ -4240,123 +4272,143 @@ export default function AdminPage() {
                           }}
                         >
                           <svg
-                        id="admin-flow-classic-svg"
-                        viewBox={`0 0 860 ${flowDiagramHeight}`}
-                        className="h-[860px] w-full bg-white"
-                        role="img"
-                        aria-label="Diagrama de flujo vertical clásico"
+                            id="admin-flow-classic-svg"
+                            viewBox={`0 0 ${flowDiagramFrame.width} ${flowDiagramFrame.height}`}
+                            style={{ height: `${Math.round(flowDiagramFrame.height)}px` }}
+                            className="w-full bg-white"
+                            role="img"
+                            aria-label="Diagrama de flujo ramificado App/Web"
                           >
-                        <defs>
-                          <marker id="flow-classic-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
-                          </marker>
-                          <marker
-                            id="flow-classic-arrow-active"
-                            markerWidth="10"
-                            markerHeight="10"
-                            refX="8.5"
-                            refY="5"
-                            orient="auto"
-                          >
-                            <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8" />
-                          </marker>
-                        </defs>
-
-                        <text x={430} y={24} textAnchor="middle" fontSize={16} fontWeight={800} fill="#0F172A">
-                          Diagrama de flujo operativo App/Web
-                        </text>
-
-                        {flowVerticalEdges.map((edge) => {
-                          const isActive = selectedFlowEdgeIds.has(edge.id);
-                          return (
-                            <g key={edge.id}>
-                              <path
-                                d={edge.path}
-                                fill="none"
-                                stroke={isActive ? '#1D4ED8' : '#334155'}
-                                strokeWidth={isActive ? 2.5 : 1.7}
-                                markerEnd={isActive ? 'url(#flow-classic-arrow-active)' : 'url(#flow-classic-arrow)'}
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                opacity={isActive ? 0.96 : 0.86}
-                              />
-                              {edge.label && (
-                                <text
-                                  x={edge.labelX}
-                                  y={edge.labelY}
-                                  textAnchor="middle"
-                                  fontSize={12}
-                                  fontWeight={700}
-                                  fill={edge.label === 'no' ? '#B91C1C' : '#0F172A'}
-                                >
-                                  {edge.label}
-                                </text>
-                              )}
-                            </g>
-                          );
-                        })}
-
-                        {flowVerticalNodes.map((item) => {
-                          const { node, x, y, width, height } = item;
-                          const isSelected = selectedFlowNode?.id === node.id;
-                          const centerX = x + width / 2;
-                          const centerY = y + height / 2;
-                          const fillColor = isSelected
-                            ? '#0F172A'
-                            : node.shape === 'decision'
-                              ? '#1D4ED8'
-                              : node.shape === 'start' || node.shape === 'end'
-                                ? '#1E40AF'
-                                : '#2563EB';
-                          const strokeColor = isSelected ? '#020617' : '#1E3A8A';
-                          const code = flowNodeCodeMap.get(node.id) || node.id;
-                          return (
-                            <g
-                              key={node.id}
-                              onClick={() => handleFlowNodeSelect(node.id)}
-                              style={{ cursor: 'pointer' }}
-                              aria-label={`Paso ${code} - ${node.title}`}
-                            >
-                              <text x={x + 2} y={Math.max(18, y - 8)} fontSize={11} fontWeight={700} fill="#475569">
-                                {code} • {FLOW_SHAPE_LABEL[node.shape]}
-                              </text>
-                              {node.shape === 'decision' ? (
-                                <polygon
-                                  points={`${centerX},${y} ${x + width},${centerY} ${centerX},${y + height} ${x},${centerY}`}
-                                  fill={fillColor}
-                                  stroke={strokeColor}
-                                  strokeWidth={isSelected ? 2.8 : 2}
-                                />
-                              ) : (
-                                <rect
-                                  x={x}
-                                  y={y}
-                                  width={width}
-                                  height={height}
-                                  rx={node.shape === 'start' || node.shape === 'end' ? 24 : 8}
-                                  fill={fillColor}
-                                  stroke={strokeColor}
-                                  strokeWidth={isSelected ? 2.8 : 2}
-                                />
-                              )}
-                              <text
-                                x={centerX}
-                                y={centerY - (node.flowLabel.length > 1 ? 8 : 0)}
-                                textAnchor="middle"
-                                dominantBaseline="middle"
-                                fontSize={node.shape === 'start' || node.shape === 'end' ? 21 : 16}
-                                fontWeight={800}
-                                fill="#FFFFFF"
+                            <defs>
+                              <marker id="flow-classic-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                              </marker>
+                              <marker
+                                id="flow-classic-arrow-active"
+                                markerWidth="10"
+                                markerHeight="10"
+                                refX="8.5"
+                                refY="5"
+                                orient="auto"
                               >
-                                {node.flowLabel.map((line, index) => (
-                                  <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 16}>
-                                    {line}
-                                  </tspan>
-                                ))}
-                              </text>
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8" />
+                              </marker>
+                            </defs>
+
+                            <text
+                              x={flowDiagramFrame.width / 2}
+                              y={32}
+                              textAnchor="middle"
+                              fontSize={18}
+                              fontWeight={800}
+                              fill="#0F172A"
+                            >
+                              Diagrama de flujo operativo App/Web
+                            </text>
+                            <text
+                              x={flowDiagramFrame.width / 2}
+                              y={52}
+                              textAnchor="middle"
+                              fontSize={12}
+                              fontWeight={600}
+                              fill="#64748B"
+                            >
+                              Ramificación por perfil con convergencia operativa y control admin
+                            </text>
+
+                            <g transform={`translate(${flowDiagramFrame.offsetX} ${flowDiagramFrame.offsetY})`}>
+                              {flowBranchEdges.map((edge) => {
+                                const isActive = selectedFlowEdgeIds.has(edge.id);
+                                return (
+                                  <g key={edge.id}>
+                                    <path
+                                      d={edge.path}
+                                      fill="none"
+                                      stroke={isActive ? '#1D4ED8' : '#334155'}
+                                      strokeWidth={isActive ? 2.5 : 1.7}
+                                      markerEnd={isActive ? 'url(#flow-classic-arrow-active)' : 'url(#flow-classic-arrow)'}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      opacity={isActive ? 0.97 : 0.86}
+                                    />
+                                    {edge.label && (
+                                      <text
+                                        x={edge.labelX}
+                                        y={edge.labelY}
+                                        textAnchor="middle"
+                                        fontSize={12}
+                                        fontWeight={700}
+                                        fill={edge.label === 'no' ? '#B91C1C' : '#0F172A'}
+                                      >
+                                        {edge.label}
+                                      </text>
+                                    )}
+                                  </g>
+                                );
+                              })}
+
+                              {flowBranchNodes.map((item) => {
+                                const { node, x, y, width, height } = item;
+                                const isSelected = selectedFlowNode?.id === node.id;
+                                const centerX = x + width / 2;
+                                const centerY = y + height / 2;
+                                const fillColor = isSelected
+                                  ? '#0F172A'
+                                  : node.shape === 'decision'
+                                    ? '#1D4ED8'
+                                    : node.shape === 'start' || node.shape === 'end'
+                                      ? '#1E40AF'
+                                      : '#2563EB';
+                                const strokeColor = isSelected ? '#020617' : '#1E3A8A';
+                                const code = flowNodeCodeMap.get(node.id) || node.id;
+                                return (
+                                  <g
+                                    key={node.id}
+                                    onClick={() => handleFlowNodeSelect(node.id)}
+                                    style={{ cursor: 'pointer' }}
+                                    aria-label={`Paso ${code} - ${node.title}`}
+                                  >
+                                    <text x={x + 2} y={Math.max(18, y - 8)} fontSize={11} fontWeight={700} fill="#475569">
+                                      {code} • {FLOW_SHAPE_LABEL[node.shape]}
+                                    </text>
+                                    {node.shape === 'decision' ? (
+                                      <polygon
+                                        points={`${centerX},${y} ${x + width},${centerY} ${centerX},${y + height} ${x},${centerY}`}
+                                        fill={fillColor}
+                                        stroke={strokeColor}
+                                        strokeWidth={isSelected ? 2.8 : 2}
+                                      />
+                                    ) : (
+                                      <rect
+                                        x={x}
+                                        y={y}
+                                        width={width}
+                                        height={height}
+                                        rx={node.shape === 'start' || node.shape === 'end' ? 24 : 8}
+                                        fill={fillColor}
+                                        stroke={strokeColor}
+                                        strokeWidth={isSelected ? 2.8 : 2}
+                                      />
+                                    )}
+                                    <text
+                                      x={centerX}
+                                      y={centerY - (node.flowLabel.length > 1 ? 8 : 0)}
+                                      textAnchor="middle"
+                                      dominantBaseline="middle"
+                                      fontSize={node.shape === 'start' || node.shape === 'end' ? 21 : 16}
+                                      fontWeight={800}
+                                      fill="#FFFFFF"
+                                    >
+                                      {node.flowLabel.map((line, index) => (
+                                        <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 16}>
+                                          {line}
+                                        </tspan>
+                                      ))}
+                                    </text>
+                                  </g>
+                                );
+                              })}
                             </g>
-                          );
-                        })}
                           </svg>
                         </div>
                       </div>
