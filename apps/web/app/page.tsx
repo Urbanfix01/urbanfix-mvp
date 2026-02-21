@@ -499,7 +499,7 @@ export default function HomePage() {
                       fill
                       priority
                       sizes="(max-width: 640px) 56px, 64px"
-                      className="object-cover scale-[1.18]"
+                      className="object-cover object-center scale-[2.15]"
                     />
                   </div>
                   <div className="min-w-0">
