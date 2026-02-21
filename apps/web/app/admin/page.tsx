@@ -519,6 +519,9 @@ const FLOW_SHAPE_LABEL: Record<FlowDiagramNodeShape, string> = {
   end: 'Fin',
 };
 
+const FLOW_MIN_ZOOM = 0.7;
+const FLOW_MAX_ZOOM = 2.2;
+
 const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
   {
     id: 'web_inicio',
@@ -1130,6 +1133,7 @@ export default function AdminPage() {
     initial_feedback_sentiment: 'neutral',
   });
   const [selectedFlowNodeId, setSelectedFlowNodeId] = useState(APP_WEB_FLOW_NODES[0]?.id || '');
+  const [flowZoom, setFlowZoom] = useState(1);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -1713,6 +1717,60 @@ export default function AdminPage() {
     if (typeof window !== 'undefined') {
       window.open(node.target.href, '_blank', 'noopener,noreferrer');
     }
+  };
+
+  const adjustFlowZoom = (delta: number) => {
+    setFlowZoom((prev) => Math.min(FLOW_MAX_ZOOM, Math.max(FLOW_MIN_ZOOM, Number((prev + delta).toFixed(2)))));
+  };
+
+  const resetFlowZoom = () => setFlowZoom(1);
+
+  const handleExportFlowPdf = () => {
+    if (typeof window === 'undefined') return;
+    const svg = document.getElementById('admin-flow-classic-svg');
+    if (!svg) return;
+
+    const serializer = new XMLSerializer();
+    let svgMarkup = serializer.serializeToString(svg);
+    if (!svgMarkup.includes('xmlns=')) {
+      svgMarkup = svgMarkup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+
+    const printWindow = window.open('', '_blank', 'noopener,noreferrer,width=1280,height=920');
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <!doctype html>
+      <html lang="es">
+        <head>
+          <meta charset="utf-8" />
+          <title>UrbanFix - Diagrama de flujo</title>
+          <style>
+            @page { size: A4 landscape; margin: 10mm; }
+            * { box-sizing: border-box; }
+            body { margin: 0; font-family: Arial, sans-serif; background: #fff; color: #0f172a; }
+            .sheet { width: 100%; padding: 8px; }
+            .title { margin: 0 0 6px; font-size: 16px; font-weight: 700; }
+            .hint { margin: 0 0 10px; font-size: 12px; color: #475569; }
+            .diagram { width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 6px; }
+            .diagram svg { width: 100%; height: auto; display: block; }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            <p class="title">Diagrama de flujo operativo App/Web</p>
+            <p class="hint">Usa "Guardar como PDF" en el diálogo de impresión.</p>
+            <div class="diagram">${svgMarkup}</div>
+          </div>
+          <script>
+            window.addEventListener('load', function () {
+              setTimeout(function () { window.print(); }, 250);
+            });
+          </script>
+        </body>
+      </html>
+    `);
+    printWindow.document.close();
   };
 
   const handleGrantAccess = async (userId: string) => {
@@ -3851,9 +3909,47 @@ export default function AdminPage() {
                     <span className="text-[11px] text-slate-500">Inicio → Proceso → Decisión → Fin + ramas de retorno</span>
                   </div>
 
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => adjustFlowZoom(-0.1)}
+                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                      >
+                        Zoom -
+                      </button>
+                      <button
+                        type="button"
+                        onClick={resetFlowZoom}
+                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                      >
+                        100%
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => adjustFlowZoom(0.1)}
+                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                      >
+                        Zoom +
+                      </button>
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                        Escala {Math.round(flowZoom * 100)}%
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleExportFlowPdf}
+                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                    >
+                      Descargar PDF
+                    </button>
+                  </div>
+
                   <div className="overflow-x-auto">
-                    <div className="min-w-[860px]">
+                    <div className="min-w-[860px]" style={{ zoom: flowZoom }}>
                       <svg
+                        id="admin-flow-classic-svg"
                         viewBox={`0 0 860 ${flowDiagramHeight}`}
                         className="h-[860px] w-full rounded-2xl border border-slate-200 bg-white"
                         role="img"
