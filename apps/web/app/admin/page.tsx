@@ -506,6 +506,19 @@ const FLOW_DIAGRAM_COLUMNS: Array<{
   { id: 'control', label: 'Departamento de control admin', helper: 'Metricas, soporte y mejora', x: 784, width: 350 },
 ];
 
+const FLOW_COLUMN_CODE: Record<FlowDiagramColumnId, string> = {
+  captacion: 'CAP',
+  operacion: 'OPE',
+  control: 'ADM',
+};
+
+const FLOW_SHAPE_LABEL: Record<FlowDiagramNodeShape, string> = {
+  start: 'Inicio',
+  process: 'Proceso',
+  decision: 'Decision',
+  end: 'Fin',
+};
+
 const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
   {
     id: 'web_inicio',
@@ -2136,6 +2149,76 @@ export default function AdminPage() {
     []
   );
 
+  const flowNodeCodeMap = useMemo(() => {
+    const map = new Map<string, string>();
+    flowLaneRows.forEach((lane) => {
+      const prefix = FLOW_COLUMN_CODE[lane.id];
+      lane.nodes.forEach((node, index) => {
+        map.set(node.id, `${prefix}-${String(index + 1).padStart(2, '0')}`);
+      });
+    });
+    return map;
+  }, [flowLaneRows]);
+
+  const flowNodeIoMap = useMemo(() => {
+    const incoming = new Map<string, AppWebFlowEdge[]>();
+    const outgoing = new Map<string, AppWebFlowEdge[]>();
+    APP_WEB_FLOW_EDGES.forEach((edge) => {
+      if (!incoming.has(edge.to)) incoming.set(edge.to, []);
+      incoming.get(edge.to)!.push(edge);
+      if (!outgoing.has(edge.from)) outgoing.set(edge.from, []);
+      outgoing.get(edge.from)!.push(edge);
+    });
+    return { incoming, outgoing };
+  }, []);
+
+  const flowEngineeringRows = useMemo(
+    () =>
+      flowLaneRows.map((lane) => ({
+        ...lane,
+        steps: lane.nodes.map((node) => {
+          const incomingEdges = flowNodeIoMap.incoming.get(node.id) || [];
+          const outgoingEdges = flowNodeIoMap.outgoing.get(node.id) || [];
+          const inputs = incomingEdges.map((edge) => {
+            const sourceCode = flowNodeCodeMap.get(edge.from) || edge.from;
+            return edge.label ? `${sourceCode} (${edge.label})` : sourceCode;
+          });
+          const outputs = outgoingEdges.map((edge) => {
+            const targetCode = flowNodeCodeMap.get(edge.to) || edge.to;
+            return edge.label ? `${targetCode} (${edge.label})` : targetCode;
+          });
+          return {
+            node,
+            code: flowNodeCodeMap.get(node.id) || node.id,
+            typeLabel: FLOW_SHAPE_LABEL[node.shape],
+            inputs,
+            outputs,
+          };
+        }),
+      })),
+    [flowLaneRows, flowNodeCodeMap, flowNodeIoMap]
+  );
+
+  const flowCrossStageLinks = useMemo(
+    () =>
+      APP_WEB_FLOW_EDGES.flatMap((edge) => {
+        const fromNode = getFlowNodeById(edge.from);
+        const toNode = getFlowNodeById(edge.to);
+        if (!fromNode || !toNode || fromNode.column === toNode.column) return [];
+        return [
+          {
+            id: edge.id,
+            fromCode: flowNodeCodeMap.get(edge.from) || edge.from,
+            toCode: flowNodeCodeMap.get(edge.to) || edge.to,
+            fromTitle: fromNode.title,
+            toTitle: toNode.title,
+            label: edge.label || 'flujo',
+          },
+        ];
+      }),
+    [flowNodeCodeMap]
+  );
+
   const filteredRecentUsers = useMemo(() => {
     if (!overview) return [];
     const query = normalizeText(userSearch);
@@ -3758,59 +3841,110 @@ export default function AdminPage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs font-semibold text-slate-700">Diagrama vertical por áreas (click para foco)</p>
-                    <span className="text-[11px] text-slate-500">Flechas ↓ = sentido de operacion</span>
+                    <p className="text-xs font-semibold text-slate-700">
+                      Diagrama de ingenieria del proceso (lectura vertical por area)
+                    </p>
+                    <span className="text-[11px] text-slate-500">Trazabilidad: entradas / salidas por paso</span>
                   </div>
 
-                  <div className="space-y-4">
-                    {flowLaneRows.map((lane) => (
-                      <div key={lane.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <div className="mb-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Formato</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-700">Diagrama vertical por departamento</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Codificación</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-700">CAP / OPE / ADM + correlativo</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Tipos</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-700">Inicio, Proceso, Decisión, Fin</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Trazabilidad</p>
+                      <p className="mt-1 text-xs font-semibold text-slate-700">Entrada y salida de cada paso</p>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 xl:grid-cols-3">
+                    {flowEngineeringRows.map((lane) => (
+                      <article key={lane.id} className="rounded-2xl border border-slate-200 bg-white p-4">
                         <div className="flex flex-wrap items-end justify-between gap-2">
                           <div>
                             <p className="text-sm font-semibold text-slate-900">{lane.label}</p>
                             <p className="text-xs text-slate-500">{lane.helper}</p>
                           </div>
                           <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-600">
-                            {lane.nodes.length} pasos
+                            {lane.steps.length} pasos
                           </span>
                         </div>
 
-                        <div className="mt-4 flex flex-col items-center gap-2">
-                          {lane.nodes.map((node, index) => {
-                            const isSelected = selectedFlowNode?.id === node.id;
-                            const isDecision = node.shape === 'decision';
+                        <div className="mt-3 flex flex-col items-center gap-2">
+                          {lane.steps.map((step, index) => {
+                            const isSelected = selectedFlowNode?.id === step.node.id;
                             return (
-                              <React.Fragment key={node.id}>
+                              <React.Fragment key={step.node.id}>
                                 <button
                                   type="button"
-                                  onClick={() => setSelectedFlowNodeId(node.id)}
-                                  className={`w-full max-w-[420px] rounded-2xl border px-4 py-3 text-left transition ${
+                                  onClick={() => setSelectedFlowNodeId(step.node.id)}
+                                  className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
                                     isSelected
                                       ? 'border-slate-900 bg-slate-900 text-white shadow-md'
-                                      : isDecision
-                                        ? 'border-blue-300 bg-blue-50 text-blue-900 hover:border-blue-400'
-                                        : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300'
+                                      : 'border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 hover:bg-white'
                                   }`}
                                 >
-                                  <p
-                                    className={`text-[11px] font-semibold uppercase tracking-[0.12em] ${
-                                      isSelected ? 'text-slate-200' : 'text-slate-500'
-                                    }`}
-                                  >
-                                    {isDecision
-                                      ? 'Decision'
-                                      : node.shape === 'start'
-                                        ? 'Inicio'
-                                        : node.shape === 'end'
-                                          ? 'Fin'
-                                          : 'Paso'}
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <span
+                                      className={`rounded-full px-2 py-1 text-[10px] font-bold tracking-[0.12em] ${
+                                        isSelected
+                                          ? 'border border-white/30 bg-white/10 text-white'
+                                          : 'border border-slate-300 bg-white text-slate-700'
+                                      }`}
+                                    >
+                                      {step.code}
+                                    </span>
+                                    <span
+                                      className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                                        isSelected
+                                          ? 'border border-white/20 bg-white/10 text-slate-100'
+                                          : 'border border-slate-200 bg-white text-slate-600'
+                                      }`}
+                                    >
+                                      {step.typeLabel}
+                                    </span>
+                                  </div>
+                                  <p className="mt-2 text-sm font-semibold">{step.node.title}</p>
+                                  <p className={`mt-1 text-xs ${isSelected ? 'text-slate-200' : 'text-slate-500'}`}>
+                                    {step.node.subtitle}
                                   </p>
-                                  <p className="mt-1 text-sm font-semibold leading-snug">{node.flowLabel.join(' ')}</p>
-                                  <p className={`mt-2 text-xs ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                                    {node.subtitle}
-                                  </p>
+                                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                    <div
+                                      className={`rounded-xl border px-2 py-1.5 ${
+                                        isSelected ? 'border-white/25 bg-white/5' : 'border-slate-200 bg-white'
+                                      }`}
+                                    >
+                                      <p className={`text-[10px] uppercase ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
+                                        Entrada
+                                      </p>
+                                      <p className="mt-0.5 text-[11px] font-medium">
+                                        {step.inputs.length ? step.inputs.join(' / ') : 'Origen externo'}
+                                      </p>
+                                    </div>
+                                    <div
+                                      className={`rounded-xl border px-2 py-1.5 ${
+                                        isSelected ? 'border-white/25 bg-white/5' : 'border-slate-200 bg-white'
+                                      }`}
+                                    >
+                                      <p className={`text-[10px] uppercase ${isSelected ? 'text-slate-300' : 'text-slate-400'}`}>
+                                        Salida
+                                      </p>
+                                      <p className="mt-0.5 text-[11px] font-medium">
+                                        {step.outputs.length ? step.outputs.join(' / ') : 'Termino de flujo'}
+                                      </p>
+                                    </div>
+                                  </div>
                                 </button>
-                                {index < lane.nodes.length - 1 && (
+                                {index < lane.steps.length - 1 && (
                                   <span className="text-2xl font-bold leading-none text-slate-300" aria-hidden="true">
                                     ↓
                                   </span>
@@ -3819,8 +3953,27 @@ export default function AdminPage() {
                             );
                           })}
                         </div>
-                      </div>
+                      </article>
                     ))}
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Interconexiones entre departamentos</p>
+                    <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                      {flowCrossStageLinks.length === 0 && (
+                        <p className="text-xs text-slate-500">No hay cruces entre departamentos definidos.</p>
+                      )}
+                      {flowCrossStageLinks.map((link) => (
+                        <div key={link.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                          <p className="text-xs font-semibold text-slate-800">
+                            {link.fromCode} → {link.toCode}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            {link.fromTitle} → {link.toTitle} ({link.label})
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
