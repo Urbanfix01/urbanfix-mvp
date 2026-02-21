@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
+import HomepageVisualShell from '../../components/HomepageVisualShell';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -49,43 +50,8 @@ const principles = [
 export default function UrbanFixPage() {
   return (
     <div className={sora.className}>
-      <div className="min-h-screen bg-[#F3F1EA] text-slate-900">
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(15,23,42,0.09),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(245,185,66,0.18),transparent_45%)]" />
-          <div className="absolute -left-24 top-16 h-72 w-72 rounded-full bg-[#F59E0B]/15 blur-3xl" />
-          <div className="absolute -right-24 bottom-12 h-80 w-80 rounded-full bg-[#0F172A]/10 blur-3xl" />
-
-          <main className="relative mx-auto w-full max-w-6xl px-6 py-10 md:py-12">
-            <header className="rounded-[28px] border border-slate-200/80 bg-white/90 px-6 py-5 shadow-sm backdrop-blur">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className="grid h-12 w-12 place-items-center rounded-2xl bg-[#0F172A] shadow-lg shadow-slate-300/70">
-                    <Image src="/icon-48.png" alt="UrbanFix logo" width={28} height={28} priority />
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-400">UrbanFix</p>
-                    <p className="text-sm font-semibold text-slate-700">Plataforma para tecnicos y clientes</p>
-                  </div>
-                </div>
-
-                <nav className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href="/"
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
-                  >
-                    Volver al inicio
-                  </Link>
-                  <Link
-                    href="/tecnicos"
-                    className="rounded-full bg-[#0F172A] px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                  >
-                    Acceso tecnico
-                  </Link>
-                </nav>
-              </div>
-            </header>
-
-            <section className="mt-8 grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
+      <HomepageVisualShell audience="empresas" activeSection="personas">
+        <section className="grid gap-6 lg:grid-cols-[1.08fr_0.92fr]">
               <article className="rounded-[30px] border border-slate-200 bg-white p-8 shadow-sm">
                 <p className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700">
                   Que es UrbanFix
@@ -137,9 +103,9 @@ export default function UrbanFixPage() {
                   />
                 </div>
               </aside>
-            </section>
+        </section>
 
-            <section className="mt-8 grid gap-6 md:grid-cols-2">
+        <section className="grid gap-6 md:grid-cols-2">
               <article className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
                 <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Para tecnicos</p>
                 <ul className="mt-4 space-y-3 text-sm text-slate-700">
@@ -161,9 +127,9 @@ export default function UrbanFixPage() {
                   ))}
                 </ul>
               </article>
-            </section>
+        </section>
 
-            <section className="mt-8 rounded-[28px] border border-slate-200 bg-[#0F172A] p-8 text-white shadow-sm">
+        <section className="rounded-[28px] border border-slate-200 bg-[#0F172A] p-8 text-white shadow-sm">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Vision</p>
               <h2 className="mt-2 text-2xl font-semibold">Que cada tecnico tenga una operacion comercial ordenada.</h2>
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-300">
@@ -190,10 +156,8 @@ export default function UrbanFixPage() {
                   Terminos
                 </Link>
               </div>
-            </section>
-          </main>
-        </div>
-      </div>
+        </section>
+      </HomepageVisualShell>
     </div>
   );
 }
