@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
   ActivityIndicator, Alert, Image, Platform, RefreshControl, TextInput, KeyboardAvoidingView 
@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native'; 
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 
 // --- IMPORTS DEL PROYECTO ---
 import { supabase } from '../../lib/supabase';
@@ -36,6 +37,19 @@ interface Profile {
 export default function ProfileScreen() {
   const navigation = useNavigation();
   const isWeb = Platform.OS === 'web';
+  const nativePlacesApiKey =
+    process.env.EXPO_PUBLIC_IOS_API_KEY ||
+    process.env.EXPO_PUBLIC_ANDROID_API_KEY ||
+    process.env.EXPO_PUBLIC_PLACES_API_KEY ||
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const appVersion = Constants.nativeAppVersion ?? Constants.expoConfig?.version ?? '1.0.0';
+  const configBuildVersion =
+    Constants.expoConfig?.ios?.buildNumber ??
+    (Constants.expoConfig?.android?.versionCode !== undefined
+      ? String(Constants.expoConfig.android.versionCode)
+      : undefined);
+  const buildVersion = Constants.nativeBuildVersion ?? configBuildVersion;
+  const displayVersion = buildVersion ? `${appVersion}.${buildVersion}` : appVersion;
   
   // Estados de UI
   const [loading, setLoading] = useState(true);
@@ -51,6 +65,16 @@ export default function ProfileScreen() {
   const [address, setAddress] = useState('');
   const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const hasLoadedProfileRef = useRef(false);
+
+  const resolveLocation = (latValue?: number | null, lngValue?: number | null) => {
+    const lat = Number(latValue);
+    const lng = Number(lngValue);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return { lat: 0, lng: 0 };
+    }
+    return { lat, lng };
+  };
 
   // --- 1. LÓGICA DE CARGA DE DATOS ---
   const getProfile = async (isSilent = false) => {
@@ -76,9 +100,7 @@ export default function ProfileScreen() {
       setPhone(userProfile.phone || '');
       setAddress(userProfile.company_address || '');
       setDefaultDiscount(userProfile.default_discount !== null && userProfile.default_discount !== undefined ? String(userProfile.default_discount) : '');
-      if (userProfile.location_lat && userProfile.location_lng) {
-        setLocation({ lat: userProfile.location_lat, lng: userProfile.location_lng });
-      }
+      setLocation(resolveLocation(userProfile.location_lat, userProfile.location_lng));
 
     } catch (error) {
       console.log('Error perfil:', error);
@@ -89,8 +111,10 @@ export default function ProfileScreen() {
   };
 
   useFocusEffect(
-    useCallback(() => { 
-        getProfile(!!profile); 
+    useCallback(() => {
+        getProfile(hasLoadedProfileRef.current);
+        hasLoadedProfileRef.current = true;
+        return () => setIsEditing(false);
     }, [])
   );
 
@@ -229,11 +253,7 @@ export default function ProfileScreen() {
           ? String(profile.default_discount)
           : ''
       );
-      if (profile.location_lat && profile.location_lng) {
-        setLocation({ lat: profile.location_lat, lng: profile.location_lng });
-      } else {
-        setLocation({ lat: 0, lng: 0 });
-      }
+      setLocation(resolveLocation(profile.location_lat, profile.location_lng));
     }
     setIsEditing(false);
   };
@@ -370,13 +390,18 @@ export default function ProfileScreen() {
             {/* Selector de Mapa (Base Operativa) */}
             <View style={[styles.inputGroup, { zIndex: 100 }]}>
                 <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
-                <View style={{ marginTop: 5, height: 60, zIndex: 100 }}>
+                <View style={{ marginTop: 5, zIndex: 100 }}>
                     {isEditing ? (
                         isWeb ? (
                             process.env.EXPO_PUBLIC_WEB_API_KEY ? (
                                 <WebGoogleMaps
                                     apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
                                     initialValue={address}
+                                    value={address}
+                                    onManualInput={(text) => {
+                                      setAddress(text);
+                                      setLocation({ lat: 0, lng: 0 });
+                                    }}
                                     onPlaceSelected={handleLocationSelect}
                                 />
                             ) : <Text style={{color:'red'}}>Falta API Key Web</Text>
@@ -384,7 +409,11 @@ export default function ProfileScreen() {
                             <LocationAutocomplete 
                                 initialValue={address}
                                 onLocationSelect={handleLocationSelect}
-                                apiKey={process.env.EXPO_PUBLIC_ANDROID_API_KEY} 
+                                onQueryChange={(text) => {
+                                  setAddress(text);
+                                  setLocation({ lat: 0, lng: 0 });
+                                }}
+                                apiKey={nativePlacesApiKey} 
                             />
                         )
                     ) : (
@@ -443,7 +472,7 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>UrbanFix App v1.2.0</Text>
+        <Text style={styles.versionText}>{`UrbanFix App v${displayVersion}`}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );

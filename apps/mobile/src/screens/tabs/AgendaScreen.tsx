@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -103,6 +103,7 @@ export default function AgendaScreen() {
   const [unscheduledItems, setUnscheduledItems] = useState<any[]>([]); 
   const [markedDates, setMarkedDates] = useState<any>({});
   const [loading, setLoading] = useState(true);
+  const hasLoadedOnceRef = useRef(false);
   const [dayFilter, setDayFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
   const [quickDetail, setQuickDetail] = useState<any | null>(null);
 
@@ -160,8 +161,10 @@ export default function AgendaScreen() {
     [statusConfig]
   );
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
+  const loadItems = useCallback(async (silent = false) => {
+    if (!silent || !hasLoadedOnceRef.current) {
+      setLoading(true);
+    }
     try {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
@@ -201,13 +204,16 @@ export default function AgendaScreen() {
     } catch (e) {
         console.error("Error agenda:", e);
     } finally {
-        setLoading(false);
+        if (!silent || !hasLoadedOnceRef.current) {
+          setLoading(false);
+        }
+        hasLoadedOnceRef.current = true;
     }
   }, [resolveAgendaStatus]);
 
   useFocusEffect(
     useCallback(() => {
-      loadItems();
+      void loadItems(hasLoadedOnceRef.current);
     }, [loadItems])
   );
 
@@ -226,7 +232,7 @@ export default function AgendaScreen() {
       await supabase.from('quotes').update({ scheduled_date: dateString }).eq('id', jobId);
     }
     setTargetJobId(null);
-    loadItems();
+    void loadItems(true);
   }, [loadItems]);
 
   const quickAssign = useCallback(async (jobId: string, offsetDays: number) => {
@@ -401,6 +407,11 @@ export default function AgendaScreen() {
                     renderItem={renderUnscheduledItem}
                     keyExtractor={item => item.id}
                     showsHorizontalScrollIndicator={false}
+                    decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
+                    directionalLockEnabled
+                    snapToAlignment="start"
+                    snapToInterval={192}
+                    disableIntervalMomentum
                     removeClippedSubviews={Platform.OS === 'android'}
                     initialNumToRender={6}
                     maxToRenderPerBatch={6}
@@ -414,6 +425,11 @@ export default function AgendaScreen() {
             <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
+                decelerationRate={Platform.OS === 'ios' ? 'fast' : 0.98}
+                directionalLockEnabled
+                snapToAlignment="start"
+                snapToInterval={162}
+                disableIntervalMomentum
                 contentContainerStyle={styles.summaryRow}
             >
                 {summaryCards.map((card) => (

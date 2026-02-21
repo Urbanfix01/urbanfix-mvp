@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, ActivityIndicator, Platform } from 'react-native';
+import { View, ActivityIndicator, Platform, useWindowDimensions } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -35,15 +35,37 @@ import { registerForPushNotificationsAsync, showLocalNotification } from '../uti
 const Stack = createNativeStackNavigator();
 const Tab = createMaterialTopTabNavigator();
 
+const horizontalSlideOptions = {
+  animation: 'slide_from_right' as const,
+  gestureEnabled: true,
+  ...(Platform.OS === 'ios'
+    ? {
+        fullScreenGestureEnabled: true,
+        animationMatchesGesture: true,
+        gestureDirection: 'horizontal' as const,
+      }
+    : {}),
+};
+
 // --- BOTTOM TABS (Menú Inferior) ---
 function MainTabs() {
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   return (
     <Tab.Navigator
+      initialLayout={{ width }}
+      keyboardDismissMode="on-drag"
+      overdrag={Platform.OS === 'ios'}
+      overScrollMode="never"
+      offscreenPageLimit={Platform.OS === 'android' ? 1 : undefined}
       tabBarPosition="bottom"
       screenOptions={({ route }) => ({
         swipeEnabled: true,
-        lazy: false,
+        animationEnabled: true,
+        lazy: true,
+        lazyPreloadDistance: 0,
+        lazyPlaceholder: () => <View style={{ flex: 1, backgroundColor: COLORS.background }} />,
+        sceneStyle: { backgroundColor: COLORS.background },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: '#95A5A6',
         tabBarShowIcon: true,
@@ -192,24 +214,24 @@ export default function RootNavigator() {
             <Stack.Screen 
               name="JobConfig" 
               component={JobConfigScreen} 
-              options={{ animation: 'slide_from_right' }} 
+              options={horizontalSlideOptions} 
             />
             <Stack.Screen 
               name="JobDetail" 
               component={JobDetailScreen} 
-              options={{ animation: 'slide_from_right' }} 
+              options={horizontalSlideOptions} 
             />
             <Stack.Screen 
               name="History" 
               component={HistoryScreen} 
-              options={{ animation: 'slide_from_right' }} 
+              options={horizontalSlideOptions} 
             />
 
             {/* 3. DETALLES DE CATÁLOGO */}
             <Stack.Screen 
               name="ItemDetail" 
               component={ItemDetailScreen} 
-              options={{ animation: 'slide_from_right' }} 
+              options={horizontalSlideOptions} 
             />
 
             {/* 4. CONFIGURACIÓN DE PERFIL */}
@@ -225,14 +247,14 @@ export default function RootNavigator() {
               component={MarcaScreen} 
               options={{ 
                 headerShown: false, // CRÍTICO: Oculta la barra blanca para que se vea tu diseño azul
-                animation: 'slide_from_right'
+                ...horizontalSlideOptions,
               }} 
             />
 
             <Stack.Screen
               name="Support"
               component={SupportScreen}
-              options={{ animation: 'slide_from_right' }}
+              options={horizontalSlideOptions}
             />
 
           </>

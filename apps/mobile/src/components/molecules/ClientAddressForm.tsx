@@ -10,14 +10,17 @@ interface Props {
   initialLocation: { lat: number; lng: number };
   onClientNameChange: (text: string) => void;
   onLocationChange: (address: string, lat: number, lng: number) => void;
+  onAddressChange?: (text: string) => void;
   variant?: 'card' | 'inline';
 }
 
 export const ClientAddressForm = ({ 
   initialName, 
   initialAddress, 
+  initialLocation,
   onClientNameChange, 
   onLocationChange,
+  onAddressChange,
   variant = 'card'
 }: Props) => {
   const isInline = variant === 'inline';
@@ -45,6 +48,14 @@ export const ClientAddressForm = ({
         <Text style={styles.label}>Dirección de la obra</Text>
         <LocationAutocomplete
           initialValue={initialAddress}
+          minQueryLength={2}
+          maxSuggestions={12}
+          debounceMs={220}
+          querySyncDebounceMs={100}
+          countryCode="ar"
+          restrictToCountry={false}
+          locationBias={initialLocation}
+          onQueryChange={onAddressChange}
           onLocationSelect={({ address, lat, lng }) => onLocationChange(address, lat, lng)}
         />
       </View>

@@ -1014,6 +1014,12 @@ export default function JobConfigScreen() {
                                 initialAddress={clientAddress}
                                 initialLocation={location}
                                 onClientNameChange={setClientName}
+                                onAddressChange={(addr) => {
+                                    setClientAddress(addr);
+                                    setLocation((prev) =>
+                                        prev.lat === 0 && prev.lng === 0 ? prev : { lat: 0, lng: 0 }
+                                    );
+                                }}
                                 onLocationChange={(addr, lat, lng) => {
                                     setClientAddress(addr);
                                     setLocation({ lat, lng });
@@ -1157,8 +1163,8 @@ export default function JobConfigScreen() {
                                                     activeOpacity={0.85}
                                                 >
                                                     <View>
-                                                        <Text style={styles.optionalTitle}>Calculadora rapida</Text>
-                                                        <Text style={styles.optionalHint}>Opcional para m2 / ml</Text>
+                                                        <Text style={styles.optionalTitle}>Presupuestador por m2 / ml</Text>
+                                                        <Text style={styles.optionalHint}>Opcional para agregar items por unidad</Text>
                                                     </View>
                                                     <Ionicons
                                                         name={showCalculator ? 'chevron-up' : 'chevron-down'}
@@ -1173,11 +1179,11 @@ export default function JobConfigScreen() {
                                                             <TouchableOpacity
                                                                 style={styles.laborToolsHeader}
                                                                 onPress={() => setLaborToolOpen(prev => !prev)}
-                                                                activeOpacity={0.8}
+                                                            activeOpacity={0.8}
                                                             >
                                                                 <View>
-                                                                <Text style={styles.laborToolsLabel}>Presupuestador (m2 / ml)</Text>
-                                                                <Text style={styles.laborToolsHint}>Calculadora rapida por unidad (m2 o ml)</Text>
+                                                                <Text style={styles.laborToolsLabel}>Seleccion de plantilla</Text>
+                                                                <Text style={styles.laborToolsHint}>Por unidad (m2 o ml)</Text>
                                                                 </View>
                                                             <View style={styles.laborToolsValue}>
                                                                 <Text style={styles.laborToolsValueText} numberOfLines={1}>
@@ -1223,7 +1229,7 @@ export default function JobConfigScreen() {
                                                                             setCustomToolUnit('m2');
                                                                         }}
                                                                     >
-                                                                        <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
+                                                                        <Text style={styles.laborToolsOptionText}>Sin presupuestador</Text>
                                                                     </TouchableOpacity>
                                                                 )}
                                                             </View>
@@ -1542,28 +1548,68 @@ const styles = StyleSheet.create({
   tabBadgeTextActive: { color: '#0F172A' },
 
   optionalBlock: {
-    backgroundColor: '#F8FAFC',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+    borderWidth: 0,
     marginBottom: 14,
   },
-  optionalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  optionalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+  },
   optionalTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   optionalHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
 
-  laborTools: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14, overflow: 'hidden' },
-  laborToolsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, gap: 12 },
+  laborTools: {
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    borderWidth: 0,
+    marginTop: 10,
+    marginBottom: 12,
+    overflow: 'visible',
+  },
+  laborToolsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    paddingVertical: 4,
+    gap: 12,
+  },
   laborToolsLabel: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   laborToolsHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
-  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0' },
+  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 2, paddingHorizontal: 2 },
   laborToolsValueText: { fontSize: 12, color: '#334155', fontWeight: '600', maxWidth: 170 },
-  laborToolsMenu: { borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
+  laborToolsMenu: {
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginTop: 8,
+    overflow: 'hidden',
+  },
   laborToolsOption: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   laborToolsOptionText: { fontSize: 13, color: '#1E293B', fontWeight: '600' },
 
-  calculatorCard: { backgroundColor: '#FFF', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 16 },
+  calculatorCard: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    marginBottom: 12,
+  },
   calculatorHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   calculatorTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginLeft: 8 },
   customToolRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginBottom: 12 },

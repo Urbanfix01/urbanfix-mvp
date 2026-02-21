@@ -110,6 +110,8 @@ type NavItem = {
   icon: LucideIcon;
 };
 
+type AccessProfile = 'tecnico' | 'empresa' | 'cliente';
+
 const TAX_RATE = 0.21;
 const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
@@ -450,6 +452,9 @@ const getSupportUploadExtension = (file: File) => {
   return 'jpg';
 };
 
+const isAccessProfile = (value: string | null): value is AccessProfile =>
+  value === 'tecnico' || value === 'empresa' || value === 'cliente';
+
 export default function TechniciansPage() {
   const [session, setSession] = useState<any>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -462,6 +467,7 @@ export default function TechniciansPage() {
   const [authNotice, setAuthNotice] = useState('');
   const [sendingRecovery, setSendingRecovery] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const [selectedAccessProfile, setSelectedAccessProfile] = useState<AccessProfile | null>(null);
   const [recoveryPassword, setRecoveryPassword] = useState('');
   const [recoveryConfirm, setRecoveryConfirm] = useState('');
   const [recoveryError, setRecoveryError] = useState('');
@@ -572,6 +578,10 @@ export default function TechniciansPage() {
       setAuthError('');
       setAuthNotice('');
     }
+    const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
+    if (isAccessProfile(incomingProfile)) {
+      setSelectedAccessProfile(incomingProfile);
+    }
   }, []);
 
   useEffect(() => {
@@ -590,6 +600,59 @@ export default function TechniciansPage() {
     window.localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme);
     document.documentElement.style.colorScheme = uiTheme;
   }, [uiTheme]);
+
+  const setAccessProfileInUrl = (profile: AccessProfile | null) => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (profile) {
+      params.set('perfil', profile);
+    } else {
+      params.delete('perfil');
+      params.delete('audience');
+    }
+    if (!params.get('recovery')) {
+      params.set('mode', 'login');
+    }
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}`;
+    window.history.replaceState({}, '', nextUrl);
+  };
+
+  const handleAccessProfileSelect = (profile: AccessProfile) => {
+    if (profile === 'cliente') {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/urbanfix?view=personas';
+      }
+      return;
+    }
+    setSelectedAccessProfile(profile);
+    setAuthError('');
+    setAuthNotice('');
+    setAccessProfileInUrl(profile);
+  };
+
+  const handleBackToProfileSelector = () => {
+    setSelectedAccessProfile(null);
+    setAuthError('');
+    setAuthNotice('');
+    setAccessProfileInUrl(null);
+  };
+
+  const accessProfileCopy = useMemo(() => {
+    if (selectedAccessProfile === 'empresa') {
+      return {
+        panelLabel: 'Panel empresa',
+        heading: 'Acceso para empresas',
+        description:
+          'Centraliza presupuestos, responsables y seguimiento comercial en una sola cuenta de trabajo.',
+      };
+    }
+    return {
+      panelLabel: 'Panel tecnico',
+      heading: 'Acceso para tecnicos',
+      description: 'Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.',
+    };
+  }, [selectedAccessProfile]);
 
   const geoMapUrl = useMemo(() => {
     if (!geoSelected) return '';

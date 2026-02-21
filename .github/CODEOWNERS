@@ -1,0 +1,15 @@
+# Global default owner
+* @Urbanfix01
+
+# Web app (primary focus)
+/apps/web/ @Urbanfix01
+
+# Mobile app
+/apps/mobile/ @Urbanfix01
+
+# Shared packages and scripts
+/packages/ @Urbanfix01
+/scripts/ @Urbanfix01
+
+# Supabase migrations (high impact)
+/apps/web/lib/supabase/migrations/ @Urbanfix01

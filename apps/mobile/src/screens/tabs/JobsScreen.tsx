@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Svg, { Polyline, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { FlashList } from '@shopify/flash-list';
-import { useNavigation } from '@react-navigation/native';
+import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { COLORS, FONTS } from '../../utils/theme';
@@ -176,6 +176,7 @@ async function getQuotes(): Promise<QuoteListItem[]> {
 }
 
 export default function JobsScreen() {
+  const isFocused = useIsFocused();
   const navigation = useNavigation();
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -196,7 +197,10 @@ export default function JobsScreen() {
   const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
     queryKey: ['quotes-list'],
     queryFn: getQuotes,
+    enabled: isFocused,
     staleTime: 60000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: isFocused,
     onSuccess: async (data) => {
       try {
         const timestamp = Date.now();
