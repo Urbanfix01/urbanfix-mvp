@@ -2641,169 +2641,263 @@ export default function TechniciansPage() {
           />
 
           <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-5xl items-start gap-6 px-4 py-6 sm:gap-8 sm:px-6 sm:py-10 md:min-h-screen md:items-center md:grid-cols-[1.05fr_0.95fr]">
-            <div className="order-2 space-y-4 text-left sm:space-y-6 md:order-1">
-              <div className="flex items-center gap-3">
-                <div
-                  style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                  className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                    brandLogoUrl ? 'bg-white' : 'bg-white'
-                  }`}
-                >
-                  {brandLogoUrl ? (
-                    <img
-                      src={brandLogoUrl}
-                      alt="Logo de empresa"
-                      onLoad={handleLogoLoaded}
-                      className={`h-full w-full ${logoPresentation.img}`}
-                    />
-                  ) : (
-                    <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
-                  )}
+            {!selectedAccessProfile ? (
+              <>
+                <div className="order-2 space-y-4 text-left sm:space-y-6 md:order-1">
+                  <div className="flex items-center gap-3">
+                    <div
+                      style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                      className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                        brandLogoUrl ? 'bg-white' : 'bg-white'
+                      }`}
+                    >
+                      {brandLogoUrl ? (
+                        <img
+                          src={brandLogoUrl}
+                          alt="Logo de empresa"
+                          onLoad={handleLogoLoaded}
+                          className={`h-full w-full ${logoPresentation.img}`}
+                        />
+                      ) : (
+                        <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
+                      <p className="text-sm font-semibold text-slate-700">Acceso inicial</p>
+                    </div>
+                  </div>
+                  <h1 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl md:text-5xl lg:text-6xl">
+                    Como quieres ingresar?
+                  </h1>
+                  <p className="text-sm text-slate-600 sm:text-base md:text-lg">
+                    Elige tu perfil para enviarte al acceso correcto: tecnico, empresa o cliente.
+                  </p>
+                  <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                    <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Paso previo rapido</span>
+                    <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Acceso dirigido</span>
+                    <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Sin perdida de contexto</span>
+                  </div>
+                  <a
+                    href="https://www.urbanfixar.com"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 sm:w-auto"
+                  >
+                    Volver al inicio
+                  </a>
                 </div>
-                <div className="text-left">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
+
+                <div className="order-1 rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-200/60 sm:p-8 md:order-2">
+                  <div className="space-y-3">
+                    <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Selecciona tu perfil</h2>
+                    <p className="text-sm text-slate-600">Antes del login, elegimos el flujo correcto para ti.</p>
+                  </div>
+
+                  <div className="mt-6 space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => handleAccessProfileSelect('tecnico')}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                    >
+                      <p className="text-sm font-bold text-slate-900">Tecnico</p>
+                      <p className="mt-1 text-xs text-slate-600">Presupuestos, materiales y seguimiento operativo.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAccessProfileSelect('empresa')}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                    >
+                      <p className="text-sm font-bold text-slate-900">Empresa</p>
+                      <p className="mt-1 text-xs text-slate-600">Control comercial, equipos y estandarizacion.</p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAccessProfileSelect('cliente')}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                    >
+                      <p className="text-sm font-bold text-slate-900">Cliente</p>
+                      <p className="mt-1 text-xs text-slate-600">Quiero recibir y revisar una cotizacion de reparacion.</p>
+                    </button>
+                  </div>
                 </div>
-              </div>
-              <h1 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl md:text-5xl lg:text-6xl">Acceso para tecnicos</h1>
-              <p className="text-sm text-slate-600 sm:text-base md:text-lg">
-                Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.
-              </p>
-              <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
-                <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Acceso en segundos</span>
-                <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Sin configuracion inicial compleja</span>
-                <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Listo para cotizar rapido</span>
-              </div>
-              <a
-                href="https://www.urbanfixar.com"
-                className="inline-flex w-full items-center justify-center rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 sm:w-auto"
-              >
-                Volver al inicio
-              </a>
-            </div>
-
-            <div className="order-1 rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-200/60 sm:p-8 md:order-2">
-              <div className="space-y-3">
-                <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">Ingresa a tu cuenta</h2>
-                <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
-              </div>
-
-              <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('login');
-                    setAuthError('');
-                    setAuthNotice('');
-                  }}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                    authMode === 'login'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
-                  }`}
-                >
-                  Iniciar sesión
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode('register');
-                    setAuthError('');
-                    setAuthNotice('');
-                  }}
-                  className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
-                    authMode === 'register'
-                      ? 'bg-slate-900 text-white shadow-sm'
-                      : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
-                  }`}
-                >
-                  Crear cuenta
-                </button>
-              </div>
-
-              <button
-                type="button"
-                onClick={handleGoogleLogin}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-              >
-                Continuar con Google
-              </button>
-
-              <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-                <div className="h-px flex-1 bg-slate-200" />
-                o
-                <div className="h-px flex-1 bg-slate-200" />
-              </div>
-
-              {authMode === 'register' && (
-                <div className="space-y-3">
-                  <input
-                    value={fullName}
-                    onChange={(event) => setFullName(event.target.value)}
-                    placeholder="Nombre completo"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <input
-                    value={businessName}
-                    onChange={(event) => setBusinessName(event.target.value)}
-                    placeholder="Nombre del negocio"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
+              </>
+            ) : (
+              <>
+                <div className="order-2 space-y-4 text-left sm:space-y-6 md:order-1">
+                  <div className="flex items-center gap-3">
+                    <div
+                      style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                      className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                        brandLogoUrl ? 'bg-white' : 'bg-white'
+                      }`}
+                    >
+                      {brandLogoUrl ? (
+                        <img
+                          src={brandLogoUrl}
+                          alt="Logo de empresa"
+                          onLoad={handleLogoLoaded}
+                          className={`h-full w-full ${logoPresentation.img}`}
+                        />
+                      ) : (
+                        <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                      )}
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
+                      <p className="text-sm font-semibold text-slate-700">{accessProfileCopy.panelLabel}</p>
+                    </div>
+                  </div>
+                  <h1 className="text-3xl font-black leading-tight text-slate-900 sm:text-4xl md:text-5xl lg:text-6xl">
+                    {accessProfileCopy.heading}
+                  </h1>
+                  <p className="text-sm text-slate-600 sm:text-base md:text-lg">{accessProfileCopy.description}</p>
+                  <div className="flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                    <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Acceso en segundos</span>
+                    <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Sin configuracion inicial compleja</span>
+                    <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1">Listo para cotizar rapido</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={handleBackToProfileSelector}
+                      className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Cambiar perfil
+                    </button>
+                    <a
+                      href="https://www.urbanfixar.com"
+                      className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Volver al inicio
+                    </a>
+                  </div>
                 </div>
-              )}
 
-              <div className="mt-4 space-y-3">
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Correo"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type="password"
-                  placeholder="Contrasena"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
-              </div>
+                <div className="order-1 rounded-3xl border border-slate-200 bg-white p-5 shadow-2xl shadow-slate-200/60 sm:p-8 md:order-2">
+                  <div className="space-y-3">
+                    <h2 className="text-xl font-bold text-slate-900 sm:text-2xl">
+                      {selectedAccessProfile === 'empresa' ? 'Ingresa a tu cuenta de empresa' : 'Ingresa a tu cuenta'}
+                    </h2>
+                    <p className="text-sm text-slate-600">Accede con Google o con tu correo.</p>
+                  </div>
 
-              {authMode === 'login' && (
-                <div className="mt-3 flex justify-end">
+                  <div className="mt-5 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('login');
+                        setAuthError('');
+                        setAuthNotice('');
+                      }}
+                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                        authMode === 'login'
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                      }`}
+                    >
+                      Iniciar sesión
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAuthMode('register');
+                        setAuthError('');
+                        setAuthNotice('');
+                      }}
+                      className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                        authMode === 'register'
+                          ? 'bg-slate-900 text-white shadow-sm'
+                          : 'bg-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                      }`}
+                    >
+                      Crear cuenta
+                    </button>
+                  </div>
+
                   <button
                     type="button"
-                    onClick={handlePasswordRecovery}
-                    disabled={sendingRecovery}
-                    className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                    onClick={handleGoogleLogin}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
                   >
-                    {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                    Continuar con Google
+                  </button>
+
+                  <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                    <div className="h-px flex-1 bg-slate-200" />
+                    o
+                    <div className="h-px flex-1 bg-slate-200" />
+                  </div>
+
+                  {authMode === 'register' && (
+                    <div className="space-y-3">
+                      <input
+                        value={fullName}
+                        onChange={(event) => setFullName(event.target.value)}
+                        placeholder="Nombre completo"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <input
+                        value={businessName}
+                        onChange={(event) => setBusinessName(event.target.value)}
+                        placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                    </div>
+                  )}
+
+                  <div className="mt-4 space-y-3">
+                    <input
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="Correo"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                    <input
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      type="password"
+                      placeholder="Contrasena"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    />
+                  </div>
+
+                  {authMode === 'login' && (
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handlePasswordRecovery}
+                        disabled={sendingRecovery}
+                        className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                      >
+                        {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                      </button>
+                    </div>
+                  )}
+
+                  {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
+                  {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+
+                  <button
+                    type="button"
+                    onClick={handleEmailAuth}
+                    className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                  >
+                    {authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode(authMode === 'login' ? 'register' : 'login');
+                      setAuthError('');
+                      setAuthNotice('');
+                    }}
+                    className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
+                  >
+                    {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Inicia sesión'}
                   </button>
                 </div>
-              )}
-
-              {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
-              {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
-
-              <button
-                type="button"
-                onClick={handleEmailAuth}
-                className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
-              >
-                {authMode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setAuthMode(authMode === 'login' ? 'register' : 'login');
-                  setAuthError('');
-                  setAuthNotice('');
-                }}
-                className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
-              >
-                {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Inicia sesión'}
-              </button>
-            </div>
+              </>
+            )}
           </main>
         </div>
         </div>
