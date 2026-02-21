@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
@@ -1141,6 +1141,8 @@ export default function AdminPage() {
     panX: number;
     panY: number;
   } | null>(null);
+  const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
+  const flowCanvasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -1181,6 +1183,21 @@ export default function AdminPage() {
     return () => {
       window.removeEventListener('mousemove', handleMove);
       window.removeEventListener('mouseup', handleUp);
+    };
+  }, [flowDragStart]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    const handleFullscreenChange = () => {
+      const fullscreenElement = document.fullscreenElement;
+      setIsFlowFullscreen(Boolean(fullscreenElement && fullscreenElement === flowCanvasRef.current));
+      if (!fullscreenElement && flowDragStart) {
+        setFlowDragStart(null);
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
   }, [flowDragStart]);
 
@@ -1774,6 +1791,24 @@ export default function AdminPage() {
       panX: flowPan.x,
       panY: flowPan.y,
     });
+  };
+
+  const toggleFlowFullscreen = async () => {
+    if (typeof document === 'undefined') return;
+    const canvas = flowCanvasRef.current;
+    if (!canvas) return;
+    try {
+      if (document.fullscreenElement === canvas) {
+        await document.exitFullscreen();
+        return;
+      }
+      if (document.fullscreenElement && document.fullscreenElement !== canvas) {
+        await document.exitFullscreen();
+      }
+      await canvas.requestFullscreen();
+    } catch (error) {
+      console.error('No se pudo alternar fullscreen del diagrama.', error);
+    }
   };
 
   const handleExportFlowPdf = () => {
@@ -3952,7 +3987,12 @@ export default function AdminPage() {
                   </div>
                 )}
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div
+                  ref={flowCanvasRef}
+                  className={`rounded-2xl border border-slate-200 bg-slate-50 p-4 ${
+                    isFlowFullscreen ? 'h-screen overflow-auto rounded-none border-0 p-5' : ''
+                  }`}
+                >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-slate-700">
                       Diagrama de flujo clásico (estilo ingeniería de procesos)
@@ -3994,6 +4034,13 @@ export default function AdminPage() {
                       className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                     >
                       Descargar PDF
+                    </button>
+                    <button
+                      type="button"
+                      onClick={toggleFlowFullscreen}
+                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                    >
+                      {isFlowFullscreen ? 'Salir fullscreen' : 'Fullscreen'}
                     </button>
                   </div>
 
