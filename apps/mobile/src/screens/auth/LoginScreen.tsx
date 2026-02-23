@@ -126,8 +126,8 @@ export default function AuthScreen() {
         throw new Error('Inicio con Google cancelado');
       }
 
-      if (result.type === 'error' && 'errorCode' in result) {
-        throw new Error(result.errorCode || 'No se pudo completar Google');
+      if (result.type === 'locked') {
+        throw new Error('El navegador está ocupado. Intenta nuevamente.');
       }
 
       await WebBrowser.openBrowserAsync(data.url);
