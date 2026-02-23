@@ -307,12 +307,12 @@ const manrope = Manrope({
 });
 
 const themeStyles = {
-  '--ui-bg': '#F5F4F0',
+  '--ui-bg': '#EEF3F8',
   '--ui-card': '#FFFFFF',
-  '--ui-ink': '#0F172A',
-  '--ui-muted': '#64748B',
-  '--ui-accent': '#111827',
-  '--ui-accent-soft': '#F5B942',
+  '--ui-ink': '#0B1525',
+  '--ui-muted': '#566074',
+  '--ui-accent': '#0F172A',
+  '--ui-accent-soft': '#D6A63D',
 } as React.CSSProperties;
 
 const formatNumber = (value?: number | null) => `${Number(value || 0).toLocaleString('es-AR')}`;
@@ -4070,6 +4070,32 @@ export default function AdminPage() {
     return { total, done, inProgress, blocked };
   }, [roadmapUpdates]);
 
+  const activeTabLabel = useMemo(
+    () => tabs.find((tab) => tab.key === activeTab)?.label || 'Resumen',
+    [activeTab, tabs]
+  );
+
+  const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
+
+  const adminExecutionPulse = useMemo(() => {
+    if (roadmapTotals.blocked > 0) {
+      return {
+        label: 'Riesgo alto',
+        badgeClass: 'border border-rose-200 bg-rose-50 text-rose-700',
+      };
+    }
+    if (roadmapOpenCount > 0) {
+      return {
+        label: 'En ejecución',
+        badgeClass: 'border border-sky-200 bg-sky-50 text-sky-700',
+      };
+    }
+    return {
+      label: 'Operación estable',
+      badgeClass: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
+    };
+  }, [roadmapOpenCount, roadmapTotals.blocked]);
+
   const roadmapReportItems = filteredRoadmapUpdates;
 
   const roadmapReportTotals = useMemo(() => {
@@ -4617,19 +4643,31 @@ export default function AdminPage() {
     >
       <AuthHashHandler />
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
-        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
-        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.14),_transparent_52%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.45)_0%,rgba(238,243,248,0.72)_55%,rgba(218,228,240,0.5)_100%)]" />
+        <div className="absolute -right-28 top-10 h-72 w-72 rounded-full bg-[#D6A63D]/15 blur-3xl" />
+        <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[#0284C7]/12 blur-3xl" />
 
-        <div className="relative mx-auto w-full max-w-6xl px-6 pb-20 pt-10">
-          <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
+        <div className="relative z-10 mx-auto w-full max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 lg:px-8">
+          <header className="sticky top-4 z-40 flex flex-wrap items-center justify-between gap-4 rounded-[30px] border border-slate-200/80 bg-white/92 px-5 py-4 shadow-[0_18px_48px_rgba(15,23,42,0.14)] backdrop-blur-md sm:px-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
-                <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-[0_10px_24px_rgba(15,23,42,0.35)]">
+                <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
               </div>
               <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                <p className="text-sm font-semibold text-slate-700">Panel admin</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">UrbanFix control center</p>
+                <p className="text-sm font-semibold text-slate-800">Vista activa: {activeTabLabel}</p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
+                    {adminExecutionPulse.label}
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                    Roadmap abierto: {roadmapOpenCount}
+                  </span>
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
+                    Online: {presenceData?.onlineCount || 0}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-3">
@@ -4645,21 +4683,21 @@ export default function AdminPage() {
                     loadFlowLayout(session.access_token);
                   }
                 }}
-                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-400 hover:text-slate-900"
               >
                 Actualizar
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.3)] transition hover:-translate-y-0.5 hover:bg-slate-800"
               >
                 Cerrar sesión
               </button>
             </div>
           </header>
 
-          <div className="mt-6 flex flex-wrap items-center gap-2 rounded-3xl border border-slate-200 bg-white/90 px-4 py-3 shadow-sm backdrop-blur">
+          <div className="mt-5 flex flex-wrap items-center gap-2 rounded-[24px] border border-slate-200/80 bg-white/82 p-2 shadow-[0_12px_30px_rgba(15,23,42,0.09)] backdrop-blur">
             {tabs.map((tab) => (
               <button
                 key={tab.key}
@@ -4667,13 +4705,31 @@ export default function AdminPage() {
                 onClick={() => setActiveTab(tab.key)}
                 className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                   activeTab === tab.key
-                    ? 'bg-slate-900 text-white shadow-sm'
-                    : 'text-slate-600 hover:bg-slate-100'
+                    ? 'bg-slate-900 text-white shadow-[0_8px_16px_rgba(15,23,42,0.36)]'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
                 {tab.label}
               </button>
             ))}
+          </div>
+
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <article className="rounded-2xl border border-slate-200/80 bg-white/88 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)] backdrop-blur">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Foco de trabajo</p>
+              <p className="mt-1 text-base font-semibold text-slate-900">{activeTabLabel}</p>
+              <p className="mt-1 text-xs text-slate-500">Tab activo para ejecución operativa.</p>
+            </article>
+            <article className="rounded-2xl border border-slate-200/80 bg-white/88 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)] backdrop-blur">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pipeline roadmap</p>
+              <p className="mt-1 text-base font-semibold text-slate-900">{roadmapOpenCount} pendientes</p>
+              <p className="mt-1 text-xs text-slate-500">{roadmapTotals.blocked} bloqueados listos para destrabar.</p>
+            </article>
+            <article className="rounded-2xl border border-slate-200/80 bg-white/88 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)] backdrop-blur">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Monitoreo live</p>
+              <p className="mt-1 text-base font-semibold text-slate-900">{presenceData?.onlineCount || 0} usuarios online</p>
+              <p className="mt-1 text-xs text-slate-500">{supportUsers.length} conversaciones en soporte.</p>
+            </article>
           </div>
 
           {overviewError && (
@@ -5487,7 +5543,7 @@ export default function AdminPage() {
             </>
           )}
           {activeTab === 'mano_obra' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Catálogo</p>
@@ -5663,7 +5719,7 @@ export default function AdminPage() {
             </section>
           )}
           {activeTab === 'flujo' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa operativo</p>
@@ -6089,7 +6145,7 @@ export default function AdminPage() {
             </section>
           )}
           {activeTab === 'roadmap' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Producto</p>
@@ -7391,7 +7447,7 @@ export default function AdminPage() {
             </section>
           )}
           {activeTab === 'mensajes' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Soporte</p>
@@ -7520,7 +7576,7 @@ export default function AdminPage() {
             </section>
           )}
           {activeTab === 'accesos' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
@@ -7560,7 +7616,7 @@ export default function AdminPage() {
             </section>
           )}
           {activeTab === 'actividad' && (
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Actividad</p>
