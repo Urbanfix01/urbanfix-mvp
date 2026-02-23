@@ -24,6 +24,9 @@ interface LocationData {
 interface Prediction {
   description: string;
   place_id: string;
+  lat?: number;
+  lng?: number;
+  source?: 'places' | 'geocode';
 }
 
 interface Props {
@@ -32,6 +35,26 @@ interface Props {
   apiKey?: string;
   showLabel?: boolean;
 }
+
+const MIN_QUERY_LENGTH = 2;
+const MAX_PREDICTIONS = 10;
+const CACHE_LIMIT = 40;
+
+const mergePredictions = (...groups: Prediction[][]) => {
+  const seen = new Set<string>();
+  const merged: Prediction[] = [];
+
+  groups.forEach((group) => {
+    group.forEach((prediction) => {
+      const key = prediction.place_id || prediction.description.trim().toLowerCase();
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      merged.push(prediction);
+    });
+  });
+
+  return merged.slice(0, MAX_PREDICTIONS);
+};
 
 export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, showLabel = false }: Props) => {
   const nativeRef = useRef<any>(null);
@@ -44,6 +67,8 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
   const abortRef = useRef<AbortController | null>(null);
   const sessionTokenRef = useRef<string | null>(null);
   const dismissRef = useRef(false);
+  const requestIdRef = useRef(0);
+  const cacheRef = useRef<Map<string, Prediction[]>>(new Map());
 
   // 1. Obtener API Key (Prioridad: Prop > Variable de Entorno)
   const envKey = Platform.OS === 'web'
@@ -61,9 +86,22 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
   useEffect(() => {
     if (Platform.OS === 'web') return;
     if (!finalApiKey) return;
-    if (!query || query.trim().length < 3) {
+    const normalizedQuery = query.trim();
+    if (!normalizedQuery || normalizedQuery.length < MIN_QUERY_LENGTH) {
+      if (abortRef.current) {
+        abortRef.current.abort();
+      }
       setPredictions([]);
+      setIsLoading(false);
+      setDebugStatus('');
       return;
+    }
+
+    const queryKey = normalizedQuery.toLowerCase();
+    const cached = cacheRef.current.get(queryKey);
+    if (cached?.length) {
+      setPredictions(cached);
+      setDebugStatus(`CACHE (${cached.length})`);
     }
 
     const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
@@ -72,32 +110,80 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     const controller = new AbortController();
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = controller;
-    setIsLoading(true);
-    setDebugStatus('');
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
     const timeoutId = setTimeout(async () => {
+      setIsLoading(true);
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          query
-        )}&key=${finalApiKey}&language=es&types=address&components=country:ar&sessiontoken=${sessionToken}`;
-        const res = await fetch(url, { signal: controller.signal });
-        const data = await res.json();
-        setPredictions(Array.isArray(data?.predictions) ? data.predictions : []);
-        if (data?.status && data.status !== 'OK') {
-          const err = data?.error_message ? ` - ${data.error_message}` : '';
-          setDebugStatus(`${data.status}${err}`);
+        const autocompleteUrl = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
+          normalizedQuery
+        )}&key=${finalApiKey}&language=es&types=geocode&components=country:ar&sessiontoken=${sessionToken}`;
+
+        const autocompleteRes = await fetch(autocompleteUrl, { signal: controller.signal });
+        const autocompleteData = await autocompleteRes.json();
+        const placePredictions: Prediction[] = Array.isArray(autocompleteData?.predictions)
+          ? autocompleteData.predictions.map((item: any) => ({
+              description: item?.description || '',
+              place_id: item?.place_id || '',
+              source: 'places',
+            }))
+          : [];
+
+        let geocodePredictions: Prediction[] = [];
+        if (placePredictions.length < MAX_PREDICTIONS && normalizedQuery.length >= 3) {
+          const geocodeUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(
+            normalizedQuery
+          )}&key=${finalApiKey}&language=es&components=country:AR`;
+          const geocodeRes = await fetch(geocodeUrl, { signal: controller.signal });
+          const geocodeData = await geocodeRes.json();
+          geocodePredictions = Array.isArray(geocodeData?.results)
+            ? geocodeData.results
+                .map((item: any) => {
+                  const lat = Number(item?.geometry?.location?.lat);
+                  const lng = Number(item?.geometry?.location?.lng);
+                  return {
+                    description: item?.formatted_address || '',
+                    place_id: item?.place_id || '',
+                    lat: Number.isFinite(lat) ? lat : undefined,
+                    lng: Number.isFinite(lng) ? lng : undefined,
+                    source: 'geocode' as const,
+                  };
+                })
+                .filter((item: Prediction) => item.description && item.place_id)
+            : [];
+        }
+
+        if (controller.signal.aborted || requestId !== requestIdRef.current) {
+          return;
+        }
+
+        const merged = mergePredictions(placePredictions, geocodePredictions);
+        setPredictions(merged);
+
+        cacheRef.current.set(queryKey, merged);
+        if (cacheRef.current.size > CACHE_LIMIT) {
+          const oldestKey = cacheRef.current.keys().next().value;
+          if (oldestKey) cacheRef.current.delete(oldestKey);
+        }
+
+        if (autocompleteData?.status && autocompleteData.status !== 'OK') {
+          const err = autocompleteData?.error_message ? ` - ${autocompleteData.error_message}` : '';
+          setDebugStatus(`${autocompleteData.status}${err}`);
         } else {
-          setDebugStatus(`OK (${Array.isArray(data?.predictions) ? data.predictions.length : 0})`);
+          setDebugStatus(`OK (${merged.length})`);
         }
       } catch (error) {
-        if ((error as any)?.name !== 'AbortError') {
+        if (!controller.signal.aborted && (error as any)?.name !== 'AbortError') {
           console.warn('Autocomplete error', error);
           setDebugStatus('NETWORK_ERROR');
         }
       } finally {
-        setIsLoading(false);
+        if (!controller.signal.aborted && requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
-    }, 250);
+    }, 180);
 
     return () => {
       clearTimeout(timeoutId);
@@ -107,6 +193,22 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
 
   const handleSelect = async (prediction: Prediction) => {
     if (!finalApiKey) return;
+    dismissRef.current = true;
+    if (Number.isFinite(prediction.lat) && Number.isFinite(prediction.lng)) {
+      const address = prediction.description;
+      setQuery(address);
+      setPredictions([]);
+      sessionTokenRef.current = null;
+      onLocationSelect({
+        address,
+        lat: Number(prediction.lat),
+        lng: Number(prediction.lng),
+        placeId: prediction.place_id,
+      });
+      setIsFocused(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
@@ -132,14 +234,13 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       console.warn('Place details error', error);
     } finally {
       setIsLoading(false);
-      dismissRef.current = true;
       setIsFocused(false);
     }
   };
 
   const shouldShowList = useMemo(
-    () => Platform.OS !== 'web' && isFocused && predictions.length > 0,
-    [isFocused, predictions.length]
+    () => Platform.OS !== 'web' && isFocused && query.trim().length >= MIN_QUERY_LENGTH && (predictions.length > 0 || isLoading),
+    [isFocused, predictions.length, isLoading, query]
   );
 
   useEffect(() => {
@@ -214,12 +315,8 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                     setIsFocused(false);
                     return;
                   }
-                  if (predictions.length > 0) {
-                    nativeRef.current?.focus();
-                  } else {
-                    setIsFocused(false);
-                  }
-                }, 50);
+                  setIsFocused(false);
+                }, 80);
               }}
               onLayout={measureInput}
             />
@@ -253,7 +350,7 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                 ]}
               >
                 <FlatList
-                  keyboardShouldPersistTaps="handled"
+                  keyboardShouldPersistTaps="always"
                   data={predictions}
                   keyExtractor={(item) => item.place_id}
                   renderItem={({ item }) => (
@@ -261,6 +358,14 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                       <Text style={styles.rowText}>{item.description}</Text>
                     </TouchableOpacity>
                   )}
+                  ListEmptyComponent={
+                    isLoading ? (
+                      <View style={styles.emptyState}>
+                        <ActivityIndicator size="small" color="#94A3B8" />
+                        <Text style={styles.emptyText}>Buscando direcciones...</Text>
+                      </View>
+                    ) : null
+                  }
                 />
               </Pressable>
             </Pressable>
@@ -342,6 +447,17 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 11,
     color: '#6B7280',
+  },
+  emptyState: {
+    minHeight: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+  },
+  emptyText: {
+    fontSize: 12,
+    color: '#94A3B8',
   },
 
   // Estilos Web
