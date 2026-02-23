@@ -2469,9 +2469,9 @@ export default function AdminPage() {
     return false;
   };
 
-  const runRoadmapSlaBatchAction = async (severity: 'critical' | 'warning') => {
+  const runRoadmapSlaBatchAction = async (severity: 'critical' | 'warning' | 'all') => {
     if (roadmapSlaBatchApplying) return;
-    const filtered = roadmapSlaAlerts.filter((alert) => alert.severity === severity);
+    const filtered = severity === 'all' ? roadmapSlaAlerts : roadmapSlaAlerts.filter((alert) => alert.severity === severity);
     const seenRoadmapIds = new Set<string>();
     const queue = filtered.filter((alert) => {
       if (seenRoadmapIds.has(alert.roadmapId)) return false;
@@ -2479,9 +2479,12 @@ export default function AdminPage() {
       return true;
     });
 
+    const severityLabel =
+      severity === 'critical' ? 'críticas' : severity === 'warning' ? 'de advertencia' : 'totales';
+
     if (!queue.length) {
       setRoadmapError('');
-      setRoadmapMessage(`No hay alertas SLA ${severity === 'critical' ? 'críticas' : 'de advertencia'} para aplicar.`);
+      setRoadmapMessage(`No hay alertas SLA ${severityLabel} para aplicar.`);
       return;
     }
 
@@ -2495,9 +2498,7 @@ export default function AdminPage() {
         if (applied) appliedCount += 1;
       }
       if (appliedCount > 0) {
-        setRoadmapMessage(
-          `SLA: se aplicaron ${appliedCount} sugerencia(s) ${severity === 'critical' ? 'críticas' : 'de advertencia'}.`
-        );
+        setRoadmapMessage(`SLA: se aplicaron ${appliedCount} sugerencia(s) ${severityLabel}.`);
       } else {
         setRoadmapMessage('SLA: no se pudieron aplicar sugerencias automáticamente.');
       }
@@ -5849,6 +5850,41 @@ export default function AdminPage() {
                           className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                         >
                           {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar advertencias'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void runRoadmapSlaBatchAction('all')}
+                          disabled={roadmapSlaBatchApplying || roadmapSlaAlerts.length === 0}
+                          className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                        >
+                          {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar todo'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            downloadCsv(
+                              'roadmap_sla_alertas.csv',
+                              roadmapSlaAlerts.map((alert) => {
+                                const item = roadmapUpdates.find((entry) => entry.id === alert.roadmapId);
+                                return {
+                                  severidad: alert.severity === 'critical' ? 'Crítica' : 'Advertencia',
+                                  regla: alert.rule,
+                                  titulo: alert.title,
+                                  detalle: alert.detail,
+                                  accion_sugerida: alert.actionLabel,
+                                  roadmap_id: alert.roadmapId,
+                                  estado_actual: item ? getRoadmapStatusLabel(item.status) : '',
+                                  prioridad: item ? getRoadmapPriorityLabel(item.priority) : '',
+                                  responsable: item ? getRoadmapOwnerLabel(item.owner) : '',
+                                  eta: item?.eta_date || '',
+                                };
+                              })
+                            )
+                          }
+                          disabled={roadmapSlaAlerts.length === 0}
+                          className="rounded-full border border-slate-300 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                        >
+                          Exportar SLA
                         </button>
                       </div>
                     </div>
