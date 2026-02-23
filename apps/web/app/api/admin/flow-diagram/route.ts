@@ -80,7 +80,7 @@ const toApiErrorMessage = (error: any, fallback: string) => {
     normalized.includes('flow_diagram_states') &&
     (normalized.includes('schema cache') || normalized.includes('could not find the table'))
   ) {
-    return 'Falta la migración de base para flow_diagram_states. Ejecuta las migraciones de Supabase y recarga.';
+    return 'Falta la migración de base para flow_diagram_states. Ejecuta: npx supabase db push --workdir apps/web --linked --include-all --yes y recarga.';
   }
   return message;
 };

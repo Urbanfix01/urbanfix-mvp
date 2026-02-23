@@ -1,9 +1,11 @@
-import nextVitals from "eslint-config-next/core-web-vitals";
-import nextTs from "eslint-config-next/typescript";
+import nextVitals from "eslint-config-next/core-web-vitals.js";
+import nextTs from "eslint-config-next/typescript.js";
+
+const toConfigArray = (value) => (Array.isArray(value) ? value : [value]);
 
 const eslintConfig = [
-  ...nextVitals,
-  ...nextTs,
+  ...toConfigArray(nextVitals),
+  ...toConfigArray(nextTs),
   {
     ignores: [
       ".next/**",
