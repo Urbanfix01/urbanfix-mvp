@@ -8,8 +8,9 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 // Obtener configuracion por defecto
 const config = getDefaultConfig(projectRoot);
 
-// 1. Decirle a Metro que puede mirar en la carpeta raiz (para node_modules compartidos)
-config.watchFolders = [workspaceRoot];
+// 1. Mantener los watchFolders por defecto de Expo y agregar el workspace root
+const defaultWatchFolders = config.watchFolders || [];
+config.watchFolders = Array.from(new Set([...defaultWatchFolders, workspaceRoot]));
 
 // 2. IMPORTANTE: Forzar a Metro a resolver 'react' y 'react-dom'
 // desde la carpeta local de la app movil, ignorando la version de la web/raiz.

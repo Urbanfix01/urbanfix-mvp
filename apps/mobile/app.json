@@ -4,7 +4,8 @@
     "slug": "UrbanFix",
     "owner": "urbanfix",
     "scheme": "urbanfix",
-    "version": "1.2",
+    "version": "1.3.0",
+    "description": "UrbanFix conecta personas con profesionales para resolver tareas del hogar y mantenimiento de forma simple y segura.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -17,7 +18,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.urbanfix.urbanfix",
-      "buildNumber": "6",
+      "buildNumber": "9",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "UrbanFix necesita acceso a tus fotos para adjuntar evidencia en solicitudes y soporte.",
+        "NSPhotoLibraryAddUsageDescription": "UrbanFix necesita guardar imagenes para compartir comprobantes y evidencias."
+      },
       "config": {
         "usesNonExemptEncryption": false
       }

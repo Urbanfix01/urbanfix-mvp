@@ -1889,29 +1889,31 @@ export default function AdminPage() {
       }
     } catch (error: any) {
       const message = error?.message || 'No se pudo cargar la revisión del flujo.';
-      if (isMissingFlowDiagramTableError(message)) {
-        const localState = readFlowLayoutFromLocalStorage();
-        if (localState?.nodes?.length) {
-          setFlowNodes(mergeFlowNodesWithPositions(localState.nodes));
-          setFlowLayoutDirty(false);
-          setFlowLastSavedAt(localState.updated_at || null);
-          setFlowLastSavedBy(localState.updated_by_label || 'Local');
-          setFlowCurrentSource('local');
-          if (!options?.silent) {
+      const localState = readFlowLayoutFromLocalStorage();
+      if (localState?.nodes?.length) {
+        setFlowNodes(mergeFlowNodesWithPositions(localState.nodes));
+        setFlowLayoutDirty(false);
+        setFlowLastSavedAt(localState.updated_at || null);
+        setFlowLastSavedBy(localState.updated_by_label || 'Local');
+        setFlowCurrentSource('local');
+        if (!options?.silent) {
+          if (isMissingFlowDiagramTableError(message)) {
             setFlowRevisionMessage(
               'Se cargó revisión local. Falta aplicar migración de base para sincronizar con Supabase.'
             );
-          }
-        } else {
-          setFlowCurrentSource('base');
-          if (!options?.silent) {
-            setFlowRevisionError('Falta migración de base para guardar/cargar remoto. Mientras tanto, usa guardado local.');
+          } else {
+            setFlowRevisionMessage('Se cargó la revisión local por un fallo de sincronización remota.');
           }
         }
         return;
       }
+      setFlowCurrentSource('base');
       if (!options?.silent) {
-        setFlowRevisionError(message);
+        if (isMissingFlowDiagramTableError(message)) {
+          setFlowRevisionError('Falta migración de base para guardar/cargar remoto. Mientras tanto, usa guardado local.');
+        } else {
+          setFlowRevisionError(message);
+        }
       }
     } finally {
       setFlowRevisionLoading(false);
@@ -3113,25 +3115,31 @@ export default function AdminPage() {
       setFlowRevisionMessage('Revisión guardada correctamente y marcada como current.');
     } catch (error: any) {
       const message = error?.message || 'No se pudo guardar la revisión del flujo.';
-      if (isMissingFlowDiagramTableError(message)) {
-        const localState = writeFlowLayoutToLocalStorage({
-          nodes: positions,
-          note,
-          updated_by_label: session?.user?.email || 'Local',
-        });
-        if (localState) {
-          setFlowLayoutDirty(false);
-          setFlowLastSavedAt(localState.updated_at || null);
-          setFlowLastSavedBy(localState.updated_by_label || 'Local');
-          setFlowCurrentSource('local');
+      const localState = writeFlowLayoutToLocalStorage({
+        nodes: positions,
+        note,
+        updated_by_label: session?.user?.email || 'Local',
+      });
+      if (localState) {
+        setFlowLayoutDirty(false);
+        setFlowLastSavedAt(localState.updated_at || null);
+        setFlowLastSavedBy(localState.updated_by_label || 'Local');
+        setFlowCurrentSource('local');
+        if (isMissingFlowDiagramTableError(message)) {
           setFlowRevisionMessage(
             'Guardado local exitoso. Esta revisión quedó como current en este navegador (falta migración para remoto).'
           );
         } else {
-          setFlowRevisionError('No se pudo guardar en Supabase ni en almacenamiento local.');
+          setFlowRevisionMessage(
+            'Guardado local exitoso. Esta revisión quedó como current en este navegador mientras vuelve la sincronización remota.'
+          );
         }
       } else {
-        setFlowRevisionError(message);
+        if (isMissingFlowDiagramTableError(message)) {
+          setFlowRevisionError('No se pudo guardar en Supabase ni en almacenamiento local.');
+        } else {
+          setFlowRevisionError(message);
+        }
       }
     } finally {
       setFlowRevisionSaving(false);
@@ -5707,7 +5715,7 @@ export default function AdminPage() {
                     </span>
                   </div>
 
-                  <div className="sticky top-2 z-30 mb-3 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/95 p-3 backdrop-blur">
+                  <div className="sticky top-2 z-50 mb-3 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/95 p-3 shadow-sm backdrop-blur">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -5816,6 +5824,42 @@ export default function AdminPage() {
                       </div>
                     )}
                   </div>
+
+                  {flowLayoutDirty && (
+                    <div className="pointer-events-none fixed bottom-4 right-4 z-[80]">
+                      <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white/95 px-3 py-2 shadow-xl backdrop-blur">
+                        <button
+                          type="button"
+                          onClick={() => adjustFlowZoom(-0.1)}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          Zoom -
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetFlowZoom}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          100%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustFlowZoom(0.1)}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          Zoom +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSaveFlowLayout}
+                          disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
+                          className="rounded-full bg-emerald-600 px-4 py-1.5 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {flowRevisionSaving ? 'Guardando...' : 'Guardar'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="overflow-x-auto">
                     <div style={{ minWidth: `${Math.round(flowDiagramFrame.width)}px` }}>

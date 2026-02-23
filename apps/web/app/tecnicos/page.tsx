@@ -2423,20 +2423,20 @@ export default function TechniciansPage() {
                 </div>
                 <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">Configura tu perfil</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Antes de crear presupuestos necesitamos tus datos bÃ¡sicos. Esto se muestra en el link pÃºblico y en el
+                  Antes de crear presupuestos necesitamos tus datos basicos. Esto se muestra en el link publico y en el
                   PDF que recibe tu cliente.
                 </p>
 
                 <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl shadow-slate-200/60">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por quÃ© te lo pedimos</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por que te lo pedimos</p>
                   <ul className="mt-4 space-y-3 text-sm text-slate-600">
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Tu cliente identifica rÃ¡pido tu negocio y confÃ­a mÃ¡s en el presupuesto.
+                      Tu cliente identifica rapido tu negocio y confia mas en el presupuesto.
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Evitas preguntas repetidas (telÃ©fono, direcciÃ³n, horarios) y aceleras la aprobaciÃ³n.
+                      Evitas preguntas repetidas (telefono, direccion, horarios) y aceleras la aprobacion.
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
@@ -2448,7 +2448,7 @@ export default function TechniciansPage() {
                 <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejo de marca</p>
                   <p className="mt-3 text-sm text-slate-600">
-                    Logo recomendado: fondo transparente o claro, alto contraste y versiÃ³n horizontal si es posible.
+                    Logo recomendado: fondo transparente o claro, alto contraste y version horizontal si es posible.
                     Foto recomendada: rostro visible, luz natural y fondo simple.
                   </p>
                 </div>
