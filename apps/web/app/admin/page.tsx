@@ -1620,6 +1620,7 @@ export default function AdminPage() {
   const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
   const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
   const [roadmapBulkUpdating, setRoadmapBulkUpdating] = useState(false);
+  const [roadmapSlaBatchApplying, setRoadmapSlaBatchApplying] = useState(false);
   const [selectedRoadmapIds, setSelectedRoadmapIds] = useState<string[]>([]);
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
   const [roadmapFeedbackDrafts, setRoadmapFeedbackDrafts] = useState<Record<string, string>>({});
@@ -2176,7 +2177,7 @@ export default function AdminPage() {
       successMessage?: string;
     }
   ) => {
-    if (!session?.access_token) return;
+    if (!session?.access_token) return false;
     setRoadmapError('');
     setRoadmapMessage('');
     setRoadmapUpdatingId(roadmapId);
@@ -2231,8 +2232,10 @@ export default function AdminPage() {
       } else {
         setRoadmapMessage(successMessage);
       }
+      return true;
     } catch (error: any) {
       setRoadmapError(error?.message || 'No se pudo actualizar el item.');
+      return false;
     } finally {
       setRoadmapUpdatingId(null);
     }
@@ -2359,7 +2362,7 @@ export default function AdminPage() {
     }
   };
 
-  const runRoadmapQuickAction = (
+  const runRoadmapQuickAction = async (
     item: RoadmapUpdateItem,
     action: 'start' | 'unblock' | 'block' | 'resolve',
     options?: {
@@ -2367,11 +2370,11 @@ export default function AdminPage() {
       successMessage?: string;
     }
   ) => {
-    if (roadmapUpdatingId === item.id) return;
-    if (action === 'start' && item.status !== 'planned') return;
-    if (action === 'unblock' && item.status !== 'blocked') return;
-    if (action === 'block' && item.status !== 'in_progress') return;
-    if (action === 'resolve' && item.status === 'done') return;
+    if (roadmapUpdatingId === item.id) return false;
+    if (action === 'start' && item.status !== 'planned') return false;
+    if (action === 'unblock' && item.status !== 'blocked') return false;
+    if (action === 'block' && item.status !== 'in_progress') return false;
+    if (action === 'resolve' && item.status === 'done') return false;
 
     const statusByAction: Record<'start' | 'unblock' | 'block' | 'resolve', RoadmapStatus> = {
       start: 'in_progress',
@@ -2390,7 +2393,7 @@ export default function AdminPage() {
     const fromLabel = getRoadmapStatusLabel(item.status);
     const toLabel = getRoadmapStatusLabel(status);
     const auditSentiment: RoadmapSentiment = status === 'done' ? 'positive' : 'neutral';
-    void patchRoadmapUpdate(
+    return patchRoadmapUpdate(
       item.id,
       { status },
       {
@@ -2401,37 +2404,34 @@ export default function AdminPage() {
     );
   };
 
-  const applyRoadmapSlaSuggestion = (alert: RoadmapSlaAlert) => {
+  const applyRoadmapSlaSuggestion = async (alert: RoadmapSlaAlert) => {
     const target = roadmapUpdates.find((item) => item.id === alert.roadmapId);
-    if (!target) return;
-    if (roadmapUpdatingId === target.id) return;
+    if (!target) return false;
+    if (roadmapUpdatingId === target.id) return false;
 
     if (alert.rule === 'blocked_stale') {
-      runRoadmapQuickAction(target, 'unblock', {
+      return runRoadmapQuickAction(target, 'unblock', {
         contextLabel: `SLA ${alert.title}`,
         successMessage: 'Acción SLA aplicada.',
       });
-      return;
     }
 
     if (alert.rule === 'high_overdue') {
       if (target.status === 'planned') {
-        runRoadmapQuickAction(target, 'start', {
-          contextLabel: `SLA ${alert.title}`,
-          successMessage: 'Acción SLA aplicada.',
-        });
-      } else {
-        runRoadmapQuickAction(target, 'resolve', {
+        return runRoadmapQuickAction(target, 'start', {
           contextLabel: `SLA ${alert.title}`,
           successMessage: 'Acción SLA aplicada.',
         });
       }
-      return;
+      return runRoadmapQuickAction(target, 'resolve', {
+        contextLabel: `SLA ${alert.title}`,
+        successMessage: 'Acción SLA aplicada.',
+      });
     }
 
     if (alert.rule === 'stale_in_progress') {
       const nextEta = getIsoDateFromOffset(3);
-      void patchRoadmapUpdate(
+      return patchRoadmapUpdate(
         target.id,
         { eta_date: nextEta },
         {
@@ -2440,13 +2440,12 @@ export default function AdminPage() {
           successMessage: 'Acción SLA aplicada.',
         }
       );
-      return;
     }
 
     if (alert.rule === 'overdue_unassigned') {
       const owner = session?.user?.email || 'Equipo admin';
       if (target.status === 'planned') {
-        void patchRoadmapUpdate(
+        return patchRoadmapUpdate(
           target.id,
           { owner, status: 'in_progress' },
           {
@@ -2455,17 +2454,55 @@ export default function AdminPage() {
             successMessage: 'Acción SLA aplicada.',
           }
         );
-      } else {
-        void patchRoadmapUpdate(
-          target.id,
-          { owner },
-          {
-            auditMessage: `SLA ${alert.title}: responsable asignado (${owner}).`,
-            auditSentiment: 'neutral',
-            successMessage: 'Acción SLA aplicada.',
-          }
-        );
       }
+      return patchRoadmapUpdate(
+        target.id,
+        { owner },
+        {
+          auditMessage: `SLA ${alert.title}: responsable asignado (${owner}).`,
+          auditSentiment: 'neutral',
+          successMessage: 'Acción SLA aplicada.',
+        }
+      );
+    }
+
+    return false;
+  };
+
+  const runRoadmapSlaBatchAction = async (severity: 'critical' | 'warning') => {
+    if (roadmapSlaBatchApplying) return;
+    const filtered = roadmapSlaAlerts.filter((alert) => alert.severity === severity);
+    const seenRoadmapIds = new Set<string>();
+    const queue = filtered.filter((alert) => {
+      if (seenRoadmapIds.has(alert.roadmapId)) return false;
+      seenRoadmapIds.add(alert.roadmapId);
+      return true;
+    });
+
+    if (!queue.length) {
+      setRoadmapError('');
+      setRoadmapMessage(`No hay alertas SLA ${severity === 'critical' ? 'críticas' : 'de advertencia'} para aplicar.`);
+      return;
+    }
+
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapSlaBatchApplying(true);
+    let appliedCount = 0;
+    try {
+      for (const alert of queue.slice(0, ROADMAP_SLA_ALERT_LIMIT)) {
+        const applied = await applyRoadmapSlaSuggestion(alert);
+        if (applied) appliedCount += 1;
+      }
+      if (appliedCount > 0) {
+        setRoadmapMessage(
+          `SLA: se aplicaron ${appliedCount} sugerencia(s) ${severity === 'critical' ? 'críticas' : 'de advertencia'}.`
+        );
+      } else {
+        setRoadmapMessage('SLA: no se pudieron aplicar sugerencias automáticamente.');
+      }
+    } finally {
+      setRoadmapSlaBatchApplying(false);
     }
   };
 
@@ -5797,6 +5834,14 @@ export default function AdminPage() {
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
                           Advertencias: {roadmapSlaSummary.warning}
                         </span>
+                        <button
+                          type="button"
+                          onClick={() => void runRoadmapSlaBatchAction('critical')}
+                          disabled={roadmapSlaBatchApplying || roadmapSlaSummary.critical === 0}
+                          className="rounded-full border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                        >
+                          {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar críticas'}
+                        </button>
                       </div>
                     </div>
                     {roadmapSlaAlerts.length === 0 ? (
@@ -5827,7 +5872,7 @@ export default function AdminPage() {
                               </div>
                               <button
                                 type="button"
-                                onClick={() => applyRoadmapSlaSuggestion(alert)}
+                                onClick={() => void applyRoadmapSlaSuggestion(alert)}
                                 disabled={isUpdating}
                                 className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                               >
