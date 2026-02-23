@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
@@ -77,6 +77,12 @@ type AppWebFlowEdge = {
   label?: 'si' | 'no' | string;
   labelX?: number;
   labelY?: number;
+};
+
+type FlowNodePosition = {
+  id: string;
+  x: number;
+  y: number;
 };
 
 type RoadmapFeedbackItem = {
@@ -552,6 +558,41 @@ const FLOW_CLASSIC_COLUMN_SHIFT: Record<FlowDiagramColumnId, number> = {
   captacion: 0,
   operacion: 250,
   control: 520,
+};
+
+const FLOW_DIAGRAM_KEY = 'app_web_operativo';
+
+const sanitizeFlowPositions = (value: unknown): FlowNodePosition[] => {
+  if (!Array.isArray(value)) return [];
+  const unique = new Map<string, FlowNodePosition>();
+  value.forEach((entry: any) => {
+    const id = typeof entry?.id === 'string' ? entry.id.trim() : '';
+    const x = Number(entry?.x);
+    const y = Number(entry?.y);
+    if (!id || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    unique.set(id, {
+      id,
+      x: Math.round(Math.max(-5000, Math.min(5000, x))),
+      y: Math.round(Math.max(-5000, Math.min(5000, y))),
+    });
+  });
+  return Array.from(unique.values());
+};
+
+const getFlowNodePositions = (nodes: AppWebFlowNode[]): FlowNodePosition[] =>
+  nodes.map((node) => ({ id: node.id, x: Math.round(node.x), y: Math.round(node.y) }));
+
+const mergeFlowNodesWithPositions = (positions: FlowNodePosition[]) => {
+  const map = new Map(positions.map((position) => [position.id, position]));
+  return APP_WEB_FLOW_NODES.map((node) => {
+    const position = map.get(node.id);
+    if (!position) return { ...node };
+    return {
+      ...node,
+      x: position.x,
+      y: position.y,
+    };
+  });
 };
 
 const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
@@ -1264,6 +1305,7 @@ export default function AdminPage() {
     initial_feedback: '',
     initial_feedback_sentiment: 'neutral',
   });
+  const [flowNodes, setFlowNodes] = useState<AppWebFlowNode[]>(() => APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
   const [selectedFlowNodeId, setSelectedFlowNodeId] = useState(APP_WEB_FLOW_NODES[0]?.id || '');
   const [flowZoom, setFlowZoom] = useState(1);
   const [flowPan, setFlowPan] = useState({ x: 0, y: 0 });
@@ -1273,6 +1315,21 @@ export default function AdminPage() {
     panX: number;
     panY: number;
   } | null>(null);
+  const [flowNodeDragStart, setFlowNodeDragStart] = useState<{
+    nodeId: string;
+    clientX: number;
+    clientY: number;
+    nodeX: number;
+    nodeY: number;
+  } | null>(null);
+  const [flowLayoutDirty, setFlowLayoutDirty] = useState(false);
+  const [flowRevisionLoading, setFlowRevisionLoading] = useState(false);
+  const [flowRevisionSaving, setFlowRevisionSaving] = useState(false);
+  const [flowRevisionError, setFlowRevisionError] = useState('');
+  const [flowRevisionMessage, setFlowRevisionMessage] = useState('');
+  const [flowRevisionNote, setFlowRevisionNote] = useState('');
+  const [flowLastSavedAt, setFlowLastSavedAt] = useState<string | null>(null);
+  const [flowLastSavedBy, setFlowLastSavedBy] = useState<string | null>(null);
   const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
   const [flowProcessDialogNodeId, setFlowProcessDialogNodeId] = useState<string | null>(null);
   const flowCanvasRef = useRef<HTMLDivElement | null>(null);
@@ -1310,12 +1367,44 @@ export default function AdminPage() {
   }, [flowDragStart]);
 
   useEffect(() => {
+    if (!flowNodeDragStart) return;
+    const handleMove = (event: MouseEvent) => {
+      const dx = (event.clientX - flowNodeDragStart.clientX) / flowZoom;
+      const dy = (event.clientY - flowNodeDragStart.clientY) / flowZoom;
+      const nextX = Math.round(flowNodeDragStart.nodeX + dx);
+      const nextY = Math.round(flowNodeDragStart.nodeY + dy);
+      setFlowNodes((prev) =>
+        prev.map((node) =>
+          node.id === flowNodeDragStart.nodeId
+            ? {
+                ...node,
+                x: nextX,
+                y: nextY,
+              }
+            : node
+        )
+      );
+      setFlowLayoutDirty(true);
+    };
+    const handleUp = () => setFlowNodeDragStart(null);
+    window.addEventListener('mousemove', handleMove);
+    window.addEventListener('mouseup', handleUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMove);
+      window.removeEventListener('mouseup', handleUp);
+    };
+  }, [flowNodeDragStart, flowZoom]);
+
+  useEffect(() => {
     if (typeof document === 'undefined') return;
     const handleFullscreenChange = () => {
       const fullscreenElement = document.fullscreenElement;
       setIsFlowFullscreen(Boolean(fullscreenElement && fullscreenElement === flowCanvasRef.current));
       if (!fullscreenElement && flowDragStart) {
         setFlowDragStart(null);
+      }
+      if (!fullscreenElement && flowNodeDragStart) {
+        setFlowNodeDragStart(null);
       }
       if (!fullscreenElement) {
         setFlowProcessDialogNodeId(null);
@@ -1325,12 +1414,58 @@ export default function AdminPage() {
     return () => {
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
     };
-  }, [flowDragStart]);
+  }, [flowDragStart, flowNodeDragStart]);
 
   useEffect(() => {
     if (!isFlowFullscreen) return;
     setFlowProcessDialogNodeId((prev) => prev || selectedFlowNodeId);
   }, [isFlowFullscreen, selectedFlowNodeId]);
+
+  const loadFlowLayout = useCallback(async (token?: string, options?: { silent?: boolean }) => {
+    if (!token) return;
+    if (!options?.silent) {
+      setFlowRevisionError('');
+      setFlowRevisionMessage('');
+    } else {
+      setFlowRevisionError('');
+    }
+    setFlowRevisionLoading(true);
+    try {
+      const params = new URLSearchParams({ diagram_key: FLOW_DIAGRAM_KEY });
+      const response = await fetch(`/api/admin/flow-diagram?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo cargar la última revisión del flujo.');
+      }
+      const state = data?.state || null;
+      const positions = sanitizeFlowPositions(state?.nodes);
+      if (positions.length) {
+        setFlowNodes(mergeFlowNodesWithPositions(positions));
+        setFlowLayoutDirty(false);
+        setFlowLastSavedAt(state.updated_at || null);
+        setFlowLastSavedBy(state.updated_by_label || null);
+        if (!options?.silent) {
+          setFlowRevisionMessage('Se cargó la última revisión guardada.');
+        }
+      } else {
+        setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
+        setFlowLayoutDirty(false);
+        setFlowLastSavedAt(null);
+        setFlowLastSavedBy(null);
+        if (!options?.silent) {
+          setFlowRevisionMessage('No hay revisión guardada todavía.');
+        }
+      }
+    } catch (error: any) {
+      if (!options?.silent) {
+        setFlowRevisionError(error?.message || 'No se pudo cargar la revisión del flujo.');
+      }
+    } finally {
+      setFlowRevisionLoading(false);
+    }
+  }, []);
 
   const loadOverview = async (token?: string) => {
     if (!token) return;
@@ -1840,6 +1975,11 @@ export default function AdminPage() {
   }, [activeTab, session?.access_token]);
 
   useEffect(() => {
+    if (!session?.access_token || activeTab !== 'flujo' || flowLayoutDirty) return;
+    loadFlowLayout(session.access_token, { silent: true });
+  }, [activeTab, flowLayoutDirty, session?.access_token, loadFlowLayout]);
+
+  useEffect(() => {
     if (!session?.access_token || activeTab !== 'actividad') return;
     loadActivity();
   }, [
@@ -1902,6 +2042,17 @@ export default function AdminPage() {
     setRoadmapError('');
     setRoadmapMessage('');
     setRoadmapSearch('');
+    setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
+    setFlowDragStart(null);
+    setFlowNodeDragStart(null);
+    setFlowLayoutDirty(false);
+    setFlowRevisionLoading(false);
+    setFlowRevisionSaving(false);
+    setFlowRevisionError('');
+    setFlowRevisionMessage('');
+    setFlowRevisionNote('');
+    setFlowLastSavedAt(null);
+    setFlowLastSavedBy(null);
   };
 
   const handleOpenFlowNode = (node: AppWebFlowNode) => {
@@ -1931,8 +2082,72 @@ export default function AdminPage() {
     setFlowDragStart(null);
   };
 
+  const handleResetFlowLayout = () => {
+    setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
+    setFlowNodeDragStart(null);
+    setFlowLayoutDirty(true);
+    setFlowRevisionError('');
+    setFlowRevisionMessage('Layout restablecido a la base. Guarda para dejarlo como última revisión.');
+  };
+
+  const handleSaveFlowLayout = async () => {
+    if (!session?.access_token) return;
+    setFlowRevisionSaving(true);
+    setFlowRevisionError('');
+    setFlowRevisionMessage('');
+    try {
+      const response = await fetch('/api/admin/flow-diagram', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          diagram_key: FLOW_DIAGRAM_KEY,
+          note: flowRevisionNote.trim() || null,
+          nodes: getFlowNodePositions(flowNodes),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo guardar la revisión del flujo.');
+      }
+      const savedState = data?.state || null;
+      const savedPositions = sanitizeFlowPositions(savedState?.nodes);
+      if (savedPositions.length) {
+        setFlowNodes(mergeFlowNodesWithPositions(savedPositions));
+      }
+      setFlowLayoutDirty(false);
+      setFlowLastSavedAt(savedState?.updated_at || null);
+      setFlowLastSavedBy(savedState?.updated_by_label || null);
+      setFlowRevisionMessage('Revisión guardada correctamente.');
+    } catch (error: any) {
+      setFlowRevisionError(error?.message || 'No se pudo guardar la revisión del flujo.');
+    } finally {
+      setFlowRevisionSaving(false);
+    }
+  };
+
+  const handleFlowNodeMouseDown = (event: React.MouseEvent<SVGGElement>, nodeId: string) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const node = flowNodes.find((item) => item.id === nodeId);
+    if (!node) return;
+    setFlowNodeDragStart({
+      nodeId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      nodeX: node.x,
+      nodeY: node.y,
+    });
+  };
+
   const handleFlowMouseDown = (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.button !== 0) return;
+    if (flowNodeDragStart) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest('[data-flow-node="true"]')) return;
     event.preventDefault();
     setFlowDragStart({
       clientX: event.clientX,
@@ -2462,13 +2677,13 @@ export default function AdminPage() {
   ] as const;
 
   const selectedFlowNode = useMemo<AppWebFlowNode | null>(
-    () => APP_WEB_FLOW_NODES.find((node) => node.id === selectedFlowNodeId) || APP_WEB_FLOW_NODES[0] || null,
-    [selectedFlowNodeId]
+    () => flowNodes.find((node) => node.id === selectedFlowNodeId) || flowNodes[0] || null,
+    [selectedFlowNodeId, flowNodes]
   );
 
   const flowProcessDialogNode = useMemo<AppWebFlowNode | null>(
-    () => APP_WEB_FLOW_NODES.find((node) => node.id === flowProcessDialogNodeId) || null,
-    [flowProcessDialogNodeId]
+    () => flowNodes.find((node) => node.id === flowProcessDialogNodeId) || null,
+    [flowProcessDialogNodeId, flowNodes]
   );
 
   const selectedFlowEdgeIds = useMemo(() => {
@@ -2504,9 +2719,9 @@ export default function AdminPage() {
     () =>
       FLOW_DIAGRAM_COLUMNS.map((column) => ({
         ...column,
-        nodes: APP_WEB_FLOW_NODES.filter((node) => node.column === column.id).sort((a, b) => a.y - b.y),
+        nodes: flowNodes.filter((node) => node.column === column.id).sort((a, b) => a.y - b.y),
       })),
-    []
+    [flowNodes]
   );
 
   const flowNodeCodeMap = useMemo(() => {
@@ -2522,7 +2737,7 @@ export default function AdminPage() {
 
   const flowBranchNodes = useMemo(
     () =>
-      APP_WEB_FLOW_NODES.map((node, index) => ({
+      flowNodes.map((node, index) => ({
         node: {
           ...node,
           x: Math.round(node.x + FLOW_CLASSIC_COLUMN_SHIFT[node.column]),
@@ -2534,7 +2749,7 @@ export default function AdminPage() {
         width: node.width,
         height: node.height,
       })),
-    []
+    [flowNodes]
   );
 
   const flowBranchNodeMap = useMemo(
@@ -3160,6 +3375,9 @@ export default function AdminPage() {
                   loadPlayMetrics(session.access_token);
                   if (activeTab === 'roadmap') {
                     loadRoadmap(session.access_token);
+                  }
+                  if (activeTab === 'flujo') {
+                    loadFlowLayout(session.access_token);
                   }
                 }}
                 className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
@@ -4191,7 +4409,7 @@ export default function AdminPage() {
                   </p>
                 </div>
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700">
-                  {APP_WEB_FLOW_NODES.length} nodos activos
+                  {flowNodes.length} nodos activos
                 </span>
               </div>
 
@@ -4281,30 +4499,91 @@ export default function AdminPage() {
                       <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
                         Escala {Math.round(flowZoom * 100)}%
                       </span>
+                      <span
+                        className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                          flowLayoutDirty
+                            ? 'border-amber-200 bg-amber-50 text-amber-700'
+                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                        }`}
+                      >
+                        {flowLayoutDirty ? 'Cambios sin guardar' : 'Layout sincronizado'}
+                      </span>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={handleExportFlowPdf}
-                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                    >
-                      Descargar PDF
-                    </button>
-                    <button
-                      type="button"
-                      onClick={toggleFlowFullscreen}
-                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
-                    >
-                      {isFlowFullscreen ? 'Salir fullscreen' : 'Fullscreen'}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleSaveFlowLayout}
+                        disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
+                        className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {flowRevisionSaving ? 'Guardando...' : 'Guardar revision'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => loadFlowLayout(session.access_token)}
+                        disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
+                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {flowRevisionLoading ? 'Cargando...' : 'Cargar ultima revision'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResetFlowLayout}
+                        disabled={flowRevisionSaving}
+                        className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:border-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Restablecer base
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportFlowPdf}
+                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                      >
+                        Descargar PDF
+                      </button>
+                      <button
+                        type="button"
+                        onClick={toggleFlowFullscreen}
+                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                      >
+                        {isFlowFullscreen ? 'Salir fullscreen' : 'Fullscreen'}
+                      </button>
+                    </div>
                   </div>
+
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <input
+                      value={flowRevisionNote}
+                      onChange={(event) => setFlowRevisionNote(event.target.value)}
+                      placeholder="Nota de revision (opcional)"
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
+                    />
+                    {flowLastSavedAt && (
+                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                        Ultima guardada: {formatDateTime(flowLastSavedAt)}
+                        {flowLastSavedBy ? ` · ${flowLastSavedBy}` : ''}
+                      </span>
+                    )}
+                  </div>
+
+                  {flowRevisionError && (
+                    <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                      {flowRevisionError}
+                    </div>
+                  )}
+                  {!flowRevisionError && flowRevisionMessage && (
+                    <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                      {flowRevisionMessage}
+                    </div>
+                  )}
 
                   <div className="overflow-x-auto">
                     <div style={{ minWidth: `${Math.round(flowDiagramFrame.width)}px` }}>
                       <div
                         onMouseDown={handleFlowMouseDown}
                         className={`relative overflow-hidden rounded-2xl border border-slate-200 bg-white select-none ${
-                          flowDragStart ? 'cursor-grabbing' : 'cursor-grab'
+                          flowDragStart || flowNodeDragStart ? 'cursor-grabbing' : 'cursor-grab'
                         }`}
                       >
                         <div
@@ -4407,8 +4686,10 @@ export default function AdminPage() {
                                 return (
                                   <g
                                     key={node.id}
+                                    data-flow-node="true"
+                                    onMouseDown={(event) => handleFlowNodeMouseDown(event, node.id)}
                                     onClick={() => handleFlowNodeSelect(node.id)}
-                                    style={{ cursor: 'pointer' }}
+                                    style={{ cursor: flowNodeDragStart?.nodeId === node.id ? 'grabbing' : 'grab' }}
                                     aria-label={`Paso ${code} - ${node.title}`}
                                   >
                                     <text x={x + 2} y={Math.max(18, y - 8)} fontSize={11} fontWeight={700} fill="#475569">
