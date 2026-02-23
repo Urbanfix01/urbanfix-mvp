@@ -1474,6 +1474,30 @@ const downloadCsv = (filename: string, rows: Array<Record<string, any>>) => {
   URL.revokeObjectURL(url);
 };
 
+const copyToClipboard = async (value: string) => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+  if (typeof document === 'undefined') {
+    throw new Error('clipboard-unavailable');
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+  if (!copied) {
+    throw new Error('clipboard-failed');
+  }
+};
+
 const formatShortDate = (value?: string | null) => {
   if (!value) return '';
   const parsed = new Date(value);
@@ -1494,6 +1518,36 @@ const getIsoDateFromOffset = (offsetDays: number) => {
 const getRoadmapOwnerLabel = (value?: string | null) => {
   const label = String(value || '').trim();
   return label || 'Sin responsable';
+};
+
+const buildRoadmapTicketShareText = (
+  item: RoadmapUpdateItem & Partial<{ overdue: boolean; dueSoon: boolean; ageDays: number }>
+) => {
+  const recentFeedback = (item.feedback || [])
+    .slice(-3)
+    .reverse()
+    .map((entry, index) => `${index + 1}. [${getRoadmapSentimentLabel(entry.sentiment)}] ${entry.body}`);
+
+  return [
+    '[TICKET ROADMAP URBANFIX]',
+    `ID: ${item.id}`,
+    `Titulo: ${item.title}`,
+    `Estado: ${getRoadmapStatusLabel(item.status)}`,
+    `Prioridad: ${getRoadmapPriorityLabel(item.priority)}`,
+    `Area: ${getRoadmapAreaLabel(item.area)}`,
+    `Sector: ${getRoadmapSectorLabel(item.sector)}`,
+    `Responsable: ${getRoadmapOwnerLabel(item.owner)}`,
+    `ETA: ${item.eta_date ? formatShortDate(item.eta_date) : 'Sin fecha'}`,
+    item.overdue ? 'SLA: ETA vencida' : item.dueSoon ? 'SLA: ETA <= 7 dias' : null,
+    `Actualizado: ${formatDateTime(item.updated_at)}`,
+    item.description ? `Descripcion: ${item.description}` : null,
+    'Feedback reciente:',
+    recentFeedback.length ? recentFeedback.join('\n') : 'Sin feedback cargado.',
+    '',
+    `Pedido para Codex: trabajar ticket ${item.id}.`,
+  ]
+    .filter(Boolean)
+    .join('\n');
 };
 
 const getDeltaLabel = (current: number, previous: number) => {
@@ -1611,6 +1665,7 @@ export default function AdminPage() {
   const [roadmapLoading, setRoadmapLoading] = useState(false);
   const [roadmapError, setRoadmapError] = useState('');
   const [roadmapMessage, setRoadmapMessage] = useState('');
+  const [roadmapCopiedId, setRoadmapCopiedId] = useState<string | null>(null);
   const [roadmapSearch, setRoadmapSearch] = useState('');
   const [roadmapStatusFilter, setRoadmapStatusFilter] = useState<'all' | RoadmapStatus>('all');
   const [roadmapAreaFilter, setRoadmapAreaFilter] = useState<'all' | RoadmapArea>('all');
@@ -2612,6 +2667,24 @@ export default function AdminPage() {
       }
     );
   };
+
+  const handleCopyRoadmapTicket = useCallback(
+    async (item: RoadmapUpdateItem & Partial<{ overdue: boolean; dueSoon: boolean; ageDays: number }>) => {
+      setRoadmapError('');
+      try {
+        const ticketText = buildRoadmapTicketShareText(item);
+        await copyToClipboard(ticketText);
+        setRoadmapCopiedId(item.id);
+        setRoadmapMessage(`Ticket copiado: ${item.id}`);
+        window.setTimeout(() => {
+          setRoadmapCopiedId((prev) => (prev === item.id ? null : prev));
+        }, 1800);
+      } catch (_error) {
+        setRoadmapError('No se pudo copiar el ticket. Reintenta.');
+      }
+    },
+    []
+  );
 
   const applyRoadmapSlaSuggestion = async (alert: RoadmapSlaAlert) => {
     const target = roadmapUpdates.find((item) => item.id === alert.roadmapId);
@@ -6881,6 +6954,13 @@ export default function AdminPage() {
                                 </p>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => void handleCopyRoadmapTicket(item)}
+                                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                                >
+                                  {roadmapCopiedId === item.id ? 'Copiado' : 'Copiar'}
+                                </button>
                                 {item.status === 'planned' && (
                                   <button
                                     type="button"
@@ -6987,6 +7067,13 @@ export default function AdminPage() {
                                 />
                                 Sel
                               </label>
+                              <button
+                                type="button"
+                                onClick={() => void handleCopyRoadmapTicket(item)}
+                                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800"
+                              >
+                                {roadmapCopiedId === item.id ? 'Copiado' : 'Copiar'}
+                              </button>
                               <select
                                 value={item.status}
                                 onChange={(event) => {
