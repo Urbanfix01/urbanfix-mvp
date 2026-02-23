@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native'; 
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 
 // --- IMPORTS DEL PROYECTO ---
 import { supabase } from '../../lib/supabase';
@@ -238,6 +239,16 @@ export default function ProfileScreen() {
     setIsEditing(false);
   };
 
+  const appSemver = Constants.expoConfig?.version || Constants.nativeAppVersion || '0.0.0';
+  const fallbackBuild =
+    Platform.OS === 'ios'
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Platform.OS === 'android'
+      ? String(Constants.expoConfig?.android?.versionCode ?? '')
+      : '';
+  const buildVersion = Constants.nativeBuildVersion || fallbackBuild || '';
+  const appVersionLabel = buildVersion ? `UrbanFix App v${appSemver} (${buildVersion})` : `UrbanFix App v${appSemver}`;
+
   // --- RENDER ---
   if (loading && !profile) return <View style={[styles.container, styles.center]}><ActivityIndicator color={COLORS.primary} /></View>;
 
@@ -443,7 +454,7 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>UrbanFix App v1.2.0</Text>
+        <Text style={styles.versionText}>{appVersionLabel}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
