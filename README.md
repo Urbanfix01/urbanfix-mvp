@@ -63,6 +63,21 @@ Puntos clave:
 - `npm run dev:web` (Next.js)
 - `npm run start:mobile` (Expo)
 - `npm run android`, `npm run ios`
+- `npm run roadmap:sync` (sincroniza cambios de codigo al Roadmap)
+
+## Auto-sync roadmap (Supabase)
+1) Crear `./.env.roadmap.local` usando `./.env.roadmap.example`.
+2) Elegir modo:
+- Endpoint: `ROADMAP_AUTOSYNC_URL` + `ROADMAP_AUTOSYNC_TOKEN`.
+- Directo Supabase: `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY`.
+3) Instalar hooks una vez por PC:
+- `scripts\\setup-git-hooks.cmd`
+4) Validar configuracion sin escribir datos:
+- `node scripts/roadmap-auto-sync.mjs --dry-run`
+
+Notas:
+- El hook `pre-push` ejecuta auto-sync antes de cada push.
+- Si endpoint falla y hay credenciales de Supabase, usa fallback directo.
 
 ## Politica de actualizacion del README
 Cada vez que se agregue una funcion nueva, se cambie el flujo principal, o se modifique el deploy/infra:
