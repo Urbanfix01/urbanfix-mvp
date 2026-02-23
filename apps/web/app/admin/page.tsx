@@ -561,6 +561,7 @@ const FLOW_CLASSIC_COLUMN_SHIFT: Record<FlowDiagramColumnId, number> = {
 };
 
 const FLOW_DIAGRAM_KEY = 'app_web_operativo';
+const FLOW_DIAGRAM_LOCAL_STORAGE_KEY = `urbanfix_flow_layout_${FLOW_DIAGRAM_KEY}`;
 
 const sanitizeFlowPositions = (value: unknown): FlowNodePosition[] => {
   if (!Array.isArray(value)) return [];
@@ -581,6 +582,66 @@ const sanitizeFlowPositions = (value: unknown): FlowNodePosition[] => {
 
 const getFlowNodePositions = (nodes: AppWebFlowNode[]): FlowNodePosition[] =>
   nodes.map((node) => ({ id: node.id, x: Math.round(node.x), y: Math.round(node.y) }));
+
+const isMissingFlowDiagramTableError = (value: unknown) => {
+  const message = String(value || '').toLowerCase();
+  return (
+    message.includes('flow_diagram_states') ||
+    message.includes('schema cache') ||
+    message.includes('could not find the table')
+  );
+};
+
+const readFlowLayoutFromLocalStorage = () => {
+  if (typeof window === 'undefined') return null as null | {
+    nodes: FlowNodePosition[];
+    note: string | null;
+    updated_at: string;
+    updated_by_label: string | null;
+  };
+  try {
+    const raw = window.localStorage.getItem(FLOW_DIAGRAM_LOCAL_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const nodes = sanitizeFlowPositions(parsed?.nodes);
+    if (!nodes.length) return null;
+    return {
+      nodes,
+      note: typeof parsed?.note === 'string' ? parsed.note : null,
+      updated_at: typeof parsed?.updated_at === 'string' ? parsed.updated_at : new Date().toISOString(),
+      updated_by_label: typeof parsed?.updated_by_label === 'string' ? parsed.updated_by_label : 'Local',
+    };
+  } catch {
+    return null;
+  }
+};
+
+const writeFlowLayoutToLocalStorage = (payload: {
+  nodes: FlowNodePosition[];
+  note?: string | null;
+  updated_by_label?: string | null;
+}) => {
+  if (typeof window === 'undefined') return null as null | {
+    nodes: FlowNodePosition[];
+    note: string | null;
+    updated_at: string;
+    updated_by_label: string | null;
+  };
+  const safeNodes = sanitizeFlowPositions(payload.nodes);
+  if (!safeNodes.length) return null;
+  const record = {
+    nodes: safeNodes,
+    note: payload.note ? String(payload.note) : null,
+    updated_at: new Date().toISOString(),
+    updated_by_label: payload.updated_by_label || 'Local',
+  };
+  try {
+    window.localStorage.setItem(FLOW_DIAGRAM_LOCAL_STORAGE_KEY, JSON.stringify(record));
+  } catch {
+    return null;
+  }
+  return record;
+};
 
 const mergeFlowNodesWithPositions = (positions: FlowNodePosition[]) => {
   const map = new Map(positions.map((position) => [position.id, position]));
@@ -1450,17 +1511,48 @@ export default function AdminPage() {
           setFlowRevisionMessage('Se cargó la última revisión guardada.');
         }
       } else {
-        setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
-        setFlowLayoutDirty(false);
-        setFlowLastSavedAt(null);
-        setFlowLastSavedBy(null);
-        if (!options?.silent) {
-          setFlowRevisionMessage('No hay revisión guardada todavía.');
+        const localState = readFlowLayoutFromLocalStorage();
+        if (localState?.nodes?.length) {
+          setFlowNodes(mergeFlowNodesWithPositions(localState.nodes));
+          setFlowLayoutDirty(false);
+          setFlowLastSavedAt(localState.updated_at || null);
+          setFlowLastSavedBy(localState.updated_by_label || 'Local');
+          if (!options?.silent) {
+            setFlowRevisionMessage('Se cargó una revisión local.');
+          }
+        } else {
+          setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
+          setFlowLayoutDirty(false);
+          setFlowLastSavedAt(null);
+          setFlowLastSavedBy(null);
+          if (!options?.silent) {
+            setFlowRevisionMessage('No hay revisión guardada todavía.');
+          }
         }
       }
     } catch (error: any) {
+      const message = error?.message || 'No se pudo cargar la revisión del flujo.';
+      if (isMissingFlowDiagramTableError(message)) {
+        const localState = readFlowLayoutFromLocalStorage();
+        if (localState?.nodes?.length) {
+          setFlowNodes(mergeFlowNodesWithPositions(localState.nodes));
+          setFlowLayoutDirty(false);
+          setFlowLastSavedAt(localState.updated_at || null);
+          setFlowLastSavedBy(localState.updated_by_label || 'Local');
+          if (!options?.silent) {
+            setFlowRevisionMessage(
+              'Se cargó revisión local. Falta aplicar migración de base para sincronizar con Supabase.'
+            );
+          }
+        } else {
+          if (!options?.silent) {
+            setFlowRevisionError('Falta migración de base para guardar/cargar remoto. Mientras tanto, usa guardado local.');
+          }
+        }
+        return;
+      }
       if (!options?.silent) {
-        setFlowRevisionError(error?.message || 'No se pudo cargar la revisión del flujo.');
+        setFlowRevisionError(message);
       }
     } finally {
       setFlowRevisionLoading(false);
@@ -2095,6 +2187,8 @@ export default function AdminPage() {
     setFlowRevisionSaving(true);
     setFlowRevisionError('');
     setFlowRevisionMessage('');
+    const note = flowRevisionNote.trim() || null;
+    const positions = getFlowNodePositions(flowNodes);
     try {
       const response = await fetch('/api/admin/flow-diagram', {
         method: 'POST',
@@ -2104,8 +2198,8 @@ export default function AdminPage() {
         },
         body: JSON.stringify({
           diagram_key: FLOW_DIAGRAM_KEY,
-          note: flowRevisionNote.trim() || null,
-          nodes: getFlowNodePositions(flowNodes),
+          note,
+          nodes: positions,
         }),
       });
       const data = await response.json().catch(() => ({}));
@@ -2122,7 +2216,26 @@ export default function AdminPage() {
       setFlowLastSavedBy(savedState?.updated_by_label || null);
       setFlowRevisionMessage('Revisión guardada correctamente.');
     } catch (error: any) {
-      setFlowRevisionError(error?.message || 'No se pudo guardar la revisión del flujo.');
+      const message = error?.message || 'No se pudo guardar la revisión del flujo.';
+      if (isMissingFlowDiagramTableError(message)) {
+        const localState = writeFlowLayoutToLocalStorage({
+          nodes: positions,
+          note,
+          updated_by_label: session?.user?.email || 'Local',
+        });
+        if (localState) {
+          setFlowLayoutDirty(false);
+          setFlowLastSavedAt(localState.updated_at || null);
+          setFlowLastSavedBy(localState.updated_by_label || 'Local');
+          setFlowRevisionMessage(
+            'Guardado local exitoso. Falta migración de base para habilitar guardado remoto en Supabase.'
+          );
+        } else {
+          setFlowRevisionError('No se pudo guardar en Supabase ni en almacenamiento local.');
+        }
+      } else {
+        setFlowRevisionError(message);
+      }
     } finally {
       setFlowRevisionSaving(false);
     }
@@ -4473,110 +4586,118 @@ export default function AdminPage() {
                     </span>
                   </div>
 
-                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => adjustFlowZoom(-0.1)}
-                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
-                      >
-                        Zoom -
-                      </button>
-                      <button
-                        type="button"
-                        onClick={resetFlowZoom}
-                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
-                      >
-                        100%
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => adjustFlowZoom(0.1)}
-                        className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
-                      >
-                        Zoom +
-                      </button>
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
-                        Escala {Math.round(flowZoom * 100)}%
-                      </span>
-                      <span
-                        className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
-                          flowLayoutDirty
-                            ? 'border-amber-200 bg-amber-50 text-amber-700'
-                            : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        }`}
-                      >
-                        {flowLayoutDirty ? 'Cambios sin guardar' : 'Layout sincronizado'}
-                      </span>
+                  <div
+                    className={`mb-3 space-y-3 ${
+                      isFlowFullscreen
+                        ? 'sticky top-2 z-30 rounded-2xl border border-slate-200 bg-slate-50/95 p-3 backdrop-blur'
+                        : ''
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => adjustFlowZoom(-0.1)}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          Zoom -
+                        </button>
+                        <button
+                          type="button"
+                          onClick={resetFlowZoom}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          100%
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustFlowZoom(0.1)}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          Zoom +
+                        </button>
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                          Escala {Math.round(flowZoom * 100)}%
+                        </span>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${
+                            flowLayoutDirty
+                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                              : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          }`}
+                        >
+                          {flowLayoutDirty ? 'Cambios sin guardar' : 'Layout sincronizado'}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleSaveFlowLayout}
+                          disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
+                          className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {flowRevisionSaving ? 'Guardando...' : 'Guardar revision'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => loadFlowLayout(session.access_token)}
+                          disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
+                          className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {flowRevisionLoading ? 'Cargando...' : 'Cargar ultima revision'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleResetFlowLayout}
+                          disabled={flowRevisionSaving}
+                          className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:border-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Restablecer base
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportFlowPdf}
+                          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                        >
+                          Descargar PDF
+                        </button>
+                        <button
+                          type="button"
+                          onClick={toggleFlowFullscreen}
+                          className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                        >
+                          {isFlowFullscreen ? 'Salir fullscreen' : 'Fullscreen'}
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSaveFlowLayout}
-                        disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
-                        className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {flowRevisionSaving ? 'Guardando...' : 'Guardar revision'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => loadFlowLayout(session.access_token)}
-                        disabled={flowRevisionSaving || flowRevisionLoading || !session?.access_token}
-                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {flowRevisionLoading ? 'Cargando...' : 'Cargar ultima revision'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleResetFlowLayout}
-                        disabled={flowRevisionSaving}
-                        className="rounded-full border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700 transition hover:border-amber-400 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Restablecer base
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleExportFlowPdf}
-                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                      >
-                        Descargar PDF
-                      </button>
-                      <button
-                        type="button"
-                        onClick={toggleFlowFullscreen}
-                        className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
-                      >
-                        {isFlowFullscreen ? 'Salir fullscreen' : 'Fullscreen'}
-                      </button>
+                      <input
+                        value={flowRevisionNote}
+                        onChange={(event) => setFlowRevisionNote(event.target.value)}
+                        placeholder="Nota de revision (opcional)"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
+                      />
+                      {flowLastSavedAt && (
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
+                          Ultima guardada: {formatDateTime(flowLastSavedAt)}
+                          {flowLastSavedBy ? ` · ${flowLastSavedBy}` : ''}
+                        </span>
+                      )}
                     </div>
-                  </div>
 
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <input
-                      value={flowRevisionNote}
-                      onChange={(event) => setFlowRevisionNote(event.target.value)}
-                      placeholder="Nota de revision (opcional)"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
-                    />
-                    {flowLastSavedAt && (
-                      <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
-                        Ultima guardada: {formatDateTime(flowLastSavedAt)}
-                        {flowLastSavedBy ? ` · ${flowLastSavedBy}` : ''}
-                      </span>
+                    {flowRevisionError && (
+                      <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                        {flowRevisionError}
+                      </div>
+                    )}
+                    {!flowRevisionError && flowRevisionMessage && (
+                      <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+                        {flowRevisionMessage}
+                      </div>
                     )}
                   </div>
-
-                  {flowRevisionError && (
-                    <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                      {flowRevisionError}
-                    </div>
-                  )}
-                  {!flowRevisionError && flowRevisionMessage && (
-                    <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
-                      {flowRevisionMessage}
-                    </div>
-                  )}
 
                   <div className="overflow-x-auto">
                     <div style={{ minWidth: `${Math.round(flowDiagramFrame.width)}px` }}>

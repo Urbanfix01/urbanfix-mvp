@@ -73,6 +73,18 @@ const normalizeNodes = (value: unknown): FlowNodePosition[] | null => {
   return Array.from(map.values());
 };
 
+const toApiErrorMessage = (error: any, fallback: string) => {
+  const message = String(error?.message || fallback);
+  const normalized = message.toLowerCase();
+  if (
+    normalized.includes('flow_diagram_states') &&
+    (normalized.includes('schema cache') || normalized.includes('could not find the table'))
+  ) {
+    return 'Falta la migración de base para flow_diagram_states. Ejecuta las migraciones de Supabase y recarga.';
+  }
+  return message;
+};
+
 const resolveProfileLabel = (profile?: { business_name?: string | null; full_name?: string | null; email?: string | null }) =>
   profile?.business_name || profile?.full_name || profile?.email || 'Sin usuario';
 
@@ -127,7 +139,7 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: toApiErrorMessage(error, 'Flow diagram query failed') }, { status: 500 });
   }
 
   if (!data) {
@@ -186,7 +198,10 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (error || !data) {
-    return NextResponse.json({ error: error?.message || 'No se pudo guardar la revisión.' }, { status: 500 });
+    return NextResponse.json(
+      { error: toApiErrorMessage(error, 'No se pudo guardar la revisión.') },
+      { status: 500 }
+    );
   }
 
   const labels = await getLabelsByUserId([user.id]);
