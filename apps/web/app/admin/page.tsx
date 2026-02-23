@@ -125,6 +125,19 @@ type RoadmapUpdateItem = {
   feedback: RoadmapFeedbackItem[];
 };
 
+type RoadmapSlaAlertRule = 'blocked_stale' | 'high_overdue' | 'stale_in_progress' | 'overdue_unassigned';
+
+type RoadmapSlaAlert = {
+  id: string;
+  roadmapId: string;
+  rule: RoadmapSlaAlertRule;
+  severity: 'critical' | 'warning';
+  title: string;
+  detail: string;
+  actionLabel: string;
+  score: number;
+};
+
 type SubscriptionItem = {
   id: string;
   user_id: string;
@@ -545,6 +558,10 @@ const ROADMAP_STATUS_URGENCY: Record<RoadmapStatus, number> = {
   planned: 1,
   done: 0,
 };
+
+const ROADMAP_SLA_BLOCKED_DAYS = 2;
+const ROADMAP_SLA_IN_PROGRESS_DAYS = 7;
+const ROADMAP_SLA_ALERT_LIMIT = 10;
 
 const FLOW_DIAGRAM_WIDTH = 1160;
 const FLOW_DIAGRAM_HEIGHT = 760;
@@ -1464,6 +1481,16 @@ const formatShortDate = (value?: string | null) => {
   return parsed.toLocaleDateString('es-AR');
 };
 
+const getIsoDateFromOffset = (offsetDays: number) => {
+  const next = new Date();
+  next.setHours(0, 0, 0, 0);
+  next.setDate(next.getDate() + offsetDays);
+  const year = next.getFullYear();
+  const month = String(next.getMonth() + 1).padStart(2, '0');
+  const day = String(next.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 const getRoadmapOwnerLabel = (value?: string | null) => {
   const label = String(value || '').trim();
   return label || 'Sin responsable';
@@ -2301,6 +2328,40 @@ export default function AdminPage() {
     };
     const status = statusByAction[action];
     void patchRoadmapUpdate(item.id, { status });
+  };
+
+  const applyRoadmapSlaSuggestion = (alert: RoadmapSlaAlert) => {
+    const target = roadmapUpdates.find((item) => item.id === alert.roadmapId);
+    if (!target) return;
+    if (roadmapUpdatingId === target.id) return;
+
+    if (alert.rule === 'blocked_stale') {
+      runRoadmapQuickAction(target, 'unblock');
+      return;
+    }
+
+    if (alert.rule === 'high_overdue') {
+      if (target.status === 'planned') {
+        runRoadmapQuickAction(target, 'start');
+      } else {
+        runRoadmapQuickAction(target, 'resolve');
+      }
+      return;
+    }
+
+    if (alert.rule === 'stale_in_progress') {
+      void patchRoadmapUpdate(target.id, { eta_date: getIsoDateFromOffset(3) });
+      return;
+    }
+
+    if (alert.rule === 'overdue_unassigned') {
+      const owner = session?.user?.email || 'Equipo admin';
+      if (target.status === 'planned') {
+        void patchRoadmapUpdate(target.id, { owner, status: 'in_progress' });
+      } else {
+        void patchRoadmapUpdate(target.id, { owner });
+      }
+    }
   };
 
   const addRoadmapFeedback = async (roadmapId: string) => {
@@ -3813,6 +3874,88 @@ export default function AdminPage() {
       return referenceMs !== null && referenceMs < staleThresholdMs;
     }).length;
   }, [roadmapReportItems]);
+
+  const roadmapSlaAlerts = useMemo(() => {
+    const nowMs = Date.now();
+    const todayMs = startOfDay(new Date()).getTime();
+    const alerts: RoadmapSlaAlert[] = [];
+
+    roadmapReportItems.forEach((item) => {
+      if (item.status === 'done') return;
+      const updatedMs = toTimeMs(item.updated_at) ?? toTimeMs(item.created_at) ?? nowMs;
+      const staleDays = Math.max(0, Math.round((nowMs - updatedMs) / DAY_MS));
+      const etaMs = toTimeMs(item.eta_date);
+      const overdueDays = etaMs === null ? 0 : Math.max(0, Math.round((todayMs - etaMs) / DAY_MS));
+      const hasOwner = String(item.owner || '').trim().length > 0;
+
+      if (item.status === 'blocked' && staleDays >= ROADMAP_SLA_BLOCKED_DAYS) {
+        alerts.push({
+          id: `${item.id}-blocked-stale`,
+          roadmapId: item.id,
+          rule: 'blocked_stale',
+          severity: 'critical',
+          title: item.title,
+          detail: `Bloqueado hace ${staleDays} día(s). Requiere destrabe inmediato.`,
+          actionLabel: 'Desbloquear',
+          score: 600 + staleDays * 2,
+        });
+      }
+
+      if (item.priority === 'high' && overdueDays > 0) {
+        alerts.push({
+          id: `${item.id}-high-overdue`,
+          roadmapId: item.id,
+          rule: 'high_overdue',
+          severity: 'critical',
+          title: item.title,
+          detail: `Prioridad alta con ETA vencida hace ${overdueDays} día(s).`,
+          actionLabel: item.status === 'planned' ? 'Iniciar' : 'Resolver',
+          score: 560 + overdueDays * 3,
+        });
+      }
+
+      if (item.status === 'in_progress' && staleDays >= ROADMAP_SLA_IN_PROGRESS_DAYS) {
+        alerts.push({
+          id: `${item.id}-stale-progress`,
+          roadmapId: item.id,
+          rule: 'stale_in_progress',
+          severity: 'warning',
+          title: item.title,
+          detail: `En progreso sin movimiento SLA (${staleDays} día/s).`,
+          actionLabel: 'Extender ETA +3d',
+          score: 360 + staleDays,
+        });
+      }
+
+      if (!hasOwner && overdueDays > 0) {
+        alerts.push({
+          id: `${item.id}-overdue-unassigned`,
+          roadmapId: item.id,
+          rule: 'overdue_unassigned',
+          severity: 'warning',
+          title: item.title,
+          detail: `Vencida hace ${overdueDays} día(s) y sin responsable asignado.`,
+          actionLabel: 'Asignarme',
+          score: 340 + overdueDays * 2,
+        });
+      }
+    });
+
+    return alerts
+      .sort((a, b) => {
+        if (a.severity !== b.severity) return a.severity === 'critical' ? -1 : 1;
+        return b.score - a.score;
+      })
+      .slice(0, ROADMAP_SLA_ALERT_LIMIT);
+  }, [roadmapReportItems]);
+
+  const roadmapSlaSummary = useMemo(
+    () => ({
+      critical: roadmapSlaAlerts.filter((alert) => alert.severity === 'critical').length,
+      warning: roadmapSlaAlerts.filter((alert) => alert.severity === 'warning').length,
+    }),
+    [roadmapSlaAlerts]
+  );
 
   const roadmapOwnerOpenLoad = useMemo(() => {
     const todayMs = startOfDay(new Date()).getTime();
@@ -5538,6 +5681,59 @@ export default function AdminPage() {
                   </div>
 
                   <p className={`mt-2 text-xs ${roadmapExecutionSignal.textClass}`}>{roadmapExecutionSignal.description}</p>
+
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-white p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Alertas SLA</p>
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                        <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
+                          Críticas: {roadmapSlaSummary.critical}
+                        </span>
+                        <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
+                          Advertencias: {roadmapSlaSummary.warning}
+                        </span>
+                      </div>
+                    </div>
+                    {roadmapSlaAlerts.length === 0 ? (
+                      <p className="mt-3 text-xs text-slate-500">Sin alertas SLA para los filtros actuales.</p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        {roadmapSlaAlerts.slice(0, 6).map((alert) => {
+                          const isUpdating = roadmapUpdatingId === alert.roadmapId;
+                          return (
+                            <div
+                              key={alert.id}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                            >
+                              <div className="min-w-[220px] flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span
+                                    className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                                      alert.severity === 'critical'
+                                        ? 'border border-rose-200 bg-rose-50 text-rose-700'
+                                        : 'border border-amber-200 bg-amber-50 text-amber-700'
+                                    }`}
+                                  >
+                                    {alert.severity === 'critical' ? 'Crítica' : 'Advertencia'}
+                                  </span>
+                                  <p className="text-xs font-semibold text-slate-800">{alert.title}</p>
+                                </div>
+                                <p className="mt-1 text-[11px] text-slate-500">{alert.detail}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => applyRoadmapSlaSuggestion(alert)}
+                                disabled={isUpdating}
+                                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                              >
+                                {isUpdating ? 'Aplicando...' : alert.actionLabel}
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                     <div className="rounded-xl border border-slate-200 bg-white px-3 py-2">
