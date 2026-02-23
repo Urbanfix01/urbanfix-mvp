@@ -1624,6 +1624,9 @@ export default function AdminPage() {
   const [selectedRoadmapIds, setSelectedRoadmapIds] = useState<string[]>([]);
   const [roadmapBulkOwnerDraft, setRoadmapBulkOwnerDraft] = useState('');
   const [roadmapBulkEtaDraft, setRoadmapBulkEtaDraft] = useState('');
+  const [roadmapBulkAreaDraft, setRoadmapBulkAreaDraft] = useState<'keep' | RoadmapArea>('keep');
+  const [roadmapBulkPriorityDraft, setRoadmapBulkPriorityDraft] = useState<'keep' | RoadmapPriority>('keep');
+  const [roadmapBulkSectorDraft, setRoadmapBulkSectorDraft] = useState<'keep' | RoadmapSector>('keep');
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
   const [roadmapFeedbackDrafts, setRoadmapFeedbackDrafts] = useState<Record<string, string>>({});
   const [roadmapFeedbackSentiments, setRoadmapFeedbackSentiments] = useState<Record<string, RoadmapSentiment>>({});
@@ -2364,7 +2367,9 @@ export default function AdminPage() {
     }
   };
 
-  const runRoadmapBulkMetaAction = async (action: 'set_owner' | 'clear_owner' | 'set_eta' | 'clear_eta') => {
+  const runRoadmapBulkMetaAction = async (
+    action: 'set_owner' | 'clear_owner' | 'set_eta' | 'clear_eta' | 'set_area' | 'set_priority' | 'set_sector'
+  ) => {
     if (!session?.access_token || roadmapBulkUpdating) return;
     if (!selectedRoadmapIds.length) return;
 
@@ -2378,6 +2383,9 @@ export default function AdminPage() {
 
     const ownerTarget = roadmapBulkOwnerDraft.trim();
     const etaTarget = roadmapBulkEtaDraft || null;
+    const areaTarget = roadmapBulkAreaDraft === 'keep' ? null : roadmapBulkAreaDraft;
+    const priorityTarget = roadmapBulkPriorityDraft === 'keep' ? null : roadmapBulkPriorityDraft;
+    const sectorTarget = roadmapBulkSectorDraft === 'keep' ? null : roadmapBulkSectorDraft;
 
     if (action === 'set_owner' && !ownerTarget) {
       setRoadmapError('');
@@ -2391,10 +2399,31 @@ export default function AdminPage() {
       return;
     }
 
+    if (action === 'set_area' && !areaTarget) {
+      setRoadmapError('');
+      setRoadmapMessage('Selecciona un área para aplicar en lote.');
+      return;
+    }
+
+    if (action === 'set_priority' && !priorityTarget) {
+      setRoadmapError('');
+      setRoadmapMessage('Selecciona una prioridad para aplicar en lote.');
+      return;
+    }
+
+    if (action === 'set_sector' && !sectorTarget) {
+      setRoadmapError('');
+      setRoadmapMessage('Selecciona un sector para aplicar en lote.');
+      return;
+    }
+
     const updates = selectedItems
       .map((item) => {
         const currentOwner = item.owner?.trim() || null;
         const currentEta = item.eta_date || null;
+        const currentArea = item.area;
+        const currentPriority = item.priority;
+        const currentSector = item.sector;
 
         if (action === 'set_owner') {
           if (currentOwner === ownerTarget) return null;
@@ -2423,6 +2452,37 @@ export default function AdminPage() {
           };
         }
 
+        if (action === 'set_area') {
+          if (currentArea === areaTarget) return null;
+          return {
+            id: item.id,
+            patch: { area: areaTarget },
+            auditMessage: `Acción masiva (Área): ${getRoadmapAreaLabel(currentArea)} -> ${getRoadmapAreaLabel(areaTarget || 'web')}.`,
+          };
+        }
+
+        if (action === 'set_priority') {
+          if (currentPriority === priorityTarget) return null;
+          return {
+            id: item.id,
+            patch: { priority: priorityTarget },
+            auditMessage: `Acción masiva (Prioridad): ${getRoadmapPriorityLabel(currentPriority)} -> ${getRoadmapPriorityLabel(
+              priorityTarget || 'medium'
+            )}.`,
+          };
+        }
+
+        if (action === 'set_sector') {
+          if (currentSector === sectorTarget) return null;
+          return {
+            id: item.id,
+            patch: { sector: sectorTarget },
+            auditMessage: `Acción masiva (Sector): ${getRoadmapSectorLabel(currentSector)} -> ${getRoadmapSectorLabel(
+              sectorTarget || 'funcionalidades'
+            )}.`,
+          };
+        }
+
         if (!currentEta) return null;
         return {
           id: item.id,
@@ -2430,7 +2490,17 @@ export default function AdminPage() {
           auditMessage: `Acción masiva (ETA): ${formatShortDate(currentEta)} -> Sin fecha.`,
         };
       })
-      .filter(Boolean) as Array<{ id: string; patch: { owner?: string | null; eta_date?: string | null }; auditMessage: string }>;
+      .filter(Boolean) as Array<{
+      id: string;
+      patch: {
+        owner?: string | null;
+        eta_date?: string | null;
+        area?: RoadmapArea | null;
+        priority?: RoadmapPriority | null;
+        sector?: RoadmapSector | null;
+      };
+      auditMessage: string;
+    }>;
 
     if (!updates.length) {
       setRoadmapError('');
@@ -6695,6 +6765,71 @@ export default function AdminPage() {
                           className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         >
                           Quitar ETA
+                        </button>
+                        <select
+                          value={roadmapBulkAreaDraft}
+                          onChange={(event) => setRoadmapBulkAreaDraft(event.target.value as 'keep' | RoadmapArea)}
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        >
+                          <option value="keep">Area masiva</option>
+                          {ROADMAP_AREA_OPTIONS.map((option) => (
+                            <option key={`bulk-area-${option.value}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('set_area')}
+                          disabled={roadmapBulkUpdating || roadmapBulkAreaDraft === 'keep'}
+                          className="rounded-full border border-violet-200 bg-violet-50 px-3 py-1 text-[11px] font-semibold text-violet-700 transition hover:bg-violet-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Aplicar area
+                        </button>
+                        <select
+                          value={roadmapBulkPriorityDraft}
+                          onChange={(event) =>
+                            setRoadmapBulkPriorityDraft(event.target.value as 'keep' | RoadmapPriority)
+                          }
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        >
+                          <option value="keep">Prioridad masiva</option>
+                          {ROADMAP_PRIORITY_OPTIONS.map((option) => (
+                            <option key={`bulk-priority-${option.value}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('set_priority')}
+                          disabled={roadmapBulkUpdating || roadmapBulkPriorityDraft === 'keep'}
+                          className="rounded-full border border-fuchsia-200 bg-fuchsia-50 px-3 py-1 text-[11px] font-semibold text-fuchsia-700 transition hover:bg-fuchsia-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Aplicar prioridad
+                        </button>
+                        <select
+                          value={roadmapBulkSectorDraft}
+                          onChange={(event) => setRoadmapBulkSectorDraft(event.target.value as 'keep' | RoadmapSector)}
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        >
+                          <option value="keep">Sector masivo</option>
+                          {ROADMAP_SECTOR_OPTIONS.map((option) => (
+                            <option key={`bulk-sector-${option.value}`} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('set_sector')}
+                          disabled={roadmapBulkUpdating || roadmapBulkSectorDraft === 'keep'}
+                          className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Aplicar sector
                         </button>
                       </div>
                     </div>
