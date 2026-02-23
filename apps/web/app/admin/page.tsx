@@ -4076,6 +4076,10 @@ export default function AdminPage() {
   );
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
+  const roadmapCurrentCount = useMemo(
+    () => roadmapUpdates.filter((item) => item.is_current).length,
+    [roadmapUpdates]
+  );
 
   const adminExecutionPulse = useMemo(() => {
     if (roadmapTotals.blocked > 0) {
@@ -4095,6 +4099,12 @@ export default function AdminPage() {
       badgeClass: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
     };
   }, [roadmapOpenCount, roadmapTotals.blocked]);
+
+  const premiumSurfaceClass =
+    'rounded-[30px] border border-slate-200/80 bg-white/95 p-6 shadow-[0_16px_40px_rgba(15,23,42,0.12)] backdrop-blur-[2px]';
+  const premiumPanelClass =
+    'rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_10px_28px_rgba(15,23,42,0.09)]';
+  const premiumMutedPanelClass = 'rounded-2xl border border-slate-200/80 bg-slate-50/90 p-4';
 
   const roadmapReportItems = filteredRoadmapUpdates;
 
@@ -4748,20 +4758,40 @@ export default function AdminPage() {
             <>
               {activeTab === 'resumen' && (
                 <>
-                  <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {kpis.map((card) => (
-                      <div
-                    key={card.label}
-                    className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-                  >
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
-                      <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
+                  <section className="mt-6 rounded-[30px] border border-slate-200/80 bg-[linear-gradient(125deg,rgba(15,23,42,0.96)_0%,rgba(30,41,59,0.94)_54%,rgba(15,23,42,0.88)_100%)] p-5 shadow-[0_18px_44px_rgba(15,23,42,0.28)]">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Executive pulse</p>
+                        <h3 className="mt-1 text-xl font-semibold text-white">Resumen operativo de plataforma</h3>
+                        <p className="mt-1 text-sm text-slate-300">
+                          Señales clave de uso, monetización y soporte para gestionar operación diaria.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        <span className="rounded-full border border-slate-500/60 bg-slate-700/45 px-3 py-1.5 font-semibold text-slate-100">
+                          Ingresos 12m: {formatCurrency(overview.kpis.revenueTotal)}
+                        </span>
+                        <span className="rounded-full border border-slate-500/60 bg-slate-700/45 px-3 py-1.5 font-semibold text-slate-100">
+                          MRR: {formatCurrency(overview.kpis.mrr)}
+                        </span>
+                        <span className="rounded-full border border-slate-500/60 bg-slate-700/45 px-3 py-1.5 font-semibold text-slate-100">
+                          ARR: {formatCurrency(overview.kpis.arr)}
+                        </span>
+                      </div>
                     </div>
-                  ))}
-                </section>
+                  </section>
+
+                  <section className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {kpis.map((card) => (
+                      <div key={card.label} className={premiumPanelClass}>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
+                        <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
+                      </div>
+                    ))}
+                  </section>
 
                   <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className={premiumPanelClass}>
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">Google Play (Android)</h3>
                         <span className="text-xs text-slate-400">Últimos 14 días</span>
@@ -4850,7 +4880,7 @@ export default function AdminPage() {
                       )}
                     </div>
 
-                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div className={premiumPanelClass}>
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">Crashes y ANR</h3>
                         <span className="text-xs text-slate-400">
@@ -4885,7 +4915,7 @@ export default function AdminPage() {
 
                   <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
                     <div className="space-y-6">
-                      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                      <div className={premiumPanelClass}>
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-semibold text-slate-900">Mensajes recientes</h3>
                       <span className="text-xs text-slate-400">Últimos 10</span>
@@ -4916,7 +4946,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
                       <span className="text-xs text-slate-400">Últimos 12</span>
@@ -4951,7 +4981,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-6">
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
                       <span className="text-xs text-slate-400">Últimas 10</span>
@@ -4991,7 +5021,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
                       <span className="text-xs text-slate-400">Últimos 10</span>
@@ -5026,7 +5056,7 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h3>
                       <span className="text-xs text-slate-400">Últimos 30 días</span>
@@ -5192,46 +5222,60 @@ export default function AdminPage() {
           )}
           {activeTab === 'facturacion' && (
             <>
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-xs text-slate-400">
-                    Ingresos calculados desde {formatDateTime(overview.kpis.revenueSince)}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">Periodo activo: {billingWindow.label}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1">
-                    {BILLING_RANGE_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => setBillingRange(option.value)}
-                        className={`rounded-xl px-3 py-1.5 text-[11px] font-semibold transition ${
-                          billingRange === option.value
-                            ? 'bg-slate-900 text-white shadow-sm'
-                            : 'text-slate-600 hover:bg-slate-100'
-                        }`}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
+              <div className="mt-6 rounded-[30px] border border-slate-200/80 bg-[linear-gradient(130deg,rgba(248,250,252,0.96)_0%,rgba(240,249,255,0.9)_52%,rgba(255,255,255,0.94)_100%)] p-5 shadow-[0_16px_40px_rgba(15,23,42,0.1)]">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Control deck</p>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">
+                      Ingresos calculados desde {formatDateTime(overview.kpis.revenueSince)}
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">Periodo activo: {billingWindow.label}</p>
                   </div>
-                  <select
-                    value={billingExportType}
-                    onChange={(event) => setBillingExportType(event.target.value as BillingExportType)}
-                    className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                  >
-                    <option value="subscriptions">Exportar suscripciones</option>
-                    <option value="payments">Exportar pagos</option>
-                    <option value="zones">Exportar zonas</option>
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleBillingExport}
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                  >
-                    Exportar
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                      {BILLING_RANGE_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setBillingRange(option.value)}
+                          className={`rounded-xl px-3 py-1.5 text-[11px] font-semibold transition ${
+                            billingRange === option.value
+                              ? 'bg-slate-900 text-white shadow-sm'
+                              : 'text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                    <select
+                      value={billingExportType}
+                      onChange={(event) => setBillingExportType(event.target.value as BillingExportType)}
+                      className="rounded-full border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                    >
+                      <option value="subscriptions">Exportar suscripciones</option>
+                      <option value="payments">Exportar pagos</option>
+                      <option value="zones">Exportar zonas</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={handleBillingExport}
+                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Exportar
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
+                    Total periodo: {formatCurrency(billingTimeline.totalCurrent)}
+                  </span>
+                  <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 font-semibold text-sky-700">
+                    Variación: {billingKpiCards[0]?.delta.text || 'Sin variación'}
+                  </span>
+                  <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">
+                    Ticket promedio: {formatCurrency(billingTimeline.averageTicketCurrent)}
+                  </span>
                 </div>
               </div>
 
@@ -5239,19 +5283,27 @@ export default function AdminPage() {
                 {billingKpiCards.map((card, index) => (
                   <div
                     key={card.key}
-                    className={`rounded-3xl border bg-white p-5 shadow-sm ${
-                      index === 0 ? 'border-slate-300 md:col-span-2 lg:col-span-2' : 'border-slate-200'
+                    className={`rounded-[28px] border p-5 shadow-[0_10px_28px_rgba(15,23,42,0.1)] ${
+                      index === 0
+                        ? 'border-slate-300 bg-gradient-to-r from-slate-900 to-slate-800 text-white md:col-span-2 lg:col-span-2'
+                        : 'border-slate-200/80 bg-white/95'
                     }`}
                   >
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
-                    <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
-                    <p className={`mt-2 text-xs font-semibold ${card.delta.tone}`}>{card.delta.text}</p>
-                    <p className="mt-1 text-[11px] text-slate-500">{card.helper}</p>
+                    <p className={`text-[11px] uppercase tracking-[0.2em] ${index === 0 ? 'text-slate-300' : 'text-slate-400'}`}>
+                      {card.label}
+                    </p>
+                    <p className={`mt-3 text-2xl font-semibold ${index === 0 ? 'text-white' : 'text-slate-900'}`}>
+                      {card.value}
+                    </p>
+                    <p className={`mt-2 text-xs font-semibold ${index === 0 ? 'text-emerald-300' : card.delta.tone}`}>
+                      {card.delta.text}
+                    </p>
+                    <p className={`mt-1 text-[11px] ${index === 0 ? 'text-slate-300' : 'text-slate-500'}`}>{card.helper}</p>
                   </div>
                 ))}
               </section>
 
-              <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <section className={`mt-6 ${premiumPanelClass}`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Evolución</p>
@@ -5271,7 +5323,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={`mt-4 ${premiumMutedPanelClass}`}>
                   <svg viewBox="0 0 100 42" preserveAspectRatio="none" className="h-36 w-full">
                     <polyline points="0,38 100,38" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
                     <polyline points="0,21 100,21" fill="none" stroke="#E2E8F0" strokeWidth="0.7" />
@@ -5328,7 +5380,7 @@ export default function AdminPage() {
               </section>
 
               <section className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className={premiumPanelClass}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa</p>
@@ -5399,7 +5451,7 @@ export default function AdminPage() {
                   )}
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className={premiumPanelClass}>
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Detalle</p>
                     <h3 className="text-lg font-semibold text-slate-900">Ingresos por zona</h3>
@@ -5467,7 +5519,7 @@ export default function AdminPage() {
               </section>
 
               <section className="mt-8 grid gap-6 lg:grid-cols-2">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className={premiumPanelClass}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
                     <span className="text-xs text-slate-400">Últimas 10</span>
@@ -5505,7 +5557,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className={premiumPanelClass}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
                     <span className="text-xs text-slate-400">Últimos 10</span>
@@ -6145,7 +6197,9 @@ export default function AdminPage() {
             </section>
           )}
           {activeTab === 'roadmap' && (
-            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
+            <section
+              className={`mt-6 ${premiumSurfaceClass} bg-[linear-gradient(160deg,rgba(255,255,255,0.97)_0%,rgba(248,250,252,0.95)_50%,rgba(240,249,255,0.86)_100%)]`}
+            >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Producto</p>
@@ -6182,14 +6236,25 @@ export default function AdminPage() {
               <p className="mt-3 text-xs text-slate-500">
                 Reportes calculados con filtros activos. Ideal para status semanal y seguimiento de bloqueos.
               </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                <span className={`rounded-full px-3 py-1.5 font-semibold ${roadmapExecutionSignal.badgeClass}`}>
+                  Ventana 7d: {roadmapExecutionSignal.label}
+                </span>
+                <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
+                  Alertas SLA activas: {roadmapSlaAlerts.length}
+                </span>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
+                  Tickets current: {roadmapCurrentCount}
+                </span>
+              </div>
 
               <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Avance</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{roadmapReportTotals.completionRate}%</p>
                   <p className="text-xs text-slate-500">Done / Total filtrado</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <div className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pendientes</p>
                   <p className="mt-1 text-2xl font-semibold text-slate-900">{roadmapReportTotals.open}</p>
                   <p className="text-xs text-slate-500">No resueltos</p>
@@ -6217,7 +6282,7 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ventana de ejecución</p>
@@ -6382,7 +6447,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Carga por responsable</p>
                     <span className="text-xs text-slate-500">Top 8 abiertos</span>
@@ -6413,7 +6478,7 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Estado actual</p>
                     <span className="text-xs text-slate-500">{roadmapReportTotals.total} items</span>
@@ -6444,7 +6509,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Burnup semanal</p>
                     <span className="text-xs text-slate-500">Total vs done</span>
@@ -6493,7 +6558,7 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-6 grid gap-6 xl:grid-cols-2">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Flujo semanal</p>
                     <span className="text-xs text-slate-500">Items creados por estado actual</span>
@@ -6534,7 +6599,7 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <div className="flex items-center justify-between">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Aging pendientes</p>
                     <span className="text-xs text-slate-500">Top 10 in_progress + blocked</span>
@@ -6570,7 +6635,7 @@ export default function AdminPage() {
                 </div>
               </div>
 
-              <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className={`mt-6 ${premiumMutedPanelClass}`}>
                 <div className="flex items-center justify-between">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Heatmap prioridad x área</p>
                   <span className="text-xs text-slate-500">Solo pendientes (sin done)</span>
@@ -6616,7 +6681,7 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-8 grid gap-6 xl:grid-cols-[360px,1fr]">
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <div className={premiumMutedPanelClass}>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva actualización</p>
                   <div className="mt-3 space-y-3">
                     <input
@@ -6745,7 +6810,7 @@ export default function AdminPage() {
                 </div>
 
                 <div>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className={premiumMutedPanelClass}>
                     <div className="flex flex-wrap items-center gap-2">
                       <input
                         value={roadmapSearch}
