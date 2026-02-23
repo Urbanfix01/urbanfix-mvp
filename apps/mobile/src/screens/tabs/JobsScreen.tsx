@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable
+  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable, DimensionValue
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -674,8 +674,8 @@ export default function JobsScreen() {
     ({ item, index }: { item: typeof dashboardCards[number]; index: number }) => {
       const isLastInRow =
         dashboardColumns > 1 && (index + 1) % dashboardColumns === 0;
-      const cardStyle = {
-        width: dashboardCardWidth ?? '48%',
+      const cardStyle: { width: DimensionValue; marginRight: number; marginBottom: number } = {
+        width: (dashboardCardWidth ?? '48%') as DimensionValue,
         marginRight: dashboardColumns === 1 || isLastInRow ? 0 : dashboardGap,
         marginBottom: dashboardGap,
       };
