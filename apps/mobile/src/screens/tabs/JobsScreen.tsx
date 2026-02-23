@@ -212,23 +212,28 @@ export default function JobsScreen() {
 
   const queryClient = useQueryClient();
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
-  const { data: jobs = [], isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
+  const { data: jobs = [], dataUpdatedAt, isLoading, error, refetch, isFetching } = useQuery<
+    QuoteListItem[],
+    Error
+  >({
     queryKey: ['quotes-list'],
     queryFn: getQuotes,
     staleTime: 60000,
-    onSuccess: async (data) => {
+  });
+
+  useEffect(() => {
+    if (!dataUpdatedAt) return;
+    const persistCache = async () => {
       try {
-        const timestamp = Date.now();
-        await AsyncStorage.setItem(
-          DASHBOARD_CACHE_KEY,
-          JSON.stringify({ timestamp, data })
-        );
+        const timestamp = dataUpdatedAt || Date.now();
+        await AsyncStorage.setItem(DASHBOARD_CACHE_KEY, JSON.stringify({ timestamp, data: jobs }));
         setLastUpdatedAt(new Date(timestamp));
       } catch (_err) {
         // cache best-effort
       }
-    },
-  });
+    };
+    void persistCache();
+  }, [jobs, dataUpdatedAt]);
 
   useEffect(() => {
     let mounted = true;
