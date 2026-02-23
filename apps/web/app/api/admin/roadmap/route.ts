@@ -148,6 +148,48 @@ const isMissingRoadmapSectorColumnError = (error: { code?: string | null; messag
   return isMissingColumn && message.includes('sector');
 };
 
+const toTimestampMs = (value?: string | null) => {
+  if (!value) return Number.NaN;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+};
+
+const isAutoSyncFeedback = (item: RoadmapFeedbackRow) => {
+  const body = String(item.body || '').trim().toLowerCase();
+  return body.startsWith('[auto]') && body.includes('sync');
+};
+
+const resolveCurrentRoadmapId = (updates: RoadmapUpdateRow[], feedback: RoadmapFeedbackRow[]) => {
+  let currentRoadmapId: string | null = null;
+  let currentTimestamp = Number.NEGATIVE_INFINITY;
+
+  feedback.forEach((item) => {
+    if (!isAutoSyncFeedback(item)) return;
+    const timestamp = toTimestampMs(item.created_at);
+    if (!Number.isFinite(timestamp)) return;
+    if (timestamp > currentTimestamp) {
+      currentTimestamp = timestamp;
+      currentRoadmapId = item.roadmap_id;
+    }
+  });
+
+  if (currentRoadmapId) return currentRoadmapId;
+
+  updates.forEach((item) => {
+    const hasSourceMetadata = Boolean(
+      toOptionalText(item.source_key) || toOptionalText(item.source_branch) || toOptionalText(item.source_commit)
+    );
+    if (!hasSourceMetadata) return;
+    const timestamp = toTimestampMs(item.updated_at) || toTimestampMs(item.created_at) || Number.NEGATIVE_INFINITY;
+    if (timestamp > currentTimestamp) {
+      currentTimestamp = timestamp;
+      currentRoadmapId = item.id;
+    }
+  });
+
+  return currentRoadmapId;
+};
+
 const mapFeedback = (item: RoadmapFeedbackRow, labels: Record<string, string>) => ({
   id: item.id,
   roadmap_id: item.roadmap_id,
@@ -161,7 +203,8 @@ const mapFeedback = (item: RoadmapFeedbackRow, labels: Record<string, string>) =
 const mapUpdate = (
   item: RoadmapUpdateRow,
   labels: Record<string, string>,
-  feedback: ReturnType<typeof mapFeedback>[]
+  feedback: ReturnType<typeof mapFeedback>[],
+  currentRoadmapId: string | null
 ) => ({
   id: item.id,
   title: item.title,
@@ -182,6 +225,7 @@ const mapUpdate = (
   updated_by_label: item.updated_by ? labels[item.updated_by] || item.updated_by : null,
   created_at: item.created_at,
   updated_at: item.updated_at,
+  is_current: currentRoadmapId ? item.id === currentRoadmapId : false,
   feedback,
 });
 
@@ -252,7 +296,8 @@ export async function GET(request: NextRequest) {
     feedbackByRoadmap.set(item.roadmap_id, list);
   });
 
-  const payload = updates.map((item) => mapUpdate(item, labels, feedbackByRoadmap.get(item.id) || []));
+  const currentRoadmapId = resolveCurrentRoadmapId(updates, feedback);
+  const payload = updates.map((item) => mapUpdate(item, labels, feedbackByRoadmap.get(item.id) || [], currentRoadmapId));
   return NextResponse.json({ updates: payload });
 }
 
@@ -355,6 +400,6 @@ export async function POST(request: NextRequest) {
 
   const labels = await getLabelsByUserId([user.id]);
   const mappedFeedback = mapFeedback(feedbackData as RoadmapFeedbackRow, labels);
-  const mapped = mapUpdate(createdUpdate, labels, [mappedFeedback]);
+  const mapped = mapUpdate(createdUpdate, labels, [mappedFeedback], null);
   return NextResponse.json({ update: mapped });
 }

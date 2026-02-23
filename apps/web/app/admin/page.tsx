@@ -116,6 +116,11 @@ type RoadmapUpdateItem = {
   sector: RoadmapSector;
   owner?: string | null;
   eta_date?: string | null;
+  source_key?: string | null;
+  source_branch?: string | null;
+  source_commit?: string | null;
+  source_files?: string[];
+  is_current?: boolean;
   created_by?: string | null;
   created_by_label?: string | null;
   updated_by?: string | null;
@@ -1532,10 +1537,13 @@ const buildRoadmapTicketShareText = (
     '[TICKET ROADMAP URBANFIX]',
     `ID: ${item.id}`,
     `Titulo: ${item.title}`,
+    `Current: ${item.is_current ? 'si' : 'no'}`,
     `Estado: ${getRoadmapStatusLabel(item.status)}`,
     `Prioridad: ${getRoadmapPriorityLabel(item.priority)}`,
     `Area: ${getRoadmapAreaLabel(item.area)}`,
     `Sector: ${getRoadmapSectorLabel(item.sector)}`,
+    item.source_branch ? `Rama push: ${item.source_branch}` : null,
+    item.source_commit ? `Commit push: ${item.source_commit.slice(0, 12)}` : null,
     `Responsable: ${getRoadmapOwnerLabel(item.owner)}`,
     `ETA: ${item.eta_date ? formatShortDate(item.eta_date) : 'Sin fecha'}`,
     item.overdue ? 'SLA: ETA vencida' : item.dueSoon ? 'SLA: ETA <= 7 dias' : null,
@@ -2127,6 +2135,13 @@ export default function AdminPage() {
         area: toRoadmapArea(row?.area),
         priority: toRoadmapPriority(row?.priority),
         sector: toRoadmapSector(row?.sector),
+        source_key: typeof row?.source_key === 'string' ? row.source_key : null,
+        source_branch: typeof row?.source_branch === 'string' ? row.source_branch : null,
+        source_commit: typeof row?.source_commit === 'string' ? row.source_commit : null,
+        source_files: Array.isArray(row?.source_files)
+          ? row.source_files.filter((entry: unknown) => typeof entry === 'string')
+          : [],
+        is_current: Boolean(row?.is_current),
         feedback: Array.isArray(row?.feedback)
           ? row.feedback.map((feedback: any) => ({
               ...feedback,
@@ -2191,6 +2206,13 @@ export default function AdminPage() {
             area: toRoadmapArea(data.update.area),
             priority: toRoadmapPriority(data.update.priority),
             sector: toRoadmapSector(data.update.sector),
+            source_key: typeof data.update?.source_key === 'string' ? data.update.source_key : null,
+            source_branch: typeof data.update?.source_branch === 'string' ? data.update.source_branch : null,
+            source_commit: typeof data.update?.source_commit === 'string' ? data.update.source_commit : null,
+            source_files: Array.isArray(data.update?.source_files)
+              ? data.update.source_files.filter((entry: unknown) => typeof entry === 'string')
+              : [],
+            is_current: Boolean(data.update?.is_current),
             feedback: Array.isArray(data.update.feedback)
               ? data.update.feedback.map((feedback: any) => ({
                   ...feedback,
@@ -2279,6 +2301,7 @@ export default function AdminPage() {
                   area: toRoadmapArea(updated.area),
                   priority: toRoadmapPriority(updated.priority),
                   sector: toRoadmapSector(updated.sector),
+                  is_current: typeof updated.is_current === 'boolean' ? updated.is_current : item.is_current,
                   feedback:
                     auditFeedback && !(item.feedback || []).some((feedback) => feedback.id === auditFeedback.id)
                       ? [...(item.feedback || []), auditFeedback]
@@ -6758,6 +6781,7 @@ export default function AdminPage() {
                                 prioridad: getRoadmapPriorityLabel(item.priority),
                                 area: getRoadmapAreaLabel(item.area),
                                 sector: getRoadmapSectorLabel(item.sector),
+                                current: item.is_current ? 'si' : 'no',
                                 responsable: getRoadmapOwnerLabel(item.owner),
                                 eta: item.eta_date || '',
                                 actualizado: item.updated_at,
@@ -6991,6 +7015,11 @@ export default function AdminPage() {
                             >
                               <div className="min-w-[240px] flex-1">
                                 <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                                {item.is_current && (
+                                  <span className="mt-1 inline-flex rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                    Current
+                                  </span>
+                                )}
                                 <p className="mt-1 text-[11px] text-slate-500">
                                   {getRoadmapStatusLabel(item.status)} • {getRoadmapPriorityLabel(item.priority)} •{' '}
                                   {item.owner ? getRoadmapOwnerLabel(item.owner) : 'Sin owner'}
@@ -7090,10 +7119,21 @@ export default function AdminPage() {
                                 <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-semibold text-indigo-700">
                                   Sector {getRoadmapSectorLabel(item.sector)}
                                 </span>
+                                {item.is_current && (
+                                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700">
+                                    Current
+                                  </span>
+                                )}
                               </div>
                               <p className="mt-2 text-[11px] text-slate-400">
                                 Creado: {formatDateTime(item.created_at)} • Actualizado: {formatDateTime(item.updated_at)}
                               </p>
+                              {(item.source_branch || item.source_commit) && (
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  Push: {item.source_branch || 'sin-rama'}
+                                  {item.source_commit ? ` • ${item.source_commit.slice(0, 12)}` : ''}
+                                </p>
+                              )}
                               {(item.owner || item.eta_date) && (
                                 <p className="mt-1 text-[11px] text-slate-500">
                                   {item.owner ? `Responsable: ${item.owner}` : 'Responsable sin asignar'}

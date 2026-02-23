@@ -367,6 +367,7 @@ export async function POST(request: NextRequest) {
       source_key: updateRow.source_key,
       source_branch: updateRow.source_branch,
       source_commit: updateRow.source_commit,
+      is_current: true,
     },
   });
 }
