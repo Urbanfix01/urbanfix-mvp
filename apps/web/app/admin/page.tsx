@@ -1589,6 +1589,7 @@ export default function AdminPage() {
   const [roadmapAreaFilter, setRoadmapAreaFilter] = useState<'all' | RoadmapArea>('all');
   const [roadmapSectorFilter, setRoadmapSectorFilter] = useState<'all' | RoadmapSector>('all');
   const [roadmapPendingOnly, setRoadmapPendingOnly] = useState(false);
+  const [roadmapSortMode, setRoadmapSortMode] = useState<'recent' | 'work_priority' | 'eta'>('recent');
   const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
   const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
   const [roadmapBulkUpdating, setRoadmapBulkUpdating] = useState(false);
@@ -2532,6 +2533,7 @@ export default function AdminPage() {
     setRoadmapMessage('');
     setRoadmapSearch('');
     setRoadmapPendingOnly(false);
+    setRoadmapSortMode('recent');
     setRoadmapBulkUpdating(false);
     setSelectedRoadmapIds([]);
     setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
@@ -3479,6 +3481,47 @@ export default function AdminPage() {
     () => filteredRoadmapUpdates.filter((item) => item.status !== 'done').map((item) => item.id),
     [filteredRoadmapUpdates]
   );
+
+  const orderedRoadmapUpdates = useMemo(() => {
+    const rows = [...filteredRoadmapUpdates];
+    const todayMs = startOfDay(new Date()).getTime();
+    const nextWeekMs = todayMs + DAY_MS * 7;
+    const toCreatedMs = (item: RoadmapUpdateItem) => toTimeMs(item.created_at) || 0;
+    const toUpdatedMs = (item: RoadmapUpdateItem) => toTimeMs(item.updated_at) ?? toCreatedMs(item);
+
+    if (roadmapSortMode === 'recent') {
+      return rows.sort((a, b) => toCreatedMs(b) - toCreatedMs(a));
+    }
+
+    if (roadmapSortMode === 'eta') {
+      return rows.sort((a, b) => {
+        if (a.status === 'done' && b.status !== 'done') return 1;
+        if (a.status !== 'done' && b.status === 'done') return -1;
+        const etaA = toTimeMs(a.eta_date);
+        const etaB = toTimeMs(b.eta_date);
+        if (etaA !== null && etaB !== null) return etaA - etaB;
+        if (etaA !== null) return -1;
+        if (etaB !== null) return 1;
+        return toCreatedMs(b) - toCreatedMs(a);
+      });
+    }
+
+    return rows.sort((a, b) => {
+      const score = (item: RoadmapUpdateItem) => {
+        const etaMs = toTimeMs(item.eta_date);
+        const overdue = etaMs !== null && etaMs < todayMs;
+        const dueSoon = etaMs !== null && etaMs >= todayMs && etaMs <= nextWeekMs;
+        let value = ROADMAP_PRIORITY_SCORE[item.priority] * 100 + ROADMAP_STATUS_URGENCY[item.status] * 80;
+        if (overdue) value += 140;
+        if (dueSoon) value += 45;
+        return value;
+      };
+
+      const scoreDelta = score(b) - score(a);
+      if (scoreDelta !== 0) return scoreDelta;
+      return toUpdatedMs(a) - toUpdatedMs(b);
+    });
+  }, [filteredRoadmapUpdates, roadmapSortMode]);
 
   const roadmapAllFilteredPendingSelected = useMemo(
     () =>
@@ -5953,6 +5996,17 @@ export default function AdminPage() {
                           </option>
                         ))}
                       </select>
+                      <select
+                        value={roadmapSortMode}
+                        onChange={(event) =>
+                          setRoadmapSortMode(event.target.value as 'recent' | 'work_priority' | 'eta')
+                        }
+                        className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="recent">Orden: recientes</option>
+                        <option value="work_priority">Orden: prioridad de trabajo</option>
+                        <option value="eta">Orden: ETA</option>
+                      </select>
                       <button
                         type="button"
                         onClick={() => setRoadmapPendingOnly((prev) => !prev)}
@@ -5982,6 +6036,7 @@ export default function AdminPage() {
                           setRoadmapAreaFilter('all');
                           setRoadmapSectorFilter('all');
                           setRoadmapPendingOnly(false);
+                          setRoadmapSortMode('recent');
                         }}
                         className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                       >
@@ -6059,7 +6114,7 @@ export default function AdminPage() {
                     </div>
                   )}
 
-                  {!roadmapLoading && filteredRoadmapUpdates.length === 0 && (
+                  {!roadmapLoading && orderedRoadmapUpdates.length === 0 && (
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                       No hay items para los filtros actuales.
                     </div>
@@ -6135,7 +6190,7 @@ export default function AdminPage() {
                   )}
 
                   <div className="mt-4 space-y-4">
-                    {filteredRoadmapUpdates.map((item) => {
+                    {orderedRoadmapUpdates.map((item) => {
                       const feedbackDraft = roadmapFeedbackDrafts[item.id] || '';
                       const feedbackSentiment = roadmapFeedbackSentiments[item.id] || 'neutral';
                       const savingUpdate = roadmapUpdatingId === item.id;
