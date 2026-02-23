@@ -67,12 +67,14 @@ type AppWebFlowNode = {
       };
 };
 
+type FlowNodeSide = 'top' | 'right' | 'bottom' | 'left';
+
 type AppWebFlowEdge = {
   id: string;
   from: string;
   to: string;
-  fromSide?: 'top' | 'right' | 'bottom' | 'left';
-  toSide?: 'top' | 'right' | 'bottom' | 'left';
+  fromSide?: FlowNodeSide;
+  toSide?: FlowNodeSide;
   via?: Array<{ x: number; y: number }>;
   label?: 'si' | 'no' | string;
   labelX?: number;
@@ -84,6 +86,15 @@ type FlowNodePosition = {
   x: number;
   y: number;
 };
+
+type FlowLayoutState = {
+  nodes: FlowNodePosition[];
+  note: string | null;
+  updated_at: string;
+  updated_by_label: string | null;
+};
+
+type FlowCurrentSource = 'remote' | 'local' | 'base';
 
 type RoadmapFeedbackItem = {
   id: string;
@@ -593,12 +604,7 @@ const isMissingFlowDiagramTableError = (value: unknown) => {
 };
 
 const readFlowLayoutFromLocalStorage = () => {
-  if (typeof window === 'undefined') return null as null | {
-    nodes: FlowNodePosition[];
-    note: string | null;
-    updated_at: string;
-    updated_by_label: string | null;
-  };
+  if (typeof window === 'undefined') return null as null | FlowLayoutState;
   try {
     const raw = window.localStorage.getItem(FLOW_DIAGRAM_LOCAL_STORAGE_KEY);
     if (!raw) return null;
@@ -620,19 +626,15 @@ const writeFlowLayoutToLocalStorage = (payload: {
   nodes: FlowNodePosition[];
   note?: string | null;
   updated_by_label?: string | null;
+  updated_at?: string | null;
 }) => {
-  if (typeof window === 'undefined') return null as null | {
-    nodes: FlowNodePosition[];
-    note: string | null;
-    updated_at: string;
-    updated_by_label: string | null;
-  };
+  if (typeof window === 'undefined') return null as null | FlowLayoutState;
   const safeNodes = sanitizeFlowPositions(payload.nodes);
   if (!safeNodes.length) return null;
   const record = {
     nodes: safeNodes,
     note: payload.note ? String(payload.note) : null,
-    updated_at: new Date().toISOString(),
+    updated_at: payload.updated_at || new Date().toISOString(),
     updated_by_label: payload.updated_by_label || 'Local',
   };
   try {
@@ -641,6 +643,33 @@ const writeFlowLayoutToLocalStorage = (payload: {
     return null;
   }
   return record;
+};
+
+const getFlowLayoutTimestamp = (value: string | null | undefined) => {
+  if (!value) return 0;
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const pickLatestFlowLayout = (remoteState: FlowLayoutState | null, localState: FlowLayoutState | null) => {
+  if (remoteState && localState) {
+    const remoteTs = getFlowLayoutTimestamp(remoteState.updated_at);
+    const localTs = getFlowLayoutTimestamp(localState.updated_at);
+    if (localTs > remoteTs) {
+      return { state: localState, source: 'local' as const };
+    }
+    return { state: remoteState, source: 'remote' as const };
+  }
+
+  if (remoteState) {
+    return { state: remoteState, source: 'remote' as const };
+  }
+
+  if (localState) {
+    return { state: localState, source: 'local' as const };
+  }
+
+  return { state: null, source: 'base' as const };
 };
 
 const mergeFlowNodesWithPositions = (positions: FlowNodePosition[]) => {
@@ -1125,30 +1154,238 @@ const APP_WEB_FLOW_EDGES: AppWebFlowEdge[] = [
   },
 ];
 
-const getFlowNodeById = (nodeId: string) => APP_WEB_FLOW_NODES.find((node) => node.id === nodeId) || null;
+type FlowEdgePoint = { x: number; y: number };
 
-const getFlowNodeAnchor = (
-  node: AppWebFlowNode,
-  side: 'top' | 'right' | 'bottom' | 'left' = 'bottom'
-) => {
-  const centerX = node.x + node.width / 2;
-  const centerY = node.y + node.height / 2;
-  if (side === 'top') return { x: centerX, y: node.y };
-  if (side === 'right') return { x: node.x + node.width, y: centerY };
-  if (side === 'left') return { x: node.x, y: centerY };
-  return { x: centerX, y: node.y + node.height };
+type FlowEdgeNodeRect = {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 };
 
-const buildFlowEdgePath = (edge: AppWebFlowEdge) => {
-  const fromNode = getFlowNodeById(edge.from);
-  const toNode = getFlowNodeById(edge.to);
-  if (!fromNode || !toNode) return '';
-  const start = getFlowNodeAnchor(fromNode, edge.fromSide || 'bottom');
-  const end = getFlowNodeAnchor(toNode, edge.toSide || 'top');
-  const points = [start, ...(edge.via || []), end];
-  return points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${Math.round(point.x)} ${Math.round(point.y)}`)
-    .join(' ');
+const FLOW_NODE_SIDES: FlowNodeSide[] = ['top', 'right', 'bottom', 'left'];
+const FLOW_EDGE_BREAKOUT = 26;
+const FLOW_EDGE_NODE_PADDING = 10;
+const FLOW_EDGE_OBSTACLE_PADDING = 14;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const isHorizontalFlowNodeSide = (side: FlowNodeSide) => side === 'left' || side === 'right';
+
+const getFlowNodeCenter = (node: FlowEdgeNodeRect): FlowEdgePoint => ({
+  x: node.x + node.width / 2,
+  y: node.y + node.height / 2,
+});
+
+const getFlowSideVector = (side: FlowNodeSide): FlowEdgePoint => {
+  if (side === 'top') return { x: 0, y: -1 };
+  if (side === 'right') return { x: 1, y: 0 };
+  if (side === 'left') return { x: -1, y: 0 };
+  return { x: 0, y: 1 };
+};
+
+const offsetFlowPoint = (point: FlowEdgePoint, side: FlowNodeSide, distance: number): FlowEdgePoint => {
+  const vector = getFlowSideVector(side);
+  return {
+    x: point.x + vector.x * distance,
+    y: point.y + vector.y * distance,
+  };
+};
+
+const getFlowNodeAnchor = (
+  node: FlowEdgeNodeRect,
+  side: FlowNodeSide,
+  toward: FlowEdgePoint
+): FlowEdgePoint => {
+  const horizontalInset = Math.min(FLOW_EDGE_NODE_PADDING, Math.max(4, node.width * 0.3));
+  const verticalInset = Math.min(FLOW_EDGE_NODE_PADDING, Math.max(4, node.height * 0.3));
+  if (side === 'top') {
+    return {
+      x: clamp(toward.x, node.x + horizontalInset, node.x + node.width - horizontalInset),
+      y: node.y,
+    };
+  }
+  if (side === 'bottom') {
+    return {
+      x: clamp(toward.x, node.x + horizontalInset, node.x + node.width - horizontalInset),
+      y: node.y + node.height,
+    };
+  }
+  if (side === 'left') {
+    return {
+      x: node.x,
+      y: clamp(toward.y, node.y + verticalInset, node.y + node.height - verticalInset),
+    };
+  }
+  return {
+    x: node.x + node.width,
+    y: clamp(toward.y, node.y + verticalInset, node.y + node.height - verticalInset),
+  };
+};
+
+const normalizeFlowPathPoints = (points: FlowEdgePoint[]) => {
+  const deduped = points.reduce<FlowEdgePoint[]>((acc, point) => {
+    const prev = acc[acc.length - 1];
+    if (!prev || Math.abs(prev.x - point.x) > 0.01 || Math.abs(prev.y - point.y) > 0.01) {
+      acc.push(point);
+    }
+    return acc;
+  }, []);
+
+  return deduped.reduce<FlowEdgePoint[]>((acc, point) => {
+    if (acc.length < 2) {
+      acc.push(point);
+      return acc;
+    }
+    const first = acc[acc.length - 2];
+    const second = acc[acc.length - 1];
+    const sameX = Math.abs(first.x - second.x) < 0.01 && Math.abs(second.x - point.x) < 0.01;
+    const sameY = Math.abs(first.y - second.y) < 0.01 && Math.abs(second.y - point.y) < 0.01;
+    if (sameX || sameY) {
+      acc[acc.length - 1] = point;
+    } else {
+      acc.push(point);
+    }
+    return acc;
+  }, []);
+};
+
+const buildFlowSvgPath = (points: FlowEdgePoint[]) =>
+  points.map((point, index) => `${index === 0 ? 'M' : 'L'} ${Math.round(point.x)} ${Math.round(point.y)}`).join(' ');
+
+const getFlowEdgeLength = (points: FlowEdgePoint[]) => {
+  let length = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    length += Math.hypot(points[index].x - points[index - 1].x, points[index].y - points[index - 1].y);
+  }
+  return length;
+};
+
+const getFlowEdgeTurns = (points: FlowEdgePoint[]) => {
+  let turns = 0;
+  for (let index = 2; index < points.length; index += 1) {
+    const first = points[index - 2];
+    const second = points[index - 1];
+    const third = points[index];
+    const firstHorizontal = Math.abs(second.y - first.y) < 0.01;
+    const secondHorizontal = Math.abs(third.y - second.y) < 0.01;
+    if (firstHorizontal !== secondHorizontal) turns += 1;
+  }
+  return turns;
+};
+
+const segmentIntersectsRect = (
+  start: FlowEdgePoint,
+  end: FlowEdgePoint,
+  rect: FlowEdgeNodeRect,
+  padding: number
+) => {
+  const minX = rect.x - padding;
+  const maxX = rect.x + rect.width + padding;
+  const minY = rect.y - padding;
+  const maxY = rect.y + rect.height + padding;
+
+  if (Math.abs(start.x - end.x) < 0.01) {
+    const x = start.x;
+    if (x < minX || x > maxX) return false;
+    const y1 = Math.min(start.y, end.y);
+    const y2 = Math.max(start.y, end.y);
+    return y2 >= minY && y1 <= maxY;
+  }
+
+  if (Math.abs(start.y - end.y) < 0.01) {
+    const y = start.y;
+    if (y < minY || y > maxY) return false;
+    const x1 = Math.min(start.x, end.x);
+    const x2 = Math.max(start.x, end.x);
+    return x2 >= minX && x1 <= maxX;
+  }
+
+  return false;
+};
+
+const getFlowObstacleHits = (points: FlowEdgePoint[], nodes: FlowEdgeNodeRect[], skip: Set<string>) => {
+  let hits = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    nodes.forEach((node) => {
+      if (skip.has(node.id)) return;
+      if (segmentIntersectsRect(start, end, node, FLOW_EDGE_OBSTACLE_PADDING)) hits += 1;
+    });
+  }
+  return hits;
+};
+
+const getFlowEdgeLabelPoint = (points: FlowEdgePoint[]) => {
+  if (points.length <= 1) return points[0] || { x: 0, y: 0 };
+  const total = getFlowEdgeLength(points);
+  const target = total * 0.5;
+  let acc = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    const start = points[index - 1];
+    const end = points[index];
+    const segment = Math.hypot(end.x - start.x, end.y - start.y);
+    if (acc + segment >= target) {
+      const ratio = segment <= 0.01 ? 0 : (target - acc) / segment;
+      return {
+        x: start.x + (end.x - start.x) * ratio,
+        y: start.y + (end.y - start.y) * ratio,
+      };
+    }
+    acc += segment;
+  }
+  return points[points.length - 1];
+};
+
+const buildFlowRouteCandidates = (
+  start: FlowEdgePoint,
+  end: FlowEdgePoint,
+  fromSide: FlowNodeSide,
+  toSide: FlowNodeSide
+) => {
+  const startLead = offsetFlowPoint(start, fromSide, FLOW_EDGE_BREAKOUT);
+  const endLead = offsetFlowPoint(end, toSide, FLOW_EDGE_BREAKOUT);
+  const candidates: FlowEdgePoint[][] = [];
+
+  if (Math.abs(startLead.x - endLead.x) < 2 || Math.abs(startLead.y - endLead.y) < 2) {
+    candidates.push([start, startLead, endLead, end]);
+  } else {
+    candidates.push([start, startLead, { x: endLead.x, y: startLead.y }, endLead, end]);
+    candidates.push([start, startLead, { x: startLead.x, y: endLead.y }, endLead, end]);
+
+    if (isHorizontalFlowNodeSide(fromSide) && isHorizontalFlowNodeSide(toSide)) {
+      const midX = Math.round((startLead.x + endLead.x) / 2);
+      candidates.push([start, startLead, { x: midX, y: startLead.y }, { x: midX, y: endLead.y }, endLead, end]);
+    } else if (!isHorizontalFlowNodeSide(fromSide) && !isHorizontalFlowNodeSide(toSide)) {
+      const midY = Math.round((startLead.y + endLead.y) / 2);
+      candidates.push([start, startLead, { x: startLead.x, y: midY }, { x: endLead.x, y: midY }, endLead, end]);
+    }
+  }
+
+  return candidates.map((candidate) => normalizeFlowPathPoints(candidate));
+};
+
+const getFlowSideCandidates = (preferred?: FlowNodeSide): FlowNodeSide[] => {
+  if (!preferred) return FLOW_NODE_SIDES;
+  return [preferred, ...FLOW_NODE_SIDES.filter((side) => side !== preferred)];
+};
+
+const getFlowDirectionPenalty = (
+  fromCenter: FlowEdgePoint,
+  toCenter: FlowEdgePoint,
+  fromSide: FlowNodeSide,
+  toSide: FlowNodeSide
+) => {
+  const fromVector = getFlowSideVector(fromSide);
+  const toVector = getFlowSideVector(toSide);
+  const fromDot = fromVector.x * (toCenter.x - fromCenter.x) + fromVector.y * (toCenter.y - fromCenter.y);
+  const toDot = toVector.x * (fromCenter.x - toCenter.x) + toVector.y * (fromCenter.y - toCenter.y);
+  let penalty = 0;
+  if (fromDot < 0) penalty += 48;
+  if (toDot < 0) penalty += 48;
+  return penalty;
 };
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -1391,6 +1628,7 @@ export default function AdminPage() {
   const [flowRevisionNote, setFlowRevisionNote] = useState('');
   const [flowLastSavedAt, setFlowLastSavedAt] = useState<string | null>(null);
   const [flowLastSavedBy, setFlowLastSavedBy] = useState<string | null>(null);
+  const [flowCurrentSource, setFlowCurrentSource] = useState<FlowCurrentSource>('base');
   const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
   const [flowProcessDialogNodeId, setFlowProcessDialogNodeId] = useState<string | null>(null);
   const flowCanvasRef = useRef<HTMLDivElement | null>(null);
@@ -1500,34 +1738,48 @@ export default function AdminPage() {
       if (!response.ok) {
         throw new Error(data?.error || 'No se pudo cargar la última revisión del flujo.');
       }
-      const state = data?.state || null;
-      const positions = sanitizeFlowPositions(state?.nodes);
-      if (positions.length) {
-        setFlowNodes(mergeFlowNodesWithPositions(positions));
+
+      const remoteStateRaw = data?.state || null;
+      const remoteNodes = sanitizeFlowPositions(remoteStateRaw?.nodes);
+      const remoteState: FlowLayoutState | null = remoteNodes.length
+        ? {
+            nodes: remoteNodes,
+            note: typeof remoteStateRaw?.note === 'string' ? remoteStateRaw.note : null,
+            updated_at:
+              typeof remoteStateRaw?.updated_at === 'string'
+                ? remoteStateRaw.updated_at
+                : new Date().toISOString(),
+            updated_by_label:
+              typeof remoteStateRaw?.updated_by_label === 'string' ? remoteStateRaw.updated_by_label : null,
+          }
+        : null;
+
+      const localState = readFlowLayoutFromLocalStorage();
+      const latest = pickLatestFlowLayout(remoteState, localState);
+
+      if (latest.state?.nodes?.length) {
+        setFlowNodes(mergeFlowNodesWithPositions(latest.state.nodes));
         setFlowLayoutDirty(false);
-        setFlowLastSavedAt(state.updated_at || null);
-        setFlowLastSavedBy(state.updated_by_label || null);
+        setFlowLastSavedAt(latest.state.updated_at || null);
+        setFlowLastSavedBy(latest.state.updated_by_label || (latest.source === 'local' ? 'Local' : null));
+        setFlowCurrentSource(latest.source);
         if (!options?.silent) {
-          setFlowRevisionMessage('Se cargó la última revisión guardada.');
+          if (latest.source === 'local' && remoteState) {
+            setFlowRevisionMessage('Se cargó la revisión local más reciente (current).');
+          } else if (latest.source === 'local') {
+            setFlowRevisionMessage('Se cargó una revisión local.');
+          } else {
+            setFlowRevisionMessage('Se cargó la última revisión guardada.');
+          }
         }
       } else {
-        const localState = readFlowLayoutFromLocalStorage();
-        if (localState?.nodes?.length) {
-          setFlowNodes(mergeFlowNodesWithPositions(localState.nodes));
-          setFlowLayoutDirty(false);
-          setFlowLastSavedAt(localState.updated_at || null);
-          setFlowLastSavedBy(localState.updated_by_label || 'Local');
-          if (!options?.silent) {
-            setFlowRevisionMessage('Se cargó una revisión local.');
-          }
-        } else {
-          setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
-          setFlowLayoutDirty(false);
-          setFlowLastSavedAt(null);
-          setFlowLastSavedBy(null);
-          if (!options?.silent) {
-            setFlowRevisionMessage('No hay revisión guardada todavía.');
-          }
+        setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
+        setFlowLayoutDirty(false);
+        setFlowLastSavedAt(null);
+        setFlowLastSavedBy(null);
+        setFlowCurrentSource('base');
+        if (!options?.silent) {
+          setFlowRevisionMessage('No hay revisión guardada todavía.');
         }
       }
     } catch (error: any) {
@@ -1539,12 +1791,14 @@ export default function AdminPage() {
           setFlowLayoutDirty(false);
           setFlowLastSavedAt(localState.updated_at || null);
           setFlowLastSavedBy(localState.updated_by_label || 'Local');
+          setFlowCurrentSource('local');
           if (!options?.silent) {
             setFlowRevisionMessage(
               'Se cargó revisión local. Falta aplicar migración de base para sincronizar con Supabase.'
             );
           }
         } else {
+          setFlowCurrentSource('base');
           if (!options?.silent) {
             setFlowRevisionError('Falta migración de base para guardar/cargar remoto. Mientras tanto, usa guardado local.');
           }
@@ -2145,6 +2399,7 @@ export default function AdminPage() {
     setFlowRevisionNote('');
     setFlowLastSavedAt(null);
     setFlowLastSavedBy(null);
+    setFlowCurrentSource('base');
   };
 
   const handleOpenFlowNode = (node: AppWebFlowNode) => {
@@ -2211,10 +2466,17 @@ export default function AdminPage() {
       if (savedPositions.length) {
         setFlowNodes(mergeFlowNodesWithPositions(savedPositions));
       }
+      writeFlowLayoutToLocalStorage({
+        nodes: savedPositions.length ? savedPositions : positions,
+        note: typeof savedState?.note === 'string' ? savedState.note : note,
+        updated_by_label: savedState?.updated_by_label || session?.user?.email || 'Local',
+        updated_at: savedState?.updated_at || null,
+      });
       setFlowLayoutDirty(false);
       setFlowLastSavedAt(savedState?.updated_at || null);
       setFlowLastSavedBy(savedState?.updated_by_label || null);
-      setFlowRevisionMessage('Revisión guardada correctamente.');
+      setFlowCurrentSource('remote');
+      setFlowRevisionMessage('Revisión guardada correctamente y marcada como current.');
     } catch (error: any) {
       const message = error?.message || 'No se pudo guardar la revisión del flujo.';
       if (isMissingFlowDiagramTableError(message)) {
@@ -2227,8 +2489,9 @@ export default function AdminPage() {
           setFlowLayoutDirty(false);
           setFlowLastSavedAt(localState.updated_at || null);
           setFlowLastSavedBy(localState.updated_by_label || 'Local');
+          setFlowCurrentSource('local');
           setFlowRevisionMessage(
-            'Guardado local exitoso. Falta migración de base para habilitar guardado remoto en Supabase.'
+            'Guardado local exitoso. Esta revisión quedó como current en este navegador (falta migración para remoto).'
           );
         } else {
           setFlowRevisionError('No se pudo guardar en Supabase ni en almacenamiento local.');
@@ -2913,35 +3176,77 @@ export default function AdminPage() {
   }, [flowBranchNodes]);
 
   const flowBranchEdges = useMemo(() => {
+    const nodeRects = Array.from(flowBranchNodeMap.values()).map((item) => ({
+      id: item.node.id,
+      x: item.x,
+      y: item.y,
+      width: item.width,
+      height: item.height,
+    }));
+    const nodeRectMap = new Map(nodeRects.map((node) => [node.id, node] as const));
+
     return APP_WEB_FLOW_EDGES.flatMap((edge) => {
-      const from = flowBranchNodeMap.get(edge.from);
-      const to = flowBranchNodeMap.get(edge.to);
-      if (!from || !to) return [];
+      const fromNode = nodeRectMap.get(edge.from);
+      const toNode = nodeRectMap.get(edge.to);
+      if (!fromNode || !toNode) return [];
 
-      const start = getFlowNodeAnchor(from.node, edge.fromSide || 'bottom');
-      const end = getFlowNodeAnchor(to.node, edge.toSide || 'top');
-      const deltaX = end.x - start.x;
-      const deltaY = end.y - start.y;
+      const fromCenter = getFlowNodeCenter(fromNode);
+      const toCenter = getFlowNodeCenter(toNode);
+      const fromSideCandidates = getFlowSideCandidates(edge.fromSide);
+      const toSideCandidates = getFlowSideCandidates(edge.toSide);
+      const skipNodeIds = new Set<string>([fromNode.id, toNode.id]);
 
-      let path = '';
-      if (Math.abs(deltaX) < 8 || Math.abs(deltaY) < 8) {
-        path = `M ${start.x} ${start.y} L ${end.x} ${end.y}`;
-      } else if (deltaY >= 0) {
-        const midY = start.y + Math.max(28, Math.min(130, deltaY * 0.45));
-        path = `M ${start.x} ${start.y} L ${start.x} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
-      } else {
-        const sideOffset = start.x < end.x ? -78 : 78;
-        const midX = start.x + sideOffset;
-        const midY = start.y - Math.max(44, Math.min(150, Math.abs(deltaY) * 0.45));
-        path = `M ${start.x} ${start.y} L ${midX} ${start.y} L ${midX} ${midY} L ${end.x} ${midY} L ${end.x} ${end.y}`;
+      let bestRoute:
+        | {
+            score: number;
+            points: FlowEdgePoint[];
+            fromSide: FlowNodeSide;
+            toSide: FlowNodeSide;
+          }
+        | null = null;
+
+      for (const [fromIndex, fromSide] of fromSideCandidates.entries()) {
+        for (const [toIndex, toSide] of toSideCandidates.entries()) {
+          const start = getFlowNodeAnchor(fromNode, fromSide, toCenter);
+          const end = getFlowNodeAnchor(toNode, toSide, fromCenter);
+          const routeCandidates = buildFlowRouteCandidates(start, end, fromSide, toSide);
+
+          for (const [routeIndex, points] of routeCandidates.entries()) {
+            const pathPoints = normalizeFlowPathPoints(points);
+            const length = getFlowEdgeLength(pathPoints);
+            const turns = getFlowEdgeTurns(pathPoints);
+            const obstacleHits = getFlowObstacleHits(pathPoints, nodeRects, skipNodeIds);
+            const directionPenalty = getFlowDirectionPenalty(fromCenter, toCenter, fromSide, toSide);
+            const preferredPenalty =
+              (edge.fromSide && edge.fromSide !== fromSide ? 34 : 0) +
+              (edge.toSide && edge.toSide !== toSide ? 34 : 0);
+            const candidateOrderPenalty = fromIndex * 2 + toIndex * 2 + routeIndex;
+            const score =
+              length + turns * 18 + obstacleHits * 920 + directionPenalty + preferredPenalty + candidateOrderPenalty;
+
+            if (!bestRoute || score < bestRoute.score) {
+              bestRoute = {
+                score,
+                points: pathPoints,
+                fromSide,
+                toSide,
+              };
+            }
+          }
+        }
       }
+
+      if (!bestRoute) return [];
+      const labelPoint = getFlowEdgeLabelPoint(bestRoute.points);
 
       return [
         {
           ...edge,
-          path,
-          labelX: (start.x + end.x) / 2,
-          labelY: (start.y + end.y) / 2 - 8,
+          fromSide: bestRoute.fromSide,
+          toSide: bestRoute.toSide,
+          path: buildFlowSvgPath(bestRoute.points),
+          labelX: edge.labelX ?? labelPoint.x,
+          labelY: edge.labelY ?? labelPoint.y - 10,
         },
       ];
     });
@@ -4586,13 +4891,7 @@ export default function AdminPage() {
                     </span>
                   </div>
 
-                  <div
-                    className={`mb-3 space-y-3 ${
-                      isFlowFullscreen
-                        ? 'sticky top-2 z-30 rounded-2xl border border-slate-200 bg-slate-50/95 p-3 backdrop-blur'
-                        : ''
-                    }`}
-                  >
+                  <div className="sticky top-2 z-30 mb-3 space-y-3 rounded-2xl border border-slate-200 bg-slate-50/95 p-3 backdrop-blur">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <button
@@ -4627,6 +4926,9 @@ export default function AdminPage() {
                           }`}
                         >
                           {flowLayoutDirty ? 'Cambios sin guardar' : 'Layout sincronizado'}
+                        </span>
+                        <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          Current: {flowCurrentSource === 'remote' ? 'remoto' : flowCurrentSource === 'local' ? 'local' : 'base'}
                         </span>
                       </div>
 
