@@ -1,11 +1,11 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, ViewStyle } from 'react-native';
+import { Animated, DimensionValue, StyleProp, StyleSheet, ViewStyle } from 'react-native';
 
 type Props = {
-  width?: number | string;
+  width?: DimensionValue;
   height?: number;
   radius?: number;
-  style?: ViewStyle;
+  style?: StyleProp<ViewStyle>;
 };
 
 export const SkeletonBlock = ({ width = '100%', height = 16, radius = 12, style }: Props) => {
