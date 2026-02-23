@@ -7,6 +7,11 @@ const autosyncToken = process.env.ROADMAP_AUTOSYNC_TOKEN;
 
 const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
+const ROADMAP_AUTOSYNC_SELECT_WITH_SECTOR =
+  'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
+const ROADMAP_AUTOSYNC_SELECT_WITHOUT_SECTOR =
+  'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
+
 const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
@@ -77,6 +82,13 @@ const normalizeEtaDate = (value: unknown) => {
   if (!trimmed) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return undefined;
   return trimmed;
+};
+
+const isMissingRoadmapSectorColumnError = (error: { code?: string | null; message?: string | null } | null) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').toLowerCase();
+  const isMissingColumn = code === '42703' || message.includes('does not exist');
+  return isMissingColumn && message.includes('sector');
 };
 
 const normalizeSourceFiles = (value: unknown) => {
@@ -200,14 +212,21 @@ export async function POST(request: NextRequest) {
     toOptionalText(body?.feedback_body, 6000) || buildAutoFeedback(sourceBranch, sourceCommit, sourceFiles);
   const feedbackSentiment = normalizeSentiment(body?.feedback_sentiment);
 
-  const selectFields =
-    'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
-
-  const { data: existing, error: existingError } = await supabase
+  let existingResult: any = await supabase
     .from('roadmap_updates')
-    .select(selectFields)
+    .select(ROADMAP_AUTOSYNC_SELECT_WITH_SECTOR)
     .eq('source_key', sourceKey)
     .maybeSingle();
+
+  if (isMissingRoadmapSectorColumnError(existingResult.error || null)) {
+    existingResult = await supabase
+      .from('roadmap_updates')
+      .select(ROADMAP_AUTOSYNC_SELECT_WITHOUT_SECTOR)
+      .eq('source_key', sourceKey)
+      .maybeSingle();
+  }
+
+  const { data: existing, error: existingError } = existingResult;
 
   if (existingError) {
     return NextResponse.json({ error: existingError.message }, { status: 500 });
@@ -217,7 +236,7 @@ export async function POST(request: NextRequest) {
   let created = false;
 
   if (!existing) {
-    const { data, error } = await supabase
+    let createResult: any = await supabase
       .from('roadmap_updates')
       .insert({
         title,
@@ -233,8 +252,30 @@ export async function POST(request: NextRequest) {
         source_commit: sourceCommit,
         source_files: sourceFiles,
       })
-      .select(selectFields)
+      .select(ROADMAP_AUTOSYNC_SELECT_WITH_SECTOR)
       .maybeSingle();
+
+    if (isMissingRoadmapSectorColumnError(createResult.error || null)) {
+      createResult = await supabase
+        .from('roadmap_updates')
+        .insert({
+          title,
+          description,
+          status,
+          area,
+          priority,
+          owner,
+          eta_date: etaDate,
+          source_key: sourceKey,
+          source_branch: sourceBranch,
+          source_commit: sourceCommit,
+          source_files: sourceFiles,
+        })
+        .select(ROADMAP_AUTOSYNC_SELECT_WITHOUT_SECTOR)
+        .maybeSingle();
+    }
+
+    const { data, error } = createResult;
 
     if (error || !data) {
       return NextResponse.json({ error: error?.message || 'No se pudo crear el item auto-sync.' }, { status: 500 });
@@ -256,12 +297,25 @@ export async function POST(request: NextRequest) {
       patch.title = title;
     }
 
-    const { data, error } = await supabase
+    let updateResult: any = await supabase
       .from('roadmap_updates')
       .update(patch)
       .eq('id', existing.id)
-      .select(selectFields)
+      .select(ROADMAP_AUTOSYNC_SELECT_WITH_SECTOR)
       .maybeSingle();
+
+    if (isMissingRoadmapSectorColumnError(updateResult.error || null)) {
+      const fallbackPatch = { ...patch } as Record<string, any>;
+      delete fallbackPatch.sector;
+      updateResult = await supabase
+        .from('roadmap_updates')
+        .update(fallbackPatch)
+        .eq('id', existing.id)
+        .select(ROADMAP_AUTOSYNC_SELECT_WITHOUT_SECTOR)
+        .maybeSingle();
+    }
+
+    const { data, error } = updateResult;
 
     if (error || !data) {
       return NextResponse.json(

@@ -6,6 +6,11 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
+const ROADMAP_UPDATE_SELECT_WITH_SECTOR =
+  'id,title,description,status,area,priority,sector,owner,eta_date,created_by,updated_by,created_at,updated_at';
+const ROADMAP_UPDATE_SELECT_WITHOUT_SECTOR =
+  'id,title,description,status,area,priority,owner,eta_date,created_by,updated_by,created_at,updated_at';
+
 const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
@@ -69,6 +74,13 @@ const normalizeSentiment = (value: unknown) => {
     .trim();
   if (!ROADMAP_SENTIMENT.has(normalized)) return 'neutral';
   return normalized;
+};
+
+const isMissingRoadmapSectorColumnError = (error: { code?: string | null; message?: string | null } | null) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').toLowerCase();
+  const isMissingColumn = code === '42703' || message.includes('does not exist');
+  return isMissingColumn && message.includes('sector');
 };
 
 const normalizeEtaDate = (value: unknown) => {
@@ -196,12 +208,25 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Missing payload' }, { status: 400 });
   }
 
-  const { data, error } = await supabase
+  let updateResult: any = await supabase
     .from('roadmap_updates')
     .update(patch)
     .eq('id', roadmapId)
-    .select('id,title,description,status,area,priority,sector,owner,eta_date,created_by,updated_by,created_at,updated_at')
+    .select(ROADMAP_UPDATE_SELECT_WITH_SECTOR)
     .maybeSingle();
+
+  if (isMissingRoadmapSectorColumnError(updateResult.error || null)) {
+    const fallbackPatch = { ...patch } as Record<string, any>;
+    delete fallbackPatch.sector;
+    updateResult = await supabase
+      .from('roadmap_updates')
+      .update(fallbackPatch)
+      .eq('id', roadmapId)
+      .select(ROADMAP_UPDATE_SELECT_WITHOUT_SECTOR)
+      .maybeSingle();
+  }
+
+  const { data, error } = updateResult;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

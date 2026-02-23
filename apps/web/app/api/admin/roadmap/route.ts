@@ -6,6 +6,11 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
+const ROADMAP_UPDATES_SELECT_WITH_SECTOR =
+  'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
+const ROADMAP_UPDATES_SELECT_WITHOUT_SECTOR =
+  'id,title,description,status,area,priority,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
+
 const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
@@ -136,6 +141,13 @@ const normalizeSourceFiles = (value: unknown) => {
   return Array.from(deduped).slice(0, 200);
 };
 
+const isMissingRoadmapSectorColumnError = (error: { code?: string | null; message?: string | null } | null) => {
+  const code = String(error?.code || '').trim();
+  const message = String(error?.message || '').toLowerCase();
+  const isMissingColumn = code === '42703' || message.includes('does not exist');
+  return isMissingColumn && message.includes('sector');
+};
+
 const mapFeedback = (item: RoadmapFeedbackRow, labels: Record<string, string>) => ({
   id: item.id,
   roadmap_id: item.roadmap_id,
@@ -187,20 +199,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const [updatesRes, feedbackRes] = await Promise.all([
-    supabase
+  const updatesPromise = (async () => {
+    let result: any = await supabase
       .from('roadmap_updates')
-      .select(
-        'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
-      )
+      .select(ROADMAP_UPDATES_SELECT_WITH_SECTOR)
       .order('created_at', { ascending: false })
-      .limit(400),
-    supabase
-      .from('roadmap_feedback')
-      .select('id,roadmap_id,body,sentiment,created_by,created_at')
-      .order('created_at', { ascending: true })
-      .limit(3000),
-  ]);
+      .limit(400);
+    if (isMissingRoadmapSectorColumnError(result.error || null)) {
+      result = await supabase
+        .from('roadmap_updates')
+        .select(ROADMAP_UPDATES_SELECT_WITHOUT_SECTOR)
+        .order('created_at', { ascending: false })
+        .limit(400);
+    }
+    return result;
+  })();
+
+  const feedbackPromise = supabase
+    .from('roadmap_feedback')
+    .select('id,roadmap_id,body,sentiment,created_by,created_at')
+    .order('created_at', { ascending: true })
+    .limit(3000);
+
+  const [updatesRes, feedbackRes] = await Promise.all([updatesPromise, feedbackPromise]);
 
   if (updatesRes.error || feedbackRes.error) {
     return NextResponse.json(
@@ -276,13 +297,12 @@ export async function POST(request: NextRequest) {
   const feedbackSentiment = normalizeSentiment(body?.feedback_sentiment);
   const sourceFiles = normalizeSourceFiles(body?.source_files);
 
-  const payload = {
+  const payloadBase = {
     title,
     description: toOptionalText(body?.description),
     status,
     area,
     priority,
-    sector,
     owner: toOptionalText(body?.owner),
     eta_date: toOptionalText(body?.eta_date),
     source_key: toOptionalText(body?.source_key),
@@ -293,13 +313,21 @@ export async function POST(request: NextRequest) {
     updated_by: user.id,
   };
 
-  const { data, error } = await supabase
+  let insertResult: any = await supabase
     .from('roadmap_updates')
-    .insert(payload)
-    .select(
-      'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at'
-    )
+    .insert({ ...payloadBase, sector })
+    .select(ROADMAP_UPDATES_SELECT_WITH_SECTOR)
     .maybeSingle();
+
+  if (isMissingRoadmapSectorColumnError(insertResult.error || null)) {
+    insertResult = await supabase
+      .from('roadmap_updates')
+      .insert(payloadBase)
+      .select(ROADMAP_UPDATES_SELECT_WITHOUT_SECTOR)
+      .maybeSingle();
+  }
+
+  const { data, error } = insertResult;
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
