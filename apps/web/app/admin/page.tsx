@@ -1622,6 +1622,8 @@ export default function AdminPage() {
   const [roadmapBulkUpdating, setRoadmapBulkUpdating] = useState(false);
   const [roadmapSlaBatchApplying, setRoadmapSlaBatchApplying] = useState(false);
   const [selectedRoadmapIds, setSelectedRoadmapIds] = useState<string[]>([]);
+  const [roadmapBulkOwnerDraft, setRoadmapBulkOwnerDraft] = useState('');
+  const [roadmapBulkEtaDraft, setRoadmapBulkEtaDraft] = useState('');
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
   const [roadmapFeedbackDrafts, setRoadmapFeedbackDrafts] = useState<Record<string, string>>({});
   const [roadmapFeedbackSentiments, setRoadmapFeedbackSentiments] = useState<Record<string, RoadmapSentiment>>({});
@@ -2342,6 +2344,143 @@ export default function AdminPage() {
       if (successIds.length > 0) {
         await loadRoadmap(session.access_token);
         setSelectedRoadmapIds((prev) => prev.filter((id) => !successIds.includes(id)));
+      }
+
+      if (failureCount > 0 && successIds.length > 0) {
+        setRoadmapError(`Se actualizaron ${successIds.length} item(s), pero ${failureCount} fallaron.`);
+      } else if (failureCount > 0) {
+        setRoadmapError('No se pudo aplicar la acción masiva.');
+      } else if (auditWarningCount > 0) {
+        setRoadmapMessage(
+          `Acción aplicada a ${successIds.length} item(s). ${auditWarningCount} quedaron sin feedback automático.`
+        );
+      } else {
+        setRoadmapMessage(`Acción aplicada a ${successIds.length} item(s).`);
+      }
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo aplicar la acción masiva.');
+    } finally {
+      setRoadmapBulkUpdating(false);
+    }
+  };
+
+  const runRoadmapBulkMetaAction = async (action: 'set_owner' | 'clear_owner' | 'set_eta' | 'clear_eta') => {
+    if (!session?.access_token || roadmapBulkUpdating) return;
+    if (!selectedRoadmapIds.length) return;
+
+    const selectedSet = new Set(selectedRoadmapIds);
+    const selectedItems = roadmapUpdates.filter((item) => selectedSet.has(item.id));
+    if (!selectedItems.length) {
+      setRoadmapError('');
+      setRoadmapMessage('No hay items seleccionados para actualizar.');
+      return;
+    }
+
+    const ownerTarget = roadmapBulkOwnerDraft.trim();
+    const etaTarget = roadmapBulkEtaDraft || null;
+
+    if (action === 'set_owner' && !ownerTarget) {
+      setRoadmapError('');
+      setRoadmapMessage('Escribe un responsable para aplicar en lote.');
+      return;
+    }
+
+    if (action === 'set_eta' && !etaTarget) {
+      setRoadmapError('');
+      setRoadmapMessage('Selecciona una ETA para aplicar en lote.');
+      return;
+    }
+
+    const updates = selectedItems
+      .map((item) => {
+        const currentOwner = item.owner?.trim() || null;
+        const currentEta = item.eta_date || null;
+
+        if (action === 'set_owner') {
+          if (currentOwner === ownerTarget) return null;
+          return {
+            id: item.id,
+            patch: { owner: ownerTarget },
+            auditMessage: `Acción masiva (Responsable): ${currentOwner || 'Sin asignar'} -> ${ownerTarget}.`,
+          };
+        }
+
+        if (action === 'clear_owner') {
+          if (!currentOwner) return null;
+          return {
+            id: item.id,
+            patch: { owner: null },
+            auditMessage: `Acción masiva (Responsable): ${currentOwner} -> Sin asignar.`,
+          };
+        }
+
+        if (action === 'set_eta') {
+          if (currentEta === etaTarget) return null;
+          return {
+            id: item.id,
+            patch: { eta_date: etaTarget },
+            auditMessage: `Acción masiva (ETA): ${currentEta ? formatShortDate(currentEta) : 'Sin fecha'} -> ${formatShortDate(etaTarget || '')}.`,
+          };
+        }
+
+        if (!currentEta) return null;
+        return {
+          id: item.id,
+          patch: { eta_date: null },
+          auditMessage: `Acción masiva (ETA): ${formatShortDate(currentEta)} -> Sin fecha.`,
+        };
+      })
+      .filter(Boolean) as Array<{ id: string; patch: { owner?: string | null; eta_date?: string | null }; auditMessage: string }>;
+
+    if (!updates.length) {
+      setRoadmapError('');
+      setRoadmapMessage('No hay cambios pendientes para aplicar en la selección.');
+      return;
+    }
+
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapBulkUpdating(true);
+    try {
+      const results = await Promise.allSettled(
+        updates.map(async (entry) => {
+          const response = await fetch(`/api/admin/roadmap/${entry.id}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              ...entry.patch,
+              audit_message: entry.auditMessage,
+              audit_sentiment: 'neutral',
+            }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data?.error || 'No se pudo aplicar la acción masiva.');
+          }
+          return {
+            id: entry.id,
+            auditWarning: typeof data?.audit_error === 'string' ? data.audit_error : '',
+          };
+        })
+      );
+
+      const successIds: string[] = [];
+      let failureCount = 0;
+      let auditWarningCount = 0;
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          successIds.push(result.value.id);
+          if (result.value.auditWarning) auditWarningCount += 1;
+        } else {
+          failureCount += 1;
+        }
+      });
+
+      if (successIds.length > 0) {
+        await loadRoadmap(session.access_token);
       }
 
       if (failureCount > 0 && successIds.length > 0) {
@@ -6509,6 +6648,54 @@ export default function AdminPage() {
                             Limpiar selección
                           </button>
                         </div>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <input
+                          value={roadmapBulkOwnerDraft}
+                          onChange={(event) => setRoadmapBulkOwnerDraft(event.target.value)}
+                          placeholder="Responsable masivo"
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('set_owner')}
+                          disabled={roadmapBulkUpdating || !roadmapBulkOwnerDraft.trim()}
+                          className="rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-[11px] font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Aplicar owner
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('clear_owner')}
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Quitar owner
+                        </button>
+                        <input
+                          type="date"
+                          value={roadmapBulkEtaDraft}
+                          onChange={(event) => setRoadmapBulkEtaDraft(event.target.value)}
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('set_eta')}
+                          disabled={roadmapBulkUpdating || !roadmapBulkEtaDraft}
+                          className="rounded-full border border-cyan-200 bg-cyan-50 px-3 py-1 text-[11px] font-semibold text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Aplicar ETA
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => runRoadmapBulkMetaAction('clear_eta')}
+                          disabled={roadmapBulkUpdating}
+                          className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Quitar ETA
+                        </button>
                       </div>
                     </div>
                   )}
