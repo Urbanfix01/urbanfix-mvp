@@ -1591,6 +1591,8 @@ export default function AdminPage() {
   const [roadmapPendingOnly, setRoadmapPendingOnly] = useState(false);
   const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
   const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
+  const [roadmapBulkUpdating, setRoadmapBulkUpdating] = useState(false);
+  const [selectedRoadmapIds, setSelectedRoadmapIds] = useState<string[]>([]);
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
   const [roadmapFeedbackDrafts, setRoadmapFeedbackDrafts] = useState<Record<string, string>>({});
   const [roadmapFeedbackSentiments, setRoadmapFeedbackSentiments] = useState<Record<string, RoadmapSentiment>>({});
@@ -2138,6 +2140,7 @@ export default function AdminPage() {
       priority: RoadmapPriority;
       sector: RoadmapSector;
       owner: string | null;
+      eta_date: string | null;
     }>
   ) => {
     if (!session?.access_token) return;
@@ -2179,6 +2182,106 @@ export default function AdminPage() {
       setRoadmapError(error?.message || 'No se pudo actualizar el item.');
     } finally {
       setRoadmapUpdatingId(null);
+    }
+  };
+
+  const toggleRoadmapSelection = (roadmapId: string, selected: boolean) => {
+    setSelectedRoadmapIds((prev) => {
+      if (selected) {
+        if (prev.includes(roadmapId)) return prev;
+        return [...prev, roadmapId];
+      }
+      return prev.filter((id) => id !== roadmapId);
+    });
+  };
+
+  const toggleSelectAllFilteredPending = () => {
+    setSelectedRoadmapIds((prev) => {
+      const next = new Set(prev);
+      if (roadmapAllFilteredPendingSelected) {
+        filteredPendingRoadmapIds.forEach((id) => next.delete(id));
+      } else {
+        filteredPendingRoadmapIds.forEach((id) => next.add(id));
+      }
+      return Array.from(next);
+    });
+  };
+
+  const runRoadmapBulkAction = async (action: 'start' | 'unblock' | 'block' | 'resolve') => {
+    if (!session?.access_token || roadmapBulkUpdating) return;
+    if (!selectedRoadmapIds.length) return;
+
+    const selectedSet = new Set(selectedRoadmapIds);
+    const selectedItems = roadmapUpdates.filter((item) => selectedSet.has(item.id));
+    const eligibleItems = selectedItems.filter((item) => {
+      if (action === 'start') return item.status === 'planned';
+      if (action === 'unblock') return item.status === 'blocked';
+      if (action === 'block') return item.status === 'in_progress';
+      return item.status !== 'done';
+    });
+
+    if (!eligibleItems.length) {
+      setRoadmapError('');
+      setRoadmapMessage('No hay items seleccionados compatibles con esa acción.');
+      return;
+    }
+
+    const statusByAction: Record<'start' | 'unblock' | 'block' | 'resolve', RoadmapStatus> = {
+      start: 'in_progress',
+      unblock: 'in_progress',
+      block: 'blocked',
+      resolve: 'done',
+    };
+
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapBulkUpdating(true);
+    try {
+      const targetStatus = statusByAction[action];
+      const results = await Promise.allSettled(
+        eligibleItems.map(async (item) => {
+          const response = await fetch(`/api/admin/roadmap/${item.id}`, {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ status: targetStatus }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data?.error || 'No se pudo aplicar la acción masiva.');
+          }
+          return item.id;
+        })
+      );
+
+      const successIds: string[] = [];
+      let failureCount = 0;
+      results.forEach((result) => {
+        if (result.status === 'fulfilled') {
+          successIds.push(result.value);
+        } else {
+          failureCount += 1;
+        }
+      });
+
+      if (successIds.length > 0) {
+        await loadRoadmap(session.access_token);
+        setSelectedRoadmapIds((prev) => prev.filter((id) => !successIds.includes(id)));
+      }
+
+      if (failureCount > 0 && successIds.length > 0) {
+        setRoadmapError(`Se actualizaron ${successIds.length} item(s), pero ${failureCount} fallaron.`);
+      } else if (failureCount > 0) {
+        setRoadmapError('No se pudo aplicar la acción masiva.');
+      } else {
+        setRoadmapMessage(`Acción aplicada a ${successIds.length} item(s).`);
+      }
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo aplicar la acción masiva.');
+    } finally {
+      setRoadmapBulkUpdating(false);
     }
   };
 
@@ -2352,6 +2455,15 @@ export default function AdminPage() {
   }, [activeTab, session?.access_token]);
 
   useEffect(() => {
+    setSelectedRoadmapIds((prev) => {
+      if (!prev.length) return prev;
+      const existingIds = new Set(roadmapUpdates.map((item) => item.id));
+      const next = prev.filter((id) => existingIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+  }, [roadmapUpdates]);
+
+  useEffect(() => {
     if (!session?.access_token || activeTab !== 'flujo' || flowLayoutDirty) return;
     loadFlowLayout(session.access_token, { silent: true });
   }, [activeTab, flowLayoutDirty, session?.access_token, loadFlowLayout]);
@@ -2420,6 +2532,8 @@ export default function AdminPage() {
     setRoadmapMessage('');
     setRoadmapSearch('');
     setRoadmapPendingOnly(false);
+    setRoadmapBulkUpdating(false);
+    setSelectedRoadmapIds([]);
     setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
     setFlowDragStart(null);
     setFlowNodeDragStart(null);
@@ -3358,6 +3472,35 @@ export default function AdminPage() {
       return haystack.includes(query);
     });
   }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter, roadmapSectorFilter, roadmapPendingOnly]);
+
+  const roadmapSelectedIdSet = useMemo(() => new Set(selectedRoadmapIds), [selectedRoadmapIds]);
+
+  const filteredPendingRoadmapIds = useMemo(
+    () => filteredRoadmapUpdates.filter((item) => item.status !== 'done').map((item) => item.id),
+    [filteredRoadmapUpdates]
+  );
+
+  const roadmapAllFilteredPendingSelected = useMemo(
+    () =>
+      filteredPendingRoadmapIds.length > 0 &&
+      filteredPendingRoadmapIds.every((roadmapId) => roadmapSelectedIdSet.has(roadmapId)),
+    [filteredPendingRoadmapIds, roadmapSelectedIdSet]
+  );
+
+  const selectedRoadmapItems = useMemo(
+    () => roadmapUpdates.filter((item) => roadmapSelectedIdSet.has(item.id)),
+    [roadmapUpdates, roadmapSelectedIdSet]
+  );
+
+  const roadmapBulkAvailability = useMemo(
+    () => ({
+      start: selectedRoadmapItems.some((item) => item.status === 'planned'),
+      unblock: selectedRoadmapItems.some((item) => item.status === 'blocked'),
+      block: selectedRoadmapItems.some((item) => item.status === 'in_progress'),
+      resolve: selectedRoadmapItems.some((item) => item.status !== 'done'),
+    }),
+    [selectedRoadmapItems]
+  );
 
   const roadmapTotals = useMemo(() => {
     const total = roadmapUpdates.length;
@@ -5823,6 +5966,16 @@ export default function AdminPage() {
                       </button>
                       <button
                         type="button"
+                        onClick={toggleSelectAllFilteredPending}
+                        disabled={!filteredPendingRoadmapIds.length}
+                        className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        {roadmapAllFilteredPendingSelected
+                          ? 'Quitar visibles'
+                          : `Seleccionar visibles (${filteredPendingRoadmapIds.length})`}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setRoadmapSearch('');
                           setRoadmapStatusFilter('all');
@@ -5836,6 +5989,58 @@ export default function AdminPage() {
                       </button>
                     </div>
                   </div>
+
+                  {selectedRoadmapIds.length > 0 && (
+                    <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-slate-700">
+                          Seleccionados: {selectedRoadmapIds.length}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => runRoadmapBulkAction('start')}
+                            disabled={roadmapBulkUpdating || !roadmapBulkAvailability.start}
+                            className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            Iniciar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runRoadmapBulkAction('unblock')}
+                            disabled={roadmapBulkUpdating || !roadmapBulkAvailability.unblock}
+                            className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            Desbloquear
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runRoadmapBulkAction('block')}
+                            disabled={roadmapBulkUpdating || !roadmapBulkAvailability.block}
+                            className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            Bloquear
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => runRoadmapBulkAction('resolve')}
+                            disabled={roadmapBulkUpdating || !roadmapBulkAvailability.resolve}
+                            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            Resolver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSelectedRoadmapIds([])}
+                            disabled={roadmapBulkUpdating}
+                            className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            Limpiar selección
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {roadmapError && (
                     <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -5935,6 +6140,7 @@ export default function AdminPage() {
                       const feedbackSentiment = roadmapFeedbackSentiments[item.id] || 'neutral';
                       const savingUpdate = roadmapUpdatingId === item.id;
                       const savingFeedback = roadmapFeedbackSavingId === item.id;
+                      const isSelected = roadmapSelectedIdSet.has(item.id);
                       return (
                         <article
                           key={item.id}
@@ -5979,6 +6185,15 @@ export default function AdminPage() {
                               )}
                             </div>
                             <div className="flex w-full flex-wrap items-center gap-2 md:w-auto">
+                              <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold text-slate-600">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={(event) => toggleRoadmapSelection(item.id, event.target.checked)}
+                                  className="h-4 w-4 rounded border border-slate-300 text-slate-900"
+                                />
+                                Sel
+                              </label>
                               <select
                                 value={item.status}
                                 onChange={(event) => {
@@ -6043,6 +6258,32 @@ export default function AdminPage() {
                                   </option>
                                 ))}
                               </select>
+                              <input
+                                key={`owner-${item.id}-${item.updated_at}`}
+                                defaultValue={item.owner || ''}
+                                onBlur={(event) => {
+                                  const nextOwner = event.target.value.trim() || null;
+                                  const currentOwner = item.owner?.trim() || null;
+                                  if (nextOwner === currentOwner) return;
+                                  patchRoadmapUpdate(item.id, { owner: nextOwner });
+                                }}
+                                disabled={savingUpdate}
+                                placeholder="Responsable"
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                              />
+                              <input
+                                key={`eta-${item.id}-${item.updated_at}`}
+                                type="date"
+                                defaultValue={item.eta_date || ''}
+                                onChange={(event) => {
+                                  const nextEta = event.target.value || null;
+                                  const currentEta = item.eta_date || null;
+                                  if (nextEta === currentEta) return;
+                                  patchRoadmapUpdate(item.id, { eta_date: nextEta });
+                                }}
+                                disabled={savingUpdate}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                              />
                               {item.status === 'planned' && (
                                 <button
                                   type="button"
