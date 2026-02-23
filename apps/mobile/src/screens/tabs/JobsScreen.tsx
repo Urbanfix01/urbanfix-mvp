@@ -39,6 +39,18 @@ type TrendCoord = { x: number; totalY: number; paidY: number };
 const DASHBOARD_CACHE_KEY = 'dashboard_quotes_cache_v1';
 const DASHBOARD_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 horas
 
+const formatMoneyValue = (value: number) => {
+  const safe = Number(value || 0);
+  try {
+    return new Intl.NumberFormat('es-AR').format(safe);
+  } catch (_err) {
+    const [intPart, decPart] = safe.toString().split('.');
+    const withSeparators = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    if (decPart) return `${withSeparators},${decPart}`;
+    return withSeparators;
+  }
+};
+
 const TrendChart = React.memo(
   ({
     width,
@@ -318,18 +330,7 @@ export default function JobsScreen() {
     return { totalAmount, approvedAmount, paidAmount };
   }, [jobs]);
 
-  const formatNumberSafe = useCallback((value: number) => {
-    const safe = Number(value || 0);
-    try {
-      // Intl puede fallar en Android si falta el locale; usamos fallback.
-      return new Intl.NumberFormat('es-AR').format(safe);
-    } catch (_err) {
-      const [intPart, decPart] = safe.toString().split('.');
-      const withSeparators = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-      if (decPart) return `${withSeparators},${decPart}`;
-      return withSeparators;
-    }
-  }, []);
+  const formatNumberSafe = useCallback((value: number) => formatMoneyValue(value), []);
   const formatMoney = useCallback((value: number) => formatNumberSafe(value), [formatNumberSafe]);
   const formatCompact = useCallback((value: number) => {
     const safe = Number(value || 0);
@@ -1204,7 +1205,7 @@ const MapDetailSheet = ({
         <Text style={styles.sheetTitle}>{point.title}</Text>
         {!!point.address && <Text style={styles.sheetAddress}>{point.address}</Text>}
         <Text style={styles.sheetMeta}>
-          {point.status.label} · ${formatMoney(Number(point.amount || 0))}
+          {point.status.label} · ${formatMoneyValue(Number(point.amount || 0))}
         </Text>
         <Text style={styles.sheetDate}>
           {new Date(point.createdAt).toLocaleDateString()}
