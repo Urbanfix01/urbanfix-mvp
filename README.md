@@ -48,6 +48,9 @@ Puntos clave:
 - App: Expo/EAS (`apps/mobile/app.json`, `apps/mobile/eas.json`).
 - iOS TestFlight: requiere `ios.bundleIdentifier` en `apps/mobile/app.json`.
 
+## Operacion release
+- Scope freeze + criterios de salida: `docs/ops/2026-02-23_scope_freeze_y_criterios_salida.md`
+
 ## Desarrollo local
 - Web:
   - `cd apps/web`
@@ -93,3 +96,4 @@ Cada vez que se agregue una funcion nueva, se cambie el flujo principal, o se mo
 - 2026-01-02 - IVA reseteado en nuevos presupuestos desde la app movil.
 - 2026-01-02 - Subtotales separados por mano de obra y materiales en la vista de presupuesto web.
 - 2026-01-16 - Panel web: links publicos de presupuestos configurables y datos alineados con la app movil.
+- 2026-02-23 - Definido scope freeze + criterios de salida de release (P0/P1 + checklist Go/No-Go).
