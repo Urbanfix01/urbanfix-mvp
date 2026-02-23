@@ -2169,7 +2169,12 @@ export default function AdminPage() {
       sector: RoadmapSector;
       owner: string | null;
       eta_date: string | null;
-    }>
+    }>,
+    options?: {
+      auditMessage?: string;
+      auditSentiment?: RoadmapSentiment;
+      successMessage?: string;
+    }
   ) => {
     if (!session?.access_token) return;
     setRoadmapError('');
@@ -2182,13 +2187,24 @@ export default function AdminPage() {
           Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(patch),
+        body: JSON.stringify({
+          ...patch,
+          ...(options?.auditMessage ? { audit_message: options.auditMessage } : {}),
+          ...(options?.auditSentiment ? { audit_sentiment: options.auditSentiment } : {}),
+        }),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data?.error || 'No se pudo actualizar el item.');
       }
       const updated = data?.update || null;
+      const auditFeedback = data?.audit_feedback
+        ? ({
+            ...data.audit_feedback,
+            sentiment: toRoadmapSentiment(data.audit_feedback.sentiment),
+          } as RoadmapFeedbackItem)
+        : null;
+      const auditError = typeof data?.audit_error === 'string' ? data.audit_error : '';
       if (updated) {
         setRoadmapUpdates((prev) =>
           prev.map((item) =>
@@ -2200,12 +2216,21 @@ export default function AdminPage() {
                   area: toRoadmapArea(updated.area),
                   priority: toRoadmapPriority(updated.priority),
                   sector: toRoadmapSector(updated.sector),
+                  feedback:
+                    auditFeedback && !(item.feedback || []).some((feedback) => feedback.id === auditFeedback.id)
+                      ? [...(item.feedback || []), auditFeedback]
+                      : item.feedback || [],
                 }
               : item
           )
         );
       }
-      setRoadmapMessage('Roadmap actualizado.');
+      const successMessage = options?.successMessage || 'Roadmap actualizado.';
+      if (auditError) {
+        setRoadmapMessage(`${successMessage} (sin feedback automático: ${auditError})`);
+      } else {
+        setRoadmapMessage(successMessage);
+      }
     } catch (error: any) {
       setRoadmapError(error?.message || 'No se pudo actualizar el item.');
     } finally {
@@ -2260,12 +2285,20 @@ export default function AdminPage() {
       block: 'blocked',
       resolve: 'done',
     };
+    const labelByAction: Record<'start' | 'unblock' | 'block' | 'resolve', string> = {
+      start: 'Iniciar',
+      unblock: 'Desbloquear',
+      block: 'Bloquear',
+      resolve: 'Resolver',
+    };
 
     setRoadmapError('');
     setRoadmapMessage('');
     setRoadmapBulkUpdating(true);
     try {
       const targetStatus = statusByAction[action];
+      const actionLabel = labelByAction[action];
+      const actionSentiment: RoadmapSentiment = targetStatus === 'done' ? 'positive' : 'neutral';
       const results = await Promise.allSettled(
         eligibleItems.map(async (item) => {
           const response = await fetch(`/api/admin/roadmap/${item.id}`, {
@@ -2274,21 +2307,30 @@ export default function AdminPage() {
               Authorization: `Bearer ${session.access_token}`,
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ status: targetStatus }),
+            body: JSON.stringify({
+              status: targetStatus,
+              audit_message: `Acción masiva (${actionLabel}): estado ${getRoadmapStatusLabel(item.status)} -> ${getRoadmapStatusLabel(targetStatus)}.`,
+              audit_sentiment: actionSentiment,
+            }),
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
             throw new Error(data?.error || 'No se pudo aplicar la acción masiva.');
           }
-          return item.id;
+          return {
+            id: item.id,
+            auditWarning: typeof data?.audit_error === 'string' ? data.audit_error : '',
+          };
         })
       );
 
       const successIds: string[] = [];
       let failureCount = 0;
+      let auditWarningCount = 0;
       results.forEach((result) => {
         if (result.status === 'fulfilled') {
-          successIds.push(result.value);
+          successIds.push(result.value.id);
+          if (result.value.auditWarning) auditWarningCount += 1;
         } else {
           failureCount += 1;
         }
@@ -2303,6 +2345,10 @@ export default function AdminPage() {
         setRoadmapError(`Se actualizaron ${successIds.length} item(s), pero ${failureCount} fallaron.`);
       } else if (failureCount > 0) {
         setRoadmapError('No se pudo aplicar la acción masiva.');
+      } else if (auditWarningCount > 0) {
+        setRoadmapMessage(
+          `Acción aplicada a ${successIds.length} item(s). ${auditWarningCount} quedaron sin feedback automático.`
+        );
       } else {
         setRoadmapMessage(`Acción aplicada a ${successIds.length} item(s).`);
       }
@@ -2313,7 +2359,14 @@ export default function AdminPage() {
     }
   };
 
-  const runRoadmapQuickAction = (item: RoadmapUpdateItem, action: 'start' | 'unblock' | 'block' | 'resolve') => {
+  const runRoadmapQuickAction = (
+    item: RoadmapUpdateItem,
+    action: 'start' | 'unblock' | 'block' | 'resolve',
+    options?: {
+      contextLabel?: string;
+      successMessage?: string;
+    }
+  ) => {
     if (roadmapUpdatingId === item.id) return;
     if (action === 'start' && item.status !== 'planned') return;
     if (action === 'unblock' && item.status !== 'blocked') return;
@@ -2326,8 +2379,26 @@ export default function AdminPage() {
       block: 'blocked',
       resolve: 'done',
     };
+    const labelByAction: Record<'start' | 'unblock' | 'block' | 'resolve', string> = {
+      start: 'Iniciar',
+      unblock: 'Desbloquear',
+      block: 'Bloquear',
+      resolve: 'Resolver',
+    };
     const status = statusByAction[action];
-    void patchRoadmapUpdate(item.id, { status });
+    const prefix = options?.contextLabel ? `${options.contextLabel}: ` : '';
+    const fromLabel = getRoadmapStatusLabel(item.status);
+    const toLabel = getRoadmapStatusLabel(status);
+    const auditSentiment: RoadmapSentiment = status === 'done' ? 'positive' : 'neutral';
+    void patchRoadmapUpdate(
+      item.id,
+      { status },
+      {
+        auditMessage: `${prefix}Acción rápida (${labelByAction[action]}): estado ${fromLabel} -> ${toLabel}.`,
+        auditSentiment,
+        successMessage: options?.successMessage || 'Acción rápida aplicada.',
+      }
+    );
   };
 
   const applyRoadmapSlaSuggestion = (alert: RoadmapSlaAlert) => {
@@ -2336,30 +2407,64 @@ export default function AdminPage() {
     if (roadmapUpdatingId === target.id) return;
 
     if (alert.rule === 'blocked_stale') {
-      runRoadmapQuickAction(target, 'unblock');
+      runRoadmapQuickAction(target, 'unblock', {
+        contextLabel: `SLA ${alert.title}`,
+        successMessage: 'Acción SLA aplicada.',
+      });
       return;
     }
 
     if (alert.rule === 'high_overdue') {
       if (target.status === 'planned') {
-        runRoadmapQuickAction(target, 'start');
+        runRoadmapQuickAction(target, 'start', {
+          contextLabel: `SLA ${alert.title}`,
+          successMessage: 'Acción SLA aplicada.',
+        });
       } else {
-        runRoadmapQuickAction(target, 'resolve');
+        runRoadmapQuickAction(target, 'resolve', {
+          contextLabel: `SLA ${alert.title}`,
+          successMessage: 'Acción SLA aplicada.',
+        });
       }
       return;
     }
 
     if (alert.rule === 'stale_in_progress') {
-      void patchRoadmapUpdate(target.id, { eta_date: getIsoDateFromOffset(3) });
+      const nextEta = getIsoDateFromOffset(3);
+      void patchRoadmapUpdate(
+        target.id,
+        { eta_date: nextEta },
+        {
+          auditMessage: `SLA ${alert.title}: ETA ajustada a ${formatShortDate(nextEta)} por inactividad en ejecución.`,
+          auditSentiment: 'neutral',
+          successMessage: 'Acción SLA aplicada.',
+        }
+      );
       return;
     }
 
     if (alert.rule === 'overdue_unassigned') {
       const owner = session?.user?.email || 'Equipo admin';
       if (target.status === 'planned') {
-        void patchRoadmapUpdate(target.id, { owner, status: 'in_progress' });
+        void patchRoadmapUpdate(
+          target.id,
+          { owner, status: 'in_progress' },
+          {
+            auditMessage: `SLA ${alert.title}: responsable asignado (${owner}) y estado ${getRoadmapStatusLabel(target.status)} -> ${getRoadmapStatusLabel('in_progress')}.`,
+            auditSentiment: 'neutral',
+            successMessage: 'Acción SLA aplicada.',
+          }
+        );
       } else {
-        void patchRoadmapUpdate(target.id, { owner });
+        void patchRoadmapUpdate(
+          target.id,
+          { owner },
+          {
+            auditMessage: `SLA ${alert.title}: responsable asignado (${owner}).`,
+            auditSentiment: 'neutral',
+            successMessage: 'Acción SLA aplicada.',
+          }
+        );
       }
     }
   };
@@ -6476,7 +6581,11 @@ export default function AdminPage() {
                                 onChange={(event) => {
                                   const status = event.target.value as RoadmapStatus;
                                   if (status === item.status) return;
-                                  patchRoadmapUpdate(item.id, { status });
+                                  patchRoadmapUpdate(item.id, { status }, {
+                                    auditMessage: `Cambio manual: estado ${getRoadmapStatusLabel(item.status)} -> ${getRoadmapStatusLabel(status)}.`,
+                                    auditSentiment: status === 'done' ? 'positive' : 'neutral',
+                                    successMessage: 'Estado actualizado.',
+                                  });
                                 }}
                                 disabled={savingUpdate}
                                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -6492,7 +6601,11 @@ export default function AdminPage() {
                                 onChange={(event) => {
                                   const area = event.target.value as RoadmapArea;
                                   if (area === item.area) return;
-                                  patchRoadmapUpdate(item.id, { area });
+                                  patchRoadmapUpdate(item.id, { area }, {
+                                    auditMessage: `Cambio manual: área ${getRoadmapAreaLabel(item.area)} -> ${getRoadmapAreaLabel(area)}.`,
+                                    auditSentiment: 'neutral',
+                                    successMessage: 'Área actualizada.',
+                                  });
                                 }}
                                 disabled={savingUpdate}
                                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -6508,7 +6621,11 @@ export default function AdminPage() {
                                 onChange={(event) => {
                                   const priority = event.target.value as RoadmapPriority;
                                   if (priority === item.priority) return;
-                                  patchRoadmapUpdate(item.id, { priority });
+                                  patchRoadmapUpdate(item.id, { priority }, {
+                                    auditMessage: `Cambio manual: prioridad ${getRoadmapPriorityLabel(item.priority)} -> ${getRoadmapPriorityLabel(priority)}.`,
+                                    auditSentiment: priority === 'high' ? 'negative' : 'neutral',
+                                    successMessage: 'Prioridad actualizada.',
+                                  });
                                 }}
                                 disabled={savingUpdate}
                                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -6524,7 +6641,11 @@ export default function AdminPage() {
                                 onChange={(event) => {
                                   const sector = event.target.value as RoadmapSector;
                                   if (sector === item.sector) return;
-                                  patchRoadmapUpdate(item.id, { sector });
+                                  patchRoadmapUpdate(item.id, { sector }, {
+                                    auditMessage: `Cambio manual: sector ${getRoadmapSectorLabel(item.sector)} -> ${getRoadmapSectorLabel(sector)}.`,
+                                    auditSentiment: 'neutral',
+                                    successMessage: 'Sector actualizado.',
+                                  });
                                 }}
                                 disabled={savingUpdate}
                                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
@@ -6542,7 +6663,11 @@ export default function AdminPage() {
                                   const nextOwner = event.target.value.trim() || null;
                                   const currentOwner = item.owner?.trim() || null;
                                   if (nextOwner === currentOwner) return;
-                                  patchRoadmapUpdate(item.id, { owner: nextOwner });
+                                  patchRoadmapUpdate(item.id, { owner: nextOwner }, {
+                                    auditMessage: `Cambio manual: responsable ${currentOwner || 'Sin asignar'} -> ${nextOwner || 'Sin asignar'}.`,
+                                    auditSentiment: 'neutral',
+                                    successMessage: 'Responsable actualizado.',
+                                  });
                                 }}
                                 disabled={savingUpdate}
                                 placeholder="Responsable"
@@ -6556,7 +6681,11 @@ export default function AdminPage() {
                                   const nextEta = event.target.value || null;
                                   const currentEta = item.eta_date || null;
                                   if (nextEta === currentEta) return;
-                                  patchRoadmapUpdate(item.id, { eta_date: nextEta });
+                                  patchRoadmapUpdate(item.id, { eta_date: nextEta }, {
+                                    auditMessage: `Cambio manual: ETA ${currentEta ? formatShortDate(currentEta) : 'Sin fecha'} -> ${nextEta ? formatShortDate(nextEta) : 'Sin fecha'}.`,
+                                    auditSentiment: 'neutral',
+                                    successMessage: 'ETA actualizada.',
+                                  });
                                 }}
                                 disabled={savingUpdate}
                                 className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"

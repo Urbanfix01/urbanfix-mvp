@@ -10,6 +10,7 @@ const ROADMAP_STATUS = new Set(['planned', 'in_progress', 'done', 'blocked']);
 const ROADMAP_AREA = new Set(['web', 'mobile', 'backend', 'ops']);
 const ROADMAP_PRIORITY = new Set(['high', 'medium', 'low']);
 const ROADMAP_SECTOR = new Set(['interfaz', 'operativo', 'clientes', 'web', 'app', 'funcionalidades']);
+const ROADMAP_SENTIMENT = new Set(['positive', 'neutral', 'negative']);
 
 const getAuthUser = async (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || '';
@@ -62,6 +63,14 @@ const normalizeSector = (value: unknown) => {
   return normalized;
 };
 
+const normalizeSentiment = (value: unknown) => {
+  const normalized = String(value || '')
+    .toLowerCase()
+    .trim();
+  if (!ROADMAP_SENTIMENT.has(normalized)) return 'neutral';
+  return normalized;
+};
+
 const normalizeEtaDate = (value: unknown) => {
   if (value === null) return null;
   if (typeof value !== 'string') return undefined;
@@ -98,6 +107,13 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   } catch {
     body = null;
   }
+
+  const includesAuditMessage = body && Object.prototype.hasOwnProperty.call(body, 'audit_message');
+  const auditMessage = includesAuditMessage ? toOptionalText(body.audit_message) : null;
+  if (includesAuditMessage && (auditMessage === undefined || auditMessage === null || auditMessage.length < 2)) {
+    return NextResponse.json({ error: 'Audit inválido. Usa al menos 2 caracteres.' }, { status: 400 });
+  }
+  const auditSentiment = normalizeSentiment(body?.audit_sentiment);
 
   const patch: Record<string, any> = {
     updated_by: user.id,
@@ -195,5 +211,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Roadmap item not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ update: data });
+  let auditFeedback: Record<string, any> | null = null;
+  let auditError: string | null = null;
+
+  if (auditMessage) {
+    const { data: feedbackData, error: feedbackError } = await supabase
+      .from('roadmap_feedback')
+      .insert({
+        roadmap_id: roadmapId,
+        body: auditMessage,
+        sentiment: auditSentiment,
+        created_by: user.id,
+      })
+      .select('id,roadmap_id,body,sentiment,created_by,created_at')
+      .maybeSingle();
+
+    if (feedbackError) {
+      auditError = feedbackError.message;
+    } else if (feedbackData) {
+      auditFeedback = {
+        ...feedbackData,
+        sentiment: normalizeSentiment(feedbackData.sentiment),
+        created_by_label: user.email || user.id,
+      };
+    }
+  }
+
+  return NextResponse.json({ update: data, audit_feedback: auditFeedback, audit_error: auditError });
 }
