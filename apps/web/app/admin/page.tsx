@@ -6030,6 +6030,32 @@ export default function AdminPage() {
                       </button>
                       <button
                         type="button"
+                        onClick={() =>
+                          downloadCsv(
+                            'roadmap_pendientes.csv',
+                            orderedRoadmapUpdates
+                              .filter((item) => item.status !== 'done')
+                              .map((item) => ({
+                                id: item.id,
+                                titulo: item.title,
+                                estado: getRoadmapStatusLabel(item.status),
+                                prioridad: getRoadmapPriorityLabel(item.priority),
+                                area: getRoadmapAreaLabel(item.area),
+                                sector: getRoadmapSectorLabel(item.sector),
+                                responsable: getRoadmapOwnerLabel(item.owner),
+                                eta: item.eta_date || '',
+                                actualizado: item.updated_at,
+                                feedback: item.feedback?.length || 0,
+                              }))
+                          )
+                        }
+                        disabled={!orderedRoadmapUpdates.some((item) => item.status !== 'done')}
+                        className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        Exportar pendientes
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setRoadmapSearch('');
                           setRoadmapStatusFilter('all');
