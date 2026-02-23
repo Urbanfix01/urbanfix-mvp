@@ -5842,6 +5842,14 @@ export default function AdminPage() {
                         >
                           {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar críticas'}
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => void runRoadmapSlaBatchAction('warning')}
+                          disabled={roadmapSlaBatchApplying || roadmapSlaSummary.warning === 0}
+                          className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+                        >
+                          {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar advertencias'}
+                        </button>
                       </div>
                     </div>
                     {roadmapSlaAlerts.length === 0 ? (
