@@ -533,6 +533,19 @@ const ROADMAP_STATUS_CHART_COLOR: Record<RoadmapStatus, string> = {
   done: '#10B981',
 };
 
+const ROADMAP_PRIORITY_SCORE: Record<RoadmapPriority, number> = {
+  high: 3,
+  medium: 2,
+  low: 1,
+};
+
+const ROADMAP_STATUS_URGENCY: Record<RoadmapStatus, number> = {
+  blocked: 3,
+  in_progress: 2,
+  planned: 1,
+  done: 0,
+};
+
 const FLOW_DIAGRAM_WIDTH = 1160;
 const FLOW_DIAGRAM_HEIGHT = 760;
 
@@ -1575,6 +1588,7 @@ export default function AdminPage() {
   const [roadmapStatusFilter, setRoadmapStatusFilter] = useState<'all' | RoadmapStatus>('all');
   const [roadmapAreaFilter, setRoadmapAreaFilter] = useState<'all' | RoadmapArea>('all');
   const [roadmapSectorFilter, setRoadmapSectorFilter] = useState<'all' | RoadmapSector>('all');
+  const [roadmapPendingOnly, setRoadmapPendingOnly] = useState(false);
   const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
   const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
@@ -2168,6 +2182,23 @@ export default function AdminPage() {
     }
   };
 
+  const runRoadmapQuickAction = (item: RoadmapUpdateItem, action: 'start' | 'unblock' | 'block' | 'resolve') => {
+    if (roadmapUpdatingId === item.id) return;
+    if (action === 'start' && item.status !== 'planned') return;
+    if (action === 'unblock' && item.status !== 'blocked') return;
+    if (action === 'block' && item.status !== 'in_progress') return;
+    if (action === 'resolve' && item.status === 'done') return;
+
+    const statusByAction: Record<'start' | 'unblock' | 'block' | 'resolve', RoadmapStatus> = {
+      start: 'in_progress',
+      unblock: 'in_progress',
+      block: 'blocked',
+      resolve: 'done',
+    };
+    const status = statusByAction[action];
+    void patchRoadmapUpdate(item.id, { status });
+  };
+
   const addRoadmapFeedback = async (roadmapId: string) => {
     if (!session?.access_token) return;
     const body = (roadmapFeedbackDrafts[roadmapId] || '').trim();
@@ -2388,6 +2419,7 @@ export default function AdminPage() {
     setRoadmapError('');
     setRoadmapMessage('');
     setRoadmapSearch('');
+    setRoadmapPendingOnly(false);
     setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
     setFlowDragStart(null);
     setFlowNodeDragStart(null);
@@ -3316,6 +3348,7 @@ export default function AdminPage() {
   const filteredRoadmapUpdates = useMemo(() => {
     const query = normalizeText(roadmapSearch);
     return roadmapUpdates.filter((item) => {
+      if (roadmapPendingOnly && item.status === 'done') return false;
       if (roadmapStatusFilter !== 'all' && item.status !== roadmapStatusFilter) return false;
       if (roadmapAreaFilter !== 'all' && item.area !== roadmapAreaFilter) return false;
       if (roadmapSectorFilter !== 'all' && item.sector !== roadmapSectorFilter) return false;
@@ -3324,7 +3357,7 @@ export default function AdminPage() {
       const haystack = normalizeText([item.title, item.description || '', item.owner || '', feedbackText].join(' '));
       return haystack.includes(query);
     });
-  }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter, roadmapSectorFilter]);
+  }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter, roadmapSectorFilter, roadmapPendingOnly]);
 
   const roadmapTotals = useMemo(() => {
     const total = roadmapUpdates.length;
@@ -3350,6 +3383,35 @@ export default function AdminPage() {
     }).length;
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
     return { total, done, inProgress, blocked, open, overdue, completionRate };
+  }, [roadmapReportItems]);
+
+  const roadmapPendingQueue = useMemo(() => {
+    const todayMs = startOfDay(new Date()).getTime();
+    const nextWeekMs = todayMs + DAY_MS * 7;
+    return roadmapReportItems
+      .filter((item) => item.status !== 'done')
+      .map((item) => {
+        const etaMs = toTimeMs(item.eta_date);
+        const updatedMs = toTimeMs(item.updated_at) ?? toTimeMs(item.created_at) ?? Date.now();
+        const ageDays = Math.max(0, Math.round((Date.now() - updatedMs) / DAY_MS));
+        const overdue = etaMs !== null && etaMs < todayMs;
+        const dueSoon = etaMs !== null && etaMs >= todayMs && etaMs <= nextWeekMs;
+
+        // Prioriza bloqueados y tareas críticas cercanas/vencidas para enfoque diario.
+        let score = ROADMAP_PRIORITY_SCORE[item.priority] * 100 + ROADMAP_STATUS_URGENCY[item.status] * 80 + ageDays;
+        if (overdue) score += 140;
+        if (dueSoon) score += 45;
+
+        return {
+          ...item,
+          score,
+          ageDays,
+          overdue,
+          dueSoon,
+        };
+      })
+      .sort((a, b) => b.score - a.score || b.ageDays - a.ageDays || a.title.localeCompare(b.title))
+      .slice(0, 8);
   }, [roadmapReportItems]);
 
   const roadmapStatusSeries = useMemo(
@@ -5750,11 +5812,23 @@ export default function AdminPage() {
                       </select>
                       <button
                         type="button"
+                        onClick={() => setRoadmapPendingOnly((prev) => !prev)}
+                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                          roadmapPendingOnly
+                            ? 'border-slate-900 bg-slate-900 text-white'
+                            : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                        }`}
+                      >
+                        {roadmapPendingOnly ? 'Solo pendientes: ON' : 'Solo pendientes'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => {
                           setRoadmapSearch('');
                           setRoadmapStatusFilter('all');
                           setRoadmapAreaFilter('all');
                           setRoadmapSectorFilter('all');
+                          setRoadmapPendingOnly(false);
                         }}
                         className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                       >
@@ -5783,6 +5857,75 @@ export default function AdminPage() {
                   {!roadmapLoading && filteredRoadmapUpdates.length === 0 && (
                     <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
                       No hay items para los filtros actuales.
+                    </div>
+                  )}
+
+                  {!roadmapLoading && roadmapPendingQueue.length > 0 && (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-amber-700">Pendientes para trabajar ahora</p>
+                        <span className="text-xs font-semibold text-amber-700">{roadmapPendingQueue.length} sugeridos</span>
+                      </div>
+                      <div className="mt-3 space-y-2">
+                        {roadmapPendingQueue.slice(0, 5).map((item) => {
+                          const isUpdating = roadmapUpdatingId === item.id;
+                          return (
+                            <div
+                              key={`queue-${item.id}`}
+                              className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-white px-3 py-2"
+                            >
+                              <div className="min-w-[240px] flex-1">
+                                <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  {getRoadmapStatusLabel(item.status)} • {getRoadmapPriorityLabel(item.priority)} •{' '}
+                                  {item.owner ? getRoadmapOwnerLabel(item.owner) : 'Sin owner'}
+                                  {item.overdue ? ' • ETA vencida' : item.dueSoon ? ' • ETA <= 7d' : ''}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {item.status === 'planned' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => runRoadmapQuickAction(item, 'start')}
+                                    disabled={isUpdating}
+                                    className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-[11px] font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                  >
+                                    Iniciar
+                                  </button>
+                                )}
+                                {item.status === 'blocked' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => runRoadmapQuickAction(item, 'unblock')}
+                                    disabled={isUpdating}
+                                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                  >
+                                    Desbloquear
+                                  </button>
+                                )}
+                                {item.status === 'in_progress' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => runRoadmapQuickAction(item, 'block')}
+                                    disabled={isUpdating}
+                                    className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                  >
+                                    Bloquear
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => runRoadmapQuickAction(item, 'resolve')}
+                                  disabled={isUpdating}
+                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                  Resolver
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
 
@@ -5900,6 +6043,46 @@ export default function AdminPage() {
                                   </option>
                                 ))}
                               </select>
+                              {item.status === 'planned' && (
+                                <button
+                                  type="button"
+                                  onClick={() => runRoadmapQuickAction(item, 'start')}
+                                  disabled={savingUpdate}
+                                  className="rounded-full border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                  Iniciar
+                                </button>
+                              )}
+                              {item.status === 'blocked' && (
+                                <button
+                                  type="button"
+                                  onClick={() => runRoadmapQuickAction(item, 'unblock')}
+                                  disabled={savingUpdate}
+                                  className="rounded-full border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                  Desbloquear
+                                </button>
+                              )}
+                              {item.status === 'in_progress' && (
+                                <button
+                                  type="button"
+                                  onClick={() => runRoadmapQuickAction(item, 'block')}
+                                  disabled={savingUpdate}
+                                  className="rounded-full border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                  Bloquear
+                                </button>
+                              )}
+                              {item.status !== 'done' && (
+                                <button
+                                  type="button"
+                                  onClick={() => runRoadmapQuickAction(item, 'resolve')}
+                                  disabled={savingUpdate}
+                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                                >
+                                  Resolver
+                                </button>
+                              )}
                             </div>
                           </div>
 
