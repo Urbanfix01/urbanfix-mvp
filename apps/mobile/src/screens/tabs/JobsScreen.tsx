@@ -859,10 +859,6 @@ export default function JobsScreen() {
             contentContainerStyle={styles.listContent}
             estimatedItemSize={150}
             removeClippedSubviews={Platform.OS === 'android'}
-            initialNumToRender={8}
-            maxToRenderPerBatch={10}
-            windowSize={5}
-            updateCellsBatchingPeriod={50}
             onRefresh={refetch}
             refreshing={isFetching && !isLoading}
             ListHeaderComponent={
