@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
-    "@supabase/supabase-js": "^2.39.0",
+    "@supabase/supabase-js": "^2.97.0",
     "base64-arraybuffer": "^1.0.2",
     "google-auth-library": "^9.14.2",
     "lucide-react": "^0.555.0",

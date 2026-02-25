@@ -20,97 +20,20 @@ import {
   X,
   type LucideIcon,
 } from 'lucide-react';
+import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
-
-type QuoteRow = {
-  id: string;
-  client_name: string | null;
-  client_address: string | null;
-  address?: string | null;
-  location_address?: string | null;
-  location_lat?: number | null;
-  location_lng?: number | null;
-  total_amount: number | null;
-  tax_rate: number | null;
-  discount_percent?: number | null;
-  status: string | null;
-  start_date?: string | null;
-  end_date?: string | null;
-  created_at: string;
-  quote_items?: QuoteItemRow[];
-};
-
-type ItemForm = {
-  id: string;
-  description: string;
-  quantity: number;
-  unitPrice: number;
-  type: 'labor' | 'material';
-};
-
-type QuoteItemRow = {
-  unit_price?: number | null;
-  quantity?: number | null;
-  metadata?: any;
-};
-
-type AttachmentRow = {
-  id: string;
-  quote_id: string;
-  user_id?: string | null;
-  file_url: string;
-  file_name?: string | null;
-  file_type?: string | null;
-  file_size?: number | null;
-  created_at?: string | null;
-};
-
-type NotificationRow = {
-  id: string;
-  user_id: string;
-  type: string;
-  title: string;
-  body: string;
-  data?: any;
-  read_at?: string | null;
-  created_at?: string | null;
-};
-
-type MasterItemRow = {
-  id: string;
-  name: string;
-  type: 'labor' | 'material';
-  suggested_price: number | null;
-  category: string | null;
-  source_ref?: string | null;
-};
-
-type GeoResult = {
-  display_name: string;
-  lat: number;
-  lon: number;
-};
-
-type NavItem = {
-  key:
-    | 'lobby'
-    | 'nuevo'
-    | 'presupuestos'
-    | 'visualizador'
-    | 'agenda'
-    | 'notificaciones'
-    | 'soporte'
-    | 'historial'
-    | 'perfil'
-    | 'precios';
-  label: string;
-  hint: string;
-  short: string;
-  icon: LucideIcon;
-};
-
-type AccessProfile = 'tecnico' | 'empresa' | 'cliente';
+import type {
+  AccessProfile,
+  AttachmentRow,
+  GeoResult,
+  ItemForm,
+  MasterItemRow,
+  NavItem,
+  NotificationRow,
+  QuoteRow,
+  QuoteItemRow,
+} from './types';
 
 const TAX_RATE = 0.21;
 const SUPPORT_BUCKET = 'beta-support';
@@ -446,7 +369,7 @@ const isAccessProfile = (value: string | null): value is AccessProfile =>
   value === 'tecnico' || value === 'empresa' || value === 'cliente';
 
 export default function TechniciansPage() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
@@ -702,11 +625,11 @@ export default function TechniciansPage() {
   ];
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
       setLoadingSession(false);
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
     });
     return () => {
@@ -1195,7 +1118,7 @@ export default function TechniciansPage() {
       .from('quote_items')
       .select('*')
       .eq('quote_id', quote.id);
-    const mapped = (itemsData || []).map((item: any) => {
+    const mapped = (itemsData || []).map((item: QuoteItemRow) => {
       const rawType = (item?.metadata?.type || item?.metadata?.category || 'labor').toString().toLowerCase();
       const normalizedType = rawType === 'material' || rawType === 'consumable' ? 'material' : 'labor';
       return {
@@ -1933,6 +1856,11 @@ export default function TechniciansPage() {
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
     if (savingRef.current || isSaving) return;
     savingRef.current = true;
+    if (!session?.user?.id) {
+      setFormError('Debes iniciar sesion para guardar presupuestos.');
+      savingRef.current = false;
+      return;
+    }
     if (!clientName.trim()) {
       setFormError('Ingresa el nombre del cliente.');
       savingRef.current = false;
