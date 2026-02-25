@@ -42,6 +42,9 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
+const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
+const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
+const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -403,6 +406,9 @@ export default function TechniciansPage() {
   const [supportError, setSupportError] = useState('');
   const supportFileInputRef = useRef<HTMLInputElement | null>(null);
   const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
+  const [accessVideoMuted, setAccessVideoMuted] = useState(true);
+  const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
+  const accessVideoRef = useRef<HTMLVideoElement | null>(null);
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -574,6 +580,20 @@ export default function TechniciansPage() {
     setAuthError('');
     setAuthNotice('');
     setAccessProfileInUrl(null);
+  };
+
+  const handleAccessVideoSoundToggle = () => {
+    const video = accessVideoRef.current;
+    const nextMuted = !accessVideoMuted;
+    setAccessVideoMuted(nextMuted);
+    if (!video) return;
+    video.muted = nextMuted;
+    if (!nextMuted) {
+      video.play().catch(() => {
+        setAccessVideoMuted(true);
+        video.muted = true;
+      });
+    }
   };
 
   const geoMapUrl = useMemo(() => {
@@ -2577,6 +2597,56 @@ export default function TechniciansPage() {
                   ? 'Antes de entrar, selecciona si eres tecnico, empresa o cliente para ir al flujo correcto.'
                   : accessProfileCopy.description}
               </p>
+              <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm md:p-5">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white">
+                    Acceso web + movil
+                  </span>
+                  <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    Video de ingreso
+                  </span>
+                </div>
+
+                <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-900/95">
+                  {accessVideoAvailable ? (
+                    <video
+                      ref={accessVideoRef}
+                      src={ACCESS_VIDEO_URL}
+                      poster={ACCESS_VIDEO_POSTER_URL}
+                      autoPlay
+                      loop
+                      playsInline
+                      muted={accessVideoMuted}
+                      controls
+                      preload="metadata"
+                      onError={() => setAccessVideoAvailable(false)}
+                      className="h-56 w-full object-cover md:h-64"
+                    />
+                  ) : (
+                    <img src={ACCESS_VIDEO_POSTER_URL} alt="Vista de UrbanFix en web y movil" className="h-56 w-full object-cover md:h-64" />
+                  )}
+                </div>
+
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {accessVideoAvailable && (
+                    <button
+                      type="button"
+                      onClick={handleAccessVideoSoundToggle}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      {accessVideoMuted ? 'Activar sonido' : 'Silenciar'}
+                    </button>
+                  )}
+                  <a
+                    href={ACCESS_ANDROID_URL}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Abrir app movil
+                  </a>
+                </div>
+              </section>
               <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
                 {selectedAccessProfile && (
                   <button
