@@ -1856,11 +1856,6 @@ export default function TechniciansPage() {
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
     if (savingRef.current || isSaving) return;
     savingRef.current = true;
-    if (!session?.user?.id) {
-      setFormError('Debes iniciar sesion para guardar presupuestos.');
-      savingRef.current = false;
-      return;
-    }
     if (!clientName.trim()) {
       setFormError('Ingresa el nombre del cliente.');
       savingRef.current = false;
