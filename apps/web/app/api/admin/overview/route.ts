@@ -319,11 +319,10 @@ export async function GET(request: NextRequest) {
 
     const getZoneLabel = (profile?: any | null) => {
       const city = (profile?.city || '').toString().trim();
-      if (city) return city;
       const coverage = (profile?.coverage_area || '').toString().trim();
-      if (coverage) return coverage;
       const address = (profile?.address || '').toString().trim();
-      if (address) return address;
+      const combined = [city, coverage, address].filter(Boolean).join(', ');
+      if (combined) return combined;
       return 'Sin zona';
     };
 
