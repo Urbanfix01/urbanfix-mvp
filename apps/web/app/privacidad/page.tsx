@@ -1,8 +1,16 @@
+import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
-
+import Image from 'next/image';
+import Link from 'next/link';
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
+});
+
+export const metadata: Metadata = {
+  title: 'Politica de Privacidad | UrbanFix',
+  description: 'Conoce cómo UrbanFix recopila, usa y protege tu información personal. Tu privacidad es nuestra prioridad.',
+  alternates: { canonical: '/privacidad' },
 });
 
 export default function PrivacyPage() {
@@ -18,7 +26,7 @@ export default function PrivacyPage() {
             <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
+                  <Image src="/icon.png" alt="UrbanFix logo" width={32} height={32} />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
@@ -26,18 +34,18 @@ export default function PrivacyPage() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <a
+                <Link
                   href="/urbanfix"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
                   Que es UrbanFix
-                </a>
-                <a
+                </Link>
+                <Link
                   href="/"
                   className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
                   Volver al inicio
-                </a>
+                </Link>
               </div>
             </header>
 
@@ -63,9 +71,9 @@ export default function PrivacyPage() {
                 <p>
                   Puedes solicitar la actualizacion o eliminacion de tus datos escribiendo a INFO@URBANFIXAR.COM o
                   siguiendo las instrucciones en{' '}
-                  <a href="/eliminar-cuenta" className="font-semibold text-slate-700 underline">
+                  <Link href="/eliminar-cuenta" className="font-semibold text-slate-700 underline">
                     urbanfixar.com/eliminar-cuenta
-                  </a>
+                  </Link>
                   .
                 </p>
               </div>

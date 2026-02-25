@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
+import Link from 'next/link';
 import HomepageVisualShell from '../../components/HomepageVisualShell';
 
 const sora = Sora({
@@ -58,36 +59,36 @@ export default function PreciosManoDeObraPage() {
             instaladores y mantenimiento de obra.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <a
+            <Link
               href="/tecnicos"
               className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
             >
               Crear mi primer presupuesto
-            </a>
-            <a
+            </Link>
+            <Link
               href="/rubros"
               className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
             >
               Ver rubros de construccion
-            </a>
-            <a
+            </Link>
+            <Link
               href="/ciudades"
               className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
             >
               Ver ciudades
-            </a>
-            <a
+            </Link>
+            <Link
               href="/guias-precios"
               className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
             >
               Ver guias y precios
-            </a>
-            <a
+            </Link>
+            <Link
               href="/urbanfix"
               className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
             >
               Conocer UrbanFix
-            </a>
+            </Link>
           </div>
         </section>
 

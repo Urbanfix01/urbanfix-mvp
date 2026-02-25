@@ -97,3 +97,7 @@ Cada vez que se agregue una funcion nueva, se cambie el flujo principal, o se mo
 - 2026-01-02 - Subtotales separados por mano de obra y materiales en la vista de presupuesto web.
 - 2026-01-16 - Panel web: links publicos de presupuestos configurables y datos alineados con la app movil.
 - 2026-02-23 - Definido scope freeze + criterios de salida de release (P0/P1 + checklist Go/No-Go).
+
+- 2026-02-24 - Seguridad: Mover credenciales de Supabase a variables de entorno.
+- 2026-02-24 - Rendimiento: Reemplazar tags `<a>` por `<Link>` de Next.js para navegacion interna.
+- 2026-02-24 - Optimizacion: Usar componente `<Image>` de Next.js para optimizacion de imagenes.
