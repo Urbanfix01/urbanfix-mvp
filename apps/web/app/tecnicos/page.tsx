@@ -3084,6 +3084,59 @@ export default function TechniciansPage() {
           <section className="space-y-6">
             {activeTab === 'lobby' && (
               <div className="space-y-6">
+                <div className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-5 shadow-sm lg:grid-cols-[1.05fr_0.95fr]">
+                  <div className="space-y-3">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acceso plataforma web</p>
+                    <h2 className="text-2xl font-semibold text-slate-900">Bienvenido al panel de UrbanFix</h2>
+                    <p className="text-sm leading-relaxed text-slate-600">
+                      Este video resume la experiencia de uso web y movil para que tengas una referencia rapida al
+                      ingresar.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {accessVideoAvailable && (
+                        <button
+                          type="button"
+                          onClick={handleAccessVideoSoundToggle}
+                          className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                        >
+                          {accessVideoMuted ? 'Activar sonido' : 'Silenciar'}
+                        </button>
+                      )}
+                      <a
+                        href={ACCESS_ANDROID_URL}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                      >
+                        Abrir app movil
+                      </a>
+                    </div>
+                  </div>
+                  <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-900/95">
+                    {accessVideoAvailable ? (
+                      <video
+                        ref={accessVideoRef}
+                        src={ACCESS_VIDEO_URL}
+                        poster={ACCESS_VIDEO_POSTER_URL}
+                        autoPlay
+                        loop
+                        playsInline
+                        muted={accessVideoMuted}
+                        controls
+                        preload="metadata"
+                        onError={() => setAccessVideoAvailable(false)}
+                        className="h-56 w-full object-cover md:h-64"
+                      />
+                    ) : (
+                      <img
+                        src={ACCESS_VIDEO_POSTER_URL}
+                        alt="Vista de UrbanFix en plataforma web y movil"
+                        className="h-56 w-full object-cover md:h-64"
+                      />
+                    )}
+                  </div>
+                </div>
+
                 <div className="grid gap-4 md:grid-cols-4">
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
