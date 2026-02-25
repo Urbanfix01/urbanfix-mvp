@@ -1,0 +1,399 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=Literata:wght@400;600&display=swap');
+
+:root {
+  --font-display: 'Space Grotesk', 'Segoe UI', sans-serif;
+  --font-body: 'Literata', Georgia, serif;
+}
+
+body {
+  font-family: var(--font-display);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+p {
+  font-family: var(--font-body);
+}
+
+/* --- ESTILOS DE PANTALLA --- */
+/* Un fondo base para que no sea blanco nuclear */
+body {
+  background-color: #f9fafb; /* gray-50 */
+}
+
+/* --- ANIMACIONES SUAVES --- */
+.fx-page {
+  animation: fx-page-in 560ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fx-page-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fx-page {
+    animation: none !important;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* --- VIEW SWITCHER (HOME) --- */
+header .header-view-option {
+  transition: background-color 240ms cubic-bezier(0.16, 1, 0.3, 1), color 240ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 240ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 240ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#view-tech:checked ~ header .audience-toggle-option--tech,
+#view-biz:checked ~ header .audience-toggle-option--biz,
+#view-personas:checked ~ header .audience-toggle-option--clients {
+  color: #ffffff;
+}
+
+#view-tech:checked ~ header .audience-toggle-option--biz,
+#view-tech:checked ~ header .audience-toggle-option--clients,
+#view-biz:checked ~ header .audience-toggle-option--tech,
+#view-biz:checked ~ header .audience-toggle-option--clients,
+#view-personas:checked ~ header .audience-toggle-option--tech,
+#view-personas:checked ~ header .audience-toggle-option--biz {
+  color: #334155;
+}
+
+#view-biz:checked ~ header .audience-toggle-pill {
+  transform: translateX(100%);
+}
+
+#view-personas:checked ~ header .audience-toggle-pill {
+  transform: translateX(200%);
+}
+
+#view-personas:checked ~ header .header-view-option--personas,
+#view-guias:checked ~ header .header-view-option--guias,
+#view-ciudades:checked ~ header .header-view-option--ciudades,
+#view-rubros:checked ~ header .header-view-option--rubros {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.45);
+}
+
+#view-android:checked ~ header .header-view-option--android {
+  background-color: #0f172a;
+  border-color: #0f172a;
+  color: #ffffff;
+}
+
+.view-zone .view-pane {
+  display: none;
+  animation: home-view-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+#view-tech:checked ~ .view-zone .view-pane--tech,
+#view-biz:checked ~ .view-zone .view-pane--biz,
+#view-personas:checked ~ .view-zone .view-pane--personas,
+#view-guias:checked ~ .view-zone .view-pane--guias,
+#view-ciudades:checked ~ .view-zone .view-pane--ciudades,
+#view-rubros:checked ~ .view-zone .view-pane--rubros,
+#view-android:checked ~ .view-zone .view-pane--android {
+  display: grid;
+}
+
+.flow-zone .process-flow-pane {
+  display: none;
+  animation: home-view-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+#view-tech:checked ~ .flow-zone .process-flow-pane--tech {
+  display: block;
+}
+
+#view-biz:checked ~ .flow-zone .process-flow-pane--biz,
+#view-guias:checked ~ .flow-zone .process-flow-pane--biz,
+#view-ciudades:checked ~ .flow-zone .process-flow-pane--biz,
+#view-rubros:checked ~ .flow-zone .process-flow-pane--biz,
+#view-android:checked ~ .flow-zone .process-flow-pane--biz {
+  display: block;
+}
+
+#view-personas:checked ~ .flow-zone .process-flow-pane--clients {
+  display: block;
+}
+
+@keyframes home-view-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-zone .view-pane {
+    animation: none !important;
+  }
+
+  .flow-zone .process-flow-pane {
+    animation: none !important;
+  }
+}
+
+/* --- WINDOW NAVIGATION (HOME) --- */
+.window-panel-target {
+  scroll-margin-top: 120px;
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 260ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 260ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.window-panel-target:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 18px 44px -28px rgba(15, 23, 42, 0.55);
+}
+
+.window-panel-target:target {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25), 0 22px 48px -30px rgba(59, 130, 246, 0.45);
+  transform: translateY(-2px);
+}
+
+/* --- THEME SCOPE (PANEL TECNICOS) --- */
+.ufx-theme-scope[data-ui-theme='dark'] .bg-white {
+  background-color: #0f172a !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .bg-white\/80 {
+  background-color: rgba(15, 23, 42, 0.86) !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .bg-slate-50 {
+  background-color: #111b2f !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .bg-slate-100 {
+  background-color: #1b2a44 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .border-slate-300 {
+  border-color: #475569 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-900,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-800,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-700,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-600 {
+  color: #e2e8f0 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-500,
+.ufx-theme-scope[data-ui-theme='dark'] .text-slate-400 {
+  color: #94a3b8 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] input,
+.ufx-theme-scope[data-ui-theme='dark'] textarea,
+.ufx-theme-scope[data-ui-theme='dark'] select {
+  color: #e2e8f0 !important;
+  background-color: #111b2f !important;
+  border-color: #334155 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] input::placeholder,
+.ufx-theme-scope[data-ui-theme='dark'] textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+.ufx-theme-scope[data-ui-theme='dark'] .shadow-slate-200\/60,
+.ufx-theme-scope[data-ui-theme='dark'] .shadow-slate-200\/50 {
+  --tw-shadow-color: rgba(2, 6, 23, 0.5) !important;
+}
+
+/* --- MODO MOVIL HOME (DISTINTO A DESKTOP) --- */
+@media (max-width: 900px) {
+  .home-main {
+    padding: 0.9rem 0.75rem 7rem;
+  }
+
+  .home-header-shell {
+    top: 0.45rem;
+    border-radius: 1.1rem;
+    padding: 0.7rem;
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.95), rgba(241, 245, 249, 0.92));
+    box-shadow: 0 14px 36px -28px rgba(15, 23, 42, 0.9);
+  }
+
+  .home-header-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.7rem;
+  }
+
+  .home-brand-block {
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .home-brand-block > div:nth-child(2) p:last-child {
+    font-size: 1.58rem;
+    line-height: 1.05;
+    white-space: normal;
+  }
+
+  .home-header-actions {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.45rem;
+  }
+
+  .home-audience-toggle {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .home-audience-toggle .audience-toggle-option--tech,
+  .home-audience-toggle .audience-toggle-option--biz,
+  .home-audience-toggle .audience-toggle-option--clients {
+    padding: 0.5rem 0.65rem;
+    font-size: 0.73rem;
+  }
+
+  .home-header-login {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.73rem;
+  }
+
+  .home-secondary-wrap {
+    margin-top: 0.7rem;
+    padding-top: 0.7rem;
+  }
+
+  .home-secondary-nav {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0.45rem;
+    padding-bottom: 0.2rem;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .home-secondary-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-secondary-nav .header-view-option {
+    flex: 0 0 auto;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.72rem;
+  }
+
+  .home-view-zone {
+    margin-top: 0.95rem;
+  }
+
+  .home-view-zone .view-pane {
+    gap: 0.9rem;
+  }
+
+  .home-hero-pane {
+    grid-template-columns: 1fr !important;
+  }
+
+  .home-hero-pane > div {
+    border-radius: 1.35rem !important;
+  }
+
+  .home-hero-pane h1,
+  .home-hero-pane h2 {
+    font-size: 2.02rem !important;
+    line-height: 1.05 !important;
+  }
+
+  .home-hero-pane .h-64 {
+    height: 13rem !important;
+  }
+
+  .home-mobile-dock {
+    position: fixed;
+    left: 0.75rem;
+    right: 0.75rem;
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    z-index: 60;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.45rem;
+    border-radius: 9999px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(12px);
+    box-shadow: 0 16px 32px -20px rgba(15, 23, 42, 0.75);
+  }
+
+  .home-mobile-dock a {
+    flex: 1 1 0;
+    text-align: center;
+    border-radius: 9999px;
+    padding: 0.64rem 0.75rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+  }
+
+  .home-mobile-dock .dock-primary {
+    background: #0f172a;
+    color: #ffffff;
+  }
+
+  .home-mobile-dock .dock-secondary {
+    border: 1px solid #cbd5e1;
+    background: #ffffff;
+    color: #0f172a;
+  }
+}
+
+/* --- ESTILOS DE IMPRESIÓN (PDF/CTRL+P) --- */
+@media print {
+  /* 1. Forzar al navegador a imprimir los colores de fondo (Header Azul, Badges, etc) */
+  body {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    background-color: white !important; /* El fondo general en papel mejor que sea blanco */
+  }
+
+  /* 2. Eliminar los márgenes predeterminados del navegador */
+  /* Esto permite que tu diseño controle el borde de la hoja A4 */
+  @page {
+    margin: 0mm;
+    size: auto; 
+  }
+
+  /* 3. Asegurar que todos los elementos respeten los colores forzados */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
