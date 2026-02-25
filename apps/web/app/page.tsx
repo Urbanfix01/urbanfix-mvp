@@ -29,7 +29,7 @@ import {
   tradeBadges,
   trustChips,
   trustSignals,
-} from '../lib/content/home-data';
+} from './privacidad/home-data';
 
 const displayFont = Syne({
   subsets: ['latin'],
