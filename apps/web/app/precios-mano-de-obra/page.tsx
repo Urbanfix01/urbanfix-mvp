@@ -10,9 +10,9 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title:
-    'Gestion de presupuestos y MANO DE OBRA en construccion | UrbanFix Argentina',
+    'Gestion de presupuestos y mano de obra en construccion | UrbanFix Argentina',
   description:
-    'Gestiona presupuestos, clientes, materiales de obra y mano de obra para construccion en Argentina. Centraliza tarifas, rubros y presupuestos con una experiencia clara para clientes.',
+    'Gestiona presupuestos, clientes, materiales y mano de obra para construccion en Argentina. Centraliza tarifas, rubros y presupuestos con una experiencia clara para clientes.',
   alternates: { canonical: '/precios-mano-de-obra' },
 };
 
@@ -39,8 +39,8 @@ const benefits = [
   'Presupuestos listos para enviar desde el celular.',
   'Gestion de clientes y obras con historial completo.',
   'Estados claros: presentado, aprobado, finalizado y cobrado.',
-  'Gestion de materiales de obra y rubros de construccion.',
-  'Historial de precios y MANO DE OBRA para volver a cotizar mas rapido.',
+  'Gestion de materiales y rubros de construccion.',
+  'Historial de precios y mano de obra para volver a cotizar mas rapido.',
   'Visualizacion profesional para clientes.',
 ];
 
@@ -51,7 +51,7 @@ export default function PreciosManoDeObraPage() {
         <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Gestion de presupuestos y mano de obra</p>
           <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-            Gestion de presupuestos, clientes y MANO DE OBRA en construccion en Argentina
+            Gestion de presupuestos, clientes y mano de obra en construccion en Argentina
           </h1>
           <p className="mt-4 text-sm text-slate-600">
             UrbanFix te ayuda a centralizar tarifas, materiales de obra, rubros de construccion y gestion de
@@ -111,8 +111,8 @@ export default function PreciosManoDeObraPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-          UrbanFix no publica una lista fija de precios: te permite configurar tus valores de MANO DE OBRA, materiales
-          de obra y rubros segun tu tipo de construccion y zona en Argentina.
+          UrbanFix no publica una lista fija de precios: te permite configurar tus valores de mano de obra, materiales
+          y rubros segun tu tipo de construccion y zona en Argentina.
         </section>
       </HomepageVisualShell>
     </div>

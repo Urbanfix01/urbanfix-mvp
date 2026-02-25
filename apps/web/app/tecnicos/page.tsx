@@ -4827,8 +4827,8 @@ export default function TechniciansPage() {
           <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
               <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-slate-800">UrbanFix</span>
-                <span>(c) 2026 UrbanFix</span>
+                <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
+                UrbanFix
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <button

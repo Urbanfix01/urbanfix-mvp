@@ -11,7 +11,6 @@ Este README resume como funciona la app y la web, con rutas clave y puntos de in
 ## Web (Next.js)
 Entry points y paginas:
 - Layout y metadata SEO: `apps/web/app/layout.tsx`.
-- Favicons y links del head: `apps/web/app/head.tsx`.
 - Home publica (login/registro): `apps/web/app/page.tsx`.
 - Area tecnicos: `apps/web/app/tecnicos/page.tsx`.
 - Presupuesto por link: `apps/web/app/p/[id]/page.tsx`.
@@ -86,18 +85,16 @@ Notas:
 Cada vez que se agregue una funcion nueva, se cambie el flujo principal, o se modifique el deploy/infra:
 1) Actualizar esta guia en las secciones relevantes.
 2) Agregar una linea en "Actualizaciones".
-
 ### Actualizaciones
-- 2025-12-30 - Base del README y guia general del sistema.
-- 2025-12-30 - Reorganizacion del repo a monorepo (`apps/web`, `apps/mobile`, `packages/shared`).
-- 2026-01-02 - Se agrega `ios.bundleIdentifier` para deploy iOS/TestFlight.
-- 2026-01-02 - Link beta Android en la home web.
-- 2026-01-02 - IVA desactivado por defecto en el panel web de tecnicos.
-- 2026-01-02 - IVA reseteado en nuevos presupuestos desde la app movil.
-- 2026-01-02 - Subtotales separados por mano de obra y materiales en la vista de presupuesto web.
-- 2026-01-16 - Panel web: links publicos de presupuestos configurables y datos alineados con la app movil.
-- 2026-02-23 - Definido scope freeze + criterios de salida de release (P0/P1 + checklist Go/No-Go).
-
-- 2026-02-24 - Seguridad: Mover credenciales de Supabase a variables de entorno.
-- 2026-02-24 - Rendimiento: Reemplazar tags `<a>` por `<Link>` de Next.js para navegacion interna.
-- 2026-02-24 - Optimizacion: Usar componente `<Image>` de Next.js para optimizacion de imagenes.
+- 2024-05-30 - Base del README y guia general del sistema.
+- 2024-05-30 - Reorganizacion del repo a monorepo (`apps/web`, `apps/mobile`, `packages/shared`).
+- 2024-06-02 - Se agrega `ios.bundleIdentifier` para deploy iOS/TestFlight.
+- 2024-06-02 - Link beta Android en la home web.
+- 2024-06-02 - IVA desactivado por defecto en el panel web de tecnicos.
+- 2024-06-02 - IVA reseteado en nuevos presupuestos desde la app movil.
+- 2024-06-02 - Subtotales separados por mano de obra y materiales en la vista de presupuesto web.
+- 2024-06-16 - Panel web: links publicos de presupuestos configurables y datos alineados con la app movil.
+- 2024-07-23 - Definido scope freeze + criterios de salida de release (P0/P1 + checklist Go/No-Go).
+- 2024-07-24 - Seguridad: Mover credenciales de Supabase a variables de entorno.
+- 2024-07-24 - Rendimiento: Reemplazar tags `<a>` por `<Link>` de Next.js para navegacion interna.
+- 2024-07-24 - Optimizacion: Usar componente `<Image>` de Next.js para optimizacion de imagenes.

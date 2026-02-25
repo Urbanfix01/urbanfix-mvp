@@ -16,6 +16,7 @@ import {
   featureShowcase,
   headerSecondaryViews,
   highlights,
+  type HomeViewId,
   homepageViewInputs,
   impactPanels,
   inPageWindows,
@@ -72,11 +73,8 @@ export const metadata: Metadata = {
   },
 };
 
-export type HomeViewId = (typeof homepageViewInputs)[number];
-
 const faqJsonLdWithMainEntity = {
   ...faqJsonLd,
-  'view-tech',
   mainEntity: faq.map((item) => ({
     '@type': 'Question',
     name: item.question,
@@ -920,7 +918,7 @@ export default function HomePage() {
 
             <footer className="mt-8 rounded-[28px] border border-slate-200 bg-white px-6 py-5 text-xs text-slate-500 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p>UrbanFix (c) 2026. Gestion clara para tecnicos de Argentina.</p>
+                <p>UrbanFix (c) 2024. Gestion clara para tecnicos de Argentina.</p>
                 <a className="font-semibold text-slate-700 hover:text-slate-900" href="mailto:info@urbanfixar.com">
                   info@urbanfixar.com
                 </a>
