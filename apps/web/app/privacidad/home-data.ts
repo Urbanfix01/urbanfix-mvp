@@ -1,19 +1,10 @@
-// FAQ
+// JSON-LD Schemas
 export const faqJsonLd = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
   "mainEntity": []
 };
 
-export const faq = [
-  {
-    id: 1,
-    question: "¿Cómo funciona UrbanFix?",
-    answer: "UrbanFix es una plataforma para crear presupuestos digitales de reparaciones."
-  }
-];
-
-// JSON-LD Schema
 export const softwareApplicationJsonLd = {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
@@ -28,17 +19,26 @@ export const organizationJsonLd = {
   "url": "https://www.urbanfixar.com"
 };
 
+// FAQ
+export const faq = [];
+
 // Homepage sections
 export const homepageViewInputs = [];
 export const headerSecondaryViews = [];
 export const highlights = [];
 export const kpiCards = [];
+
+// Business sections
+export const businessBadges = [];
 export const businessHighlights = [];
 export const businessKpiCards = [];
-export const businessBadges = [];
+
+// Client sections
+export const clientBadges = [];
 export const clientHighlights = [];
 export const clientKpiCards = [];
-export const clientBadges = [];
+
+// Windows and layouts
 export const inPageWindows = [];
 
 // Process steps
