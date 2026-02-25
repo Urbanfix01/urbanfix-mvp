@@ -23,6 +23,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import ClientWorkspace from '../../components/client/ClientWorkspace';
 import type {
   AccessProfile,
   AttachmentRow,
@@ -43,6 +44,7 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 const POST_AUTH_REDIRECT_KEY = 'urbanfix_post_auth_redirect';
+const ACCESS_PROFILE_STORAGE_KEY = 'urbanfix_access_profile';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
 
@@ -496,9 +498,23 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
-    if (isAccessProfile(incomingProfile)) {
-      setSelectedAccessProfile(incomingProfile);
+    const storedProfile = (window.localStorage.getItem(ACCESS_PROFILE_STORAGE_KEY) || '').toLowerCase();
+    const resolvedProfile = isAccessProfile(incomingProfile)
+      ? incomingProfile
+      : isAccessProfile(storedProfile)
+      ? storedProfile
+      : null;
+
+    if (resolvedProfile) {
+      setSelectedAccessProfile(resolvedProfile);
+      window.localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, resolvedProfile);
+      if (!isAccessProfile(incomingProfile)) {
+        params.set('perfil', resolvedProfile);
+        const query = params.toString();
+        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+      }
     }
+
     if (params.get('mode') === 'register') {
       setAuthMode('register');
     }
@@ -506,8 +522,9 @@ export default function TechniciansPage() {
       setQuickRegisterMode(true);
       setAuthMode('register');
       setAuthNotice('Modo rapido activo: recomendamos continuar con Google.');
-      if (!incomingProfile) {
+      if (!resolvedProfile) {
         setSelectedAccessProfile('tecnico');
+        window.localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, 'tecnico');
       }
     }
     if (params.get('recovery') === '1') {
@@ -562,15 +579,12 @@ export default function TechniciansPage() {
   };
 
   const handleAccessProfileSelect = (profile: AccessProfile) => {
-    if (profile === 'cliente') {
-      if (typeof window !== 'undefined') {
-        window.location.href = '/urbanfix?view=personas';
-      }
-      return;
-    }
     setSelectedAccessProfile(profile);
     setAuthError('');
     setAuthNotice('');
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, profile);
+    }
     setAccessProfileInUrl(profile);
   };
 
@@ -580,6 +594,9 @@ export default function TechniciansPage() {
     setQuickRegisterMode(false);
     setAuthError('');
     setAuthNotice('');
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(ACCESS_PROFILE_STORAGE_KEY);
+    }
     setAccessProfileInUrl(null);
   };
 
@@ -768,12 +785,15 @@ export default function TechniciansPage() {
       }
 
       setProfile(resolvedProfile);
+      if (selectedAccessProfile === 'cliente') {
+        return;
+      }
       await fetchQuotes(session.user.id);
       await fetchNotifications(session.user.id);
       await fetchMasterItems();
     };
     load();
-  }, [session?.user?.id]);
+  }, [selectedAccessProfile, session?.user?.id]);
 
   useEffect(() => {
     if (!profile) return;
@@ -1602,6 +1622,13 @@ export default function TechniciansPage() {
           'Centraliza presupuestos, responsables y seguimiento comercial desde la web en una sola cuenta.',
       };
     }
+    if (selectedAccessProfile === 'cliente') {
+      return {
+        panelLabel: 'Panel cliente',
+        heading: 'Acceso para clientes',
+        description: 'Publica solicitudes, compara cotizaciones y coordina con tecnicos desde una sola vista.',
+      };
+    }
     return {
       panelLabel: 'Panel tecnico',
       heading: 'Acceso para tecnicos',
@@ -2399,7 +2426,7 @@ export default function TechniciansPage() {
     );
   }
 
-  if (session?.user && profile && profileRequiredMissing.length > 0) {
+  if (session?.user && selectedAccessProfile !== 'cliente' && profile && profileRequiredMissing.length > 0) {
     return (
       <>
         <AuthHashHandler />
@@ -2865,6 +2892,85 @@ export default function TechniciansPage() {
         </div>
         </div>
         {accessIntroOverlay}
+      </>
+    );
+  }
+
+  if (session?.user && !selectedAccessProfile) {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={activeThemeStyles}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        >
+          <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-16">
+            <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Seleccion de perfil</p>
+              <h1 className="mt-2 text-3xl font-black text-slate-900">Elige como quieres continuar</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                Tu sesion ya esta activa. Selecciona el perfil de uso para abrir la vista correcta.
+              </p>
+              <div className="mt-6 space-y-3">
+                <button
+                  type="button"
+                  onClick={() => handleAccessProfileSelect('tecnico')}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                >
+                  <p className="text-sm font-bold text-slate-900">Tecnico</p>
+                  <p className="mt-1 text-xs text-slate-600">Presupuestos, agenda y operaciones.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAccessProfileSelect('empresa')}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                >
+                  <p className="text-sm font-bold text-slate-900">Empresa</p>
+                  <p className="mt-1 text-xs text-slate-600">Gestion comercial y seguimiento.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAccessProfileSelect('cliente')}
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                >
+                  <p className="text-sm font-bold text-slate-900">Cliente</p>
+                  <p className="mt-1 text-xs text-slate-600">Solicitar tecnicos y coordinar trabajos.</p>
+                </button>
+              </div>
+              <div className="mt-6 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Cerrar sesion
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (session?.user && selectedAccessProfile === 'cliente') {
+    return (
+      <>
+        <AuthHashHandler />
+        <div
+          style={activeThemeStyles}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        >
+          <ClientWorkspace
+            userId={session.user.id}
+            authToken={session.access_token}
+            displayName={profile?.full_name || session.user.email || null}
+            onSwitchProfile={handleBackToProfileSelector}
+            onLogout={handleLogout}
+          />
+        </div>
       </>
     );
   }
