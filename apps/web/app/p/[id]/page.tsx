@@ -502,6 +502,12 @@ export default function QuotePage() {
   const referencesSummary = String(profile?.references_summary || '').trim();
   const recommendationItems = splitTextLines(String(profile?.client_recommendations || ''));
   const publicBadges = parseBadgeArray(profile?.achievement_badges);
+  const publicGeoLocation = [
+    String(profile?.service_city || profile?.city || '').trim(),
+    String(profile?.service_district || '').trim(),
+    String(profile?.service_province || '').trim(),
+  ].filter(Boolean);
+  const publicCoverageArea = String(profile?.coverage_area || '').trim();
   const hasPublicReputation =
     publicRating > 0 ||
     publicReviewsCount > 0 ||
@@ -557,11 +563,14 @@ export default function QuotePage() {
                             <span>{profile.email}</span>
                         </div>
                     )}
-                    {profile?.company_address && (
-                        <div className="flex items-center gap-3 text-slate-400">
-                             <Icons.MapPin />
-                             <span>{profile.company_address}</span>
-                        </div>
+                    {(publicGeoLocation.length > 0 || publicCoverageArea) && (
+                      <div className="flex items-start gap-3 text-slate-400">
+                        <Icons.MapPin />
+                        <span>
+                          {publicGeoLocation.length > 0 ? publicGeoLocation.join(' · ') : 'Ubicacion aproximada'}
+                          {publicCoverageArea ? ` | Cobertura: ${publicCoverageArea}` : ''}
+                        </span>
+                      </div>
                     )}
                 </div>
                 {hasPublicReputation && (

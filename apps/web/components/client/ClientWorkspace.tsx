@@ -31,7 +31,10 @@ type Quote = {
   technicianName: string;
   businessName?: string | null;
   specialty: string;
+  province?: string | null;
+  district?: string | null;
   city: string;
+  coverageZones?: string[];
   coverageArea?: string | null;
   phone: string;
   workingHours?: string | null;
@@ -741,9 +744,16 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
                             </p>
                             <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
                               <span>Zona: {quote.city || 'No informada'}</span>
+                              {quote.province && <span>Provincia: {quote.province}</span>}
+                              {quote.district && <span>Distrito: {quote.district}</span>}
                               {quote.coverageArea && <span>Cobertura: {quote.coverageArea}</span>}
                               {quote.workingHours && <span>Horario: {quote.workingHours}</span>}
                             </div>
+                            {Array.isArray(quote.coverageZones) && quote.coverageZones.length > 0 && (
+                              <p className="text-[11px] text-slate-500">
+                                Zonas marcadas: {quote.coverageZones.slice(0, 5).join(', ')}
+                              </p>
+                            )}
                             {(quote.rating || quote.reviewsCount || quote.completedJobsTotal) && (
                               <p className="text-[11px] text-slate-600">
                                 Reputacion:{' '}

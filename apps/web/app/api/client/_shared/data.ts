@@ -15,6 +15,16 @@ const statusSet = new Set([
   'cancelled',
 ]);
 
+const PROFILE_PUBLIC_BASE_SELECT =
+  'id,full_name,business_name,phone,address,company_address,city,coverage_area,specialties,working_hours,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges';
+const PROFILE_PUBLIC_GEO_SELECT = `${PROFILE_PUBLIC_BASE_SELECT},service_province,service_district,service_city,coverage_zones`;
+const PROFILE_MATCH_BASE_SELECT =
+  'id,full_name,business_name,phone,address,company_address,specialties,city,coverage_area,working_hours,references_summary,public_rating,completed_jobs_total,last_seen_at';
+const PROFILE_MATCH_GEO_SELECT = `${PROFILE_MATCH_BASE_SELECT},service_province,service_district,service_city,coverage_zones`;
+
+const shouldFallbackGeoSelect = (message: string) =>
+  /service_province|service_district|service_city|coverage_zones/i.test(message || '');
+
 const normalizeText = (value: unknown) =>
   String(value || '')
     .normalize('NFD')
@@ -63,6 +73,14 @@ const parseBadgeArray = (value: unknown) => {
   return [] as string[];
 };
 
+const formatCoverageZone = (zoneRaw: unknown) => {
+  const zone = String(zoneRaw || '').trim();
+  if (!zone) return '';
+  const match = zone.match(/^comuna[_\s-]?(\d{1,2})$/i);
+  if (match) return `Comuna ${match[1]}`;
+  return zone;
+};
+
 const getCoverageCityFallback = (coverageRaw: unknown) =>
   String(coverageRaw || '')
     .split(',')
@@ -74,7 +92,10 @@ const getTechnicianVisibilityScore = (profile?: AnyRecord | null) => {
   const checks = [
     Boolean(String(profile.business_name || profile.full_name || '').trim()),
     Boolean(String(profile.phone || '').trim()),
-    Boolean(String(profile.city || '').trim() || String(profile.coverage_area || '').trim()),
+    Boolean(
+      String(profile.service_city || profile.city || '').trim() ||
+        String(profile.coverage_area || '').trim()
+    ),
     Boolean(String(profile.specialties || '').trim()),
     Boolean(String(profile.working_hours || '').trim()),
     Boolean(String(profile.company_address || profile.address || '').trim()),
@@ -89,7 +110,9 @@ const getTechnicianVisibilityBonus = (profile?: AnyRecord | null) => {
   if (String(profile.business_name || profile.full_name || '').trim()) bonus += 2;
   if (String(profile.phone || '').trim()) bonus += 2;
   if (String(profile.specialties || '').trim()) bonus += 3;
-  if (String(profile.city || '').trim() || String(profile.coverage_area || '').trim()) bonus += 3;
+  if (String(profile.service_city || profile.city || '').trim() || String(profile.coverage_area || '').trim()) bonus += 3;
+  if (String(profile.service_province || '').trim()) bonus += 1;
+  if (String(profile.service_district || '').trim()) bonus += 1;
   if (String(profile.working_hours || '').trim()) bonus += 1;
   if (String(profile.references_summary || '').trim()) bonus += 1;
   const rating = Number(profile.public_rating);
@@ -165,9 +188,18 @@ const mapQuoteRow = (row: AnyRecord, profile?: AnyRecord | null) => {
   const rowRating = toNumberOrNull(row.technician_rating);
   const rating = rowRating ?? profileRating;
   const recommendations = splitTextLines(profile?.client_recommendations).slice(0, 3);
-  const coverageArea = String(profile?.coverage_area || '').trim();
+  const coverageZones = parseBadgeArray(profile?.coverage_zones).map((zone) => formatCoverageZone(zone)).filter(Boolean);
+  const coverageArea =
+    coverageZones
+      .map((zone) => String(zone || '').trim())
+      .filter(Boolean)
+      .join(', ') || String(profile?.coverage_area || '').trim();
+  const province = String(profile?.service_province || '').trim();
+  const district = String(profile?.service_district || '').trim();
+  const serviceCity = String(profile?.service_city || '').trim();
   const city =
     String(row.technician_city || '').trim() ||
+    serviceCity ||
     String(profile?.city || '').trim() ||
     getCoverageCityFallback(coverageArea);
   const technicianName =
@@ -182,7 +214,10 @@ const mapQuoteRow = (row: AnyRecord, profile?: AnyRecord | null) => {
     technicianName,
     businessName: String(profile?.business_name || '').trim() || null,
     specialty: String(row.technician_specialty || '').trim() || String(profile?.specialties || '').trim() || 'General',
+    province: province || null,
+    district: district || null,
     city,
+    coverageZones,
     coverageArea: coverageArea || null,
     phone: String(row.technician_phone || '').trim() || String(profile?.phone || '').trim() || '',
     workingHours: String(profile?.working_hours || '').trim() || null,
@@ -292,12 +327,25 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
     )
   );
   if (technicianIds.length) {
-    const { data: profileRows, error: profileError } = await supabase
+    let profileRows: AnyRecord[] = [];
+    let profileError: any = null;
+
+    const withGeo = await supabase
       .from('profiles')
-      .select(
-        'id,full_name,business_name,phone,address,company_address,city,coverage_area,specialties,working_hours,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges'
-      )
+      .select(PROFILE_PUBLIC_GEO_SELECT)
       .in('id', technicianIds);
+
+    if (withGeo.error && shouldFallbackGeoSelect(String(withGeo.error.message || ''))) {
+      const fallback = await supabase
+        .from('profiles')
+        .select(PROFILE_PUBLIC_BASE_SELECT)
+        .in('id', technicianIds);
+      profileRows = (fallback.data || []) as AnyRecord[];
+      profileError = fallback.error;
+    } else {
+      profileRows = (withGeo.data || []) as AnyRecord[];
+      profileError = withGeo.error;
+    }
 
     if (!profileError) {
       (profileRows || []).forEach((profile: AnyRecord) => {
@@ -378,23 +426,53 @@ export const ensureMarketplaceMatches = async (
     return existingRows as AnyRecord[];
   }
 
-  const profileSelect =
-    'id,full_name,business_name,phone,address,company_address,specialties,city,coverage_area,working_hours,references_summary,public_rating,completed_jobs_total,last_seen_at';
   let profileRows: AnyRecord[] = [];
 
   const primary = await supabase
     .from('profiles')
-    .select(profileSelect)
+    .select(PROFILE_MATCH_GEO_SELECT)
     .neq('id', userId)
     .eq('access_granted', true)
     .limit(500);
 
   if (primary.error && /access_granted/i.test(String(primary.error.message || ''))) {
-    const fallback = await supabase.from('profiles').select(profileSelect).neq('id', userId).limit(500);
-    if (fallback.error) {
-      throw new Error(fallback.error.message || 'No pudimos buscar tecnicos.');
+    let fallbackData: AnyRecord[] = [];
+    let fallbackError: any = null;
+
+    const withGeoFallback = await supabase
+      .from('profiles')
+      .select(PROFILE_MATCH_GEO_SELECT)
+      .neq('id', userId)
+      .limit(500);
+
+    if (withGeoFallback.error && shouldFallbackGeoSelect(String(withGeoFallback.error.message || ''))) {
+      const noGeoFallback = await supabase
+        .from('profiles')
+        .select(PROFILE_MATCH_BASE_SELECT)
+        .neq('id', userId)
+        .limit(500);
+      fallbackData = (noGeoFallback.data || []) as AnyRecord[];
+      fallbackError = noGeoFallback.error;
+    } else {
+      fallbackData = (withGeoFallback.data || []) as AnyRecord[];
+      fallbackError = withGeoFallback.error;
     }
-    profileRows = (fallback.data || []) as AnyRecord[];
+
+    if (fallbackError) {
+      throw new Error(fallbackError.message || 'No pudimos buscar tecnicos.');
+    }
+    profileRows = fallbackData;
+  } else if (primary.error && shouldFallbackGeoSelect(String(primary.error.message || ''))) {
+    const noGeoPrimary = await supabase
+      .from('profiles')
+      .select(PROFILE_MATCH_BASE_SELECT)
+      .neq('id', userId)
+      .eq('access_granted', true)
+      .limit(500);
+    if (noGeoPrimary.error) {
+      throw new Error(noGeoPrimary.error.message || 'No pudimos buscar tecnicos.');
+    }
+    profileRows = (noGeoPrimary.data || []) as AnyRecord[];
   } else if (primary.error) {
     throw new Error(primary.error.message || 'No pudimos buscar tecnicos.');
   } else {
@@ -408,14 +486,18 @@ export const ensureMarketplaceMatches = async (
   const scored = profileRows
     .map((profile) => {
       const specialty = normalizeText(profile.specialties);
-      const city = normalizeText(profile.city);
+      const city = normalizeText(profile.service_city || profile.city);
+      const coverageZones = parseBadgeArray(profile.coverage_zones).map((zone) => normalizeText(zone));
       const coverage = normalizeText(profile.coverage_area);
+      const district = normalizeText(profile.service_district);
       const phone = String(profile.phone || '').trim();
 
       let score = 0;
       if (categoryTokens.some((token) => token && specialty.includes(token))) score += 8;
       if (requestCity && city === requestCity) score += 4;
       if (requestCity && coverage.includes(requestCity)) score += 3;
+      if (requestCity && coverageZones.some((zone) => zone.includes(requestCity))) score += 3;
+      if (requestCity && district.includes(requestCity)) score += 2;
       if (requestAddress && city && requestAddress.includes(city)) score += 2;
       if (phone) score += 1;
       score += getTechnicianVisibilityBonus(profile);
@@ -424,7 +506,10 @@ export const ensureMarketplaceMatches = async (
         profile,
         score,
         specialty: String(profile.specialties || '').trim() || String(requestRow.category || 'General'),
-        city: String(profile.city || '').trim() || String(profile.coverage_area || '').split(',')[0].trim(),
+        city:
+          String(profile.service_city || '').trim() ||
+          String(profile.city || '').trim() ||
+          String(profile.coverage_area || '').split(',')[0].trim(),
         lastSeenAt: profile.last_seen_at ? new Date(String(profile.last_seen_at)).getTime() : 0,
       };
     })

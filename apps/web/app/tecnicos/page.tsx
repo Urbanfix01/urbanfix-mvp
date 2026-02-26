@@ -177,6 +177,163 @@ const splitTextLines = (value: string) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+type GeoDistrictOption = {
+  district: string;
+  cities: string[];
+};
+
+type GeoProvinceOption = {
+  province: string;
+  districts: GeoDistrictOption[];
+};
+
+type CabaZoneOption = {
+  id: string;
+  label: string;
+  lat: number;
+  lon: number;
+};
+
+const CABA_PROVINCE = 'Ciudad Autonoma de Buenos Aires';
+const CABA_DEFAULT_DISTRICT = 'Capital Federal';
+const CABA_DEFAULT_CITY = 'Ciudad Autonoma de Buenos Aires';
+
+const TECH_GEO_CATALOG: GeoProvinceOption[] = [
+  {
+    province: CABA_PROVINCE,
+    districts: [
+      {
+        district: CABA_DEFAULT_DISTRICT,
+        cities: [CABA_DEFAULT_CITY],
+      },
+    ],
+  },
+  {
+    province: 'Buenos Aires',
+    districts: [
+      {
+        district: 'Zona Norte GBA',
+        cities: [
+          'Vicente Lopez',
+          'San Isidro',
+          'San Fernando',
+          'Tigre',
+          'Pilar',
+          'Escobar',
+          'San Miguel',
+          'Jose C. Paz',
+          'Malvinas Argentinas',
+        ],
+      },
+      {
+        district: 'Zona Oeste GBA',
+        cities: ['Moron', 'Ituzaingo', 'Hurlingham', 'La Matanza', 'Merlo', 'Moreno', 'Tres de Febrero'],
+      },
+      {
+        district: 'Zona Sur GBA',
+        cities: [
+          'Lanus',
+          'Avellaneda',
+          'Lomas de Zamora',
+          'Almirante Brown',
+          'Quilmes',
+          'Berazategui',
+          'Florencio Varela',
+          'Esteban Echeverria',
+          'Ezeiza',
+        ],
+      },
+      {
+        district: 'Interior Buenos Aires',
+        cities: ['La Plata', 'Mar del Plata', 'Bahia Blanca', 'Tandil', 'Olavarria', 'Junin', 'Pergamino'],
+      },
+    ],
+  },
+  {
+    province: 'Cordoba',
+    districts: [
+      {
+        district: 'Capital',
+        cities: ['Cordoba'],
+      },
+      {
+        district: 'Interior',
+        cities: ['Villa Carlos Paz', 'Rio Cuarto', 'Villa Maria', 'San Francisco'],
+      },
+    ],
+  },
+  {
+    province: 'Santa Fe',
+    districts: [
+      {
+        district: 'Rosario',
+        cities: ['Rosario', 'Villa Gobernador Galvez'],
+      },
+      {
+        district: 'Capital',
+        cities: ['Santa Fe'],
+      },
+      {
+        district: 'Interior',
+        cities: ['Rafaela', 'Venado Tuerto', 'Reconquista'],
+      },
+    ],
+  },
+];
+
+const CABA_ZONE_OPTIONS: CabaZoneOption[] = [
+  { id: 'comuna_1', label: 'Comuna 1', lat: -34.6076, lon: -58.3717 },
+  { id: 'comuna_2', label: 'Comuna 2', lat: -34.5898, lon: -58.3974 },
+  { id: 'comuna_3', label: 'Comuna 3', lat: -34.6098, lon: -58.3996 },
+  { id: 'comuna_4', label: 'Comuna 4', lat: -34.6452, lon: -58.3919 },
+  { id: 'comuna_5', label: 'Comuna 5', lat: -34.6178, lon: -58.4209 },
+  { id: 'comuna_6', label: 'Comuna 6', lat: -34.6193, lon: -58.4413 },
+  { id: 'comuna_7', label: 'Comuna 7', lat: -34.6356, lon: -58.4513 },
+  { id: 'comuna_8', label: 'Comuna 8', lat: -34.6714, lon: -58.4442 },
+  { id: 'comuna_9', label: 'Comuna 9', lat: -34.6476, lon: -58.5027 },
+  { id: 'comuna_10', label: 'Comuna 10', lat: -34.6317, lon: -58.4957 },
+  { id: 'comuna_11', label: 'Comuna 11', lat: -34.6087, lon: -58.4982 },
+  { id: 'comuna_12', label: 'Comuna 12', lat: -34.5663, lon: -58.4902 },
+  { id: 'comuna_13', label: 'Comuna 13', lat: -34.5535, lon: -58.4562 },
+  { id: 'comuna_14', label: 'Comuna 14', lat: -34.5851, lon: -58.4248 },
+  { id: 'comuna_15', label: 'Comuna 15', lat: -34.6003, lon: -58.4588 },
+];
+
+const resolveCabaZoneId = (value: string) => {
+  const normalized = normalizeText(String(value || '').trim());
+  if (!normalized) return '';
+  const byId = CABA_ZONE_OPTIONS.find((zone) => normalizeText(zone.id) === normalized);
+  if (byId) return byId.id;
+  const byLabel = CABA_ZONE_OPTIONS.find((zone) => normalizeText(zone.label) === normalized);
+  if (byLabel) return byLabel.id;
+  return '';
+};
+
+const parseCoverageZoneIds = (value: unknown) =>
+  Array.from(
+    new Set(
+      parseBadgeArray(value)
+        .map((zone) => resolveCabaZoneId(zone))
+        .filter(Boolean)
+    )
+  );
+
+const parseCoverageZonesFromText = (value: string) =>
+  value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 30);
+
+const buildCoverageAreaLabel = (zoneIds: string[], fallbackText: string) => {
+  const labels = zoneIds
+    .map((zoneId) => CABA_ZONE_OPTIONS.find((zone) => zone.id === zoneId)?.label || '')
+    .map((label) => label.trim())
+    .filter(Boolean);
+  if (labels.length > 0) return labels.join(', ');
+  return fallbackText.trim();
+};
+
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
   if (!normalized) return 'draft';
@@ -313,8 +470,7 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-const buildOsmEmbedUrl = (lat: number, lon: number) => {
-  const delta = 0.004;
+const buildOsmEmbedUrl = (lat: number, lon: number, delta = 0.004) => {
   const left = lon - delta;
   const right = lon + delta;
   const bottom = lat - delta;
@@ -473,8 +629,11 @@ export default function TechniciansPage() {
     email: '',
     phone: '',
     address: '',
+    province: '',
+    district: '',
     city: '',
     coverageArea: '',
+    coverageZones: [] as string[],
     workingHours: '',
     specialties: '',
     certifications: '',
@@ -752,6 +911,85 @@ export default function TechniciansPage() {
     return buildOsmEmbedUrl(geoSelected.lat, geoSelected.lon);
   }, [geoSelected]);
 
+  const availableProvinceOptions = useMemo(
+    () => TECH_GEO_CATALOG.map((item) => item.province),
+    []
+  );
+  const availableDistrictOptions = useMemo(() => {
+    const province = TECH_GEO_CATALOG.find((item) => item.province === profileForm.province);
+    if (!province) return [] as GeoDistrictOption[];
+    return province.districts;
+  }, [profileForm.province]);
+  const availableCityOptions = useMemo(() => {
+    const district = availableDistrictOptions.find((item) => item.district === profileForm.district);
+    if (!district) return [] as string[];
+    return district.cities;
+  }, [availableDistrictOptions, profileForm.district]);
+  const isCabaProfile = profileForm.province === CABA_PROVINCE;
+  const cabaZoneMap = useMemo(
+    () =>
+      new Map(
+        CABA_ZONE_OPTIONS.map((zone) => [zone.id, zone] as const)
+      ),
+    []
+  );
+  const selectedCabaZone = useMemo(() => {
+    const selectedZoneId = profileForm.coverageZones[profileForm.coverageZones.length - 1];
+    if (!selectedZoneId) return null;
+    return cabaZoneMap.get(selectedZoneId) || null;
+  }, [cabaZoneMap, profileForm.coverageZones]);
+  const cabaCoverageMapUrl = useMemo(
+    () =>
+      buildOsmEmbedUrl(
+        selectedCabaZone?.lat ?? -34.6037,
+        selectedCabaZone?.lon ?? -58.3816,
+        0.09
+      ),
+    [selectedCabaZone]
+  );
+
+  useEffect(() => {
+    if (!profileForm.province) return;
+    const hasDistrict = availableDistrictOptions.some((item) => item.district === profileForm.district);
+    if (!hasDistrict) {
+      setProfileForm((prev) => ({
+        ...prev,
+        district: availableDistrictOptions[0]?.district || '',
+        city: '',
+      }));
+    }
+  }, [availableDistrictOptions, profileForm.district, profileForm.province]);
+
+  useEffect(() => {
+    if (!profileForm.province || !profileForm.district) return;
+    const hasCity = availableCityOptions.includes(profileForm.city);
+    if (!hasCity) {
+      setProfileForm((prev) => ({
+        ...prev,
+        city: availableCityOptions[0] || '',
+      }));
+    }
+  }, [availableCityOptions, profileForm.city, profileForm.district, profileForm.province]);
+
+  useEffect(() => {
+    if (!profileForm.province) return;
+    if (profileForm.province === CABA_PROVINCE) {
+      if (profileForm.district && profileForm.city) return;
+      setProfileForm((prev) => ({
+        ...prev,
+        district: prev.district || CABA_DEFAULT_DISTRICT,
+        city: prev.city || CABA_DEFAULT_CITY,
+      }));
+      return;
+    }
+    if (profileForm.coverageZones.length) {
+      setProfileForm((prev) => ({
+        ...prev,
+        coverageZones: [],
+      }));
+    }
+  }, [profileForm.coverageZones.length, profileForm.province]);
+
   const navItems: NavItem[] = [
     { key: 'lobby', label: 'Panel de control', hint: 'Resumen general', short: 'PC', icon: Home },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
@@ -882,14 +1120,27 @@ export default function TechniciansPage() {
     if (!profile) return;
     const hasLegacyLogo = !profile.company_logo_url && profile.avatar_url && profile.logo_shape;
     const legacyLogoUrl = hasLegacyLogo ? profile.avatar_url : '';
+    const fallbackCoverageZones = parseCoverageZonesFromText(String(profile.coverage_area || ''));
+    const resolvedProvince = String(profile.service_province || '').trim();
+    const resolvedDistrict = String(profile.service_district || '').trim();
+    const resolvedCoverageZones = parseCoverageZoneIds(profile.coverage_zones);
+    const fallbackCoverageZoneIds = parseCoverageZoneIds(fallbackCoverageZones);
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
       email: profile.email || session?.user?.email || '',
       phone: profile.phone || '',
       address: profile.company_address || profile.address || '',
-      city: profile.city || '',
+      province: resolvedProvince,
+      district: resolvedDistrict,
+      city: profile.service_city || profile.city || '',
       coverageArea: profile.coverage_area || '',
+      coverageZones:
+        resolvedCoverageZones.length > 0
+          ? resolvedCoverageZones
+          : fallbackCoverageZoneIds.length > 0
+            ? fallbackCoverageZoneIds
+            : [],
       workingHours: profile.working_hours || '',
       specialties: profile.specialties || '',
       certifications: profile.certifications || '',
@@ -1834,7 +2085,11 @@ export default function TechniciansPage() {
     setProfileSaving(true);
     setProfileMessage('');
     try {
-      const payload = {
+      const normalizedCoverageArea = isCabaProfile
+        ? buildCoverageAreaLabel(profileForm.coverageZones, profileForm.coverageArea)
+        : profileForm.coverageArea;
+      const normalizedCity = profileForm.city || (isCabaProfile ? CABA_DEFAULT_CITY : '');
+      const basePayload = {
         id: session.user.id,
         full_name: profileForm.fullName,
         business_name: profileForm.businessName,
@@ -1842,8 +2097,8 @@ export default function TechniciansPage() {
         phone: profileForm.phone,
         company_address: profileForm.address,
         address: profileForm.address,
-        city: profileForm.city,
-        coverage_area: profileForm.coverageArea,
+        city: normalizedCity,
+        coverage_area: normalizedCoverageArea,
         working_hours: profileForm.workingHours,
         specialties: profileForm.specialties,
         certifications: profileForm.certifications,
@@ -1864,7 +2119,35 @@ export default function TechniciansPage() {
         avatar_url: profileForm.avatarUrl,
         logo_shape: profileForm.logoShape,
       };
-      const { data, error } = await supabase.from('profiles').upsert(payload).select().single();
+      const geoPayload = {
+        ...basePayload,
+        service_province: profileForm.province || null,
+        service_district: profileForm.district || null,
+        service_city: normalizedCity || null,
+        coverage_zones: isCabaProfile ? profileForm.coverageZones : [],
+      };
+
+      let { data, error } = await supabase.from('profiles').upsert(geoPayload).select().single();
+
+      if (error) {
+        const message = String(error.message || '');
+        if (
+          /service_province|service_district|service_city|coverage_zones/i.test(message)
+        ) {
+          const fallbackCoverageArea = [profileForm.province, profileForm.district, normalizedCoverageArea]
+            .map((value) => String(value || '').trim())
+            .filter(Boolean)
+            .join(' | ');
+          const fallbackPayload = {
+            ...basePayload,
+            coverage_area: fallbackCoverageArea || normalizedCoverageArea,
+          };
+          const retry = await supabase.from('profiles').upsert(fallbackPayload).select().single();
+          data = retry.data;
+          error = retry.error;
+        }
+      }
+
       if (error) throw error;
       setProfile(data);
       setProfileMessage('Perfil actualizado.');
@@ -2354,9 +2637,26 @@ export default function TechniciansPage() {
       { key: 'business', label: 'Nombre del negocio visible', completed: Boolean(profileForm.businessName.trim()) },
       { key: 'phone', label: 'Telefono para contacto', completed: Boolean(profileForm.phone.trim()) },
       {
-        key: 'zone',
-        label: 'Ciudad o zona de cobertura',
-        completed: Boolean(profileForm.city.trim()) || Boolean(profileForm.coverageArea.trim()),
+        key: 'province',
+        label: 'Provincia definida',
+        completed: Boolean(profileForm.province.trim()),
+      },
+      {
+        key: 'district',
+        label: 'Distrito definido',
+        completed: Boolean(profileForm.district.trim()),
+      },
+      {
+        key: 'city',
+        label: 'Ciudad definida',
+        completed: Boolean(profileForm.city.trim()),
+      },
+      {
+        key: 'coverage',
+        label: 'Zona de cobertura marcada',
+        completed:
+          (isCabaProfile && profileForm.coverageZones.length > 0) ||
+          (!isCabaProfile && Boolean(profileForm.coverageArea.trim())),
       },
       { key: 'specialty', label: 'Rubros / especialidades', completed: Boolean(profileForm.specialties.trim()) },
       { key: 'hours', label: 'Horarios de atencion', completed: Boolean(profileForm.workingHours.trim()) },
@@ -2366,10 +2666,14 @@ export default function TechniciansPage() {
       profileForm.businessName,
       profileForm.city,
       profileForm.coverageArea,
+      profileForm.coverageZones.length,
+      profileForm.district,
       profileForm.phone,
+      profileForm.province,
       profileForm.referencesSummary,
       profileForm.specialties,
       profileForm.workingHours,
+      isCabaProfile,
     ]
   );
 
@@ -4883,30 +5187,147 @@ export default function TechniciansPage() {
                           ))}
                         </div>
                       </div>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Direccion base</label>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">
+                        Direccion base (interna, no publica)
+                      </label>
                       <input
                         value={profileForm.address}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Provincia</label>
+                      <select
+                        value={profileForm.province}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            province: event.target.value,
+                            district: '',
+                            city: '',
+                            coverageArea: event.target.value === CABA_PROVINCE ? '' : prev.coverageArea,
+                            coverageZones: [],
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="">Seleccionar provincia...</option>
+                        {availableProvinceOptions.map((province) => (
+                          <option key={province} value={province}>
+                            {province}
+                          </option>
+                        ))}
+                      </select>
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Distrito</label>
+                      <select
+                        value={profileForm.district}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            district: event.target.value,
+                            city: '',
+                            coverageArea: prev.province === CABA_PROVINCE ? '' : prev.coverageArea,
+                            coverageZones: prev.province === CABA_PROVINCE ? [] : prev.coverageZones,
+                          }))
+                        }
+                        disabled={!profileForm.province}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                      >
+                        <option value="">Seleccionar distrito...</option>
+                        {availableDistrictOptions.map((option) => (
+                          <option key={option.district} value={option.district}>
+                            {option.district}
+                          </option>
+                        ))}
+                      </select>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad</label>
-                      <input
+                      <select
                         value={profileForm.city}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
-                      <input
-                        value={profileForm.coverageArea}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, coverageArea: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                        disabled={!profileForm.district}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
+                      >
+                        <option value="">Seleccionar ciudad...</option>
+                        {availableCityOptions.map((cityOption) => (
+                          <option key={cityOption} value={cityOption}>
+                            {cityOption}
+                          </option>
+                        ))}
+                      </select>
+
+                      {isCabaProfile ? (
+                        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-xs font-semibold text-slate-700">Mapa de cobertura CABA</p>
+                          <p className="mt-1 text-[11px] text-slate-500">
+                            Marca comunas para visibilidad sin exponer direccion exacta.
+                          </p>
+                          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                            <iframe
+                              title="Cobertura Ciudad de Buenos Aires"
+                              src={cabaCoverageMapUrl}
+                              className="h-56 w-full border-0"
+                              loading="lazy"
+                            />
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {CABA_ZONE_OPTIONS.map((zone) => {
+                              const selected = profileForm.coverageZones.includes(zone.id);
+                              return (
+                                <button
+                                  key={zone.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setProfileForm((prev) => {
+                                      const nextZones = selected
+                                        ? prev.coverageZones.filter((item) => item !== zone.id)
+                                        : [...prev.coverageZones, zone.id];
+                                      return {
+                                        ...prev,
+                                        coverageZones: nextZones,
+                                        coverageArea: buildCoverageAreaLabel(nextZones, prev.coverageArea),
+                                      };
+                                    })
+                                  }
+                                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                                    selected
+                                      ? 'bg-slate-900 text-white'
+                                      : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                                  }`}
+                                >
+                                  {zone.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                          <p className="mt-2 text-[11px] text-slate-500">
+                            Zonas marcadas: {profileForm.coverageZones.length}
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
+                          <input
+                            value={profileForm.coverageArea}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, coverageArea: event.target.value }))
+                            }
+                            placeholder="Ej: Zona Norte GBA, Pilar, Escobar"
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                          />
+                        </>
+                      )}
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Horarios de atencion</label>
                       <input
                         value={profileForm.workingHours}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, workingHours: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Mostramos provincia, distrito, ciudad y zonas. La direccion exacta no se publica.
+                      </p>
                     </div>
                   </div>
 
