@@ -172,6 +172,8 @@ export async function GET(request: NextRequest) {
       created_at: row.created_at,
       distance_km: Number(distanceKm.toFixed(1)),
       match_radius_km: maxDistance,
+      location_lat: Number(requestLat.toFixed(6)),
+      location_lng: Number(requestLng.toFixed(6)),
     });
   }
 
@@ -188,6 +190,8 @@ export async function GET(request: NextRequest) {
       radius_km: radiusKm,
       within_working_hours: withinWorkingHours,
       working_hours_label: formatWorkingHoursLabel(profileHours),
+      service_lat: Number(technicianLat.toFixed(6)),
+      service_lng: Number(technicianLng.toFixed(6)),
     },
   });
 }

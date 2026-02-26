@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
@@ -400,6 +400,19 @@ type NearbyRequestRow = {
   created_at: string;
   distance_km: number;
   match_radius_km: number;
+  location_lat?: number | null;
+  location_lng?: number | null;
+};
+
+type DashboardMapPoint = {
+  id: string;
+  kind: 'job' | 'request';
+  title: string;
+  subtitle: string;
+  meta: string;
+  lat: number;
+  lon: number;
+  createdAt: string;
 };
 
 const geocodeAddressFirstResult = async (query: string) => {
@@ -543,6 +556,11 @@ const toNumber = (value: string) => {
   const normalized = value.replace(',', '.');
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const toFiniteCoordinate = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const toAmountValue = (value: any) => {
@@ -771,7 +789,7 @@ const RUBRO_LABELS: Record<string, string> = {
   gas: 'Gas',
   sanitario: 'Sanitario',
   electricidad: 'Electricidad',
-  albanileria: 'Albañileria',
+  albanileria: 'AlbaÃ±ileria',
 };
 
 const resolveMasterRubro = (item: MasterItemRow) => {
@@ -936,6 +954,8 @@ export default function TechniciansPage() {
   const [technicianWithinWorkingHours, setTechnicianWithinWorkingHours] = useState<boolean | null>(null);
   const [technicianWorkingHoursLabel, setTechnicianWorkingHoursLabel] = useState('');
   const [technicianRadiusKm, setTechnicianRadiusKm] = useState(COVERAGE_RADIUS_KM);
+  const [dashboardMapFilter, setDashboardMapFilter] = useState<'all' | 'jobs' | 'requests'>('all');
+  const [dashboardMapSelectedId, setDashboardMapSelectedId] = useState('');
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -2264,6 +2284,94 @@ export default function TechniciansPage() {
     () => quotes.filter((quote) => readyToScheduleStatuses.has(normalizeStatusValue(quote.status))),
     [quotes]
   );
+  const dashboardJobPoints = useMemo(() => {
+    const operationalStatuses = new Set(['approved', 'completed', 'paid']);
+    const points: DashboardMapPoint[] = [];
+    quotes.forEach((quote) => {
+      if (!operationalStatuses.has(normalizeStatusValue(quote.status))) return;
+      const lat = toFiniteCoordinate(quote.location_lat);
+      const lon = toFiniteCoordinate(quote.location_lng);
+      if (lat === null || lon === null) return;
+      const status = normalizeStatusValue(quote.status);
+      const statusLabel = statusMap[status]?.label || 'Trabajo';
+      const addressLabel = getQuoteAddress(quote) || 'Ubicacion sin direccion';
+      points.push({
+        id: `job:${quote.id}`,
+        kind: 'job',
+        title: quote.client_name || 'Trabajo sin cliente',
+        subtitle: addressLabel,
+        meta: `${statusLabel} · ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
+        lat,
+        lon,
+        createdAt: quote.created_at,
+      });
+    });
+    return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [quotes]);
+  const dashboardRequestPoints = useMemo(() => {
+    const points: DashboardMapPoint[] = [];
+    nearbyRequests.forEach((request) => {
+      const lat = toFiniteCoordinate(request.location_lat);
+      const lon = toFiniteCoordinate(request.location_lng);
+      if (lat === null || lon === null) return;
+      const cityAddress = [request.city, request.address].filter(Boolean).join(' · ');
+      points.push({
+        id: `request:${request.id}`,
+        kind: 'request',
+        title: request.title || 'Solicitud',
+        subtitle: cityAddress || 'Zona sin detalle',
+        meta: `${request.urgency.toUpperCase()} · ${request.distance_km.toFixed(1)} km`,
+        lat,
+        lon,
+        createdAt: request.created_at,
+      });
+    });
+    return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [nearbyRequests]);
+  const dashboardMapPoints = useMemo(() => {
+    if (dashboardMapFilter === 'jobs') return dashboardJobPoints;
+    if (dashboardMapFilter === 'requests') return dashboardRequestPoints;
+    return [...dashboardRequestPoints, ...dashboardJobPoints].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [dashboardJobPoints, dashboardMapFilter, dashboardRequestPoints]);
+  const dashboardSelectedMapPoint = useMemo(() => {
+    if (!dashboardMapPoints.length) return null;
+    return dashboardMapPoints.find((point) => point.id === dashboardMapSelectedId) || dashboardMapPoints[0];
+  }, [dashboardMapPoints, dashboardMapSelectedId]);
+  const dashboardMapUrl = useMemo(() => {
+    if (dashboardSelectedMapPoint) {
+      return buildOsmEmbedUrl(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon);
+    }
+    const technicianLat = toFiniteCoordinate(profile?.service_lat);
+    const technicianLon = toFiniteCoordinate(profile?.service_lng);
+    if (technicianLat === null || technicianLon === null) return '';
+    return buildOsmEmbedUrl(technicianLat, technicianLon);
+  }, [dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
+  const jobsWithoutCoordinatesCount = useMemo(() => {
+    const operationalStatuses = new Set(['approved', 'completed', 'paid']);
+    return quotes.filter((quote) => {
+      if (!operationalStatuses.has(normalizeStatusValue(quote.status))) return false;
+      return toFiniteCoordinate(quote.location_lat) === null || toFiniteCoordinate(quote.location_lng) === null;
+    }).length;
+  }, [quotes]);
+  const requestsWithoutCoordinatesCount = useMemo(
+    () =>
+      nearbyRequests.filter(
+        (request) => toFiniteCoordinate(request.location_lat) === null || toFiniteCoordinate(request.location_lng) === null
+      ).length,
+    [nearbyRequests]
+  );
+  useEffect(() => {
+    if (!dashboardMapPoints.length) {
+      if (dashboardMapSelectedId) setDashboardMapSelectedId('');
+      return;
+    }
+    const exists = dashboardMapPoints.some((point) => point.id === dashboardMapSelectedId);
+    if (!exists) {
+      setDashboardMapSelectedId(dashboardMapPoints[0].id);
+    }
+  }, [dashboardMapPoints, dashboardMapSelectedId]);
   const logoPresentation = useMemo(
     () => resolveLogoPresentation(logoRatio, profile?.logo_shape),
     [logoRatio, profile?.logo_shape]
@@ -2382,7 +2490,7 @@ export default function TechniciansPage() {
       });
       if (error) throw error;
       if (!data || !data.id) {
-        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o polÃ­ticas de seguridad.');
       }
       setQuotes((prev) =>
         prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote))
@@ -2737,7 +2845,7 @@ export default function TechniciansPage() {
   };
 
   const handleDeleteQuote = async (quote: QuoteRow) => {
-    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
+    if (!confirm(`Â¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acciÃ³n no se puede deshacer.`)) {
       return;
     }
       try {
@@ -2999,7 +3107,7 @@ export default function TechniciansPage() {
     setAuthNotice('');
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contraseña.');
+      setAuthError('Ingresa tu correo para recuperar la contraseÃ±a.');
       return;
     }
     setSendingRecovery(true);
@@ -3007,9 +3115,9 @@ export default function TechniciansPage() {
       const redirectTo = `${window.location.origin}/tecnicos`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseÃ±a.');
     } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos enviar el correo de recuperación.');
+      setAuthError(error?.message || 'No pudimos enviar el correo de recuperaciÃ³n.');
     } finally {
       setSendingRecovery(false);
     }
@@ -3019,28 +3127,28 @@ export default function TechniciansPage() {
     setRecoveryError('');
     setRecoveryMessage('');
     if (!session?.user) {
-      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
+      setRecoveryError('La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.');
       return;
     }
     const nextPassword = recoveryPassword.trim();
     const confirmPassword = recoveryConfirm.trim();
     if (!nextPassword) {
-      setRecoveryError('Ingresa una nueva contraseña.');
+      setRecoveryError('Ingresa una nueva contraseÃ±a.');
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setRecoveryError('Las contraseñas no coinciden.');
+      setRecoveryError('Las contraseÃ±as no coinciden.');
       return;
     }
     setUpdatingRecovery(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: nextPassword });
       if (error) throw error;
-      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
+      setRecoveryMessage('Listo. Tu contraseÃ±a fue actualizada.');
       setRecoveryPassword('');
       setRecoveryConfirm('');
     } catch (error: any) {
-      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseÃ±a.');
     } finally {
       setUpdatingRecovery(false);
     }
@@ -3205,6 +3313,28 @@ export default function TechniciansPage() {
     await handleCopyPublicProfileLink();
   };
 
+  const handleSharePublicProfileWhatsApp = () => {
+    if (!profileForm.profilePublished || !publicProfileUrl) {
+      setProfileMessage('Publica tu perfil antes de compartir.');
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const text = encodeURIComponent(
+      `Mira mi perfil profesional en UrbanFix: ${publicProfileUrl}`
+    );
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSharePublicProfileFacebook = () => {
+    if (!profileForm.profilePublished || !publicProfileUrl) {
+      setProfileMessage('Publica tu perfil antes de compartir.');
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicProfileUrl)}`;
+    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+  };
+
   const normalizedTaxIdValue = useMemo(() => normalizeTaxId(profileForm.taxId), [profileForm.taxId]);
   const taxIdIsComplete = normalizedTaxIdValue.length === 11;
   const taxIdIsValid = taxIdIsComplete && isValidCuit(normalizedTaxIdValue);
@@ -3264,6 +3394,10 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined' || !session?.user?.id) return '';
     return `${window.location.origin}/tecnico/${session.user.id}`;
   }, [session?.user?.id]);
+  const publicShowcaseUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/vidriera`;
+  }, []);
   const autoSaveSignature = useMemo(
     () =>
       JSON.stringify({
@@ -3432,7 +3566,7 @@ export default function TechniciansPage() {
           <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
             <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
             <p className="mt-3 text-sm text-slate-600">
-              Tu cuenta está configurada como admin. Te llevamos al panel de control.
+              Tu cuenta estÃ¡ configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
@@ -3494,9 +3628,9 @@ export default function TechniciansPage() {
                     <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseña</h1>
+                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseÃ±a</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Define una nueva contraseña para volver a acceder a tu cuenta.
+                  Define una nueva contraseÃ±a para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
@@ -3509,13 +3643,13 @@ export default function TechniciansPage() {
 
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseña</h2>
-                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseña para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseÃ±a</h2>
+                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseÃ±a para finalizar.</p>
                 </div>
 
                 {!session?.user && (
                   <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
+                    La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.
                   </div>
                 )}
 
@@ -3526,14 +3660,14 @@ export default function TechniciansPage() {
                         value={recoveryPassword}
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
-                        placeholder="Nueva contraseña"
+                        placeholder="Nueva contraseÃ±a"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
-                        placeholder="Repetir contraseña"
+                        placeholder="Repetir contraseÃ±a"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                     </div>
@@ -3548,7 +3682,7 @@ export default function TechniciansPage() {
                         disabled={updatingRecovery}
                         className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                       >
-                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
+                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseÃ±a'}
                       </button>
                     )}
 
@@ -3851,7 +3985,7 @@ export default function TechniciansPage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
                   <h2 className="text-2xl font-bold text-slate-900">Selecciona tu perfil</h2>
-                  <p className="text-sm text-slate-600">Esto define a qué panel o vista te llevamos.</p>
+                  <p className="text-sm text-slate-600">Esto define a quÃ© panel o vista te llevamos.</p>
                 </div>
                 <div className="mt-6 space-y-3">
                   <button
@@ -4005,7 +4139,7 @@ export default function TechniciansPage() {
                       disabled={sendingRecovery}
                       className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
                     >
-                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseÃ±a?'}
                     </button>
                   </div>
                 )}
@@ -4424,6 +4558,166 @@ export default function TechniciansPage() {
                           </span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa operativo</p>
+                      <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                        Trabajos propios + solicitudes por zona
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Visualiza tus trabajos con ubicacion y las nuevas solicitudes cercanas dentro del radio activo.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchNearbyRequests}
+                      disabled={loadingNearbyRequests}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingNearbyRequests ? 'Actualizando...' : 'Actualizar solicitudes'}
+                    </button>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDashboardMapFilter('all')}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        dashboardMapFilter === 'all'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Todo ({dashboardRequestPoints.length + dashboardJobPoints.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDashboardMapFilter('jobs')}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        dashboardMapFilter === 'jobs'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Mis trabajos ({dashboardJobPoints.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDashboardMapFilter('requests')}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        dashboardMapFilter === 'requests'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Solicitudes ({dashboardRequestPoints.length})
+                    </button>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                      Radio: {technicianRadiusKm} km
+                    </span>
+                    {technicianWithinWorkingHours !== null && (
+                      <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                          technicianWithinWorkingHours
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {technicianWithinWorkingHours ? 'Dentro de horario' : 'Fuera de horario'}
+                      </span>
+                    )}
+                  </div>
+                  {technicianWorkingHoursLabel && (
+                    <p className="mt-2 text-xs text-slate-500">Horario activo: {technicianWorkingHoursLabel}</p>
+                  )}
+                  {nearbyRequestsWarning && <p className="mt-2 text-xs font-semibold text-amber-700">{nearbyRequestsWarning}</p>}
+                  {nearbyRequestsError && <p className="mt-2 text-xs font-semibold text-rose-600">{nearbyRequestsError}</p>}
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      {dashboardMapUrl ? (
+                        <iframe title="Mapa operativo UrbanFix" src={dashboardMapUrl} className="h-[360px] w-full border-0" loading="lazy" />
+                      ) : (
+                        <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-slate-500">
+                          No hay puntos geolocalizados todavia. Carga ubicaciones en tus trabajos o actualiza solicitudes.
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3 text-xs">
+                        <span className="font-semibold text-slate-700">
+                          {dashboardSelectedMapPoint
+                            ? `${dashboardSelectedMapPoint.kind === 'request' ? 'Solicitud' : 'Trabajo'} seleccionado: ${dashboardSelectedMapPoint.title}`
+                            : 'Centro de mapa basado en tu zona'}
+                        </span>
+                        {dashboardSelectedMapPoint && (
+                          <a
+                            href={buildOsmLink(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon)}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
+                          >
+                            Abrir en mapa
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
+                        <p>Puntos visibles: {dashboardMapPoints.length}</p>
+                        {(jobsWithoutCoordinatesCount > 0 || requestsWithoutCoordinatesCount > 0) && (
+                          <p className="mt-1 text-amber-700">
+                            Sin coordenadas: trabajos {jobsWithoutCoordinatesCount} | solicitudes {requestsWithoutCoordinatesCount}
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-3 max-h-[300px] space-y-2 overflow-auto pr-1">
+                        {dashboardMapPoints.length === 0 && (
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
+                            No hay puntos para mostrar con este filtro.
+                          </div>
+                        )}
+                        {dashboardMapPoints.map((point) => {
+                          const isSelected = dashboardSelectedMapPoint?.id === point.id;
+                          return (
+                            <button
+                              key={point.id}
+                              type="button"
+                              onClick={() => setDashboardMapSelectedId(point.id)}
+                              className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                                isSelected
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-xs font-semibold">{point.title}</p>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    isSelected
+                                      ? 'bg-white/20 text-white'
+                                      : point.kind === 'request'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                                  }`}
+                                >
+                                  {point.kind === 'request' ? 'Solicitud' : 'Trabajo'}
+                                </span>
+                              </div>
+                              <p className={`mt-1 truncate text-[11px] ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                {point.subtitle}
+                              </p>
+                              <p className={`mt-1 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                {point.meta}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -4911,7 +5205,7 @@ export default function TechniciansPage() {
                             </div>
                           </div>
                         <p className="mt-1 text-xs text-slate-500">
-                          {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                          {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                           {new Date(quote.created_at).toLocaleDateString('es-AR')}
                         </p>
                         <p className="mt-3 text-sm font-semibold text-slate-900">
@@ -4982,7 +5276,7 @@ export default function TechniciansPage() {
                       onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')}
                       className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                     >
-                      Abrir en pestaña
+                      Abrir en pestaÃ±a
                     </button>
                   )}
                 </div>
@@ -5103,7 +5397,7 @@ export default function TechniciansPage() {
                             )}
                           </div>
                           <p className="mt-1 text-xs text-slate-500">
-                            {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                            {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                             {new Date(quote.created_at).toLocaleDateString('es-AR')}
                           </p>
                           {durationDays > 0 && (
@@ -6024,6 +6318,39 @@ export default function TechniciansPage() {
                           </a>
                         )}
                       </div>
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCopyPublicProfileLink}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                        >
+                          Copiar link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSharePublicProfileWhatsApp}
+                          className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 transition hover:border-emerald-400 hover:text-emerald-800"
+                        >
+                          Compartir por WhatsApp
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSharePublicProfileFacebook}
+                          className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 transition hover:border-blue-400 hover:text-blue-800"
+                        >
+                          Compartir en Facebook
+                        </button>
+                        {publicShowcaseUrl && (
+                          <a
+                            href={publicShowcaseUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Ver vidriera publica
+                          </a>
+                        )}
+                      </div>
                       <p className="mt-2 text-[11px] text-slate-500">
                         {profileForm.profilePublished
                           ? 'Tu perfil ya esta visible para clientes.'
@@ -6366,3 +6693,5 @@ export default function TechniciansPage() {
     </div>
   );
 }
+
+

@@ -177,10 +177,10 @@ export default async function PublicTechnicianProfilePage({ params }: { params: 
                   </a>
                 )}
                 <Link
-                  href="/tecnicos"
+                  href="/vidriera"
                   className="rounded-full border border-slate-600 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
                 >
-                  Ir a UrbanFix
+                  Ver vidriera
                 </Link>
               </div>
             </div>

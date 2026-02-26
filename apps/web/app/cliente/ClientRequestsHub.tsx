@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
+import Link from 'next/link';
 
 type ClientRequestRow = {
   id: string;
@@ -246,6 +247,12 @@ export default function ClientRequestsHub() {
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Matching por distancia</li>
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Solicitud directa opcional</li>
             </ul>
+            <Link
+              href="/vidriera"
+              className="mt-5 inline-flex rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+            >
+              Ver vidriera de tecnicos
+            </Link>
           </section>
 
           <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
@@ -348,6 +355,12 @@ export default function ClientRequestsHub() {
               <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
                 Matcheadas: {requestsByStatus.matched}
               </span>
+              <Link
+                href="/vidriera"
+                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+              >
+                Ver vidriera
+              </Link>
               <button
                 type="button"
                 onClick={fetchRequests}
