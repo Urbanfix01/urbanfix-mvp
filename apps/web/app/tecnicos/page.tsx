@@ -781,8 +781,45 @@ const buildOsmEmbedUrl = (lat: number, lon: number) => {
   return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${lat}%2C${lon}`;
 };
 
-const buildOsmLink = (lat: number, lon: number) =>
-  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
+const buildOsmLink = (lat: number, lon: number, zoom = 16) =>
+  `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${zoom}/${lat}/${lon}`;
+
+const clampLatitude = (value: number) => Math.max(-85, Math.min(85, value));
+
+const clampLongitude = (value: number) => {
+  if (value > 180) return 180;
+  if (value < -180) return -180;
+  return value;
+};
+
+const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
+  if (!points.length) return '';
+  const maxMarkers = 40;
+  const limitedPoints = points.slice(0, maxMarkers);
+  const lats = limitedPoints.map((point) => point.lat);
+  const lons = limitedPoints.map((point) => point.lon);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLon = Math.min(...lons);
+  const maxLon = Math.max(...lons);
+  const latSpan = Math.max(maxLat - minLat, 0.015);
+  const lonSpan = Math.max(maxLon - minLon, 0.015);
+  const marginLat = Math.max(latSpan * 0.25, 0.01);
+  const marginLon = Math.max(lonSpan * 0.25, 0.01);
+  const left = clampLongitude(minLon - marginLon);
+  const right = clampLongitude(maxLon + marginLon);
+  const bottom = clampLatitude(minLat - marginLat);
+  const top = clampLatitude(maxLat + marginLat);
+  const markerParams = limitedPoints
+    .map((point) => {
+      const markerStyle = point.kind === 'request' ? 'orange-pushpin' : 'green-pushpin';
+      return `markers=${encodeURIComponent(`${point.lat},${point.lon},${markerStyle}`)}`;
+    })
+    .join('&');
+  return `https://staticmap.openstreetmap.de/staticmap.php?bbox=${left.toFixed(6)},${bottom.toFixed(
+    6
+  )},${right.toFixed(6)},${top.toFixed(6)}&size=1280x720&maptype=mapnik&${markerParams}`;
+};
 
 const RUBRO_ORDER = ['gas', 'sanitario', 'electricidad', 'albanileria'];
 const RUBRO_LABELS: Record<string, string> = {
@@ -1059,6 +1096,7 @@ export default function TechniciansPage() {
     | 'historial'
     | 'notificaciones'
   >('lobby');
+  const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('editor');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState('');
@@ -2345,17 +2383,51 @@ export default function TechniciansPage() {
   }, [dashboardJobPoints, dashboardMapFilter, dashboardRequestPoints]);
   const dashboardSelectedMapPoint = useMemo(() => {
     if (!dashboardMapPoints.length) return null;
-    return dashboardMapPoints.find((point) => point.id === dashboardMapSelectedId) || dashboardMapPoints[0];
+    if (!dashboardMapSelectedId) return null;
+    return dashboardMapPoints.find((point) => point.id === dashboardMapSelectedId) || null;
   }, [dashboardMapPoints, dashboardMapSelectedId]);
-  const dashboardMapUrl = useMemo(() => {
+  const dashboardMapCenterPoint = useMemo(() => {
     if (dashboardSelectedMapPoint) {
-      return buildOsmEmbedUrl(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon);
+      return { lat: dashboardSelectedMapPoint.lat, lon: dashboardSelectedMapPoint.lon };
+    }
+    if (dashboardMapPoints.length > 0) {
+      const lats = dashboardMapPoints.map((point) => point.lat);
+      const lons = dashboardMapPoints.map((point) => point.lon);
+      const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+      const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+      return { lat: centerLat, lon: centerLon };
     }
     const technicianLat = toFiniteCoordinate(profile?.service_lat);
     const technicianLon = toFiniteCoordinate(profile?.service_lng);
-    if (technicianLat === null || technicianLon === null) return '';
-    return buildOsmEmbedUrl(technicianLat, technicianLon);
-  }, [dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
+    if (technicianLat === null || technicianLon === null) return null;
+    return { lat: technicianLat, lon: technicianLon };
+  }, [dashboardMapPoints, dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
+  const dashboardMapView = useMemo(() => {
+    if (dashboardSelectedMapPoint) {
+      return {
+        mode: 'single' as const,
+        url: buildOsmEmbedUrl(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon),
+      };
+    }
+    if (dashboardMapPoints.length > 0) {
+      return {
+        mode: 'all' as const,
+        url: buildOsmStaticMultiMarkerUrl(dashboardMapPoints),
+      };
+    }
+    const technicianLat = toFiniteCoordinate(profile?.service_lat);
+    const technicianLon = toFiniteCoordinate(profile?.service_lng);
+    if (technicianLat !== null && technicianLon !== null) {
+      return {
+        mode: 'single' as const,
+        url: buildOsmEmbedUrl(technicianLat, technicianLon),
+      };
+    }
+    return {
+      mode: 'none' as const,
+      url: '',
+    };
+  }, [dashboardMapPoints, dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
   const jobsWithoutCoordinatesCount = useMemo(() => {
     const operationalStatuses = new Set(['approved', 'completed', 'paid']);
     return quotes.filter((quote) => {
@@ -2375,9 +2447,10 @@ export default function TechniciansPage() {
       if (dashboardMapSelectedId) setDashboardMapSelectedId('');
       return;
     }
+    if (!dashboardMapSelectedId) return;
     const exists = dashboardMapPoints.some((point) => point.id === dashboardMapSelectedId);
     if (!exists) {
-      setDashboardMapSelectedId(dashboardMapPoints[0].id);
+      setDashboardMapSelectedId('');
     }
   }, [dashboardMapPoints, dashboardMapSelectedId]);
   const logoPresentation = useMemo(
@@ -4658,8 +4731,22 @@ export default function TechniciansPage() {
 
                   <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
-                      {dashboardMapUrl ? (
-                        <iframe title="Mapa operativo UrbanFix" src={dashboardMapUrl} className="h-[360px] w-full border-0" loading="lazy" />
+                      {dashboardMapView.url ? (
+                        dashboardMapView.mode === 'all' ? (
+                          <img
+                            src={dashboardMapView.url}
+                            alt="Mapa operativo UrbanFix con todos los puntos visibles"
+                            className="h-[360px] w-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <iframe
+                            title="Mapa operativo UrbanFix"
+                            src={dashboardMapView.url}
+                            className="h-[360px] w-full border-0"
+                            loading="lazy"
+                          />
+                        )
                       ) : (
                         <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-slate-500">
                           No hay puntos geolocalizados todavia. Carga ubicaciones en tus trabajos o actualiza solicitudes.
@@ -4669,16 +4756,22 @@ export default function TechniciansPage() {
                         <span className="font-semibold text-slate-700">
                           {dashboardSelectedMapPoint
                             ? `${dashboardSelectedMapPoint.kind === 'request' ? 'Solicitud' : 'Trabajo'} seleccionado: ${dashboardSelectedMapPoint.title}`
-                            : 'Centro de mapa basado en tu zona'}
+                            : dashboardMapPoints.length > 0
+                              ? 'Vista general: todos los puntos visibles'
+                              : 'Centro de mapa basado en tu zona'}
                         </span>
-                        {dashboardSelectedMapPoint && (
+                        {dashboardMapCenterPoint && (
                           <a
-                            href={buildOsmLink(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon)}
+                            href={buildOsmLink(
+                              dashboardMapCenterPoint.lat,
+                              dashboardMapCenterPoint.lon,
+                              dashboardSelectedMapPoint ? 16 : 12
+                            )}
                             target="_blank"
                             rel="noreferrer noopener"
                             className="font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
                           >
-                            Abrir en mapa
+                            {dashboardSelectedMapPoint ? 'Abrir en mapa' : 'Abrir zona en mapa'}
                           </a>
                         )}
                       </div>
@@ -4692,6 +4785,19 @@ export default function TechniciansPage() {
                             Sin coordenadas: trabajos {jobsWithoutCoordinatesCount} | solicitudes {requestsWithoutCoordinatesCount}
                           </p>
                         )}
+                        <div className="mt-2">
+                          {dashboardSelectedMapPoint ? (
+                            <button
+                              type="button"
+                              onClick={() => setDashboardMapSelectedId('')}
+                              className="rounded-full border border-slate-300 px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                            >
+                              Ver todos en mapa
+                            </button>
+                          ) : (
+                            <p className="text-[10px] font-semibold text-emerald-700">Modo actual: vista general</p>
+                          )}
+                        </div>
                       </div>
                       <div className="mt-3 max-h-[300px] space-y-2 overflow-auto pr-1">
                         {dashboardMapPoints.length === 0 && (
@@ -5843,6 +5949,125 @@ export default function TechniciansPage() {
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil</p>
                 <h2 className="text-xl font-semibold text-slate-900">Perfil del tecnico</h2>
                 <p className="text-sm text-slate-500">Completa la informacion para que tus presupuestos sean mas claros.</p>
+                <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => setProfilePanelTab('editor')}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                      profilePanelTab === 'editor' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Editor de perfil
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setProfilePanelTab('preview')}
+                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
+                      profilePanelTab === 'preview' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    Vista publica
+                  </button>
+                </div>
+
+                {profilePanelTab === 'preview' ? (
+                  <div className="mt-6 space-y-4">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Preview</p>
+                      <h3 className="mt-1 text-lg font-semibold text-slate-900">Asi veran tu perfil los clientes</h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Esta vista replica la informacion publica de tu perfil. Puedes volver al editor para ajustar datos.
+                      </p>
+
+                      <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
+                        <div className="flex flex-wrap items-start gap-4">
+                          <div className="h-20 w-20 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                            {profileForm.avatarUrl ? (
+                              <img src={profileForm.avatarUrl} alt="Foto tecnico" className="h-full w-full object-cover" />
+                            ) : profileForm.companyLogoUrl ? (
+                              <img src={profileForm.companyLogoUrl} alt="Logo tecnico" className="h-full w-full object-contain p-2" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xl font-bold text-slate-500">
+                                {(profileForm.businessName || profileForm.fullName || 'U').slice(0, 1).toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-lg font-semibold text-slate-900">
+                              {profileForm.businessName || profileForm.fullName || 'Tecnico UrbanFix'}
+                            </p>
+                            <p className="truncate text-sm text-slate-600">{profileForm.fullName || 'Profesional'}</p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {profileForm.city && (
+                                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
+                                  {profileForm.city}
+                                </span>
+                              )}
+                              <span className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-700">
+                                Likes: {Math.max(0, Number(profile?.public_likes_count || 0))}
+                              </span>
+                              {profileForm.profilePublished && (
+                                <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                                  Publicado
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-3">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                            {coverageAreaLabel || 'Sin zona de cobertura definida'}
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedSpecialties.length > 0 ? (
+                              selectedSpecialties.map((specialty) => (
+                                <span
+                                  key={`preview-specialty-${specialty}`}
+                                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700"
+                                >
+                                  {specialty}
+                                </span>
+                              ))
+                            ) : (
+                              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-500">
+                                Sin rubros cargados
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          {publicProfileUrl && profileForm.profilePublished && (
+                            <a
+                              href={publicProfileUrl}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                            >
+                              Ver perfil publico real
+                            </a>
+                          )}
+                          <button
+                            type="button"
+                            onClick={handleCopyPublicProfileLink}
+                            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Copiar link
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setProfilePanelTab('editor')}
+                            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Volver a editar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <>
 
                 <div className="mt-6 grid gap-6 lg:grid-cols-2">
                   <div className="lg:col-span-2">
@@ -6583,6 +6808,8 @@ export default function TechniciansPage() {
                   )}
                   {profileMessage && <span className="text-xs text-slate-600">{profileMessage}</span>}
                 </div>
+                  </>
+                )}
               </div>
             )}
 

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Manrope } from 'next/font/google';
 import { createClient } from '@supabase/supabase-js';
+import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -30,6 +31,7 @@ type PublishedProfileRow = {
   instagram_url: string | null;
   profile_published: boolean | null;
   profile_published_at: string | null;
+  public_likes_count: number | null;
 };
 
 const parseDelimitedValues = (value: string | null | undefined) =>
@@ -69,7 +71,7 @@ export default async function VidrieraPage() {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,full_name,business_name,phone,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,profile_published,profile_published_at'
+      'id,full_name,business_name,phone,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,profile_published,profile_published_at,public_likes_count'
     )
     .eq('profile_published', true)
     .order('profile_published_at', { ascending: false })
@@ -133,6 +135,7 @@ export default async function VidrieraPage() {
               const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
               const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
               const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
+              const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
               const publishedLabel = profile.profile_published_at
                 ? new Date(profile.profile_published_at).toLocaleDateString('es-AR')
                 : '';
@@ -164,6 +167,7 @@ export default async function VidrieraPage() {
                             Redes: {socialCount}
                           </span>
                         )}
+                        <span className="rounded-full bg-rose-950/40 px-2.5 py-1 text-rose-200">Likes: {likesCount}</span>
                       </div>
                     </div>
                   </div>
@@ -196,6 +200,7 @@ export default async function VidrieraPage() {
                     >
                       Ver perfil
                     </Link>
+                    <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
                     {whatsappLink && (
                       <a
                         href={whatsappLink}
