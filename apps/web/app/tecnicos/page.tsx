@@ -840,6 +840,14 @@ const addDays = (date: Date, days: number) => {
 const translateProfileError = (message: string) => {
   if (!message) return 'No pudimos guardar los cambios.';
   const lower = message.toLowerCase();
+  if (
+    lower.includes('profile_published') ||
+    lower.includes('profile_published_at') ||
+    lower.includes('facebook_url') ||
+    lower.includes('instagram_url')
+  ) {
+    return 'Falta la migracion de perfil publico/redes en Supabase. Ejecutala y reintenta.';
+  }
   if (lower.includes('cuit/cuil')) {
     return 'El CUIT/CUIL ingresado no es valido.';
   }
@@ -2603,6 +2611,16 @@ export default function TechniciansPage() {
           message.includes('profile_published') ||
           message.includes('profile_published_at');
         if (!hasMissingGeoColumn && !hasMissingSocialColumn) throw error;
+        if (hasMissingSocialColumn) {
+          const tryingSocialOrPublish =
+            Boolean(publishProfile) ||
+            Boolean(normalizedFacebookUrl) ||
+            Boolean(normalizedInstagramUrl) ||
+            Boolean(profileForm.profilePublished);
+          if (tryingSocialOrPublish) {
+            throw new Error('Missing profile_published/profile social columns migration on profiles table.');
+          }
+        }
         const fallbackPayload = { ...basePayload } as Record<string, any>;
         if (hasMissingSocialColumn) {
           delete fallbackPayload.facebook_url;
@@ -6653,8 +6671,8 @@ export default function TechniciansPage() {
         </div>
         {sessionMediaOverlays}
         {session && (
-          <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
+          <footer className="fixed inset-x-0 bottom-0 z-[95] border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.14)] backdrop-blur">
+            <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6 supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
                 UrbanFix

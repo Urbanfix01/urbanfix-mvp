@@ -77,6 +77,16 @@ export default async function VidrieraPage() {
 
   const profiles = (data || []) as PublishedProfileRow[];
   const safeProfiles = profiles.filter((row) => row.profile_published);
+  const migrationMissing =
+    String(error?.message || '')
+      .toLowerCase()
+      .includes('profile_published') ||
+    String(error?.message || '')
+      .toLowerCase()
+      .includes('facebook_url') ||
+    String(error?.message || '')
+      .toLowerCase()
+      .includes('instagram_url');
 
   return (
     <main className={`${manrope.className} min-h-screen bg-slate-950 px-4 py-10 text-slate-100`}>
@@ -106,7 +116,9 @@ export default async function VidrieraPage() {
 
         {error && (
           <div className="rounded-2xl border border-rose-800 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
-            No pudimos cargar la vidriera en este momento.
+            {migrationMissing
+              ? 'Falta migracion de perfil publico/redes en Supabase (profile_published, facebook_url, instagram_url).'
+              : 'No pudimos cargar la vidriera en este momento.'}
           </div>
         )}
 

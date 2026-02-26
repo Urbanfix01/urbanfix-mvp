@@ -76,6 +76,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { data: clientProfile, error: clientProfileError } = await supabase
+    .from('profiles')
+    .select('full_name, phone, city')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (clientProfileError) {
+    return NextResponse.json(
+      {
+        error:
+          clientProfileError.message?.includes('profiles') || clientProfileError.message?.includes('relation')
+            ? 'Falta la migracion de profiles en Supabase.'
+            : clientProfileError.message || 'No se pudo validar el perfil de cliente.',
+      },
+      { status: 500 }
+    );
+  }
+
+  const missingProfileFields: string[] = [];
+  if (!toText(clientProfile?.full_name)) missingProfileFields.push('Nombre');
+  if (!toText(clientProfile?.phone)) missingProfileFields.push('Telefono');
+  if (!toText(clientProfile?.city)) missingProfileFields.push('Ciudad');
+
+  if (missingProfileFields.length > 0) {
+    return NextResponse.json(
+      {
+        error: `Completa tu perfil de cliente antes de publicar. Faltan: ${missingProfileFields.join(', ')}.`,
+      },
+      { status: 400 }
+    );
+  }
+
   const body = (await request.json()) as Record<string, unknown>;
   const title = toText(body.title);
   const category = toText(body.category);

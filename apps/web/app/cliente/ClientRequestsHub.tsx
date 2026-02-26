@@ -31,6 +31,13 @@ type CreateRequestForm = {
   targetTechnicianPhone: string;
 };
 
+type ClientProfileForm = {
+  fullName: string;
+  phone: string;
+  city: string;
+  address: string;
+};
+
 const defaultForm: CreateRequestForm = {
   title: '',
   category: '',
@@ -43,6 +50,13 @@ const defaultForm: CreateRequestForm = {
   targetTechnicianId: '',
   targetTechnicianName: '',
   targetTechnicianPhone: '',
+};
+
+const defaultClientProfileForm: ClientProfileForm = {
+  fullName: '',
+  phone: '',
+  city: '',
+  address: '',
 };
 
 const badgeByStatus = (status: string) => {
@@ -78,6 +92,11 @@ export default function ClientRequestsHub() {
   const [requestNotice, setRequestNotice] = useState('');
   const [requests, setRequests] = useState<ClientRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [clientProfileForm, setClientProfileForm] = useState<ClientProfileForm>(defaultClientProfileForm);
+  const [loadingClientProfile, setLoadingClientProfile] = useState(false);
+  const [savingClientProfile, setSavingClientProfile] = useState(false);
+  const [clientProfileError, setClientProfileError] = useState('');
+  const [clientProfileNotice, setClientProfileNotice] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -124,10 +143,65 @@ export default function ClientRequestsHub() {
     }
   };
 
+  const fetchClientProfile = async (userId?: string) => {
+    if (!userId) return;
+    setLoadingClientProfile(true);
+    setClientProfileError('');
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, phone, city, address, company_address, email')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error) throw error;
+
+      let profileRow: any = data || null;
+      if (!profileRow) {
+        const fallback = {
+          id: userId,
+          email: session?.user?.email || null,
+          full_name: session?.user?.user_metadata?.full_name || '',
+        };
+        const { data: created, error: createError } = await supabase
+          .from('profiles')
+          .upsert(fallback)
+          .select('id, full_name, phone, city, address, company_address, email')
+          .single();
+        if (createError) throw createError;
+        profileRow = created;
+      }
+
+      const city = String(profileRow?.city || '').trim();
+      const address = String(profileRow?.address || profileRow?.company_address || '').trim();
+
+      setClientProfileForm({
+        fullName: String(profileRow?.full_name || '').trim(),
+        phone: String(profileRow?.phone || '').trim(),
+        city,
+        address,
+      });
+      setForm((prev) => ({ ...prev, city: prev.city || city }));
+    } catch (error: any) {
+      setClientProfileError(error?.message || 'No se pudo cargar tu perfil.');
+    } finally {
+      setLoadingClientProfile(false);
+    }
+  };
+
   useEffect(() => {
     if (!session?.user) return;
     fetchRequests();
   }, [session?.access_token, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setClientProfileForm(defaultClientProfileForm);
+      setClientProfileError('');
+      setClientProfileNotice('');
+      return;
+    }
+    fetchClientProfile(session.user.id);
+  }, [session?.user?.id]);
 
   const handleGoogleAuth = async () => {
     setAuthError('');
@@ -175,12 +249,50 @@ export default function ClientRequestsHub() {
     }
   };
 
+  const handleSaveClientProfile = async () => {
+    if (!session?.user?.id) return;
+    setSavingClientProfile(true);
+    setClientProfileError('');
+    setClientProfileNotice('');
+    try {
+      const fullName = clientProfileForm.fullName.trim();
+      const phone = clientProfileForm.phone.trim();
+      const city = clientProfileForm.city.trim();
+      const address = clientProfileForm.address.trim();
+      if (!fullName || !phone || !city) {
+        throw new Error('Completa nombre, telefono y ciudad para guardar tu perfil.');
+      }
+
+      const payload = {
+        id: session.user.id,
+        email: session.user.email || null,
+        full_name: fullName,
+        phone,
+        city,
+        address: address || null,
+      };
+
+      const { error } = await supabase.from('profiles').upsert(payload);
+      if (error) throw error;
+
+      setClientProfileNotice('Perfil de cliente guardado.');
+      setForm((prev) => ({ ...prev, city: prev.city || city }));
+    } catch (error: any) {
+      setClientProfileError(error?.message || 'No se pudo guardar tu perfil.');
+    } finally {
+      setSavingClientProfile(false);
+    }
+  };
+
   const handlePublishRequest = async () => {
     if (!session?.access_token) return;
     setSavingRequest(true);
     setRequestError('');
     setRequestNotice('');
     try {
+      if (!isClientProfileComplete) {
+        throw new Error('Completa tu perfil de cliente antes de publicar una solicitud.');
+      }
       if (!form.title.trim() || !form.category.trim() || !form.address.trim() || !form.description.trim()) {
         throw new Error('Completa titulo, categoria, direccion y descripcion.');
       }
@@ -211,6 +323,16 @@ export default function ClientRequestsHub() {
       setSavingRequest(false);
     }
   };
+
+  const clientProfileMissingFields = useMemo(() => {
+    const missing: string[] = [];
+    if (!clientProfileForm.fullName.trim()) missing.push('Nombre');
+    if (!clientProfileForm.phone.trim()) missing.push('Telefono');
+    if (!clientProfileForm.city.trim()) missing.push('Ciudad');
+    return missing;
+  }, [clientProfileForm.city, clientProfileForm.fullName, clientProfileForm.phone]);
+
+  const isClientProfileComplete = clientProfileMissingFields.length === 0;
 
   const requestsByStatus = useMemo(() => {
     const total = requests.length;
@@ -379,6 +501,80 @@ export default function ClientRequestsHub() {
           </div>
         </header>
 
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil cliente</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">Completa tu perfil para operar</h2>
+              <p className="mt-1 text-sm text-slate-600">
+                Este perfil es obligatorio para publicar solicitudes y coordinar con tecnicos.
+              </p>
+            </div>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                isClientProfileComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              }`}
+            >
+              {isClientProfileComplete ? 'Perfil completo' : `Faltan: ${clientProfileMissingFields.join(', ')}`}
+            </span>
+          </div>
+
+          {loadingClientProfile ? (
+            <p className="mt-4 text-sm text-slate-500">Cargando perfil...</p>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="lg:col-span-2">
+                  <label className="text-xs font-semibold text-slate-600">Nombre y apellido</label>
+                  <input
+                    value={clientProfileForm.fullName}
+                    onChange={(event) => setClientProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Telefono</label>
+                  <input
+                    value={clientProfileForm.phone}
+                    onChange={(event) => setClientProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">Ciudad</label>
+                  <input
+                    value={clientProfileForm.city}
+                    onChange={(event) => setClientProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                </div>
+              </div>
+
+              <div className="mt-3">
+                <label className="text-xs font-semibold text-slate-600">Direccion base (opcional)</label>
+                <input
+                  value={clientProfileForm.address}
+                  onChange={(event) => setClientProfileForm((prev) => ({ ...prev, address: event.target.value }))}
+                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                />
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleSaveClientProfile}
+                  disabled={savingClientProfile}
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                >
+                  {savingClientProfile ? 'Guardando...' : 'Guardar perfil'}
+                </button>
+                {clientProfileError && <span className="text-xs text-rose-600">{clientProfileError}</span>}
+                {clientProfileNotice && <span className="text-xs text-emerald-600">{clientProfileNotice}</span>}
+              </div>
+            </>
+          )}
+        </section>
+
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
           <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva solicitud</p>
@@ -511,10 +707,14 @@ export default function ClientRequestsHub() {
             <button
               type="button"
               onClick={handlePublishRequest}
-              disabled={savingRequest}
+              disabled={savingRequest || !isClientProfileComplete}
               className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {savingRequest ? 'Publicando...' : 'Publicar solicitud'}
+              {savingRequest
+                ? 'Publicando...'
+                : isClientProfileComplete
+                  ? 'Publicar solicitud'
+                  : 'Completa tu perfil para publicar'}
             </button>
 
             {requestError && <p className="mt-3 text-xs text-rose-600">{requestError}</p>}
