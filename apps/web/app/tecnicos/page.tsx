@@ -849,8 +849,7 @@ const clampLongitude = (value: number) => {
 
 const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
   if (!points.length) return '';
-  const maxMarkers = 40;
-  const limitedPoints = points.slice(0, maxMarkers);
+  const limitedPoints = points.slice(0, 80);
   const lats = limitedPoints.map((point) => point.lat);
   const lons = limitedPoints.map((point) => point.lon);
   const minLat = Math.min(...lats);
@@ -865,15 +864,9 @@ const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
   const right = clampLongitude(maxLon + marginLon);
   const bottom = clampLatitude(minLat - marginLat);
   const top = clampLatitude(maxLat + marginLat);
-  const markerParams = limitedPoints
-    .map((point) => {
-      const markerStyle = point.kind === 'request' ? 'orange-pushpin' : 'green-pushpin';
-      return `markers=${encodeURIComponent(`${point.lat},${point.lon},${markerStyle}`)}`;
-    })
-    .join('&');
-  return `https://staticmap.openstreetmap.de/staticmap.php?bbox=${left.toFixed(6)},${bottom.toFixed(
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left.toFixed(6)}%2C${bottom.toFixed(
     6
-  )},${right.toFixed(6)},${top.toFixed(6)}&size=1280x720&maptype=mapnik&${markerParams}`;
+  )}%2C${right.toFixed(6)}%2C${top.toFixed(6)}&layer=mapnik`;
 };
 
 const RUBRO_ORDER = ['gas', 'sanitario', 'electricidad', 'albanileria'];
@@ -5237,21 +5230,12 @@ export default function TechniciansPage() {
                     </div>
                     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 lg:order-2">
                       {dashboardMapView.url ? (
-                        dashboardMapView.mode === 'all' ? (
-                          <img
-                            src={dashboardMapView.url}
-                            alt="Mapa operativo UrbanFix con todos los puntos visibles"
-                            className="h-[360px] w-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <iframe
-                            title="Mapa operativo UrbanFix"
-                            src={dashboardMapView.url}
-                            className="h-[360px] w-full border-0"
-                            loading="lazy"
-                          />
-                        )
+                        <iframe
+                          title="Mapa operativo UrbanFix"
+                          src={dashboardMapView.url}
+                          className="h-[360px] w-full border-0"
+                          loading="lazy"
+                        />
                       ) : (
                         <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-slate-500">
                           No hay puntos geolocalizados todavia. Carga ubicaciones en tus trabajos o actualiza solicitudes.
