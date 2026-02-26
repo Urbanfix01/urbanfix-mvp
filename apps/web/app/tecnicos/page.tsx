@@ -56,6 +56,7 @@ const POST_LOGIN_VIDEO_MAX_MS = 10000;
 const RESUME_STATIC_IMAGE_MS = 1200;
 const COVERAGE_RADIUS_KM = 20;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
+const POST_LOGIN_VIDEO_ENABLED = false;
 
 type WorkingHoursConfig = {
   weekdayFrom: string;
@@ -1031,7 +1032,9 @@ export default function TechniciansPage() {
   const [accessVideoMuted, setAccessVideoMuted] = useState(true);
   const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
   const [dashboardVideoAvailable, setDashboardVideoAvailable] = useState(Boolean(DASHBOARD_VIDEO_URL));
-  const [postLoginVideoAvailable, setPostLoginVideoAvailable] = useState(Boolean(POST_LOGIN_VIDEO_URL));
+  const [postLoginVideoAvailable, setPostLoginVideoAvailable] = useState(
+    POST_LOGIN_VIDEO_ENABLED && Boolean(POST_LOGIN_VIDEO_URL)
+  );
   const [postLoginVideoVisible, setPostLoginVideoVisible] = useState(false);
   const [postLoginVideoPending, setPostLoginVideoPending] = useState(false);
   const [resumeStaticVisible, setResumeStaticVisible] = useState(false);
@@ -1349,7 +1352,7 @@ export default function TechniciansPage() {
     });
     const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
-      if (event === 'SIGNED_IN' && nextSession?.user) {
+      if (POST_LOGIN_VIDEO_ENABLED && event === 'SIGNED_IN' && nextSession?.user) {
         setPostLoginVideoPending(true);
       }
       if (event === 'SIGNED_OUT') {
