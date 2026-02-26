@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
@@ -23,7 +23,6 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
-import ClientWorkspace from '../../components/client/ClientWorkspace';
 import type {
   AccessProfile,
   AttachmentRow,
@@ -43,11 +42,406 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
-const POST_AUTH_REDIRECT_KEY = 'urbanfix_post_auth_redirect';
-const POST_LOGIN_INTRO_PENDING_KEY = 'urbanfix_post_login_intro_pending';
-const ACCESS_PROFILE_STORAGE_KEY = 'urbanfix_access_profile';
-const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
-const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
+const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/vid-logout-mobile.mp4').trim();
+const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/vid-login-mobile.mp4').trim();
+const RESUME_STATIC_IMAGE_URL = (
+  process.env.NEXT_PUBLIC_RESUME_STATIC_IMAGE_URL || '/videos/image-static-mobile.jpeg'
+).trim();
+const ACCESS_VIDEO_POSTER_URL = (
+  process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || RESUME_STATIC_IMAGE_URL || '/playstore/feature-graphic.png'
+).trim();
+const DASHBOARD_VIDEO_URL = (process.env.NEXT_PUBLIC_DASHBOARD_VIDEO_URL || POST_LOGIN_VIDEO_URL || ACCESS_VIDEO_URL).trim();
+const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
+const POST_LOGIN_VIDEO_MAX_MS = 10000;
+const RESUME_STATIC_IMAGE_MS = 1200;
+const COVERAGE_RADIUS_KM = 20;
+const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
+
+type WorkingHoursConfig = {
+  weekdayFrom: string;
+  weekdayTo: string;
+  saturdayEnabled: boolean;
+  saturdayFrom: string;
+  saturdayTo: string;
+  sundayEnabled: boolean;
+  sundayFrom: string;
+  sundayTo: string;
+};
+
+const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
+  weekdayFrom: '09:00',
+  weekdayTo: '18:00',
+  saturdayEnabled: false,
+  saturdayFrom: '09:00',
+  saturdayTo: '13:00',
+  sundayEnabled: false,
+  sundayFrom: '09:00',
+  sundayTo: '13:00',
+};
+
+const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return fallback;
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const normalizeTextForParsing = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const extractTimeRange = (value: string, pattern: RegExp): [string, string] | null => {
+  const match = value.match(pattern);
+  if (!match) return null;
+  return [match[1], match[2]];
+};
+
+const parseWorkingHoursConfig = (rawValue: string | null | undefined): WorkingHoursConfig => {
+  const safe = (rawValue || '').trim();
+  const base: WorkingHoursConfig = { ...DEFAULT_WORKING_HOURS_CONFIG };
+  if (!safe) return base;
+
+  try {
+    const parsed = JSON.parse(safe);
+    if (parsed && typeof parsed === 'object') {
+      const weekday = (parsed as any).weekday || {};
+      const saturday = (parsed as any).saturday || {};
+      const sunday = (parsed as any).sunday || {};
+      return {
+        weekdayFrom: normalizeTimeValue(weekday.from, base.weekdayFrom),
+        weekdayTo: normalizeTimeValue(weekday.to, base.weekdayTo),
+        saturdayEnabled: Boolean(saturday.enabled),
+        saturdayFrom: normalizeTimeValue(saturday.from, base.saturdayFrom),
+        saturdayTo: normalizeTimeValue(saturday.to, base.saturdayTo),
+        sundayEnabled: Boolean(sunday.enabled),
+        sundayFrom: normalizeTimeValue(sunday.from, base.sundayFrom),
+        sundayTo: normalizeTimeValue(sunday.to, base.sundayTo),
+      };
+    }
+  } catch {
+    // Legacy plain-text value.
+  }
+
+  const normalized = normalizeTextForParsing(safe);
+  const weekdayRange =
+    extractTimeRange(
+      normalized,
+      /lun(?:es)?\s*(?:a|-|al)\s*vie(?:rnes)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+    ) || extractTimeRange(normalized, /(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/);
+  const saturdayRange = extractTimeRange(
+    normalized,
+    /sab(?:ado)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+  const sundayRange = extractTimeRange(
+    normalized,
+    /dom(?:ingo)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+
+  if (weekdayRange) {
+    base.weekdayFrom = normalizeTimeValue(weekdayRange[0], base.weekdayFrom);
+    base.weekdayTo = normalizeTimeValue(weekdayRange[1], base.weekdayTo);
+  }
+  if (saturdayRange) {
+    base.saturdayEnabled = true;
+    base.saturdayFrom = normalizeTimeValue(saturdayRange[0], base.saturdayFrom);
+    base.saturdayTo = normalizeTimeValue(saturdayRange[1], base.saturdayTo);
+  }
+  if (sundayRange) {
+    base.sundayEnabled = true;
+    base.sundayFrom = normalizeTimeValue(sundayRange[0], base.sundayFrom);
+    base.sundayTo = normalizeTimeValue(sundayRange[1], base.sundayTo);
+  }
+
+  return base;
+};
+
+const formatWorkingHoursLabel = (config: WorkingHoursConfig) => {
+  const chunks = [`Lun a Vie ${config.weekdayFrom} - ${config.weekdayTo}`];
+  if (config.saturdayEnabled) {
+    chunks.push(`Sab ${config.saturdayFrom} - ${config.saturdayTo}`);
+  }
+  if (config.sundayEnabled) {
+    chunks.push(`Dom ${config.sundayFrom} - ${config.sundayTo}`);
+  }
+  return chunks.join(' | ');
+};
+
+const buildWorkingHoursPayload = (config: WorkingHoursConfig) =>
+  JSON.stringify({
+    version: 1,
+    weekday: { from: config.weekdayFrom, to: config.weekdayTo },
+    saturday: { enabled: config.saturdayEnabled, from: config.saturdayFrom, to: config.saturdayTo },
+    sunday: { enabled: config.sundayEnabled, from: config.sundayFrom, to: config.sundayTo },
+    label: formatWorkingHoursLabel(config),
+  });
+
+const buildCoverageAreaLabel = (city: string) => {
+  const normalizedCity = city.trim();
+  return normalizedCity
+    ? `Radio de ${COVERAGE_RADIUS_KM} km desde ${normalizedCity}`
+    : `Radio de ${COVERAGE_RADIUS_KM} km desde tu ciudad base`;
+};
+
+const TECH_SPECIALTY_OPTIONS = [
+  'Electricidad',
+  'Plomeria',
+  'Gas',
+  'Albanileria',
+  'Pintura',
+  'Herreria',
+  'Carpinteria',
+  'Aire acondicionado',
+  'Refrigeracion',
+  'Cerrajeria',
+  'Impermeabilizacion',
+  'Techos',
+  'Jardineria',
+  'Limpieza',
+];
+
+const TAX_STATUS_OPTIONS = [
+  'Monotributista',
+  'Responsable inscripto',
+  'Exento',
+  'Consumidor final',
+  'No alcanzado',
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  'Transferencia bancaria',
+  'Efectivo',
+  'Mercado Pago',
+  'Tarjeta de debito',
+  'Tarjeta de credito',
+  'Cuenta corriente',
+  'Cheque',
+];
+
+const parseDelimitedValues = (value: string | null | undefined) => {
+  const parts = String(value || '')
+    .split(/[\n,;|/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  parts.forEach((item) => {
+    const key = normalizeTextForParsing(item);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+  return unique;
+};
+
+const serializeDelimitedValues = (values: string[]) => values.join(', ');
+
+const normalizeSocialUrl = (value: string) => {
+  const raw = value.trim();
+  if (!raw) return '';
+  const prefixed = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(prefixed).toString();
+  } catch {
+    return raw;
+  }
+};
+
+const toSafeUrl = (value: string) => {
+  const normalized = normalizeSocialUrl(value);
+  if (!normalized) return '';
+  try {
+    return new URL(normalized).toString();
+  } catch {
+    return '';
+  }
+};
+
+const buildFacebookTimelineEmbedUrl = (value: string) => {
+  const url = toSafeUrl(value);
+  if (!url) return '';
+  return `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(
+    url
+  )}&tabs=timeline&width=500&height=460&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
+};
+
+const buildInstagramEmbedUrl = (value: string) => {
+  const normalized = toSafeUrl(value);
+  if (!normalized) return '';
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.includes('instagram.com')) return '';
+    const cleanPath = parsed.pathname.replace(/\/+$/, '');
+    if (!cleanPath || cleanPath === '/') return '';
+    if (/\/(p|reel|tv)\//i.test(cleanPath)) {
+      return `https://www.instagram.com${cleanPath}/embed`;
+    }
+    const handle = cleanPath.split('/').filter(Boolean)[0];
+    if (!handle) return '';
+    return `https://www.instagram.com/${handle}/embed`;
+  } catch {
+    return '';
+  }
+};
+
+const normalizeTaxId = (value: string) => value.replace(/\D/g, '').slice(0, 11);
+
+const formatTaxId = (value: string) => {
+  const digits = normalizeTaxId(value);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 10) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
+};
+
+const isValidCuit = (value: string) => {
+  const digits = normalizeTaxId(value);
+  if (digits.length !== 11) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const base = digits
+    .slice(0, 10)
+    .split('')
+    .reduce((acc, digit, index) => acc + Number(digit) * weights[index], 0);
+  const mod = 11 - (base % 11);
+  const checkDigit = mod === 11 ? 0 : mod === 10 ? 9 : mod;
+  return checkDigit === Number(digits[10]);
+};
+
+const normalizeAlias = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9._-]/g, '')
+    .slice(0, 20);
+
+const isValidAlias = (value: string) => /^[a-z0-9][a-z0-9._-]{5,19}$/i.test(value);
+
+const normalizeCbu = (value: string) => value.replace(/\D/g, '').slice(0, 22);
+
+const isValidCbu = (value: string) => {
+  const cbu = normalizeCbu(value);
+  if (cbu.length !== 22) return false;
+  const bankBlock = cbu.slice(0, 8);
+  const accountBlock = cbu.slice(8);
+
+  const bankWeights = [7, 1, 3, 9, 7, 1, 3];
+  const bankSum = bankWeights.reduce((acc, weight, index) => acc + weight * Number(bankBlock[index]), 0);
+  const bankCheck = (10 - (bankSum % 10)) % 10;
+  if (bankCheck !== Number(bankBlock[7])) return false;
+
+  const accountWeights = [3, 9, 7, 1, 3, 9, 7, 1, 3, 9, 7, 1, 3];
+  const accountSum = accountWeights.reduce(
+    (acc, weight, index) => acc + weight * Number(accountBlock[index]),
+    0
+  );
+  const accountCheck = (10 - (accountSum % 10)) % 10;
+  return accountCheck === Number(accountBlock[13]);
+};
+
+const parseSpecialties = (value: string | null | undefined) => {
+  const parts = String(value || '')
+    .split(/[\n,;|/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  parts.forEach((item) => {
+    const key = normalizeTextForParsing(item);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+  return unique;
+};
+
+const serializeSpecialties = (specialties: string[]) => specialties.join(', ');
+
+const upsertSpecialty = (currentValue: string, specialty: string) => {
+  const normalizedSpecialty = specialty.trim();
+  if (!normalizedSpecialty) return currentValue;
+  const current = parseSpecialties(currentValue);
+  const currentKeys = new Set(current.map((item) => normalizeTextForParsing(item)));
+  const nextKey = normalizeTextForParsing(normalizedSpecialty);
+  if (currentKeys.has(nextKey)) return currentValue;
+  return serializeSpecialties([...current, normalizedSpecialty]);
+};
+
+const toggleSpecialty = (currentValue: string, specialty: string) => {
+  const normalizedSpecialty = specialty.trim();
+  if (!normalizedSpecialty) return currentValue;
+  const nextKey = normalizeTextForParsing(normalizedSpecialty);
+  const current = parseSpecialties(currentValue);
+  const filtered = current.filter((item) => normalizeTextForParsing(item) !== nextKey);
+  if (filtered.length !== current.length) {
+    return serializeSpecialties(filtered);
+  }
+  return serializeSpecialties([...current, normalizedSpecialty]);
+};
+
+type NearbyRequestRow = {
+  id: string;
+  title: string;
+  category: string;
+  city: string;
+  address: string;
+  description: string;
+  urgency: string;
+  preferred_window: string | null;
+  status: string;
+  mode: string;
+  created_at: string;
+  distance_km: number;
+  match_radius_km: number;
+  location_lat?: number | null;
+  location_lng?: number | null;
+};
+
+type DashboardMapPoint = {
+  id: string;
+  kind: 'job' | 'request';
+  title: string;
+  subtitle: string;
+  meta: string;
+  lat: number;
+  lon: number;
+  createdAt: string;
+};
+
+const geocodeAddressFirstResult = async (query: string) => {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
+    trimmed
+  )}&addressdetails=1&email=info@urbanfixar.com`;
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) return null;
+  const rows = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+  const first = rows[0];
+  if (!first) return null;
+  const lat = Number(first.lat);
+  const lon = Number(first.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {
+    display_name: first.display_name,
+    lat,
+    lon,
+  };
+};
+
+const urgencyBadgeClass = (urgency: string) => {
+  const normalized = urgency.toLowerCase();
+  if (normalized === 'alta') return 'bg-rose-100 text-rose-700';
+  if (normalized === 'media') return 'bg-amber-100 text-amber-700';
+  return 'bg-slate-100 text-slate-700';
+};
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -139,201 +533,6 @@ const billingStatuses = new Set([
   'finalizado',
 ]);
 
-const TECH_BADGE_OPTIONS = [
-  { id: 'insignia_cumplimiento', label: 'Cumplimiento' },
-  { id: 'insignia_puntual', label: 'Puntualidad' },
-  { id: 'insignia_recomendado', label: 'Recomendado' },
-  { id: 'insignia_calidad', label: 'Calidad superior' },
-  { id: 'insignia_respuesta_rapida', label: 'Respuesta rapida' },
-  { id: 'insignia_cliente_feliz', label: 'Cliente feliz' },
-];
-
-const parseBadgeArray = (value: any) => {
-  if (Array.isArray(value)) {
-    return Array.from(
-      new Set(
-        value
-          .map((item) => String(item || '').trim())
-          .filter(Boolean)
-      )
-    );
-  }
-  if (typeof value === 'string') {
-    return Array.from(
-      new Set(
-        value
-          .split(',')
-          .map((item) => item.trim())
-          .filter(Boolean)
-      )
-    );
-  }
-  return [] as string[];
-};
-
-const splitTextLines = (value: string) =>
-  value
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-type GeoDistrictOption = {
-  district: string;
-  cities: string[];
-};
-
-type GeoProvinceOption = {
-  province: string;
-  districts: GeoDistrictOption[];
-};
-
-type CabaZoneOption = {
-  id: string;
-  label: string;
-  lat: number;
-  lon: number;
-};
-
-const CABA_PROVINCE = 'Ciudad Autonoma de Buenos Aires';
-const CABA_DEFAULT_DISTRICT = 'Capital Federal';
-const CABA_DEFAULT_CITY = 'Ciudad Autonoma de Buenos Aires';
-
-const TECH_GEO_CATALOG: GeoProvinceOption[] = [
-  {
-    province: CABA_PROVINCE,
-    districts: [
-      {
-        district: CABA_DEFAULT_DISTRICT,
-        cities: [CABA_DEFAULT_CITY],
-      },
-    ],
-  },
-  {
-    province: 'Buenos Aires',
-    districts: [
-      {
-        district: 'Zona Norte GBA',
-        cities: [
-          'Vicente Lopez',
-          'San Isidro',
-          'San Fernando',
-          'Tigre',
-          'Pilar',
-          'Escobar',
-          'San Miguel',
-          'Jose C. Paz',
-          'Malvinas Argentinas',
-        ],
-      },
-      {
-        district: 'Zona Oeste GBA',
-        cities: ['Moron', 'Ituzaingo', 'Hurlingham', 'La Matanza', 'Merlo', 'Moreno', 'Tres de Febrero'],
-      },
-      {
-        district: 'Zona Sur GBA',
-        cities: [
-          'Lanus',
-          'Avellaneda',
-          'Lomas de Zamora',
-          'Almirante Brown',
-          'Quilmes',
-          'Berazategui',
-          'Florencio Varela',
-          'Esteban Echeverria',
-          'Ezeiza',
-        ],
-      },
-      {
-        district: 'Interior Buenos Aires',
-        cities: ['La Plata', 'Mar del Plata', 'Bahia Blanca', 'Tandil', 'Olavarria', 'Junin', 'Pergamino'],
-      },
-    ],
-  },
-  {
-    province: 'Cordoba',
-    districts: [
-      {
-        district: 'Capital',
-        cities: ['Cordoba'],
-      },
-      {
-        district: 'Interior',
-        cities: ['Villa Carlos Paz', 'Rio Cuarto', 'Villa Maria', 'San Francisco'],
-      },
-    ],
-  },
-  {
-    province: 'Santa Fe',
-    districts: [
-      {
-        district: 'Rosario',
-        cities: ['Rosario', 'Villa Gobernador Galvez'],
-      },
-      {
-        district: 'Capital',
-        cities: ['Santa Fe'],
-      },
-      {
-        district: 'Interior',
-        cities: ['Rafaela', 'Venado Tuerto', 'Reconquista'],
-      },
-    ],
-  },
-];
-
-const CABA_ZONE_OPTIONS: CabaZoneOption[] = [
-  { id: 'comuna_1', label: 'Comuna 1', lat: -34.6076, lon: -58.3717 },
-  { id: 'comuna_2', label: 'Comuna 2', lat: -34.5898, lon: -58.3974 },
-  { id: 'comuna_3', label: 'Comuna 3', lat: -34.6098, lon: -58.3996 },
-  { id: 'comuna_4', label: 'Comuna 4', lat: -34.6452, lon: -58.3919 },
-  { id: 'comuna_5', label: 'Comuna 5', lat: -34.6178, lon: -58.4209 },
-  { id: 'comuna_6', label: 'Comuna 6', lat: -34.6193, lon: -58.4413 },
-  { id: 'comuna_7', label: 'Comuna 7', lat: -34.6356, lon: -58.4513 },
-  { id: 'comuna_8', label: 'Comuna 8', lat: -34.6714, lon: -58.4442 },
-  { id: 'comuna_9', label: 'Comuna 9', lat: -34.6476, lon: -58.5027 },
-  { id: 'comuna_10', label: 'Comuna 10', lat: -34.6317, lon: -58.4957 },
-  { id: 'comuna_11', label: 'Comuna 11', lat: -34.6087, lon: -58.4982 },
-  { id: 'comuna_12', label: 'Comuna 12', lat: -34.5663, lon: -58.4902 },
-  { id: 'comuna_13', label: 'Comuna 13', lat: -34.5535, lon: -58.4562 },
-  { id: 'comuna_14', label: 'Comuna 14', lat: -34.5851, lon: -58.4248 },
-  { id: 'comuna_15', label: 'Comuna 15', lat: -34.6003, lon: -58.4588 },
-];
-
-const resolveCabaZoneId = (value: string) => {
-  const normalized = normalizeText(String(value || '').trim());
-  if (!normalized) return '';
-  const byId = CABA_ZONE_OPTIONS.find((zone) => normalizeText(zone.id) === normalized);
-  if (byId) return byId.id;
-  const byLabel = CABA_ZONE_OPTIONS.find((zone) => normalizeText(zone.label) === normalized);
-  if (byLabel) return byLabel.id;
-  return '';
-};
-
-const parseCoverageZoneIds = (value: unknown) =>
-  Array.from(
-    new Set(
-      parseBadgeArray(value)
-        .map((zone) => resolveCabaZoneId(zone))
-        .filter(Boolean)
-    )
-  );
-
-const parseCoverageZonesFromText = (value: string) =>
-  value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .slice(0, 30);
-
-const buildCoverageAreaLabel = (zoneIds: string[], fallbackText: string) => {
-  const labels = zoneIds
-    .map((zoneId) => CABA_ZONE_OPTIONS.find((zone) => zone.id === zoneId)?.label || '')
-    .map((label) => label.trim())
-    .filter(Boolean);
-  if (labels.length > 0) return labels.join(', ');
-  return fallbackText.trim();
-};
-
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
   if (!normalized) return 'draft';
@@ -357,6 +556,11 @@ const toNumber = (value: string) => {
   const normalized = value.replace(',', '.');
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const toFiniteCoordinate = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 };
 
 const toAmountValue = (value: any) => {
@@ -447,6 +651,104 @@ const getAttachmentStoragePath = (publicUrl?: string | null) => {
   return publicUrl.slice(index + marker.length);
 };
 
+type CertificationFileRow = {
+  id: string;
+  name: string;
+  url: string;
+  fileType: string;
+  storagePath: string | null;
+  uploadedAt: string;
+};
+
+const CERT_FILES_TAG_START = '<!-- UFX_CERT_FILES ';
+const CERT_FILES_TAG_END = ' -->';
+const CERT_ALLOWED_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx']);
+const CERT_MAX_FILE_BYTES = 10 * 1024 * 1024;
+const CERT_MAX_FILES = 12;
+
+const parseCertificationFilesTag = (rawValue: string | null | undefined) => {
+  const text = String(rawValue || '');
+  const startIndex = text.lastIndexOf(CERT_FILES_TAG_START);
+  if (startIndex === -1) {
+    return {
+      notes: text.trim(),
+      files: [] as CertificationFileRow[],
+    };
+  }
+  const endIndex = text.indexOf(CERT_FILES_TAG_END, startIndex + CERT_FILES_TAG_START.length);
+  if (endIndex === -1) {
+    return {
+      notes: text.trim(),
+      files: [] as CertificationFileRow[],
+    };
+  }
+
+  const notes = text.slice(0, startIndex).trim();
+  const payloadRaw = text.slice(startIndex + CERT_FILES_TAG_START.length, endIndex).trim();
+  try {
+    const parsed = JSON.parse(payloadRaw);
+    const rows = Array.isArray(parsed) ? parsed : [];
+    const files = rows
+      .map((item: any) => ({
+        id: String(item?.id || ''),
+        name: String(item?.name || ''),
+        url: String(item?.url || ''),
+        fileType: String(item?.fileType || ''),
+        storagePath: item?.storagePath ? String(item.storagePath) : null,
+        uploadedAt: String(item?.uploadedAt || ''),
+      }))
+      .filter((item) => item.url && item.name)
+      .map((item) => ({
+        id: item.id || Math.random().toString(36).slice(2),
+        name: item.name,
+        url: item.url,
+        fileType: item.fileType || '',
+        storagePath: item.storagePath,
+        uploadedAt: item.uploadedAt || new Date().toISOString(),
+      }));
+
+    return { notes, files };
+  } catch {
+    return {
+      notes,
+      files: [] as CertificationFileRow[],
+    };
+  }
+};
+
+const buildCertificationsField = (notes: string, files: CertificationFileRow[]) => {
+  const trimmedNotes = notes.trim();
+  if (!files.length) return trimmedNotes;
+  const payload = JSON.stringify(
+    files.map((item) => ({
+      id: item.id,
+      name: item.name,
+      url: item.url,
+      fileType: item.fileType || '',
+      storagePath: item.storagePath || null,
+      uploadedAt: item.uploadedAt,
+    }))
+  );
+  return trimmedNotes
+    ? `${trimmedNotes}\n\n${CERT_FILES_TAG_START}${payload}${CERT_FILES_TAG_END}`
+    : `${CERT_FILES_TAG_START}${payload}${CERT_FILES_TAG_END}`;
+};
+
+const buildCertificationStoragePath = (userId: string, fileName: string) =>
+  `${userId}/certifications/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFileName(fileName)}`;
+
+const isAllowedCertificationFile = (file: File) => {
+  const fileName = file.name || '';
+  const extension = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() || '' : '';
+  if (CERT_ALLOWED_EXTENSIONS.has(extension)) return true;
+  const mime = file.type || '';
+  if (mime === 'application/pdf') return true;
+  if (mime.startsWith('image/')) return true;
+  if (mime === 'application/msword') return true;
+  if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return true;
+  return false;
+};
+
 const buildItemsSignature = (items: ItemForm[]) =>
   JSON.stringify(
     items.map((item) => ({
@@ -470,7 +772,8 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-const buildOsmEmbedUrl = (lat: number, lon: number, delta = 0.004) => {
+const buildOsmEmbedUrl = (lat: number, lon: number) => {
+  const delta = 0.004;
   const left = lon - delta;
   const right = lon + delta;
   const bottom = lat - delta;
@@ -486,7 +789,7 @@ const RUBRO_LABELS: Record<string, string> = {
   gas: 'Gas',
   sanitario: 'Sanitario',
   electricidad: 'Electricidad',
-  albanileria: 'Albañileria',
+  albanileria: 'AlbaÃ±ileria',
 };
 
 const resolveMasterRubro = (item: MasterItemRow) => {
@@ -537,6 +840,23 @@ const addDays = (date: Date, days: number) => {
 const translateProfileError = (message: string) => {
   if (!message) return 'No pudimos guardar los cambios.';
   const lower = message.toLowerCase();
+  if (
+    lower.includes('profile_published') ||
+    lower.includes('profile_published_at') ||
+    lower.includes('facebook_url') ||
+    lower.includes('instagram_url')
+  ) {
+    return 'Falta la migracion de perfil publico/redes en Supabase. Ejecutala y reintenta.';
+  }
+  if (lower.includes('cuit/cuil')) {
+    return 'El CUIT/CUIL ingresado no es valido.';
+  }
+  if (lower.includes('cbu')) {
+    return 'El CBU ingresado no es valido.';
+  }
+  if (lower.includes('alias')) {
+    return 'El alias ingresado no es valido.';
+  }
   if (lower.includes("could not find the 'email' column")) {
     return "No se encontro la columna 'email' en perfiles. Ejecuta la migracion y reintenta.";
   }
@@ -567,6 +887,26 @@ const getSupportUploadExtension = (file: File) => {
 
 const isAccessProfile = (value: string | null): value is AccessProfile =>
   value === 'tecnico' || value === 'empresa' || value === 'cliente';
+
+const getPostLoginVideoSeenKey = (userId: string) => `${POST_LOGIN_VIDEO_SEEN_STORAGE_KEY}:${userId}`;
+
+const hasSeenPostLoginVideo = (userId: string) => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(getPostLoginVideoSeenKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const markPostLoginVideoAsSeen = (userId: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(getPostLoginVideoSeenKey(userId), '1');
+  } catch {
+    // Ignore storage errors (private mode / quota), fallback keeps current behavior.
+  }
+};
 
 export default function TechniciansPage() {
   const [session, setSession] = useState<Session | null>(null);
@@ -603,11 +943,27 @@ export default function TechniciansPage() {
   const [supportError, setSupportError] = useState('');
   const supportFileInputRef = useRef<HTMLInputElement | null>(null);
   const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
+  const [accessVideoMuted, setAccessVideoMuted] = useState(true);
   const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
-  const [showAccessIntro, setShowAccessIntro] = useState(false);
-  const [accessIntroClosing, setAccessIntroClosing] = useState(false);
+  const [dashboardVideoAvailable, setDashboardVideoAvailable] = useState(Boolean(DASHBOARD_VIDEO_URL));
+  const [postLoginVideoAvailable, setPostLoginVideoAvailable] = useState(Boolean(POST_LOGIN_VIDEO_URL));
+  const [postLoginVideoVisible, setPostLoginVideoVisible] = useState(false);
+  const [postLoginVideoPending, setPostLoginVideoPending] = useState(false);
+  const [resumeStaticVisible, setResumeStaticVisible] = useState(false);
+  const resumeStaticTimerRef = useRef<number | null>(null);
+  const hiddenAtRef = useRef<number | null>(null);
   const accessVideoRef = useRef<HTMLVideoElement | null>(null);
-  const hasShownPostLoginIntroRef = useRef(false);
+  const dashboardVideoRef = useRef<HTMLVideoElement | null>(null);
+  const postLoginVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [nearbyRequests, setNearbyRequests] = useState<NearbyRequestRow[]>([]);
+  const [loadingNearbyRequests, setLoadingNearbyRequests] = useState(false);
+  const [nearbyRequestsError, setNearbyRequestsError] = useState('');
+  const [nearbyRequestsWarning, setNearbyRequestsWarning] = useState('');
+  const [technicianWithinWorkingHours, setTechnicianWithinWorkingHours] = useState<boolean | null>(null);
+  const [technicianWorkingHoursLabel, setTechnicianWorkingHoursLabel] = useState('');
+  const [technicianRadiusKm, setTechnicianRadiusKm] = useState(COVERAGE_RADIUS_KM);
+  const [dashboardMapFilter, setDashboardMapFilter] = useState<'all' | 'jobs' | 'requests'>('all');
+  const [dashboardMapSelectedId, setDashboardMapSelectedId] = useState('');
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -629,14 +985,22 @@ export default function TechniciansPage() {
     email: '',
     phone: '',
     address: '',
-    province: '',
-    district: '',
     city: '',
     coverageArea: '',
-    coverageZones: [] as string[],
     workingHours: '',
+    weekdayFrom: DEFAULT_WORKING_HOURS_CONFIG.weekdayFrom,
+    weekdayTo: DEFAULT_WORKING_HOURS_CONFIG.weekdayTo,
+    saturdayEnabled: DEFAULT_WORKING_HOURS_CONFIG.saturdayEnabled,
+    saturdayFrom: DEFAULT_WORKING_HOURS_CONFIG.saturdayFrom,
+    saturdayTo: DEFAULT_WORKING_HOURS_CONFIG.saturdayTo,
+    sundayEnabled: DEFAULT_WORKING_HOURS_CONFIG.sundayEnabled,
+    sundayFrom: DEFAULT_WORKING_HOURS_CONFIG.sundayFrom,
+    sundayTo: DEFAULT_WORKING_HOURS_CONFIG.sundayTo,
     specialties: '',
     certifications: '',
+    facebookUrl: '',
+    instagramUrl: '',
+    profilePublished: false,
     taxId: '',
     taxStatus: '',
     paymentMethod: '',
@@ -644,16 +1008,26 @@ export default function TechniciansPage() {
     defaultCurrency: 'ARS',
     defaultTaxRate: 0.21,
     defaultDiscount: 0,
-    publicRating: 4.8,
-    publicReviewsCount: 0,
-    completedJobsTotal: 0,
-    referencesSummary: '',
-    clientRecommendations: '',
-    achievementBadges: [] as string[],
     companyLogoUrl: '',
     avatarUrl: '',
     logoShape: 'auto',
   });
+  const [customSpecialtyDraft, setCustomSpecialtyDraft] = useState('');
+  const [customPaymentMethodDraft, setCustomPaymentMethodDraft] = useState('');
+  const [bankAccountType, setBankAccountType] = useState<'alias' | 'cbu'>('alias');
+  const [certificationFiles, setCertificationFiles] = useState<CertificationFileRow[]>([]);
+  const [uploadingCertificationFiles, setUploadingCertificationFiles] = useState(false);
+  const [certificationFilesError, setCertificationFilesError] = useState('');
+  const certificationFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [profileHydrated, setProfileHydrated] = useState(false);
+  const [autoSaveBootstrapped, setAutoSaveBootstrapped] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveMessage, setAutoSaveMessage] = useState('');
+  const [profilePersistTick, setProfilePersistTick] = useState(0);
+  const lastPersistedProfileSignatureRef = useRef('');
+  const profilePersistInFlightRef = useRef(false);
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const autoSaveMessageTimerRef = useRef<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
@@ -703,23 +1077,22 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
-    const storedProfile = (window.localStorage.getItem(ACCESS_PROFILE_STORAGE_KEY) || '').toLowerCase();
-    const resolvedProfile = isAccessProfile(incomingProfile)
-      ? incomingProfile
-      : isAccessProfile(storedProfile)
-      ? storedProfile
-      : null;
-
-    if (resolvedProfile) {
-      setSelectedAccessProfile(resolvedProfile);
-      window.localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, resolvedProfile);
-      if (!isAccessProfile(incomingProfile)) {
-        params.set('perfil', resolvedProfile);
-        const query = params.toString();
-        window.history.replaceState({}, '', `${window.location.pathname}${query ? `?${query}` : ''}`);
+    if (incomingProfile === 'cliente') {
+      const nextParams = new URLSearchParams();
+      const mode = params.get('mode');
+      if (mode === 'login' || mode === 'register') {
+        nextParams.set('mode', mode);
       }
+      if (params.get('quick') === '1') {
+        nextParams.set('quick', '1');
+      }
+      const query = nextParams.toString();
+      window.location.replace(query ? `/cliente?${query}` : '/cliente');
+      return;
     }
-
+    if (isAccessProfile(incomingProfile)) {
+      setSelectedAccessProfile(incomingProfile);
+    }
     if (params.get('mode') === 'register') {
       setAuthMode('register');
     }
@@ -727,9 +1100,8 @@ export default function TechniciansPage() {
       setQuickRegisterMode(true);
       setAuthMode('register');
       setAuthNotice('Modo rapido activo: recomendamos continuar con Google.');
-      if (!resolvedProfile) {
+      if (!incomingProfile) {
         setSelectedAccessProfile('tecnico');
-        window.localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, 'tecnico');
       }
     }
     if (params.get('recovery') === '1') {
@@ -784,12 +1156,15 @@ export default function TechniciansPage() {
   };
 
   const handleAccessProfileSelect = (profile: AccessProfile) => {
+    if (profile === 'cliente') {
+      if (typeof window !== 'undefined') {
+        window.location.href = '/cliente';
+      }
+      return;
+    }
     setSelectedAccessProfile(profile);
     setAuthError('');
     setAuthNotice('');
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(ACCESS_PROFILE_STORAGE_KEY, profile);
-    }
     setAccessProfileInUrl(profile);
   };
 
@@ -799,196 +1174,32 @@ export default function TechniciansPage() {
     setQuickRegisterMode(false);
     setAuthError('');
     setAuthNotice('');
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(ACCESS_PROFILE_STORAGE_KEY);
-    }
     setAccessProfileInUrl(null);
   };
 
-  const closeAccessIntro = () => {
-    if (!showAccessIntro) return;
-    setAccessIntroClosing(true);
-    window.setTimeout(() => {
-      setShowAccessIntro(false);
-      setAccessIntroClosing(false);
-    }, 280);
-  };
-
-  const markPostLoginIntroPending = () => {
-    if (typeof window === 'undefined') return;
-    window.sessionStorage.setItem(POST_LOGIN_INTRO_PENDING_KEY, '1');
-  };
-
-  const clearPostLoginIntroPending = () => {
-    if (typeof window === 'undefined') return;
-    window.sessionStorage.removeItem(POST_LOGIN_INTRO_PENDING_KEY);
-  };
-
-  const consumePostLoginIntroPending = () => {
-    if (typeof window === 'undefined') return false;
-    const shouldPlay = window.sessionStorage.getItem(POST_LOGIN_INTRO_PENDING_KEY) === '1';
-    if (shouldPlay) {
-      window.sessionStorage.removeItem(POST_LOGIN_INTRO_PENDING_KEY);
-    }
-    return shouldPlay;
-  };
-
-  useEffect(() => {
-    if (!session?.user) {
-      hasShownPostLoginIntroRef.current = false;
-      setShowAccessIntro(false);
-      setAccessIntroClosing(false);
-      return;
-    }
-    if (recoveryMode) {
-      setShowAccessIntro(false);
-      setAccessIntroClosing(false);
-    }
-  }, [recoveryMode, session?.user]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!session?.user || recoveryMode || !accessVideoAvailable || hasShownPostLoginIntroRef.current) return;
-    const shouldPlay = consumePostLoginIntroPending();
-    if (!shouldPlay) return;
-    hasShownPostLoginIntroRef.current = true;
-    setShowAccessIntro(true);
-    setAccessIntroClosing(false);
-  }, [accessVideoAvailable, recoveryMode, session?.user]);
-
-  useEffect(() => {
-    if (!showAccessIntro) return;
-    const video = accessVideoRef.current;
-    if (!video) return;
-
-    let autoCloseTimer: number | undefined;
-    video.currentTime = 0;
-    video.muted = false;
-    video
-      .play()
-      .catch(() => {
-        video.muted = true;
-        return video.play();
-      })
-      .catch(() => {
-        closeAccessIntro();
+  const handleAccessVideoSoundToggle = () => {
+    const nextMuted = !accessVideoMuted;
+    setAccessVideoMuted(nextMuted);
+    const videos = [accessVideoRef.current, dashboardVideoRef.current].filter(
+      (video): video is HTMLVideoElement => Boolean(video)
+    );
+    videos.forEach((video) => {
+      video.muted = nextMuted;
+    });
+    if (!nextMuted) {
+      videos.forEach((video) => {
+        video.play().catch(() => {
+          setAccessVideoMuted(true);
+          video.muted = true;
+        });
       });
-
-    autoCloseTimer = window.setTimeout(() => {
-      closeAccessIntro();
-    }, 7000);
-
-    return () => {
-      if (autoCloseTimer) window.clearTimeout(autoCloseTimer);
-    };
-  }, [showAccessIntro]);
-
-  const accessIntroOverlay = showAccessIntro && accessVideoAvailable && (
-    <div
-      className={`fixed inset-0 z-[140] bg-black transition-opacity duration-300 ${
-        accessIntroClosing ? 'opacity-0' : 'opacity-100'
-      }`}
-    >
-      <video
-        ref={accessVideoRef}
-        src={ACCESS_VIDEO_URL}
-        poster={ACCESS_VIDEO_POSTER_URL}
-        autoPlay
-        playsInline
-        preload="auto"
-        onEnded={closeAccessIntro}
-        onError={() => {
-          setAccessVideoAvailable(false);
-          closeAccessIntro();
-        }}
-        className="h-full w-full object-cover"
-      />
-    </div>
-  );
+    }
+  };
 
   const geoMapUrl = useMemo(() => {
     if (!geoSelected) return '';
     return buildOsmEmbedUrl(geoSelected.lat, geoSelected.lon);
   }, [geoSelected]);
-
-  const availableProvinceOptions = useMemo(
-    () => TECH_GEO_CATALOG.map((item) => item.province),
-    []
-  );
-  const availableDistrictOptions = useMemo(() => {
-    const province = TECH_GEO_CATALOG.find((item) => item.province === profileForm.province);
-    if (!province) return [] as GeoDistrictOption[];
-    return province.districts;
-  }, [profileForm.province]);
-  const availableCityOptions = useMemo(() => {
-    const district = availableDistrictOptions.find((item) => item.district === profileForm.district);
-    if (!district) return [] as string[];
-    return district.cities;
-  }, [availableDistrictOptions, profileForm.district]);
-  const isCabaProfile = profileForm.province === CABA_PROVINCE;
-  const cabaZoneMap = useMemo(
-    () =>
-      new Map(
-        CABA_ZONE_OPTIONS.map((zone) => [zone.id, zone] as const)
-      ),
-    []
-  );
-  const selectedCabaZone = useMemo(() => {
-    const selectedZoneId = profileForm.coverageZones[profileForm.coverageZones.length - 1];
-    if (!selectedZoneId) return null;
-    return cabaZoneMap.get(selectedZoneId) || null;
-  }, [cabaZoneMap, profileForm.coverageZones]);
-  const cabaCoverageMapUrl = useMemo(
-    () =>
-      buildOsmEmbedUrl(
-        selectedCabaZone?.lat ?? -34.6037,
-        selectedCabaZone?.lon ?? -58.3816,
-        0.09
-      ),
-    [selectedCabaZone]
-  );
-
-  useEffect(() => {
-    if (!profileForm.province) return;
-    const hasDistrict = availableDistrictOptions.some((item) => item.district === profileForm.district);
-    if (!hasDistrict) {
-      setProfileForm((prev) => ({
-        ...prev,
-        district: availableDistrictOptions[0]?.district || '',
-        city: '',
-      }));
-    }
-  }, [availableDistrictOptions, profileForm.district, profileForm.province]);
-
-  useEffect(() => {
-    if (!profileForm.province || !profileForm.district) return;
-    const hasCity = availableCityOptions.includes(profileForm.city);
-    if (!hasCity) {
-      setProfileForm((prev) => ({
-        ...prev,
-        city: availableCityOptions[0] || '',
-      }));
-    }
-  }, [availableCityOptions, profileForm.city, profileForm.district, profileForm.province]);
-
-  useEffect(() => {
-    if (!profileForm.province) return;
-    if (profileForm.province === CABA_PROVINCE) {
-      if (profileForm.district && profileForm.city) return;
-      setProfileForm((prev) => ({
-        ...prev,
-        district: prev.district || CABA_DEFAULT_DISTRICT,
-        city: prev.city || CABA_DEFAULT_CITY,
-      }));
-      return;
-    }
-    if (profileForm.coverageZones.length) {
-      setProfileForm((prev) => ({
-        ...prev,
-        coverageZones: [],
-      }));
-    }
-  }, [profileForm.coverageZones.length, profileForm.province]);
 
   const navItems: NavItem[] = [
     { key: 'lobby', label: 'Panel de control', hint: 'Resumen general', short: 'PC', icon: Home },
@@ -1040,17 +1251,97 @@ export default function TechniciansPage() {
     });
     const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
+      if (event === 'SIGNED_IN' && nextSession?.user) {
+        setPostLoginVideoPending(true);
+      }
       if (event === 'SIGNED_OUT') {
-        hasShownPostLoginIntroRef.current = false;
-        setShowAccessIntro(false);
-        setAccessIntroClosing(false);
-        clearPostLoginIntroPending();
+        setPostLoginVideoPending(false);
+        setPostLoginVideoVisible(false);
+        setResumeStaticVisible(false);
       }
     });
     return () => {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId || !postLoginVideoPending) return;
+    setPostLoginVideoPending(false);
+    if (!postLoginVideoAvailable) return;
+    if (hasSeenPostLoginVideo(userId)) return;
+    markPostLoginVideoAsSeen(userId);
+    setPostLoginVideoVisible(true);
+  }, [postLoginVideoAvailable, postLoginVideoPending, session?.user?.id]);
+
+  useEffect(() => {
+    if (!postLoginVideoVisible || typeof window === 'undefined') return;
+    const video = postLoginVideoRef.current;
+    if (!video) return;
+
+    let cancelled = false;
+    video.currentTime = 0;
+    video.muted = false;
+    video.play().catch(async () => {
+      if (cancelled) return;
+      video.muted = true;
+      try {
+        await video.play();
+      } catch {
+        if (!cancelled) setPostLoginVideoVisible(false);
+      }
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setPostLoginVideoVisible(false);
+    }, POST_LOGIN_VIDEO_MAX_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [postLoginVideoVisible]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const clearResumeTimer = () => {
+      if (resumeStaticTimerRef.current !== null) {
+        window.clearTimeout(resumeStaticTimerRef.current);
+        resumeStaticTimerRef.current = null;
+      }
+    };
+
+    if (!session?.user?.id) {
+      clearResumeTimer();
+      hiddenAtRef.current = null;
+      setResumeStaticVisible(false);
+      return;
+    }
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        clearResumeTimer();
+        return;
+      }
+      if (!RESUME_STATIC_IMAGE_URL) return;
+      if (hiddenAtRef.current === null) return;
+      hiddenAtRef.current = null;
+      setResumeStaticVisible(true);
+      clearResumeTimer();
+      resumeStaticTimerRef.current = window.setTimeout(() => {
+        setResumeStaticVisible(false);
+      }, RESUME_STATIC_IMAGE_MS);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearResumeTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user) {
@@ -1106,62 +1397,94 @@ export default function TechniciansPage() {
       }
 
       setProfile(resolvedProfile);
-      if (selectedAccessProfile === 'cliente') {
-        return;
-      }
       await fetchQuotes(session.user.id);
       await fetchNotifications(session.user.id);
       await fetchMasterItems();
     };
     load();
-  }, [selectedAccessProfile, session?.user?.id]);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!profile) return;
     const hasLegacyLogo = !profile.company_logo_url && profile.avatar_url && profile.logo_shape;
     const legacyLogoUrl = hasLegacyLogo ? profile.avatar_url : '';
-    const fallbackCoverageZones = parseCoverageZonesFromText(String(profile.coverage_area || ''));
-    const resolvedProvince = String(profile.service_province || '').trim();
-    const resolvedDistrict = String(profile.service_district || '').trim();
-    const resolvedCoverageZones = parseCoverageZoneIds(profile.coverage_zones);
-    const fallbackCoverageZoneIds = parseCoverageZoneIds(fallbackCoverageZones);
+    const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
+    const coverageArea = profile.coverage_area || buildCoverageAreaLabel(profile.city || '');
+    const parsedCertifications = parseCertificationFilesTag(profile.certifications || '');
+    const rawBankValue = String(profile.bank_alias || '').trim();
+    const detectedBankType: 'alias' | 'cbu' = normalizeCbu(rawBankValue).length === 22 ? 'cbu' : 'alias';
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
       email: profile.email || session?.user?.email || '',
       phone: profile.phone || '',
       address: profile.company_address || profile.address || '',
-      province: resolvedProvince,
-      district: resolvedDistrict,
-      city: profile.service_city || profile.city || '',
-      coverageArea: profile.coverage_area || '',
-      coverageZones:
-        resolvedCoverageZones.length > 0
-          ? resolvedCoverageZones
-          : fallbackCoverageZoneIds.length > 0
-            ? fallbackCoverageZoneIds
-            : [],
-      workingHours: profile.working_hours || '',
+      city: profile.city || '',
+      coverageArea,
+      workingHours: formatWorkingHoursLabel(workingHoursConfig),
+      weekdayFrom: workingHoursConfig.weekdayFrom,
+      weekdayTo: workingHoursConfig.weekdayTo,
+      saturdayEnabled: workingHoursConfig.saturdayEnabled,
+      saturdayFrom: workingHoursConfig.saturdayFrom,
+      saturdayTo: workingHoursConfig.saturdayTo,
+      sundayEnabled: workingHoursConfig.sundayEnabled,
+      sundayFrom: workingHoursConfig.sundayFrom,
+      sundayTo: workingHoursConfig.sundayTo,
       specialties: profile.specialties || '',
-      certifications: profile.certifications || '',
+      certifications: parsedCertifications.notes,
+      facebookUrl: profile.facebook_url || '',
+      instagramUrl: profile.instagram_url || '',
+      profilePublished: Boolean(profile.profile_published),
       taxId: profile.tax_id || '',
       taxStatus: profile.tax_status || '',
       paymentMethod: profile.payment_method || '',
-      bankAlias: profile.bank_alias || '',
+      bankAlias: rawBankValue,
       defaultCurrency: profile.default_currency || 'ARS',
       defaultTaxRate: Number(profile.default_tax_rate ?? 0.21),
       defaultDiscount: Number(profile.default_discount ?? 0),
-      publicRating: Number(profile.public_rating ?? 4.8),
-      publicReviewsCount: Number(profile.public_reviews_count ?? 0),
-      completedJobsTotal: Number(profile.completed_jobs_total ?? 0),
-      referencesSummary: profile.references_summary || '',
-      clientRecommendations: profile.client_recommendations || '',
-      achievementBadges: parseBadgeArray(profile.achievement_badges),
       companyLogoUrl: profile.company_logo_url || legacyLogoUrl || '',
       avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
     });
+    setBankAccountType(detectedBankType);
+    setCustomPaymentMethodDraft('');
+    setCertificationFiles(parsedCertifications.files);
+    setCertificationFilesError('');
+    setProfileHydrated(true);
   }, [profile, session?.user?.email]);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setProfileHydrated(false);
+      setAutoSaveBootstrapped(false);
+      setAutoSaveState('idle');
+      setAutoSaveMessage('');
+      lastPersistedProfileSignatureRef.current = '';
+      return;
+    }
+    setAutoSaveBootstrapped(false);
+    setAutoSaveState('idle');
+    setAutoSaveMessage('');
+    lastPersistedProfileSignatureRef.current = '';
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      if (autoSaveMessageTimerRef.current !== null) {
+        window.clearTimeout(autoSaveMessageTimerRef.current);
+        autoSaveMessageTimerRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!session?.user || activeTab !== 'lobby') return;
+    fetchNearbyRequests();
+  }, [activeTab, session?.access_token, session?.user?.id]);
 
   useEffect(() => {
     if (!(profile?.company_logo_url || (profile?.logo_shape && profile?.avatar_url))) return;
@@ -1220,6 +1543,39 @@ export default function TechniciansPage() {
     }
     setNotifications((data as NotificationRow[]) || []);
     setLoadingNotifications(false);
+  };
+
+  const fetchNearbyRequests = async () => {
+    if (!session?.access_token) return;
+    setLoadingNearbyRequests(true);
+    setNearbyRequestsError('');
+    setNearbyRequestsWarning('');
+    try {
+      const response = await fetch('/api/tecnico/requests/nearby', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        cache: 'no-store',
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudieron cargar las solicitudes cercanas.');
+      }
+      setNearbyRequests((payload?.requests || []) as NearbyRequestRow[]);
+      setTechnicianRadiusKm(Number(payload?.technician?.radius_km || COVERAGE_RADIUS_KM));
+      setTechnicianWithinWorkingHours(
+        typeof payload?.technician?.within_working_hours === 'boolean'
+          ? payload.technician.within_working_hours
+          : null
+      );
+      setTechnicianWorkingHoursLabel(String(payload?.technician?.working_hours_label || ''));
+      setNearbyRequestsWarning(String(payload?.warning || ''));
+    } catch (error: any) {
+      setNearbyRequests([]);
+      setNearbyRequestsError(error?.message || 'No se pudieron cargar las solicitudes cercanas.');
+    } finally {
+      setLoadingNearbyRequests(false);
+    }
   };
 
   const fetchSupportUsers = async () => {
@@ -1794,14 +2150,6 @@ export default function TechniciansPage() {
       ...totals,
     };
   }, [quotes]);
-  const completedJobsVerified = useMemo(
-    () =>
-      quotes.filter((quote) => {
-        const normalized = normalizeStatusValue(quote.status);
-        return completedStatuses.has(normalized) || paidStatuses.has(normalized);
-      }).length,
-    [quotes]
-  );
   const recentQuotes = useMemo(() => quotes.slice(0, 3), [quotes]);
   const activeQuote = useMemo(
     () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
@@ -1944,6 +2292,94 @@ export default function TechniciansPage() {
     () => quotes.filter((quote) => readyToScheduleStatuses.has(normalizeStatusValue(quote.status))),
     [quotes]
   );
+  const dashboardJobPoints = useMemo(() => {
+    const operationalStatuses = new Set(['approved', 'completed', 'paid']);
+    const points: DashboardMapPoint[] = [];
+    quotes.forEach((quote) => {
+      if (!operationalStatuses.has(normalizeStatusValue(quote.status))) return;
+      const lat = toFiniteCoordinate(quote.location_lat);
+      const lon = toFiniteCoordinate(quote.location_lng);
+      if (lat === null || lon === null) return;
+      const status = normalizeStatusValue(quote.status);
+      const statusLabel = statusMap[status]?.label || 'Trabajo';
+      const addressLabel = getQuoteAddress(quote) || 'Ubicacion sin direccion';
+      points.push({
+        id: `job:${quote.id}`,
+        kind: 'job',
+        title: quote.client_name || 'Trabajo sin cliente',
+        subtitle: addressLabel,
+        meta: `${statusLabel} · ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
+        lat,
+        lon,
+        createdAt: quote.created_at,
+      });
+    });
+    return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [quotes]);
+  const dashboardRequestPoints = useMemo(() => {
+    const points: DashboardMapPoint[] = [];
+    nearbyRequests.forEach((request) => {
+      const lat = toFiniteCoordinate(request.location_lat);
+      const lon = toFiniteCoordinate(request.location_lng);
+      if (lat === null || lon === null) return;
+      const cityAddress = [request.city, request.address].filter(Boolean).join(' · ');
+      points.push({
+        id: `request:${request.id}`,
+        kind: 'request',
+        title: request.title || 'Solicitud',
+        subtitle: cityAddress || 'Zona sin detalle',
+        meta: `${request.urgency.toUpperCase()} · ${request.distance_km.toFixed(1)} km`,
+        lat,
+        lon,
+        createdAt: request.created_at,
+      });
+    });
+    return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [nearbyRequests]);
+  const dashboardMapPoints = useMemo(() => {
+    if (dashboardMapFilter === 'jobs') return dashboardJobPoints;
+    if (dashboardMapFilter === 'requests') return dashboardRequestPoints;
+    return [...dashboardRequestPoints, ...dashboardJobPoints].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  }, [dashboardJobPoints, dashboardMapFilter, dashboardRequestPoints]);
+  const dashboardSelectedMapPoint = useMemo(() => {
+    if (!dashboardMapPoints.length) return null;
+    return dashboardMapPoints.find((point) => point.id === dashboardMapSelectedId) || dashboardMapPoints[0];
+  }, [dashboardMapPoints, dashboardMapSelectedId]);
+  const dashboardMapUrl = useMemo(() => {
+    if (dashboardSelectedMapPoint) {
+      return buildOsmEmbedUrl(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon);
+    }
+    const technicianLat = toFiniteCoordinate(profile?.service_lat);
+    const technicianLon = toFiniteCoordinate(profile?.service_lng);
+    if (technicianLat === null || technicianLon === null) return '';
+    return buildOsmEmbedUrl(technicianLat, technicianLon);
+  }, [dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
+  const jobsWithoutCoordinatesCount = useMemo(() => {
+    const operationalStatuses = new Set(['approved', 'completed', 'paid']);
+    return quotes.filter((quote) => {
+      if (!operationalStatuses.has(normalizeStatusValue(quote.status))) return false;
+      return toFiniteCoordinate(quote.location_lat) === null || toFiniteCoordinate(quote.location_lng) === null;
+    }).length;
+  }, [quotes]);
+  const requestsWithoutCoordinatesCount = useMemo(
+    () =>
+      nearbyRequests.filter(
+        (request) => toFiniteCoordinate(request.location_lat) === null || toFiniteCoordinate(request.location_lng) === null
+      ).length,
+    [nearbyRequests]
+  );
+  useEffect(() => {
+    if (!dashboardMapPoints.length) {
+      if (dashboardMapSelectedId) setDashboardMapSelectedId('');
+      return;
+    }
+    const exists = dashboardMapPoints.some((point) => point.id === dashboardMapSelectedId);
+    if (!exists) {
+      setDashboardMapSelectedId(dashboardMapPoints[0].id);
+    }
+  }, [dashboardMapPoints, dashboardMapSelectedId]);
   const logoPresentation = useMemo(
     () => resolveLogoPresentation(logoRatio, profile?.logo_shape),
     [logoRatio, profile?.logo_shape]
@@ -1968,13 +2404,6 @@ export default function TechniciansPage() {
         heading: 'Acceso para empresas',
         description:
           'Centraliza presupuestos, responsables y seguimiento comercial desde la web en una sola cuenta.',
-      };
-    }
-    if (selectedAccessProfile === 'cliente') {
-      return {
-        panelLabel: 'Panel cliente',
-        heading: 'Acceso para clientes',
-        description: 'Publica solicitudes, compara cotizaciones y coordina con tecnicos desde una sola vista.',
       };
     }
     return {
@@ -2069,7 +2498,7 @@ export default function TechniciansPage() {
       });
       if (error) throw error;
       if (!data || !data.id) {
-        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o polÃ­ticas de seguridad.');
       }
       setQuotes((prev) =>
         prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote))
@@ -2080,15 +2509,62 @@ export default function TechniciansPage() {
     }
   };
 
-  const handleProfileSave = async () => {
-    if (!session?.user?.id) return;
-    setProfileSaving(true);
-    setProfileMessage('');
+  const persistProfile = async ({
+    silent = false,
+    refreshNearby = false,
+    publishProfile,
+  }: {
+    silent?: boolean;
+    refreshNearby?: boolean;
+    publishProfile?: boolean;
+  } = {}) => {
+    if (!session?.user?.id) return false;
+    if (profilePersistInFlightRef.current) return false;
+    profilePersistInFlightRef.current = true;
+
+    if (!silent) {
+      setProfileSaving(true);
+      setProfileMessage('');
+    } else {
+      setAutoSaveState('saving');
+      setAutoSaveMessage('Autoguardando...');
+    }
+
     try {
-      const normalizedCoverageArea = isCabaProfile
-        ? buildCoverageAreaLabel(profileForm.coverageZones, profileForm.coverageArea)
-        : profileForm.coverageArea;
-      const normalizedCity = profileForm.city || (isCabaProfile ? CABA_DEFAULT_CITY : '');
+      const safeTaxId = normalizeTaxId(profileForm.taxId);
+      if (safeTaxId && !isValidCuit(safeTaxId)) {
+        throw new Error('El CUIT/CUIL ingresado no es valido.');
+      }
+      const safeBankAlias =
+        bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias);
+      if (safeBankAlias) {
+        const isValidBankValue =
+          bankAccountType === 'cbu' ? isValidCbu(safeBankAlias) : isValidAlias(safeBankAlias);
+        if (!isValidBankValue) {
+          throw new Error(
+            bankAccountType === 'cbu'
+              ? 'El CBU debe tener 22 digitos validos.'
+              : 'El alias debe tener entre 6 y 20 caracteres validos.'
+          );
+        }
+      }
+
+      const serializedWorkingHours = buildWorkingHoursPayload(workingHoursConfig);
+      const serializedCertifications = buildCertificationsField(profileForm.certifications, certificationFiles);
+      const serializedPaymentMethods = serializeDelimitedValues(parseDelimitedValues(profileForm.paymentMethod));
+      const normalizedFacebookUrl = toSafeUrl(profileForm.facebookUrl);
+      const normalizedInstagramUrl = toSafeUrl(profileForm.instagramUrl);
+      const effectiveProfilePublished =
+        typeof publishProfile === 'boolean' ? publishProfile : Boolean(profileForm.profilePublished);
+      const existingPublishedAt = String(profile?.profile_published_at || '').trim();
+      const profilePublishedAt = effectiveProfilePublished ? existingPublishedAt || new Date().toISOString() : null;
+      const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
+      const geocoded = await geocodeAddressFirstResult(geocodeQuery);
+      const currentServiceLat = Number(profile?.service_lat);
+      const currentServiceLng = Number(profile?.service_lng);
+      const serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
+      const serviceLng = geocoded?.lon ?? (Number.isFinite(currentServiceLng) ? currentServiceLng : null);
+
       const basePayload = {
         id: session.user.id,
         full_name: profileForm.fullName,
@@ -2097,66 +2573,110 @@ export default function TechniciansPage() {
         phone: profileForm.phone,
         company_address: profileForm.address,
         address: profileForm.address,
-        city: normalizedCity,
-        coverage_area: normalizedCoverageArea,
-        working_hours: profileForm.workingHours,
+        city: profileForm.city,
+        coverage_area: coverageAreaLabel,
+        working_hours: serializedWorkingHours,
         specialties: profileForm.specialties,
-        certifications: profileForm.certifications,
-        tax_id: profileForm.taxId,
+        certifications: serializedCertifications,
+        facebook_url: normalizedFacebookUrl || null,
+        instagram_url: normalizedInstagramUrl || null,
+        profile_published: effectiveProfilePublished,
+        profile_published_at: profilePublishedAt,
+        tax_id: safeTaxId,
         tax_status: profileForm.taxStatus,
-        payment_method: profileForm.paymentMethod,
-        bank_alias: profileForm.bankAlias,
+        payment_method: serializedPaymentMethods,
+        bank_alias: safeBankAlias,
         default_currency: profileForm.defaultCurrency,
         default_tax_rate: toNumber(String(profileForm.defaultTaxRate)),
         default_discount: toNumber(String(profileForm.defaultDiscount)),
-        public_rating: Math.min(5, Math.max(0, toNumber(String(profileForm.publicRating)))),
-        public_reviews_count: Math.max(0, Math.round(toNumber(String(profileForm.publicReviewsCount)))),
-        completed_jobs_total: Math.max(0, Math.round(toNumber(String(profileForm.completedJobsTotal)))),
-        references_summary: profileForm.referencesSummary,
-        client_recommendations: profileForm.clientRecommendations,
-        achievement_badges: profileForm.achievementBadges,
         company_logo_url: profileForm.companyLogoUrl,
         avatar_url: profileForm.avatarUrl,
         logo_shape: profileForm.logoShape,
       };
-      const geoPayload = {
+      const payloadWithGeo = {
         ...basePayload,
-        service_province: profileForm.province || null,
-        service_district: profileForm.district || null,
-        service_city: normalizedCity || null,
-        coverage_zones: isCabaProfile ? profileForm.coverageZones : [],
+        service_lat: serviceLat,
+        service_lng: serviceLng,
+        service_radius_km: COVERAGE_RADIUS_KM,
       };
 
-      let { data, error } = await supabase.from('profiles').upsert(geoPayload).select().single();
-
+      let { data, error } = await supabase.from('profiles').upsert(payloadWithGeo).select().single();
       if (error) {
-        const message = String(error.message || '');
-        if (
-          /service_province|service_district|service_city|coverage_zones/i.test(message)
-        ) {
-          const fallbackCoverageArea = [profileForm.province, profileForm.district, normalizedCoverageArea]
-            .map((value) => String(value || '').trim())
-            .filter(Boolean)
-            .join(' | ');
-          const fallbackPayload = {
-            ...basePayload,
-            coverage_area: fallbackCoverageArea || normalizedCoverageArea,
-          };
-          const retry = await supabase.from('profiles').upsert(fallbackPayload).select().single();
-          data = retry.data;
-          error = retry.error;
+        const message = String(error?.message || '').toLowerCase();
+        const hasMissingGeoColumn =
+          message.includes('service_lat') || message.includes('service_lng') || message.includes('service_radius_km');
+        const hasMissingSocialColumn =
+          message.includes('facebook_url') ||
+          message.includes('instagram_url') ||
+          message.includes('profile_published') ||
+          message.includes('profile_published_at');
+        if (!hasMissingGeoColumn && !hasMissingSocialColumn) throw error;
+        if (hasMissingSocialColumn) {
+          const tryingSocialOrPublish =
+            Boolean(publishProfile) ||
+            Boolean(normalizedFacebookUrl) ||
+            Boolean(normalizedInstagramUrl) ||
+            Boolean(profileForm.profilePublished);
+          if (tryingSocialOrPublish) {
+            throw new Error('Missing profile_published/profile social columns migration on profiles table.');
+          }
         }
+        const fallbackPayload = { ...basePayload } as Record<string, any>;
+        if (hasMissingSocialColumn) {
+          delete fallbackPayload.facebook_url;
+          delete fallbackPayload.instagram_url;
+          delete fallbackPayload.profile_published;
+          delete fallbackPayload.profile_published_at;
+        }
+        const fallback = await supabase.from('profiles').upsert(fallbackPayload).select().single();
+        data = fallback.data;
+        error = fallback.error;
+      }
+      if (error) throw error;
+
+      setProfile(data);
+      lastPersistedProfileSignatureRef.current = autoSaveSignature;
+      setAutoSaveState('saved');
+      if (autoSaveMessageTimerRef.current !== null) {
+        window.clearTimeout(autoSaveMessageTimerRef.current);
+        autoSaveMessageTimerRef.current = null;
       }
 
-      if (error) throw error;
-      setProfile(data);
-      setProfileMessage('Perfil actualizado.');
+      if (!silent) {
+        setProfileMessage(geocoded ? 'Perfil actualizado con geolocalizacion.' : 'Perfil actualizado.');
+      } else {
+        setAutoSaveMessage('Guardado automatico.');
+        autoSaveMessageTimerRef.current = window.setTimeout(() => {
+          setAutoSaveMessage('');
+          setAutoSaveState('idle');
+        }, 1800);
+      }
+
+      if (refreshNearby) {
+        await fetchNearbyRequests();
+      }
+      return true;
     } catch (error: any) {
       console.error('Error guardando perfil:', error);
-      setProfileMessage(translateProfileError(error?.message || ''));
+      const translated = translateProfileError(error?.message || '');
+      if (!silent) {
+        setProfileMessage(translated);
+      } else {
+        setAutoSaveState('error');
+        setAutoSaveMessage(translated);
+      }
+      return false;
     } finally {
-      setProfileSaving(false);
+      profilePersistInFlightRef.current = false;
+      setProfilePersistTick((value) => value + 1);
+      if (!silent) {
+        setProfileSaving(false);
+      }
     }
+  };
+
+  const handleProfileSave = async () => {
+    await persistProfile({ silent: false, refreshNearby: true });
   };
 
   const handleCompanyLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2241,6 +2761,99 @@ export default function TechniciansPage() {
     }
   };
 
+  const handleCertificationFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!selectedFiles.length) return;
+    if (!session?.user?.id) {
+      setCertificationFilesError('Inicia sesion para adjuntar certificados.');
+      return;
+    }
+
+    const availableSlots = Math.max(0, CERT_MAX_FILES - certificationFiles.length);
+    if (availableSlots <= 0) {
+      setCertificationFilesError(`Ya alcanzaste el maximo de ${CERT_MAX_FILES} archivos.`);
+      return;
+    }
+
+    setUploadingCertificationFiles(true);
+    setCertificationFilesError('');
+    setProfileMessage('');
+
+    try {
+      const uploadQueue = selectedFiles.slice(0, availableSlots);
+      const errors: string[] = [];
+      const uploadedRows: CertificationFileRow[] = [];
+
+      for (const file of uploadQueue) {
+        if (!isAllowedCertificationFile(file)) {
+          errors.push(`${file.name}: formato no permitido.`);
+          continue;
+        }
+        if (file.size > CERT_MAX_FILE_BYTES) {
+          errors.push(`${file.name}: supera 10 MB.`);
+          continue;
+        }
+
+        const storagePath = buildCertificationStoragePath(session.user.id, file.name);
+        const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false,
+        });
+
+        if (uploadError) {
+          errors.push(`${file.name}: no se pudo subir.`);
+          continue;
+        }
+
+        const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
+        uploadedRows.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          url: publicData.publicUrl,
+          fileType: file.type || '',
+          storagePath,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+
+      if (uploadedRows.length) {
+        setCertificationFiles((prev) => [...prev, ...uploadedRows]);
+        setProfileMessage('Archivos cargados.');
+      }
+
+      if (selectedFiles.length > availableSlots) {
+        errors.push(`Solo se cargaron ${availableSlots} archivo(s) por limite.`);
+      }
+
+      if (errors.length) {
+        setCertificationFilesError(errors.slice(0, 3).join(' '));
+      }
+    } catch (error: any) {
+      console.error('Error subiendo certificados:', error);
+      setCertificationFilesError('No pudimos cargar los archivos de certificaciones.');
+    } finally {
+      setUploadingCertificationFiles(false);
+    }
+  };
+
+  const handleRemoveCertificationFile = async (fileId: string) => {
+    const target = certificationFiles.find((item) => item.id === fileId);
+    if (!target) return;
+
+    setCertificationFiles((prev) => prev.filter((item) => item.id !== fileId));
+    setCertificationFilesError('');
+    setProfileMessage('Archivo removido.');
+
+    const storagePath = target.storagePath || getAttachmentStoragePath(target.url);
+    if (!storagePath) return;
+
+    const { error } = await supabase.storage.from('urbanfix-assets').remove([storagePath]);
+    if (error) {
+      setCertificationFilesError('El archivo se quito del perfil, pero no pudimos eliminarlo del storage.');
+    }
+  };
+
   const handleLogoLoaded = (event: React.SyntheticEvent<HTMLImageElement>) => {
     const img = event.currentTarget;
     if (!img?.naturalWidth || !img?.naturalHeight) return;
@@ -2250,7 +2863,7 @@ export default function TechniciansPage() {
   };
 
   const handleDeleteQuote = async (quote: QuoteRow) => {
-    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
+    if (!confirm(`Â¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acciÃ³n no se puede deshacer.`)) {
       return;
     }
       try {
@@ -2477,7 +3090,6 @@ export default function TechniciansPage() {
   };
 
   const handleLogout = async () => {
-    clearPostLoginIntroPending();
     await supabase.auth.signOut();
     setSession(null);
     resetForm();
@@ -2487,14 +3099,11 @@ export default function TechniciansPage() {
     setAuthError('');
     setAuthNotice('');
     const redirectTo = `${window.location.origin}/tecnicos`;
-    window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, '/tecnicos');
-    markPostLoginIntroPending();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
     if (error) {
-      clearPostLoginIntroPending();
       setAuthError(error.message);
     }
   };
@@ -2516,7 +3125,7 @@ export default function TechniciansPage() {
     setAuthNotice('');
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contraseña.');
+      setAuthError('Ingresa tu correo para recuperar la contraseÃ±a.');
       return;
     }
     setSendingRecovery(true);
@@ -2524,9 +3133,9 @@ export default function TechniciansPage() {
       const redirectTo = `${window.location.origin}/tecnicos`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseÃ±a.');
     } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos enviar el correo de recuperación.');
+      setAuthError(error?.message || 'No pudimos enviar el correo de recuperaciÃ³n.');
     } finally {
       setSendingRecovery(false);
     }
@@ -2536,28 +3145,28 @@ export default function TechniciansPage() {
     setRecoveryError('');
     setRecoveryMessage('');
     if (!session?.user) {
-      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
+      setRecoveryError('La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.');
       return;
     }
     const nextPassword = recoveryPassword.trim();
     const confirmPassword = recoveryConfirm.trim();
     if (!nextPassword) {
-      setRecoveryError('Ingresa una nueva contraseña.');
+      setRecoveryError('Ingresa una nueva contraseÃ±a.');
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setRecoveryError('Las contraseñas no coinciden.');
+      setRecoveryError('Las contraseÃ±as no coinciden.');
       return;
     }
     setUpdatingRecovery(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: nextPassword });
       if (error) throw error;
-      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
+      setRecoveryMessage('Listo. Tu contraseÃ±a fue actualizada.');
       setRecoveryPassword('');
       setRecoveryConfirm('');
     } catch (error: any) {
-      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseÃ±a.');
     } finally {
       setUpdatingRecovery(false);
     }
@@ -2568,7 +3177,6 @@ export default function TechniciansPage() {
     setAuthNotice('');
     try {
       if (authMode === 'login') {
-        markPostLoginIntroPending();
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
@@ -2591,7 +3199,6 @@ export default function TechniciansPage() {
           }
         }
       } catch (error: any) {
-        clearPostLoginIntroPending();
         setAuthError(error?.message || 'No pudimos iniciar sesion.');
       }
   };
@@ -2632,56 +3239,303 @@ export default function TechniciansPage() {
     Boolean(profileForm.phone.trim()) &&
     Boolean(profileForm.address.trim());
 
-  const technicianVisibilityChecklist = useMemo(
-    () => [
-      { key: 'business', label: 'Nombre del negocio visible', completed: Boolean(profileForm.businessName.trim()) },
-      { key: 'phone', label: 'Telefono para contacto', completed: Boolean(profileForm.phone.trim()) },
-      {
-        key: 'province',
-        label: 'Provincia definida',
-        completed: Boolean(profileForm.province.trim()),
-      },
-      {
-        key: 'district',
-        label: 'Distrito definido',
-        completed: Boolean(profileForm.district.trim()),
-      },
-      {
-        key: 'city',
-        label: 'Ciudad definida',
-        completed: Boolean(profileForm.city.trim()),
-      },
-      {
-        key: 'coverage',
-        label: 'Zona de cobertura marcada',
-        completed:
-          (isCabaProfile && profileForm.coverageZones.length > 0) ||
-          (!isCabaProfile && Boolean(profileForm.coverageArea.trim())),
-      },
-      { key: 'specialty', label: 'Rubros / especialidades', completed: Boolean(profileForm.specialties.trim()) },
-      { key: 'hours', label: 'Horarios de atencion', completed: Boolean(profileForm.workingHours.trim()) },
-      { key: 'references', label: 'Referencias publicas', completed: Boolean(profileForm.referencesSummary.trim()) },
-    ],
+  const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
+  const selectedSpecialtiesSet = useMemo(
+    () => new Set(selectedSpecialties.map((item) => normalizeTextForParsing(item))),
+    [selectedSpecialties]
+  );
+
+  const handleSpecialtyToggle = (specialty: string) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      specialties: toggleSpecialty(prev.specialties, specialty),
+    }));
+  };
+
+  const handleAddCustomSpecialty = () => {
+    const customValue = customSpecialtyDraft.trim();
+    if (!customValue) return;
+    setProfileForm((prev) => ({
+      ...prev,
+      specialties: upsertSpecialty(prev.specialties, customValue),
+    }));
+    setCustomSpecialtyDraft('');
+  };
+
+  const selectedPaymentMethods = useMemo(
+    () => parseDelimitedValues(profileForm.paymentMethod),
+    [profileForm.paymentMethod]
+  );
+  const selectedPaymentMethodsSet = useMemo(
+    () => new Set(selectedPaymentMethods.map((item) => normalizeTextForParsing(item))),
+    [selectedPaymentMethods]
+  );
+
+  const handlePaymentMethodToggle = (method: string) => {
+    const key = normalizeTextForParsing(method);
+    const filtered = selectedPaymentMethods.filter((item) => normalizeTextForParsing(item) !== key);
+    if (filtered.length !== selectedPaymentMethods.length) {
+      setProfileForm((prev) => ({ ...prev, paymentMethod: serializeDelimitedValues(filtered) }));
+      return;
+    }
+    setProfileForm((prev) => ({
+      ...prev,
+      paymentMethod: serializeDelimitedValues([...selectedPaymentMethods, method]),
+    }));
+  };
+
+  const handleAddCustomPaymentMethod = () => {
+    const customValue = customPaymentMethodDraft.trim();
+    if (!customValue) return;
+    const key = normalizeTextForParsing(customValue);
+    if (selectedPaymentMethodsSet.has(key)) {
+      setCustomPaymentMethodDraft('');
+      return;
+    }
+    setProfileForm((prev) => ({
+      ...prev,
+      paymentMethod: serializeDelimitedValues([...selectedPaymentMethods, customValue]),
+    }));
+    setCustomPaymentMethodDraft('');
+  };
+
+  const handleCopyPublicProfileLink = async () => {
+    if (!publicProfileUrl) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(publicProfileUrl);
+        setProfileMessage('Link publico copiado.');
+        return;
+      }
+    } catch {
+      // Fallback below.
+    }
+    setProfileMessage(`Link publico: ${publicProfileUrl}`);
+  };
+
+  const handlePublishProfile = async () => {
+    if (!session?.user?.id) {
+      setProfileMessage('Inicia sesion para publicar tu perfil.');
+      return;
+    }
+    if (!profileForm.profilePublished) {
+      setProfileForm((prev) => ({ ...prev, profilePublished: true }));
+      const published = await persistProfile({ silent: false, refreshNearby: false, publishProfile: true });
+      if (!published) {
+        setProfileForm((prev) => ({ ...prev, profilePublished: false }));
+        return;
+      }
+      setProfileMessage('Perfil publicado.');
+      return;
+    }
+    await handleCopyPublicProfileLink();
+  };
+
+  const handleSharePublicProfileWhatsApp = () => {
+    if (!profileForm.profilePublished || !publicProfileUrl) {
+      setProfileMessage('Publica tu perfil antes de compartir.');
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const text = encodeURIComponent(
+      `Mira mi perfil profesional en UrbanFix: ${publicProfileUrl}`
+    );
+    window.open(`https://wa.me/?text=${text}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const handleSharePublicProfileFacebook = () => {
+    if (!profileForm.profilePublished || !publicProfileUrl) {
+      setProfileMessage('Publica tu perfil antes de compartir.');
+      return;
+    }
+    if (typeof window === 'undefined') return;
+    const shareUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(publicProfileUrl)}`;
+    window.open(shareUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const normalizedTaxIdValue = useMemo(() => normalizeTaxId(profileForm.taxId), [profileForm.taxId]);
+  const taxIdIsComplete = normalizedTaxIdValue.length === 11;
+  const taxIdIsValid = taxIdIsComplete && isValidCuit(normalizedTaxIdValue);
+  const taxIdHelper = !normalizedTaxIdValue
+    ? 'Ingresa 11 digitos de CUIT/CUIL.'
+    : taxIdIsValid
+      ? 'CUIT/CUIL valido.'
+      : 'CUIT/CUIL incompleto o invalido.';
+
+  const normalizedBankValue = useMemo(
+    () => (bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias)),
+    [bankAccountType, profileForm.bankAlias]
+  );
+  const bankValueIsValid = !normalizedBankValue
+    ? true
+    : bankAccountType === 'cbu'
+      ? isValidCbu(normalizedBankValue)
+      : isValidAlias(normalizedBankValue);
+  const bankValueHelper = bankAccountType === 'cbu'
+    ? 'CBU de 22 digitos.'
+    : 'Alias entre 6 y 20 caracteres (letras, numeros, punto o guion).';
+
+  const workingHoursConfig = useMemo<WorkingHoursConfig>(
+    () => ({
+      weekdayFrom: normalizeTimeValue(profileForm.weekdayFrom, DEFAULT_WORKING_HOURS_CONFIG.weekdayFrom),
+      weekdayTo: normalizeTimeValue(profileForm.weekdayTo, DEFAULT_WORKING_HOURS_CONFIG.weekdayTo),
+      saturdayEnabled: Boolean(profileForm.saturdayEnabled),
+      saturdayFrom: normalizeTimeValue(profileForm.saturdayFrom, DEFAULT_WORKING_HOURS_CONFIG.saturdayFrom),
+      saturdayTo: normalizeTimeValue(profileForm.saturdayTo, DEFAULT_WORKING_HOURS_CONFIG.saturdayTo),
+      sundayEnabled: Boolean(profileForm.sundayEnabled),
+      sundayFrom: normalizeTimeValue(profileForm.sundayFrom, DEFAULT_WORKING_HOURS_CONFIG.sundayFrom),
+      sundayTo: normalizeTimeValue(profileForm.sundayTo, DEFAULT_WORKING_HOURS_CONFIG.sundayTo),
+    }),
     [
-      profileForm.businessName,
-      profileForm.city,
-      profileForm.coverageArea,
-      profileForm.coverageZones.length,
-      profileForm.district,
-      profileForm.phone,
-      profileForm.province,
-      profileForm.referencesSummary,
-      profileForm.specialties,
-      profileForm.workingHours,
-      isCabaProfile,
+      profileForm.weekdayFrom,
+      profileForm.weekdayTo,
+      profileForm.saturdayEnabled,
+      profileForm.saturdayFrom,
+      profileForm.saturdayTo,
+      profileForm.sundayEnabled,
+      profileForm.sundayFrom,
+      profileForm.sundayTo,
     ]
   );
 
-  const technicianVisibilityPercent = useMemo(() => {
-    const completed = technicianVisibilityChecklist.filter((item) => item.completed).length;
-    const total = technicianVisibilityChecklist.length || 1;
-    return Math.round((completed / total) * 100);
-  }, [technicianVisibilityChecklist]);
+  const workingHoursLabel = useMemo(() => formatWorkingHoursLabel(workingHoursConfig), [workingHoursConfig]);
+  const coverageAreaLabel = useMemo(() => buildCoverageAreaLabel(profileForm.city || ''), [profileForm.city]);
+  const facebookPreviewEmbedUrl = useMemo(
+    () => buildFacebookTimelineEmbedUrl(profileForm.facebookUrl),
+    [profileForm.facebookUrl]
+  );
+  const instagramPreviewEmbedUrl = useMemo(
+    () => buildInstagramEmbedUrl(profileForm.instagramUrl),
+    [profileForm.instagramUrl]
+  );
+  const publicProfileUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !session?.user?.id) return '';
+    return `${window.location.origin}/tecnico/${session.user.id}`;
+  }, [session?.user?.id]);
+  const publicShowcaseUrl = useMemo(() => {
+    if (typeof window === 'undefined') return '';
+    return `${window.location.origin}/vidriera`;
+  }, []);
+  const autoSaveSignature = useMemo(
+    () =>
+      JSON.stringify({
+        fullName: profileForm.fullName.trim(),
+        businessName: profileForm.businessName.trim(),
+        email: profileForm.email.trim(),
+        phone: profileForm.phone.trim(),
+        address: profileForm.address.trim(),
+        city: profileForm.city.trim(),
+        coverageArea: coverageAreaLabel,
+        workingHours: buildWorkingHoursPayload(workingHoursConfig),
+        specialties: serializeDelimitedValues(parseSpecialties(profileForm.specialties)),
+        certifications: profileForm.certifications.trim(),
+        facebookUrl: toSafeUrl(profileForm.facebookUrl),
+        instagramUrl: toSafeUrl(profileForm.instagramUrl),
+        profilePublished: Boolean(profileForm.profilePublished),
+        certificationFiles: certificationFiles.map((file) => ({
+          id: file.id,
+          name: file.name,
+          url: file.url,
+          fileType: file.fileType,
+          storagePath: file.storagePath || null,
+        })),
+        taxId: normalizeTaxId(profileForm.taxId),
+        taxStatus: profileForm.taxStatus.trim(),
+        paymentMethod: serializeDelimitedValues(parseDelimitedValues(profileForm.paymentMethod)),
+        bankAlias: bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias),
+        defaultCurrency: profileForm.defaultCurrency,
+        defaultTaxRate: toNumber(String(profileForm.defaultTaxRate)),
+        defaultDiscount: toNumber(String(profileForm.defaultDiscount)),
+        companyLogoUrl: profileForm.companyLogoUrl.trim(),
+        avatarUrl: profileForm.avatarUrl.trim(),
+        logoShape: profileForm.logoShape,
+      }),
+    [
+      bankAccountType,
+      certificationFiles,
+      coverageAreaLabel,
+      profileForm.address,
+      profileForm.avatarUrl,
+      profileForm.bankAlias,
+      profileForm.businessName,
+      profileForm.certifications,
+      profileForm.city,
+      profileForm.companyLogoUrl,
+      profileForm.defaultCurrency,
+      profileForm.defaultDiscount,
+      profileForm.defaultTaxRate,
+      profileForm.email,
+      profileForm.fullName,
+      profileForm.facebookUrl,
+      profileForm.instagramUrl,
+      profileForm.logoShape,
+      profileForm.paymentMethod,
+      profileForm.phone,
+      profileForm.profilePublished,
+      profileForm.specialties,
+      profileForm.taxId,
+      profileForm.taxStatus,
+      workingHoursConfig,
+    ]
+  );
+
+  useEffect(() => {
+    if (!session?.user?.id || !profileHydrated || autoSaveBootstrapped) return;
+    lastPersistedProfileSignatureRef.current = autoSaveSignature;
+    setAutoSaveBootstrapped(true);
+    setAutoSaveState('idle');
+    setAutoSaveMessage('');
+  }, [autoSaveBootstrapped, autoSaveSignature, profileHydrated, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !autoSaveBootstrapped) return;
+    if (profilePersistInFlightRef.current) return;
+    if (autoSaveSignature === lastPersistedProfileSignatureRef.current) return;
+
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      persistProfile({ silent: true, refreshNearby: false });
+    }, 900);
+
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [autoSaveBootstrapped, autoSaveSignature, profilePersistTick, session?.user?.id]);
+
+  const sessionMediaOverlays = session?.user ? (
+    <>
+      {resumeStaticVisible && RESUME_STATIC_IMAGE_URL && !postLoginVideoVisible && (
+        <div className="fixed inset-0 z-[120] bg-black" aria-hidden="true">
+          <img src={RESUME_STATIC_IMAGE_URL} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+      {postLoginVideoVisible && postLoginVideoAvailable && (
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black" aria-hidden="true">
+          <video
+            ref={postLoginVideoRef}
+            src={POST_LOGIN_VIDEO_URL}
+            poster={RESUME_STATIC_IMAGE_URL || ACCESS_VIDEO_POSTER_URL}
+            autoPlay
+            playsInline
+            preload="auto"
+            muted={false}
+            onEnded={() => setPostLoginVideoVisible(false)}
+            onError={() => {
+              setPostLoginVideoAvailable(false);
+              setPostLoginVideoVisible(false);
+            }}
+            className="h-auto w-[60vw] max-w-[360px] min-w-[220px] object-contain"
+          />
+        </div>
+      )}
+    </>
+  ) : null;
 
   if (loadingSession) {
     return (
@@ -2704,6 +3558,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -2729,7 +3584,7 @@ export default function TechniciansPage() {
           <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
             <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
             <p className="mt-3 text-sm text-slate-600">
-              Tu cuenta está configurada como admin. Te llevamos al panel de control.
+              Tu cuenta estÃ¡ configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
@@ -2791,9 +3646,9 @@ export default function TechniciansPage() {
                     <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseña</h1>
+                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseÃ±a</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Define una nueva contraseña para volver a acceder a tu cuenta.
+                  Define una nueva contraseÃ±a para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
@@ -2806,13 +3661,13 @@ export default function TechniciansPage() {
 
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseña</h2>
-                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseña para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseÃ±a</h2>
+                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseÃ±a para finalizar.</p>
                 </div>
 
                 {!session?.user && (
                   <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
+                    La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.
                   </div>
                 )}
 
@@ -2823,14 +3678,14 @@ export default function TechniciansPage() {
                         value={recoveryPassword}
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
-                        placeholder="Nueva contraseña"
+                        placeholder="Nueva contraseÃ±a"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
-                        placeholder="Repetir contraseña"
+                        placeholder="Repetir contraseÃ±a"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                     </div>
@@ -2845,7 +3700,7 @@ export default function TechniciansPage() {
                         disabled={updatingRecovery}
                         className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                       >
-                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
+                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseÃ±a'}
                       </button>
                     )}
 
@@ -2864,15 +3719,15 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
-        {accessIntroOverlay}
       </>
     );
   }
 
-  if (session?.user && selectedAccessProfile !== 'cliente' && profile && profileRequiredMissing.length > 0) {
+  if (session?.user && profile && profileRequiredMissing.length > 0) {
     return (
       <>
         <AuthHashHandler />
+        {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -3063,7 +3918,6 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
-        {accessIntroOverlay}
       </>
     );
   }
@@ -3149,7 +4003,7 @@ export default function TechniciansPage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
                   <h2 className="text-2xl font-bold text-slate-900">Selecciona tu perfil</h2>
-                  <p className="text-sm text-slate-600">Esto define a qué panel o vista te llevamos.</p>
+                  <p className="text-sm text-slate-600">Esto define a quÃ© panel o vista te llevamos.</p>
                 </div>
                 <div className="mt-6 space-y-3">
                   <button
@@ -3303,7 +4157,7 @@ export default function TechniciansPage() {
                       disabled={sendingRecovery}
                       className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
                     >
-                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseña?'}
+                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseÃ±a?'}
                     </button>
                   </div>
                 )}
@@ -3335,113 +4189,30 @@ export default function TechniciansPage() {
           </main>
         </div>
         </div>
-        {accessIntroOverlay}
-      </>
-    );
-  }
-
-  if (session?.user && !selectedAccessProfile) {
-    return (
-      <>
-        <AuthHashHandler />
-        <div
-          style={activeThemeStyles}
-          data-ui-theme={uiTheme}
-          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
-        >
-          <div className="mx-auto flex min-h-screen w-full max-w-3xl items-center px-6 py-16">
-            <div className="w-full rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-slate-200/50">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Seleccion de perfil</p>
-              <h1 className="mt-2 text-3xl font-black text-slate-900">Elige como quieres continuar</h1>
-              <p className="mt-2 text-sm text-slate-600">
-                Tu sesion ya esta activa. Selecciona el perfil de uso para abrir la vista correcta.
-              </p>
-              <div className="mt-6 space-y-3">
-                <button
-                  type="button"
-                  onClick={() => handleAccessProfileSelect('tecnico')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
-                >
-                  <p className="text-sm font-bold text-slate-900">Tecnico</p>
-                  <p className="mt-1 text-xs text-slate-600">Presupuestos, agenda y operaciones.</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAccessProfileSelect('empresa')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
-                >
-                  <p className="text-sm font-bold text-slate-900">Empresa</p>
-                  <p className="mt-1 text-xs text-slate-600">Gestion comercial y seguimiento.</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleAccessProfileSelect('cliente')}
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
-                >
-                  <p className="text-sm font-bold text-slate-900">Cliente</p>
-                  <p className="mt-1 text-xs text-slate-600">Solicitar tecnicos y coordinar trabajos.</p>
-                </button>
-              </div>
-              <div className="mt-6 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Cerrar sesion
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-        {accessIntroOverlay}
-      </>
-    );
-  }
-
-  if (session?.user && selectedAccessProfile === 'cliente') {
-    return (
-      <>
-        <AuthHashHandler />
-        <div
-          style={activeThemeStyles}
-          data-ui-theme={uiTheme}
-          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
-        >
-          <ClientWorkspace
-            userId={session.user.id}
-            authToken={session.access_token}
-            displayName={profile?.full_name || session.user.email || null}
-            onSwitchProfile={handleBackToProfileSelector}
-            onLogout={handleLogout}
-          />
-        </div>
-        {accessIntroOverlay}
       </>
     );
   }
 
   return (
-    <>
-      <div
-        style={activeThemeStyles}
-        data-ui-theme={uiTheme}
-        className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
-      >
-        <AuthHashHandler />
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
-          <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
-          <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
+    <div
+      style={activeThemeStyles}
+      data-ui-theme={uiTheme}
+      className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+    >
+      <AuthHashHandler />
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
+        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
+        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-          <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
-            <aside
-              onMouseEnter={() => setIsNavHovered(true)}
-              onMouseLeave={() => setIsNavHovered(false)}
-              className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
-                isNavExpanded ? 'w-72' : 'w-20'
-              }`}
-            >
+        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
+          <aside
+            onMouseEnter={() => setIsNavHovered(true)}
+            onMouseLeave={() => setIsNavHovered(false)}
+            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
+              isNavExpanded ? 'w-72' : 'w-20'
+            }`}
+          >
             <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-3">
                 <div
@@ -3566,81 +4337,40 @@ export default function TechniciansPage() {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <header className="relative rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/85 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                    className={`flex h-12 w-auto min-w-12 max-w-[96px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                      brandLogoUrl ? 'bg-white' : 'bg-slate-900'
-                    }`}
-                  >
-                    {brandLogoUrl ? (
-                      <img
-                        src={brandLogoUrl}
-                        alt="Logo de empresa"
-                        onLoad={handleLogoLoaded}
-                        className={`h-full w-full ${logoPresentation.img}`}
-                      />
-                    ) : (
-                      <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
-                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
-                      {profile?.business_name || 'Panel tecnico'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleUiTheme}
-                    className="inline-flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/80 px-4 py-2 text-xs font-semibold text-[color:var(--ui-muted)] transition hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]"
-                  >
-                    {uiTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    <span className="hidden sm:inline">{uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
-                  </button>
-                </div>
+            <div className="mb-4 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/70 p-2 shadow-sm backdrop-blur lg:hidden">
+              <div className="flex items-center gap-2 overflow-x-auto">
+                {navItems.map((item) => {
+                  const isActive = activeNavKey === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(item.key);
+                        if (item.key === 'presupuestos') setQuoteFilter('all');
+                      }}
+                      className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                        isActive
+                          ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
+                          : 'bg-[color:var(--ui-card)] text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {item.label}
+                        {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {unreadNotifications}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                <span className="ml-auto hidden shrink-0 rounded-full bg-[color:var(--ui-card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--ui-muted)] sm:inline-flex">
+                  {quotes.length} activos
+                </span>
               </div>
-
-              <div className="mt-4 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/70 p-2 shadow-sm backdrop-blur lg:hidden">
-                <div className="flex items-center gap-2 overflow-x-auto">
-                  {navItems.map((item) => {
-                    const isActive = activeNavKey === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => {
-                          setActiveTab(item.key);
-                          if (item.key === 'presupuestos') setQuoteFilter('all');
-                        }}
-                        className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
-                          isActive
-                            ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
-                            : 'bg-[color:var(--ui-card)] text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          {item.label}
-                          {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                              {unreadNotifications}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <span className="ml-auto hidden shrink-0 rounded-full bg-[color:var(--ui-card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--ui-muted)] sm:inline-flex">
-                    {quotes.length} activos
-                  </span>
-                </div>
-              </div>
-            </header>
+            </div>
 
             <main className="relative pt-6">
           <section className="space-y-6">
@@ -3846,6 +4576,166 @@ export default function TechniciansPage() {
                           </span>
                         </button>
                       ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa operativo</p>
+                      <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                        Trabajos propios + solicitudes por zona
+                      </h3>
+                      <p className="mt-1 text-sm text-slate-500">
+                        Visualiza tus trabajos con ubicacion y las nuevas solicitudes cercanas dentro del radio activo.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchNearbyRequests}
+                      disabled={loadingNearbyRequests}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingNearbyRequests ? 'Actualizando...' : 'Actualizar solicitudes'}
+                    </button>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setDashboardMapFilter('all')}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        dashboardMapFilter === 'all'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Todo ({dashboardRequestPoints.length + dashboardJobPoints.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDashboardMapFilter('jobs')}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        dashboardMapFilter === 'jobs'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Mis trabajos ({dashboardJobPoints.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDashboardMapFilter('requests')}
+                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                        dashboardMapFilter === 'requests'
+                          ? 'bg-slate-900 text-white'
+                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                      }`}
+                    >
+                      Solicitudes ({dashboardRequestPoints.length})
+                    </button>
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                      Radio: {technicianRadiusKm} km
+                    </span>
+                    {technicianWithinWorkingHours !== null && (
+                      <span
+                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                          technicianWithinWorkingHours
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-700'
+                        }`}
+                      >
+                        {technicianWithinWorkingHours ? 'Dentro de horario' : 'Fuera de horario'}
+                      </span>
+                    )}
+                  </div>
+                  {technicianWorkingHoursLabel && (
+                    <p className="mt-2 text-xs text-slate-500">Horario activo: {technicianWorkingHoursLabel}</p>
+                  )}
+                  {nearbyRequestsWarning && <p className="mt-2 text-xs font-semibold text-amber-700">{nearbyRequestsWarning}</p>}
+                  {nearbyRequestsError && <p className="mt-2 text-xs font-semibold text-rose-600">{nearbyRequestsError}</p>}
+
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                      {dashboardMapUrl ? (
+                        <iframe title="Mapa operativo UrbanFix" src={dashboardMapUrl} className="h-[360px] w-full border-0" loading="lazy" />
+                      ) : (
+                        <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-slate-500">
+                          No hay puntos geolocalizados todavia. Carga ubicaciones en tus trabajos o actualiza solicitudes.
+                        </div>
+                      )}
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3 text-xs">
+                        <span className="font-semibold text-slate-700">
+                          {dashboardSelectedMapPoint
+                            ? `${dashboardSelectedMapPoint.kind === 'request' ? 'Solicitud' : 'Trabajo'} seleccionado: ${dashboardSelectedMapPoint.title}`
+                            : 'Centro de mapa basado en tu zona'}
+                        </span>
+                        {dashboardSelectedMapPoint && (
+                          <a
+                            href={buildOsmLink(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon)}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
+                          >
+                            Abrir en mapa
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
+                        <p>Puntos visibles: {dashboardMapPoints.length}</p>
+                        {(jobsWithoutCoordinatesCount > 0 || requestsWithoutCoordinatesCount > 0) && (
+                          <p className="mt-1 text-amber-700">
+                            Sin coordenadas: trabajos {jobsWithoutCoordinatesCount} | solicitudes {requestsWithoutCoordinatesCount}
+                          </p>
+                        )}
+                      </div>
+                      <div className="mt-3 max-h-[300px] space-y-2 overflow-auto pr-1">
+                        {dashboardMapPoints.length === 0 && (
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
+                            No hay puntos para mostrar con este filtro.
+                          </div>
+                        )}
+                        {dashboardMapPoints.map((point) => {
+                          const isSelected = dashboardSelectedMapPoint?.id === point.id;
+                          return (
+                            <button
+                              key={point.id}
+                              type="button"
+                              onClick={() => setDashboardMapSelectedId(point.id)}
+                              className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                                isSelected
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="truncate text-xs font-semibold">{point.title}</p>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    isSelected
+                                      ? 'bg-white/20 text-white'
+                                      : point.kind === 'request'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-emerald-100 text-emerald-700'
+                                  }`}
+                                >
+                                  {point.kind === 'request' ? 'Solicitud' : 'Trabajo'}
+                                </span>
+                              </div>
+                              <p className={`mt-1 truncate text-[11px] ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                {point.subtitle}
+                              </p>
+                              <p className={`mt-1 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                {point.meta}
+                              </p>
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -4333,7 +5223,7 @@ export default function TechniciansPage() {
                             </div>
                           </div>
                         <p className="mt-1 text-xs text-slate-500">
-                          {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                          {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                           {new Date(quote.created_at).toLocaleDateString('es-AR')}
                         </p>
                         <p className="mt-3 text-sm font-semibold text-slate-900">
@@ -4404,7 +5294,7 @@ export default function TechniciansPage() {
                       onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')}
                       className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                     >
-                      Abrir en pestaña
+                      Abrir en pestaÃ±a
                     </button>
                   )}
                 </div>
@@ -4525,7 +5415,7 @@ export default function TechniciansPage() {
                             )}
                           </div>
                           <p className="mt-1 text-xs text-slate-500">
-                            {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                            {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                             {new Date(quote.created_at).toLocaleDateString('es-AR')}
                           </p>
                           {durationDays > 0 && (
@@ -5162,172 +6052,118 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura y horarios</p>
-                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                            Visibilidad para clientes
-                          </p>
-                          <p className="text-sm font-bold text-slate-900">{technicianVisibilityPercent}%</p>
-                        </div>
-                        <p className="mt-2 text-[11px] text-slate-500">
-                          Este porcentaje impacta en el orden en que apareces para nuevas oportunidades.
-                        </p>
-                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                          {technicianVisibilityChecklist.map((item) => (
-                            <p
-                              key={item.key}
-                              className={`rounded-xl border px-2 py-1.5 text-[11px] font-medium ${
-                                item.completed
-                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                                  : 'border-slate-200 bg-slate-50 text-slate-500'
-                              }`}
-                            >
-                              {item.completed ? 'OK' : 'Pendiente'} · {item.label}
-                            </p>
-                          ))}
-                        </div>
-                      </div>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">
-                        Direccion base (interna, no publica)
-                      </label>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Direccion base</label>
                       <input
                         value={profileForm.address}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Provincia</label>
-                      <select
-                        value={profileForm.province}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            province: event.target.value,
-                            district: '',
-                            city: '',
-                            coverageArea: event.target.value === CABA_PROVINCE ? '' : prev.coverageArea,
-                            coverageZones: [],
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      >
-                        <option value="">Seleccionar provincia...</option>
-                        {availableProvinceOptions.map((province) => (
-                          <option key={province} value={province}>
-                            {province}
-                          </option>
-                        ))}
-                      </select>
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Distrito</label>
-                      <select
-                        value={profileForm.district}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            district: event.target.value,
-                            city: '',
-                            coverageArea: prev.province === CABA_PROVINCE ? '' : prev.coverageArea,
-                            coverageZones: prev.province === CABA_PROVINCE ? [] : prev.coverageZones,
-                          }))
-                        }
-                        disabled={!profileForm.province}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
-                      >
-                        <option value="">Seleccionar distrito...</option>
-                        {availableDistrictOptions.map((option) => (
-                          <option key={option.district} value={option.district}>
-                            {option.district}
-                          </option>
-                        ))}
-                      </select>
-
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad</label>
-                      <select
+                      <input
                         value={profileForm.city}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
-                        disabled={!profileForm.district}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:cursor-not-allowed disabled:bg-slate-100"
-                      >
-                        <option value="">Seleccionar ciudad...</option>
-                        {availableCityOptions.map((cityOption) => (
-                          <option key={cityOption} value={cityOption}>
-                            {cityOption}
-                          </option>
-                        ))}
-                      </select>
-
-                      {isCabaProfile ? (
-                        <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-                          <p className="text-xs font-semibold text-slate-700">Mapa de cobertura CABA</p>
-                          <p className="mt-1 text-[11px] text-slate-500">
-                            Marca comunas para visibilidad sin exponer direccion exacta.
-                          </p>
-                          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                            <iframe
-                              title="Cobertura Ciudad de Buenos Aires"
-                              src={cabaCoverageMapUrl}
-                              className="h-56 w-full border-0"
-                              loading="lazy"
-                            />
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {CABA_ZONE_OPTIONS.map((zone) => {
-                              const selected = profileForm.coverageZones.includes(zone.id);
-                              return (
-                                <button
-                                  key={zone.id}
-                                  type="button"
-                                  onClick={() =>
-                                    setProfileForm((prev) => {
-                                      const nextZones = selected
-                                        ? prev.coverageZones.filter((item) => item !== zone.id)
-                                        : [...prev.coverageZones, zone.id];
-                                      return {
-                                        ...prev,
-                                        coverageZones: nextZones,
-                                        coverageArea: buildCoverageAreaLabel(nextZones, prev.coverageArea),
-                                      };
-                                    })
-                                  }
-                                  className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-                                    selected
-                                      ? 'bg-slate-900 text-white'
-                                      : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
-                                  }`}
-                                >
-                                  {zone.label}
-                                </button>
-                              );
-                            })}
-                          </div>
-                          <p className="mt-2 text-[11px] text-slate-500">
-                            Zonas marcadas: {profileForm.coverageZones.length}
-                          </p>
-                        </div>
-                      ) : (
-                        <>
-                          <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
-                          <input
-                            value={profileForm.coverageArea}
-                            onChange={(event) =>
-                              setProfileForm((prev) => ({ ...prev, coverageArea: event.target.value }))
-                            }
-                            placeholder="Ej: Zona Norte GBA, Pilar, Escobar"
-                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                          />
-                        </>
-                      )}
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Horarios de atencion</label>
-                      <input
-                        value={profileForm.workingHours}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, workingHours: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <p className="mt-2 text-[11px] text-slate-500">
-                        Mostramos provincia, distrito, ciudad y zonas. La direccion exacta no se publica.
-                      </p>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
+                      <div className="mt-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p className="text-sm font-semibold text-slate-900">Solicitudes en radio de {COVERAGE_RADIUS_KM} km</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Mostramos trabajos cercanos a tu ubicacion base sin exponer tu direccion exacta.
+                        </p>
+                        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                          {coverageAreaLabel}
+                        </p>
+                      </div>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Horarios de atencion</label>
+                      <div className="mt-2 space-y-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700">Lunes a viernes</p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            <input
+                              type="time"
+                              value={profileForm.weekdayFrom}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, weekdayFrom: event.target.value }))
+                              }
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                            <input
+                              type="time"
+                              value={profileForm.weekdayTo}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, weekdayTo: event.target.value }))}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={profileForm.saturdayEnabled}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, saturdayEnabled: event.target.checked }))
+                              }
+                            />
+                            Sabado (opcional)
+                          </label>
+                          {profileForm.saturdayEnabled && (
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                              <input
+                                type="time"
+                                value={profileForm.saturdayFrom}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, saturdayFrom: event.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                              <input
+                                type="time"
+                                value={profileForm.saturdayTo}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, saturdayTo: event.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={profileForm.sundayEnabled}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, sundayEnabled: event.target.checked }))
+                              }
+                            />
+                            Domingo (opcional)
+                          </label>
+                          {profileForm.sundayEnabled && (
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                              <input
+                                type="time"
+                                value={profileForm.sundayFrom}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, sundayFrom: event.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                              <input
+                                type="time"
+                                value={profileForm.sundayTo}
+                                onChange={(event) => setProfileForm((prev) => ({ ...prev, sundayTo: event.target.value }))}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                          Resumen: {workingHoursLabel}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -5335,12 +6171,71 @@ export default function TechniciansPage() {
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Especialidades</p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">Rubros</label>
-                      <textarea
-                        value={profileForm.specialties}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, specialties: event.target.value }))}
-                        rows={3}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Selecciona uno o mas rubros para mostrarte mejor frente a clientes.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {TECH_SPECIALTY_OPTIONS.map((specialty) => {
+                          const isSelected = selectedSpecialtiesSet.has(normalizeTextForParsing(specialty));
+                          return (
+                            <button
+                              key={specialty}
+                              type="button"
+                              onClick={() => handleSpecialtyToggle(specialty)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                isSelected
+                                  ? 'bg-slate-900 text-white'
+                                  : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                              }`}
+                            >
+                              {specialty}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Agregar rubro personalizado</label>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          value={customSpecialtyDraft}
+                          onChange={(event) => setCustomSpecialtyDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            handleAddCustomSpecialty();
+                          }}
+                          placeholder="Ej: Durlock"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomSpecialty}
+                          className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                        <p className="text-[11px] font-semibold text-slate-600">
+                          Rubros seleccionados ({selectedSpecialties.length})
+                        </p>
+                        {selectedSpecialties.length === 0 ? (
+                          <p className="mt-2 text-xs text-slate-500">Aun no seleccionaste rubros.</p>
+                        ) : (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedSpecialties.map((specialty) => (
+                              <button
+                                key={specialty}
+                                type="button"
+                                onClick={() => handleSpecialtyToggle(specialty)}
+                                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                              >
+                                {specialty}
+                                <X className="h-3 w-3" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Certificaciones</label>
                       <textarea
                         value={profileForm.certifications}
@@ -5348,212 +6243,321 @@ export default function TechniciansPage() {
                         rows={3}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => certificationFileInputRef.current?.click()}
+                          disabled={uploadingCertificationFiles || certificationFiles.length >= CERT_MAX_FILES}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <FileText className="h-4 w-4" />
+                          {uploadingCertificationFiles ? 'Subiendo...' : 'Adjuntar certificados'}
+                        </button>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {certificationFiles.length}/{CERT_MAX_FILES}
+                        </span>
+                        <span className="text-[11px] text-slate-500">PDF, imagen, DOC o DOCX (max 10 MB)</span>
+                        <input
+                          ref={certificationFileInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={handleCertificationFilesUpload}
+                          className="hidden"
+                        />
+                      </div>
+
+                      {certificationFilesError && (
+                        <p className="mt-2 text-xs font-semibold text-rose-600">{certificationFilesError}</p>
+                      )}
+
+                      {certificationFiles.length > 0 && (
+                        <div className="mt-3 space-y-2 rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slate-600">Archivos adjuntos</p>
+                          {certificationFiles.map((file) => (
+                            <div
+                              key={file.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2"
+                            >
+                              <a
+                                href={file.url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="truncate text-xs font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
+                                title={file.name}
+                              >
+                                {file.name}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCertificationFile(file.id)}
+                                className="rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Reputacion publica</p>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-xl border border-slate-200 bg-white p-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Puntuacion</p>
-                          <p className="mt-1 text-lg font-bold text-slate-900">
-                            {Number(profileForm.publicRating || 0).toFixed(1)} / 5
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Trabajos verificados</p>
-                          <p className="mt-1 text-lg font-bold text-slate-900">{completedJobsVerified}</p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-white p-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Trabajos publicados</p>
-                          <p className="mt-1 text-lg font-bold text-slate-900">{profileForm.completedJobsTotal || 0}</p>
-                        </div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Redes y visibilidad</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
+                      <input
+                        value={profileForm.facebookUrl}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, facebookUrl: event.target.value }))}
+                        placeholder="https://www.facebook.com/tu.pagina"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Instagram (perfil o post)</label>
+                      <input
+                        value={profileForm.instagramUrl}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, instagramUrl: event.target.value }))}
+                        placeholder="https://www.instagram.com/tuusuario o /p/..."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handlePublishProfile}
+                          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                        >
+                          {profileForm.profilePublished ? 'Perfil publicado - copiar link' : 'PUBLICAR MI PERFIL'}
+                        </button>
+                        {profileForm.profilePublished && publicProfileUrl && (
+                          <a
+                            href={publicProfileUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Ver perfil publico
+                          </a>
+                        )}
                       </div>
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Puntuacion publica (0 a 5)</label>
-                      <input
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        max="5"
-                        value={profileForm.publicRating}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            publicRating: Math.min(5, Math.max(0, toNumber(event.target.value))),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Cantidad de recomendaciones</label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        value={profileForm.publicReviewsCount}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            publicReviewsCount: Math.max(0, Math.round(toNumber(event.target.value))),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Trabajos realizados (publico)</label>
-                      <input
-                        type="number"
-                        step="1"
-                        min="0"
-                        value={profileForm.completedJobsTotal}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            completedJobsTotal: Math.max(0, Math.round(toNumber(event.target.value))),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-
-                      <p className="mt-3 text-[11px] text-slate-500">
-                        Sugerencia: usa el valor verificado ({completedJobsVerified}) para mantener coherencia publica.
-                      </p>
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Insignias</label>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {TECH_BADGE_OPTIONS.map((badge) => {
-                          const selected = profileForm.achievementBadges.includes(badge.id);
-                          return (
-                            <button
-                              key={badge.id}
-                              type="button"
-                              onClick={() =>
-                                setProfileForm((prev) => ({
-                                  ...prev,
-                                  achievementBadges: selected
-                                    ? prev.achievementBadges.filter((item) => item !== badge.id)
-                                    : [...prev.achievementBadges, badge.id],
-                                }))
-                              }
-                              className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-                                selected
-                                  ? 'bg-slate-900 text-white'
-                                  : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                              }`}
-                            >
-                              {badge.label}
-                            </button>
-                          );
-                        })}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handleCopyPublicProfileLink}
+                          className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                        >
+                          Copiar link
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSharePublicProfileWhatsApp}
+                          className="rounded-full border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-700 transition hover:border-emerald-400 hover:text-emerald-800"
+                        >
+                          Compartir por WhatsApp
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleSharePublicProfileFacebook}
+                          className="rounded-full border border-blue-300 bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 transition hover:border-blue-400 hover:text-blue-800"
+                        >
+                          Compartir en Facebook
+                        </button>
+                        {publicShowcaseUrl && (
+                          <a
+                            href={publicShowcaseUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Ver vidriera publica
+                          </a>
+                        )}
                       </div>
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Referencias</label>
-                      <textarea
-                        value={profileForm.referencesSummary}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({ ...prev, referencesSummary: event.target.value }))
-                        }
-                        rows={3}
-                        placeholder="Ej: Mantenimiento de edificios, obras en consorcios, locales comerciales."
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">
-                        Recomendaciones de clientes (una por linea)
-                      </label>
-                      <textarea
-                        value={profileForm.clientRecommendations}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({ ...prev, clientRecommendations: event.target.value }))
-                        }
-                        rows={4}
-                        placeholder={'Ej: Excelente trabajo y prolijidad.\\nCumplio tiempos y presupuesto.'}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
                       <p className="mt-2 text-[11px] text-slate-500">
-                        Recomendaciones visibles actualmente: {splitTextLines(profileForm.clientRecommendations).length}
+                        {profileForm.profilePublished
+                          ? 'Tu perfil ya esta visible para clientes.'
+                          : 'Publica tu perfil para que clientes puedan verlo por link.'}
                       </p>
+
+                      <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slate-600">Feed Facebook</p>
+                          {facebookPreviewEmbedUrl ? (
+                            <iframe
+                              title="Vista previa Facebook"
+                              src={facebookPreviewEmbedUrl}
+                              className="mt-2 h-64 w-full rounded-xl border-0"
+                              loading="lazy"
+                              allow="encrypted-media"
+                            />
+                          ) : (
+                            <p className="mt-2 text-xs text-slate-500">
+                              Carga el link de tu pagina de Facebook para mostrar posteos.
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slate-600">Post Instagram</p>
+                          {instagramPreviewEmbedUrl ? (
+                            <iframe
+                              title="Vista previa Instagram"
+                              src={instagramPreviewEmbedUrl}
+                              className="mt-2 h-64 w-full rounded-xl border-0"
+                              loading="lazy"
+                              allow="encrypted-media"
+                            />
+                          ) : (
+                            <p className="mt-2 text-xs text-slate-500">
+                              Pega un link de Instagram (idealmente un post o reel) para mostrarlo en tu perfil.
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos comerciales</p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">CUIT / CUIL</label>
                       <input
-                        value={profileForm.taxId}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, taxId: event.target.value }))}
+                        value={formatTaxId(profileForm.taxId)}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, taxId: normalizeTaxId(event.target.value) }))
+                        }
+                        placeholder="20-12345678-3"
+                        inputMode="numeric"
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p
+                        className={`mt-2 text-[11px] font-semibold ${
+                          !normalizedTaxIdValue
+                            ? 'text-slate-500'
+                            : taxIdIsValid
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                        }`}
+                      >
+                        {taxIdHelper}
+                      </p>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Condicion IVA</label>
-                      <input
+                      <select
                         value={profileForm.taxStatus}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, taxStatus: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="">Seleccionar condicion</option>
+                        {TAX_STATUS_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Metodo de pago</label>
-                      <input
-                        value={profileForm.paymentMethod}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, paymentMethod: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {PAYMENT_METHOD_OPTIONS.map((method) => {
+                          const isSelected = selectedPaymentMethodsSet.has(normalizeTextForParsing(method));
+                          return (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => handlePaymentMethodToggle(method)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                isSelected
+                                  ? 'bg-slate-900 text-white'
+                                  : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                              }`}
+                            >
+                              {method}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={customPaymentMethodDraft}
+                          onChange={(event) => setCustomPaymentMethodDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            handleAddCustomPaymentMethod();
+                          }}
+                          placeholder="Agregar metodo personalizado"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomPaymentMethod}
+                          className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Seleccionados: {selectedPaymentMethods.length > 0 ? selectedPaymentMethods.join(', ') : 'ninguno'}
+                      </p>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">CBU / Alias</label>
+                      <div className="mt-2 inline-flex rounded-full border border-slate-300 bg-white p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (bankAccountType === 'alias') return;
+                            setBankAccountType('alias');
+                            setProfileForm((prev) => ({ ...prev, bankAlias: '' }));
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                            bankAccountType === 'alias' ? 'bg-slate-900 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          Alias
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (bankAccountType === 'cbu') return;
+                            setBankAccountType('cbu');
+                            setProfileForm((prev) => ({ ...prev, bankAlias: '' }));
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                            bankAccountType === 'cbu' ? 'bg-slate-900 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          CBU
+                        </button>
+                      </div>
                       <input
                         value={profileForm.bankAlias}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, bankAlias: event.target.value }))}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            bankAlias: bankAccountType === 'cbu' ? normalizeCbu(event.target.value) : normalizeAlias(event.target.value),
+                          }))
+                        }
+                        inputMode={bankAccountType === 'cbu' ? 'numeric' : 'text'}
+                        placeholder={bankAccountType === 'cbu' ? '22 digitos de CBU' : 'alias.cuenta'}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p
+                        className={`mt-2 text-[11px] font-semibold ${
+                          !normalizedBankValue
+                            ? 'text-slate-500'
+                            : bankValueIsValid
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                        }`}
+                      >
+                        {bankValueIsValid ? bankValueHelper : 'Dato bancario invalido.'}
+                      </p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Preferencias</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Moneda</label>
-                      <select
-                        value={profileForm.defaultCurrency}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, defaultCurrency: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                      >
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                      </select>
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">IVA por defecto</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={profileForm.defaultTaxRate}
-                        onFocus={(event) => event.currentTarget.select()}
-                        onClick={(event) => event.currentTarget.select()}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            defaultTaxRate: toNumber(event.target.value),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">
-                        Descuento por defecto (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={profileForm.defaultDiscount}
-                        onFocus={(event) => event.currentTarget.select()}
-                        onClick={(event) => event.currentTarget.select()}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            defaultDiscount: Math.min(100, Math.max(0, toNumber(event.target.value))),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                    </div>
                   </div>
                 </div>
 
                 <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePublishProfile}
+                    className="rounded-full border border-slate-300 bg-white px-5 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    {profileForm.profilePublished ? 'Copiar link publico' : 'PUBLICAR MI PERFIL'}
+                  </button>
                   <button
                     type="button"
                     onClick={handleProfileSave}
@@ -5562,6 +6566,21 @@ export default function TechniciansPage() {
                   >
                     {profileSaving ? 'Guardando...' : 'Guardar cambios'}
                   </button>
+                  {autoSaveBootstrapped && (
+                    <span
+                      className={`text-xs font-semibold ${
+                        autoSaveState === 'error'
+                          ? 'text-rose-600'
+                          : autoSaveState === 'saving'
+                            ? 'text-amber-600'
+                            : 'text-slate-500'
+                      }`}
+                    >
+                      {autoSaveState === 'saving'
+                        ? 'Autoguardando...'
+                        : autoSaveMessage || 'Autoguardado activo'}
+                    </span>
+                  )}
                   {profileMessage && <span className="text-xs text-slate-600">{profileMessage}</span>}
                 </div>
               </div>
@@ -5650,46 +6669,47 @@ export default function TechniciansPage() {
         </main>
           </div>
         </div>
-          {session && (
-            <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
-              <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
-                <div className="flex items-center gap-3">
-                  <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
-                  UrbanFix
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={startNewQuote}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Nuevo presupuesto
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                  >
-                    Cerrar sesion
-                  </button>
-                </div>
-                <div className="flex items-center gap-4 text-xs">
-                  <a
-                    href="mailto:info@urbanfixar.com"
-                    className="font-semibold text-slate-600 transition hover:text-slate-900"
-                  >
-                    Soporte
-                  </a>
-                  <a href="/terminos" className="font-semibold text-slate-600 transition hover:text-slate-900">
-                    Terminos y condiciones
-                  </a>
-                </div>
+        {sessionMediaOverlays}
+        {session && (
+          <footer className="fixed inset-x-0 bottom-0 z-[95] border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.14)] backdrop-blur">
+            <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6 supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
+                UrbanFix
               </div>
-            </footer>
-          )}
-        </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={startNewQuote}
+                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                >
+                  Nuevo presupuesto
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                >
+                  Cerrar sesion
+                </button>
+              </div>
+              <div className="flex items-center gap-4 text-xs">
+                <a
+                  href="mailto:info@urbanfixar.com"
+                  className="font-semibold text-slate-600 transition hover:text-slate-900"
+                >
+                  Soporte
+                </a>
+                <a href="/terminos" className="font-semibold text-slate-600 transition hover:text-slate-900">
+                  Terminos y condiciones
+                </a>
+              </div>
+            </div>
+          </footer>
+        )}
       </div>
-      {accessIntroOverlay}
-    </>
+    </div>
   );
 }
+
+
