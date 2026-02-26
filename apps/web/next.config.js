@@ -26,6 +26,12 @@ const nextConfig = {
     return [
       {
         source: '/:path*',
+        has: [{ type: 'host', value: 'urbanfix.com.ar' }],
+        destination: 'https://www.urbanfix.com.ar/:path*',
+        permanent: true,
+      },
+      {
+        source: '/:path*',
         has: [{ type: 'host', value: 'urbanfixar.com' }],
         destination: 'https://www.urbanfix.com.ar/:path*',
         permanent: true,

@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
-const publicWebUrl = process.env.NEXT_PUBLIC_PUBLIC_WEB_URL || 'https://www.urbanfixar.com';
+const publicWebUrl = process.env.NEXT_PUBLIC_PUBLIC_WEB_URL || 'https://www.urbanfix.com.ar';
 
 const supabase =
   supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
     const rawSuccessUrl = String(payload?.successUrl || '').trim();
     const rawPayerEmail = String(payload?.payerEmail || '').trim();
-    const normalizedPublicUrl = normalizeUrl(publicWebUrl) || 'https://www.urbanfixar.com';
+    const normalizedPublicUrl = normalizeUrl(publicWebUrl) || 'https://www.urbanfix.com.ar';
     const publicBase = normalizedPublicUrl.replace(/\/+$/, '');
     const fallbackSuccessUrl = `${publicBase}/tecnicos?billing=success`;
     const successUrl = normalizeUrl(rawSuccessUrl) || fallbackSuccessUrl;
@@ -211,3 +211,4 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+

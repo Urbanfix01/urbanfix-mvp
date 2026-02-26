@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -9,7 +9,7 @@ const sora = Sora({
 
 export const metadata: Metadata = {
   title: 'Politica de Privacidad | UrbanFix',
-  description: 'Conoce cómo UrbanFix recopila, usa y protege tu información personal. Tu privacidad es nuestra prioridad.',
+  description: 'Conoce cÃ³mo UrbanFix recopila, usa y protege tu informaciÃ³n personal. Tu privacidad es nuestra prioridad.',
   alternates: { canonical: '/privacidad' },
 };
 
@@ -70,12 +70,12 @@ export default function PrivacyPage() {
                 </p>
                 <p>
                   Puedes solicitar la actualizacion o eliminacion de tus datos escribiendo a{' '}
-                  <a href="mailto:info@urbanfixar.com" className="font-semibold text-slate-700 underline">
-                    info@urbanfixar.com
+                  <a href="mailto:info@urbanfix.com.ar" className="font-semibold text-slate-700 underline">
+                    info@urbanfix.com.ar
                   </a>{' '}
                   o siguiendo las instrucciones en{' '}
                   <Link href="/eliminar-cuenta" className="font-semibold text-slate-700 underline">
-                    urbanfixar.com/eliminar-cuenta
+                    urbanfix.com.ar/eliminar-cuenta
                   </Link>
                   .
                 </p>
@@ -84,8 +84,8 @@ export default function PrivacyPage() {
 
             <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
-              <a href="mailto:info@urbanfixar.com" className="mt-2 block font-semibold text-slate-900 hover:underline">
-                info@urbanfixar.com
+              <a href="mailto:info@urbanfix.com.ar" className="mt-2 block font-semibold text-slate-900 hover:underline">
+                info@urbanfix.com.ar
               </a>
             </section>
           </main>
@@ -94,3 +94,4 @@ export default function PrivacyPage() {
     </div>
   );
 }
+

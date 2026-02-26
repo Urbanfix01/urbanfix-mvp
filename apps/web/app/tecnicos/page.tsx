@@ -40,7 +40,7 @@ const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
+const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/vid-logout-mobile.mp4').trim();
 const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/vid-login-mobile.mp4').trim();
@@ -420,7 +420,7 @@ const geocodeAddressFirstResult = async (query: string) => {
   if (!trimmed) return null;
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
     trimmed
-  )}&addressdetails=1&email=info@urbanfixar.com`;
+  )}&addressdetails=1&email=info@urbanfix.com.ar`;
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) return null;
   const rows = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
@@ -2039,7 +2039,7 @@ export default function TechniciansPage() {
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(
         query
-      )}&addressdetails=1&email=info@urbanfixar.com`;
+      )}&addressdetails=1&email=info@urbanfix.com.ar`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('No se pudo geocodificar la direccion.');
       const data = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
@@ -4064,7 +4064,7 @@ export default function TechniciansPage() {
                   </button>
                 )}
                 <a
-                  href="https://www.urbanfixar.com"
+                  href="https://www.urbanfix.com.ar"
                   className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                 >
                   Volver al inicio
@@ -6922,7 +6922,7 @@ export default function TechniciansPage() {
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <a
-                  href="mailto:info@urbanfixar.com"
+                  href="mailto:info@urbanfix.com.ar"
                   className="font-semibold text-slate-600 transition hover:text-slate-900"
                 >
                   Soporte
@@ -6938,5 +6938,6 @@ export default function TechniciansPage() {
     </div>
   );
 }
+
 
 

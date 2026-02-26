@@ -1,4 +1,4 @@
-export type HomeViewId =
+﻿export type HomeViewId =
   | 'view-tech'
   | 'view-biz'
   | 'view-personas'
@@ -403,5 +403,6 @@ export const organizationJsonLd = {
   '@type': 'Organization',
   name: 'UrbanFix',
   url: 'https://www.urbanfix.com.ar',
-  email: 'info@urbanfixar.com',
+  email: 'info@urbanfix.com.ar',
 };
+

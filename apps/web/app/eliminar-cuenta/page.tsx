@@ -1,4 +1,4 @@
-import { Sora } from 'next/font/google';
+﻿import { Sora } from 'next/font/google';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -50,7 +50,7 @@ export default function DeleteAccountPage() {
 
               <div className="mt-6 space-y-4 text-sm leading-relaxed text-slate-600">
                 <p>
-                  Para eliminar tu cuenta de UrbanFix, envia un correo a <strong>info@urbanfixar.com</strong> con el
+                  Para eliminar tu cuenta de UrbanFix, envia un correo a <strong>info@urbanfix.com.ar</strong> con el
                   asunto <strong>&quot;Eliminar cuenta UrbanFix&quot;</strong>.
                 </p>
                 <p>
@@ -70,7 +70,7 @@ export default function DeleteAccountPage() {
 
             <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
-              <p className="mt-2 font-semibold text-slate-900">info@urbanfixar.com</p>
+              <p className="mt-2 font-semibold text-slate-900">info@urbanfix.com.ar</p>
             </section>
           </main>
         </div>
@@ -78,3 +78,4 @@ export default function DeleteAccountPage() {
     </div>
   );
 }
+

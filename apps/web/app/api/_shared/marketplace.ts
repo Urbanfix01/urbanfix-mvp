@@ -1,4 +1,4 @@
-export const DEFAULT_MATCH_RADIUS_KM = 20;
+﻿export const DEFAULT_MATCH_RADIUS_KM = 20;
 export const ARGENTINA_TIMEZONE = 'America/Argentina/Buenos_Aires';
 
 export type WorkingHoursConfig = {
@@ -170,10 +170,10 @@ export const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: numb
 export const geocodeFirstResult = async (query: string) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfixar.com`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfix.com.ar`;
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
+      'User-Agent': 'UrbanFix/1.0 (info@urbanfix.com.ar)',
     },
     cache: 'no-store',
   });
@@ -204,3 +204,4 @@ export const toFiniteNumber = (value: unknown) => {
   if (!Number.isFinite(parsed)) return null;
   return parsed;
 };
+

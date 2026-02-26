@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
@@ -71,7 +71,7 @@ export default function UrbanFixPage() {
                     Empezar ahora
                   </Link>
                   <a
-                    href="mailto:info@urbanfixar.com"
+                    href="mailto:info@urbanfix.com.ar"
                     className="rounded-full border border-slate-300 px-5 py-2.5 text-xs font-semibold text-slate-700 transition hover:border-slate-500 hover:text-slate-900"
                   >
                     Hablar con soporte
@@ -161,3 +161,4 @@ export default function UrbanFixPage() {
     </div>
   );
 }
+

@@ -59,13 +59,13 @@ export default function TermsPage() {
                   Podemos actualizar estos terminos para mejorar el servicio. Si continuas usando la plataforma luego
                   de cambios, se entiende que aceptas la version vigente.
                 </p>
-                <p>Para consultas o reclamos podes escribir a INFO@URBANFIXAR.COM.</p>
+                <p>Para consultas o reclamos podes escribir a INFO@URBANFIX.COM.AR.</p>
               </div>
             </section>
 
             <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
-              <p className="mt-2 font-semibold text-slate-900">INFO@URBANFIXAR.COM</p>
+              <p className="mt-2 font-semibold text-slate-900">INFO@URBANFIX.COM.AR</p>
             </section>
           </main>
         </div>
