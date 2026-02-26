@@ -55,6 +55,7 @@ const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.ap
 const POST_LOGIN_VIDEO_MAX_MS = 10000;
 const RESUME_STATIC_IMAGE_MS = 1200;
 const COVERAGE_RADIUS_KM = 20;
+const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 
 type WorkingHoursConfig = {
   weekdayFrom: string;
@@ -241,6 +242,55 @@ const parseDelimitedValues = (value: string | null | undefined) => {
 };
 
 const serializeDelimitedValues = (values: string[]) => values.join(', ');
+
+const normalizeSocialUrl = (value: string) => {
+  const raw = value.trim();
+  if (!raw) return '';
+  const prefixed = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(prefixed).toString();
+  } catch {
+    return raw;
+  }
+};
+
+const toSafeUrl = (value: string) => {
+  const normalized = normalizeSocialUrl(value);
+  if (!normalized) return '';
+  try {
+    return new URL(normalized).toString();
+  } catch {
+    return '';
+  }
+};
+
+const buildFacebookTimelineEmbedUrl = (value: string) => {
+  const url = toSafeUrl(value);
+  if (!url) return '';
+  return `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(
+    url
+  )}&tabs=timeline&width=500&height=460&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
+};
+
+const buildInstagramEmbedUrl = (value: string) => {
+  const normalized = toSafeUrl(value);
+  if (!normalized) return '';
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.includes('instagram.com')) return '';
+    const cleanPath = parsed.pathname.replace(/\/+$/, '');
+    if (!cleanPath || cleanPath === '/') return '';
+    if (/\/(p|reel|tv)\//i.test(cleanPath)) {
+      return `https://www.instagram.com${cleanPath}/embed`;
+    }
+    const handle = cleanPath.split('/').filter(Boolean)[0];
+    if (!handle) return '';
+    return `https://www.instagram.com/${handle}/embed`;
+  } catch {
+    return '';
+  }
+};
 
 const normalizeTaxId = (value: string) => value.replace(/\D/g, '').slice(0, 11);
 
@@ -812,6 +862,26 @@ const getSupportUploadExtension = (file: File) => {
 const isAccessProfile = (value: string | null): value is AccessProfile =>
   value === 'tecnico' || value === 'empresa' || value === 'cliente';
 
+const getPostLoginVideoSeenKey = (userId: string) => `${POST_LOGIN_VIDEO_SEEN_STORAGE_KEY}:${userId}`;
+
+const hasSeenPostLoginVideo = (userId: string) => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(getPostLoginVideoSeenKey(userId)) === '1';
+  } catch {
+    return false;
+  }
+};
+
+const markPostLoginVideoAsSeen = (userId: string) => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(getPostLoginVideoSeenKey(userId), '1');
+  } catch {
+    // Ignore storage errors (private mode / quota), fallback keeps current behavior.
+  }
+};
+
 export default function TechniciansPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -900,6 +970,9 @@ export default function TechniciansPage() {
     sundayTo: DEFAULT_WORKING_HOURS_CONFIG.sundayTo,
     specialties: '',
     certifications: '',
+    facebookUrl: '',
+    instagramUrl: '',
+    profilePublished: false,
     taxId: '',
     taxStatus: '',
     paymentMethod: '',
@@ -1165,12 +1238,14 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
-    if (!session?.user || !postLoginVideoPending) return;
+    const userId = session?.user?.id;
+    if (!userId || !postLoginVideoPending) return;
     setPostLoginVideoPending(false);
-    if (postLoginVideoAvailable) {
-      setPostLoginVideoVisible(true);
-    }
-  }, [postLoginVideoAvailable, postLoginVideoPending, session?.user]);
+    if (!postLoginVideoAvailable) return;
+    if (hasSeenPostLoginVideo(userId)) return;
+    markPostLoginVideoAsSeen(userId);
+    setPostLoginVideoVisible(true);
+  }, [postLoginVideoAvailable, postLoginVideoPending, session?.user?.id]);
 
   useEffect(() => {
     if (!postLoginVideoVisible || typeof window === 'undefined') return;
@@ -1329,6 +1404,9 @@ export default function TechniciansPage() {
       sundayTo: workingHoursConfig.sundayTo,
       specialties: profile.specialties || '',
       certifications: parsedCertifications.notes,
+      facebookUrl: profile.facebook_url || '',
+      instagramUrl: profile.instagram_url || '',
+      profilePublished: Boolean(profile.profile_published),
       taxId: profile.tax_id || '',
       taxStatus: profile.tax_status || '',
       paymentMethod: profile.payment_method || '',
@@ -2315,7 +2393,15 @@ export default function TechniciansPage() {
     }
   };
 
-  const persistProfile = async ({ silent = false, refreshNearby = false } = {}) => {
+  const persistProfile = async ({
+    silent = false,
+    refreshNearby = false,
+    publishProfile,
+  }: {
+    silent?: boolean;
+    refreshNearby?: boolean;
+    publishProfile?: boolean;
+  } = {}) => {
     if (!session?.user?.id) return false;
     if (profilePersistInFlightRef.current) return false;
     profilePersistInFlightRef.current = true;
@@ -2350,6 +2436,12 @@ export default function TechniciansPage() {
       const serializedWorkingHours = buildWorkingHoursPayload(workingHoursConfig);
       const serializedCertifications = buildCertificationsField(profileForm.certifications, certificationFiles);
       const serializedPaymentMethods = serializeDelimitedValues(parseDelimitedValues(profileForm.paymentMethod));
+      const normalizedFacebookUrl = toSafeUrl(profileForm.facebookUrl);
+      const normalizedInstagramUrl = toSafeUrl(profileForm.instagramUrl);
+      const effectiveProfilePublished =
+        typeof publishProfile === 'boolean' ? publishProfile : Boolean(profileForm.profilePublished);
+      const existingPublishedAt = String(profile?.profile_published_at || '').trim();
+      const profilePublishedAt = effectiveProfilePublished ? existingPublishedAt || new Date().toISOString() : null;
       const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
       const geocoded = await geocodeAddressFirstResult(geocodeQuery);
       const currentServiceLat = Number(profile?.service_lat);
@@ -2370,6 +2462,10 @@ export default function TechniciansPage() {
         working_hours: serializedWorkingHours,
         specialties: profileForm.specialties,
         certifications: serializedCertifications,
+        facebook_url: normalizedFacebookUrl || null,
+        instagram_url: normalizedInstagramUrl || null,
+        profile_published: effectiveProfilePublished,
+        profile_published_at: profilePublishedAt,
         tax_id: safeTaxId,
         tax_status: profileForm.taxStatus,
         payment_method: serializedPaymentMethods,
@@ -2393,8 +2489,20 @@ export default function TechniciansPage() {
         const message = String(error?.message || '').toLowerCase();
         const hasMissingGeoColumn =
           message.includes('service_lat') || message.includes('service_lng') || message.includes('service_radius_km');
-        if (!hasMissingGeoColumn) throw error;
-        const fallback = await supabase.from('profiles').upsert(basePayload).select().single();
+        const hasMissingSocialColumn =
+          message.includes('facebook_url') ||
+          message.includes('instagram_url') ||
+          message.includes('profile_published') ||
+          message.includes('profile_published_at');
+        if (!hasMissingGeoColumn && !hasMissingSocialColumn) throw error;
+        const fallbackPayload = { ...basePayload } as Record<string, any>;
+        if (hasMissingSocialColumn) {
+          delete fallbackPayload.facebook_url;
+          delete fallbackPayload.instagram_url;
+          delete fallbackPayload.profile_published;
+          delete fallbackPayload.profile_published_at;
+        }
+        const fallback = await supabase.from('profiles').upsert(fallbackPayload).select().single();
         data = fallback.data;
         error = fallback.error;
       }
@@ -3065,6 +3173,38 @@ export default function TechniciansPage() {
     setCustomPaymentMethodDraft('');
   };
 
+  const handleCopyPublicProfileLink = async () => {
+    if (!publicProfileUrl) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(publicProfileUrl);
+        setProfileMessage('Link publico copiado.');
+        return;
+      }
+    } catch {
+      // Fallback below.
+    }
+    setProfileMessage(`Link publico: ${publicProfileUrl}`);
+  };
+
+  const handlePublishProfile = async () => {
+    if (!session?.user?.id) {
+      setProfileMessage('Inicia sesion para publicar tu perfil.');
+      return;
+    }
+    if (!profileForm.profilePublished) {
+      setProfileForm((prev) => ({ ...prev, profilePublished: true }));
+      const published = await persistProfile({ silent: false, refreshNearby: false, publishProfile: true });
+      if (!published) {
+        setProfileForm((prev) => ({ ...prev, profilePublished: false }));
+        return;
+      }
+      setProfileMessage('Perfil publicado.');
+      return;
+    }
+    await handleCopyPublicProfileLink();
+  };
+
   const normalizedTaxIdValue = useMemo(() => normalizeTaxId(profileForm.taxId), [profileForm.taxId]);
   const taxIdIsComplete = normalizedTaxIdValue.length === 11;
   const taxIdIsValid = taxIdIsComplete && isValidCuit(normalizedTaxIdValue);
@@ -3112,6 +3252,18 @@ export default function TechniciansPage() {
 
   const workingHoursLabel = useMemo(() => formatWorkingHoursLabel(workingHoursConfig), [workingHoursConfig]);
   const coverageAreaLabel = useMemo(() => buildCoverageAreaLabel(profileForm.city || ''), [profileForm.city]);
+  const facebookPreviewEmbedUrl = useMemo(
+    () => buildFacebookTimelineEmbedUrl(profileForm.facebookUrl),
+    [profileForm.facebookUrl]
+  );
+  const instagramPreviewEmbedUrl = useMemo(
+    () => buildInstagramEmbedUrl(profileForm.instagramUrl),
+    [profileForm.instagramUrl]
+  );
+  const publicProfileUrl = useMemo(() => {
+    if (typeof window === 'undefined' || !session?.user?.id) return '';
+    return `${window.location.origin}/tecnico/${session.user.id}`;
+  }, [session?.user?.id]);
   const autoSaveSignature = useMemo(
     () =>
       JSON.stringify({
@@ -3125,6 +3277,9 @@ export default function TechniciansPage() {
         workingHours: buildWorkingHoursPayload(workingHoursConfig),
         specialties: serializeDelimitedValues(parseSpecialties(profileForm.specialties)),
         certifications: profileForm.certifications.trim(),
+        facebookUrl: toSafeUrl(profileForm.facebookUrl),
+        instagramUrl: toSafeUrl(profileForm.instagramUrl),
+        profilePublished: Boolean(profileForm.profilePublished),
         certificationFiles: certificationFiles.map((file) => ({
           id: file.id,
           name: file.name,
@@ -3159,9 +3314,12 @@ export default function TechniciansPage() {
       profileForm.defaultTaxRate,
       profileForm.email,
       profileForm.fullName,
+      profileForm.facebookUrl,
+      profileForm.instagramUrl,
       profileForm.logoShape,
       profileForm.paymentMethod,
       profileForm.phone,
+      profileForm.profilePublished,
       profileForm.specialties,
       profileForm.taxId,
       profileForm.taxStatus,
@@ -5832,6 +5990,83 @@ export default function TechniciansPage() {
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Redes y visibilidad</p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
+                      <input
+                        value={profileForm.facebookUrl}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, facebookUrl: event.target.value }))}
+                        placeholder="https://www.facebook.com/tu.pagina"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Instagram (perfil o post)</label>
+                      <input
+                        value={profileForm.instagramUrl}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, instagramUrl: event.target.value }))}
+                        placeholder="https://www.instagram.com/tuusuario o /p/..."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <div className="mt-4 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={handlePublishProfile}
+                          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                        >
+                          {profileForm.profilePublished ? 'Perfil publicado - copiar link' : 'PUBLICAR MI PERFIL'}
+                        </button>
+                        {profileForm.profilePublished && publicProfileUrl && (
+                          <a
+                            href={publicProfileUrl}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Ver perfil publico
+                          </a>
+                        )}
+                      </div>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        {profileForm.profilePublished
+                          ? 'Tu perfil ya esta visible para clientes.'
+                          : 'Publica tu perfil para que clientes puedan verlo por link.'}
+                      </p>
+
+                      <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slate-600">Feed Facebook</p>
+                          {facebookPreviewEmbedUrl ? (
+                            <iframe
+                              title="Vista previa Facebook"
+                              src={facebookPreviewEmbedUrl}
+                              className="mt-2 h-64 w-full rounded-xl border-0"
+                              loading="lazy"
+                              allow="encrypted-media"
+                            />
+                          ) : (
+                            <p className="mt-2 text-xs text-slate-500">
+                              Carga el link de tu pagina de Facebook para mostrar posteos.
+                            </p>
+                          )}
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slate-600">Post Instagram</p>
+                          {instagramPreviewEmbedUrl ? (
+                            <iframe
+                              title="Vista previa Instagram"
+                              src={instagramPreviewEmbedUrl}
+                              className="mt-2 h-64 w-full rounded-xl border-0"
+                              loading="lazy"
+                              allow="encrypted-media"
+                            />
+                          ) : (
+                            <p className="mt-2 text-xs text-slate-500">
+                              Pega un link de Instagram (idealmente un post o reel) para mostrarlo en tu perfil.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos comerciales</p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">CUIT / CUIL</label>
                       <input
@@ -5971,6 +6206,13 @@ export default function TechniciansPage() {
                 </div>
 
                 <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={handlePublishProfile}
+                    className="rounded-full border border-slate-300 bg-white px-5 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    {profileForm.profilePublished ? 'Copiar link publico' : 'PUBLICAR MI PERFIL'}
+                  </button>
                   <button
                     type="button"
                     onClick={handleProfileSave}
