@@ -918,6 +918,15 @@ export default function TechniciansPage() {
   const [uploadingCertificationFiles, setUploadingCertificationFiles] = useState(false);
   const [certificationFilesError, setCertificationFilesError] = useState('');
   const certificationFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [profileHydrated, setProfileHydrated] = useState(false);
+  const [autoSaveBootstrapped, setAutoSaveBootstrapped] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [autoSaveMessage, setAutoSaveMessage] = useState('');
+  const [profilePersistTick, setProfilePersistTick] = useState(0);
+  const lastPersistedProfileSignatureRef = useRef('');
+  const profilePersistInFlightRef = useRef(false);
+  const autoSaveTimerRef = useRef<number | null>(null);
+  const autoSaveMessageTimerRef = useRef<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
@@ -1335,7 +1344,36 @@ export default function TechniciansPage() {
     setCustomPaymentMethodDraft('');
     setCertificationFiles(parsedCertifications.files);
     setCertificationFilesError('');
+    setProfileHydrated(true);
   }, [profile, session?.user?.email]);
+
+  useEffect(() => {
+    if (!session?.user?.id) {
+      setProfileHydrated(false);
+      setAutoSaveBootstrapped(false);
+      setAutoSaveState('idle');
+      setAutoSaveMessage('');
+      lastPersistedProfileSignatureRef.current = '';
+      return;
+    }
+    setAutoSaveBootstrapped(false);
+    setAutoSaveState('idle');
+    setAutoSaveMessage('');
+    lastPersistedProfileSignatureRef.current = '';
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      if (autoSaveMessageTimerRef.current !== null) {
+        window.clearTimeout(autoSaveMessageTimerRef.current);
+        autoSaveMessageTimerRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!session?.user || activeTab !== 'lobby') return;
@@ -2277,18 +2315,29 @@ export default function TechniciansPage() {
     }
   };
 
-  const handleProfileSave = async () => {
-    if (!session?.user?.id) return;
-    setProfileSaving(true);
-    setProfileMessage('');
+  const persistProfile = async ({ silent = false, refreshNearby = false } = {}) => {
+    if (!session?.user?.id) return false;
+    if (profilePersistInFlightRef.current) return false;
+    profilePersistInFlightRef.current = true;
+
+    if (!silent) {
+      setProfileSaving(true);
+      setProfileMessage('');
+    } else {
+      setAutoSaveState('saving');
+      setAutoSaveMessage('Autoguardando...');
+    }
+
     try {
       const safeTaxId = normalizeTaxId(profileForm.taxId);
       if (safeTaxId && !isValidCuit(safeTaxId)) {
         throw new Error('El CUIT/CUIL ingresado no es valido.');
       }
-      const safeBankAlias = bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias);
+      const safeBankAlias =
+        bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias);
       if (safeBankAlias) {
-        const isValidBankValue = bankAccountType === 'cbu' ? isValidCbu(safeBankAlias) : isValidAlias(safeBankAlias);
+        const isValidBankValue =
+          bankAccountType === 'cbu' ? isValidCbu(safeBankAlias) : isValidAlias(safeBankAlias);
         if (!isValidBankValue) {
           throw new Error(
             bankAccountType === 'cbu'
@@ -2350,15 +2399,50 @@ export default function TechniciansPage() {
         error = fallback.error;
       }
       if (error) throw error;
+
       setProfile(data);
-      setProfileMessage(geocoded ? 'Perfil actualizado con geolocalizacion.' : 'Perfil actualizado.');
-      await fetchNearbyRequests();
+      lastPersistedProfileSignatureRef.current = autoSaveSignature;
+      setAutoSaveState('saved');
+      if (autoSaveMessageTimerRef.current !== null) {
+        window.clearTimeout(autoSaveMessageTimerRef.current);
+        autoSaveMessageTimerRef.current = null;
+      }
+
+      if (!silent) {
+        setProfileMessage(geocoded ? 'Perfil actualizado con geolocalizacion.' : 'Perfil actualizado.');
+      } else {
+        setAutoSaveMessage('Guardado automatico.');
+        autoSaveMessageTimerRef.current = window.setTimeout(() => {
+          setAutoSaveMessage('');
+          setAutoSaveState('idle');
+        }, 1800);
+      }
+
+      if (refreshNearby) {
+        await fetchNearbyRequests();
+      }
+      return true;
     } catch (error: any) {
       console.error('Error guardando perfil:', error);
-      setProfileMessage(translateProfileError(error?.message || ''));
+      const translated = translateProfileError(error?.message || '');
+      if (!silent) {
+        setProfileMessage(translated);
+      } else {
+        setAutoSaveState('error');
+        setAutoSaveMessage(translated);
+      }
+      return false;
     } finally {
-      setProfileSaving(false);
+      profilePersistInFlightRef.current = false;
+      setProfilePersistTick((value) => value + 1);
+      if (!silent) {
+        setProfileSaving(false);
+      }
     }
+  };
+
+  const handleProfileSave = async () => {
+    await persistProfile({ silent: false, refreshNearby: true });
   };
 
   const handleCompanyLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -2501,7 +2585,7 @@ export default function TechniciansPage() {
 
       if (uploadedRows.length) {
         setCertificationFiles((prev) => [...prev, ...uploadedRows]);
-        setProfileMessage('Archivos cargados. Guarda cambios para confirmar en el perfil.');
+        setProfileMessage('Archivos cargados.');
       }
 
       if (selectedFiles.length > availableSlots) {
@@ -2525,7 +2609,7 @@ export default function TechniciansPage() {
 
     setCertificationFiles((prev) => prev.filter((item) => item.id !== fileId));
     setCertificationFilesError('');
-    setProfileMessage('Archivo removido. Guarda cambios para confirmar en el perfil.');
+    setProfileMessage('Archivo removido.');
 
     const storagePath = target.storagePath || getAttachmentStoragePath(target.url);
     if (!storagePath) return;
@@ -3028,6 +3112,91 @@ export default function TechniciansPage() {
 
   const workingHoursLabel = useMemo(() => formatWorkingHoursLabel(workingHoursConfig), [workingHoursConfig]);
   const coverageAreaLabel = useMemo(() => buildCoverageAreaLabel(profileForm.city || ''), [profileForm.city]);
+  const autoSaveSignature = useMemo(
+    () =>
+      JSON.stringify({
+        fullName: profileForm.fullName.trim(),
+        businessName: profileForm.businessName.trim(),
+        email: profileForm.email.trim(),
+        phone: profileForm.phone.trim(),
+        address: profileForm.address.trim(),
+        city: profileForm.city.trim(),
+        coverageArea: coverageAreaLabel,
+        workingHours: buildWorkingHoursPayload(workingHoursConfig),
+        specialties: serializeDelimitedValues(parseSpecialties(profileForm.specialties)),
+        certifications: profileForm.certifications.trim(),
+        certificationFiles: certificationFiles.map((file) => ({
+          id: file.id,
+          name: file.name,
+          url: file.url,
+          fileType: file.fileType,
+          storagePath: file.storagePath || null,
+        })),
+        taxId: normalizeTaxId(profileForm.taxId),
+        taxStatus: profileForm.taxStatus.trim(),
+        paymentMethod: serializeDelimitedValues(parseDelimitedValues(profileForm.paymentMethod)),
+        bankAlias: bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias),
+        defaultCurrency: profileForm.defaultCurrency,
+        defaultTaxRate: toNumber(String(profileForm.defaultTaxRate)),
+        defaultDiscount: toNumber(String(profileForm.defaultDiscount)),
+        companyLogoUrl: profileForm.companyLogoUrl.trim(),
+        avatarUrl: profileForm.avatarUrl.trim(),
+        logoShape: profileForm.logoShape,
+      }),
+    [
+      bankAccountType,
+      certificationFiles,
+      coverageAreaLabel,
+      profileForm.address,
+      profileForm.avatarUrl,
+      profileForm.bankAlias,
+      profileForm.businessName,
+      profileForm.certifications,
+      profileForm.city,
+      profileForm.companyLogoUrl,
+      profileForm.defaultCurrency,
+      profileForm.defaultDiscount,
+      profileForm.defaultTaxRate,
+      profileForm.email,
+      profileForm.fullName,
+      profileForm.logoShape,
+      profileForm.paymentMethod,
+      profileForm.phone,
+      profileForm.specialties,
+      profileForm.taxId,
+      profileForm.taxStatus,
+      workingHoursConfig,
+    ]
+  );
+
+  useEffect(() => {
+    if (!session?.user?.id || !profileHydrated || autoSaveBootstrapped) return;
+    lastPersistedProfileSignatureRef.current = autoSaveSignature;
+    setAutoSaveBootstrapped(true);
+    setAutoSaveState('idle');
+    setAutoSaveMessage('');
+  }, [autoSaveBootstrapped, autoSaveSignature, profileHydrated, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user?.id || !autoSaveBootstrapped) return;
+    if (profilePersistInFlightRef.current) return;
+    if (autoSaveSignature === lastPersistedProfileSignatureRef.current) return;
+
+    if (autoSaveTimerRef.current !== null) {
+      window.clearTimeout(autoSaveTimerRef.current);
+    }
+
+    autoSaveTimerRef.current = window.setTimeout(() => {
+      persistProfile({ silent: true, refreshNearby: false });
+    }, 900);
+
+    return () => {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+    };
+  }, [autoSaveBootstrapped, autoSaveSignature, profilePersistTick, session?.user?.id]);
 
   const sessionMediaOverlays = session?.user ? (
     <>
@@ -5907,6 +6076,21 @@ export default function TechniciansPage() {
                   >
                     {profileSaving ? 'Guardando...' : 'Guardar cambios'}
                   </button>
+                  {autoSaveBootstrapped && (
+                    <span
+                      className={`text-xs font-semibold ${
+                        autoSaveState === 'error'
+                          ? 'text-rose-600'
+                          : autoSaveState === 'saving'
+                            ? 'text-amber-600'
+                            : 'text-slate-500'
+                      }`}
+                    >
+                      {autoSaveState === 'saving'
+                        ? 'Autoguardando...'
+                        : autoSaveMessage || 'Autoguardado activo'}
+                    </span>
+                  )}
                   {profileMessage && <span className="text-xs text-slate-600">{profileMessage}</span>}
                 </div>
               </div>
