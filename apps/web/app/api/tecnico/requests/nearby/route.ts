@@ -121,6 +121,10 @@ export async function GET(request: NextRequest) {
   }
 
   const normalizedRows: any[] = [];
+  let skippedByDirectAssignment = 0;
+  let skippedByMissingGeo = 0;
+  let skippedByDistance = 0;
+  let geocodedCount = 0;
   const requestIds = (requestsData || []).map((row) => String(row.id || '').trim()).filter(Boolean);
   const ownMatchesByRequestId = new Map<string, any>();
   if (requestIds.length > 0) {
@@ -141,6 +145,7 @@ export async function GET(request: NextRequest) {
 
   for (const row of requestsData || []) {
     if (row.mode === 'direct' && row.target_technician_id && row.target_technician_id !== user.id) {
+      skippedByDirectAssignment += 1;
       continue;
     }
 
@@ -150,6 +155,7 @@ export async function GET(request: NextRequest) {
       const geocodeQuery = [row.address || '', row.city || ''].filter(Boolean).join(', ');
       const geocode = await geocodeFirstResult(geocodeQuery);
       if (geocode) {
+        geocodedCount += 1;
         requestLat = geocode.lat;
         requestLng = geocode.lng;
         await supabase
@@ -162,6 +168,7 @@ export async function GET(request: NextRequest) {
       }
     }
     if (requestLat === null || requestLng === null) {
+      skippedByMissingGeo += 1;
       continue;
     }
 
@@ -169,6 +176,7 @@ export async function GET(request: NextRequest) {
     const maxDistance = Math.min(radiusKm, requestRadiusKm);
     const distanceKm = haversineKm(technicianLat, technicianLng, requestLat, requestLng);
     if (!Number.isFinite(distanceKm) || distanceKm > maxDistance) {
+      skippedByDistance += 1;
       continue;
     }
     const ownMatch = ownMatchesByRequestId.get(String(row.id || '').trim());
@@ -204,6 +212,20 @@ export async function GET(request: NextRequest) {
     return String(b.created_at || '').localeCompare(String(a.created_at || ''));
   });
 
+  const totalLoaded = (requestsData || []).length;
+  let warning = '';
+  if (normalizedRows.length === 0) {
+    if (totalLoaded === 0) {
+      warning = 'No hay solicitudes publicadas por ahora.';
+    } else if (skippedByDistance > 0) {
+      warning = `Hay solicitudes activas fuera de tu radio (${radiusKm} km). Ajusta ciudad/radio para ampliar cobertura.`;
+    } else if (skippedByMissingGeo > 0) {
+      warning = 'Hay solicitudes sin geolocalizacion valida. Completa direccion y ciudad en la solicitud.';
+    } else if (skippedByDirectAssignment > 0 && skippedByDirectAssignment === totalLoaded) {
+      warning = 'Solo hay solicitudes directas asignadas a otros tecnicos.';
+    }
+  }
+
   return NextResponse.json({
     requests: normalizedRows.slice(0, 80),
     technician: {
@@ -212,6 +234,15 @@ export async function GET(request: NextRequest) {
       working_hours_label: formatWorkingHoursLabel(profileHours),
       service_lat: Number(technicianLat.toFixed(6)),
       service_lng: Number(technicianLng.toFixed(6)),
+    },
+    warning,
+    stats: {
+      loaded: totalLoaded,
+      visible: normalizedRows.length,
+      skipped_by_distance: skippedByDistance,
+      skipped_by_missing_geo: skippedByMissingGeo,
+      skipped_by_direct_assignment: skippedByDirectAssignment,
+      geocoded: geocodedCount,
     },
   });
 }
