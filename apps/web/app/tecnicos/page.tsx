@@ -3439,81 +3439,40 @@ export default function TechniciansPage() {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <header className="relative rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/85 px-6 py-5 shadow-lg shadow-slate-200/50 backdrop-blur">
-              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                <div className="flex items-center gap-3">
-                  <div
-                    style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                    className={`flex h-12 w-auto min-w-12 max-w-[96px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/40 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                      brandLogoUrl ? 'bg-white' : 'bg-slate-900'
-                    }`}
-                  >
-                    {brandLogoUrl ? (
-                      <img
-                        src={brandLogoUrl}
-                        alt="Logo de empresa"
-                        onLoad={handleLogoLoaded}
-                        className={`h-full w-full ${logoPresentation.img}`}
-                      />
-                    ) : (
-                      <img src="/icon.png" alt="UrbanFix logo" className="h-9 w-9" />
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
-                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
-                      {profile?.business_name || 'Panel tecnico'}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={toggleUiTheme}
-                    className="inline-flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/80 px-4 py-2 text-xs font-semibold text-[color:var(--ui-muted)] transition hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]"
-                  >
-                    {uiTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                    <span className="hidden sm:inline">{uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
-                  </button>
-                </div>
+            <div className="mb-4 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/70 p-2 shadow-sm backdrop-blur lg:hidden">
+              <div className="flex items-center gap-2 overflow-x-auto">
+                {navItems.map((item) => {
+                  const isActive = activeNavKey === item.key;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => {
+                        setActiveTab(item.key);
+                        if (item.key === 'presupuestos') setQuoteFilter('all');
+                      }}
+                      className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                        isActive
+                          ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
+                          : 'bg-[color:var(--ui-card)] text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        {item.label}
+                        {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            {unreadNotifications}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+                <span className="ml-auto hidden shrink-0 rounded-full bg-[color:var(--ui-card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--ui-muted)] sm:inline-flex">
+                  {quotes.length} activos
+                </span>
               </div>
-
-              <div className="mt-4 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/70 p-2 shadow-sm backdrop-blur lg:hidden">
-                <div className="flex items-center gap-2 overflow-x-auto">
-                  {navItems.map((item) => {
-                    const isActive = activeNavKey === item.key;
-                    return (
-                      <button
-                        key={item.key}
-                        type="button"
-                        onClick={() => {
-                          setActiveTab(item.key);
-                          if (item.key === 'presupuestos') setQuoteFilter('all');
-                        }}
-                        className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
-                          isActive
-                            ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
-                            : 'bg-[color:var(--ui-card)] text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
-                        }`}
-                      >
-                        <span className="inline-flex items-center gap-2">
-                          {item.label}
-                          {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                            <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
-                              {unreadNotifications}
-                            </span>
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                  <span className="ml-auto hidden shrink-0 rounded-full bg-[color:var(--ui-card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--ui-muted)] sm:inline-flex">
-                    {quotes.length} activos
-                  </span>
-                </div>
-              </div>
-            </header>
+            </div>
 
             <main className="relative pt-6">
           <section className="space-y-6">
