@@ -1151,6 +1151,7 @@ export default function TechniciansPage() {
   const lastSavedItemsCountRef = useRef(0);
   const [activeTab, setActiveTab] = useState<
     | 'lobby'
+    | 'operativo'
     | 'nuevo'
     | 'presupuestos'
     | 'visualizador'
@@ -1306,6 +1307,7 @@ export default function TechniciansPage() {
 
   const navItems: NavItem[] = [
     { key: 'lobby', label: 'Panel de control', hint: 'Resumen general', short: 'PC', icon: Home },
+    { key: 'operativo', label: 'Operativo', hint: 'Mapa y solicitudes', short: 'OP', icon: Search },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI', icon: Eye },
     { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG', icon: Calendar },
@@ -4705,9 +4707,11 @@ export default function TechniciansPage() {
 
             <main className="relative pt-6">
           <section className="space-y-6">
-            {activeTab === 'lobby' && (
+            {(activeTab === 'lobby' || activeTab === 'operativo') && (
               <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-4">
+                {activeTab === 'lobby' && (
+                  <>
+                    <div className="grid gap-4 md:grid-cols-4">
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Total presupuestos</p>
@@ -4766,7 +4770,7 @@ export default function TechniciansPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-4 md:grid-cols-2">
                   <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Facturacion estimada</p>
                     <div className="mt-4 space-y-4">
@@ -4909,8 +4913,11 @@ export default function TechniciansPage() {
                       ))}
                     </div>
                   </div>
-                </div>
+                    </div>
+                  </>
+                )}
 
+                {activeTab === 'operativo' && (
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -5299,10 +5306,12 @@ export default function TechniciansPage() {
                     </div>
                   </div>
                 </div>
+                )}
 
+                {activeTab === 'lobby' && (
                 <div className="grid gap-3 sm:grid-cols-3">
                   {navItems
-                    .filter((item) => item.key !== 'lobby')
+                    .filter((item) => item.key !== 'lobby' && item.key !== 'operativo')
                     .map((item) => (
                       <button
                         key={item.key}
@@ -5315,6 +5324,7 @@ export default function TechniciansPage() {
                       </button>
                     ))}
                 </div>
+                )}
               </div>
             )}
 

@@ -74,6 +74,7 @@ export type GeoResult = {
 export type NavItem = {
   key:
     | 'lobby'
+    | 'operativo'
     | 'nuevo'
     | 'presupuestos'
     | 'visualizador'
