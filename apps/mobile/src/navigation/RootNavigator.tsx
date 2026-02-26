@@ -17,6 +17,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import JobsScreen from '../screens/tabs/JobsScreen';
 import AgendaScreen from '../screens/tabs/AgendaScreen';
 import MapScreen from '../screens/tabs/MapScreen';
+import OperationalScreen from '../screens/tabs/OperationalScreen';
 import CatalogScreen from '../screens/tabs/CatalogScreen';
 import ProfileScreen from '../screens/tabs/ProfileScreen';
 
@@ -47,6 +48,7 @@ const withTabSwipe = (Component: React.ComponentType<any>) => {
 
 const JobsScreenWithSwipe = withTabSwipe(JobsScreen);
 const AgendaScreenWithSwipe = withTabSwipe(AgendaScreen);
+const OperationalScreenWithSwipe = withTabSwipe(OperationalScreen);
 const MapScreenWithSwipe = withTabSwipe(MapScreen);
 const CatalogScreenWithSwipe = withTabSwipe(CatalogScreen);
 const NotificationsScreenWithSwipe = withTabSwipe(NotificationsScreen);
@@ -78,6 +80,8 @@ function MainTabs() {
             iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Agenda') {
             iconName = focused ? 'calendar' : 'calendar-outline';
+          } else if (route.name === 'Operativo') {
+            iconName = focused ? 'navigate' : 'navigate-outline';
           } else if (route.name === 'Mapa') {
             iconName = focused ? 'map' : 'map-outline';
           } else if (route.name === 'Catálogo') {
@@ -113,6 +117,7 @@ function MainTabs() {
     >
       <Tab.Screen name="Panel" component={JobsScreenWithSwipe} />
       <Tab.Screen name="Agenda" component={AgendaScreenWithSwipe} /> 
+      <Tab.Screen name="Operativo" component={OperationalScreenWithSwipe} />
       <Tab.Screen name="Mapa" component={MapScreenWithSwipe} />
       <Tab.Screen name="Catálogo" component={CatalogScreenWithSwipe} />
       <Tab.Screen name="Notificaciones" component={NotificationsScreenWithSwipe} />
@@ -276,3 +281,4 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
   },
 });
+
