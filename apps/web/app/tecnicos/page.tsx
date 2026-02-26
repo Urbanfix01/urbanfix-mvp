@@ -5967,53 +5967,6 @@ export default function TechniciansPage() {
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Preferencias</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Moneda</label>
-                      <select
-                        value={profileForm.defaultCurrency}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, defaultCurrency: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                      >
-                        <option value="ARS">ARS</option>
-                        <option value="USD">USD</option>
-                      </select>
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">IVA por defecto</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={profileForm.defaultTaxRate}
-                        onFocus={(event) => event.currentTarget.select()}
-                        onClick={(event) => event.currentTarget.select()}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            defaultTaxRate: toNumber(event.target.value),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">
-                        Descuento por defecto (%)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="100"
-                        value={profileForm.defaultDiscount}
-                        onFocus={(event) => event.currentTarget.select()}
-                        onClick={(event) => event.currentTarget.select()}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({
-                            ...prev,
-                            defaultDiscount: Math.min(100, Math.max(0, toNumber(event.target.value))),
-                          }))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                    </div>
                   </div>
                 </div>
 
