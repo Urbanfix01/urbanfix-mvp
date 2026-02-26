@@ -450,6 +450,7 @@ export default function TechniciansPage() {
   const [showAccessIntro, setShowAccessIntro] = useState(false);
   const [accessIntroClosing, setAccessIntroClosing] = useState(false);
   const accessVideoRef = useRef<HTMLVideoElement | null>(null);
+  const hasShownPostLoginIntroRef = useRef(false);
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -654,15 +655,17 @@ export default function TechniciansPage() {
   };
 
   useEffect(() => {
-    if (typeof window === 'undefined' || loadingSession || !accessVideoAvailable) return;
-    if (session?.user || recoveryMode) {
+    if (!session?.user) {
+      hasShownPostLoginIntroRef.current = false;
       setShowAccessIntro(false);
       setAccessIntroClosing(false);
       return;
     }
-    setShowAccessIntro(true);
-    setAccessIntroClosing(false);
-  }, [accessVideoAvailable, loadingSession, recoveryMode, session?.user]);
+    if (recoveryMode) {
+      setShowAccessIntro(false);
+      setAccessIntroClosing(false);
+    }
+  }, [recoveryMode, session?.user]);
 
   useEffect(() => {
     if (!showAccessIntro) return;
@@ -769,11 +772,28 @@ export default function TechniciansPage() {
     });
     const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
+      if (event === 'SIGNED_OUT') {
+        hasShownPostLoginIntroRef.current = false;
+        setShowAccessIntro(false);
+        setAccessIntroClosing(false);
+        return;
+      }
+      if (
+        event === 'SIGNED_IN' &&
+        nextSession?.user &&
+        accessVideoAvailable &&
+        !recoveryMode &&
+        !hasShownPostLoginIntroRef.current
+      ) {
+        hasShownPostLoginIntroRef.current = true;
+        setShowAccessIntro(true);
+        setAccessIntroClosing(false);
+      }
     });
     return () => {
       data.subscription.unsubscribe();
     };
-  }, []);
+  }, [accessVideoAvailable, recoveryMode]);
 
   useEffect(() => {
     if (!session?.user) {
@@ -2486,6 +2506,7 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
+        {accessIntroOverlay}
       </>
     );
   }
@@ -2684,6 +2705,7 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
+        {accessIntroOverlay}
       </>
     );
   }
@@ -3014,6 +3036,7 @@ export default function TechniciansPage() {
             </div>
           </div>
         </div>
+        {accessIntroOverlay}
       </>
     );
   }
@@ -3035,30 +3058,32 @@ export default function TechniciansPage() {
             onLogout={handleLogout}
           />
         </div>
+        {accessIntroOverlay}
       </>
     );
   }
 
   return (
-    <div
-      style={activeThemeStyles}
-      data-ui-theme={uiTheme}
-      className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
-    >
-      <AuthHashHandler />
-      <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
-        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
-        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
+    <>
+      <div
+        style={activeThemeStyles}
+        data-ui-theme={uiTheme}
+        className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+      >
+        <AuthHashHandler />
+        <div className="relative overflow-hidden">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
+          <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
+          <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
-          <aside
-            onMouseEnter={() => setIsNavHovered(true)}
-            onMouseLeave={() => setIsNavHovered(false)}
-            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
-              isNavExpanded ? 'w-72' : 'w-20'
-            }`}
-          >
+          <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
+            <aside
+              onMouseEnter={() => setIsNavHovered(true)}
+              onMouseLeave={() => setIsNavHovered(false)}
+              className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
+                isNavExpanded ? 'w-72' : 'w-20'
+              }`}
+            >
             <div className="flex items-center justify-between px-4 py-4">
               <div className="flex items-center gap-3">
                 <div
@@ -5125,44 +5150,46 @@ export default function TechniciansPage() {
         </main>
           </div>
         </div>
-        {session && (
-          <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
-            <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
-                UrbanFix
+          {session && (
+            <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
+              <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
+                  UrbanFix
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={startNewQuote}
+                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                  >
+                    Nuevo presupuesto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  >
+                    Cerrar sesion
+                  </button>
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <a
+                    href="mailto:info@urbanfixar.com"
+                    className="font-semibold text-slate-600 transition hover:text-slate-900"
+                  >
+                    Soporte
+                  </a>
+                  <a href="/terminos" className="font-semibold text-slate-600 transition hover:text-slate-900">
+                    Terminos y condiciones
+                  </a>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={startNewQuote}
-                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                >
-                  Nuevo presupuesto
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                >
-                  Cerrar sesion
-                </button>
-              </div>
-              <div className="flex items-center gap-4 text-xs">
-                <a
-                  href="mailto:info@urbanfixar.com"
-                  className="font-semibold text-slate-600 transition hover:text-slate-900"
-                >
-                  Soporte
-                </a>
-                <a href="/terminos" className="font-semibold text-slate-600 transition hover:text-slate-900">
-                  Terminos y condiciones
-                </a>
-              </div>
-            </div>
-          </footer>
-        )}
+            </footer>
+          )}
+        </div>
       </div>
-    </div>
+      {accessIntroOverlay}
+    </>
   );
 }
