@@ -30,6 +30,7 @@ type Quote = {
   technicianId: string;
   technicianName: string;
   specialty: string;
+  city: string;
   phone: string;
   quoteStatus: 'pending' | 'submitted' | 'accepted' | 'rejected' | string;
   priceArs: number | null;
@@ -100,6 +101,66 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'history', label: 'Historial' },
 ];
 
+type ZoneCoords = { lat: number; lon: number };
+
+const ZONE_PRESETS: Record<string, ZoneCoords> = {
+  caba: { lat: -34.6037, lon: -58.3816 },
+  'buenos aires': { lat: -34.6037, lon: -58.3816 },
+  'gran buenos aires': { lat: -34.6118, lon: -58.4173 },
+  la_plata: { lat: -34.9215, lon: -57.9545 },
+  rosario: { lat: -32.9442, lon: -60.6505 },
+  cordoba: { lat: -31.4201, lon: -64.1888 },
+  mendoza: { lat: -32.8895, lon: -68.8458 },
+  mar_del_plata: { lat: -38.0055, lon: -57.5426 },
+  tucuman: { lat: -26.8083, lon: -65.2176 },
+  salta: { lat: -24.7821, lon: -65.4232 },
+  neuquen: { lat: -38.9516, lon: -68.0591 },
+};
+
+const normalizeZoneKey = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const resolvePresetZone = (zoneName: string): ZoneCoords | null => {
+  const key = normalizeZoneKey(zoneName);
+  if (!key) return null;
+  if (key in ZONE_PRESETS) return ZONE_PRESETS[key];
+  if (key.includes('capital federal')) return ZONE_PRESETS.caba;
+  if (key.includes('mar del plata')) return ZONE_PRESETS.mar_del_plata;
+  if (key.includes('la plata')) return ZONE_PRESETS.la_plata;
+  if (key.includes('buenos aires')) return ZONE_PRESETS['buenos aires'];
+  if (key.includes('cordoba')) return ZONE_PRESETS.cordoba;
+  if (key.includes('rosario')) return ZONE_PRESETS.rosario;
+  if (key.includes('mendoza')) return ZONE_PRESETS.mendoza;
+  if (key.includes('tucuman')) return ZONE_PRESETS.tucuman;
+  if (key.includes('salta')) return ZONE_PRESETS.salta;
+  if (key.includes('neuquen')) return ZONE_PRESETS.neuquen;
+  return null;
+};
+
+const buildZoneEmbedUrl = (coords: ZoneCoords) => {
+  const delta = 0.08;
+  const left = coords.lon - delta;
+  const right = coords.lon + delta;
+  const bottom = coords.lat - delta;
+  const top = coords.lat + delta;
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${coords.lat}%2C${coords.lon}`;
+};
+
+const getZonesFromRequest = (request: Request) => {
+  const zones = new Set<string>();
+  request.quotes.forEach((quote) => {
+    const zone = String(quote.city || '').trim();
+    if (zone) zones.add(zone);
+  });
+  return Array.from(zones);
+};
+
 const ars = (value: number) => `$${Math.round(value).toLocaleString('es-AR')}`;
 const toIso = (value: unknown) => (value ? new Date(String(value)).toISOString() : new Date().toISOString());
 const canAdvance = (status: Status) => status === 'selected' || status === 'scheduled' || status === 'in_progress';
@@ -161,8 +222,12 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
 
   const [requests, setRequests] = useState<Request[]>([]);
   const [knownTechs, setKnownTechs] = useState<KnownTech[]>([]);
+  const [zoneCoordsByName, setZoneCoordsByName] = useState<Record<string, ZoneCoords>>({});
+  const [zoneLookupErrors, setZoneLookupErrors] = useState<Record<string, boolean>>({});
+  const [selectedZoneByRequest, setSelectedZoneByRequest] = useState<Record<string, string>>({});
 
   const autoLocksRef = useRef<Set<string>>(new Set());
+  const geocodingLocksRef = useRef<Set<string>>(new Set());
 
   const applySnapshot = useCallback((snapshot: WorkspaceSnapshot) => {
     setRequests(snapshot.requests || []);
@@ -319,6 +384,74 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
     const completed = historyRequests.filter((request) => request.status === 'completed').length;
     return { open: activeRequests.length, quoted, waitingDirect, completed };
   }, [activeRequests, historyRequests]);
+
+  const activeZones = useMemo(() => {
+    const zones = new Set<string>();
+    activeRequests.forEach((request) => {
+      getZonesFromRequest(request).forEach((zone) => zones.add(zone));
+    });
+    return Array.from(zones);
+  }, [activeRequests]);
+
+  useEffect(() => {
+    setSelectedZoneByRequest((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      activeRequests.forEach((request) => {
+        const zones = getZonesFromRequest(request);
+        if (!zones.length) {
+          if (next[request.id]) {
+            delete next[request.id];
+            changed = true;
+          }
+          return;
+        }
+        const current = next[request.id];
+        if (!current || !zones.includes(current)) {
+          next[request.id] = zones[0];
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    });
+  }, [activeRequests]);
+
+  useEffect(() => {
+    if (!activeZones.length) return;
+
+    activeZones.forEach((zone) => {
+      if (!zone || zoneCoordsByName[zone] || zoneLookupErrors[zone] || geocodingLocksRef.current.has(zone)) {
+        return;
+      }
+
+      const preset = resolvePresetZone(zone);
+      if (preset) {
+        setZoneCoordsByName((prev) => ({ ...prev, [zone]: preset }));
+        return;
+      }
+
+      geocodingLocksRef.current.add(zone);
+      const query = `${zone}, Argentina`;
+      fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`)
+        .then((response) => response.json())
+        .then((rows: any) => {
+          const first = Array.isArray(rows) ? rows[0] : null;
+          const lat = Number(first?.lat);
+          const lon = Number(first?.lon);
+          if (Number.isFinite(lat) && Number.isFinite(lon)) {
+            setZoneCoordsByName((prev) => ({ ...prev, [zone]: { lat, lon } }));
+            return;
+          }
+          setZoneLookupErrors((prev) => ({ ...prev, [zone]: true }));
+        })
+        .catch(() => {
+          setZoneLookupErrors((prev) => ({ ...prev, [zone]: true }));
+        })
+        .finally(() => {
+          geocodingLocksRef.current.delete(zone);
+        });
+    });
+  }, [activeZones, zoneCoordsByName, zoneLookupErrors]);
 
   if (loading) {
     return (
@@ -536,6 +669,10 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
               const remainingMs = request.directExpiresAt
                 ? new Date(request.directExpiresAt).getTime() - clock
                 : 0;
+              const zones = getZonesFromRequest(request);
+              const selectedZone = selectedZoneByRequest[request.id] || zones[0] || '';
+              const selectedZoneCoords = selectedZone ? zoneCoordsByName[selectedZone] : null;
+              const selectedZoneHasError = selectedZone ? Boolean(zoneLookupErrors[selectedZone]) : false;
 
               return (
                 <article key={request.id} className="rounded-2xl border border-slate-200 p-4">
@@ -583,6 +720,9 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
                                 ? `Cotizacion: ${ars(quote.priceArs)} | ETA ${quote.etaHours}h`
                                 : 'Cotizacion pendiente de respuesta'}
                             </p>
+                            <p className="text-xs text-slate-500">
+                              Zona: {quote.city || 'No informada'}
+                            </p>
                           </div>
                           <button
                             type="button"
@@ -594,6 +734,53 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
                           </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {zones.length > 0 && (
+                    <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                        Mapa de tecnicos por zona (aproximado)
+                      </p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {zones.map((zone) => (
+                          <button
+                            key={`${request.id}-${zone}`}
+                            type="button"
+                            onClick={() => setSelectedZoneByRequest((prev) => ({ ...prev, [request.id]: zone }))}
+                            className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
+                              selectedZone === zone
+                                ? 'bg-slate-900 text-white'
+                                : 'border border-slate-300 bg-white text-slate-700'
+                            }`}
+                          >
+                            {zone}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                        {selectedZoneCoords && (
+                          <iframe
+                            title={`Zona ${selectedZone}`}
+                            src={buildZoneEmbedUrl(selectedZoneCoords)}
+                            className="h-56 w-full"
+                          />
+                        )}
+                        {!selectedZoneCoords && !selectedZoneHasError && (
+                          <div className="flex h-56 items-center justify-center text-xs text-slate-500">
+                            Cargando mapa de zona...
+                          </div>
+                        )}
+                        {!selectedZoneCoords && selectedZoneHasError && (
+                          <div className="flex h-56 items-center justify-center px-4 text-center text-xs text-slate-500">
+                            No pudimos geolocalizar esa zona por ahora.
+                          </div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Solo mostramos zona aproximada. Nunca publicamos direccion exacta del tecnico.
+                      </p>
                     </div>
                   )}
 

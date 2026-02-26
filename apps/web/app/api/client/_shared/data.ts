@@ -93,6 +93,7 @@ const mapQuoteRow = (row: AnyRecord) => ({
   technicianId: String(row.technician_id || ''),
   technicianName: String(row.technician_name || 'Tecnico'),
   specialty: String(row.technician_specialty || 'General'),
+  city: String(row.technician_city || ''),
   phone: String(row.technician_phone || ''),
   priceArs: toNumberOrNull(row.price_ars),
   etaHours: toNumberOrNull(row.eta_hours),
@@ -285,7 +286,7 @@ export const ensureMarketplaceMatches = async (
         profile,
         score,
         specialty: String(profile.specialties || '').trim() || String(requestRow.category || 'General'),
-        city: String(profile.city || '').trim(),
+        city: String(profile.city || '').trim() || String(profile.coverage_area || '').split(',')[0].trim(),
         lastSeenAt: profile.last_seen_at ? new Date(String(profile.last_seen_at)).getTime() : 0,
       };
     })
