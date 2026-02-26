@@ -493,6 +493,104 @@ const getAttachmentStoragePath = (publicUrl?: string | null) => {
   return publicUrl.slice(index + marker.length);
 };
 
+type CertificationFileRow = {
+  id: string;
+  name: string;
+  url: string;
+  fileType: string;
+  storagePath: string | null;
+  uploadedAt: string;
+};
+
+const CERT_FILES_TAG_START = '<!-- UFX_CERT_FILES ';
+const CERT_FILES_TAG_END = ' -->';
+const CERT_ALLOWED_EXTENSIONS = new Set(['pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx']);
+const CERT_MAX_FILE_BYTES = 10 * 1024 * 1024;
+const CERT_MAX_FILES = 12;
+
+const parseCertificationFilesTag = (rawValue: string | null | undefined) => {
+  const text = String(rawValue || '');
+  const startIndex = text.lastIndexOf(CERT_FILES_TAG_START);
+  if (startIndex === -1) {
+    return {
+      notes: text.trim(),
+      files: [] as CertificationFileRow[],
+    };
+  }
+  const endIndex = text.indexOf(CERT_FILES_TAG_END, startIndex + CERT_FILES_TAG_START.length);
+  if (endIndex === -1) {
+    return {
+      notes: text.trim(),
+      files: [] as CertificationFileRow[],
+    };
+  }
+
+  const notes = text.slice(0, startIndex).trim();
+  const payloadRaw = text.slice(startIndex + CERT_FILES_TAG_START.length, endIndex).trim();
+  try {
+    const parsed = JSON.parse(payloadRaw);
+    const rows = Array.isArray(parsed) ? parsed : [];
+    const files = rows
+      .map((item: any) => ({
+        id: String(item?.id || ''),
+        name: String(item?.name || ''),
+        url: String(item?.url || ''),
+        fileType: String(item?.fileType || ''),
+        storagePath: item?.storagePath ? String(item.storagePath) : null,
+        uploadedAt: String(item?.uploadedAt || ''),
+      }))
+      .filter((item) => item.url && item.name)
+      .map((item) => ({
+        id: item.id || Math.random().toString(36).slice(2),
+        name: item.name,
+        url: item.url,
+        fileType: item.fileType || '',
+        storagePath: item.storagePath,
+        uploadedAt: item.uploadedAt || new Date().toISOString(),
+      }));
+
+    return { notes, files };
+  } catch {
+    return {
+      notes,
+      files: [] as CertificationFileRow[],
+    };
+  }
+};
+
+const buildCertificationsField = (notes: string, files: CertificationFileRow[]) => {
+  const trimmedNotes = notes.trim();
+  if (!files.length) return trimmedNotes;
+  const payload = JSON.stringify(
+    files.map((item) => ({
+      id: item.id,
+      name: item.name,
+      url: item.url,
+      fileType: item.fileType || '',
+      storagePath: item.storagePath || null,
+      uploadedAt: item.uploadedAt,
+    }))
+  );
+  return trimmedNotes
+    ? `${trimmedNotes}\n\n${CERT_FILES_TAG_START}${payload}${CERT_FILES_TAG_END}`
+    : `${CERT_FILES_TAG_START}${payload}${CERT_FILES_TAG_END}`;
+};
+
+const buildCertificationStoragePath = (userId: string, fileName: string) =>
+  `${userId}/certifications/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFileName(fileName)}`;
+
+const isAllowedCertificationFile = (file: File) => {
+  const fileName = file.name || '';
+  const extension = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() || '' : '';
+  if (CERT_ALLOWED_EXTENSIONS.has(extension)) return true;
+  const mime = file.type || '';
+  if (mime === 'application/pdf') return true;
+  if (mime.startsWith('image/')) return true;
+  if (mime === 'application/msword') return true;
+  if (mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return true;
+  return false;
+};
+
 const buildItemsSignature = (items: ItemForm[]) =>
   JSON.stringify(
     items.map((item) => ({
@@ -715,6 +813,10 @@ export default function TechniciansPage() {
     logoShape: 'auto',
   });
   const [customSpecialtyDraft, setCustomSpecialtyDraft] = useState('');
+  const [certificationFiles, setCertificationFiles] = useState<CertificationFileRow[]>([]);
+  const [uploadingCertificationFiles, setUploadingCertificationFiles] = useState(false);
+  const [certificationFilesError, setCertificationFilesError] = useState('');
+  const certificationFileInputRef = useRef<HTMLInputElement | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
@@ -1087,6 +1189,7 @@ export default function TechniciansPage() {
     const legacyLogoUrl = hasLegacyLogo ? profile.avatar_url : '';
     const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
     const coverageArea = profile.coverage_area || buildCoverageAreaLabel(profile.city || '');
+    const parsedCertifications = parseCertificationFilesTag(profile.certifications || '');
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
@@ -1105,7 +1208,7 @@ export default function TechniciansPage() {
       sundayFrom: workingHoursConfig.sundayFrom,
       sundayTo: workingHoursConfig.sundayTo,
       specialties: profile.specialties || '',
-      certifications: profile.certifications || '',
+      certifications: parsedCertifications.notes,
       taxId: profile.tax_id || '',
       taxStatus: profile.tax_status || '',
       paymentMethod: profile.payment_method || '',
@@ -1117,6 +1220,8 @@ export default function TechniciansPage() {
       avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
     });
+    setCertificationFiles(parsedCertifications.files);
+    setCertificationFilesError('');
   }, [profile, session?.user?.email]);
 
   useEffect(() => {
@@ -2065,6 +2170,7 @@ export default function TechniciansPage() {
     setProfileMessage('');
     try {
       const serializedWorkingHours = buildWorkingHoursPayload(workingHoursConfig);
+      const serializedCertifications = buildCertificationsField(profileForm.certifications, certificationFiles);
       const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
       const geocoded = await geocodeAddressFirstResult(geocodeQuery);
       const currentServiceLat = Number(profile?.service_lat);
@@ -2084,7 +2190,7 @@ export default function TechniciansPage() {
         coverage_area: coverageAreaLabel,
         working_hours: serializedWorkingHours,
         specialties: profileForm.specialties,
-        certifications: profileForm.certifications,
+        certifications: serializedCertifications,
         tax_id: profileForm.taxId,
         tax_status: profileForm.taxStatus,
         payment_method: profileForm.paymentMethod,
@@ -2204,6 +2310,99 @@ export default function TechniciansPage() {
       setProfileMessage('No pudimos subir la foto.');
     } finally {
       setUploadingAvatar(false);
+    }
+  };
+
+  const handleCertificationFilesUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!selectedFiles.length) return;
+    if (!session?.user?.id) {
+      setCertificationFilesError('Inicia sesion para adjuntar certificados.');
+      return;
+    }
+
+    const availableSlots = Math.max(0, CERT_MAX_FILES - certificationFiles.length);
+    if (availableSlots <= 0) {
+      setCertificationFilesError(`Ya alcanzaste el maximo de ${CERT_MAX_FILES} archivos.`);
+      return;
+    }
+
+    setUploadingCertificationFiles(true);
+    setCertificationFilesError('');
+    setProfileMessage('');
+
+    try {
+      const uploadQueue = selectedFiles.slice(0, availableSlots);
+      const errors: string[] = [];
+      const uploadedRows: CertificationFileRow[] = [];
+
+      for (const file of uploadQueue) {
+        if (!isAllowedCertificationFile(file)) {
+          errors.push(`${file.name}: formato no permitido.`);
+          continue;
+        }
+        if (file.size > CERT_MAX_FILE_BYTES) {
+          errors.push(`${file.name}: supera 10 MB.`);
+          continue;
+        }
+
+        const storagePath = buildCertificationStoragePath(session.user.id, file.name);
+        const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false,
+        });
+
+        if (uploadError) {
+          errors.push(`${file.name}: no se pudo subir.`);
+          continue;
+        }
+
+        const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
+        uploadedRows.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          url: publicData.publicUrl,
+          fileType: file.type || '',
+          storagePath,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+
+      if (uploadedRows.length) {
+        setCertificationFiles((prev) => [...prev, ...uploadedRows]);
+        setProfileMessage('Archivos cargados. Guarda cambios para confirmar en el perfil.');
+      }
+
+      if (selectedFiles.length > availableSlots) {
+        errors.push(`Solo se cargaron ${availableSlots} archivo(s) por limite.`);
+      }
+
+      if (errors.length) {
+        setCertificationFilesError(errors.slice(0, 3).join(' '));
+      }
+    } catch (error: any) {
+      console.error('Error subiendo certificados:', error);
+      setCertificationFilesError('No pudimos cargar los archivos de certificaciones.');
+    } finally {
+      setUploadingCertificationFiles(false);
+    }
+  };
+
+  const handleRemoveCertificationFile = async (fileId: string) => {
+    const target = certificationFiles.find((item) => item.id === fileId);
+    if (!target) return;
+
+    setCertificationFiles((prev) => prev.filter((item) => item.id !== fileId));
+    setCertificationFilesError('');
+    setProfileMessage('Archivo removido. Guarda cambios para confirmar en el perfil.');
+
+    const storagePath = target.storagePath || getAttachmentStoragePath(target.url);
+    if (!storagePath) return;
+
+    const { error } = await supabase.storage.from('urbanfix-assets').remove([storagePath]);
+    if (error) {
+      setCertificationFilesError('El archivo se quito del perfil, pero no pudimos eliminarlo del storage.');
     }
   };
 
@@ -5266,6 +5465,62 @@ export default function TechniciansPage() {
                         rows={3}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => certificationFileInputRef.current?.click()}
+                          disabled={uploadingCertificationFiles || certificationFiles.length >= CERT_MAX_FILES}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <FileText className="h-4 w-4" />
+                          {uploadingCertificationFiles ? 'Subiendo...' : 'Adjuntar certificados'}
+                        </button>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {certificationFiles.length}/{CERT_MAX_FILES}
+                        </span>
+                        <span className="text-[11px] text-slate-500">PDF, imagen, DOC o DOCX (max 10 MB)</span>
+                        <input
+                          ref={certificationFileInputRef}
+                          type="file"
+                          multiple
+                          accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,application/pdf,image/*,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                          onChange={handleCertificationFilesUpload}
+                          className="hidden"
+                        />
+                      </div>
+
+                      {certificationFilesError && (
+                        <p className="mt-2 text-xs font-semibold text-rose-600">{certificationFilesError}</p>
+                      )}
+
+                      {certificationFiles.length > 0 && (
+                        <div className="mt-3 space-y-2 rounded-2xl border border-slate-200 bg-white p-3">
+                          <p className="text-[11px] font-semibold text-slate-600">Archivos adjuntos</p>
+                          {certificationFiles.map((file) => (
+                            <div
+                              key={file.id}
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 px-3 py-2"
+                            >
+                              <a
+                                href={file.url}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="truncate text-xs font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
+                                title={file.name}
+                              >
+                                {file.name}
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveCertificationFile(file.id)}
+                                className="rounded-full border border-slate-300 px-2.5 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
