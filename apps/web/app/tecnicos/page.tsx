@@ -42,9 +42,196 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
-const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
-const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
+const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/vid-logout-mobile.mp4').trim();
+const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/vid-login-mobile.mp4').trim();
+const RESUME_STATIC_IMAGE_URL = (
+  process.env.NEXT_PUBLIC_RESUME_STATIC_IMAGE_URL || '/videos/image-static-mobile.jpeg'
+).trim();
+const ACCESS_VIDEO_POSTER_URL = (
+  process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || RESUME_STATIC_IMAGE_URL || '/playstore/feature-graphic.png'
+).trim();
+const DASHBOARD_VIDEO_URL = (process.env.NEXT_PUBLIC_DASHBOARD_VIDEO_URL || POST_LOGIN_VIDEO_URL || ACCESS_VIDEO_URL).trim();
 const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
+const POST_LOGIN_VIDEO_MAX_MS = 10000;
+const RESUME_STATIC_IMAGE_MS = 1200;
+const COVERAGE_RADIUS_KM = 20;
+
+type WorkingHoursConfig = {
+  weekdayFrom: string;
+  weekdayTo: string;
+  saturdayEnabled: boolean;
+  saturdayFrom: string;
+  saturdayTo: string;
+  sundayEnabled: boolean;
+  sundayFrom: string;
+  sundayTo: string;
+};
+
+const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
+  weekdayFrom: '09:00',
+  weekdayTo: '18:00',
+  saturdayEnabled: false,
+  saturdayFrom: '09:00',
+  saturdayTo: '13:00',
+  sundayEnabled: false,
+  sundayFrom: '09:00',
+  sundayTo: '13:00',
+};
+
+const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return fallback;
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const normalizeTextForParsing = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const extractTimeRange = (value: string, pattern: RegExp): [string, string] | null => {
+  const match = value.match(pattern);
+  if (!match) return null;
+  return [match[1], match[2]];
+};
+
+const parseWorkingHoursConfig = (rawValue: string | null | undefined): WorkingHoursConfig => {
+  const safe = (rawValue || '').trim();
+  const base: WorkingHoursConfig = { ...DEFAULT_WORKING_HOURS_CONFIG };
+  if (!safe) return base;
+
+  try {
+    const parsed = JSON.parse(safe);
+    if (parsed && typeof parsed === 'object') {
+      const weekday = (parsed as any).weekday || {};
+      const saturday = (parsed as any).saturday || {};
+      const sunday = (parsed as any).sunday || {};
+      return {
+        weekdayFrom: normalizeTimeValue(weekday.from, base.weekdayFrom),
+        weekdayTo: normalizeTimeValue(weekday.to, base.weekdayTo),
+        saturdayEnabled: Boolean(saturday.enabled),
+        saturdayFrom: normalizeTimeValue(saturday.from, base.saturdayFrom),
+        saturdayTo: normalizeTimeValue(saturday.to, base.saturdayTo),
+        sundayEnabled: Boolean(sunday.enabled),
+        sundayFrom: normalizeTimeValue(sunday.from, base.sundayFrom),
+        sundayTo: normalizeTimeValue(sunday.to, base.sundayTo),
+      };
+    }
+  } catch {
+    // Legacy plain-text value.
+  }
+
+  const normalized = normalizeTextForParsing(safe);
+  const weekdayRange =
+    extractTimeRange(
+      normalized,
+      /lun(?:es)?\s*(?:a|-|al)\s*vie(?:rnes)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+    ) || extractTimeRange(normalized, /(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/);
+  const saturdayRange = extractTimeRange(
+    normalized,
+    /sab(?:ado)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+  const sundayRange = extractTimeRange(
+    normalized,
+    /dom(?:ingo)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+
+  if (weekdayRange) {
+    base.weekdayFrom = normalizeTimeValue(weekdayRange[0], base.weekdayFrom);
+    base.weekdayTo = normalizeTimeValue(weekdayRange[1], base.weekdayTo);
+  }
+  if (saturdayRange) {
+    base.saturdayEnabled = true;
+    base.saturdayFrom = normalizeTimeValue(saturdayRange[0], base.saturdayFrom);
+    base.saturdayTo = normalizeTimeValue(saturdayRange[1], base.saturdayTo);
+  }
+  if (sundayRange) {
+    base.sundayEnabled = true;
+    base.sundayFrom = normalizeTimeValue(sundayRange[0], base.sundayFrom);
+    base.sundayTo = normalizeTimeValue(sundayRange[1], base.sundayTo);
+  }
+
+  return base;
+};
+
+const formatWorkingHoursLabel = (config: WorkingHoursConfig) => {
+  const chunks = [`Lun a Vie ${config.weekdayFrom} - ${config.weekdayTo}`];
+  if (config.saturdayEnabled) {
+    chunks.push(`Sab ${config.saturdayFrom} - ${config.saturdayTo}`);
+  }
+  if (config.sundayEnabled) {
+    chunks.push(`Dom ${config.sundayFrom} - ${config.sundayTo}`);
+  }
+  return chunks.join(' | ');
+};
+
+const buildWorkingHoursPayload = (config: WorkingHoursConfig) =>
+  JSON.stringify({
+    version: 1,
+    weekday: { from: config.weekdayFrom, to: config.weekdayTo },
+    saturday: { enabled: config.saturdayEnabled, from: config.saturdayFrom, to: config.saturdayTo },
+    sunday: { enabled: config.sundayEnabled, from: config.sundayFrom, to: config.sundayTo },
+    label: formatWorkingHoursLabel(config),
+  });
+
+const buildCoverageAreaLabel = (city: string) => {
+  const normalizedCity = city.trim();
+  return normalizedCity
+    ? `Radio de ${COVERAGE_RADIUS_KM} km desde ${normalizedCity}`
+    : `Radio de ${COVERAGE_RADIUS_KM} km desde tu ciudad base`;
+};
+
+type NearbyRequestRow = {
+  id: string;
+  title: string;
+  category: string;
+  city: string;
+  address: string;
+  description: string;
+  urgency: string;
+  preferred_window: string | null;
+  status: string;
+  mode: string;
+  created_at: string;
+  distance_km: number;
+  match_radius_km: number;
+};
+
+const geocodeAddressFirstResult = async (query: string) => {
+  const trimmed = query.trim();
+  if (!trimmed) return null;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
+    trimmed
+  )}&addressdetails=1&email=info@urbanfixar.com`;
+  const response = await fetch(url, { cache: 'no-store' });
+  if (!response.ok) return null;
+  const rows = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+  const first = rows[0];
+  if (!first) return null;
+  const lat = Number(first.lat);
+  const lon = Number(first.lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+  return {
+    display_name: first.display_name,
+    lat,
+    lon,
+  };
+};
+
+const urgencyBadgeClass = (urgency: string) => {
+  const normalized = urgency.toLowerCase();
+  if (normalized === 'alta') return 'bg-rose-100 text-rose-700';
+  if (normalized === 'media') return 'bg-amber-100 text-amber-700';
+  return 'bg-slate-100 text-slate-700';
+};
 
 const manrope = Manrope({
   subsets: ['latin'],
@@ -408,7 +595,23 @@ export default function TechniciansPage() {
   const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
   const [accessVideoMuted, setAccessVideoMuted] = useState(true);
   const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
+  const [dashboardVideoAvailable, setDashboardVideoAvailable] = useState(Boolean(DASHBOARD_VIDEO_URL));
+  const [postLoginVideoAvailable, setPostLoginVideoAvailable] = useState(Boolean(POST_LOGIN_VIDEO_URL));
+  const [postLoginVideoVisible, setPostLoginVideoVisible] = useState(false);
+  const [postLoginVideoPending, setPostLoginVideoPending] = useState(false);
+  const [resumeStaticVisible, setResumeStaticVisible] = useState(false);
+  const resumeStaticTimerRef = useRef<number | null>(null);
+  const hiddenAtRef = useRef<number | null>(null);
   const accessVideoRef = useRef<HTMLVideoElement | null>(null);
+  const dashboardVideoRef = useRef<HTMLVideoElement | null>(null);
+  const postLoginVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [nearbyRequests, setNearbyRequests] = useState<NearbyRequestRow[]>([]);
+  const [loadingNearbyRequests, setLoadingNearbyRequests] = useState(false);
+  const [nearbyRequestsError, setNearbyRequestsError] = useState('');
+  const [nearbyRequestsWarning, setNearbyRequestsWarning] = useState('');
+  const [technicianWithinWorkingHours, setTechnicianWithinWorkingHours] = useState<boolean | null>(null);
+  const [technicianWorkingHoursLabel, setTechnicianWorkingHoursLabel] = useState('');
+  const [technicianRadiusKm, setTechnicianRadiusKm] = useState(COVERAGE_RADIUS_KM);
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -433,6 +636,14 @@ export default function TechniciansPage() {
     city: '',
     coverageArea: '',
     workingHours: '',
+    weekdayFrom: DEFAULT_WORKING_HOURS_CONFIG.weekdayFrom,
+    weekdayTo: DEFAULT_WORKING_HOURS_CONFIG.weekdayTo,
+    saturdayEnabled: DEFAULT_WORKING_HOURS_CONFIG.saturdayEnabled,
+    saturdayFrom: DEFAULT_WORKING_HOURS_CONFIG.saturdayFrom,
+    saturdayTo: DEFAULT_WORKING_HOURS_CONFIG.saturdayTo,
+    sundayEnabled: DEFAULT_WORKING_HOURS_CONFIG.sundayEnabled,
+    sundayFrom: DEFAULT_WORKING_HOURS_CONFIG.sundayFrom,
+    sundayTo: DEFAULT_WORKING_HOURS_CONFIG.sundayTo,
     specialties: '',
     certifications: '',
     taxId: '',
@@ -495,6 +706,19 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
+    if (incomingProfile === 'cliente') {
+      const nextParams = new URLSearchParams();
+      const mode = params.get('mode');
+      if (mode === 'login' || mode === 'register') {
+        nextParams.set('mode', mode);
+      }
+      if (params.get('quick') === '1') {
+        nextParams.set('quick', '1');
+      }
+      const query = nextParams.toString();
+      window.location.replace(query ? `/cliente?${query}` : '/cliente');
+      return;
+    }
     if (isAccessProfile(incomingProfile)) {
       setSelectedAccessProfile(incomingProfile);
     }
@@ -563,7 +787,7 @@ export default function TechniciansPage() {
   const handleAccessProfileSelect = (profile: AccessProfile) => {
     if (profile === 'cliente') {
       if (typeof window !== 'undefined') {
-        window.location.href = '/urbanfix?view=personas';
+        window.location.href = '/cliente';
       }
       return;
     }
@@ -583,15 +807,20 @@ export default function TechniciansPage() {
   };
 
   const handleAccessVideoSoundToggle = () => {
-    const video = accessVideoRef.current;
     const nextMuted = !accessVideoMuted;
     setAccessVideoMuted(nextMuted);
-    if (!video) return;
-    video.muted = nextMuted;
+    const videos = [accessVideoRef.current, dashboardVideoRef.current].filter(
+      (video): video is HTMLVideoElement => Boolean(video)
+    );
+    videos.forEach((video) => {
+      video.muted = nextMuted;
+    });
     if (!nextMuted) {
-      video.play().catch(() => {
-        setAccessVideoMuted(true);
-        video.muted = true;
+      videos.forEach((video) => {
+        video.play().catch(() => {
+          setAccessVideoMuted(true);
+          video.muted = true;
+        });
       });
     }
   };
@@ -651,11 +880,87 @@ export default function TechniciansPage() {
     });
     const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
+      if (event === 'SIGNED_IN' && nextSession?.user) {
+        setPostLoginVideoPending(true);
+      }
+      if (event === 'SIGNED_OUT') {
+        setPostLoginVideoPending(false);
+        setPostLoginVideoVisible(false);
+        setResumeStaticVisible(false);
+      }
     });
     return () => {
       data.subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session?.user || !postLoginVideoPending) return;
+    setPostLoginVideoPending(false);
+    if (postLoginVideoAvailable) {
+      setPostLoginVideoVisible(true);
+    }
+  }, [postLoginVideoAvailable, postLoginVideoPending, session?.user]);
+
+  useEffect(() => {
+    if (!postLoginVideoVisible || typeof window === 'undefined') return;
+    const video = postLoginVideoRef.current;
+    if (!video) return;
+
+    let cancelled = false;
+    video.currentTime = 0;
+    video.muted = false;
+    video.play().catch(async () => {
+      if (cancelled) return;
+      video.muted = true;
+      try {
+        await video.play();
+      } catch {
+        if (!cancelled) setPostLoginVideoVisible(false);
+      }
+    });
+
+    const timeoutId = window.setTimeout(() => {
+      if (!cancelled) setPostLoginVideoVisible(false);
+    }, POST_LOGIN_VIDEO_MAX_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+    };
+  }, [postLoginVideoVisible]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const clearResumeTimer = () => {
+      if (resumeStaticTimerRef.current !== null) {
+        window.clearTimeout(resumeStaticTimerRef.current);
+        resumeStaticTimerRef.current = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenAtRef.current = Date.now();
+        clearResumeTimer();
+        return;
+      }
+      if (!session?.user || !RESUME_STATIC_IMAGE_URL) return;
+      if (hiddenAtRef.current === null) return;
+      setResumeStaticVisible(true);
+      clearResumeTimer();
+      resumeStaticTimerRef.current = window.setTimeout(() => {
+        setResumeStaticVisible(false);
+      }, RESUME_STATIC_IMAGE_MS);
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearResumeTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [session?.user]);
 
   useEffect(() => {
     if (!session?.user) {
@@ -722,6 +1027,8 @@ export default function TechniciansPage() {
     if (!profile) return;
     const hasLegacyLogo = !profile.company_logo_url && profile.avatar_url && profile.logo_shape;
     const legacyLogoUrl = hasLegacyLogo ? profile.avatar_url : '';
+    const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
+    const coverageArea = profile.coverage_area || buildCoverageAreaLabel(profile.city || '');
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
@@ -729,8 +1036,16 @@ export default function TechniciansPage() {
       phone: profile.phone || '',
       address: profile.company_address || profile.address || '',
       city: profile.city || '',
-      coverageArea: profile.coverage_area || '',
-      workingHours: profile.working_hours || '',
+      coverageArea,
+      workingHours: formatWorkingHoursLabel(workingHoursConfig),
+      weekdayFrom: workingHoursConfig.weekdayFrom,
+      weekdayTo: workingHoursConfig.weekdayTo,
+      saturdayEnabled: workingHoursConfig.saturdayEnabled,
+      saturdayFrom: workingHoursConfig.saturdayFrom,
+      saturdayTo: workingHoursConfig.saturdayTo,
+      sundayEnabled: workingHoursConfig.sundayEnabled,
+      sundayFrom: workingHoursConfig.sundayFrom,
+      sundayTo: workingHoursConfig.sundayTo,
       specialties: profile.specialties || '',
       certifications: profile.certifications || '',
       taxId: profile.tax_id || '',
@@ -745,6 +1060,11 @@ export default function TechniciansPage() {
       logoShape: profile.logo_shape || 'auto',
     });
   }, [profile, session?.user?.email]);
+
+  useEffect(() => {
+    if (!session?.user || activeTab !== 'lobby') return;
+    fetchNearbyRequests();
+  }, [activeTab, session?.access_token, session?.user?.id]);
 
   useEffect(() => {
     if (!(profile?.company_logo_url || (profile?.logo_shape && profile?.avatar_url))) return;
@@ -803,6 +1123,39 @@ export default function TechniciansPage() {
     }
     setNotifications((data as NotificationRow[]) || []);
     setLoadingNotifications(false);
+  };
+
+  const fetchNearbyRequests = async () => {
+    if (!session?.access_token) return;
+    setLoadingNearbyRequests(true);
+    setNearbyRequestsError('');
+    setNearbyRequestsWarning('');
+    try {
+      const response = await fetch('/api/tecnico/requests/nearby', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        cache: 'no-store',
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudieron cargar las solicitudes cercanas.');
+      }
+      setNearbyRequests((payload?.requests || []) as NearbyRequestRow[]);
+      setTechnicianRadiusKm(Number(payload?.technician?.radius_km || COVERAGE_RADIUS_KM));
+      setTechnicianWithinWorkingHours(
+        typeof payload?.technician?.within_working_hours === 'boolean'
+          ? payload.technician.within_working_hours
+          : null
+      );
+      setTechnicianWorkingHoursLabel(String(payload?.technician?.working_hours_label || ''));
+      setNearbyRequestsWarning(String(payload?.warning || ''));
+    } catch (error: any) {
+      setNearbyRequests([]);
+      setNearbyRequestsError(error?.message || 'No se pudieron cargar las solicitudes cercanas.');
+    } finally {
+      setLoadingNearbyRequests(false);
+    }
   };
 
   const fetchSupportUsers = async () => {
@@ -1653,7 +2006,15 @@ export default function TechniciansPage() {
     setProfileSaving(true);
     setProfileMessage('');
     try {
-      const payload = {
+      const serializedWorkingHours = buildWorkingHoursPayload(workingHoursConfig);
+      const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
+      const geocoded = await geocodeAddressFirstResult(geocodeQuery);
+      const currentServiceLat = Number(profile?.service_lat);
+      const currentServiceLng = Number(profile?.service_lng);
+      const serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
+      const serviceLng = geocoded?.lon ?? (Number.isFinite(currentServiceLng) ? currentServiceLng : null);
+
+      const basePayload = {
         id: session.user.id,
         full_name: profileForm.fullName,
         business_name: profileForm.businessName,
@@ -1662,8 +2023,8 @@ export default function TechniciansPage() {
         company_address: profileForm.address,
         address: profileForm.address,
         city: profileForm.city,
-        coverage_area: profileForm.coverageArea,
-        working_hours: profileForm.workingHours,
+        coverage_area: coverageAreaLabel,
+        working_hours: serializedWorkingHours,
         specialties: profileForm.specialties,
         certifications: profileForm.certifications,
         tax_id: profileForm.taxId,
@@ -1677,10 +2038,27 @@ export default function TechniciansPage() {
         avatar_url: profileForm.avatarUrl,
         logo_shape: profileForm.logoShape,
       };
-      const { data, error } = await supabase.from('profiles').upsert(payload).select().single();
+      const payloadWithGeo = {
+        ...basePayload,
+        service_lat: serviceLat,
+        service_lng: serviceLng,
+        service_radius_km: COVERAGE_RADIUS_KM,
+      };
+
+      let { data, error } = await supabase.from('profiles').upsert(payloadWithGeo).select().single();
+      if (error) {
+        const message = String(error?.message || '').toLowerCase();
+        const hasMissingGeoColumn =
+          message.includes('service_lat') || message.includes('service_lng') || message.includes('service_radius_km');
+        if (!hasMissingGeoColumn) throw error;
+        const fallback = await supabase.from('profiles').upsert(basePayload).select().single();
+        data = fallback.data;
+        error = fallback.error;
+      }
       if (error) throw error;
       setProfile(data);
-      setProfileMessage('Perfil actualizado.');
+      setProfileMessage(geocoded ? 'Perfil actualizado con geolocalizacion.' : 'Perfil actualizado.');
+      await fetchNearbyRequests();
     } catch (error: any) {
       console.error('Error guardando perfil:', error);
       setProfileMessage(translateProfileError(error?.message || ''));
@@ -2156,6 +2534,61 @@ export default function TechniciansPage() {
     Boolean(profileForm.phone.trim()) &&
     Boolean(profileForm.address.trim());
 
+  const workingHoursConfig = useMemo<WorkingHoursConfig>(
+    () => ({
+      weekdayFrom: normalizeTimeValue(profileForm.weekdayFrom, DEFAULT_WORKING_HOURS_CONFIG.weekdayFrom),
+      weekdayTo: normalizeTimeValue(profileForm.weekdayTo, DEFAULT_WORKING_HOURS_CONFIG.weekdayTo),
+      saturdayEnabled: Boolean(profileForm.saturdayEnabled),
+      saturdayFrom: normalizeTimeValue(profileForm.saturdayFrom, DEFAULT_WORKING_HOURS_CONFIG.saturdayFrom),
+      saturdayTo: normalizeTimeValue(profileForm.saturdayTo, DEFAULT_WORKING_HOURS_CONFIG.saturdayTo),
+      sundayEnabled: Boolean(profileForm.sundayEnabled),
+      sundayFrom: normalizeTimeValue(profileForm.sundayFrom, DEFAULT_WORKING_HOURS_CONFIG.sundayFrom),
+      sundayTo: normalizeTimeValue(profileForm.sundayTo, DEFAULT_WORKING_HOURS_CONFIG.sundayTo),
+    }),
+    [
+      profileForm.weekdayFrom,
+      profileForm.weekdayTo,
+      profileForm.saturdayEnabled,
+      profileForm.saturdayFrom,
+      profileForm.saturdayTo,
+      profileForm.sundayEnabled,
+      profileForm.sundayFrom,
+      profileForm.sundayTo,
+    ]
+  );
+
+  const workingHoursLabel = useMemo(() => formatWorkingHoursLabel(workingHoursConfig), [workingHoursConfig]);
+  const coverageAreaLabel = useMemo(() => buildCoverageAreaLabel(profileForm.city || ''), [profileForm.city]);
+
+  const sessionMediaOverlays = session?.user ? (
+    <>
+      {resumeStaticVisible && RESUME_STATIC_IMAGE_URL && !postLoginVideoVisible && (
+        <div className="fixed inset-0 z-[120] bg-black" aria-hidden="true">
+          <img src={RESUME_STATIC_IMAGE_URL} alt="" className="h-full w-full object-cover" />
+        </div>
+      )}
+      {postLoginVideoVisible && postLoginVideoAvailable && (
+        <div className="fixed inset-0 z-[130] bg-black" aria-hidden="true">
+          <video
+            ref={postLoginVideoRef}
+            src={POST_LOGIN_VIDEO_URL}
+            poster={RESUME_STATIC_IMAGE_URL || ACCESS_VIDEO_POSTER_URL}
+            autoPlay
+            playsInline
+            preload="auto"
+            muted={false}
+            onEnded={() => setPostLoginVideoVisible(false)}
+            onError={() => {
+              setPostLoginVideoAvailable(false);
+              setPostLoginVideoVisible(false);
+            }}
+            className="h-full w-full object-cover"
+          />
+        </div>
+      )}
+    </>
+  ) : null;
+
   if (loadingSession) {
     return (
       <>
@@ -2177,6 +2610,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -2345,6 +2779,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -3093,7 +3528,7 @@ export default function TechniciansPage() {
                       ingresar.
                     </p>
                     <div className="flex flex-wrap items-center gap-2">
-                      {accessVideoAvailable && (
+                      {dashboardVideoAvailable && (
                         <button
                           type="button"
                           onClick={handleAccessVideoSoundToggle}
@@ -3113,10 +3548,10 @@ export default function TechniciansPage() {
                     </div>
                   </div>
                   <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-900/95">
-                    {accessVideoAvailable ? (
+                    {dashboardVideoAvailable ? (
                       <video
-                        ref={accessVideoRef}
-                        src={ACCESS_VIDEO_URL}
+                        ref={dashboardVideoRef}
+                        src={DASHBOARD_VIDEO_URL}
                         poster={ACCESS_VIDEO_POSTER_URL}
                         autoPlay
                         loop
@@ -3124,7 +3559,7 @@ export default function TechniciansPage() {
                         muted={accessVideoMuted}
                         controls
                         preload="metadata"
-                        onError={() => setAccessVideoAvailable(false)}
+                        onError={() => setDashboardVideoAvailable(false)}
                         className="h-56 w-full object-cover md:h-64"
                       />
                     ) : (
@@ -3135,6 +3570,93 @@ export default function TechniciansPage() {
                       />
                     )}
                   </div>
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Solicitudes cercanas</p>
+                      <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                        Matching por radio ({technicianRadiusKm} km)
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {technicianWorkingHoursLabel
+                          ? `Tu horario actual: ${technicianWorkingHoursLabel}`
+                          : 'Configura horarios para mejorar el emparejamiento.'}
+                      </p>
+                      {technicianWithinWorkingHours !== null && (
+                        <p
+                          className={`mt-2 inline-flex rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                            technicianWithinWorkingHours
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-700'
+                          }`}
+                        >
+                          {technicianWithinWorkingHours ? 'En horario de atencion' : 'Fuera de horario'}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={fetchNearbyRequests}
+                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Actualizar solicitudes
+                    </button>
+                  </div>
+
+                  {nearbyRequestsWarning && (
+                    <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
+                      {nearbyRequestsWarning}
+                    </div>
+                  )}
+
+                  {nearbyRequestsError && (
+                    <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-700">
+                      {nearbyRequestsError}
+                    </div>
+                  )}
+
+                  {loadingNearbyRequests ? (
+                    <p className="mt-4 text-sm text-slate-500">Cargando solicitudes cercanas...</p>
+                  ) : nearbyRequests.length === 0 ? (
+                    <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                      No hay solicitudes disponibles dentro de tu radio por ahora.
+                    </div>
+                  ) : (
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {nearbyRequests.slice(0, 8).map((request) => (
+                        <article key={request.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-sm font-semibold text-slate-900">{request.title}</p>
+                              <p className="mt-1 text-xs text-slate-600">
+                                {request.category} {request.city ? `| ${request.city}` : ''}
+                              </p>
+                            </div>
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${urgencyBadgeClass(
+                                request.urgency
+                              )}`}
+                            >
+                              {request.urgency}
+                            </span>
+                          </div>
+                          <p className="mt-3 line-clamp-2 text-xs text-slate-600">{request.description}</p>
+                          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                            <span className="rounded-full bg-white px-2.5 py-1 font-semibold">
+                              Distancia: {request.distance_km.toFixed(1)} km
+                            </span>
+                            {request.preferred_window && (
+                              <span className="rounded-full bg-white px-2.5 py-1 font-semibold">
+                                Franja: {request.preferred_window}
+                              </span>
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid gap-4 md:grid-cols-4">
@@ -4666,17 +5188,105 @@ export default function TechniciansPage() {
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
-                      <input
-                        value={profileForm.coverageArea}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, coverageArea: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <div className="mt-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p className="text-sm font-semibold text-slate-900">Solicitudes en radio de {COVERAGE_RADIUS_KM} km</p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Mostramos trabajos cercanos a tu ubicacion base sin exponer tu direccion exacta.
+                        </p>
+                        <p className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                          {coverageAreaLabel}
+                        </p>
+                      </div>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Horarios de atencion</label>
-                      <input
-                        value={profileForm.workingHours}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, workingHours: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <div className="mt-2 space-y-4 rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <div>
+                          <p className="text-xs font-semibold text-slate-700">Lunes a viernes</p>
+                          <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                            <input
+                              type="time"
+                              value={profileForm.weekdayFrom}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, weekdayFrom: event.target.value }))
+                              }
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                            <input
+                              type="time"
+                              value={profileForm.weekdayTo}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, weekdayTo: event.target.value }))}
+                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={profileForm.saturdayEnabled}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, saturdayEnabled: event.target.checked }))
+                              }
+                            />
+                            Sabado (opcional)
+                          </label>
+                          {profileForm.saturdayEnabled && (
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                              <input
+                                type="time"
+                                value={profileForm.saturdayFrom}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, saturdayFrom: event.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                              <input
+                                type="time"
+                                value={profileForm.saturdayTo}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, saturdayTo: event.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div>
+                          <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
+                            <input
+                              type="checkbox"
+                              checked={profileForm.sundayEnabled}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, sundayEnabled: event.target.checked }))
+                              }
+                            />
+                            Domingo (opcional)
+                          </label>
+                          {profileForm.sundayEnabled && (
+                            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                              <input
+                                type="time"
+                                value={profileForm.sundayFrom}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, sundayFrom: event.target.value }))
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                              <input
+                                type="time"
+                                value={profileForm.sundayTo}
+                                onChange={(event) => setProfileForm((prev) => ({ ...prev, sundayTo: event.target.value }))}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="rounded-xl bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
+                          Resumen: {workingHoursLabel}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
@@ -4874,6 +5484,7 @@ export default function TechniciansPage() {
         </main>
           </div>
         </div>
+        {sessionMediaOverlays}
         {session && (
           <footer className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
             <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6">
