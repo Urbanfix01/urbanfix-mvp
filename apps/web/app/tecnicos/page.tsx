@@ -402,6 +402,15 @@ type NearbyRequestRow = {
   match_radius_km: number;
   location_lat?: number | null;
   location_lng?: number | null;
+  my_quote_status?: string | null;
+  my_price_ars?: number | null;
+  my_eta_hours?: number | null;
+  my_quote_updated_at?: string | null;
+};
+
+type RequestOfferDraft = {
+  priceArs: string;
+  etaHours: string;
 };
 
 type DashboardMapPoint = {
@@ -448,6 +457,24 @@ const urgencyPriority = (urgency: string | null | undefined) => {
   if (normalized === 'alta') return 0;
   if (normalized === 'media') return 1;
   return 2;
+};
+
+const requestQuoteStatusLabel = (status: string | null | undefined) => {
+  const normalized = String(status || '').toLowerCase().trim();
+  if (!normalized || normalized === 'pending') return 'Sin oferta';
+  if (normalized === 'submitted') return 'Oferta enviada';
+  if (normalized === 'accepted') return 'Oferta aceptada';
+  if (normalized === 'rejected') return 'Oferta rechazada';
+  return normalized.toUpperCase();
+};
+
+const requestQuoteStatusClass = (status: string | null | undefined) => {
+  const normalized = String(status || '').toLowerCase().trim();
+  if (!normalized || normalized === 'pending') return 'bg-slate-100 text-slate-700';
+  if (normalized === 'submitted') return 'bg-sky-100 text-sky-700';
+  if (normalized === 'accepted') return 'bg-emerald-100 text-emerald-700';
+  if (normalized === 'rejected') return 'bg-rose-100 text-rose-700';
+  return 'bg-slate-100 text-slate-700';
 };
 
 const manrope = Manrope({
@@ -564,6 +591,27 @@ const toNumber = (value: string) => {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const parseArsInput = (value: string) => {
+  const normalized = String(value || '').trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseEtaInput = (value: string) => {
+  const normalized = String(value || '').trim().replace(',', '.');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const buildRequestOfferDraft = (request: NearbyRequestRow): RequestOfferDraft => ({
+  priceArs:
+    request.my_price_ars === null || request.my_price_ars === undefined ? '' : String(Math.round(request.my_price_ars)),
+  etaHours:
+    request.my_eta_hours === null || request.my_eta_hours === undefined ? '' : String(Math.round(request.my_eta_hours)),
+});
 
 const toFiniteCoordinate = (value: unknown) => {
   const parsed = Number(value);
@@ -1013,6 +1061,11 @@ export default function TechniciansPage() {
   const [requestBoardSort, setRequestBoardSort] = useState<'recent' | 'distance' | 'urgency'>('recent');
   const [dashboardMapFilter, setDashboardMapFilter] = useState<'all' | 'jobs' | 'requests'>('all');
   const [dashboardMapSelectedId, setDashboardMapSelectedId] = useState('');
+  const [offerEditorRequestId, setOfferEditorRequestId] = useState('');
+  const [offerDraftByRequestId, setOfferDraftByRequestId] = useState<Record<string, RequestOfferDraft>>({});
+  const [submittingOfferRequestId, setSubmittingOfferRequestId] = useState('');
+  const [offerSuccessByRequestId, setOfferSuccessByRequestId] = useState<Record<string, string>>({});
+  const [offerErrorByRequestId, setOfferErrorByRequestId] = useState<Record<string, string>>({});
 
   const [profile, setProfile] = useState<any>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
@@ -1625,6 +1678,115 @@ export default function TechniciansPage() {
       setNearbyRequestsError(error?.message || 'No se pudieron cargar las solicitudes cercanas.');
     } finally {
       setLoadingNearbyRequests(false);
+    }
+  };
+
+  const getRequestOfferDraft = (request: NearbyRequestRow) =>
+    offerDraftByRequestId[request.id] || buildRequestOfferDraft(request);
+
+  const handleRequestOfferDraftChange = (
+    request: NearbyRequestRow,
+    field: keyof RequestOfferDraft,
+    value: string
+  ) => {
+    setOfferDraftByRequestId((prev) => ({
+      ...prev,
+      [request.id]: {
+        ...(prev[request.id] || buildRequestOfferDraft(request)),
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleToggleRequestOfferEditor = (request: NearbyRequestRow) => {
+    setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+    setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+    setOfferDraftByRequestId((prev) => ({
+      ...prev,
+      [request.id]: prev[request.id] || buildRequestOfferDraft(request),
+    }));
+    setOfferEditorRequestId((prev) => (prev === request.id ? '' : request.id));
+  };
+
+  const handleSubmitRequestOffer = async (request: NearbyRequestRow) => {
+    if (!session?.access_token) return;
+    const draft = getRequestOfferDraft(request);
+    const priceArs = parseArsInput(draft.priceArs);
+    if (priceArs === null || priceArs <= 0) {
+      setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: 'Ingresa un precio valido en ARS.' }));
+      setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+      return;
+    }
+    const etaValue = parseEtaInput(draft.etaHours);
+    if (etaValue === null || etaValue <= 0) {
+      setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: 'Ingresa una ETA valida en horas.' }));
+      setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+      return;
+    }
+
+    const etaHours = Math.max(1, Math.min(720, Math.round(etaValue)));
+    const normalizedPrice = Math.round(priceArs * 100) / 100;
+    setSubmittingOfferRequestId(request.id);
+    setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+    setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+    try {
+      const response = await fetch(`/api/tecnico/requests/${request.id}/offer`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          price_ars: normalizedPrice,
+          eta_hours: etaHours,
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudo enviar la oferta.');
+      }
+
+      setNearbyRequests((prev) =>
+        prev.map((row) =>
+          row.id === request.id
+            ? {
+                ...row,
+                status: String(payload?.request?.status || row.status || 'quoted'),
+                my_quote_status: String(payload?.request?.my_quote_status || 'submitted'),
+                my_price_ars:
+                  payload?.request?.my_price_ars === null || payload?.request?.my_price_ars === undefined
+                    ? normalizedPrice
+                    : Number(payload.request.my_price_ars),
+                my_eta_hours:
+                  payload?.request?.my_eta_hours === null || payload?.request?.my_eta_hours === undefined
+                    ? etaHours
+                    : Number(payload.request.my_eta_hours),
+                my_quote_updated_at: String(payload?.request?.my_quote_updated_at || new Date().toISOString()),
+              }
+            : row
+        )
+      );
+      setOfferDraftByRequestId((prev) => ({
+        ...prev,
+        [request.id]: {
+          priceArs: String(Math.round(normalizedPrice)),
+          etaHours: String(etaHours),
+        },
+      }));
+      setOfferSuccessByRequestId((prev) => ({
+        ...prev,
+        [request.id]: String(payload?.message || 'Oferta enviada correctamente.'),
+      }));
+      setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+      setOfferEditorRequestId('');
+    } catch (error: any) {
+      setOfferErrorByRequestId((prev) => ({
+        ...prev,
+        [request.id]: error?.message || 'No se pudo enviar la oferta.',
+      }));
+      setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
+    } finally {
+      setSubmittingOfferRequestId('');
     }
   };
 
@@ -2420,6 +2582,36 @@ export default function TechniciansPage() {
     requestBoardSort,
     requestBoardUrgencyFilter,
   ]);
+  useEffect(() => {
+    const validIds = new Set(nearbyRequests.map((request) => request.id));
+    setOfferDraftByRequestId((prev) => {
+      const next: Record<string, RequestOfferDraft> = {};
+      Object.entries(prev).forEach(([id, draft]) => {
+        if (validIds.has(id)) next[id] = draft;
+      });
+      nearbyRequests.forEach((request) => {
+        if (!next[request.id]) {
+          next[request.id] = buildRequestOfferDraft(request);
+        }
+      });
+      return next;
+    });
+    setOfferSuccessByRequestId((prev) => {
+      const next: Record<string, string> = {};
+      Object.entries(prev).forEach(([id, value]) => {
+        if (validIds.has(id) && value) next[id] = value;
+      });
+      return next;
+    });
+    setOfferErrorByRequestId((prev) => {
+      const next: Record<string, string> = {};
+      Object.entries(prev).forEach(([id, value]) => {
+        if (validIds.has(id) && value) next[id] = value;
+      });
+      return next;
+    });
+    setOfferEditorRequestId((prev) => (prev && validIds.has(prev) ? prev : ''));
+  }, [nearbyRequests]);
   const dashboardRequestPoints = useMemo(() => {
     const points: DashboardMapPoint[] = [];
     filteredNearbyRequests.forEach((request) => {
@@ -4892,42 +5084,146 @@ export default function TechniciansPage() {
                             ? dashboardSelectedMapPoint.id.replace('request:', '')
                             : '';
                           const isSelected = selectedRequestId === request.id;
+                          const offerDraft = getRequestOfferDraft(request);
+                          const isOfferEditorOpen = offerEditorRequestId === request.id;
+                          const isSubmittingOffer = submittingOfferRequestId === request.id;
+                          const offerStatus = String(request.my_quote_status || 'pending').toLowerCase();
+                          const offerStatusLabel = requestQuoteStatusLabel(offerStatus);
+                          const offerStatusBadgeClass = requestQuoteStatusClass(offerStatus);
+                          const offerSuccess = offerSuccessByRequestId[request.id] || '';
+                          const offerError = offerErrorByRequestId[request.id] || '';
+                          const hasOfferValues =
+                            request.my_price_ars !== null &&
+                            request.my_price_ars !== undefined &&
+                            request.my_eta_hours !== null &&
+                            request.my_eta_hours !== undefined;
                           return (
-                            <button
+                            <div
                               key={request.id}
-                              type="button"
-                              onClick={() => {
-                                setDashboardMapFilter('requests');
-                                setDashboardMapSelectedId(`request:${request.id}`);
-                              }}
-                              className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                              className={`w-full rounded-xl border px-3 py-2 transition ${
                                 isSelected
                                   ? 'border-slate-900 bg-slate-900 text-white'
                                   : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
                               }`}
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <p className="truncate text-sm font-semibold">{request.title}</p>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    isSelected ? 'bg-white/20 text-white' : urgencyBadgeClass(request.urgency)
-                                  }`}
-                                >
-                                  {request.urgency}
-                                </span>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDashboardMapFilter('requests');
+                                  setDashboardMapSelectedId(`request:${request.id}`);
+                                }}
+                                className="w-full text-left"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="truncate text-sm font-semibold">{request.title}</p>
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                      isSelected ? 'bg-white/20 text-white' : urgencyBadgeClass(request.urgency)
+                                    }`}
+                                  >
+                                    {request.urgency}
+                                  </span>
+                                </div>
+                                <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                  {request.category} · {request.city || 'Sin ciudad'}
+                                </p>
+                                <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                  {request.address || 'Sin direccion'}
+                                </p>
+                                <div className={`mt-2 flex flex-wrap gap-2 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                  <span>Distancia: {request.distance_km.toFixed(1)} km</span>
+                                  <span>Fecha: {new Date(request.created_at).toLocaleDateString('es-AR')}</span>
+                                  <span>Estado: {String(request.status || '').toUpperCase()}</span>
+                                </div>
+                              </button>
+
+                              <div className={`mt-2 rounded-xl border px-2.5 py-2 ${isSelected ? 'border-white/20 bg-black/10' : 'border-slate-200 bg-slate-50'}`}>
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${offerStatusBadgeClass}`}>
+                                      {offerStatusLabel}
+                                    </span>
+                                    {hasOfferValues && (
+                                      <span className={`text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                        Tu oferta: {formatCurrency(Number(request.my_price_ars || 0))} · ETA {Math.round(Number(request.my_eta_hours || 0))} h
+                                      </span>
+                                    )}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleRequestOfferEditor(request)}
+                                    className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
+                                      isSelected
+                                        ? 'border-white/30 text-white hover:border-white/50'
+                                        : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900'
+                                    }`}
+                                  >
+                                    {isOfferEditorOpen ? 'Cancelar' : offerStatus === 'pending' ? 'Ofertar' : 'Editar oferta'}
+                                  </button>
+                                </div>
+
+                                {request.my_quote_updated_at && hasOfferValues && (
+                                  <p className={`mt-1 text-[11px] ${isSelected ? 'text-white/75' : 'text-slate-500'}`}>
+                                    Ultima oferta: {new Date(request.my_quote_updated_at).toLocaleString('es-AR')}
+                                  </p>
+                                )}
+                                {offerSuccess && <p className="mt-1 text-[11px] font-semibold text-emerald-600">{offerSuccess}</p>}
+                                {offerError && <p className="mt-1 text-[11px] font-semibold text-rose-600">{offerError}</p>}
+
+                                {isOfferEditorOpen && (
+                                  <>
+                                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                      <label className={`text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                        Precio ARS
+                                        <input
+                                          value={offerDraft.priceArs}
+                                          onChange={(event) =>
+                                            handleRequestOfferDraftChange(request, 'priceArs', event.target.value)
+                                          }
+                                          inputMode="decimal"
+                                          placeholder="Ej: 85000"
+                                          className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs outline-none transition ${
+                                            isSelected
+                                              ? 'border-white/30 bg-black/20 text-white placeholder:text-white/50 focus:border-white/60'
+                                              : 'border-slate-200 bg-white text-slate-700 focus:border-slate-400'
+                                          }`}
+                                        />
+                                      </label>
+                                      <label className={`text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                        ETA (horas)
+                                        <input
+                                          value={offerDraft.etaHours}
+                                          onChange={(event) =>
+                                            handleRequestOfferDraftChange(request, 'etaHours', event.target.value)
+                                          }
+                                          inputMode="numeric"
+                                          placeholder="Ej: 24"
+                                          className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs outline-none transition ${
+                                            isSelected
+                                              ? 'border-white/30 bg-black/20 text-white placeholder:text-white/50 focus:border-white/60'
+                                              : 'border-slate-200 bg-white text-slate-700 focus:border-slate-400'
+                                          }`}
+                                        />
+                                      </label>
+                                    </div>
+                                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSubmitRequestOffer(request)}
+                                        disabled={isSubmittingOffer}
+                                        className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
+                                          isSelected
+                                            ? 'bg-white text-slate-900 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-70'
+                                            : 'bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70'
+                                        }`}
+                                      >
+                                        {isSubmittingOffer ? 'Enviando...' : 'Enviar oferta'}
+                                      </button>
+                                    </div>
+                                  </>
+                                )}
                               </div>
-                              <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                                {request.category} · {request.city || 'Sin ciudad'}
-                              </p>
-                              <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                                {request.address || 'Sin direccion'}
-                              </p>
-                              <div className={`mt-2 flex flex-wrap gap-2 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
-                                <span>Distancia: {request.distance_km.toFixed(1)} km</span>
-                                <span>Fecha: {new Date(request.created_at).toLocaleDateString('es-AR')}</span>
-                                <span>Estado: {String(request.status || '').toUpperCase()}</span>
-                              </div>
-                            </button>
+                            </div>
                           );
                         })}
                       </div>

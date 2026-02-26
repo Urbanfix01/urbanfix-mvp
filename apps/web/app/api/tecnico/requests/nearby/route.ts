@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
     .select(
       'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km'
     )
-    .in('status', ['published', 'matched', 'direct_sent'])
+    .in('status', ['published', 'matched', 'quoted', 'direct_sent'])
     .order('created_at', { ascending: false })
     .limit(180);
 
@@ -121,6 +121,20 @@ export async function GET(request: NextRequest) {
   }
 
   const normalizedRows: any[] = [];
+  const requestIds = (requestsData || []).map((row) => String(row.id || '').trim()).filter(Boolean);
+  const ownMatchesByRequestId = new Map<string, any>();
+  if (requestIds.length > 0) {
+    const { data: ownMatchRows } = await supabase
+      .from('client_request_matches')
+      .select('request_id, quote_status, price_ars, eta_hours, updated_at')
+      .eq('technician_id', user.id)
+      .in('request_id', requestIds);
+    (ownMatchRows || []).forEach((row: any) => {
+      const requestId = String(row?.request_id || '').trim();
+      if (requestId) ownMatchesByRequestId.set(requestId, row);
+    });
+  }
+
   const now = new Date();
   const profileHours = parseWorkingHoursConfig(profile.working_hours || '');
   const withinWorkingHours = isNowWithinWorkingHours(profileHours, now, ARGENTINA_TIMEZONE);
@@ -157,6 +171,8 @@ export async function GET(request: NextRequest) {
     if (!Number.isFinite(distanceKm) || distanceKm > maxDistance) {
       continue;
     }
+    const ownMatch = ownMatchesByRequestId.get(String(row.id || '').trim());
+    const ownEta = toFiniteNumber(ownMatch?.eta_hours);
 
     normalizedRows.push({
       id: row.id,
@@ -174,6 +190,10 @@ export async function GET(request: NextRequest) {
       match_radius_km: maxDistance,
       location_lat: Number(requestLat.toFixed(6)),
       location_lng: Number(requestLng.toFixed(6)),
+      my_quote_status: ownMatch?.quote_status ? String(ownMatch.quote_status) : null,
+      my_price_ars: toFiniteNumber(ownMatch?.price_ars),
+      my_eta_hours: ownEta === null ? null : Math.max(0, Math.round(ownEta)),
+      my_quote_updated_at: ownMatch?.updated_at ? String(ownMatch.updated_at) : null,
     });
   }
 
