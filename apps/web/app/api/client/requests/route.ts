@@ -1,28 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { clientSupabase as supabase, getAuthUser } from '@/app/api/client/_shared/auth';
+import { getClientWorkspaceSnapshot, insertClientEvent } from '@/app/api/client/_shared/data';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   geocodeFirstResult,
   haversineKm,
   isNowWithinWorkingHours,
   parseUrgencyWeight,
-  toFiniteNumber,
   parseWorkingHoursConfig,
+  toFiniteNumber,
 } from '../../_shared/marketplace';
-
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
-
-const getAuthUser = async (request: NextRequest) => {
-  const authHeader = request.headers.get('authorization') || '';
-  const token = authHeader.replace('Bearer ', '').trim();
-  if (!token || !supabase) return null;
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error) return null;
-  return data?.user || null;
-};
 
 const toText = (value: unknown) => String(value || '').trim();
 
@@ -34,6 +21,21 @@ const normalizeUrgency = (value: string) => {
 
 const normalizeMode = (value: string) => (value.toLowerCase() === 'direct' ? 'direct' : 'marketplace');
 
+const normalizeRadius = (value: unknown) => {
+  const parsed = Number(value || DEFAULT_MATCH_RADIUS_KM);
+  if (!Number.isFinite(parsed)) return DEFAULT_MATCH_RADIUS_KM;
+  return Math.min(100, Math.max(1, Math.round(parsed)));
+};
+
+const createSnapshotResponse = async (userId: string) => {
+  if (!supabase) return { requests: [], knownTechnicians: [] };
+  try {
+    return await getClientWorkspaceSnapshot(supabase, userId);
+  } catch {
+    return { requests: [], knownTechnicians: [] };
+  }
+};
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
@@ -44,26 +46,20 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data, error } = await supabase
-    .from('client_requests')
-    .select('*')
-    .eq('client_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(100);
-
-  if (error) {
+  try {
+    const snapshot = await getClientWorkspaceSnapshot(supabase, user.id);
+    return NextResponse.json(snapshot);
+  } catch (error: any) {
     return NextResponse.json(
       {
         error:
-          error.message?.includes('client_requests') || error.message?.includes('relation')
+          error?.message?.includes('client_requests') || error?.message?.includes('relation')
             ? 'Falta la migracion de client_requests en Supabase.'
-            : error.message || 'No se pudieron cargar las solicitudes.',
+            : error?.message || 'No se pudieron cargar las solicitudes.',
       },
       { status: 500 }
     );
   }
-
-  return NextResponse.json({ requests: data || [] });
 }
 
 export async function POST(request: NextRequest) {
@@ -108,17 +104,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as Record<string, unknown>;
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  }
+
   const title = toText(body.title);
   const category = toText(body.category);
   const address = toText(body.address);
   const city = toText(body.city);
+  const resolvedCity = city || toText(clientProfile?.city);
   const description = toText(body.description);
   const preferredWindow = toText(body.preferredWindow);
   const urgency = normalizeUrgency(toText(body.urgency));
   const mode = normalizeMode(toText(body.mode));
-  const radiusKmRaw = Number(body.radiusKm || DEFAULT_MATCH_RADIUS_KM);
-  const radiusKm = Number.isFinite(radiusKmRaw) ? Math.min(100, Math.max(1, Math.round(radiusKmRaw))) : DEFAULT_MATCH_RADIUS_KM;
+  const radiusKm = normalizeRadius(body.radiusKm);
 
   const targetTechnicianId = toText(body.targetTechnicianId) || null;
   const targetTechnicianName = toText(body.targetTechnicianName) || null;
@@ -131,10 +133,14 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (mode === 'direct' && !targetTechnicianId) {
+    return NextResponse.json({ error: 'Selecciona un tecnico conocido para solicitud directa.' }, { status: 400 });
+  }
+
   let locationLat = toFiniteNumber(body.locationLat);
   let locationLng = toFiniteNumber(body.locationLng);
   if (locationLat === null || locationLng === null) {
-    const geocodeQuery = [address, city].filter(Boolean).join(', ');
+    const geocodeQuery = [address, resolvedCity].filter(Boolean).join(', ');
     const geocode = await geocodeFirstResult(geocodeQuery);
     if (geocode) {
       locationLat = geocode.lat;
@@ -147,7 +153,7 @@ export async function POST(request: NextRequest) {
     title,
     category,
     address,
-    city: city || null,
+    city: resolvedCity || null,
     description,
     urgency,
     preferred_window: preferredWindow || null,
@@ -184,89 +190,112 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await supabase.from('client_request_events').insert({
-    request_id: requestRow.id,
-    actor_id: user.id,
-    label: mode === 'direct' ? 'Solicitud directa enviada' : 'Solicitud publicada',
-  });
-
   const requestLat = toFiniteNumber((requestRow as any).location_lat);
   const requestLng = toFiniteNumber((requestRow as any).location_lng);
   const hasRequestGeo = requestLat !== null && requestLng !== null;
-  if (!hasRequestGeo || mode === 'direct') {
-    return NextResponse.json({ request: requestRow, matches: [] }, { status: 201 });
-  }
+
+  let warning = '';
+  let matchesPayload: Record<string, unknown>[] = [];
   const requestLatValue = requestLat as number;
   const requestLngValue = requestLng as number;
 
-  const { data: technicians, error: techError } = await supabase
-    .from('profiles')
-    .select('id, full_name, business_name, phone, specialties, city, public_rating, working_hours, service_lat, service_lng, access_granted')
-    .eq('access_granted', true)
-    .limit(600);
+  if (mode === 'marketplace' && hasRequestGeo) {
+    const { data: technicians, error: techError } = await supabase
+      .from('profiles')
+      .select(
+        'id, full_name, business_name, phone, specialties, city, public_rating, working_hours, service_lat, service_lng, access_granted'
+      )
+      .eq('access_granted', true)
+      .limit(600);
 
-  if (techError || !technicians) {
-    return NextResponse.json({ request: requestRow, matches: [], warning: techError?.message || 'Sin tecnicos disponibles.' }, { status: 201 });
+    if (techError || !technicians) {
+      warning = techError?.message || 'No se pudo calcular cercania con tecnicos en esta publicacion.';
+    } else {
+      const now = new Date();
+      const ranked = technicians
+        .map((tech: any) => {
+          const lat = toFiniteNumber(tech.service_lat);
+          const lng = toFiniteNumber(tech.service_lng);
+          if (lat === null || lng === null) return null;
+          const distanceKm = haversineKm(requestLatValue, requestLngValue, lat, lng);
+          if (!Number.isFinite(distanceKm) || distanceKm > radiusKm) return null;
+
+          const rating = Number(tech.public_rating || 0);
+          const hoursConfig = parseWorkingHoursConfig(tech.working_hours || '');
+          const availableNow = isNowWithinWorkingHours(hoursConfig, now);
+          const score = Math.round(100 - distanceKm * 3 + rating * 10 + parseUrgencyWeight(urgency) + (availableNow ? 5 : 0));
+
+          return {
+            technician: tech,
+            score,
+            distanceKm,
+          };
+        })
+        .filter(Boolean)
+        .sort((a: any, b: any) => b.score - a.score || a.distanceKm - b.distanceKm)
+        .slice(0, 5);
+
+      matchesPayload = ranked.map((entry: any) => ({
+        request_id: requestRow.id,
+        technician_id: entry.technician.id,
+        technician_name: entry.technician.business_name || entry.technician.full_name || 'Tecnico UrbanFix',
+        technician_phone: entry.technician.phone || null,
+        technician_specialty: entry.technician.specialties || null,
+        technician_city: entry.technician.city || null,
+        technician_rating: Number.isFinite(Number(entry.technician.public_rating))
+          ? Number(entry.technician.public_rating)
+          : null,
+        score: entry.score,
+        quote_status: 'pending',
+      }));
+
+      if (matchesPayload.length) {
+        await supabase.from('client_request_matches').upsert(matchesPayload, {
+          onConflict: 'request_id,technician_id',
+        });
+
+        await supabase
+          .from('client_requests')
+          .update({ status: 'matched' })
+          .eq('id', requestRow.id)
+          .eq('status', 'published');
+      }
+    }
   }
 
-  const now = new Date();
-
-  const ranked = technicians
-    .map((tech: any) => {
-      const lat = toFiniteNumber(tech.service_lat);
-      const lng = toFiniteNumber(tech.service_lng);
-      if (lat === null || lng === null) return null;
-      const distanceKm = haversineKm(requestLatValue, requestLngValue, lat, lng);
-      if (!Number.isFinite(distanceKm) || distanceKm > radiusKm) return null;
-
-      const rating = Number(tech.public_rating || 0);
-      const hoursConfig = parseWorkingHoursConfig(tech.working_hours || '');
-      const availableNow = isNowWithinWorkingHours(hoursConfig, now);
-      const score = Math.round(100 - distanceKm * 3 + rating * 10 + parseUrgencyWeight(urgency) + (availableNow ? 5 : 0));
-
-      return {
-        technician: tech,
-        distanceKm,
-        score,
-      };
-    })
-    .filter(Boolean)
-    .sort((a: any, b: any) => b.score - a.score || a.distanceKm - b.distanceKm)
-    .slice(0, 5);
-
-  const matchesPayload = ranked.map((entry: any) => ({
-    request_id: requestRow.id,
-    technician_id: entry.technician.id,
-    technician_name: entry.technician.business_name || entry.technician.full_name || 'Tecnico UrbanFix',
-    technician_phone: entry.technician.phone || null,
-    technician_specialty: entry.technician.specialties || null,
-    technician_city: entry.technician.city || null,
-    technician_rating: Number.isFinite(Number(entry.technician.public_rating))
-      ? Number(entry.technician.public_rating)
-      : null,
-    score: entry.score,
-    quote_status: 'pending',
-  }));
-
-  if (matchesPayload.length) {
-    await supabase.from('client_request_matches').upsert(matchesPayload, {
-      onConflict: 'request_id,technician_id',
-    });
-
-    await supabase
-      .from('client_requests')
-      .update({ status: 'matched' })
-      .eq('id', requestRow.id)
-      .eq('status', 'published');
+  if (mode === 'marketplace' && !hasRequestGeo) {
+    warning = 'Solicitud publicada, pero sin geolocalizacion precisa. Completa ciudad/direccion para sincronizar mapa.';
   }
+
+  const requestStatus =
+    matchesPayload.length && String(requestRow.status || '') === 'published' ? 'matched' : requestRow.status;
+
+  try {
+    await insertClientEvent(
+      supabase,
+      String(requestRow.id),
+      user.id,
+      mode === 'direct'
+        ? 'Solicitud directa enviada'
+        : hasRequestGeo
+        ? 'Solicitud publicada y sincronizada con mapa tecnico'
+        : 'Solicitud publicada (pendiente de geolocalizacion)'
+    );
+  } catch {
+    // Non-blocking: la solicitud ya fue creada y matcheada.
+  }
+
+  const snapshot = await createSnapshotResponse(user.id);
 
   return NextResponse.json(
     {
+      ...snapshot,
       request: {
         ...requestRow,
-        status: matchesPayload.length && requestRow.status === 'published' ? 'matched' : requestRow.status,
+        status: requestStatus,
       },
       matches: matchesPayload,
+      warning: warning || null,
     },
     { status: 201 }
   );

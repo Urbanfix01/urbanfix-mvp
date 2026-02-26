@@ -1583,8 +1583,16 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
-    if (!session?.user || activeTab !== 'lobby') return;
+    if (!session?.user || (activeTab !== 'lobby' && activeTab !== 'operativo')) return;
     fetchNearbyRequests();
+  }, [activeTab, session?.access_token, session?.user?.id]);
+
+  useEffect(() => {
+    if (!session?.user || (activeTab !== 'lobby' && activeTab !== 'operativo')) return;
+    const timer = window.setInterval(() => {
+      fetchNearbyRequests();
+    }, 30000);
+    return () => window.clearInterval(timer);
   }, [activeTab, session?.access_token, session?.user?.id]);
 
   useEffect(() => {

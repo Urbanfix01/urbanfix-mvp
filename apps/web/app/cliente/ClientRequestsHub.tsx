@@ -26,6 +26,7 @@ type CreateRequestForm = {
   urgency: 'baja' | 'media' | 'alta';
   preferredWindow: string;
   mode: 'marketplace' | 'direct';
+  radiusKm: number;
   targetTechnicianId: string;
   targetTechnicianName: string;
   targetTechnicianPhone: string;
@@ -47,6 +48,7 @@ const defaultForm: CreateRequestForm = {
   urgency: 'media',
   preferredWindow: '',
   mode: 'marketplace',
+  radiusKm: 20,
   targetTechnicianId: '',
   targetTechnicianName: '',
   targetTechnicianPhone: '',
@@ -75,6 +77,18 @@ const urgencyClass = (urgency: string) => {
   return 'bg-slate-100 text-slate-700';
 };
 
+const normalizeClientRequestRow = (raw: any): ClientRequestRow => ({
+  id: String(raw?.id || ''),
+  title: String(raw?.title || 'Solicitud'),
+  category: String(raw?.category || 'General'),
+  city: raw?.city ? String(raw.city) : null,
+  description: String(raw?.description || ''),
+  urgency: String(raw?.urgency || 'media'),
+  status: String(raw?.status || 'published'),
+  mode: String(raw?.mode || 'marketplace'),
+  created_at: String(raw?.created_at || raw?.updated_at || raw?.updatedAt || new Date().toISOString()),
+});
+
 export default function ClientRequestsHub() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -92,6 +106,10 @@ export default function ClientRequestsHub() {
   const [requestNotice, setRequestNotice] = useState('');
   const [requests, setRequests] = useState<ClientRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [locatingRequestGeo, setLocatingRequestGeo] = useState(false);
+  const [requestGeoNotice, setRequestGeoNotice] = useState('');
   const [clientProfileForm, setClientProfileForm] = useState<ClientProfileForm>(defaultClientProfileForm);
   const [loadingClientProfile, setLoadingClientProfile] = useState(false);
   const [savingClientProfile, setSavingClientProfile] = useState(false);
@@ -135,7 +153,10 @@ export default function ClientRequestsHub() {
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || 'No se pudieron cargar tus solicitudes.');
-      setRequests((payload?.requests || []) as ClientRequestRow[]);
+      const normalized = Array.isArray(payload?.requests)
+        ? (payload.requests as any[]).map(normalizeClientRequestRow)
+        : [];
+      setRequests(normalized);
     } catch (error: any) {
       setRequestError(error?.message || 'No se pudieron cargar tus solicitudes.');
     } finally {
@@ -302,19 +323,27 @@ export default function ClientRequestsHub() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${session.access_token}`,
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          city: form.city.trim() || clientProfileForm.city.trim(),
+          locationLat,
+          locationLng,
+        }),
       });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || 'No se pudo publicar la solicitud.');
       const matchesCount = Array.isArray(payload?.matches) ? payload.matches.length : 0;
+      const warning = String(payload?.warning || '').trim();
       setRequestNotice(
         matchesCount > 0
           ? `Solicitud publicada. Encontramos ${matchesCount} tecnico(s) cercano(s).`
           : 'Solicitud publicada. Aun no hay tecnicos cercanos disponibles.'
       );
+      setRequestGeoNotice(warning);
       setForm((prev) => ({
         ...defaultForm,
-        city: prev.city,
+        city: prev.city || clientProfileForm.city.trim(),
+        radiusKm: prev.radiusKm || defaultForm.radiusKm,
       }));
       await fetchRequests();
     } catch (error: any) {
@@ -340,6 +369,42 @@ export default function ClientRequestsHub() {
     const published = requests.filter((item) => String(item.status).toLowerCase() === 'published').length;
     return { total, matched, published };
   }, [requests]);
+
+  const handleUseCurrentLocation = () => {
+    if (typeof window === 'undefined') return;
+    if (!navigator.geolocation) {
+      setRequestError('Tu navegador no soporta geolocalizacion.');
+      return;
+    }
+
+    setLocatingRequestGeo(true);
+    setRequestError('');
+    setRequestGeoNotice('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationLat(Number(position.coords.latitude.toFixed(6)));
+        setLocationLng(Number(position.coords.longitude.toFixed(6)));
+        setRequestGeoNotice('Ubicacion capturada. Esta solicitud se sincronizara con tecnicos cercanos en mapa.');
+        setLocatingRequestGeo(false);
+      },
+      (error) => {
+        const code = Number(error?.code || 0);
+        if (code === 1) {
+          setRequestError('Permite acceso a ubicacion para sincronizar por cercania.');
+        } else if (code === 3) {
+          setRequestError('No pudimos obtener tu ubicacion a tiempo. Intenta de nuevo.');
+        } else {
+          setRequestError('No pudimos obtener tu ubicacion. Seguimos con direccion + ciudad.');
+        }
+        setLocatingRequestGeo(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 60000,
+      }
+    );
+  };
 
   if (loadingSession) {
     return (
@@ -641,6 +706,51 @@ export default function ClientRequestsHub() {
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
               </div>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleUseCurrentLocation}
+                  disabled={locatingRequestGeo || savingRequest}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:opacity-60"
+                >
+                  {locatingRequestGeo
+                    ? 'Detectando ubicacion...'
+                    : locationLat !== null && locationLng !== null
+                      ? 'Actualizar ubicacion'
+                      : 'Usar mi ubicacion'}
+                </button>
+                <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+                  Radio (km)
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={form.radiusKm}
+                    onChange={(event) => {
+                      const value = Number(event.target.value || 20);
+                      if (!Number.isFinite(value)) return;
+                      setForm((prev) => ({
+                        ...prev,
+                        radiusKm: Math.min(100, Math.max(1, Math.round(value))),
+                      }));
+                    }}
+                    className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+                  />
+                </label>
+              </div>
+              {locationLat !== null && locationLng !== null ? (
+                <p className="mt-2 text-[11px] text-emerald-700">
+                  Geo activa: {locationLat.toFixed(4)}, {locationLng.toFixed(4)}
+                </p>
+              ) : (
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Si no activas geo, UrbanFix intentara ubicar por direccion + ciudad.
+                </p>
+              )}
+              {requestGeoNotice && <p className="mt-1 text-[11px] text-slate-600">{requestGeoNotice}</p>}
             </div>
 
             <div className="mt-3">

@@ -100,6 +100,7 @@ type CounterOfferDraft = {
 };
 
 const TO_MATCH_MS = 20 * 1000;
+const DEFAULT_REQUEST_RADIUS_KM = 20;
 
 const statusMeta: Record<Status, { label: string; className: string }> = {
   published: { label: 'Publicado', className: 'bg-sky-100 text-sky-700' },
@@ -264,6 +265,11 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
   const [urgency, setUrgency] = useState<Urgency>('media');
   const [preferredWindow, setPreferredWindow] = useState('');
   const [targetTechId, setTargetTechId] = useState('');
+  const [radiusKm, setRadiusKm] = useState(DEFAULT_REQUEST_RADIUS_KM);
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationNotice, setLocationNotice] = useState('');
   const [formError, setFormError] = useState('');
 
   const [requests, setRequests] = useState<Request[]>([]);
@@ -395,6 +401,42 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
     [getCounterDraft, runAction]
   );
 
+  const requestCurrentLocation = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    if (!navigator.geolocation) {
+      setFormError('Tu navegador no soporta geolocalizacion.');
+      return;
+    }
+
+    setLocating(true);
+    setFormError('');
+    setLocationNotice('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationLat(Number(position.coords.latitude.toFixed(6)));
+        setLocationLng(Number(position.coords.longitude.toFixed(6)));
+        setLocationNotice('Ubicacion capturada. La solicitud se sincroniza en el mapa de tecnicos cercanos.');
+        setLocating(false);
+      },
+      (error) => {
+        const code = Number(error?.code || 0);
+        if (code === 1) {
+          setFormError('Permite acceso a ubicacion para sincronizar por cercania.');
+        } else if (code === 3) {
+          setFormError('No pudimos obtener tu ubicacion a tiempo. Intenta de nuevo.');
+        } else {
+          setFormError('No pudimos obtener tu ubicacion. Completa direccion y ciudad manualmente.');
+        }
+        setLocating(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+        maximumAge: 60000,
+      }
+    );
+  }, []);
+
   const createRequest = async () => {
     setFormError('');
     if (!title.trim() || !category.trim() || !address.trim() || !description.trim()) {
@@ -419,12 +461,19 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
           description: description.trim(),
           urgency,
           preferredWindow: preferredWindow.trim(),
+          radiusKm,
+          locationLat,
+          locationLng,
           mode,
           targetTechnicianId: mode === 'direct' ? targetTechId : null,
         }),
       });
 
       applySnapshot(parseSnapshot(payload));
+      const warning = String(payload?.warning || '').trim();
+      if (warning) {
+        setLocationNotice(warning);
+      }
       setTab('active');
       setTitle('');
       setCategory('Electricidad');
@@ -702,6 +751,44 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
               rows={4}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm"
             />
+
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={requestCurrentLocation}
+                  disabled={locating || syncing}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:opacity-60"
+                >
+                  {locating ? 'Detectando ubicacion...' : locationLat !== null && locationLng !== null ? 'Actualizar ubicacion' : 'Usar mi ubicacion'}
+                </button>
+                <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
+                  Radio (km)
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={radiusKm}
+                    onChange={(event) => {
+                      const value = Number(event.target.value || DEFAULT_REQUEST_RADIUS_KM);
+                      if (!Number.isFinite(value)) return;
+                      setRadiusKm(Math.min(100, Math.max(1, Math.round(value))));
+                    }}
+                    className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+                  />
+                </label>
+              </div>
+              {locationLat !== null && locationLng !== null ? (
+                <p className="mt-2 text-[11px] text-emerald-700">
+                  Geo activa: {locationLat.toFixed(4)}, {locationLng.toFixed(4)}.
+                </p>
+              ) : (
+                <p className="mt-2 text-[11px] text-slate-500">
+                  Sin geo del dispositivo. UrbanFix intentara geolocalizar con direccion + ciudad.
+                </p>
+              )}
+              {locationNotice && <p className="mt-1 text-[11px] text-slate-600">{locationNotice}</p>}
+            </div>
 
             <div className="grid gap-2 sm:grid-cols-2">
               <button
