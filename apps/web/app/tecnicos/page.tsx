@@ -44,6 +44,7 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 const POST_AUTH_REDIRECT_KEY = 'urbanfix_post_auth_redirect';
+const POST_LOGIN_INTRO_PENDING_KEY = 'urbanfix_post_login_intro_pending';
 const ACCESS_PROFILE_STORAGE_KEY = 'urbanfix_access_profile';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
@@ -654,6 +655,25 @@ export default function TechniciansPage() {
     }, 280);
   };
 
+  const markPostLoginIntroPending = () => {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.setItem(POST_LOGIN_INTRO_PENDING_KEY, '1');
+  };
+
+  const clearPostLoginIntroPending = () => {
+    if (typeof window === 'undefined') return;
+    window.sessionStorage.removeItem(POST_LOGIN_INTRO_PENDING_KEY);
+  };
+
+  const consumePostLoginIntroPending = () => {
+    if (typeof window === 'undefined') return false;
+    const shouldPlay = window.sessionStorage.getItem(POST_LOGIN_INTRO_PENDING_KEY) === '1';
+    if (shouldPlay) {
+      window.sessionStorage.removeItem(POST_LOGIN_INTRO_PENDING_KEY);
+    }
+    return shouldPlay;
+  };
+
   useEffect(() => {
     if (!session?.user) {
       hasShownPostLoginIntroRef.current = false;
@@ -666,6 +686,16 @@ export default function TechniciansPage() {
       setAccessIntroClosing(false);
     }
   }, [recoveryMode, session?.user]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!session?.user || recoveryMode || !accessVideoAvailable || hasShownPostLoginIntroRef.current) return;
+    const shouldPlay = consumePostLoginIntroPending();
+    if (!shouldPlay) return;
+    hasShownPostLoginIntroRef.current = true;
+    setShowAccessIntro(true);
+    setAccessIntroClosing(false);
+  }, [accessVideoAvailable, recoveryMode, session?.user]);
 
   useEffect(() => {
     if (!showAccessIntro) return;
@@ -776,24 +806,13 @@ export default function TechniciansPage() {
         hasShownPostLoginIntroRef.current = false;
         setShowAccessIntro(false);
         setAccessIntroClosing(false);
-        return;
-      }
-      if (
-        event === 'SIGNED_IN' &&
-        nextSession?.user &&
-        accessVideoAvailable &&
-        !recoveryMode &&
-        !hasShownPostLoginIntroRef.current
-      ) {
-        hasShownPostLoginIntroRef.current = true;
-        setShowAccessIntro(true);
-        setAccessIntroClosing(false);
+        clearPostLoginIntroPending();
       }
     });
     return () => {
       data.subscription.unsubscribe();
     };
-  }, [accessVideoAvailable, recoveryMode]);
+  }, []);
 
   useEffect(() => {
     if (!session?.user) {
@@ -2175,6 +2194,7 @@ export default function TechniciansPage() {
   };
 
   const handleLogout = async () => {
+    clearPostLoginIntroPending();
     await supabase.auth.signOut();
     setSession(null);
     resetForm();
@@ -2185,11 +2205,13 @@ export default function TechniciansPage() {
     setAuthNotice('');
     const redirectTo = `${window.location.origin}/tecnicos`;
     window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, '/tecnicos');
+    markPostLoginIntroPending();
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
     if (error) {
+      clearPostLoginIntroPending();
       setAuthError(error.message);
     }
   };
@@ -2263,6 +2285,7 @@ export default function TechniciansPage() {
     setAuthNotice('');
     try {
       if (authMode === 'login') {
+        markPostLoginIntroPending();
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
       } else {
@@ -2285,6 +2308,7 @@ export default function TechniciansPage() {
           }
         }
       } catch (error: any) {
+        clearPostLoginIntroPending();
         setAuthError(error?.message || 'No pudimos iniciar sesion.');
       }
   };
