@@ -42,10 +42,10 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
-const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/vid-logout-mobile.mp4').trim();
-const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/vid-login-mobile.mp4').trim();
+const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
+const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const RESUME_STATIC_IMAGE_URL = (
-  process.env.NEXT_PUBLIC_RESUME_STATIC_IMAGE_URL || '/videos/image-static-mobile.jpeg'
+  process.env.NEXT_PUBLIC_RESUME_STATIC_IMAGE_URL || '/playstore/feature-graphic.png'
 ).trim();
 const ACCESS_VIDEO_POSTER_URL = (
   process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || RESUME_STATIC_IMAGE_URL || '/playstore/feature-graphic.png'
@@ -1453,7 +1453,7 @@ export default function TechniciansPage() {
         .from('beta_admins')
         .select('user_id')
         .eq('user_id', session.user.id)
-        .single();
+        .maybeSingle();
       if (error || !data) {
         setIsBetaAdmin(false);
         setAdminGateStatus('done');
