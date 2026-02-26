@@ -443,6 +443,13 @@ const urgencyBadgeClass = (urgency: string) => {
   return 'bg-slate-100 text-slate-700';
 };
 
+const urgencyPriority = (urgency: string | null | undefined) => {
+  const normalized = String(urgency || '').toLowerCase();
+  if (normalized === 'alta') return 0;
+  if (normalized === 'media') return 1;
+  return 2;
+};
+
 const manrope = Manrope({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
@@ -999,6 +1006,11 @@ export default function TechniciansPage() {
   const [technicianWithinWorkingHours, setTechnicianWithinWorkingHours] = useState<boolean | null>(null);
   const [technicianWorkingHoursLabel, setTechnicianWorkingHoursLabel] = useState('');
   const [technicianRadiusKm, setTechnicianRadiusKm] = useState(COVERAGE_RADIUS_KM);
+  const [requestBoardCategoryFilter, setRequestBoardCategoryFilter] = useState('all');
+  const [requestBoardCityFilter, setRequestBoardCityFilter] = useState('all');
+  const [requestBoardModeFilter, setRequestBoardModeFilter] = useState<'all' | 'marketplace' | 'direct'>('all');
+  const [requestBoardUrgencyFilter, setRequestBoardUrgencyFilter] = useState<'all' | 'alta' | 'media' | 'baja'>('all');
+  const [requestBoardSort, setRequestBoardSort] = useState<'recent' | 'distance' | 'urgency'>('recent');
   const [dashboardMapFilter, setDashboardMapFilter] = useState<'all' | 'jobs' | 'requests'>('all');
   const [dashboardMapSelectedId, setDashboardMapSelectedId] = useState('');
 
@@ -2354,9 +2366,63 @@ export default function TechniciansPage() {
     });
     return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [quotes]);
+  const requestBoardCategoryOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          nearbyRequests
+            .map((request) => String(request.category || '').trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [nearbyRequests]
+  );
+  const requestBoardCityOptions = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          nearbyRequests
+            .map((request) => String(request.city || '').trim())
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b)),
+    [nearbyRequests]
+  );
+  const filteredNearbyRequests = useMemo(() => {
+    const rows = nearbyRequests.filter((request) => {
+      if (requestBoardCategoryFilter !== 'all' && request.category !== requestBoardCategoryFilter) return false;
+      if (requestBoardCityFilter !== 'all' && request.city !== requestBoardCityFilter) return false;
+      if (requestBoardModeFilter !== 'all' && request.mode !== requestBoardModeFilter) return false;
+      if (requestBoardUrgencyFilter !== 'all' && request.urgency !== requestBoardUrgencyFilter) return false;
+      return true;
+    });
+
+    const sorted = [...rows];
+    if (requestBoardSort === 'distance') {
+      sorted.sort((a, b) => a.distance_km - b.distance_km || String(b.created_at).localeCompare(String(a.created_at)));
+      return sorted;
+    }
+    if (requestBoardSort === 'urgency') {
+      sorted.sort((a, b) => {
+        const urgencyDiff = urgencyPriority(a.urgency) - urgencyPriority(b.urgency);
+        if (urgencyDiff !== 0) return urgencyDiff;
+        return a.distance_km - b.distance_km;
+      });
+      return sorted;
+    }
+    sorted.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+    return sorted;
+  }, [
+    nearbyRequests,
+    requestBoardCategoryFilter,
+    requestBoardCityFilter,
+    requestBoardModeFilter,
+    requestBoardSort,
+    requestBoardUrgencyFilter,
+  ]);
   const dashboardRequestPoints = useMemo(() => {
     const points: DashboardMapPoint[] = [];
-    nearbyRequests.forEach((request) => {
+    filteredNearbyRequests.forEach((request) => {
       const lat = toFiniteCoordinate(request.location_lat);
       const lon = toFiniteCoordinate(request.location_lng);
       if (lat === null || lon === null) return;
@@ -2373,7 +2439,7 @@ export default function TechniciansPage() {
       });
     });
     return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [nearbyRequests]);
+  }, [filteredNearbyRequests]);
   const dashboardMapPoints = useMemo(() => {
     if (dashboardMapFilter === 'jobs') return dashboardJobPoints;
     if (dashboardMapFilter === 'requests') return dashboardRequestPoints;
@@ -4726,11 +4792,147 @@ export default function TechniciansPage() {
                   {technicianWorkingHoursLabel && (
                     <p className="mt-2 text-xs text-slate-500">Horario activo: {technicianWorkingHoursLabel}</p>
                   )}
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                      <label className="text-[11px] font-semibold text-slate-600">
+                        Rubro
+                        <select
+                          value={requestBoardCategoryFilter}
+                          onChange={(event) => setRequestBoardCategoryFilter(event.target.value)}
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
+                        >
+                          <option value="all">Ver todo</option>
+                          {requestBoardCategoryOptions.map((option) => (
+                            <option key={`request-category-${option}`} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-[11px] font-semibold text-slate-600">
+                        Ciudad
+                        <select
+                          value={requestBoardCityFilter}
+                          onChange={(event) => setRequestBoardCityFilter(event.target.value)}
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
+                        >
+                          <option value="all">Ver todo</option>
+                          {requestBoardCityOptions.map((option) => (
+                            <option key={`request-city-${option}`} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-[11px] font-semibold text-slate-600">
+                        Tipo
+                        <select
+                          value={requestBoardModeFilter}
+                          onChange={(event) =>
+                            setRequestBoardModeFilter(event.target.value as 'all' | 'marketplace' | 'direct')
+                          }
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
+                        >
+                          <option value="all">Ver todo</option>
+                          <option value="marketplace">Cotizacion multiple</option>
+                          <option value="direct">Asignacion directa</option>
+                        </select>
+                      </label>
+                      <label className="text-[11px] font-semibold text-slate-600">
+                        Urgencia
+                        <select
+                          value={requestBoardUrgencyFilter}
+                          onChange={(event) =>
+                            setRequestBoardUrgencyFilter(event.target.value as 'all' | 'alta' | 'media' | 'baja')
+                          }
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
+                        >
+                          <option value="all">Ver todo</option>
+                          <option value="alta">Alta</option>
+                          <option value="media">Media</option>
+                          <option value="baja">Baja</option>
+                        </select>
+                      </label>
+                      <label className="text-[11px] font-semibold text-slate-600">
+                        Ordenar
+                        <select
+                          value={requestBoardSort}
+                          onChange={(event) =>
+                            setRequestBoardSort(event.target.value as 'recent' | 'distance' | 'urgency')
+                          }
+                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
+                        >
+                          <option value="recent">Fecha de carga</option>
+                          <option value="distance">Distancia</option>
+                          <option value="urgency">Urgencia</option>
+                        </select>
+                      </label>
+                    </div>
+                    <p className="mt-2 text-xs font-semibold text-slate-600">
+                      Mostrando {filteredNearbyRequests.length} de {nearbyRequests.length} solicitudes
+                    </p>
+                  </div>
                   {nearbyRequestsWarning && <p className="mt-2 text-xs font-semibold text-amber-700">{nearbyRequestsWarning}</p>}
                   {nearbyRequestsError && <p className="mt-2 text-xs font-semibold text-rose-600">{nearbyRequestsError}</p>}
 
-                  <div className="mt-4 grid gap-4 lg:grid-cols-[1.3fr_0.7fr]">
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                  <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:order-1">
+                      <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
+                        <p>Solicitudes visibles: {filteredNearbyRequests.length}</p>
+                        <p className="mt-1 text-slate-500">Selecciona una solicitud para centrar el mapa.</p>
+                      </div>
+                      <div className="mt-3 max-h-[360px] space-y-2 overflow-auto pr-1">
+                        {filteredNearbyRequests.length === 0 && (
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
+                            No hay solicitudes para mostrar con estos filtros.
+                          </div>
+                        )}
+                        {filteredNearbyRequests.map((request) => {
+                          const selectedRequestId = dashboardSelectedMapPoint?.kind === 'request'
+                            ? dashboardSelectedMapPoint.id.replace('request:', '')
+                            : '';
+                          const isSelected = selectedRequestId === request.id;
+                          return (
+                            <button
+                              key={request.id}
+                              type="button"
+                              onClick={() => {
+                                setDashboardMapFilter('requests');
+                                setDashboardMapSelectedId(`request:${request.id}`);
+                              }}
+                              className={`w-full rounded-xl border px-3 py-2 text-left transition ${
+                                isSelected
+                                  ? 'border-slate-900 bg-slate-900 text-white'
+                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="truncate text-sm font-semibold">{request.title}</p>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                    isSelected ? 'bg-white/20 text-white' : urgencyBadgeClass(request.urgency)
+                                  }`}
+                                >
+                                  {request.urgency}
+                                </span>
+                              </div>
+                              <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                {request.category} · {request.city || 'Sin ciudad'}
+                              </p>
+                              <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
+                                {request.address || 'Sin direccion'}
+                              </p>
+                              <div className={`mt-2 flex flex-wrap gap-2 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
+                                <span>Distancia: {request.distance_km.toFixed(1)} km</span>
+                                <span>Fecha: {new Date(request.created_at).toLocaleDateString('es-AR')}</span>
+                                <span>Estado: {String(request.status || '').toUpperCase()}</span>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 lg:order-2">
                       {dashboardMapView.url ? (
                         dashboardMapView.mode === 'all' ? (
                           <img
@@ -4776,71 +4978,27 @@ export default function TechniciansPage() {
                         )}
                       </div>
                     </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                      <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
-                        <p>Puntos visibles: {dashboardMapPoints.length}</p>
-                        {(jobsWithoutCoordinatesCount > 0 || requestsWithoutCoordinatesCount > 0) && (
-                          <p className="mt-1 text-amber-700">
-                            Sin coordenadas: trabajos {jobsWithoutCoordinatesCount} | solicitudes {requestsWithoutCoordinatesCount}
-                          </p>
+                  </div>
+                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
+                      <p>Puntos visibles en mapa: {dashboardMapPoints.length}</p>
+                      {(jobsWithoutCoordinatesCount > 0 || requestsWithoutCoordinatesCount > 0) && (
+                        <p className="mt-1 text-amber-700">
+                          Sin coordenadas: trabajos {jobsWithoutCoordinatesCount} | solicitudes {requestsWithoutCoordinatesCount}
+                        </p>
+                      )}
+                      <div className="mt-2">
+                        {dashboardSelectedMapPoint ? (
+                          <button
+                            type="button"
+                            onClick={() => setDashboardMapSelectedId('')}
+                            className="rounded-full border border-slate-300 px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Ver todos en mapa
+                          </button>
+                        ) : (
+                          <p className="text-[10px] font-semibold text-emerald-700">Modo actual: vista general</p>
                         )}
-                        <div className="mt-2">
-                          {dashboardSelectedMapPoint ? (
-                            <button
-                              type="button"
-                              onClick={() => setDashboardMapSelectedId('')}
-                              className="rounded-full border border-slate-300 px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                            >
-                              Ver todos en mapa
-                            </button>
-                          ) : (
-                            <p className="text-[10px] font-semibold text-emerald-700">Modo actual: vista general</p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="mt-3 max-h-[300px] space-y-2 overflow-auto pr-1">
-                        {dashboardMapPoints.length === 0 && (
-                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
-                            No hay puntos para mostrar con este filtro.
-                          </div>
-                        )}
-                        {dashboardMapPoints.map((point) => {
-                          const isSelected = dashboardSelectedMapPoint?.id === point.id;
-                          return (
-                            <button
-                              key={point.id}
-                              type="button"
-                              onClick={() => setDashboardMapSelectedId(point.id)}
-                              className={`w-full rounded-xl border px-3 py-2 text-left transition ${
-                                isSelected
-                                  ? 'border-slate-900 bg-slate-900 text-white'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                              }`}
-                            >
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="truncate text-xs font-semibold">{point.title}</p>
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                    isSelected
-                                      ? 'bg-white/20 text-white'
-                                      : point.kind === 'request'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-emerald-100 text-emerald-700'
-                                  }`}
-                                >
-                                  {point.kind === 'request' ? 'Solicitud' : 'Trabajo'}
-                                </span>
-                              </div>
-                              <p className={`mt-1 truncate text-[11px] ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                                {point.subtitle}
-                              </p>
-                              <p className={`mt-1 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
-                                {point.meta}
-                              </p>
-                            </button>
-                          );
-                        })}
                       </div>
                     </div>
                   </div>
