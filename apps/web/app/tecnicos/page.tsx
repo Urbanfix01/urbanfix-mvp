@@ -2349,6 +2349,36 @@ export default function TechniciansPage() {
     Boolean(profileForm.phone.trim()) &&
     Boolean(profileForm.address.trim());
 
+  const technicianVisibilityChecklist = useMemo(
+    () => [
+      { key: 'business', label: 'Nombre del negocio visible', completed: Boolean(profileForm.businessName.trim()) },
+      { key: 'phone', label: 'Telefono para contacto', completed: Boolean(profileForm.phone.trim()) },
+      {
+        key: 'zone',
+        label: 'Ciudad o zona de cobertura',
+        completed: Boolean(profileForm.city.trim()) || Boolean(profileForm.coverageArea.trim()),
+      },
+      { key: 'specialty', label: 'Rubros / especialidades', completed: Boolean(profileForm.specialties.trim()) },
+      { key: 'hours', label: 'Horarios de atencion', completed: Boolean(profileForm.workingHours.trim()) },
+      { key: 'references', label: 'Referencias publicas', completed: Boolean(profileForm.referencesSummary.trim()) },
+    ],
+    [
+      profileForm.businessName,
+      profileForm.city,
+      profileForm.coverageArea,
+      profileForm.phone,
+      profileForm.referencesSummary,
+      profileForm.specialties,
+      profileForm.workingHours,
+    ]
+  );
+
+  const technicianVisibilityPercent = useMemo(() => {
+    const completed = technicianVisibilityChecklist.filter((item) => item.completed).length;
+    const total = technicianVisibilityChecklist.length || 1;
+    return Math.round((completed / total) * 100);
+  }, [technicianVisibilityChecklist]);
+
   if (loadingSession) {
     return (
       <>
@@ -4828,6 +4858,31 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura y horarios</p>
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            Visibilidad para clientes
+                          </p>
+                          <p className="text-sm font-bold text-slate-900">{technicianVisibilityPercent}%</p>
+                        </div>
+                        <p className="mt-2 text-[11px] text-slate-500">
+                          Este porcentaje impacta en el orden en que apareces para nuevas oportunidades.
+                        </p>
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                          {technicianVisibilityChecklist.map((item) => (
+                            <p
+                              key={item.key}
+                              className={`rounded-xl border px-2 py-1.5 text-[11px] font-medium ${
+                                item.completed
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : 'border-slate-200 bg-slate-50 text-slate-500'
+                              }`}
+                            >
+                              {item.completed ? 'OK' : 'Pendiente'} · {item.label}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">Direccion base</label>
                       <input
                         value={profileForm.address}

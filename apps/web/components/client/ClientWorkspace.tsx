@@ -29,13 +29,22 @@ type Quote = {
   id: string;
   technicianId: string;
   technicianName: string;
+  businessName?: string | null;
   specialty: string;
   city: string;
+  coverageArea?: string | null;
   phone: string;
+  workingHours?: string | null;
   quoteStatus: 'pending' | 'submitted' | 'accepted' | 'rejected' | string;
   priceArs: number | null;
   etaHours: number | null;
   rating: number | null;
+  reviewsCount?: number | null;
+  completedJobsTotal?: number | null;
+  referencesSummary?: string | null;
+  recommendations?: string[];
+  badges?: string[];
+  visibilityScore?: number | null;
 };
 
 type TimelineEvent = {
@@ -100,6 +109,15 @@ const tabs: { key: Tab; label: string }[] = [
   { key: 'active', label: 'Activas' },
   { key: 'history', label: 'Historial' },
 ];
+
+const TECH_BADGE_LABELS: Record<string, string> = {
+  insignia_cumplimiento: 'Cumplimiento',
+  insignia_puntual: 'Puntualidad',
+  insignia_recomendado: 'Recomendado',
+  insignia_calidad: 'Calidad superior',
+  insignia_respuesta_rapida: 'Respuesta rapida',
+  insignia_cliente_feliz: 'Cliente feliz',
+};
 
 type ZoneCoords = { lat: number; lon: number };
 
@@ -709,20 +727,53 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
                       {request.quotes.map((quote) => (
                         <div
                           key={quote.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"
+                          className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
                         >
-                          <div>
-                            <p className="text-xs font-semibold text-slate-700">
-                              {quote.technicianName} | {quote.specialty}
+                          <div className="min-w-[220px] flex-1 space-y-1.5">
+                            <p className="text-xs font-semibold text-slate-800">
+                              {quote.businessName ? `${quote.businessName} | ${quote.technicianName}` : quote.technicianName}
                             </p>
+                            <p className="text-[11px] font-medium text-slate-600">Especialidad: {quote.specialty}</p>
                             <p className="text-xs text-slate-600">
                               {quote.priceArs !== null && quote.etaHours !== null
                                 ? `Cotizacion: ${ars(quote.priceArs)} | ETA ${quote.etaHours}h`
                                 : 'Cotizacion pendiente de respuesta'}
                             </p>
-                            <p className="text-xs text-slate-500">
-                              Zona: {quote.city || 'No informada'}
-                            </p>
+                            <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+                              <span>Zona: {quote.city || 'No informada'}</span>
+                              {quote.coverageArea && <span>Cobertura: {quote.coverageArea}</span>}
+                              {quote.workingHours && <span>Horario: {quote.workingHours}</span>}
+                            </div>
+                            {(quote.rating || quote.reviewsCount || quote.completedJobsTotal) && (
+                              <p className="text-[11px] text-slate-600">
+                                Reputacion:{' '}
+                                {quote.rating ? `${Number(quote.rating).toFixed(1)} / 5` : 'Sin calificacion'} ·{' '}
+                                {quote.reviewsCount || 0} reseñas · {quote.completedJobsTotal || 0} trabajos
+                              </p>
+                            )}
+                            {typeof quote.visibilityScore === 'number' && quote.visibilityScore > 0 && (
+                              <p className="text-[11px] font-medium text-emerald-700">
+                                Perfil publico completado: {quote.visibilityScore}%
+                              </p>
+                            )}
+                            {Array.isArray(quote.badges) && quote.badges.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {quote.badges.slice(0, 4).map((badge) => (
+                                  <span
+                                    key={`${quote.id}-${badge}`}
+                                    className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                  >
+                                    {TECH_BADGE_LABELS[badge] || badge.replaceAll('_', ' ')}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {quote.referencesSummary && (
+                              <p className="text-[11px] text-slate-600">{quote.referencesSummary}</p>
+                            )}
+                            {Array.isArray(quote.recommendations) && quote.recommendations.length > 0 && (
+                              <p className="text-[11px] italic text-slate-500">"{quote.recommendations[0]}"</p>
+                            )}
                           </div>
                           <button
                             type="button"

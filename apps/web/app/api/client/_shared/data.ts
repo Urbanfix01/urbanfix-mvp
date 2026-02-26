@@ -28,6 +28,78 @@ const toNumberOrNull = (value: unknown) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const toInt = (value: unknown, fallback = 0) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, Math.round(parsed));
+};
+
+const splitTextLines = (value: unknown) =>
+  String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const parseBadgeArray = (value: unknown) => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+      )
+    );
+  }
+  if (typeof value === 'string') {
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+  return [] as string[];
+};
+
+const getCoverageCityFallback = (coverageRaw: unknown) =>
+  String(coverageRaw || '')
+    .split(',')
+    .map((segment) => segment.trim())
+    .filter(Boolean)[0] || '';
+
+const getTechnicianVisibilityScore = (profile?: AnyRecord | null) => {
+  if (!profile) return 0;
+  const checks = [
+    Boolean(String(profile.business_name || profile.full_name || '').trim()),
+    Boolean(String(profile.phone || '').trim()),
+    Boolean(String(profile.city || '').trim() || String(profile.coverage_area || '').trim()),
+    Boolean(String(profile.specialties || '').trim()),
+    Boolean(String(profile.working_hours || '').trim()),
+    Boolean(String(profile.company_address || profile.address || '').trim()),
+  ];
+  const completed = checks.filter(Boolean).length;
+  return Math.round((completed / checks.length) * 100);
+};
+
+const getTechnicianVisibilityBonus = (profile?: AnyRecord | null) => {
+  if (!profile) return 0;
+  let bonus = 0;
+  if (String(profile.business_name || profile.full_name || '').trim()) bonus += 2;
+  if (String(profile.phone || '').trim()) bonus += 2;
+  if (String(profile.specialties || '').trim()) bonus += 3;
+  if (String(profile.city || '').trim() || String(profile.coverage_area || '').trim()) bonus += 3;
+  if (String(profile.working_hours || '').trim()) bonus += 1;
+  if (String(profile.references_summary || '').trim()) bonus += 1;
+  const rating = Number(profile.public_rating);
+  if (Number.isFinite(rating) && rating > 0) bonus += Math.min(3, rating / 2);
+  const completedJobs = toInt(profile.completed_jobs_total, 0);
+  if (completedJobs >= 10) bonus += 2;
+  else if (completedJobs > 0) bonus += 1;
+  return bonus;
+};
+
 const resolveTechName = (profile: AnyRecord) =>
   String(profile?.full_name || profile?.business_name || 'Tecnico').trim() || 'Tecnico';
 
@@ -88,20 +160,51 @@ const buildKnownTechnicians = (requestRows: AnyRecord[]) => {
   return result;
 };
 
-const mapQuoteRow = (row: AnyRecord) => ({
-  id: String(row.id),
-  technicianId: String(row.technician_id || ''),
-  technicianName: String(row.technician_name || 'Tecnico'),
-  specialty: String(row.technician_specialty || 'General'),
-  city: String(row.technician_city || ''),
-  phone: String(row.technician_phone || ''),
-  priceArs: toNumberOrNull(row.price_ars),
-  etaHours: toNumberOrNull(row.eta_hours),
-  quoteStatus: String(row.quote_status || 'pending'),
-  rating: toNumberOrNull(row.technician_rating),
-});
+const mapQuoteRow = (row: AnyRecord, profile?: AnyRecord | null) => {
+  const profileRating = toNumberOrNull(profile?.public_rating);
+  const rowRating = toNumberOrNull(row.technician_rating);
+  const rating = rowRating ?? profileRating;
+  const recommendations = splitTextLines(profile?.client_recommendations).slice(0, 3);
+  const coverageArea = String(profile?.coverage_area || '').trim();
+  const city =
+    String(row.technician_city || '').trim() ||
+    String(profile?.city || '').trim() ||
+    getCoverageCityFallback(coverageArea);
+  const technicianName =
+    String(row.technician_name || '').trim() ||
+    String(profile?.full_name || '').trim() ||
+    String(profile?.business_name || '').trim() ||
+    'Tecnico';
 
-const mapRequestRow = (row: AnyRecord, quoteRows: AnyRecord[], eventRows: AnyRecord[]) => ({
+  return {
+    id: String(row.id),
+    technicianId: String(row.technician_id || ''),
+    technicianName,
+    businessName: String(profile?.business_name || '').trim() || null,
+    specialty: String(row.technician_specialty || '').trim() || String(profile?.specialties || '').trim() || 'General',
+    city,
+    coverageArea: coverageArea || null,
+    phone: String(row.technician_phone || '').trim() || String(profile?.phone || '').trim() || '',
+    workingHours: String(profile?.working_hours || '').trim() || null,
+    priceArs: toNumberOrNull(row.price_ars),
+    etaHours: toNumberOrNull(row.eta_hours),
+    quoteStatus: String(row.quote_status || 'pending'),
+    rating,
+    reviewsCount: toInt(profile?.public_reviews_count, 0),
+    completedJobsTotal: toInt(profile?.completed_jobs_total, 0),
+    referencesSummary: String(profile?.references_summary || '').trim() || null,
+    recommendations,
+    badges: parseBadgeArray(profile?.achievement_badges),
+    visibilityScore: getTechnicianVisibilityScore(profile),
+  };
+};
+
+const mapRequestRow = (
+  row: AnyRecord,
+  quoteRows: AnyRecord[],
+  eventRows: AnyRecord[],
+  profilesById: Map<string, AnyRecord>
+) => ({
   id: String(row.id),
   title: String(row.title || ''),
   category: String(row.category || ''),
@@ -121,7 +224,7 @@ const mapRequestRow = (row: AnyRecord, quoteRows: AnyRecord[], eventRows: AnyRec
   assignedTechPhone: row.assigned_technician_phone ? String(row.assigned_technician_phone) : null,
   directExpiresAt: row.direct_expires_at ? toIso(row.direct_expires_at) : null,
   selectedQuoteId: row.selected_match_id ? String(row.selected_match_id) : null,
-  quotes: quoteRows.map(mapQuoteRow),
+  quotes: quoteRows.map((quoteRow) => mapQuoteRow(quoteRow, profilesById.get(String(quoteRow.technician_id || '')))),
   timeline: eventRows.map((event) => ({
     id: String(event.id),
     at: toIso(event.created_at),
@@ -180,6 +283,32 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
     matchMap.set(requestId, list);
   });
 
+  const profilesById = new Map<string, AnyRecord>();
+  const technicianIds = Array.from(
+    new Set(
+      matches
+        .map((row) => String(row.technician_id || '').trim())
+        .filter(Boolean)
+    )
+  );
+  if (technicianIds.length) {
+    const { data: profileRows, error: profileError } = await supabase
+      .from('profiles')
+      .select(
+        'id,full_name,business_name,phone,address,company_address,city,coverage_area,specialties,working_hours,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges'
+      )
+      .in('id', technicianIds);
+
+    if (!profileError) {
+      (profileRows || []).forEach((profile: AnyRecord) => {
+        const id = String(profile?.id || '').trim();
+        if (id) {
+          profilesById.set(id, profile);
+        }
+      });
+    }
+  }
+
   const eventMap = new Map<string, AnyRecord[]>();
   events.forEach((row) => {
     const requestId = String(row.request_id);
@@ -189,7 +318,14 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
   });
 
   return {
-    requests: requests.map((row) => mapRequestRow(row, matchMap.get(String(row.id)) || [], eventMap.get(String(row.id)) || [])),
+    requests: requests.map((row) =>
+      mapRequestRow(
+        row,
+        matchMap.get(String(row.id)) || [],
+        eventMap.get(String(row.id)) || [],
+        profilesById
+      )
+    ),
     knownTechnicians: buildKnownTechnicians(requests),
   };
 };
@@ -242,7 +378,8 @@ export const ensureMarketplaceMatches = async (
     return existingRows as AnyRecord[];
   }
 
-  const profileSelect = 'id,full_name,business_name,phone,specialties,city,coverage_area,last_seen_at';
+  const profileSelect =
+    'id,full_name,business_name,phone,address,company_address,specialties,city,coverage_area,working_hours,references_summary,public_rating,completed_jobs_total,last_seen_at';
   let profileRows: AnyRecord[] = [];
 
   const primary = await supabase
@@ -281,6 +418,7 @@ export const ensureMarketplaceMatches = async (
       if (requestCity && coverage.includes(requestCity)) score += 3;
       if (requestAddress && city && requestAddress.includes(city)) score += 2;
       if (phone) score += 1;
+      score += getTechnicianVisibilityBonus(profile);
 
       return {
         profile,
