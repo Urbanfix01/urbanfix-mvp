@@ -14,6 +14,44 @@ const manrope = Manrope({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+const TECH_BADGE_LABELS: Record<string, string> = {
+  insignia_cumplimiento: 'Cumplimiento',
+  insignia_puntual: 'Puntualidad',
+  insignia_recomendado: 'Recomendado',
+  insignia_calidad: 'Calidad superior',
+  insignia_respuesta_rapida: 'Respuesta rapida',
+  insignia_cliente_feliz: 'Cliente feliz',
+};
+
+const parseBadgeArray = (value: any) => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+      )
+    );
+  }
+  if (typeof value === 'string') {
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+  return [] as string[];
+};
+
+const splitTextLines = (value: string) =>
+  value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 export default function QuotePage() {
   const params = useParams();
   const [loading, setLoading] = useState(true);
@@ -455,6 +493,22 @@ export default function QuotePage() {
     if (isPresented) return 1;
     return 0;
   })();
+  const publicRatingRaw = Number(profile?.public_rating ?? 0);
+  const publicReviewsCountRaw = Number(profile?.public_reviews_count ?? 0);
+  const completedJobsTotalRaw = Number(profile?.completed_jobs_total ?? 0);
+  const publicRating = Number.isFinite(publicRatingRaw) ? Math.min(5, Math.max(0, publicRatingRaw)) : 0;
+  const publicReviewsCount = Number.isFinite(publicReviewsCountRaw) ? Math.max(0, Math.round(publicReviewsCountRaw)) : 0;
+  const completedJobsTotal = Number.isFinite(completedJobsTotalRaw) ? Math.max(0, Math.round(completedJobsTotalRaw)) : 0;
+  const referencesSummary = String(profile?.references_summary || '').trim();
+  const recommendationItems = splitTextLines(String(profile?.client_recommendations || ''));
+  const publicBadges = parseBadgeArray(profile?.achievement_badges);
+  const hasPublicReputation =
+    publicRating > 0 ||
+    publicReviewsCount > 0 ||
+    completedJobsTotal > 0 ||
+    referencesSummary.length > 0 ||
+    recommendationItems.length > 0 ||
+    publicBadges.length > 0;
 
   // --- ICONOS SVG ---
   const Icons = {
@@ -510,6 +564,56 @@ export default function QuotePage() {
                         </div>
                     )}
                 </div>
+                {hasPublicReputation && (
+                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.06] p-4 sm:p-5">
+                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-300/80">Perfil profesional</p>
+                    <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-xl bg-black/20 px-3 py-2">
+                        <p className="uppercase tracking-wider text-slate-300/70">Puntuacion</p>
+                        <p className="mt-1 font-semibold text-white">
+                          {publicRating > 0 ? `${publicRating.toFixed(1)} / 5` : 'Sin calificacion'}
+                        </p>
+                        <p className="text-[11px] text-slate-300/70">
+                          {publicReviewsCount} {publicReviewsCount === 1 ? 'resena' : 'resenas'}
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-black/20 px-3 py-2">
+                        <p className="uppercase tracking-wider text-slate-300/70">Trabajos realizados</p>
+                        <p className="mt-1 font-semibold text-white">{completedJobsTotal}</p>
+                      </div>
+                    </div>
+
+                    {publicBadges.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {publicBadges.slice(0, 8).map((badge) => (
+                          <span
+                            key={badge}
+                            className="rounded-full border border-emerald-300/30 bg-emerald-500/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-100"
+                          >
+                            {TECH_BADGE_LABELS[badge] || badge.replaceAll('_', ' ')}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {referencesSummary && (
+                      <p className="mt-3 text-sm leading-relaxed text-slate-100">{referencesSummary}</p>
+                    )}
+
+                    {recommendationItems.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        {recommendationItems.slice(0, 3).map((recommendation, index) => (
+                          <p
+                            key={`${recommendation}-${index}`}
+                            className="text-xs text-slate-200/90"
+                          >
+                            "{recommendation}"
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 

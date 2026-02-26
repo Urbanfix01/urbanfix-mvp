@@ -138,6 +138,44 @@ const billingStatuses = new Set([
   'finalizado',
 ]);
 
+const TECH_BADGE_OPTIONS = [
+  { id: 'insignia_cumplimiento', label: 'Cumplimiento' },
+  { id: 'insignia_puntual', label: 'Puntualidad' },
+  { id: 'insignia_recomendado', label: 'Recomendado' },
+  { id: 'insignia_calidad', label: 'Calidad superior' },
+  { id: 'insignia_respuesta_rapida', label: 'Respuesta rapida' },
+  { id: 'insignia_cliente_feliz', label: 'Cliente feliz' },
+];
+
+const parseBadgeArray = (value: any) => {
+  if (Array.isArray(value)) {
+    return Array.from(
+      new Set(
+        value
+          .map((item) => String(item || '').trim())
+          .filter(Boolean)
+      )
+    );
+  }
+  if (typeof value === 'string') {
+    return Array.from(
+      new Set(
+        value
+          .split(',')
+          .map((item) => item.trim())
+          .filter(Boolean)
+      )
+    );
+  }
+  return [] as string[];
+};
+
+const splitTextLines = (value: string) =>
+  value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
   if (!normalized) return 'draft';
@@ -445,6 +483,12 @@ export default function TechniciansPage() {
     defaultCurrency: 'ARS',
     defaultTaxRate: 0.21,
     defaultDiscount: 0,
+    publicRating: 4.8,
+    publicReviewsCount: 0,
+    completedJobsTotal: 0,
+    referencesSummary: '',
+    clientRecommendations: '',
+    achievementBadges: [] as string[],
     companyLogoUrl: '',
     avatarUrl: '',
     logoShape: 'auto',
@@ -817,6 +861,12 @@ export default function TechniciansPage() {
       defaultCurrency: profile.default_currency || 'ARS',
       defaultTaxRate: Number(profile.default_tax_rate ?? 0.21),
       defaultDiscount: Number(profile.default_discount ?? 0),
+      publicRating: Number(profile.public_rating ?? 4.8),
+      publicReviewsCount: Number(profile.public_reviews_count ?? 0),
+      completedJobsTotal: Number(profile.completed_jobs_total ?? 0),
+      referencesSummary: profile.references_summary || '',
+      clientRecommendations: profile.client_recommendations || '',
+      achievementBadges: parseBadgeArray(profile.achievement_badges),
       companyLogoUrl: profile.company_logo_url || legacyLogoUrl || '',
       avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
@@ -1454,6 +1504,14 @@ export default function TechniciansPage() {
       ...totals,
     };
   }, [quotes]);
+  const completedJobsVerified = useMemo(
+    () =>
+      quotes.filter((quote) => {
+        const normalized = normalizeStatusValue(quote.status);
+        return completedStatuses.has(normalized) || paidStatuses.has(normalized);
+      }).length,
+    [quotes]
+  );
   const recentQuotes = useMemo(() => quotes.slice(0, 3), [quotes]);
   const activeQuote = useMemo(
     () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
@@ -1757,6 +1815,12 @@ export default function TechniciansPage() {
         default_currency: profileForm.defaultCurrency,
         default_tax_rate: toNumber(String(profileForm.defaultTaxRate)),
         default_discount: toNumber(String(profileForm.defaultDiscount)),
+        public_rating: Math.min(5, Math.max(0, toNumber(String(profileForm.publicRating)))),
+        public_reviews_count: Math.max(0, Math.round(toNumber(String(profileForm.publicReviewsCount)))),
+        completed_jobs_total: Math.max(0, Math.round(toNumber(String(profileForm.completedJobsTotal)))),
+        references_summary: profileForm.referencesSummary,
+        client_recommendations: profileForm.clientRecommendations,
+        achievement_badges: profileForm.achievementBadges,
         company_logo_url: profileForm.companyLogoUrl,
         avatar_url: profileForm.avatarUrl,
         logo_shape: profileForm.logoShape,
@@ -4759,6 +4823,131 @@ export default function TechniciansPage() {
                         rows={3}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Reputacion publica</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Puntuacion</p>
+                          <p className="mt-1 text-lg font-bold text-slate-900">
+                            {Number(profileForm.publicRating || 0).toFixed(1)} / 5
+                          </p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Trabajos verificados</p>
+                          <p className="mt-1 text-lg font-bold text-slate-900">{completedJobsVerified}</p>
+                        </div>
+                        <div className="rounded-xl border border-slate-200 bg-white p-3">
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Trabajos publicados</p>
+                          <p className="mt-1 text-lg font-bold text-slate-900">{profileForm.completedJobsTotal || 0}</p>
+                        </div>
+                      </div>
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Puntuacion publica (0 a 5)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="5"
+                        value={profileForm.publicRating}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            publicRating: Math.min(5, Math.max(0, toNumber(event.target.value))),
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Cantidad de recomendaciones</label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={profileForm.publicReviewsCount}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            publicReviewsCount: Math.max(0, Math.round(toNumber(event.target.value))),
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Trabajos realizados (publico)</label>
+                      <input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={profileForm.completedJobsTotal}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            completedJobsTotal: Math.max(0, Math.round(toNumber(event.target.value))),
+                          }))
+                        }
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+
+                      <p className="mt-3 text-[11px] text-slate-500">
+                        Sugerencia: usa el valor verificado ({completedJobsVerified}) para mantener coherencia publica.
+                      </p>
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Insignias</label>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {TECH_BADGE_OPTIONS.map((badge) => {
+                          const selected = profileForm.achievementBadges.includes(badge.id);
+                          return (
+                            <button
+                              key={badge.id}
+                              type="button"
+                              onClick={() =>
+                                setProfileForm((prev) => ({
+                                  ...prev,
+                                  achievementBadges: selected
+                                    ? prev.achievementBadges.filter((item) => item !== badge.id)
+                                    : [...prev.achievementBadges, badge.id],
+                                }))
+                              }
+                              className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
+                                selected
+                                  ? 'bg-slate-900 text-white'
+                                  : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                              }`}
+                            >
+                              {badge.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Referencias</label>
+                      <textarea
+                        value={profileForm.referencesSummary}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, referencesSummary: event.target.value }))
+                        }
+                        rows={3}
+                        placeholder="Ej: Mantenimiento de edificios, obras en consorcios, locales comerciales."
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">
+                        Recomendaciones de clientes (una por linea)
+                      </label>
+                      <textarea
+                        value={profileForm.clientRecommendations}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, clientRecommendations: event.target.value }))
+                        }
+                        rows={4}
+                        placeholder={'Ej: Excelente trabajo y prolijidad.\\nCumplio tiempos y presupuesto.'}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Recomendaciones visibles actualmente: {splitTextLines(profileForm.clientRecommendations).length}
+                      </p>
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
