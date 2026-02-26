@@ -20,6 +20,51 @@ const statusSet = new Set([
 ]);
 
 const toText = (value: unknown) => String(value || '').trim();
+const toFiniteNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const parseMoney = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  const normalized = String(value).trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const loadRequestMatch = async (client: any, requestId: string, matchId: string) => {
+  const { data, error } = await client
+    .from('client_request_matches')
+    .select('*')
+    .eq('id', matchId)
+    .eq('request_id', requestId)
+    .maybeSingle();
+  if (error || !data) {
+    throw new Error('No encontramos la cotizacion seleccionada.');
+  }
+  return data as Record<string, any>;
+};
+
+const refreshRequestStatusFromQuotes = async (client: any, requestId: string, userId: string) => {
+  const { data: matchRows, error } = await client
+    .from('client_request_matches')
+    .select('id, quote_status')
+    .eq('request_id', requestId);
+  if (error) {
+    throw new Error(error.message || 'No pudimos recalcular estado de cotizaciones.');
+  }
+  const rows = (matchRows || []) as Array<{ id: string; quote_status: string }>;
+  const hasSubmitted = rows.some((row) => String(row.quote_status || '') === 'submitted');
+  const nextStatus = hasSubmitted ? 'quoted' : 'matched';
+  await updateRequest(client, requestId, userId, {
+    status: nextStatus,
+    selected_match_id: null,
+    assigned_technician_id: null,
+    assigned_technician_name: null,
+    assigned_technician_phone: null,
+  });
+};
 
 const updateRequest = async (client: any, requestId: string, userId: string, payload: Record<string, unknown>) => {
   const { error } = await client
@@ -141,6 +186,121 @@ export async function PATCH(
         assigned_technician_phone: matchRow.technician_phone,
       });
       await insertClientEvent(supabase, requestId, user.id, `Tecnico elegido: ${matchRow.technician_name}.`);
+    } else if (action === 'quote_accept') {
+      const matchId = toText(body.matchId);
+      if (!matchId) {
+        return NextResponse.json({ error: 'Cotizacion requerida.' }, { status: 400 });
+      }
+      const matchRow = await loadRequestMatch(supabase, requestId, matchId);
+      const { error: acceptError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'accepted' })
+        .eq('id', matchRow.id)
+        .eq('request_id', requestId);
+      if (acceptError) {
+        return NextResponse.json(
+          { error: acceptError.message || 'No pudimos aceptar la oferta.' },
+          { status: 500 }
+        );
+      }
+      const { error: rejectOthersError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'rejected' })
+        .eq('request_id', requestId)
+        .neq('id', matchRow.id)
+        .eq('quote_status', 'submitted');
+      if (rejectOthersError) {
+        return NextResponse.json(
+          { error: rejectOthersError.message || 'No pudimos cerrar las otras cotizaciones.' },
+          { status: 500 }
+        );
+      }
+      await updateRequest(supabase, requestId, user.id, {
+        status: 'selected',
+        selected_match_id: matchRow.id,
+        assigned_technician_id: matchRow.technician_id,
+        assigned_technician_name: matchRow.technician_name,
+        assigned_technician_phone: matchRow.technician_phone,
+      });
+      await insertClientEvent(
+        supabase,
+        requestId,
+        user.id,
+        `Oferta aceptada: ${matchRow.technician_name || 'tecnico'} seleccionado.`
+      );
+    } else if (action === 'quote_reject') {
+      const matchId = toText(body.matchId);
+      if (!matchId) {
+        return NextResponse.json({ error: 'Cotizacion requerida.' }, { status: 400 });
+      }
+      const reason = toText(body.reason);
+      const matchRow = await loadRequestMatch(supabase, requestId, matchId);
+      const { error: rejectError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'rejected' })
+        .eq('id', matchRow.id)
+        .eq('request_id', requestId);
+      if (rejectError) {
+        return NextResponse.json(
+          { error: rejectError.message || 'No pudimos rechazar la oferta.' },
+          { status: 500 }
+        );
+      }
+      await refreshRequestStatusFromQuotes(supabase, requestId, user.id);
+      await insertClientEvent(
+        supabase,
+        requestId,
+        user.id,
+        `Oferta rechazada: ${matchRow.technician_name || 'tecnico'}${reason ? ` (${reason})` : ''}.`
+      );
+    } else if (action === 'counter_offer') {
+      const matchId = toText(body.matchId);
+      if (!matchId) {
+        return NextResponse.json({ error: 'Cotizacion requerida.' }, { status: 400 });
+      }
+      const counterPrice = parseMoney(body.counterPriceArs);
+      const counterEta = toFiniteNumber(body.counterEtaHours);
+      const note = toText(body.note);
+      if (counterPrice === null || counterPrice <= 0) {
+        return NextResponse.json({ error: 'Precio de contraoferta invalido.' }, { status: 400 });
+      }
+      if (counterEta === null || counterEta <= 0) {
+        return NextResponse.json({ error: 'ETA de contraoferta invalida.' }, { status: 400 });
+      }
+      const matchRow = await loadRequestMatch(supabase, requestId, matchId);
+      const normalizedPrice = Math.round(counterPrice * 100) / 100;
+      const normalizedEta = Math.max(1, Math.min(720, Math.round(counterEta)));
+      const { error: updateMatchError } = await supabase
+        .from('client_request_matches')
+        .update({
+          quote_status: 'submitted',
+          price_ars: normalizedPrice,
+          eta_hours: normalizedEta,
+        })
+        .eq('id', matchRow.id)
+        .eq('request_id', requestId);
+      if (updateMatchError) {
+        return NextResponse.json(
+          { error: updateMatchError.message || 'No pudimos guardar la contraoferta.' },
+          { status: 500 }
+        );
+      }
+      await updateRequest(supabase, requestId, user.id, {
+        status: 'quoted',
+        selected_match_id: null,
+        assigned_technician_id: null,
+        assigned_technician_name: null,
+        assigned_technician_phone: null,
+      });
+      const priceLabel = Math.round(normalizedPrice).toLocaleString('es-AR');
+      await insertClientEvent(
+        supabase,
+        requestId,
+        user.id,
+        `Contraoferta enviada a ${matchRow.technician_name || 'tecnico'}: $${priceLabel} - ETA ${normalizedEta}h${
+          note ? ` - ${note}` : ''
+        }.`
+      );
     } else if (action === 'advance') {
       const currentStatus = String(row.status || '');
       let nextStatus: string | null = null;

@@ -93,6 +93,12 @@ type Props = {
   onLogout: () => void | Promise<void>;
 };
 
+type CounterOfferDraft = {
+  priceArs: string;
+  etaHours: string;
+  note: string;
+};
+
 const TO_MATCH_MS = 20 * 1000;
 
 const statusMeta: Record<Status, { label: string; className: string }> = {
@@ -185,6 +191,25 @@ const getZonesFromRequest = (request: Request) => {
 const ars = (value: number) => `$${Math.round(value).toLocaleString('es-AR')}`;
 const toIso = (value: unknown) => (value ? new Date(String(value)).toISOString() : new Date().toISOString());
 const canAdvance = (status: Status) => status === 'selected' || status === 'scheduled' || status === 'in_progress';
+const parseMoneyInput = (value: string) => {
+  const normalized = String(value || '').trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const parseEtaInput = (value: string) => {
+  const normalized = String(value || '').trim().replace(',', '.');
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const quoteStatusMeta = (status: string | null | undefined) => {
+  const normalized = String(status || '').toLowerCase();
+  if (normalized === 'submitted') return { label: 'Oferta enviada', className: 'bg-sky-100 text-sky-700' };
+  if (normalized === 'accepted') return { label: 'Aceptada', className: 'bg-emerald-100 text-emerald-700' };
+  if (normalized === 'rejected') return { label: 'Rechazada', className: 'bg-rose-100 text-rose-700' };
+  return { label: 'Pendiente', className: 'bg-slate-100 text-slate-700' };
+};
 
 const getAdvanceLabel = (status: Status) => {
   if (status === 'selected') return 'Agendar';
@@ -246,6 +271,8 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
   const [zoneCoordsByName, setZoneCoordsByName] = useState<Record<string, ZoneCoords>>({});
   const [zoneLookupErrors, setZoneLookupErrors] = useState<Record<string, boolean>>({});
   const [selectedZoneByRequest, setSelectedZoneByRequest] = useState<Record<string, string>>({});
+  const [counterEditorQuoteId, setCounterEditorQuoteId] = useState('');
+  const [counterDraftByQuoteId, setCounterDraftByQuoteId] = useState<Record<string, CounterOfferDraft>>({});
 
   const autoLocksRef = useRef<Set<string>>(new Set());
   const geocodingLocksRef = useRef<Set<string>>(new Set());
@@ -312,6 +339,60 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
       }
     },
     [runAction]
+  );
+
+  const getCounterDraft = useCallback(
+    (quote: Quote): CounterOfferDraft =>
+      counterDraftByQuoteId[quote.id] || {
+        priceArs: quote.priceArs !== null && quote.priceArs !== undefined ? String(Math.round(quote.priceArs)) : '',
+        etaHours: quote.etaHours !== null && quote.etaHours !== undefined ? String(Math.round(quote.etaHours)) : '',
+        note: '',
+      },
+    [counterDraftByQuoteId]
+  );
+
+  const setCounterDraftField = useCallback((quoteId: string, field: keyof CounterOfferDraft, value: string) => {
+    setCounterDraftByQuoteId((prev) => ({
+      ...prev,
+      [quoteId]: {
+        priceArs: prev[quoteId]?.priceArs || '',
+        etaHours: prev[quoteId]?.etaHours || '',
+        note: prev[quoteId]?.note || '',
+        [field]: value,
+      },
+    }));
+  }, []);
+
+  const submitCounterOffer = useCallback(
+    async (requestId: string, quote: Quote) => {
+      const draft = getCounterDraft(quote);
+      const price = parseMoneyInput(draft.priceArs);
+      if (price === null || price <= 0) {
+        setError('Ingresa un precio valido para la contraoferta.');
+        return;
+      }
+      const eta = parseEtaInput(draft.etaHours);
+      if (eta === null || eta <= 0) {
+        setError('Ingresa una ETA valida para la contraoferta.');
+        return;
+      }
+      await runAction(requestId, 'counter_offer', {
+        matchId: quote.id,
+        counterPriceArs: Math.round(price * 100) / 100,
+        counterEtaHours: Math.max(1, Math.min(720, Math.round(eta))),
+        note: draft.note.trim() || null,
+      });
+      setCounterEditorQuoteId('');
+      setCounterDraftByQuoteId((prev) => ({
+        ...prev,
+        [quote.id]: {
+          priceArs: draft.priceArs,
+          etaHours: draft.etaHours,
+          note: '',
+        },
+      }));
+    },
+    [getCounterDraft, runAction]
   );
 
   const createRequest = async () => {
@@ -727,77 +808,157 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
 
                   {(request.status === 'matched' || request.status === 'quoted') && request.quotes.length > 0 && (
                     <div className="mt-2 space-y-2">
-                      {request.quotes.map((quote) => (
-                        <div
-                          key={quote.id}
-                          className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
-                        >
-                          <div className="min-w-[220px] flex-1 space-y-1.5">
-                            <p className="text-xs font-semibold text-slate-800">
-                              {quote.businessName ? `${quote.businessName} | ${quote.technicianName}` : quote.technicianName}
-                            </p>
-                            <p className="text-[11px] font-medium text-slate-600">Especialidad: {quote.specialty}</p>
-                            <p className="text-xs text-slate-600">
-                              {quote.priceArs !== null && quote.etaHours !== null
-                                ? `Cotizacion: ${ars(quote.priceArs)} | ETA ${quote.etaHours}h`
-                                : 'Cotizacion pendiente de respuesta'}
-                            </p>
-                            <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
-                              <span>Zona: {quote.city || 'No informada'}</span>
-                              {quote.province && <span>Provincia: {quote.province}</span>}
-                              {quote.district && <span>Distrito: {quote.district}</span>}
-                              {quote.coverageArea && <span>Cobertura: {quote.coverageArea}</span>}
-                              {quote.workingHours && <span>Horario: {quote.workingHours}</span>}
-                            </div>
-                            {Array.isArray(quote.coverageZones) && quote.coverageZones.length > 0 && (
-                              <p className="text-[11px] text-slate-500">
-                                Zonas marcadas: {quote.coverageZones.slice(0, 5).join(', ')}
-                              </p>
-                            )}
-                            {(quote.rating || quote.reviewsCount || quote.completedJobsTotal) && (
-                              <p className="text-[11px] text-slate-600">
-                                Reputacion:{' '}
-                                {quote.rating ? `${Number(quote.rating).toFixed(1)} / 5` : 'Sin calificacion'} ·{' '}
-                                {quote.reviewsCount || 0} reseñas · {quote.completedJobsTotal || 0} trabajos
-                              </p>
-                            )}
-                            {typeof quote.visibilityScore === 'number' && quote.visibilityScore > 0 && (
-                              <p className="text-[11px] font-medium text-emerald-700">
-                                Perfil publico completado: {quote.visibilityScore}%
-                              </p>
-                            )}
-                            {Array.isArray(quote.badges) && quote.badges.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5">
-                                {quote.badges.slice(0, 4).map((badge) => (
-                                  <span
-                                    key={`${quote.id}-${badge}`}
-                                    className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
-                                  >
-                                    {TECH_BADGE_LABELS[badge] || badge.replaceAll('_', ' ')}
+                      {request.quotes.map((quote) => {
+                        const statusInfo = quoteStatusMeta(quote.quoteStatus);
+                        const isCounterEditorOpen = counterEditorQuoteId === quote.id;
+                        const counterDraft = getCounterDraft(quote);
+                        const isPendingQuote = String(quote.quoteStatus || 'pending').toLowerCase() === 'pending';
+                        const isSubmittedQuote = String(quote.quoteStatus || '').toLowerCase() === 'submitted';
+                        return (
+                          <div
+                            key={quote.id}
+                            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3"
+                          >
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div className="min-w-[220px] flex-1 space-y-1.5">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-xs font-semibold text-slate-800">
+                                    {quote.businessName ? `${quote.businessName} | ${quote.technicianName}` : quote.technicianName}
+                                  </p>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}>
+                                    {statusInfo.label}
                                   </span>
-                                ))}
+                                </div>
+                                <p className="text-[11px] font-medium text-slate-600">Especialidad: {quote.specialty}</p>
+                                <p className="text-xs text-slate-600">
+                                  {quote.priceArs !== null && quote.etaHours !== null
+                                    ? `Cotizacion: ${ars(quote.priceArs)} | ETA ${quote.etaHours}h`
+                                    : 'Cotizacion pendiente de respuesta'}
+                                </p>
+                                <div className="flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                  <span>Zona: {quote.city || 'No informada'}</span>
+                                  {quote.province && <span>Provincia: {quote.province}</span>}
+                                  {quote.district && <span>Distrito: {quote.district}</span>}
+                                  {quote.coverageArea && <span>Cobertura: {quote.coverageArea}</span>}
+                                  {quote.workingHours && <span>Horario: {quote.workingHours}</span>}
+                                </div>
+                                {Array.isArray(quote.coverageZones) && quote.coverageZones.length > 0 && (
+                                  <p className="text-[11px] text-slate-500">
+                                    Zonas marcadas: {quote.coverageZones.slice(0, 5).join(', ')}
+                                  </p>
+                                )}
+                                {(quote.rating || quote.reviewsCount || quote.completedJobsTotal) && (
+                                  <p className="text-[11px] text-slate-600">
+                                    Reputacion:{' '}
+                                    {quote.rating ? `${Number(quote.rating).toFixed(1)} / 5` : 'Sin calificacion'} -{' '}
+                                    {quote.reviewsCount || 0} resenas - {quote.completedJobsTotal || 0} trabajos
+                                  </p>
+                                )}
+                                {typeof quote.visibilityScore === 'number' && quote.visibilityScore > 0 && (
+                                  <p className="text-[11px] font-medium text-emerald-700">
+                                    Perfil publico completado: {quote.visibilityScore}%
+                                  </p>
+                                )}
+                                {Array.isArray(quote.badges) && quote.badges.length > 0 && (
+                                  <div className="flex flex-wrap gap-1.5">
+                                    {quote.badges.slice(0, 4).map((badge) => (
+                                      <span
+                                        key={`${quote.id}-${badge}`}
+                                        className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700"
+                                      >
+                                        {TECH_BADGE_LABELS[badge] || badge.replaceAll('_', ' ')}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {quote.referencesSummary && (
+                                  <p className="text-[11px] text-slate-600">{quote.referencesSummary}</p>
+                                )}
+                                {Array.isArray(quote.recommendations) && quote.recommendations.length > 0 && (
+                                  <p className="text-[11px] italic text-slate-500">"{quote.recommendations[0]}"</p>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => runAction(request.id, 'quote_accept', { matchId: quote.id })}
+                                  disabled={syncing || !isSubmittedQuote}
+                                  className="rounded-full bg-emerald-600 px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
+                                >
+                                  Aceptar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => runAction(request.id, 'quote_reject', { matchId: quote.id })}
+                                  disabled={syncing || isPendingQuote}
+                                  className="rounded-full border border-rose-300 px-3 py-1 text-[11px] font-semibold text-rose-600 disabled:opacity-60"
+                                >
+                                  Rechazar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setCounterEditorQuoteId((prev) => (prev === quote.id ? '' : quote.id));
+                                    setCounterDraftByQuoteId((prev) => ({
+                                      ...prev,
+                                      [quote.id]: prev[quote.id] || getCounterDraft(quote),
+                                    }));
+                                  }}
+                                  disabled={syncing || isPendingQuote}
+                                  className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 disabled:opacity-60"
+                                >
+                                  {isCounterEditorOpen ? 'Cancelar' : 'Contraofertar'}
+                                </button>
+                              </div>
+                            </div>
+                            {isCounterEditorOpen && (
+                              <div className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-3">
+                                <label className="text-[11px] font-semibold text-slate-600">
+                                  Precio ARS
+                                  <input
+                                    value={counterDraft.priceArs}
+                                    onChange={(e) => setCounterDraftField(quote.id, 'priceArs', e.target.value)}
+                                    placeholder="Ej: 95000"
+                                    inputMode="decimal"
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                                  />
+                                </label>
+                                <label className="text-[11px] font-semibold text-slate-600">
+                                  ETA horas
+                                  <input
+                                    value={counterDraft.etaHours}
+                                    onChange={(e) => setCounterDraftField(quote.id, 'etaHours', e.target.value)}
+                                    placeholder="Ej: 24"
+                                    inputMode="numeric"
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                                  />
+                                </label>
+                                <label className="text-[11px] font-semibold text-slate-600">
+                                  Nota (opcional)
+                                  <input
+                                    value={counterDraft.note}
+                                    onChange={(e) => setCounterDraftField(quote.id, 'note', e.target.value)}
+                                    placeholder="Ej: puedo cerrar hoy"
+                                    className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs"
+                                  />
+                                </label>
+                                <div className="sm:col-span-3">
+                                  <button
+                                    type="button"
+                                    onClick={() => submitCounterOffer(request.id, quote)}
+                                    disabled={syncing}
+                                    className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
+                                  >
+                                    Enviar contraoferta
+                                  </button>
+                                </div>
                               </div>
                             )}
-                            {quote.referencesSummary && (
-                              <p className="text-[11px] text-slate-600">{quote.referencesSummary}</p>
-                            )}
-                            {Array.isArray(quote.recommendations) && quote.recommendations.length > 0 && (
-                              <p className="text-[11px] italic text-slate-500">"{quote.recommendations[0]}"</p>
-                            )}
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => runAction(request.id, 'select_match', { matchId: quote.id })}
-                            disabled={syncing}
-                            className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-60"
-                          >
-                            Seleccionar tecnico
-                          </button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
-
                   {zones.length > 0 && (
                     <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
@@ -938,3 +1099,4 @@ export default function ClientWorkspace({ userId, authToken, displayName, onSwit
     </div>
   );
 }
+
