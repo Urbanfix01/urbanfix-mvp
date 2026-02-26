@@ -1201,14 +1201,22 @@ export default function TechniciansPage() {
       }
     };
 
+    if (!session?.user?.id) {
+      clearResumeTimer();
+      hiddenAtRef.current = null;
+      setResumeStaticVisible(false);
+      return;
+    }
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'hidden') {
         hiddenAtRef.current = Date.now();
         clearResumeTimer();
         return;
       }
-      if (!session?.user || !RESUME_STATIC_IMAGE_URL) return;
+      if (!RESUME_STATIC_IMAGE_URL) return;
       if (hiddenAtRef.current === null) return;
+      hiddenAtRef.current = null;
       setResumeStaticVisible(true);
       clearResumeTimer();
       resumeStaticTimerRef.current = window.setTimeout(() => {
@@ -1221,7 +1229,7 @@ export default function TechniciansPage() {
       clearResumeTimer();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [session?.user]);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user) {
