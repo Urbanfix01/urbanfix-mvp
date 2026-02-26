@@ -206,6 +206,96 @@ const TECH_SPECIALTY_OPTIONS = [
   'Limpieza',
 ];
 
+const TAX_STATUS_OPTIONS = [
+  'Monotributista',
+  'Responsable inscripto',
+  'Exento',
+  'Consumidor final',
+  'No alcanzado',
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  'Transferencia bancaria',
+  'Efectivo',
+  'Mercado Pago',
+  'Tarjeta de debito',
+  'Tarjeta de credito',
+  'Cuenta corriente',
+  'Cheque',
+];
+
+const parseDelimitedValues = (value: string | null | undefined) => {
+  const parts = String(value || '')
+    .split(/[\n,;|/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  parts.forEach((item) => {
+    const key = normalizeTextForParsing(item);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+  return unique;
+};
+
+const serializeDelimitedValues = (values: string[]) => values.join(', ');
+
+const normalizeTaxId = (value: string) => value.replace(/\D/g, '').slice(0, 11);
+
+const formatTaxId = (value: string) => {
+  const digits = normalizeTaxId(value);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 10) return `${digits.slice(0, 2)}-${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}-${digits.slice(2, 10)}-${digits.slice(10)}`;
+};
+
+const isValidCuit = (value: string) => {
+  const digits = normalizeTaxId(value);
+  if (digits.length !== 11) return false;
+  const weights = [5, 4, 3, 2, 7, 6, 5, 4, 3, 2];
+  const base = digits
+    .slice(0, 10)
+    .split('')
+    .reduce((acc, digit, index) => acc + Number(digit) * weights[index], 0);
+  const mod = 11 - (base % 11);
+  const checkDigit = mod === 11 ? 0 : mod === 10 ? 9 : mod;
+  return checkDigit === Number(digits[10]);
+};
+
+const normalizeAlias = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/[^a-z0-9._-]/g, '')
+    .slice(0, 20);
+
+const isValidAlias = (value: string) => /^[a-z0-9][a-z0-9._-]{5,19}$/i.test(value);
+
+const normalizeCbu = (value: string) => value.replace(/\D/g, '').slice(0, 22);
+
+const isValidCbu = (value: string) => {
+  const cbu = normalizeCbu(value);
+  if (cbu.length !== 22) return false;
+  const bankBlock = cbu.slice(0, 8);
+  const accountBlock = cbu.slice(8);
+
+  const bankWeights = [7, 1, 3, 9, 7, 1, 3];
+  const bankSum = bankWeights.reduce((acc, weight, index) => acc + weight * Number(bankBlock[index]), 0);
+  const bankCheck = (10 - (bankSum % 10)) % 10;
+  if (bankCheck !== Number(bankBlock[7])) return false;
+
+  const accountWeights = [3, 9, 7, 1, 3, 9, 7, 1, 3, 9, 7, 1, 3];
+  const accountSum = accountWeights.reduce(
+    (acc, weight, index) => acc + weight * Number(accountBlock[index]),
+    0
+  );
+  const accountCheck = (10 - (accountSum % 10)) % 10;
+  return accountCheck === Number(accountBlock[13]);
+};
+
 const parseSpecialties = (value: string | null | undefined) => {
   const parts = String(value || '')
     .split(/[\n,;|/]+/)
@@ -682,6 +772,15 @@ const addDays = (date: Date, days: number) => {
 const translateProfileError = (message: string) => {
   if (!message) return 'No pudimos guardar los cambios.';
   const lower = message.toLowerCase();
+  if (lower.includes('cuit/cuil')) {
+    return 'El CUIT/CUIL ingresado no es valido.';
+  }
+  if (lower.includes('cbu')) {
+    return 'El CBU ingresado no es valido.';
+  }
+  if (lower.includes('alias')) {
+    return 'El alias ingresado no es valido.';
+  }
   if (lower.includes("could not find the 'email' column")) {
     return "No se encontro la columna 'email' en perfiles. Ejecuta la migracion y reintenta.";
   }
@@ -813,6 +912,8 @@ export default function TechniciansPage() {
     logoShape: 'auto',
   });
   const [customSpecialtyDraft, setCustomSpecialtyDraft] = useState('');
+  const [customPaymentMethodDraft, setCustomPaymentMethodDraft] = useState('');
+  const [bankAccountType, setBankAccountType] = useState<'alias' | 'cbu'>('alias');
   const [certificationFiles, setCertificationFiles] = useState<CertificationFileRow[]>([]);
   const [uploadingCertificationFiles, setUploadingCertificationFiles] = useState(false);
   const [certificationFilesError, setCertificationFilesError] = useState('');
@@ -1190,6 +1291,8 @@ export default function TechniciansPage() {
     const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
     const coverageArea = profile.coverage_area || buildCoverageAreaLabel(profile.city || '');
     const parsedCertifications = parseCertificationFilesTag(profile.certifications || '');
+    const rawBankValue = String(profile.bank_alias || '').trim();
+    const detectedBankType: 'alias' | 'cbu' = normalizeCbu(rawBankValue).length === 22 ? 'cbu' : 'alias';
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
@@ -1212,7 +1315,7 @@ export default function TechniciansPage() {
       taxId: profile.tax_id || '',
       taxStatus: profile.tax_status || '',
       paymentMethod: profile.payment_method || '',
-      bankAlias: profile.bank_alias || '',
+      bankAlias: rawBankValue,
       defaultCurrency: profile.default_currency || 'ARS',
       defaultTaxRate: Number(profile.default_tax_rate ?? 0.21),
       defaultDiscount: Number(profile.default_discount ?? 0),
@@ -1220,6 +1323,8 @@ export default function TechniciansPage() {
       avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
     });
+    setBankAccountType(detectedBankType);
+    setCustomPaymentMethodDraft('');
     setCertificationFiles(parsedCertifications.files);
     setCertificationFilesError('');
   }, [profile, session?.user?.email]);
@@ -2169,8 +2274,25 @@ export default function TechniciansPage() {
     setProfileSaving(true);
     setProfileMessage('');
     try {
+      const safeTaxId = normalizeTaxId(profileForm.taxId);
+      if (safeTaxId && !isValidCuit(safeTaxId)) {
+        throw new Error('El CUIT/CUIL ingresado no es valido.');
+      }
+      const safeBankAlias = bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias);
+      if (safeBankAlias) {
+        const isValidBankValue = bankAccountType === 'cbu' ? isValidCbu(safeBankAlias) : isValidAlias(safeBankAlias);
+        if (!isValidBankValue) {
+          throw new Error(
+            bankAccountType === 'cbu'
+              ? 'El CBU debe tener 22 digitos validos.'
+              : 'El alias debe tener entre 6 y 20 caracteres validos.'
+          );
+        }
+      }
+
       const serializedWorkingHours = buildWorkingHoursPayload(workingHoursConfig);
       const serializedCertifications = buildCertificationsField(profileForm.certifications, certificationFiles);
+      const serializedPaymentMethods = serializeDelimitedValues(parseDelimitedValues(profileForm.paymentMethod));
       const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
       const geocoded = await geocodeAddressFirstResult(geocodeQuery);
       const currentServiceLat = Number(profile?.service_lat);
@@ -2191,10 +2313,10 @@ export default function TechniciansPage() {
         working_hours: serializedWorkingHours,
         specialties: profileForm.specialties,
         certifications: serializedCertifications,
-        tax_id: profileForm.taxId,
+        tax_id: safeTaxId,
         tax_status: profileForm.taxStatus,
-        payment_method: profileForm.paymentMethod,
-        bank_alias: profileForm.bankAlias,
+        payment_method: serializedPaymentMethods,
+        bank_alias: safeBankAlias,
         default_currency: profileForm.defaultCurrency,
         default_tax_rate: toNumber(String(profileForm.defaultTaxRate)),
         default_discount: toNumber(String(profileForm.defaultDiscount)),
@@ -2813,6 +2935,65 @@ export default function TechniciansPage() {
     }));
     setCustomSpecialtyDraft('');
   };
+
+  const selectedPaymentMethods = useMemo(
+    () => parseDelimitedValues(profileForm.paymentMethod),
+    [profileForm.paymentMethod]
+  );
+  const selectedPaymentMethodsSet = useMemo(
+    () => new Set(selectedPaymentMethods.map((item) => normalizeTextForParsing(item))),
+    [selectedPaymentMethods]
+  );
+
+  const handlePaymentMethodToggle = (method: string) => {
+    const key = normalizeTextForParsing(method);
+    const filtered = selectedPaymentMethods.filter((item) => normalizeTextForParsing(item) !== key);
+    if (filtered.length !== selectedPaymentMethods.length) {
+      setProfileForm((prev) => ({ ...prev, paymentMethod: serializeDelimitedValues(filtered) }));
+      return;
+    }
+    setProfileForm((prev) => ({
+      ...prev,
+      paymentMethod: serializeDelimitedValues([...selectedPaymentMethods, method]),
+    }));
+  };
+
+  const handleAddCustomPaymentMethod = () => {
+    const customValue = customPaymentMethodDraft.trim();
+    if (!customValue) return;
+    const key = normalizeTextForParsing(customValue);
+    if (selectedPaymentMethodsSet.has(key)) {
+      setCustomPaymentMethodDraft('');
+      return;
+    }
+    setProfileForm((prev) => ({
+      ...prev,
+      paymentMethod: serializeDelimitedValues([...selectedPaymentMethods, customValue]),
+    }));
+    setCustomPaymentMethodDraft('');
+  };
+
+  const normalizedTaxIdValue = useMemo(() => normalizeTaxId(profileForm.taxId), [profileForm.taxId]);
+  const taxIdIsComplete = normalizedTaxIdValue.length === 11;
+  const taxIdIsValid = taxIdIsComplete && isValidCuit(normalizedTaxIdValue);
+  const taxIdHelper = !normalizedTaxIdValue
+    ? 'Ingresa 11 digitos de CUIT/CUIL.'
+    : taxIdIsValid
+      ? 'CUIT/CUIL valido.'
+      : 'CUIT/CUIL incompleto o invalido.';
+
+  const normalizedBankValue = useMemo(
+    () => (bankAccountType === 'cbu' ? normalizeCbu(profileForm.bankAlias) : normalizeAlias(profileForm.bankAlias)),
+    [bankAccountType, profileForm.bankAlias]
+  );
+  const bankValueIsValid = !normalizedBankValue
+    ? true
+    : bankAccountType === 'cbu'
+      ? isValidCbu(normalizedBankValue)
+      : isValidAlias(normalizedBankValue);
+  const bankValueHelper = bankAccountType === 'cbu'
+    ? 'CBU de 22 digitos.'
+    : 'Alias entre 6 y 20 caracteres (letras, numeros, punto o guion).';
 
   const workingHoursConfig = useMemo<WorkingHoursConfig>(
     () => ({
@@ -5527,28 +5708,136 @@ export default function TechniciansPage() {
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos comerciales</p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">CUIT / CUIL</label>
                       <input
-                        value={profileForm.taxId}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, taxId: event.target.value }))}
+                        value={formatTaxId(profileForm.taxId)}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({ ...prev, taxId: normalizeTaxId(event.target.value) }))
+                        }
+                        placeholder="20-12345678-3"
+                        inputMode="numeric"
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p
+                        className={`mt-2 text-[11px] font-semibold ${
+                          !normalizedTaxIdValue
+                            ? 'text-slate-500'
+                            : taxIdIsValid
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                        }`}
+                      >
+                        {taxIdHelper}
+                      </p>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Condicion IVA</label>
-                      <input
+                      <select
                         value={profileForm.taxStatus}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, taxStatus: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="">Seleccionar condicion</option>
+                        {TAX_STATUS_OPTIONS.map((option) => (
+                          <option key={option} value={option}>
+                            {option}
+                          </option>
+                        ))}
+                      </select>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Metodo de pago</label>
-                      <input
-                        value={profileForm.paymentMethod}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, paymentMethod: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {PAYMENT_METHOD_OPTIONS.map((method) => {
+                          const isSelected = selectedPaymentMethodsSet.has(normalizeTextForParsing(method));
+                          return (
+                            <button
+                              key={method}
+                              type="button"
+                              onClick={() => handlePaymentMethodToggle(method)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                isSelected
+                                  ? 'bg-slate-900 text-white'
+                                  : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                              }`}
+                            >
+                              {method}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          value={customPaymentMethodDraft}
+                          onChange={(event) => setCustomPaymentMethodDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            handleAddCustomPaymentMethod();
+                          }}
+                          placeholder="Agregar metodo personalizado"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomPaymentMethod}
+                          className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Seleccionados: {selectedPaymentMethods.length > 0 ? selectedPaymentMethods.join(', ') : 'ninguno'}
+                      </p>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">CBU / Alias</label>
+                      <div className="mt-2 inline-flex rounded-full border border-slate-300 bg-white p-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (bankAccountType === 'alias') return;
+                            setBankAccountType('alias');
+                            setProfileForm((prev) => ({ ...prev, bankAlias: '' }));
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                            bankAccountType === 'alias' ? 'bg-slate-900 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          Alias
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (bankAccountType === 'cbu') return;
+                            setBankAccountType('cbu');
+                            setProfileForm((prev) => ({ ...prev, bankAlias: '' }));
+                          }}
+                          className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                            bankAccountType === 'cbu' ? 'bg-slate-900 text-white' : 'text-slate-600'
+                          }`}
+                        >
+                          CBU
+                        </button>
+                      </div>
                       <input
                         value={profileForm.bankAlias}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, bankAlias: event.target.value }))}
+                        onChange={(event) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            bankAlias: bankAccountType === 'cbu' ? normalizeCbu(event.target.value) : normalizeAlias(event.target.value),
+                          }))
+                        }
+                        inputMode={bankAccountType === 'cbu' ? 'numeric' : 'text'}
+                        placeholder={bankAccountType === 'cbu' ? '22 digitos de CBU' : 'alias.cuenta'}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p
+                        className={`mt-2 text-[11px] font-semibold ${
+                          !normalizedBankValue
+                            ? 'text-slate-500'
+                            : bankValueIsValid
+                              ? 'text-emerald-600'
+                              : 'text-amber-600'
+                        }`}
+                      >
+                        {bankValueIsValid ? bankValueHelper : 'Dato bancario invalido.'}
+                      </p>
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
