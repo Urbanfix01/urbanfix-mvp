@@ -189,6 +189,63 @@ const buildCoverageAreaLabel = (city: string) => {
     : `Radio de ${COVERAGE_RADIUS_KM} km desde tu ciudad base`;
 };
 
+const TECH_SPECIALTY_OPTIONS = [
+  'Electricidad',
+  'Plomeria',
+  'Gas',
+  'Albanileria',
+  'Pintura',
+  'Herreria',
+  'Carpinteria',
+  'Aire acondicionado',
+  'Refrigeracion',
+  'Cerrajeria',
+  'Impermeabilizacion',
+  'Techos',
+  'Jardineria',
+  'Limpieza',
+];
+
+const parseSpecialties = (value: string | null | undefined) => {
+  const parts = String(value || '')
+    .split(/[\n,;|/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  const seen = new Set<string>();
+  parts.forEach((item) => {
+    const key = normalizeTextForParsing(item);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    unique.push(item);
+  });
+  return unique;
+};
+
+const serializeSpecialties = (specialties: string[]) => specialties.join(', ');
+
+const upsertSpecialty = (currentValue: string, specialty: string) => {
+  const normalizedSpecialty = specialty.trim();
+  if (!normalizedSpecialty) return currentValue;
+  const current = parseSpecialties(currentValue);
+  const currentKeys = new Set(current.map((item) => normalizeTextForParsing(item)));
+  const nextKey = normalizeTextForParsing(normalizedSpecialty);
+  if (currentKeys.has(nextKey)) return currentValue;
+  return serializeSpecialties([...current, normalizedSpecialty]);
+};
+
+const toggleSpecialty = (currentValue: string, specialty: string) => {
+  const normalizedSpecialty = specialty.trim();
+  if (!normalizedSpecialty) return currentValue;
+  const nextKey = normalizeTextForParsing(normalizedSpecialty);
+  const current = parseSpecialties(currentValue);
+  const filtered = current.filter((item) => normalizeTextForParsing(item) !== nextKey);
+  if (filtered.length !== current.length) {
+    return serializeSpecialties(filtered);
+  }
+  return serializeSpecialties([...current, normalizedSpecialty]);
+};
+
 type NearbyRequestRow = {
   id: string;
   title: string;
@@ -657,6 +714,7 @@ export default function TechniciansPage() {
     avatarUrl: '',
     logoShape: 'auto',
   });
+  const [customSpecialtyDraft, setCustomSpecialtyDraft] = useState('');
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
@@ -2533,6 +2591,29 @@ export default function TechniciansPage() {
     Boolean(profileForm.businessName.trim()) &&
     Boolean(profileForm.phone.trim()) &&
     Boolean(profileForm.address.trim());
+
+  const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
+  const selectedSpecialtiesSet = useMemo(
+    () => new Set(selectedSpecialties.map((item) => normalizeTextForParsing(item))),
+    [selectedSpecialties]
+  );
+
+  const handleSpecialtyToggle = (specialty: string) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      specialties: toggleSpecialty(prev.specialties, specialty),
+    }));
+  };
+
+  const handleAddCustomSpecialty = () => {
+    const customValue = customSpecialtyDraft.trim();
+    if (!customValue) return;
+    setProfileForm((prev) => ({
+      ...prev,
+      specialties: upsertSpecialty(prev.specialties, customValue),
+    }));
+    setCustomSpecialtyDraft('');
+  };
 
   const workingHoursConfig = useMemo<WorkingHoursConfig>(
     () => ({
@@ -5113,12 +5194,71 @@ export default function TechniciansPage() {
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Especialidades</p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">Rubros</label>
-                      <textarea
-                        value={profileForm.specialties}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, specialties: event.target.value }))}
-                        rows={3}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Selecciona uno o mas rubros para mostrarte mejor frente a clientes.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {TECH_SPECIALTY_OPTIONS.map((specialty) => {
+                          const isSelected = selectedSpecialtiesSet.has(normalizeTextForParsing(specialty));
+                          return (
+                            <button
+                              key={specialty}
+                              type="button"
+                              onClick={() => handleSpecialtyToggle(specialty)}
+                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                                isSelected
+                                  ? 'bg-slate-900 text-white'
+                                  : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                              }`}
+                            >
+                              {specialty}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Agregar rubro personalizado</label>
+                      <div className="mt-2 flex gap-2">
+                        <input
+                          value={customSpecialtyDraft}
+                          onChange={(event) => setCustomSpecialtyDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key !== 'Enter') return;
+                            event.preventDefault();
+                            handleAddCustomSpecialty();
+                          }}
+                          placeholder="Ej: Durlock"
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomSpecialty}
+                          className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Agregar
+                        </button>
+                      </div>
+                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
+                        <p className="text-[11px] font-semibold text-slate-600">
+                          Rubros seleccionados ({selectedSpecialties.length})
+                        </p>
+                        {selectedSpecialties.length === 0 ? (
+                          <p className="mt-2 text-xs text-slate-500">Aun no seleccionaste rubros.</p>
+                        ) : (
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {selectedSpecialties.map((specialty) => (
+                              <button
+                                key={specialty}
+                                type="button"
+                                onClick={() => handleSpecialtyToggle(specialty)}
+                                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                              >
+                                {specialty}
+                                <X className="h-3 w-3" />
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Certificaciones</label>
                       <textarea
                         value={profileForm.certifications}
