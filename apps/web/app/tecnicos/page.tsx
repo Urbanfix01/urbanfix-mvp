@@ -2848,7 +2848,7 @@ export default function TechniciansPage() {
         </div>
       )}
       {postLoginVideoVisible && postLoginVideoAvailable && (
-        <div className="fixed inset-0 z-[130] bg-black" aria-hidden="true">
+        <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black" aria-hidden="true">
           <video
             ref={postLoginVideoRef}
             src={POST_LOGIN_VIDEO_URL}
@@ -2862,7 +2862,7 @@ export default function TechniciansPage() {
               setPostLoginVideoAvailable(false);
               setPostLoginVideoVisible(false);
             }}
-            className="h-full w-full object-cover"
+            className="h-auto w-[60vw] max-w-[360px] min-w-[220px] object-contain"
           />
         </div>
       )}
