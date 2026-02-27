@@ -1,14 +1,23 @@
 {
   "cli": {
-    "version": ">= 7.0.0"
+    "version": ">= 7.0.0",
+    "appVersionSource": "remote"
   },
   "submit": {
     "production": {
       "android": {
-        "track": "internal"
+        "track": "beta",
+        "changesNotSentForReview": true
       },
       "ios": {
         "ascAppId": "1270277"
+      }
+    },
+    "closed": {
+      "extends": "production",
+      "android": {
+        "track": "closed",
+        "changesNotSentForReview": true
       }
     },
     "playstore": {
