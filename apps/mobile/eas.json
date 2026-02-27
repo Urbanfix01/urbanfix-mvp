@@ -4,8 +4,17 @@
   },
   "submit": {
     "production": {
+      "android": {
+        "track": "internal"
+      },
       "ios": {
         "ascAppId": "1270277"
+      }
+    },
+    "playstore": {
+      "extends": "production",
+      "android": {
+        "track": "production"
       }
     }
   },
