@@ -9,6 +9,7 @@
     "start": "npm run start:web",
     "dev:web": "npm --prefix apps/web run dev",
     "build:web": "npm --prefix apps/web run build",
+    "deploy:web:prod": "node scripts/deploy-web-production.mjs",
     "start:web": "npm --prefix apps/web run start",
     "lint:web": "npm --prefix apps/web run lint",
     "roadmap:sync": "node scripts/roadmap-auto-sync.mjs",

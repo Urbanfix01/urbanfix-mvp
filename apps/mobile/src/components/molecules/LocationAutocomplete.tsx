@@ -1,17 +1,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
+  ActivityIndicator,
+  FlatList,
   Platform,
+  StyleSheet,
+  Text,
   TextInput,
   TouchableOpacity,
-  FlatList,
-  ActivityIndicator,
-  Modal,
-  Pressable,
+  View,
 } from 'react-native';
-// Librería para WEB
 import ReactGoogleAutocomplete from 'react-google-autocomplete';
 
 interface LocationData {
@@ -33,36 +30,74 @@ interface Props {
   showLabel?: boolean;
 }
 
+const MIN_QUERY_LENGTH = 3;
+
+const getEnvApiKey = () => {
+  if (Platform.OS === 'web') {
+    return process.env.EXPO_PUBLIC_WEB_API_KEY || process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+  }
+
+  const platformKey =
+    Platform.OS === 'ios' ? process.env.EXPO_PUBLIC_IOS_API_KEY : process.env.EXPO_PUBLIC_ANDROID_API_KEY;
+
+  return (
+    process.env.EXPO_PUBLIC_PLACES_API_KEY ||
+    process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ||
+    platformKey ||
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
+    process.env.EXPO_PUBLIC_ANDROID_API_KEY ||
+    process.env.EXPO_PUBLIC_IOS_API_KEY
+  );
+};
+
 export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, showLabel = false }: Props) => {
-  const nativeRef = useRef<any>(null);
   const [query, setQuery] = useState(initialValue || '');
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
-  const [inputLayout, setInputLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
-  const [debugStatus, setDebugStatus] = useState<string>('');
+  const [debugStatus, setDebugStatus] = useState('');
+
   const abortRef = useRef<AbortController | null>(null);
   const sessionTokenRef = useRef<string | null>(null);
-  const dismissRef = useRef(false);
+  const committedAddressRef = useRef((initialValue || '').trim());
 
-  // 1. Obtener API Key (Prioridad: Prop > Variable de Entorno)
-  const envKey = Platform.OS === 'web'
-    ? process.env.EXPO_PUBLIC_WEB_API_KEY
-    : process.env.EXPO_PUBLIC_PLACES_API_KEY || process.env.EXPO_PUBLIC_ANDROID_API_KEY;
-  const finalApiKey = apiKey || envKey;
+  const finalApiKey = apiKey || getEnvApiKey();
 
-  if (!finalApiKey) console.warn("⚠️ FALTA API KEY en LocationAutocomplete");
+  const shouldShowList = useMemo(
+    () => Platform.OS !== 'web' && isFocused && predictions.length > 0,
+    [isFocused, predictions.length]
+  );
+
+  const commitAddress = (address: string, placeId = '', lat = 0, lng = 0) => {
+    const safeAddress = address.trim();
+    if (!safeAddress) return;
+    committedAddressRef.current = safeAddress;
+    onLocationSelect({
+      address: safeAddress,
+      lat,
+      lng,
+      placeId,
+    });
+  };
 
   useEffect(() => {
-    if (Platform.OS === 'web') return;
     setQuery(initialValue || '');
+    committedAddressRef.current = (initialValue || '').trim();
   }, [initialValue]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
-    if (!finalApiKey) return;
-    if (!query || query.trim().length < 3) {
+
+    if (!isFocused) return;
+    if (!query || query.trim().length < MIN_QUERY_LENGTH) {
       setPredictions([]);
+      setDebugStatus('');
+      return;
+    }
+
+    if (!finalApiKey) {
+      setPredictions([]);
+      setDebugStatus('MISSING_API_KEY');
       return;
     }
 
@@ -70,201 +105,168 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     sessionTokenRef.current = sessionToken;
 
     const controller = new AbortController();
-    if (abortRef.current) abortRef.current.abort();
+    abortRef.current?.abort();
     abortRef.current = controller;
     setIsLoading(true);
-    setDebugStatus('');
 
     const timeoutId = setTimeout(async () => {
       try {
-        const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(
-          query
-        )}&key=${finalApiKey}&language=es&types=address&components=country:ar&sessiontoken=${sessionToken}`;
-        const res = await fetch(url, { signal: controller.signal });
-        const data = await res.json();
-        setPredictions(Array.isArray(data?.predictions) ? data.predictions : []);
-        if (data?.status && data.status !== 'OK') {
-          const err = data?.error_message ? ` - ${data.error_message}` : '';
-          setDebugStatus(`${data.status}${err}`);
-        } else {
-          setDebugStatus(`OK (${Array.isArray(data?.predictions) ? data.predictions.length : 0})`);
+        const url =
+          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}` +
+          `&key=${finalApiKey}&language=es&types=address&components=country:ar&sessiontoken=${sessionToken}`;
+        const response = await fetch(url, { signal: controller.signal });
+        const json = await response.json();
+        const status = String(json?.status || '');
+
+        if (status === 'OK' && Array.isArray(json?.predictions)) {
+          setPredictions(json.predictions);
+          setDebugStatus(`OK (${json.predictions.length})`);
+          return;
         }
-      } catch (error) {
-        if ((error as any)?.name !== 'AbortError') {
-          console.warn('Autocomplete error', error);
+
+        setPredictions([]);
+        setDebugStatus(status || 'UNKNOWN');
+      } catch (error: any) {
+        if (error?.name !== 'AbortError') {
+          setPredictions([]);
           setDebugStatus('NETWORK_ERROR');
         }
       } finally {
         setIsLoading(false);
       }
-    }, 250);
+    }, 220);
 
     return () => {
       clearTimeout(timeoutId);
       controller.abort();
     };
-  }, [finalApiKey, query]);
+  }, [finalApiKey, isFocused, query]);
 
   const handleSelect = async (prediction: Prediction) => {
-    if (!finalApiKey) return;
+    const fallbackAddress = prediction.description || query;
+    setQuery(fallbackAddress);
+    setPredictions([]);
+    setIsFocused(false);
+
+    if (!finalApiKey) {
+      commitAddress(fallbackAddress, prediction.place_id);
+      return;
+    }
+
     try {
       setIsLoading(true);
       const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
-      const url = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}&key=${finalApiKey}&language=es&fields=geometry,formatted_address,place_id&sessiontoken=${sessionToken}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      const location = data?.result?.geometry?.location;
-      const address = data?.result?.formatted_address || prediction.description;
+      const detailsUrl =
+        `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}` +
+        `&key=${finalApiKey}&language=es&fields=geometry,formatted_address,place_id&sessiontoken=${sessionToken}`;
+      const response = await fetch(detailsUrl);
+      const json = await response.json();
 
-      setQuery(address);
-      setPredictions([]);
+      const resolvedAddress = json?.result?.formatted_address || fallbackAddress;
+      const lat = Number(json?.result?.geometry?.location?.lat);
+      const lng = Number(json?.result?.geometry?.location?.lng);
+      const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+      setQuery(resolvedAddress);
       sessionTokenRef.current = null;
 
-      if (location) {
-        onLocationSelect({
-          address,
-          lat: location.lat,
-          lng: location.lng,
-          placeId: data?.result?.place_id || prediction.place_id,
-        });
+      if (hasCoords) {
+        commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id, lat, lng);
+      } else {
+        commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id);
       }
-    } catch (error) {
-      console.warn('Place details error', error);
+    } catch {
+      commitAddress(fallbackAddress, prediction.place_id);
     } finally {
       setIsLoading(false);
-      dismissRef.current = true;
-      setIsFocused(false);
     }
   };
 
-  const shouldShowList = useMemo(
-    () => Platform.OS !== 'web' && isFocused && predictions.length > 0,
-    [isFocused, predictions.length]
-  );
-
-  useEffect(() => {
-    if (!shouldShowList) return;
-    const id = setTimeout(() => {
-      nativeRef.current?.focus();
-    }, 0);
-    return () => clearTimeout(id);
-  }, [shouldShowList]);
-
-  const measureInput = () => {
-    if (nativeRef.current?.measureInWindow) {
-      nativeRef.current.measureInWindow((x: number, y: number, width: number, height: number) => {
-        setInputLayout({ x, y, width, height });
-      });
-    }
+  const handleNativeBlur = () => {
+    setTimeout(() => {
+      setIsFocused(false);
+      const typedAddress = query.trim();
+      if (typedAddress && typedAddress !== committedAddressRef.current) {
+        commitAddress(typedAddress);
+      }
+    }, 160);
   };
 
   return (
     <View style={styles.container}>
-      {showLabel && <Text style={styles.label}>DIRECCIÓN DE LA OBRA</Text>}
+      {showLabel ? <Text style={styles.label}>DIRECCION DE LA OBRA</Text> : null}
 
       {Platform.OS === 'web' ? (
-        /* ================= VISTA WEB (React Google Autocomplete) ================= */
         <View style={styles.webContainer}>
-          <ReactGoogleAutocomplete
-            apiKey={finalApiKey}
-            defaultValue={initialValue}
-            options={{
-              types: ['address'],
-              componentRestrictions: { country: "ar" },
-            }}
-            placeholder="Buscar dirección..."
-            className="web-input"
-            style={styles.webInput}
-            onPlaceSelected={(place) => {
-              // --- CORRECCIÓN TYPESCRIPT ---
-              // Usamos 'as any' para evitar el error de tipos, pero mantenemos la lógica segura
-              const loc = place.geometry?.location as any;
-
-              if (loc) {
-                onLocationSelect({
-                  address: place.formatted_address || '',
-                  // Verificamos si es función o número (Web suele devolver funciones)
-                  lat: typeof loc.lat === 'function' ? loc.lat() : loc.lat,
-                  lng: typeof loc.lng === 'function' ? loc.lng() : loc.lng,
-                  placeId: place.place_id || '',
-                });
-              }
-            }}
-          />
-        </View>
-      ) : (
-        /* ================= VISTA MÓVIL (Google Places REST) ================= */
-        <View style={styles.nativeContainer}>
-          <View style={styles.textInputContainer}>
+          {finalApiKey ? (
+            <ReactGoogleAutocomplete
+              apiKey={finalApiKey}
+              defaultValue={initialValue}
+              options={{
+                types: ['address'],
+                componentRestrictions: { country: 'ar' },
+              }}
+              placeholder="Buscar direccion..."
+              className="web-input"
+              style={styles.webInput}
+              onPlaceSelected={(place: any) => {
+                const resolvedAddress = place?.formatted_address || query || '';
+                const loc = place?.geometry?.location;
+                const lat = typeof loc?.lat === 'function' ? loc.lat() : Number(loc?.lat);
+                const lng = typeof loc?.lng === 'function' ? loc.lng() : Number(loc?.lng);
+                const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+                commitAddress(resolvedAddress, place?.place_id || '', hasCoords ? lat : 0, hasCoords ? lng : 0);
+              }}
+            />
+          ) : (
             <TextInput
-              ref={nativeRef}
-              style={styles.input}
-              placeholder="Buscar dirección..."
+              style={styles.webInput}
+              placeholder="Buscar direccion..."
               placeholderTextColor="#9CA3AF"
               value={query}
               onChangeText={setQuery}
-              onFocus={() => {
-                setIsFocused(true);
-                measureInput();
-              }}
               onBlur={() => {
-                setTimeout(() => {
-                  if (dismissRef.current) {
-                    dismissRef.current = false;
-                    setIsFocused(false);
-                    return;
-                  }
-                  if (predictions.length > 0) {
-                    nativeRef.current?.focus();
-                  } else {
-                    setIsFocused(false);
-                  }
-                }, 50);
+                const typedAddress = query.trim();
+                if (typedAddress) commitAddress(typedAddress);
               }}
-              onLayout={measureInput}
             />
-            {isLoading && <ActivityIndicator size="small" color="#9CA3AF" />}
-          </View>
-          {!!debugStatus && <Text style={styles.debugText}>Places: {debugStatus}</Text>}
-
-          <Modal
-            visible={shouldShowList}
-            transparent
-            animationType="fade"
-            onShow={() => nativeRef.current?.focus()}
-            onRequestClose={() => {
-              dismissRef.current = true;
-              setIsFocused(false);
-            }}
-          >
-            <Pressable
-              style={styles.modalBackdrop}
-              onPress={() => {
-                dismissRef.current = true;
-                setIsFocused(false);
+          )}
+        </View>
+      ) : (
+        <View style={styles.nativeContainer}>
+          <View style={styles.textInputContainer}>
+            <TextInput
+              style={styles.input}
+              placeholder="Buscar direccion..."
+              placeholderTextColor="#9CA3AF"
+              value={query}
+              onChangeText={(text) => {
+                setQuery(text);
+                if (!isFocused) setIsFocused(true);
               }}
-            >
-              <Pressable
-                style={[
-                  styles.listView,
-                  inputLayout
-                    ? { top: inputLayout.y + inputLayout.height + 6, left: inputLayout.x, width: inputLayout.width }
-                    : { left: 16, right: 16, top: 0 },
-                ]}
-              >
-                <FlatList
-                  keyboardShouldPersistTaps="handled"
-                  data={predictions}
-                  keyExtractor={(item) => item.place_id}
-                  renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
-                      <Text style={styles.rowText}>{item.description}</Text>
-                    </TouchableOpacity>
-                  )}
-                />
-              </Pressable>
-            </Pressable>
-          </Modal>
+              onFocus={() => setIsFocused(true)}
+              onBlur={handleNativeBlur}
+              autoCorrect={false}
+            />
+            {isLoading ? <ActivityIndicator size="small" color="#9CA3AF" /> : null}
+          </View>
+
+          {!!debugStatus ? <Text style={styles.debugText}>Places: {debugStatus}</Text> : null}
+
+          {shouldShowList ? (
+            <View style={styles.listView}>
+              <FlatList
+                keyboardShouldPersistTaps="always"
+                data={predictions}
+                keyExtractor={(item) => item.place_id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
+                    <Text style={styles.rowText}>{item.description}</Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          ) : null}
         </View>
       )}
     </View>
@@ -272,26 +274,25 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
 };
 
 const styles = StyleSheet.create({
-  container: { 
-    zIndex: 9999, // <--- CLAVE: Asegura que el contenedor flote sobre lo demás
+  container: {
+    zIndex: 9999,
     marginBottom: 20,
-    elevation: 10, // Para Android
+    elevation: 10,
     position: 'relative',
     overflow: 'visible',
   },
-  label: { 
-    fontSize: 12, 
-    fontFamily: 'Montserrat-Bold', 
-    marginBottom: 8, 
-    color: '#6B7280' 
+  label: {
+    fontSize: 12,
+    marginBottom: 8,
+    color: '#6B7280',
+    fontWeight: '700',
   },
-  
-  // Estilos Móvil
   nativeContainer: {
     flex: 0,
     zIndex: 9999,
     elevation: 20,
     position: 'relative',
+    overflow: 'visible',
   },
   textInputContainer: {
     flexDirection: 'row',
@@ -313,17 +314,20 @@ const styles = StyleSheet.create({
   },
   listView: {
     position: 'absolute',
-    zIndex: 10000, // <--- CLAVE: La lista debe ser lo más alto de todo
-    backgroundColor: 'white',
+    top: 60,
+    left: 0,
+    right: 0,
+    zIndex: 10001,
+    backgroundColor: '#FFFFFF',
     borderRadius: 8,
-    elevation: 30, // Sombra fuerte en Android
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4.65,
     borderWidth: 1,
     borderColor: '#E5E7EB',
     maxHeight: 260,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 6,
+    elevation: 12,
   },
   row: {
     paddingHorizontal: 12,
@@ -335,19 +339,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#111827',
   },
-  modalBackdrop: {
-    flex: 1,
-  },
   debugText: {
     marginTop: 6,
     fontSize: 11,
     color: '#6B7280',
   },
-
-  // Estilos Web
   webContainer: {
     width: '100%',
-    zIndex: 9999, // <--- Importante también aquí
+    zIndex: 9999,
     position: 'relative',
   },
   webInput: {
@@ -360,6 +359,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E7EB',
     color: '#1F2937',
-    outlineStyle: 'none', 
-  } as any, 
+    outlineStyle: 'none',
+  } as any,
 });
