@@ -20,6 +20,13 @@
         "changesNotSentForReview": true
       }
     },
+    "internal": {
+      "extends": "production",
+      "android": {
+        "track": "internal",
+        "changesNotSentForReview": true
+      }
+    },
     "playstore": {
       "extends": "production",
       "android": {
