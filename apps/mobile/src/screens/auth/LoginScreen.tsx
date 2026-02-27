@@ -1,5 +1,17 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, Image } from 'react-native';
+import React, { useRef, useState } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Alert,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Image,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
@@ -14,34 +26,43 @@ WebBrowser.maybeCompleteAuthSession();
 
 const logo = require('../../../assets/icon.png');
 
+type Audience = 'tecnico' | 'cliente';
+
 export default function AuthScreen() {
-  // Estado para cambiar entre Login y Registro
+  const [audience, setAudience] = useState<Audience>('tecnico');
   const [isLogin, setIsLogin] = useState(true);
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  
-  // 🔥 NUEVOS CAMPOS PARA EL PERFIL
+
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
-  
+
   const [loading, setLoading] = useState(false);
   const [recovering, setRecovering] = useState(false);
   const [debugInfo, setDebugInfo] = useState('');
   const [showRegisterHint, setShowRegisterHint] = useState(false);
+
   const fullNameRef = useRef<TextInput>(null);
   const businessNameRef = useRef<TextInput>(null);
   const emailRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
 
+  const insets = useSafeAreaInsets();
+  const isRegister = !isLogin;
+  const isClientAudience = audience === 'cliente';
+  const clientPortalUrl = getWebApiUrl('/cliente');
+
   const getRedirectUrl = () => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
       return window.location.origin;
     }
+
     const isExpoGo = Platform.OS !== 'web' && Constants.appOwnership === 'expo';
     if (isExpoGo) {
       return AuthSession.makeRedirectUri({ useProxy: true } as any);
     }
+
     return AuthSession.makeRedirectUri({
       scheme: 'urbanfix',
       path: 'auth/callback',
@@ -50,6 +71,7 @@ export default function AuthScreen() {
 
   const parseAuthParams = (url: string) => {
     const params: Record<string, string> = {};
+
     const querySplit = url.split('?')[1];
     if (querySplit) {
       const queryString = querySplit.split('#')[0];
@@ -58,24 +80,53 @@ export default function AuthScreen() {
         params[key] = value;
       });
     }
+
     const hashString = url.split('#')[1];
     if (hashString) {
       const hashParams = new URLSearchParams(hashString);
       hashParams.forEach((value, key) => {
-        if (!(key in params)) params[key] = value;
+        if (!(key in params)) {
+          params[key] = value;
+        }
       });
     }
+
     return params;
   };
 
+  const handleOpenClientPortal = async () => {
+    try {
+      if (Platform.OS === 'web' && typeof window !== 'undefined') {
+        window.location.href = clientPortalUrl;
+        return;
+      }
+
+      const canOpen = await Linking.canOpenURL(clientPortalUrl);
+      if (!canOpen) {
+        throw new Error('No se pudo abrir el portal de clientes.');
+      }
+
+      await WebBrowser.openBrowserAsync(clientPortalUrl);
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No se pudo abrir el acceso de cliente.');
+    }
+  };
+
   const handleGoogleAuth = async () => {
+    if (isClientAudience) {
+      await handleOpenClientPortal();
+      return;
+    }
+
     try {
       if (Platform.OS === 'web') {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
           options: { redirectTo: getRedirectUrl() },
         });
-        if (error) throw error;
+        if (error) {
+          throw error;
+        }
         return;
       }
 
@@ -83,6 +134,7 @@ export default function AuthScreen() {
       if (__DEV__) {
         setDebugInfo(`redirectTo: ${redirectTo}`);
       }
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -90,23 +142,36 @@ export default function AuthScreen() {
           skipBrowserRedirect: true,
         },
       });
-      if (error) throw error;
+
+      if (error) {
+        throw error;
+      }
+
       const authUrl = data?.url;
-      if (!authUrl) throw new Error('No se pudo iniciar Google Sign-In (url vacía)');
+      if (!authUrl) {
+        throw new Error('No se pudo iniciar Google Sign-In (url vacia).');
+      }
 
       const result = await WebBrowser.openAuthSessionAsync(authUrl, redirectTo);
 
       if (result.type === 'success') {
         const urlResult = result.url;
-        if (!urlResult) throw new Error('Respuesta de Google incompleta');
+        if (!urlResult) {
+          throw new Error('Respuesta de Google incompleta.');
+        }
+
         const params = parseAuthParams(urlResult);
         const errorMessage = params.error_description || params.error;
 
-        if (errorMessage) throw new Error(String(errorMessage));
+        if (errorMessage) {
+          throw new Error(String(errorMessage));
+        }
 
         if (params.code) {
           const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(String(params.code));
-          if (exchangeError) throw exchangeError;
+          if (exchangeError) {
+            throw exchangeError;
+          }
           return;
         }
 
@@ -115,54 +180,61 @@ export default function AuthScreen() {
             access_token: params.access_token,
             refresh_token: params.refresh_token,
           });
-          if (sessionError) throw sessionError;
+          if (sessionError) {
+            throw sessionError;
+          }
           return;
         }
 
-        throw new Error('Respuesta de Google incompleta');
+        throw new Error('Respuesta de Google incompleta.');
       }
 
       if (result.type === 'cancel' || result.type === 'dismiss') {
-        throw new Error('Inicio con Google cancelado');
+        throw new Error('Inicio con Google cancelado.');
       }
 
       await WebBrowser.openBrowserAsync(data.url);
-      Alert.alert('Continuar en Google', 'Si completaste el login, la app debería abrirse automáticamente.');
+      Alert.alert('Continuar en Google', 'Si completaste el login, la app deberia abrirse automaticamente.');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'No se pudo iniciar con Google.');
+      Alert.alert('Error', error?.message || 'No se pudo iniciar con Google.');
     }
   };
 
-  async function handleAuth() {
+  const handleAuth = async () => {
+    if (isClientAudience) {
+      await handleOpenClientPortal();
+      return;
+    }
+
     setLoading(true);
+
     try {
       const trimmedEmail = email.trim();
       if (!trimmedEmail || !password) {
-        Alert.alert('Datos incompletos', 'Ingresa tu email y contraseña.');
+        Alert.alert('Datos incompletos', 'Ingresa tu email y contrasena.');
         setLoading(false);
         return;
       }
+
       if (isLogin) {
-        // --- LOGIN NORMAL ---
         const { error } = await supabase.auth.signInWithPassword({
           email: trimmedEmail,
           password,
         });
-        if (error) throw error;
-        // La navegación se maneja sola por el cambio de sesión en App.tsx
+        if (error) {
+          throw error;
+        }
       } else {
-        // --- REGISTRO CON PERFIL ---
         if (!fullName.trim() || !businessName.trim()) {
-          Alert.alert('Faltan datos', 'Por favor completa tu nombre y el de tu negocio.');
+          Alert.alert('Faltan datos', 'Completa tu nombre y el de tu negocio.');
           setLoading(false);
           return;
         }
 
-        const { data, error } = await supabase.auth.signUp({
+        const { error } = await supabase.auth.signUp({
           email: trimmedEmail,
           password,
           options: {
-            // Estos datos viajan al Trigger que creamos en SQL
             data: {
               full_name: fullName.trim(),
               business_name: businessName.trim(),
@@ -170,47 +242,55 @@ export default function AuthScreen() {
           },
         });
 
-        if (error) throw error;
-        Alert.alert('¡Registro Exitoso!', 'Bienvenido a UrbanFix.');
+        if (error) {
+          throw error;
+        }
+
+        Alert.alert('Registro exitoso', 'Bienvenido a UrbanFix.');
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', error?.message || 'No se pudo completar la autenticacion.');
     } finally {
       setLoading(false);
     }
-  }
+  };
 
   const handlePasswordRecovery = async () => {
-    const trimmedEmail = email.trim();
-    if (!trimmedEmail) {
-      Alert.alert('Falta email', 'Ingresa tu email para recuperar la contraseña.');
+    if (isClientAudience) {
+      await handleOpenClientPortal();
       return;
     }
+
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      Alert.alert('Falta email', 'Ingresa tu email para recuperar la contrasena.');
+      return;
+    }
+
     setRecovering(true);
+
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: getWebApiUrl('/tecnicos?recovery=1'),
       });
-      if (error) throw error;
-      Alert.alert('Revisa tu correo', 'Te enviamos un email para recuperar tu contraseña.');
+      if (error) {
+        throw error;
+      }
+
+      Alert.alert('Revisa tu correo', 'Te enviamos un email para recuperar tu contrasena.');
     } catch (error: any) {
-      Alert.alert('Error', error.message);
+      Alert.alert('Error', error?.message || 'No se pudo iniciar la recuperacion.');
     } finally {
       setRecovering(false);
     }
   };
 
-  const insets = useSafeAreaInsets();
-  const isRegister = !isLogin;
-
   return (
     <LinearGradient colors={['#0B1221', '#1C2A3A', '#0B1221']} style={styles.container}>
       <View style={styles.orbOne} />
       <View style={styles.orbTwo} />
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.container}
-      >
+
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
@@ -225,156 +305,211 @@ export default function AuthScreen() {
             <View style={styles.logoWrap}>
               <Image source={logo} style={styles.logo} />
             </View>
+
             <View style={styles.badgeRow}>
               <View style={styles.badgeDot} />
-            <Text style={styles.badgeText}>ACCESO TECNICOS</Text>
-          </View>
-            <Text style={styles.heroTitle}>Bienvenido a UrbanFix</Text>
-            <Text style={styles.heroSubtitle}>Ingresa en segundos y empieza a presupuestar.</Text>
+              <Text style={styles.badgeText}>
+                {isClientAudience ? 'ACCESO CLIENTES' : 'ACCESO TECNICOS'}
+              </Text>
+            </View>
+
+            <Text style={styles.heroTitle}>
+              {isClientAudience ? 'Ingreso para clientes' : 'Bienvenido a UrbanFix'}
+            </Text>
+            <Text style={styles.heroSubtitle}>
+              {isClientAudience
+                ? 'Publica solicitudes y recibe ofertas de tecnicos cercanos.'
+                : 'Ingresa en segundos y empieza a presupuestar.'}
+            </Text>
           </View>
 
-          {/* FORMULARIO */}
           <View style={styles.card}>
-            <View style={styles.segmented}>
+            <View style={styles.roleSelector}>
               <TouchableOpacity
-                style={[styles.segmentItem, isLogin && styles.segmentItemActive]}
-                onPress={() => setIsLogin(true)}
-              >
-                <Text style={[styles.segmentText, isLogin && styles.segmentTextActive]}>Ingresar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.segmentItem, isRegister && styles.segmentItemActive]}
+                style={[styles.roleItem, !isClientAudience && styles.roleItemActive]}
                 onPress={() => {
-                  setIsLogin(false);
-                  setShowRegisterHint(true);
+                  setAudience('tecnico');
                 }}
               >
-                <Text style={[styles.segmentText, isRegister && styles.segmentTextActive]}>Crear cuenta</Text>
+                <Text style={[styles.roleText, !isClientAudience && styles.roleTextActive]}>Tecnico</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.roleItem, isClientAudience && styles.roleItemActive]}
+                onPress={() => {
+                  setAudience('cliente');
+                  setShowRegisterHint(false);
+                  setIsLogin(true);
+                }}
+              >
+                <Text style={[styles.roleText, isClientAudience && styles.roleTextActive]}>Cliente</Text>
               </TouchableOpacity>
             </View>
 
-            {showRegisterHint && isRegister && (
-              <Text style={styles.registerHint}>Completa tu perfil y listo.</Text>
-            )}
+            {isClientAudience ? (
+              <View style={styles.clientBox}>
+                <Text style={styles.clientTitle}>Portal clientes UrbanFix</Text>
+                <Text style={styles.clientText}>
+                  El acceso de cliente se realiza en la web para crear perfil, publicar solicitudes y revisar ofertas.
+                </Text>
 
-            <Text style={styles.cardTitle}>{isLogin ? 'Acceso rápido' : 'Registro profesional'}</Text>
-            <Text style={styles.cardSubtitle}>Usa Google o tu correo. Rápido y seguro.</Text>
+                <TouchableOpacity onPress={handleOpenClientPortal} activeOpacity={0.85}>
+                  <LinearGradient colors={[COLORS.primary, '#F59E0B']} style={styles.button}>
+                    <Text style={styles.buttonText}>ENTRAR COMO CLIENTE</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
 
-            <TouchableOpacity 
-              style={styles.googleButton} 
-              onPress={handleGoogleAuth}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
-            </TouchableOpacity>
-
-            <View style={styles.dividerRow}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>o con tu correo</Text>
-              <View style={styles.dividerLine} />
-            </View>
-            {!!debugInfo && __DEV__ && (
-              <Text style={styles.debugText}>{debugInfo}</Text>
-            )}
-            
-            {/* 🔥 CAMPOS EXTRA SOLO SI ES REGISTRO */}
-            {isRegister && (
+                <TouchableOpacity style={styles.clientLinkBtn} onPress={() => setAudience('tecnico')}>
+                  <Text style={styles.switchText}>Soy tecnico, volver al login tecnico</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
               <>
-                <Text style={styles.sectionLabel}>Tu perfil</Text>
+                <View style={styles.segmented}>
+                  <TouchableOpacity
+                    style={[styles.segmentItem, isLogin && styles.segmentItemActive]}
+                    onPress={() => {
+                      setIsLogin(true);
+                      setShowRegisterHint(false);
+                    }}
+                  >
+                    <Text style={[styles.segmentText, isLogin && styles.segmentTextActive]}>Ingresar</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.segmentItem, isRegister && styles.segmentItemActive]}
+                    onPress={() => {
+                      setIsLogin(false);
+                      setShowRegisterHint(true);
+                    }}
+                  >
+                    <Text style={[styles.segmentText, isRegister && styles.segmentTextActive]}>
+                      Crear cuenta
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+
+                {showRegisterHint && isRegister && (
+                  <Text style={styles.registerHint}>Completa tu perfil profesional y listo.</Text>
+                )}
+
+                <Text style={styles.cardTitle}>{isLogin ? 'Acceso rapido' : 'Registro profesional'}</Text>
+                <Text style={styles.cardSubtitle}>Usa Google o tu correo. Rapido y seguro.</Text>
+
+                <TouchableOpacity
+                  style={styles.googleButton}
+                  onPress={handleGoogleAuth}
+                  disabled={loading}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
+                </TouchableOpacity>
+
+                <View style={styles.dividerRow}>
+                  <View style={styles.dividerLine} />
+                  <Text style={styles.dividerText}>o con tu correo</Text>
+                  <View style={styles.dividerLine} />
+                </View>
+
+                {!!debugInfo && __DEV__ && <Text style={styles.debugText}>{debugInfo}</Text>}
+
+                {isRegister && (
+                  <>
+                    <Text style={styles.sectionLabel}>Tu perfil</Text>
+                    <TextInput
+                      ref={fullNameRef}
+                      style={styles.input}
+                      placeholder="Nombre completo (ej: Carlos Gomez)"
+                      placeholderTextColor="#94A3B8"
+                      value={fullName}
+                      onChangeText={setFullName}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      onSubmitEditing={() => businessNameRef.current?.focus()}
+                    />
+                    <TextInput
+                      ref={businessNameRef}
+                      style={styles.input}
+                      placeholder="Nombre de tu negocio (ej: ElectroFix)"
+                      placeholderTextColor="#94A3B8"
+                      value={businessName}
+                      onChangeText={setBusinessName}
+                      autoCapitalize="words"
+                      returnKeyType="next"
+                      onSubmitEditing={() => emailRef.current?.focus()}
+                    />
+                  </>
+                )}
+
+                <Text style={styles.sectionLabel}>Credenciales</Text>
                 <TextInput
-                  ref={fullNameRef}
+                  ref={emailRef}
                   style={styles.input}
-                  placeholder="Nombre completo (ej: Carlos Gómez)"
+                  placeholder="Email"
                   placeholderTextColor="#94A3B8"
-                  value={fullName}
-                  onChangeText={setFullName}
-                  autoCapitalize="words"
+                  value={email}
+                  onChangeText={setEmail}
+                  onBlur={() => setEmail((prev) => prev.trim())}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
                   returnKeyType="next"
-                  onSubmitEditing={() => businessNameRef.current?.focus()}
+                  onSubmitEditing={() => passwordRef.current?.focus()}
                 />
+
                 <TextInput
-                  ref={businessNameRef}
+                  ref={passwordRef}
                   style={styles.input}
-                  placeholder="Nombre de tu negocio (ej: ElectroFix)"
+                  placeholder="Contrasena"
                   placeholderTextColor="#94A3B8"
-                  value={businessName}
-                  onChangeText={setBusinessName}
-                  autoCapitalize="words"
-                  returnKeyType="next"
-                  onSubmitEditing={() => emailRef.current?.focus()}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry
+                  autoCorrect={false}
+                  textContentType="password"
+                  autoComplete="password"
+                  returnKeyType="done"
+                  onSubmitEditing={handleAuth}
                 />
+
+                {isLogin && (
+                  <TouchableOpacity
+                    style={styles.recoveryBtn}
+                    onPress={handlePasswordRecovery}
+                    disabled={recovering}
+                  >
+                    <Text style={styles.recoveryText}>
+                      {recovering ? 'Enviando...' : 'Olvidaste tu contrasena?'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity onPress={handleAuth} disabled={loading} activeOpacity={0.85}>
+                  <LinearGradient colors={[COLORS.primary, '#F59E0B']} style={styles.button}>
+                    {loading ? (
+                      <ActivityIndicator color="#FFF" />
+                    ) : (
+                      <Text style={styles.buttonText}>{isLogin ? 'INGRESAR' : 'REGISTRARSE'}</Text>
+                    )}
+                  </LinearGradient>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchBtn}
+                  onPress={() => {
+                    const nextIsLogin = !isLogin;
+                    setIsLogin(nextIsLogin);
+                    setShowRegisterHint(!nextIsLogin);
+                  }}
+                >
+                  <Text style={styles.switchText}>
+                    {isLogin ? 'No tienes cuenta? Registrate gratis' : 'Ya tienes cuenta? Ingresa'}
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
-
-            <Text style={styles.sectionLabel}>Credenciales</Text>
-            <TextInput
-              ref={emailRef}
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#94A3B8"
-              value={email}
-              onChangeText={setEmail}
-              onBlur={() => setEmail((prev) => prev.trim())}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="email-address"
-              textContentType="emailAddress"
-              autoComplete="email"
-              returnKeyType="next"
-              onSubmitEditing={() => passwordRef.current?.focus()}
-            />
-            <TextInput
-              ref={passwordRef}
-              style={styles.input}
-              placeholder="Contraseña"
-              placeholderTextColor="#94A3B8"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              autoCorrect={false}
-              textContentType="password"
-              autoComplete="password"
-              returnKeyType="done"
-              onSubmitEditing={handleAuth}
-            />
-
-            {isLogin && (
-              <TouchableOpacity
-                style={styles.recoveryBtn}
-                onPress={handlePasswordRecovery}
-                disabled={recovering}
-              >
-                <Text style={styles.recoveryText}>
-                  {recovering ? 'Enviando...' : '¿Olvidaste tu contraseña?'}
-                </Text>
-              </TouchableOpacity>
-            )}
-
-            <TouchableOpacity 
-              onPress={handleAuth}
-              disabled={loading}
-              activeOpacity={0.85}
-            >
-              <LinearGradient colors={[COLORS.primary, '#F59E0B']} style={styles.button}>
-                {loading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <Text style={styles.buttonText}>
-                    {isLogin ? 'INGRESAR' : 'REGISTRARSE'}
-                  </Text>
-                )}
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity 
-              style={styles.switchBtn} 
-              onPress={() => setIsLogin(!isLogin)}
-            >
-              <Text style={styles.switchText}>
-                {isLogin ? '¿No tienes cuenta? Regístrate gratis' : '¿Ya tienes cuenta? Ingresa'}
-              </Text>
-            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -439,7 +574,12 @@ const styles = StyleSheet.create({
   },
   badgeText: { fontSize: 11, letterSpacing: 1.5, color: '#F8FAFC', fontFamily: FONTS.subtitle },
   heroTitle: { fontSize: 28, textAlign: 'center', fontFamily: FONTS.title, color: '#FFF' },
-  heroSubtitle: { fontSize: 13, textAlign: 'center', fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)' },
+  heroSubtitle: {
+    fontSize: 13,
+    textAlign: 'center',
+    fontFamily: FONTS.body,
+    color: 'rgba(255,255,255,0.7)',
+  },
   card: {
     gap: 16,
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -452,6 +592,32 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 8,
+  },
+  roleSelector: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(2,6,23,0.35)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(148,163,184,0.2)',
+    padding: 4,
+    gap: 6,
+  },
+  roleItem: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  roleItemActive: {
+    backgroundColor: 'rgba(255,255,255,0.14)',
+  },
+  roleText: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: FONTS.subtitle,
+    fontSize: 12,
+  },
+  roleTextActive: {
+    color: '#F8FAFC',
   },
   segmented: {
     flexDirection: 'row',
@@ -479,7 +645,12 @@ const styles = StyleSheet.create({
   segmentTextActive: { color: '#F8FAFC' },
   cardTitle: { fontSize: 18, fontFamily: FONTS.title, color: '#FFF' },
   cardSubtitle: { fontSize: 13, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)' },
-  sectionLabel: { color: 'rgba(255,255,255,0.6)', fontFamily: FONTS.subtitle, fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: {
+    color: 'rgba(255,255,255,0.6)',
+    fontFamily: FONTS.subtitle,
+    fontSize: 11,
+    letterSpacing: 0.6,
+  },
   input: {
     backgroundColor: 'rgba(15,23,42,0.7)',
     padding: 16,
@@ -511,8 +682,31 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
   switchBtn: { alignItems: 'center', marginTop: 8 },
-  switchText: { color: '#FCD34D', fontFamily: FONTS.subtitle, fontSize: 13 },
+  switchText: { color: '#FCD34D', fontFamily: FONTS.subtitle, fontSize: 13, textAlign: 'center' },
   recoveryBtn: { alignItems: 'flex-end', marginTop: -6 },
   recoveryText: { color: 'rgba(255,255,255,0.85)', fontFamily: FONTS.body, fontSize: 12 },
   registerHint: { marginTop: 4, textAlign: 'center', color: '#FCD34D', fontSize: 11 },
+  clientBox: {
+    gap: 10,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(15,23,42,0.45)',
+    padding: 14,
+  },
+  clientTitle: {
+    fontFamily: FONTS.title,
+    fontSize: 18,
+    color: '#F8FAFC',
+  },
+  clientText: {
+    color: 'rgba(255,255,255,0.74)',
+    fontSize: 13,
+    fontFamily: FONTS.body,
+    lineHeight: 20,
+  },
+  clientLinkBtn: {
+    alignItems: 'center',
+    marginTop: 4,
+  },
 });

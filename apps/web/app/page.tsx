@@ -112,6 +112,12 @@ export default function HomePage() {
               </div>
               <div className="flex flex-wrap items-center gap-3">
                 <a
+                  href="/cliente"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Acceso cliente
+                </a>
+                <a
                   href="/tecnicos"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
@@ -138,6 +144,12 @@ export default function HomePage() {
                   compartir.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
+                  <a
+                    href="/cliente"
+                    className="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-emerald-500"
+                  >
+                    Entrar como cliente
+                  </a>
                   <a
                     href="/tecnicos"
                     className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
@@ -191,6 +203,14 @@ export default function HomePage() {
                   <p className="mt-2 text-sm text-slate-600">
                     Si recibiste un presupuesto, abrilo desde el link que te envio tu tecnico.
                   </p>
+                  <div className="mt-4">
+                    <a
+                      href="/cliente"
+                      className="inline-flex rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      Entrar como cliente
+                    </a>
+                  </div>
                   <ul className="mt-4 space-y-2 text-xs text-slate-500">
                     {quickSteps.map((step, index) => (
                       <li key={step} className="flex items-center gap-2">
@@ -320,6 +340,12 @@ export default function HomePage() {
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
                   Empezar como tecnico
+                </a>
+                <a
+                  href="/cliente"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Empezar como cliente
                 </a>
               </div>
             </section>
