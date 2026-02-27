@@ -22,6 +22,7 @@ import { COLORS, FONTS } from '../../utils/theme';
 import { useJobCalculator } from '../../hooks/useJobCalculator';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/number';
+import { submitOffer } from '../../api/marketplace';
 
 // Habilitar animaciones en Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -58,6 +59,16 @@ type QuoteAttachmentItem = {
   url?: string;
   localUri?: string;
   isUploading?: boolean;
+};
+
+type OfferRequestPayload = {
+  id: string;
+  title?: string;
+  city?: string;
+  address?: string;
+  location_lat?: number;
+  location_lng?: number;
+  my_eta_hours?: number | null;
 };
 
 const LABOR_TOOLS: LaborTool[] = [
@@ -125,8 +136,8 @@ export default function JobConfigScreen() {
   const queryClient = useQueryClient();
   const { width: windowWidth } = useWindowDimensions();
   
-  const params = route.params as { blueprint?: any, quote?: any } | undefined;
-  const { blueprint, quote } = params || {};
+  const params = route.params as { blueprint?: any; quote?: any; offerRequest?: OfferRequestPayload } | undefined;
+  const { blueprint, quote, offerRequest } = params || {};
   const isWideLayout = IS_WEB && windowWidth >= WEB_WIDE_BREAKPOINT;
   const contentMaxWidth = IS_WEB ? (isWideLayout ? WEB_WIDE_MAX_WIDTH : WEB_MAX_WIDTH) : undefined;
 
@@ -153,13 +164,17 @@ export default function JobConfigScreen() {
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
   const [showAttachments, setShowAttachments] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [offerEtaHours, setOfferEtaHours] = useState('');
   const isHeaderCompact = true;
   
   const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
+  const isOfferFlow = !!offerRequest?.id && !isEditMode;
   const canUploadAttachments = isEditMode && !!quote?.id;
   const initKey = isEditMode && quote?.id
     ? `quote:${quote.id}`
+    : offerRequest?.id
+      ? `offer:${offerRequest.id}`
     : blueprint?.id
       ? `blueprint:${blueprint.id}`
       : `new:${route.key}`;
@@ -246,7 +261,31 @@ export default function JobConfigScreen() {
                     } else {
                         setAttachments([]);
                     }
+                    const defaultEta = Number(offerRequest?.my_eta_hours || 0);
+                    setOfferEtaHours(defaultEta > 0 ? String(Math.round(defaultEta)) : '24');
                 }
+            } else if (offerRequest?.id) {
+                const fullAddress = [offerRequest.address, offerRequest.city].filter(Boolean).join(', ');
+                const lat = Number(offerRequest.location_lat || 0);
+                const lng = Number(offerRequest.location_lng || 0);
+                const hasCoords = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
+
+                setClientName(offerRequest.title || 'Cliente UrbanFix');
+                setClientAddress(fullAddress);
+                setLocation(hasCoords ? { lat, lng } : { lat: 0, lng: 0 });
+                setApplyTax(false);
+                setDiscount(defaultDiscount);
+                setSelectedLaborTool('none');
+                setLaborToolOpen(false);
+                setToolQuantity('');
+                setToolRate('');
+                setCustomToolName('');
+                setCustomToolUnit('m2');
+                setItems([]);
+                setPriceDrafts({});
+                setAttachments([]);
+                const defaultEta = Number(offerRequest.my_eta_hours || 0);
+                setOfferEtaHours(defaultEta > 0 ? String(Math.round(defaultEta)) : '24');
             } else if (blueprint) {
                 // Lógica para cargar desde blueprint (sin cambios)
                 const mapped = blueprint.blueprint_components?.map((comp: any) => {
@@ -276,6 +315,7 @@ export default function JobConfigScreen() {
                 setItems(mapped || []);
                 setPriceDrafts({});
                 setAttachments([]);
+                setOfferEtaHours('');
             } else {
                 setClientName('');
                 setClientAddress('');
@@ -291,6 +331,7 @@ export default function JobConfigScreen() {
                 setItems([]);
                 setPriceDrafts({});
                 setAttachments([]);
+                setOfferEtaHours('');
             }
             hasLoadedData.current = initKey;
         } catch (err) {
@@ -298,7 +339,7 @@ export default function JobConfigScreen() {
         }
     };
     initData();
-  }, [initKey, quote?.id, blueprint, isEditMode]);
+  }, [initKey, quote?.id, blueprint, offerRequest, isEditMode]);
 
   useEffect(() => {
     if (activeCategory !== 'labor') {
@@ -542,6 +583,12 @@ export default function JobConfigScreen() {
       if (!clientName.trim()) return Alert.alert("Falta información", "Ingresa el nombre del cliente.");
       if (!clientAddress?.trim()) return Alert.alert("Falta información", "Ingresa la dirección.");
       if (items.length === 0) return Alert.alert("Atención", "Agrega al menos un item.");
+      if (isOfferFlow) {
+        const etaValue = Math.max(1, Math.round(parseNumber(offerEtaHours)));
+        if (!Number.isFinite(etaValue) || etaValue <= 0) {
+          return Alert.alert("Falta información", "Ingresa un tiempo estimado en horas.");
+        }
+      }
 
       try {
         setIsSaving(true);
@@ -591,6 +638,54 @@ export default function JobConfigScreen() {
         const pendingAttachments = attachments.filter((item) => item.localUri && !item.url);
         if (pendingAttachments.length > 0 && targetId) {
           await uploadAttachmentItems(targetId, user.id, pendingAttachments);
+        }
+
+        const roundedTotal = Math.round(totalWithTax * 100) / 100;
+
+        if (isOfferFlow && offerRequest?.id && targetId) {
+          const etaHours = Math.max(1, Math.round(parseNumber(offerEtaHours)));
+
+          const { error: sentError } = await supabase.rpc('update_quote_status', {
+            quote_id: targetId,
+            next_status: 'sent',
+          });
+          if (sentError) {
+            await supabase.from('quotes').update({ status: 'sent' }).eq('id', targetId);
+          }
+
+          try {
+            const payload = await submitOffer(offerRequest.id, roundedTotal, etaHours);
+
+            handleSmartInteraction('heavy');
+            await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+            await queryClient.invalidateQueries({ queryKey: ['operativo-nearby-requests'] });
+
+            Alert.alert(
+              "Presupuesto enviado",
+              payload?.message || "Tu presupuesto se envió al cliente correctamente.",
+              [
+                {
+                  text: "Ver Operativo",
+                  onPress: () => navigation.navigate('Main', { screen: 'Operativo' }),
+                },
+                {
+                  text: "Ver presupuesto",
+                  onPress: () => navigation.navigate('JobDetail', { jobId: targetId }),
+                },
+              ]
+            );
+            return;
+          } catch (offerError: any) {
+            await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+            Alert.alert(
+              "Presupuesto guardado",
+              offerError?.message
+                ? `Se guardó el presupuesto, pero no pudimos enviarlo: ${offerError.message}`
+                : "Se guardó el presupuesto, pero no pudimos enviarlo al cliente.",
+              [{ text: "Ver presupuesto", onPress: () => navigation.navigate('JobDetail', { jobId: targetId }) }]
+            );
+            return;
+          }
         }
 
         handleSmartInteraction('heavy');
@@ -768,6 +863,22 @@ export default function JobConfigScreen() {
                 <Text style={styles.percentSuffix}>%</Text>
             </View>
         </View>
+        {isOfferFlow && (
+          <View style={styles.summaryLine}>
+            <Text style={styles.summaryLineLabel}>Tiempo estimado</Text>
+            <View style={styles.discountInputContainer}>
+              <TextInput
+                style={styles.discountInput}
+                keyboardType="numeric"
+                placeholder="24"
+                selectTextOnFocus
+                value={offerEtaHours}
+                onChangeText={setOfferEtaHours}
+              />
+              <Text style={styles.percentSuffix}>hs</Text>
+            </View>
+          </View>
+        )}
         <View style={styles.summaryLine}>
             <View>
                 <Text style={styles.summaryLineLabel}>IVA 21%</Text>
@@ -794,7 +905,9 @@ export default function JobConfigScreen() {
         </View>
         <View style={styles.summaryFootnote}>
             <Ionicons name="shield-checkmark-outline" size={16} color="#94A3B8" />
-            <Text style={styles.summaryFootnoteText}>Guarda para confirmar el presupuesto.</Text>
+            <Text style={styles.summaryFootnoteText}>
+              {isOfferFlow ? 'Al enviar, esta oferta llega al cliente desde Operativo.' : 'Guarda para confirmar el presupuesto.'}
+            </Text>
         </View>
     </View>
   );
@@ -802,7 +915,10 @@ export default function JobConfigScreen() {
   // --- UI PRINCIPAL ---
   return (
     <View style={styles.mainContainer}>
-        <ScreenHeader title={isEditMode ? "Editar Trabajo" : "Nuevo Presupuesto"} showBack />
+        <ScreenHeader
+          title={isOfferFlow ? "Enviar Presupuesto" : isEditMode ? "Editar Trabajo" : "Nuevo Presupuesto"}
+          showBack
+        />
         
         <View style={[styles.centerWebContainer, IS_WEB && contentMaxWidth ? { maxWidth: contentMaxWidth } : null]}>
             <KeyboardAvoidingView 
@@ -831,7 +947,7 @@ export default function JobConfigScreen() {
                                 <View style={styles.heroLeft}>
                                     <Text style={styles.heroEyebrow}>COTIZADOR URBANFIX</Text>
                                     <Text style={styles.heroTitle}>
-                                        {isEditMode ? 'Editar presupuesto' : 'Nuevo presupuesto'}
+                                        {isOfferFlow ? 'Presupuesto para oferta' : isEditMode ? 'Editar presupuesto' : 'Nuevo presupuesto'}
                                     </Text>
                                     <Text style={styles.heroSubtitle}>
                                         Crea una propuesta clara, con totales al instante.
@@ -1272,7 +1388,7 @@ export default function JobConfigScreen() {
                     <TouchableOpacity style={styles.mainBtn} onPress={handleSave} disabled={isSaving}>
                         {isSaving ? <ActivityIndicator color="#FFF" /> : (
                             <>
-                                <Text style={styles.mainBtnText}>GUARDAR</Text>
+                                <Text style={styles.mainBtnText}>{isOfferFlow ? 'ENVIAR PRESUPUESTO' : 'GUARDAR'}</Text>
                                 <Ionicons name="arrow-forward" size={20} color="#FFF" />
                             </>
                         )}

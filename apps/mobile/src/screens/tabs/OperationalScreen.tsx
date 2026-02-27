@@ -1,28 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
-  Modal,
   Platform,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import MapCanvas from '../../components/molecules/MapCanvas';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import {
   fetchNearbyRequests,
   NearbyRequest,
   NearbyRequestsPayload,
-  submitOffer,
 } from '../../api/marketplace';
 import { MapPoint } from '../../types/maps';
 import { COLORS, FONTS } from '../../utils/theme';
@@ -39,19 +34,6 @@ const BA_DEFAULT_REGION = {
 const toErrorMessage = (error: unknown, fallback: string) => {
   if (error instanceof Error && error.message.trim()) return error.message;
   return fallback;
-};
-
-const parsePositiveNumber = (value: string) => {
-  const trimmed = String(value || '').trim().replace(/\s+/g, '');
-  let normalized = trimmed;
-  if (trimmed.includes(',') && trimmed.includes('.')) {
-    normalized = trimmed.replace(/\./g, '').replace(',', '.');
-  } else if (trimmed.includes(',')) {
-    normalized = trimmed.replace(',', '.');
-  }
-  const parsed = Number(normalized);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed;
 };
 
 const modeLabel = (mode: NearbyRequest['mode']) => (mode === 'direct' ? 'Directa' : 'Marketplace');
@@ -71,12 +53,9 @@ const resolveStatusMeta = (request: NearbyRequest) => {
 };
 
 export default function OperationalScreen() {
-  const queryClient = useQueryClient();
+  const navigation = useNavigation<any>();
   const [modeFilter, setModeFilter] = useState<'all' | 'marketplace' | 'direct'>('all');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
-  const [offerRequest, setOfferRequest] = useState<NearbyRequest | null>(null);
-  const [offerPrice, setOfferPrice] = useState('');
-  const [offerEta, setOfferEta] = useState('');
 
   const {
     data,
@@ -173,68 +152,22 @@ export default function OperationalScreen() {
     [requests]
   );
 
-  const offerMutation = useMutation({
-    mutationFn: ({ requestId, priceArs, etaHours }: { requestId: string; priceArs: number; etaHours: number }) =>
-      submitOffer(requestId, priceArs, etaHours),
-    onSuccess: (payload, variables) => {
-      queryClient.setQueryData<NearbyRequestsPayload | undefined>(QUERY_KEY, (previous) => {
-        if (!previous) return previous;
-        return {
-          ...previous,
-          requests: previous.requests.map((request) => {
-            if (request.id !== variables.requestId) return request;
-            return {
-              ...request,
-              status: payload.request.status || request.status,
-              my_quote_status: payload.request.my_quote_status,
-              my_price_ars: payload.request.my_price_ars,
-              my_eta_hours: payload.request.my_eta_hours,
-              my_quote_updated_at: payload.request.my_quote_updated_at,
-            };
-          }),
-        };
+  const handleOpenBudgetBuilder = useCallback(
+    (request: NearbyRequest) => {
+      navigation.navigate('JobConfig', {
+        offerRequest: {
+          id: request.id,
+          title: request.title,
+          city: request.city,
+          address: request.address,
+          location_lat: request.location_lat,
+          location_lng: request.location_lng,
+          my_eta_hours: request.my_eta_hours,
+        },
       });
-      setOfferRequest(null);
-      setOfferPrice('');
-      setOfferEta('');
-      Alert.alert('Oferta enviada', payload.message || 'Tu oferta se envio correctamente.');
     },
-    onError: (mutationError: unknown) => {
-      Alert.alert('No se pudo ofertar', toErrorMessage(mutationError, 'Intenta nuevamente.'));
-    },
-  });
-
-  const openOfferModal = useCallback((request: NearbyRequest) => {
-    setOfferRequest(request);
-    setOfferPrice(request.my_price_ars ? String(Math.round(request.my_price_ars)) : '');
-    setOfferEta(request.my_eta_hours ? String(Math.round(request.my_eta_hours)) : '');
-  }, []);
-
-  const closeOfferModal = useCallback(() => {
-    if (offerMutation.isPending) return;
-    setOfferRequest(null);
-    setOfferPrice('');
-    setOfferEta('');
-  }, [offerMutation.isPending]);
-
-  const handleSubmitOffer = useCallback(() => {
-    if (!offerRequest) return;
-    const priceValue = parsePositiveNumber(offerPrice);
-    const etaValue = parsePositiveNumber(offerEta);
-    if (!priceValue) {
-      Alert.alert('Dato faltante', 'Ingresa un precio valido en ARS.');
-      return;
-    }
-    if (!etaValue) {
-      Alert.alert('Dato faltante', 'Ingresa una ETA valida en horas.');
-      return;
-    }
-    offerMutation.mutate({
-      requestId: offerRequest.id,
-      priceArs: Math.round(priceValue * 100) / 100,
-      etaHours: Math.max(1, Math.round(etaValue)),
-    });
-  }, [offerEta, offerMutation, offerPrice, offerRequest]);
+    [navigation]
+  );
 
   const subtitle = `${filteredRequests.length} solicitudes visibles`;
   const mapKey = `${modeFilter}-${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
@@ -391,11 +324,11 @@ export default function OperationalScreen() {
                     >
                       <Text style={styles.secondaryActionText}>Ver en mapa</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.primaryAction} onPress={() => openOfferModal(request)}>
+                    <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenBudgetBuilder(request)}>
                       <Text style={styles.primaryActionText}>
                         {request.my_quote_status === 'submitted' || request.my_quote_status === 'accepted'
-                          ? 'Editar oferta'
-                          : 'Ofertar'}
+                          ? 'Editar presupuesto'
+                          : 'Ofertar con presupuesto'}
                       </Text>
                     </TouchableOpacity>
                   </View>
@@ -405,48 +338,6 @@ export default function OperationalScreen() {
           )}
         </View>
       </ScrollView>
-
-      <Modal transparent visible={Boolean(offerRequest)} animationType="fade" onRequestClose={closeOfferModal}>
-        <Pressable style={styles.modalOverlay} onPress={closeOfferModal}>
-          <Pressable style={styles.modalCard} onPress={() => null}>
-            <Text style={styles.modalTitle}>Enviar oferta</Text>
-            <Text style={styles.modalSubtitle}>{offerRequest?.title || 'Solicitud'}</Text>
-
-            <Text style={styles.inputLabel}>Precio (ARS)</Text>
-            <TextInput
-              value={offerPrice}
-              onChangeText={setOfferPrice}
-              keyboardType="decimal-pad"
-              placeholder="Ej: 150000"
-              placeholderTextColor="#94A3B8"
-              style={styles.input}
-            />
-
-            <Text style={styles.inputLabel}>ETA (horas)</Text>
-            <TextInput
-              value={offerEta}
-              onChangeText={setOfferEta}
-              keyboardType="number-pad"
-              placeholder="Ej: 24"
-              placeholderTextColor="#94A3B8"
-              style={styles.input}
-            />
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalGhostBtn} onPress={closeOfferModal} disabled={offerMutation.isPending}>
-                <Text style={styles.modalGhostText}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalPrimaryBtn} onPress={handleSubmitOffer} disabled={offerMutation.isPending}>
-                {offerMutation.isPending ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.modalPrimaryText}>Enviar oferta</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -599,58 +490,5 @@ const styles = StyleSheet.create({
   },
   pillDot: { width: 6, height: 6, borderRadius: 999 },
   pillText: { color: '#334155', fontFamily: FONTS.body, fontSize: 10 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.35)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 18,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
-    gap: 10,
-  },
-  modalTitle: { fontFamily: FONTS.title, color: '#0F172A', fontSize: 17 },
-  modalSubtitle: { fontFamily: FONTS.body, color: '#64748B', fontSize: 12, marginTop: -4 },
-  inputLabel: { fontFamily: FONTS.subtitle, color: '#0F172A', fontSize: 12, marginTop: 2 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    color: '#0F172A',
-    fontFamily: FONTS.body,
-    fontSize: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  modalActions: { flexDirection: 'row', gap: 8, marginTop: 6 },
-  modalGhostBtn: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-  },
-  modalGhostText: { fontFamily: FONTS.subtitle, color: '#334155', fontSize: 12 },
-  modalPrimaryBtn: {
-    flex: 1,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-    backgroundColor: COLORS.primary,
-    minHeight: 40,
-  },
-  modalPrimaryText: { fontFamily: FONTS.subtitle, color: '#FFFFFF', fontSize: 12 },
 });
 
