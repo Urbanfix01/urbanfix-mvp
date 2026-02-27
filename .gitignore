@@ -42,3 +42,6 @@ yarn-error.*
 /android
 
 .vercel
+
+# local secret files
+apps/mobile/.secrets/
