@@ -25,15 +25,15 @@ export default function HomePage() {
 
       <main className="min-h-screen bg-[#21002f] text-white">
         <header className="border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm">
-          <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-3 sm:px-8">
-            <a href="/" className="flex items-center gap-3">
+          <div className="flex w-full items-center justify-between pl-2 pr-3 py-2 sm:pl-3 sm:pr-6">
+            <a href="/" className="flex items-center gap-2">
               <img src="/icon.png" alt="UrbanFix" className="h-9 w-9 rounded-lg" />
-              <span className="text-xl font-extrabold tracking-tight">
+              <span className="text-[1.72rem] font-extrabold tracking-tight leading-none">
                 URBAN<span className="text-[#ff8f1f]">FIX</span>
               </span>
             </a>
 
-            <div className="flex items-center gap-3 sm:gap-6">
+            <div className="ml-auto flex items-center gap-4 sm:gap-8">
               <nav className="hidden items-center gap-6 md:flex">
                 {navLinks.map((link) => (
                   <a
@@ -48,7 +48,7 @@ export default function HomePage() {
 
               <a
                 href="/tecnicos"
-                className="rounded-full border border-white/70 px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338]"
+                className="rounded-full border border-white/70 px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338]"
               >
                 Ir a plataforma
               </a>
