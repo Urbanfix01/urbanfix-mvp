@@ -4,154 +4,166 @@ import AuthHashHandler from '../components/AuthHashHandler';
 
 const sora = Sora({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
-  title: 'UrbanFix | Home administrativo',
-  description: 'Acceso rapido y vista administrativa para tecnicos, clientes y operacion UrbanFix.',
+  title: 'UrbanFix | Plataforma de gestion tecnica',
+  description: 'UrbanFix conecta clientes y tecnicos con una gestion simple de solicitudes, presupuesto y seguimiento.',
 };
 
-const kpis = [
-  { label: 'Solicitudes', value: '24', note: 'Ultimas 24h' },
-  { label: 'Presupuestos', value: '18', note: 'En revision' },
-  { label: 'Tecnicos online', value: '9', note: 'Con cobertura activa' },
-  { label: 'Clientes activos', value: '31', note: 'Con operaciones abiertas' },
+const metrics = [
+  { value: '20 km', label: 'Radio de cobertura' },
+  { value: '< 30 s', label: 'Alta de solicitud' },
+  { value: '1 link', label: 'Envio de presupuesto' },
 ];
 
 const modules = [
-  { area: 'Operativo', detail: 'Mapa, radio de cobertura y solicitudes por zona.', status: 'Activo' },
-  { area: 'Presupuestos', detail: 'Cotizar, enviar y seguir estados de aprobacion.', status: 'Activo' },
-  { area: 'Perfil tecnico', detail: 'Datos comerciales, reputacion y publicacion.', status: 'Activo' },
-  { area: 'Agenda', detail: 'Planificacion de visitas y tareas por fecha.', status: 'Activo' },
-  { area: 'Pagos', detail: 'Control de cobros y trazabilidad de cierre.', status: 'En ajuste' },
-  { area: 'Soporte', detail: 'Canal de consulta y seguimiento de incidencias.', status: 'Activo' },
+  {
+    title: 'Operativo',
+    description: 'Solicitudes por zona, filtros y mapa en tiempo real.',
+    href: '/tecnicos',
+  },
+  {
+    title: 'Presupuestos',
+    description: 'Cotiza y comparte al cliente en formato profesional.',
+    href: '/tecnicos',
+  },
+  {
+    title: 'Perfil publico',
+    description: 'Vidriera del tecnico con reputacion y trabajos.',
+    href: '/vidriera',
+  },
 ];
 
-const quickItems = [
-  'Revisar nuevas solicitudes por geolocalizacion.',
-  'Emitir presupuesto desde el cotizador rapido.',
-  'Actualizar perfil publico del tecnico.',
+const quickActions = [
+  { label: 'Ingresar como tecnico', href: '/tecnicos' },
+  { label: 'Ingresar como cliente', href: '/cliente' },
+  { label: 'Panel admin', href: '/admin' },
 ];
 
 export default function HomePage() {
   return (
     <div className={sora.className}>
       <AuthHashHandler />
-      <main className="fx-page min-h-screen bg-slate-100 text-slate-900">
-        <div className="mx-auto w-full max-w-6xl px-5 py-8 sm:px-8 lg:py-10">
-          <header className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <img src="/icon.png" alt="UrbanFix" className="h-10 w-10 rounded-xl" />
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <h1 className="text-lg font-bold text-slate-900">Home administrativo</h1>
-                </div>
-              </div>
-              <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Estado general: operativo
-              </div>
-            </div>
-          </header>
 
-          <section className="mt-6 grid gap-6 lg:grid-cols-[1fr_1fr]">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Acceso rapido</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <a
-                  href="/tecnicos"
-                  className="rounded-2xl bg-slate-900 px-4 py-4 text-center text-sm font-semibold text-white transition hover:bg-slate-800"
-                >
-                  Tecnico
+      <main className="min-h-screen bg-[linear-gradient(145deg,#f8fafc_0%,#eef2f7_45%,#f6f8fb_100%)] text-slate-900">
+        <header className="sticky top-0 z-30 pt-4">
+          <div className="mx-auto w-full max-w-6xl px-5 sm:px-8">
+            <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-white/85 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur">
+              <a href="/" className="flex items-center gap-3">
+                <img src="/icon.png" alt="UrbanFix" className="h-9 w-9 rounded-xl" />
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
+                  <p className="text-sm font-bold text-slate-900">Inicio</p>
+                </div>
+              </a>
+
+              <nav className="hidden items-center gap-6 md:flex">
+                <a href="/urbanfix" className="text-sm font-medium text-slate-500 transition hover:text-slate-900">
+                  Plataforma
                 </a>
+                <a href="/tecnicos" className="text-sm font-medium text-slate-500 transition hover:text-slate-900">
+                  Tecnicos
+                </a>
+                <a href="/cliente" className="text-sm font-medium text-slate-500 transition hover:text-slate-900">
+                  Cliente
+                </a>
+              </nav>
+
+              <div className="flex items-center gap-2">
                 <a
                   href="/cliente"
-                  className="rounded-2xl bg-emerald-600 px-4 py-4 text-center text-sm font-semibold text-white transition hover:bg-emerald-500"
+                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
                 >
                   Cliente
                 </a>
                 <a
-                  href="/admin"
-                  className="rounded-2xl border border-slate-300 bg-white px-4 py-4 text-center text-sm font-semibold text-slate-700 transition hover:border-slate-400"
+                  href="/tecnicos"
+                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
                 >
-                  Administracion
+                  Tecnico
                 </a>
               </div>
-
-              <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-400">Tareas sugeridas</p>
-                <ul className="mt-3 space-y-2 text-sm text-slate-600">
-                  {quickItems.map((item) => (
-                    <li key={item} className="flex items-start gap-2">
-                      <span className="mt-1 inline-block h-2 w-2 rounded-full bg-emerald-500" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
             </div>
+          </div>
+        </header>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Estado operativo</p>
-                <span className="text-xs font-medium text-slate-500">Actualizado hace 2 min</span>
+        <section className="mx-auto w-full max-w-6xl px-5 pb-8 pt-10 sm:px-8">
+          <div className="grid items-center gap-8 lg:grid-cols-[1.05fr_0.95fr]">
+            <div>
+              <p className="inline-flex rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-700">
+                Formato minimal
+              </p>
+
+              <h1 className="mt-5 text-4xl font-extrabold leading-[0.96] text-slate-900 sm:text-5xl">
+                Gestion tecnica
+                <br />
+                clara y directa
+              </h1>
+
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                Accede rapido a solicitudes, presupuestos y perfil profesional sin ruido visual ni bloques extensos de informacion.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                {quickActions.map((action) => (
+                  <a
+                    key={action.label}
+                    href={action.href}
+                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                  >
+                    {action.label}
+                  </a>
+                ))}
               </div>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {kpis.map((item) => (
-                  <article key={item.label} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{item.label}</p>
-                    <p className="mt-1 text-2xl font-bold text-slate-900">{item.value}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.note}</p>
+
+              <div className="mt-7 grid max-w-xl gap-3 sm:grid-cols-3">
+                {metrics.map((item) => (
+                  <article key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <p className="text-xl font-extrabold text-slate-900">{item.value}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.label}</p>
                   </article>
                 ))}
               </div>
             </div>
-          </section>
 
-          <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
+              <img
+                src="/playstore/feature-graphic.png"
+                alt="Vista general UrbanFix"
+                className="h-full w-full rounded-2xl object-cover"
+                loading="lazy"
+              />
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto w-full max-w-6xl px-5 pb-12 sm:px-8">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-bold text-slate-900">Modulos principales</h2>
               <a
                 href="/tecnicos"
-                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400"
+                className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
               >
-                Abrir panel tecnico
+                Abrir panel
               </a>
             </div>
 
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[640px] table-fixed border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs uppercase tracking-[0.12em] text-slate-400">
-                    <th className="py-3 pr-4">Modulo</th>
-                    <th className="py-3 pr-4">Uso administrativo</th>
-                    <th className="py-3 pr-4">Estado</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {modules.map((module) => (
-                    <tr key={module.area} className="border-b border-slate-100 align-top">
-                      <td className="py-3 pr-4 text-sm font-semibold text-slate-900">{module.area}</td>
-                      <td className="py-3 pr-4 text-sm text-slate-600">{module.detail}</td>
-                      <td className="py-3 pr-4">
-                        <span
-                          className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                            module.status === 'Activo'
-                              ? 'bg-emerald-100 text-emerald-700'
-                              : 'bg-amber-100 text-amber-700'
-                          }`}
-                        >
-                          {module.status}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="mt-5 grid gap-4 md:grid-cols-3">
+              {modules.map((module) => (
+                <article key={module.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <h3 className="text-sm font-bold text-slate-900">{module.title}</h3>
+                  <p className="mt-2 text-xs leading-relaxed text-slate-600">{module.description}</p>
+                  <a href={module.href} className="mt-4 inline-flex text-xs font-semibold text-amber-700 hover:text-amber-800">
+                    Ir al modulo
+                  </a>
+                </article>
+              ))}
             </div>
-          </section>
-        </div>
+          </div>
+        </section>
       </main>
     </div>
   );
