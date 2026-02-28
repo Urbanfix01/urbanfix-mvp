@@ -6,6 +6,9 @@ const navLinks = [
   { label: 'Servicios', href: '/urbanfix' },
   { label: 'Rubros', href: '/rubros' },
   { label: 'Impacto', href: '/vidriera' },
+  { label: 'Soporte', href: '/soporte' },
+  { label: 'Politicas', href: '/politicas' },
+  { label: 'Contacto', href: '/contacto' },
 ];
 
 type PublicTopNavProps = {
@@ -29,12 +32,12 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
         </a>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
-          <nav className="hidden items-center gap-6 md:flex">
+          <nav className="hidden items-center gap-4 xl:flex">
             {navLinks.map((link) => (
               <a
                 key={link.label}
                 href={link.href}
-                className={`text-sm font-semibold transition hover:text-white ${
+                className={`text-xs font-semibold transition hover:text-white ${
                   activeHref === link.href ? 'text-white' : 'text-white/85'
                 }`}
               >
@@ -45,7 +48,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
 
           <a
             href="/tecnicos"
-            className="hidden rounded-full border border-white/70 px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338] md:inline-flex"
+            className="hidden rounded-full border border-white/70 px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338] xl:inline-flex"
           >
             Ir a plataforma
           </a>
@@ -55,7 +58,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
             onClick={() => setMenuOpen((prev) => !prev)}
             aria-expanded={menuOpen}
             aria-label="Abrir menu"
-            className="inline-flex items-center justify-center rounded-lg border border-white/30 p-1.5 text-white transition hover:bg-white/10 md:hidden"
+            className="inline-flex items-center justify-center rounded-lg border border-white/30 p-1.5 text-white transition hover:bg-white/10 xl:hidden"
           >
             <span className="sr-only">Menu</span>
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -66,7 +69,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
       </div>
 
       {menuOpen && (
-        <div className="border-t border-white/10 bg-[#2a0338] px-3 py-3 md:hidden">
+        <div className="border-t border-white/10 bg-[#2a0338] px-3 py-3 xl:hidden">
           <nav className="flex flex-col gap-2">
             {navLinks.map((link) => (
               <a
