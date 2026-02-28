@@ -9,13 +9,13 @@ const sora = Sora({
 export default function UrbanFixPage() {
   return (
     <div className={sora.className}>
-      <main className="min-h-screen bg-[#21002f] text-white">
+      <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <PublicTopNav activeHref="/urbanfix" sticky />
 
         <img
           src="/urbanfix/services-page-01.png"
           alt="Servicios UrbanFix"
-          className="block h-auto w-full"
+          className="block h-auto w-full max-w-full"
           loading="eager"
         />
       </main>
