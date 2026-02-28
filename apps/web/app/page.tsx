@@ -23,8 +23,8 @@ export default function HomePage() {
     <div className={sora.className}>
       <AuthHashHandler />
 
-      <main className="min-h-screen bg-[#0a1730] text-white">
-        <header className="border-b border-white/20 bg-[#132a4f]/90">
+      <main className="min-h-screen bg-[#21002f] text-white">
+        <header className="border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm">
           <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-3 sm:px-8">
             <a href="/" className="flex items-center gap-3">
               <img src="/icon.png" alt="UrbanFix" className="h-9 w-9 rounded-lg" />
@@ -48,7 +48,7 @@ export default function HomePage() {
 
               <a
                 href="/tecnicos"
-                className="rounded-full border border-white/70 px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#132a4f]"
+                className="rounded-full border border-white/70 px-4 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338]"
               >
                 Ir a plataforma
               </a>
@@ -56,11 +56,11 @@ export default function HomePage() {
           </div>
         </header>
 
-        <section className="mx-auto w-full max-w-7xl px-0">
+        <section className="h-[calc(100vh-73px)] w-full">
           <img
-            src="/branddeck/page-01.png"
+            src="/hero/home-cover.png"
             alt="UrbanFix app"
-            className="w-full object-cover"
+            className="h-full w-full object-cover"
             loading="eager"
           />
         </section>
