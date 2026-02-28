@@ -56,11 +56,11 @@ export default function HomePage() {
           </div>
         </header>
 
-        <section className="h-[calc(100vh-73px)] w-full">
+        <section className="w-full">
           <img
             src="/hero/home-cover.png"
             alt="UrbanFix app"
-            className="h-full w-full object-cover"
+            className="block h-auto w-full"
             loading="eager"
           />
         </section>
