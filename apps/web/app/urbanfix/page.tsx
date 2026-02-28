@@ -7,7 +7,7 @@ const sora = Sora({
 
 const navLinks = [
   { label: 'Servicios', href: '/urbanfix' },
-  { label: 'Segmentos', href: '/rubros' },
+  { label: 'Rubros', href: '/rubros' },
   { label: 'Impacto', href: '/vidriera' },
 ];
 

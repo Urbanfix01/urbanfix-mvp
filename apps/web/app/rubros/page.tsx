@@ -4,7 +4,7 @@ import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
 
 const sora = Sora({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
@@ -13,6 +13,12 @@ export const metadata: Metadata = {
     'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro de construccion. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
   alternates: { canonical: '/rubros' },
 };
+
+const navLinks = [
+  { label: 'Servicios', href: '/urbanfix' },
+  { label: 'Rubros', href: '/rubros' },
+  { label: 'Impacto', href: '/vidriera' },
+];
 
 export default function RubrosPage() {
   const rubrosList = rubroSlugs.map((slug) => ({
@@ -23,98 +29,87 @@ export default function RubrosPage() {
 
   return (
     <div className={sora.className}>
-      <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.25),_transparent_55%)]" />
-          <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-[#F5B942]/30 blur-3xl" />
-          <div className="absolute -right-20 bottom-10 h-72 w-72 rounded-full bg-[#94A3B8]/25 blur-3xl" />
+      <main className="min-h-screen bg-[#21002f] text-white">
+        <header className="sticky top-0 z-20 border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm">
+          <div className="flex w-full items-center justify-between pl-2 pr-3 py-2 sm:pl-3 sm:pr-6">
+            <a href="/" className="flex items-center gap-2">
+              <img src="/icon.png" alt="UrbanFix" className="h-9 w-9 rounded-lg" />
+              <span className="text-[1.72rem] font-extrabold tracking-tight leading-none">
+                URBAN<span className="text-[#ff8f1f]">FIX</span>
+              </span>
+            </a>
 
-          <main className="relative mx-auto w-full max-w-6xl px-6 py-12">
-            <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Rubros de construccion</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <a
-                  href="/"
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Volver al inicio
-                </a>
-                <a
-                  href="/tecnicos"
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                >
-                  Acceso tecnico
-                </a>
-              </div>
-            </header>
+            <div className="ml-auto flex items-center gap-4 sm:gap-8">
+              <nav className="hidden items-center gap-6 md:flex">
+                {navLinks.map((link) => (
+                  <a
+                    key={link.label}
+                    href={link.href}
+                    className={`text-sm font-semibold transition hover:text-white ${
+                      link.href === '/rubros' ? 'text-white' : 'text-white/85'
+                    }`}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </nav>
 
-            <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                Rubros y mano de obra
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                Gestion de presupuestos y MANO DE OBRA por rubro de construccion
-              </h1>
-              <p className="mt-4 text-sm text-slate-600">
-                UrbanFix organiza presupuestos, clientes y materiales de obra por rubro. Elegi el tipo de trabajo y
-                manten tus precios de mano de obra siempre actualizados.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <a
-                  href="/precios-mano-de-obra"
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                >
-                  Ver guia de precios
-                </a>
-                <a
-                  href="/ciudades"
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Ver ciudades
-                </a>
-                <a
-                  href="/guias-precios"
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Ver guias y precios
-                </a>
-                <a
-                  href="/urbanfix"
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Conocer UrbanFix
-                </a>
-              </div>
-            </section>
+              <a
+                href="/tecnicos"
+                className="rounded-full border border-white/70 px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338]"
+              >
+                Ir a plataforma
+              </a>
+            </div>
+          </div>
+        </header>
 
-            <section className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {rubrosList.map((rubro) => (
-                <a
-                  key={rubro.slug}
-                  href={`/rubros/${rubro.slug}`}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-                >
-                  <p className="text-sm font-semibold text-slate-900">{rubro.title}</p>
-                  <p className="mt-2 text-xs text-slate-500">{rubro.description}</p>
-                </a>
-              ))}
-            </section>
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rubros UrbanFix</p>
+            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
+              Gestion de presupuestos y mano de obra por rubro de construccion
+            </h1>
+            <p className="mt-4 text-sm text-white/80">
+              Elegi el rubro y accede a una estructura de trabajo clara para presupuestar, ordenar clientes y mantener
+              referencias de precios siempre disponibles.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href="/precios-mano-de-obra"
+                className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+              >
+                Ver guia de precios
+              </a>
+              <a
+                href="/ciudades"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver ciudades
+              </a>
+              <a
+                href="/guias-precios"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver guias y precios
+              </a>
+            </div>
+          </section>
 
-            <section className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-              Cada rubro incluye gestion de presupuestos, gestion de clientes y gestion de materiales de obra con una
-              experiencia clara para equipos y clientes.
-            </section>
-          </main>
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rubrosList.map((rubro) => (
+              <a
+                key={rubro.slug}
+                href={`/rubros/${rubro.slug}`}
+                className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
+              >
+                <p className="text-sm font-semibold text-white">{rubro.title}</p>
+                <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
+              </a>
+            ))}
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
