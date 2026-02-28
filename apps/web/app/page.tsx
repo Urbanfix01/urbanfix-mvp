@@ -57,12 +57,15 @@ export default function HomePage() {
         </header>
 
         <section className="w-full">
-          <img
-            src="/hero/home-cover.png"
-            alt="UrbanFix app"
-            className="block h-auto w-full"
-            loading="eager"
-          />
+          <picture>
+            <source media="(max-width: 768px)" srcSet="/hero/home-cover-mobile.png" />
+            <img
+              src="/hero/home-cover.png"
+              alt="UrbanFix app"
+              className="block h-auto w-full"
+              loading="eager"
+            />
+          </picture>
         </section>
       </main>
     </div>
