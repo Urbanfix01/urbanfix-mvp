@@ -16,7 +16,7 @@
     "closed": {
       "extends": "production",
       "android": {
-        "track": "closed",
+        "track": "alpha",
         "changesNotSentForReview": true
       }
     },
