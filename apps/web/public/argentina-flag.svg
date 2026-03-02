@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 27 18" role="img" aria-labelledby="title desc">
+  <title id="title">Bandera de Argentina</title>
+  <desc id="desc">Bandera celeste, blanca y celeste con sol en el centro.</desc>
+  <rect width="27" height="18" fill="#75AADB" />
+  <rect y="6" width="27" height="6" fill="#FFFFFF" />
+  <circle cx="13.5" cy="9" r="2" fill="#F6B40E" />
+</svg>
