@@ -13,7 +13,7 @@ import {
 import { rubroTwemoji } from '../../../../lib/seo/rubro-icons';
 import {
   formatArs,
-  getCityMultiplierLabel,
+  formatDateAr,
   getRubroPriceReferences,
 } from '../../../../lib/seo/rubro-prices';
 
@@ -58,7 +58,7 @@ export default async function RubroCiudadPage({
   const ciudadData = ciudades[ciudadKey];
   if (!rubroData || !ciudadData) return notFound();
 
-  const priceReferences = getRubroPriceReferences(rubroKey, ciudadKey);
+  const priceData = await getRubroPriceReferences(rubroKey, ciudadKey);
   const twemojiCode = rubroTwemoji[rubroKey];
 
   return (
@@ -112,10 +112,10 @@ export default async function RubroCiudadPage({
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                Precios orientativos en {ciudadData.name}
+                Precios reales de base en {ciudadData.name}
               </p>
               <span className="rounded-full border border-white/25 bg-white/[0.03] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
-                {getCityMultiplierLabel(ciudadKey)}
+                Actualizado: {formatDateAr(priceData.lastUpdatedAt)}
               </span>
             </div>
             <div className="mt-4 overflow-x-auto">
@@ -124,26 +124,31 @@ export default async function RubroCiudadPage({
                   <tr className="border-b border-white/15 text-[11px] uppercase tracking-[0.1em] text-white/60">
                     <th className="pb-3 pr-4">Item</th>
                     <th className="pb-3 pr-4">Unidad</th>
-                    <th className="pb-3 pr-4">Referencia ARS</th>
-                    <th className="pb-3">Rango sugerido</th>
+                    <th className="pb-3 pr-4">Precio ARS</th>
+                    <th className="pb-3">Fuente</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {priceReferences.map((item) => (
-                    <tr key={item.label} className="border-b border-white/10 last:border-0">
+                  {priceData.items.map((item) => (
+                    <tr key={item.id} className="border-b border-white/10 last:border-0">
                       <td className="py-3 pr-4 text-sm font-medium text-white">{item.label}</td>
                       <td className="py-3 pr-4 text-xs uppercase text-white/65">{item.unit}</td>
                       <td className="py-3 pr-4 text-sm font-semibold text-white">{formatArs(item.reference)}</td>
-                      <td className="py-3 text-xs text-white/70">
-                        {formatArs(item.min)} a {formatArs(item.max)}
-                      </td>
+                      <td className="py-3 text-xs text-white/70">{item.source}</td>
                     </tr>
                   ))}
+                  {priceData.items.length === 0 && (
+                    <tr>
+                      <td className="py-4 text-sm text-white/70" colSpan={4}>
+                        No hay precios cargados para este rubro.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
             <p className="mt-4 text-xs text-white/65">
-              Valores orientativos para arrancar. Ajusta segun urgencia, accesos, horario y condiciones del trabajo.
+              Esta vista usa los valores reales disponibles en la base de datos para este rubro.
             </p>
           </section>
 
