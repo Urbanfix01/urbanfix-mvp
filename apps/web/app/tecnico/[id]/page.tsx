@@ -157,7 +157,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
   const rating = Number(profile.public_rating || 0);
   const reviewsCount = Math.max(0, Number(profile.public_reviews_count || 0));
-  const completedJobs = Math.max(0, Number(profile.completed_jobs_total || 0));
+  const completedJobsRaw = Number(profile.completed_jobs_total);
+  const completedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0 ? completedJobsRaw : 3;
   const whatsappLink = buildWhatsappLink(profile.phone);
   const presentationText =
     String(profile.references_summary || '').trim() ||
