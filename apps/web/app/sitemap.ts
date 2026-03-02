@@ -1,11 +1,14 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { rubroSlugs, ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
+import { buildTechnicianPath } from "../lib/seo/technician-profile";
 
 type ProfileSitemapRow = {
   id: string;
   access_granted: boolean | null;
   profile_published: boolean | null;
+  full_name: string | null;
+  business_name: string | null;
   city: string | null;
   address: string | null;
   company_address: string | null;
@@ -37,7 +40,7 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,access_granted,profile_published,city,address,company_address,coverage_area")
+    .select("id,access_granted,profile_published,full_name,business_name,city,address,company_address,coverage_area")
     .eq("access_granted", true)
     .eq("profile_published", true)
     .limit(2400);
@@ -48,7 +51,7 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
   const validRows = rows.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
 
   return validRows.map((row) => ({
-    url: `${baseUrl}/tecnico/${row.id}`,
+    url: `${baseUrl}${buildTechnicianPath(row.id, row.business_name || row.full_name || "Tecnico UrbanFix")}`,
     lastModified: new Date(),
     changeFrequency: "weekly",
     priority: 0.8,
@@ -56,7 +59,7 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
 };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://www.urbanfix.com.ar";
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfixar.com").replace(/\/+$/, "");
   const technicianEntries = await getTechnicianEntries(baseUrl);
   const rubrosEntries: MetadataRoute.Sitemap = rubroSlugs.map((slug) => ({
     url: `${baseUrl}/rubros/${slug}`,

@@ -23,6 +23,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import type {
   AccessProfile,
   AttachmentRow,
@@ -40,7 +41,7 @@ const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
+const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfixar.com';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
@@ -3886,8 +3887,12 @@ export default function TechniciansPage() {
   );
   const publicProfileUrl = useMemo(() => {
     if (typeof window === 'undefined' || !session?.user?.id) return '';
-    return `${window.location.origin}/tecnico/${session.user.id}`;
-  }, [session?.user?.id]);
+    const displayName =
+      String(
+        profileForm.businessName || profileForm.fullName || profile?.business_name || profile?.full_name || 'Tecnico UrbanFix'
+      ).trim() || 'Tecnico UrbanFix';
+    return `${window.location.origin}${buildTechnicianPath(session.user.id, displayName)}`;
+  }, [profile?.business_name, profile?.full_name, profileForm.businessName, profileForm.fullName, session?.user?.id]);
   const publicShowcaseUrl = useMemo(() => {
     if (typeof window === 'undefined') return '';
     return `${window.location.origin}/vidriera`;

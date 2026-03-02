@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Sora } from 'next/font/google';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../../components/PublicTopNav';
+import { buildTechnicianPath, extractProfileId, isUuid } from '../../../lib/seo/technician-profile';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -74,9 +75,13 @@ const toAbsoluteUrl = (value: string) => {
   return `${SITE_ORIGIN}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
 };
 
-const buildTechnicianUrl = (profileId: string) => `${SITE_ORIGIN}/tecnico/${profileId}`;
+const buildTechnicianUrl = (profileId: string, displayName: string) =>
+  `${SITE_ORIGIN}${buildTechnicianPath(profileId, displayName)}`;
 
 const getPublicProfileById = async (profileId: string) => {
+  if (!isUuid(profileId)) {
+    return { data: null as PublicTechnicianProfile | null, error: 'Invalid profile id' };
+  }
   const supabase = getSupabase();
   if (!supabase) {
     return { data: null as PublicTechnicianProfile | null, error: 'Missing server config' };
@@ -113,9 +118,10 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const resolved = await params;
-  const profileId = String(resolved?.id || '').trim();
+  const requestedSegment = String(resolved?.id || '').trim();
+  const profileId = extractProfileId(requestedSegment);
 
-  if (!profileId) {
+  if (!profileId || !isUuid(profileId)) {
     return {
       title: 'Perfil tecnico | UrbanFix',
       description: 'Perfil tecnico publico en UrbanFix.',
@@ -141,7 +147,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     specialties.length > 0 ? `Rubros: ${specialties.join(', ')}.` : '',
     'Perfil profesional publico en UrbanFix.',
   ].filter(Boolean);
-  const canonicalUrl = buildTechnicianUrl(profile.id);
+  const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const imageUrl = toAbsoluteUrl(profile.avatar_url || profile.company_logo_url || '/icon-48.png');
 
   return {
@@ -169,7 +175,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function TechnicianPublicPage({ params }: { params: Promise<{ id: string }> }) {
   const resolved = await params;
-  const profileId = String(resolved?.id || '').trim();
+  const requestedSegment = String(resolved?.id || '').trim();
+  const profileId = extractProfileId(requestedSegment);
+  if (!profileId || !isUuid(profileId)) {
+    notFound();
+  }
   const supabase = getSupabase();
 
   if (!supabase) {
@@ -244,8 +254,13 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     String(profile.references_summary || '').trim() ||
     'Profesional activo en UrbanFix. Disponible para coordinar visitas, presupuestos y ejecucion de trabajos por rubro.';
   const profileCode = profile.id.slice(0, 8).toUpperCase();
-  const profileHref = `/tecnico/${profile.id}`;
-  const canonicalUrl = buildTechnicianUrl(profile.id);
+  const canonicalPath = buildTechnicianPath(profile.id, displayName);
+  const canonicalSegment = canonicalPath.split('/').pop() || '';
+  if (requestedSegment.toLowerCase() !== canonicalSegment.toLowerCase()) {
+    permanentRedirect(canonicalPath);
+  }
+  const profileHref = canonicalPath;
+  const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const socialLinks = [
     { label: 'Facebook', href: profile.facebook_url },
     { label: 'Instagram', href: profile.instagram_url },

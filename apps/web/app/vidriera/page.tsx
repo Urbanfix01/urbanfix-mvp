@@ -4,6 +4,7 @@ import { Sora } from 'next/font/google';
 import { createClient } from '@supabase/supabase-js';
 import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../components/PublicTopNav';
+import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -184,7 +185,7 @@ export default async function VidrieraPage() {
                 const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
                 const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
                 const whatsappLink = buildWhatsappLink(profile.phone);
-                const profileHref = `/tecnico/${profile.id}`;
+                const profileHref = buildTechnicianPath(profile.id, displayName);
                 const profileCode = profile.id.slice(0, 8).toUpperCase();
 
                 return (

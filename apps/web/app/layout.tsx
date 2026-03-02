@@ -6,9 +6,10 @@ import AuthHashHandler from "../components/AuthHashHandler";
 import PageTransition from "../components/PageTransition";
 
 const inter = Inter({ subsets: ["latin"] });
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfixar.com").replace(/\/+$/, "");
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.urbanfix.com.ar"),
+  metadataBase: new URL(siteUrl),
   title: {
     default: "UrbanFix | Gestion clara para tecnicos en movimiento",
     template: "%s | UrbanFix",
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
     title: "UrbanFix | Gestion clara para tecnicos en movimiento",
     description:
       "Plataforma de presupuestos y gestion para tecnicos. Clientes reciben presupuestos por link y tecnicos gestionan desde la web.",
-    url: "https://www.urbanfix.com.ar",
+    url: siteUrl,
     siteName: "UrbanFix",
     locale: "es_AR",
     type: "website",
