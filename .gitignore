@@ -1,0 +1,8 @@
+node_modules/
+
+# Local tooling/runtime artifacts
+.expo/
+.vercel/
+apps/mobile/.expo/
+apps/web/.expo/
+apps/mobile/.env
