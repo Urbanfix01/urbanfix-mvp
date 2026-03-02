@@ -11,6 +11,8 @@ const sora = Sora({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.urbanfixar.com').replace(/\/+$/, '');
+
 type PublicTechnicianProfile = {
   id: string;
   access_granted: boolean | null;
@@ -65,6 +67,36 @@ const buildWhatsappLink = (phone: string | null | undefined) => {
   return `https://wa.me/${normalized}`;
 };
 
+const toAbsoluteUrl = (value: string) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return `${SITE_ORIGIN}/icon-48.png`;
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  return `${SITE_ORIGIN}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+};
+
+const buildTechnicianUrl = (profileId: string) => `${SITE_ORIGIN}/tecnico/${profileId}`;
+
+const getPublicProfileById = async (profileId: string) => {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return { data: null as PublicTechnicianProfile | null, error: 'Missing server config' };
+  }
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(
+      'id,access_granted,full_name,business_name,phone,city,coverage_area,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+    )
+    .eq('id', profileId)
+    .eq('access_granted', true)
+    .maybeSingle();
+
+  return {
+    data: (data || null) as PublicTechnicianProfile | null,
+    error: error?.message || '',
+  };
+};
+
 const getSupabase = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -81,9 +113,57 @@ export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
   const resolved = await params;
+  const profileId = String(resolved?.id || '').trim();
+
+  if (!profileId) {
+    return {
+      title: 'Perfil tecnico | UrbanFix',
+      description: 'Perfil tecnico publico en UrbanFix.',
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const { data: profile } = await getPublicProfileById(profileId);
+  if (!profile || !profile.access_granted) {
+    return {
+      title: 'Perfil tecnico | UrbanFix',
+      description: 'Perfil tecnico publico en UrbanFix.',
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const displayName = String(profile.business_name || profile.full_name || 'Tecnico UrbanFix').trim();
+  const city = String(profile.city || '').trim();
+  const specialties = parseDelimitedValues(profile.specialties).slice(0, 3);
+  const titleParts = [displayName, city ? `Tecnico en ${city}` : '', 'UrbanFix'].filter(Boolean);
+  const descriptionParts = [
+    `${displayName}${city ? ` (${city})` : ''}.`,
+    specialties.length > 0 ? `Rubros: ${specialties.join(', ')}.` : '',
+    'Perfil profesional publico en UrbanFix.',
+  ].filter(Boolean);
+  const canonicalUrl = buildTechnicianUrl(profile.id);
+  const imageUrl = toAbsoluteUrl(profile.avatar_url || profile.company_logo_url || '/icon-48.png');
+
   return {
-    title: `Perfil tecnico | UrbanFix`,
-    description: `Perfil publico del tecnico ${resolved?.id || ''} en UrbanFix.`,
+    title: titleParts.join(' | '),
+    description: descriptionParts.join(' '),
+    alternates: { canonical: canonicalUrl },
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: 'profile',
+      title: titleParts.join(' | '),
+      description: descriptionParts.join(' '),
+      url: canonicalUrl,
+      images: [{ url: imageUrl }],
+      locale: 'es_AR',
+      siteName: 'UrbanFix',
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: titleParts.join(' | '),
+      description: descriptionParts.join(' '),
+      images: [imageUrl],
+    },
   };
 }
 
@@ -165,14 +245,39 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     'Profesional activo en UrbanFix. Disponible para coordinar visitas, presupuestos y ejecucion de trabajos por rubro.';
   const profileCode = profile.id.slice(0, 8).toUpperCase();
   const profileHref = `/tecnico/${profile.id}`;
+  const canonicalUrl = buildTechnicianUrl(profile.id);
   const socialLinks = [
     { label: 'Facebook', href: profile.facebook_url },
     { label: 'Instagram', href: profile.instagram_url },
   ].filter((entry) => Boolean(entry.href));
+  const sameAs = socialLinks.map((entry) => String(entry.href || '').trim()).filter(Boolean);
+  const personJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Person',
+    name: displayName,
+    url: canonicalUrl,
+    jobTitle: 'Tecnico',
+    address: profile.city
+      ? {
+          '@type': 'PostalAddress',
+          addressLocality: profile.city,
+          addressCountry: 'AR',
+        }
+      : undefined,
+    areaServed: profile.coverage_area || profile.city || 'Argentina',
+    telephone: profile.phone || undefined,
+    knowsAbout: specialties.length > 0 ? specialties : undefined,
+    sameAs: sameAs.length > 0 ? sameAs : undefined,
+    description: presentationText,
+  };
 
   return (
     <div className={sora.className}>
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(personJsonLd) }}
+        />
         <PublicTopNav activeHref="/vidriera" sticky />
 
         <div className="relative overflow-hidden">
