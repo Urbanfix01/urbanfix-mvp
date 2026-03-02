@@ -1,7 +1,14 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
-import { rubros, rubroSlugs, type RubroKey } from '../../../lib/seo/urbanfix-data';
+import {
+  ciudades,
+  ciudadSlugs,
+  rubros,
+  rubroSlugs,
+  type RubroKey,
+} from '../../../lib/seo/urbanfix-data';
+import { formatArs, getRubroPriceReferences } from '../../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -35,8 +42,11 @@ export async function generateMetadata({
 
 export default async function RubroPage({ params }: { params: Promise<{ rubro: string }> }) {
   const { rubro: slug } = await params;
-  const rubro = rubros[slug as RubroKey];
+  const rubroKey = slug as RubroKey;
+  const rubro = rubros[rubroKey];
   if (!rubro) return notFound();
+
+  const priceReferences = getRubroPriceReferences(rubroKey);
 
   return (
     <div className={sora.className}>
@@ -76,7 +86,7 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rubro</p>
               <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                {rubro.title} Â· MANO DE OBRA y presupuestos
+                {rubro.title} - precios de mano de obra y presupuesto
               </h1>
               <p className="mt-4 text-sm text-slate-600">{rubro.description}</p>
               <div className="mt-6 flex flex-wrap gap-3">
@@ -96,16 +106,55 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
             </section>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Servicios frecuentes</p>
-              <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                {rubro.services.map((service) => (
-                  <li key={service}>{service}</li>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios orientativos</p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.1em] text-slate-500">
+                      <th className="pb-3 pr-4">Item</th>
+                      <th className="pb-3 pr-4">Unidad</th>
+                      <th className="pb-3 pr-4">Referencia ARS</th>
+                      <th className="pb-3">Rango sugerido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceReferences.map((item) => (
+                      <tr key={item.label} className="border-b border-slate-100 last:border-0">
+                        <td className="py-3 pr-4 text-sm font-medium text-slate-900">{item.label}</td>
+                        <td className="py-3 pr-4 text-xs uppercase text-slate-500">{item.unit}</td>
+                        <td className="py-3 pr-4 text-sm font-semibold text-slate-900">{formatArs(item.reference)}</td>
+                        <td className="py-3 text-xs text-slate-600">
+                          {formatArs(item.min)} a {formatArs(item.max)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-4 text-xs text-slate-500">
+                Valores orientativos para arrancar cotizaciones. Puedes ajustarlos segun zona, tipo de obra y urgencia.
+              </p>
+            </section>
+
+            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios por ciudad</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                {ciudadSlugs.map((ciudadSlug) => (
+                  <a
+                    key={ciudadSlug}
+                    href={`/rubros/${slug}/${ciudadSlug}`}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-slate-100"
+                  >
+                    <p className="text-sm font-semibold text-slate-900">{ciudades[ciudadSlug].name}</p>
+                    <p className="mt-1 text-xs text-slate-500">{ciudades[ciudadSlug].region}</p>
+                    <p className="mt-2 text-xs font-semibold text-slate-700">Ver precios en esta ciudad</p>
+                  </a>
                 ))}
-              </ul>
+              </div>
             </section>
 
             <section className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-              Gestiona precios, materiales de obra y presupuestos por rubro. UrbanFix centraliza la MANO DE OBRA y la
+              Gestiona precios, materiales de obra y presupuestos por rubro. UrbanFix centraliza la mano de obra y la
               comunicacion con clientes para trabajos de {rubro.title.toLowerCase()} en Argentina.
             </section>
           </main>
@@ -114,4 +163,3 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
     </div>
   );
 }
-

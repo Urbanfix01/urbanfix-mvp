@@ -114,6 +114,9 @@ export default function RubrosPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-white">{rubro.title}</p>
                   <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
+                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
+                    Click para ver precios
+                  </p>
                 </div>
               </a>
             ))}

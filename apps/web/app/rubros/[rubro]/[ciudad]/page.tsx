@@ -2,13 +2,18 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import {
-  rubros,
-  rubroSlugs,
-  type RubroKey,
   ciudades,
   ciudadSlugs,
+  rubros,
+  rubroSlugs,
   type CiudadKey,
+  type RubroKey,
 } from '../../../../lib/seo/urbanfix-data';
+import {
+  formatArs,
+  getCityMultiplierLabel,
+  getRubroPriceReferences,
+} from '../../../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -45,9 +50,13 @@ export default async function RubroCiudadPage({
   params: Promise<{ rubro: string; ciudad: string }>;
 }) {
   const { rubro, ciudad } = await params;
-  const rubroData = rubros[rubro as RubroKey];
-  const ciudadData = ciudades[ciudad as CiudadKey];
+  const rubroKey = rubro as RubroKey;
+  const ciudadKey = ciudad as CiudadKey;
+  const rubroData = rubros[rubroKey];
+  const ciudadData = ciudades[ciudadKey];
   if (!rubroData || !ciudadData) return notFound();
+
+  const priceReferences = getRubroPriceReferences(rubroKey, ciudadKey);
 
   return (
     <div className={sora.className}>
@@ -66,7 +75,7 @@ export default async function RubroCiudadPage({
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
                   <p className="text-sm font-semibold text-slate-700">
-                    {rubroData.title} · {ciudadData.name}
+                    {rubroData.title} - {ciudadData.name}
                   </p>
                 </div>
               </div>
@@ -93,11 +102,9 @@ export default async function RubroCiudadPage({
             </header>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                {ciudadData.region}
-              </p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{ciudadData.region}</p>
               <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-                MANO DE OBRA de {rubroData.title} en {ciudadData.name}
+                Precios de {rubroData.title} en {ciudadData.name}
               </h1>
               <p className="mt-4 text-sm text-slate-600">
                 {rubroData.description} UrbanFix ayuda a ordenar presupuestos, clientes y materiales de obra para{' '}
@@ -120,6 +127,44 @@ export default async function RubroCiudadPage({
             </section>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
+                  Precios orientativos en {ciudadData.name}
+                </p>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+                  {getCityMultiplierLabel(ciudadKey)}
+                </span>
+              </div>
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full text-left">
+                  <thead>
+                    <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.1em] text-slate-500">
+                      <th className="pb-3 pr-4">Item</th>
+                      <th className="pb-3 pr-4">Unidad</th>
+                      <th className="pb-3 pr-4">Referencia ARS</th>
+                      <th className="pb-3">Rango sugerido</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {priceReferences.map((item) => (
+                      <tr key={item.label} className="border-b border-slate-100 last:border-0">
+                        <td className="py-3 pr-4 text-sm font-medium text-slate-900">{item.label}</td>
+                        <td className="py-3 pr-4 text-xs uppercase text-slate-500">{item.unit}</td>
+                        <td className="py-3 pr-4 text-sm font-semibold text-slate-900">{formatArs(item.reference)}</td>
+                        <td className="py-3 text-xs text-slate-600">
+                          {formatArs(item.min)} a {formatArs(item.max)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-4 text-xs text-slate-500">
+                Valores orientativos para arrancar. Ajusta segun urgencia, accesos, horario y condiciones del trabajo.
+              </p>
+            </section>
+
+            <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Servicios frecuentes</p>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
                 {rubroData.services.map((service) => (
@@ -129,7 +174,7 @@ export default async function RubroCiudadPage({
             </section>
 
             <section className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-              Gestiona presupuestos, clientes y materiales de obra con MANO DE OBRA clara para {rubroData.title.toLowerCase()} en{' '}
+              Gestiona presupuestos, clientes y materiales de obra con mano de obra clara para {rubroData.title.toLowerCase()} en{' '}
               {ciudadData.name}.
             </section>
           </main>
