@@ -70,8 +70,8 @@ export default function PrivacyPage() {
                 </p>
                 <p>
                   Puedes solicitar la actualizacion o eliminacion de tus datos escribiendo a{' '}
-                  <a href="mailto:info@urbanfix.com.ar" className="font-semibold text-slate-700 underline">
-                    info@urbanfix.com.ar
+                  <a href="mailto:info@urbanfixar.com" className="font-semibold text-slate-700 underline">
+                    info@urbanfixar.com
                   </a>{' '}
                   o siguiendo las instrucciones en{' '}
                   <Link href="/eliminar-cuenta" className="font-semibold text-slate-700 underline">
@@ -84,8 +84,8 @@ export default function PrivacyPage() {
 
             <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
-              <a href="mailto:info@urbanfix.com.ar" className="mt-2 block font-semibold text-slate-900 hover:underline">
-                info@urbanfix.com.ar
+              <a href="mailto:info@urbanfixar.com" className="mt-2 block font-semibold text-slate-900 hover:underline">
+                info@urbanfixar.com
               </a>
             </section>
           </main>

@@ -403,6 +403,6 @@ export const organizationJsonLd = {
   '@type': 'Organization',
   name: 'UrbanFix',
   url: 'https://www.urbanfix.com.ar',
-  email: 'info@urbanfix.com.ar',
+  email: 'info@urbanfixar.com',
 };
 

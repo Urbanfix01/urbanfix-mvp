@@ -452,7 +452,7 @@ const geocodeAddressFirstResult = async (query: string) => {
   if (!trimmed) return null;
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
     trimmed
-  )}&addressdetails=1&email=info@urbanfix.com.ar`;
+  )}&addressdetails=1&email=info@urbanfixar.com`;
   const response = await fetch(url, { cache: 'no-store' });
   if (!response.ok) return null;
   const rows = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
@@ -2347,7 +2347,7 @@ export default function TechniciansPage() {
     try {
       const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(
         query
-      )}&addressdetails=1&email=info@urbanfix.com.ar`;
+      )}&addressdetails=1&email=info@urbanfixar.com`;
       const response = await fetch(url);
       if (!response.ok) throw new Error('No se pudo geocodificar la direccion.');
       const data = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
@@ -7509,7 +7509,7 @@ export default function TechniciansPage() {
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <a
-                  href="https://wa.me/1170084556"
+                  href="https://wa.me/5491170084556"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-slate-600 transition hover:text-slate-900"

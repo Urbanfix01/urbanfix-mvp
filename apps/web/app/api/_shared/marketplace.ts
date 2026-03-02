@@ -170,10 +170,10 @@ export const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: numb
 export const geocodeFirstResult = async (query: string) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfix.com.ar`;
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfixar.com`;
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'UrbanFix/1.0 (info@urbanfix.com.ar)',
+      'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
     },
     cache: 'no-store',
   });
