@@ -5,6 +5,12 @@ import { createClient } from '@supabase/supabase-js';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
 import { buildTechnicianPath, extractProfileId, isUuid } from '../../../lib/seo/technician-profile';
+import {
+  ARGENTINA_TIMEZONE,
+  formatWorkingHoursLabel,
+  isNowWithinWorkingHours,
+  parseWorkingHoursConfig,
+} from '../../api/_shared/marketplace';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -21,6 +27,7 @@ type PublicTechnicianProfile = {
   phone: string | null;
   city: string | null;
   coverage_area: string | null;
+  working_hours: string | null;
   specialties: string | null;
   avatar_url: string | null;
   company_logo_url: string | null;
@@ -51,6 +58,14 @@ const splitTextLines = (value: string | null | undefined) =>
     .split('\n')
     .map((item) => item.trim())
     .filter(Boolean);
+
+const formatArgentinaTimeLabel = (now = new Date()) =>
+  new Intl.DateTimeFormat('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: ARGENTINA_TIMEZONE,
+  }).format(now);
 
 const buildWhatsappLink = (phone: string | null | undefined) => {
   const raw = String(phone || '').replace(/\D/g, '');
@@ -145,7 +160,7 @@ const getPublicProfileById = async (profileId: string) => {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,full_name,business_name,phone,city,coverage_area,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+      'id,access_granted,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
     )
     .eq('id', profileId)
     .eq('access_granted', true)
@@ -262,7 +277,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,full_name,business_name,phone,city,coverage_area,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+      'id,access_granted,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
     )
     .eq('id', profileId)
     .eq('access_granted', true)
@@ -305,6 +320,16 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const reviewsCount = Math.max(0, Number(profile.public_reviews_count || 0));
   const completedJobsRaw = Number(profile.completed_jobs_total);
   const completedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0 ? completedJobsRaw : 3;
+  const hasWorkingHoursConfigured = Boolean(String(profile.working_hours || '').trim());
+  const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
+  const workingHoursLabel = hasWorkingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Sin horario cargado';
+  const isWithinWorkingHours = hasWorkingHoursConfigured ? isNowWithinWorkingHours(workingHoursConfig) : false;
+  const availabilityLabel = hasWorkingHoursConfigured
+    ? isWithinWorkingHours
+      ? 'Disponible ahora'
+      : 'Fuera de horario'
+    : 'Horario no informado';
+  const argentinaTimeLabel = formatArgentinaTimeLabel();
   const whatsappLink = buildWhatsappLink(profile.phone);
   const presentationText =
     String(profile.references_summary || '').trim() ||
@@ -494,11 +519,28 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
               </article>
             </section>
 
-            <section className="grid gap-4 md:grid-cols-2">
+            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Zona de trabajo</p>
                 <p className="mt-3 text-sm text-white/85">{profile.coverage_area || 'Sin cobertura detallada.'}</p>
                 {profile.city && <p className="mt-2 text-xs text-white/70">Ciudad base: {profile.city}</p>}
+              </article>
+
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Disponibilidad</p>
+                <span
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                    hasWorkingHoursConfigured
+                      ? isWithinWorkingHours
+                        ? 'bg-emerald-500/20 text-emerald-200'
+                        : 'bg-amber-500/20 text-amber-100'
+                      : 'bg-white/10 text-white/75'
+                  }`}
+                >
+                  {availabilityLabel}
+                </span>
+                <p className="mt-3 text-sm text-white/85">{workingHoursLabel}</p>
+                <p className="mt-2 text-xs text-white/65">Hora local Argentina: {argentinaTimeLabel}</p>
               </article>
 
               <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
