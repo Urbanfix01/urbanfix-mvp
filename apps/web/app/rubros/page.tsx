@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
-import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
+import { rubros, rubroSlugs, type RubroKey } from '../../lib/seo/urbanfix-data';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -15,41 +15,41 @@ export const metadata: Metadata = {
   alternates: { canonical: '/rubros' },
 };
 
-const rubroIcons: Record<string, string> = {
-  electricidad: '⚡',
-  plomeria: '🔧',
-  pintura: '🎨',
-  albanileria: '🧱',
-  gasista: '🔥',
-  impermeabilizacion: '💧',
-  techos: '🏠',
-  carpinteria: '🪚',
-  herreria: '🔩',
-  'aire-acondicionado': '❄️',
-  refrigeracion: '🧊',
-  cerrajeria: '🔐',
-  'durlock-yeseria': '🧱',
-  'pisos-revestimientos': '🧩',
-  'vidrieria-aberturas': '🪟',
-  soldadura: '🧑‍🏭',
-  'portones-automaticos': '🚪',
-  'alarmas-camaras': '📹',
-  'redes-datos': '🌐',
-  calefaccion: '♨️',
-  'energia-solar': '☀️',
-  'jardineria-poda': '🌿',
-  'limpieza-post-obra': '🧹',
-  'control-plagas': '🐜',
-  'mantenimiento-piletas': '🏊',
-  'mantenimiento-consorcios': '🏢',
-  'mantenimiento-comercial': '🏬',
-  demolicion: '🧨',
-  excavaciones: '⛏️',
-  'movimiento-suelo': '🚜',
-  'hormigon-armado': '🏗️',
-  'estructuras-metalicas': '🏭',
-  'banos-cocinas': '🚿',
-  'reformas-integrales': '🛠️',
+const rubroTwemoji: Record<RubroKey, string> = {
+  electricidad: '26a1',
+  plomeria: '1f527',
+  pintura: '1f3a8',
+  albanileria: '1f9f1',
+  gasista: '1f525',
+  impermeabilizacion: '1f4a7',
+  techos: '1f3e0',
+  carpinteria: '1fa9a',
+  herreria: '1f529',
+  'aire-acondicionado': '2744',
+  refrigeracion: '1f9ca',
+  cerrajeria: '1f510',
+  'durlock-yeseria': '1f9f1',
+  'pisos-revestimientos': '1f9e9',
+  'vidrieria-aberturas': '1fa9f',
+  soldadura: '2699',
+  'portones-automaticos': '1f6aa',
+  'alarmas-camaras': '1f4f9',
+  'redes-datos': '1f310',
+  calefaccion: '2668',
+  'energia-solar': '2600',
+  'jardineria-poda': '1f33f',
+  'limpieza-post-obra': '1f9f9',
+  'control-plagas': '1f41c',
+  'mantenimiento-piletas': '1f3ca',
+  'mantenimiento-consorcios': '1f3e2',
+  'mantenimiento-comercial': '1f3ec',
+  demolicion: '1f9e8',
+  excavaciones: '26cf',
+  'movimiento-suelo': '1f69c',
+  'hormigon-armado': '1f3d7',
+  'estructuras-metalicas': '1f3ed',
+  'banos-cocinas': '1f6bf',
+  'reformas-integrales': '1f6e0',
 };
 
 export default function RubrosPage() {
@@ -57,7 +57,7 @@ export default function RubrosPage() {
     slug,
     title: rubros[slug].title,
     description: rubros[slug].description,
-    icon: rubroIcons[slug] || '🛠️',
+    twemojiCode: rubroTwemoji[slug],
   }));
 
   return (
@@ -106,8 +106,14 @@ export default function RubrosPage() {
               >
                 <p className="text-sm font-semibold text-white">{rubro.title}</p>
                 <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
-                <span className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/5 text-xl">
-                  {rubro.icon}
+                <span className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/5">
+                  <img
+                    src={`/twemoji/${rubro.twemojiCode}.svg`}
+                    alt={`Icono ${rubro.title}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="h-6 w-6"
+                  />
                 </span>
               </a>
             ))}
