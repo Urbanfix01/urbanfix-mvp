@@ -966,7 +966,6 @@ const RUBRO_LABELS: Record<string, string> = {
   'estructuras metalicas': 'Estructuras metalicas',
   general: 'General',
 };
-
 const RUBRO_TOKEN_RULES: Array<{ key: string; tokens: string[] }> = [
   {
     key: 'electricidad',
