@@ -2,10 +2,11 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
-import { Manrope } from 'next/font/google';
+import { Sora } from 'next/font/google';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
+import PublicTopNav from '../../../components/PublicTopNav';
 
-const manrope = Manrope({
+const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
 });
@@ -49,6 +50,21 @@ const splitTextLines = (value: string | null | undefined) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const buildWhatsappLink = (phone: string | null | undefined) => {
+  const raw = String(phone || '').replace(/\D/g, '');
+  if (!raw) return '';
+  let normalized = raw;
+  if (normalized.startsWith('00')) normalized = normalized.slice(2);
+  if (!normalized.startsWith('54')) {
+    if (normalized.startsWith('0')) normalized = normalized.slice(1);
+    if (normalized.length === 11 && normalized.slice(2, 4) === '15') {
+      normalized = `${normalized.slice(0, 2)}${normalized.slice(4)}`;
+    }
+    normalized = `54${normalized}`;
+  }
+  return `https://wa.me/${normalized}`;
+};
+
 const getSupabase = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -78,18 +94,23 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
 
   if (!supabase) {
     return (
-      <main className={`${manrope.className} min-h-screen bg-slate-950 px-4 py-12 text-slate-100`}>
-        <div className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-slate-900/70 p-6 text-center">
-          <h1 className="text-2xl font-semibold text-white">Perfil no disponible</h1>
-          <p className="mt-2 text-sm text-slate-300">Falta configurar variables de Supabase en el deploy.</p>
-          <Link
-            href="/vidriera"
-            className="mt-5 inline-flex rounded-full border border-slate-600 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-          >
-            Volver a vidriera
-          </Link>
-        </div>
-      </main>
+      <div className={sora.className}>
+        <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+          <PublicTopNav activeHref="/vidriera" sticky />
+          <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+            <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
+              <h1 className="text-2xl font-semibold text-white">Perfil no disponible</h1>
+              <p className="mt-2 text-sm text-white/80">Falta configurar variables de Supabase en el deploy.</p>
+              <Link
+                href="/vidriera"
+                className="mt-5 inline-flex rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Volver a vidriera
+              </Link>
+            </section>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -104,18 +125,23 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
 
   if (error) {
     return (
-      <main className={`${manrope.className} min-h-screen bg-slate-950 px-4 py-12 text-slate-100`}>
-        <div className="mx-auto max-w-2xl rounded-3xl border border-rose-800 bg-rose-950/30 p-6 text-center">
-          <h1 className="text-2xl font-semibold text-white">No pudimos abrir el perfil</h1>
-          <p className="mt-2 text-sm text-rose-200">{error.message || 'Error inesperado.'}</p>
-          <Link
-            href="/vidriera"
-            className="mt-5 inline-flex rounded-full border border-rose-500/40 px-4 py-2 text-xs font-semibold text-rose-100 transition hover:border-rose-400 hover:text-white"
-          >
-            Volver a vidriera
-          </Link>
-        </div>
-      </main>
+      <div className={sora.className}>
+        <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+          <PublicTopNav activeHref="/vidriera" sticky />
+          <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+            <section className="rounded-3xl border border-rose-300/35 bg-rose-500/10 p-8 text-center">
+              <h1 className="text-2xl font-semibold text-white">No pudimos abrir el perfil</h1>
+              <p className="mt-2 text-sm text-rose-100">{error.message || 'Error inesperado.'}</p>
+              <Link
+                href="/vidriera"
+                className="mt-5 inline-flex rounded-full border border-rose-300/45 px-4 py-2 text-xs font-semibold text-rose-100 transition hover:border-rose-200 hover:text-white"
+              >
+                Volver a vidriera
+              </Link>
+            </section>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -132,157 +158,224 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const rating = Number(profile.public_rating || 0);
   const reviewsCount = Math.max(0, Number(profile.public_reviews_count || 0));
   const completedJobs = Math.max(0, Number(profile.completed_jobs_total || 0));
-  const whatsappLink = profile.phone ? `https://wa.me/${profile.phone.replace(/\D/g, '')}` : '';
+  const whatsappLink = buildWhatsappLink(profile.phone);
+  const presentationText =
+    String(profile.references_summary || '').trim() ||
+    'Profesional activo en UrbanFix. Disponible para coordinar visitas, presupuestos y ejecucion de trabajos por rubro.';
+  const profileCode = profile.id.slice(0, 8).toUpperCase();
+  const profileHref = `/tecnico/${profile.id}`;
+  const socialLinks = [
+    { label: 'Facebook', href: profile.facebook_url },
+    { label: 'Instagram', href: profile.instagram_url },
+  ].filter((entry) => Boolean(entry.href));
 
   return (
-    <main className={`${manrope.className} min-h-screen bg-slate-950 px-4 py-10 text-slate-100`}>
-      <div className="mx-auto max-w-5xl space-y-5">
-        <header className="rounded-3xl border border-slate-800 bg-slate-900/80 p-6 shadow-2xl shadow-black/20">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="h-20 w-20 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800">
-                {profile.avatar_url ? (
-                  <img src={profile.avatar_url} alt="Foto tecnico" className="h-full w-full object-cover" />
-                ) : profile.company_logo_url ? (
-                  <img src={profile.company_logo_url} alt="Logo tecnico" className="h-full w-full object-contain p-2" />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-slate-300">
-                    {displayName.slice(0, 1).toUpperCase()}
+    <div className={sora.className}>
+      <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+        <PublicTopNav activeHref="/vidriera" sticky />
+
+        <div className="relative overflow-hidden">
+          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(255,143,31,0.14),transparent_45%),radial-gradient(circle_at_88%_22%,rgba(87,36,128,0.38),transparent_48%)]" />
+          <div className="pointer-events-none absolute -left-24 top-12 h-80 w-80 rounded-full bg-[#ff8f1f]/15 blur-3xl" />
+          <div className="pointer-events-none absolute -right-16 bottom-10 h-96 w-96 rounded-full bg-[#55207e]/35 blur-3xl" />
+
+          <div className="relative mx-auto w-full max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
+            <section className="rounded-3xl border border-white/15 bg-white/[0.04] p-6 shadow-[0_28px_90px_-60px_rgba(0,0,0,0.9)] sm:p-8">
+              <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
+                <div className="space-y-4">
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-white/60">Perfil tecnico UrbanFix</p>
+                  <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
+                  <p className="text-sm text-white/75">{profile.full_name || 'Profesional verificado en UrbanFix'}</p>
+
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
+                      Perfil unico: {profileCode}
+                    </span>
+                    {profile.city && (
+                      <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
+                        Zona: {profile.city}
+                      </span>
+                    )}
+                    <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
+                      Rubros: {specialties.length}
+                    </span>
                   </div>
-                )}
-              </div>
-              <div>
-                <p className="text-2xl font-semibold text-white">{displayName}</p>
-                <p className="mt-1 text-sm text-slate-300">{profile.full_name || 'Profesional UrbanFix'}</p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                  {profile.city && <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-200">{profile.city}</span>}
-                  <span className="rounded-full bg-slate-800 px-3 py-1 text-slate-200">Likes: {likesCount}</span>
+
+                  <p className="max-w-3xl text-sm leading-relaxed text-white/85">{presentationText}</p>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={profileHref}
+                      className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                    >
+                      Link publico del perfil
+                    </Link>
+                    <Link
+                      href="/vidriera"
+                      className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                    >
+                      Volver a vidriera
+                    </Link>
+                  </div>
                 </div>
+
+                <aside className="rounded-3xl border border-white/15 bg-black/20 p-5 sm:p-6">
+                  <div className="mx-auto h-28 w-28 overflow-hidden rounded-3xl border border-white/20 bg-white/[0.08]">
+                    {profile.avatar_url ? (
+                      <img src={profile.avatar_url} alt="Foto tecnico" className="h-full w-full object-cover" />
+                    ) : profile.company_logo_url ? (
+                      <img src={profile.company_logo_url} alt="Logo tecnico" className="h-full w-full object-contain p-2" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/80">
+                        {displayName.slice(0, 1).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4 space-y-2 text-center">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
+                    <p className="text-sm font-semibold text-white">Disponible para contacto directo</p>
+                  </div>
+
+                  <div className="mt-4 flex flex-col gap-2">
+                    <ProfileLikeButton profileId={profile.id} initialCount={likesCount} className="mx-auto" />
+                    {whatsappLink ? (
+                      <a
+                        href={whatsappLink}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-full border border-white/35 px-4 py-2 text-center text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                      >
+                        Contactar por WhatsApp
+                      </a>
+                    ) : (
+                      <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-3 py-2 text-center text-[11px] text-white/70">
+                        Este tecnico aun no cargo telefono de contacto.
+                      </p>
+                    )}
+                  </div>
+                </aside>
               </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <ProfileLikeButton profileId={profile.id} initialCount={likesCount} />
-              {whatsappLink && (
-                <a
-                  href={whatsappLink}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-4 py-2 text-xs font-semibold text-emerald-200 transition hover:border-emerald-400 hover:text-emerald-100"
-                >
-                  Contactar por WhatsApp
-                </a>
-              )}
-            </div>
-          </div>
-        </header>
+            </section>
 
-        <section className="grid gap-4 md:grid-cols-3">
-          <article className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Reputacion</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{rating > 0 ? rating.toFixed(1) : '-'}</p>
-            <p className="mt-1 text-xs text-slate-300">Puntaje promedio</p>
-          </article>
-          <article className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Resenas</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{reviewsCount}</p>
-            <p className="mt-1 text-xs text-slate-300">Opiniones de clientes</p>
-          </article>
-          <article className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Trabajos</p>
-            <p className="mt-2 text-2xl font-semibold text-white">{completedJobs}</p>
-            <p className="mt-1 text-xs text-slate-300">Trabajos finalizados</p>
-          </article>
-        </section>
+            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Reputacion</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{rating > 0 ? rating.toFixed(1) : '-'}</p>
+                <p className="mt-1 text-xs text-white/70">Puntaje promedio</p>
+              </article>
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Resenas</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{reviewsCount}</p>
+                <p className="mt-1 text-xs text-white/70">Opiniones de clientes</p>
+              </article>
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Trabajos</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{completedJobs}</p>
+                <p className="mt-1 text-xs text-white/70">Trabajos finalizados</p>
+              </article>
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Me gusta</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{likesCount}</p>
+                <p className="mt-1 text-xs text-white/70">Interacciones publicas</p>
+              </article>
+            </section>
 
-        {profile.coverage_area && (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura</p>
-            <p className="mt-2 text-sm text-slate-200">{profile.coverage_area}</p>
-          </section>
-        )}
+            <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
+                <p className="mt-3 text-sm leading-relaxed text-white/85">{presentationText}</p>
 
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rubros</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {specialties.length > 0 ? (
-              specialties.map((specialty) => (
-                <span key={specialty} className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-slate-200">
-                  {specialty}
-                </span>
-              ))
-            ) : (
-              <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                Sin rubros cargados
-              </span>
-            )}
-          </div>
-        </section>
+                {recommendations.length > 0 && (
+                  <ul className="mt-4 space-y-2">
+                    {recommendations.map((item, index) => (
+                      <li
+                        key={`${index}-${item}`}
+                        className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/80"
+                      >
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
 
-        {(profile.references_summary || recommendations.length > 0 || badges.length > 0) && (
-          <section className="grid gap-4 md:grid-cols-2">
-            <article className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Referencias</p>
-              <p className="mt-2 text-sm text-slate-200">
-                {profile.references_summary || 'Este tecnico aun no cargo referencias.'}
-              </p>
-              {recommendations.length > 0 && (
-                <ul className="mt-3 space-y-2 text-sm text-slate-300">
-                  {recommendations.map((item, index) => (
-                    <li key={`${index}-${item}`} className="rounded-xl bg-slate-800/70 px-3 py-2">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </article>
-            <article className="rounded-3xl border border-slate-800 bg-slate-900/80 p-4">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Insignias</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {badges.length > 0 ? (
-                  badges.map((badge) => (
-                    <span key={badge} className="rounded-full border border-amber-500/30 bg-amber-500/10 px-3 py-1 text-xs text-amber-200">
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Rubros y especialidades</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {specialties.length > 0 ? (
+                    specialties.map((specialty) => (
+                      <span
+                        key={specialty}
+                        className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/85"
+                      >
+                        {specialty}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
+                      Sin rubros cargados
+                    </span>
+                  )}
+                </div>
+              </article>
+            </section>
+
+            <section className="grid gap-4 md:grid-cols-2">
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Zona de trabajo</p>
+                <p className="mt-3 text-sm text-white/85">{profile.coverage_area || 'Sin cobertura detallada.'}</p>
+                {profile.city && <p className="mt-2 text-xs text-white/70">Ciudad base: {profile.city}</p>}
+              </article>
+
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Redes y contacto</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {socialLinks.length > 0 ? (
+                    socialLinks.map((entry) => (
+                      <a
+                        key={entry.label}
+                        href={String(entry.href || '')}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                      >
+                        {entry.label}
+                      </a>
+                    ))
+                  ) : (
+                    <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
+                      Sin redes cargadas
+                    </span>
+                  )}
+                  <Link
+                    href={profileHref}
+                    className="rounded-full border border-[#ff8f1f]/65 bg-[#ff8f1f]/10 px-4 py-2 text-xs font-semibold text-[#ffd6a6] transition hover:border-[#ff8f1f] hover:text-[#ffe2bf]"
+                  >
+                    URL unica del perfil
+                  </Link>
+                </div>
+              </article>
+            </section>
+
+            {badges.length > 0 && (
+              <section className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Insignias</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {badges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-3 py-1 text-xs text-[#ffd6a6]"
+                    >
                       {badge}
                     </span>
-                  ))
-                ) : (
-                  <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-xs text-slate-300">
-                    Sin insignias cargadas
-                  </span>
-                )}
-              </div>
-            </article>
-          </section>
-        )}
-
-        <section className="flex flex-wrap gap-2">
-          {profile.facebook_url && (
-            <a
-              href={profile.facebook_url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-full border border-slate-600 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-            >
-              Facebook
-            </a>
-          )}
-          {profile.instagram_url && (
-            <a
-              href={profile.instagram_url}
-              target="_blank"
-              rel="noreferrer noopener"
-              className="rounded-full border border-slate-600 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-            >
-              Instagram
-            </a>
-          )}
-          <Link
-            href="/vidriera"
-            className="rounded-full border border-slate-600 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
-          >
-            Volver a vidriera
-          </Link>
-        </section>
-      </div>
-    </main>
+                  ))}
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
+      </main>
+    </div>
   );
 }
