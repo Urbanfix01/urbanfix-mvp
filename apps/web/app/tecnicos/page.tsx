@@ -356,44 +356,150 @@ const buildOsmEmbedUrl = (lat: number, lon: number) => {
 const buildOsmLink = (lat: number, lon: number) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=16/${lat}/${lon}`;
 
-const RUBRO_ORDER = ['gas', 'sanitario', 'electricidad', 'albanileria'];
+const RUBRO_ORDER = [
+  'electricidad',
+  'plomeria',
+  'sanitario',
+  'gas',
+  'albanileria',
+  'pintura',
+  'aire acondicionado',
+  'refrigeracion',
+  'cerrajeria',
+  'impermeabilizacion',
+  'techos',
+  'durlock y yeseria',
+  'pisos y revestimientos',
+  'carpinteria',
+  'herreria',
+  'vidrieria y aberturas',
+  'soldadura',
+  'portones automaticos',
+  'alarmas y camaras',
+  'redes y datos',
+  'calefaccion',
+  'energia solar',
+  'jardineria y poda',
+  'limpieza post obra',
+  'control de plagas',
+  'mantenimiento de piletas',
+  'mantenimiento de consorcios',
+  'mantenimiento comercial',
+  'banos y cocinas',
+  'demolicion',
+  'excavaciones',
+  'movimiento de suelo',
+  'hormigon armado',
+  'estructuras metalicas',
+  'general',
+];
 const RUBRO_LABELS: Record<string, string> = {
-  gas: 'Gas',
-  sanitario: 'Sanitario',
   electricidad: 'Electricidad',
-  albanileria: 'Albañileria',
+  plomeria: 'Plomeria',
+  sanitario: 'Sanitario',
+  gas: 'Gas',
+  albanileria: 'Albanileria',
+  pintura: 'Pintura',
+  'aire acondicionado': 'Aire acondicionado',
+  refrigeracion: 'Refrigeracion',
+  cerrajeria: 'Cerrajeria',
+  impermeabilizacion: 'Impermeabilizacion',
+  techos: 'Techos',
+  'durlock y yeseria': 'Durlock y yeseria',
+  'pisos y revestimientos': 'Pisos y revestimientos',
+  carpinteria: 'Carpinteria',
+  herreria: 'Herreria',
+  'vidrieria y aberturas': 'Vidrieria y aberturas',
+  soldadura: 'Soldadura',
+  'portones automaticos': 'Portones automaticos',
+  'alarmas y camaras': 'Alarmas y camaras',
+  'redes y datos': 'Redes y datos',
+  calefaccion: 'Calefaccion',
+  'energia solar': 'Energia solar',
+  'jardineria y poda': 'Jardineria y poda',
+  'limpieza post obra': 'Limpieza post obra',
+  'control de plagas': 'Control de plagas',
+  'mantenimiento de piletas': 'Mantenimiento de piletas',
+  'mantenimiento de consorcios': 'Mantenimiento de consorcios',
+  'mantenimiento comercial': 'Mantenimiento comercial',
+  'banos y cocinas': 'Banos y cocinas',
+  demolicion: 'Demolicion',
+  excavaciones: 'Excavaciones',
+  'movimiento de suelo': 'Movimiento de suelo',
+  'hormigon armado': 'Hormigon armado',
+  'estructuras metalicas': 'Estructuras metalicas',
+  general: 'General',
 };
 
+const RUBRO_TOKEN_RULES: Array<{ key: string; tokens: string[] }> = [
+  {
+    key: 'electricidad',
+    tokens: ['electric', 'electrico', 'electrica', 'tablero', 'cableado', 'luminaria', 'tomacorriente', 'enchufe'],
+  },
+  { key: 'plomeria', tokens: ['plomer', 'griferia', 'agua fria', 'agua caliente', 'destapacion'] },
+  { key: 'sanitario', tokens: ['sanitar', 'cloaca', 'desague', 'caneria', 'pluvial'] },
+  { key: 'gas', tokens: ['gas', 'calefon', 'termotanque'] },
+  { key: 'albanileria', tokens: ['albanil', 'mamposter', 'revoque', 'ladrillo', 'cemento'] },
+  { key: 'pintura', tokens: ['pintur', 'enduido', 'esmalte'] },
+  { key: 'aire acondicionado', tokens: ['aire acond', 'split'] },
+  { key: 'refrigeracion', tokens: ['refriger', 'camara de frio'] },
+  { key: 'cerrajeria', tokens: ['cerrajer', 'cerradura', 'llave'] },
+  { key: 'impermeabilizacion', tokens: ['impermeab', 'membrana', 'filtracion', 'hidrofugo'] },
+  { key: 'techos', tokens: ['techo', 'cubierta', 'chapa', 'canaleta', 'zingueria'] },
+  { key: 'durlock y yeseria', tokens: ['durlock', 'yeseria', 'yeso', 'drywall', 'placa de yeso'] },
+  { key: 'pisos y revestimientos', tokens: ['piso', 'revest', 'ceram', 'porcelanato', 'baldosa', 'mosaico'] },
+  { key: 'carpinteria', tokens: ['carpinter', 'placard', 'mueble de melamina'] },
+  { key: 'herreria', tokens: ['herrer', 'reja'] },
+  { key: 'vidrieria y aberturas', tokens: ['vidri', 'abertura', 'aluminio'] },
+  { key: 'soldadura', tokens: ['soldadur'] },
+  { key: 'portones automaticos', tokens: ['porton automatic', 'motor de porton'] },
+  { key: 'alarmas y camaras', tokens: ['alarma', 'camara', 'cctv', 'seguridad electronica'] },
+  { key: 'redes y datos', tokens: ['red de datos', 'cableado estructurado', 'wifi', 'fibra optica'] },
+  { key: 'calefaccion', tokens: ['calefaccion', 'caldera', 'radiador', 'piso radiante'] },
+  { key: 'energia solar', tokens: ['energia solar', 'panel solar', 'fotovoltaic', 'termotanque solar'] },
+  { key: 'jardineria y poda', tokens: ['jardiner', 'poda', 'parquiz'] },
+  { key: 'limpieza post obra', tokens: ['limpieza post obra', 'limpieza final de obra'] },
+  { key: 'control de plagas', tokens: ['plaga', 'fumig', 'desratiz', 'desinfeccion'] },
+  { key: 'mantenimiento de piletas', tokens: ['pileta', 'piscina'] },
+  { key: 'mantenimiento de consorcios', tokens: ['consorcio', 'edificio'] },
+  { key: 'mantenimiento comercial', tokens: ['mantenimiento comercial', 'local comercial'] },
+  { key: 'banos y cocinas', tokens: ['bano', 'cocina'] },
+  { key: 'demolicion', tokens: ['demolic', 'picado'] },
+  { key: 'excavaciones', tokens: ['excavacion', 'zanjeo'] },
+  { key: 'movimiento de suelo', tokens: ['movimiento de suelo', 'nivelacion', 'compactacion', 'relleno'] },
+  { key: 'hormigon armado', tokens: ['hormigon', 'losa', 'viga', 'columna', 'encadenado', 'encofrado'] },
+  { key: 'estructuras metalicas', tokens: ['estructura metal', 'perfil metal', 'ipn', 'upn'] },
+];
+
+const resolveKnownRubro = (normalized: string) => {
+  for (const rule of RUBRO_TOKEN_RULES) {
+    if (rule.tokens.some((token) => normalized.includes(token))) return rule.key;
+  }
+  return '';
+};
+
+const normalizeRawRubro = (value: string | null | undefined) =>
+  String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
 const resolveMasterRubro = (item: MasterItemRow) => {
-  const raw = [item.category, item.source_ref, item.name].filter(Boolean).join(' ');
-  const normalized = normalizeText(raw);
-  if (normalized.includes('gas')) return 'gas';
-  if (
-    normalized.includes('electric') ||
-    normalized.includes('electrico') ||
-    normalized.includes('tablero') ||
-    normalized.includes('cableado') ||
-    normalized.includes('luminaria') ||
-    normalized.includes('tomacorriente')
-  ) {
-    return 'electricidad';
-  }
-  if (
-    normalized.includes('albanil') ||
-    normalized.includes('albaniler') ||
-    normalized.includes('mamposter') ||
-    normalized.includes('revoque') ||
-    normalized.includes('cemento') ||
-    normalized.includes('ladrillo')
-  ) {
-    return 'albanileria';
-  }
-  return 'sanitario';
+  const primaryRaw = normalizeRawRubro(item.category || item.source_ref);
+  const primaryNormalized = normalizeText(primaryRaw);
+  const knownFromPrimary = resolveKnownRubro(primaryNormalized);
+  if (knownFromPrimary) return knownFromPrimary;
+  if (primaryRaw) return primaryRaw;
+
+  const fallbackNormalized = normalizeText(item.name || '');
+  const knownFromName = resolveKnownRubro(fallbackNormalized);
+  if (knownFromName) return knownFromName;
+
+  return 'general';
 };
 
 const formatRubroLabel = (value: string) => {
-  if (value === 'albanileria') return 'Albanileria';
-  return RUBRO_LABELS[value] || value;
+  const trimmed = value.trim();
+  return RUBRO_LABELS[trimmed] || trimmed;
 };
 
 const parseDateLocal = (value?: string | null) => {
@@ -4641,7 +4747,9 @@ export default function TechniciansPage() {
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <a
-                  href="mailto:info@urbanfixar.com"
+                  href="https://wa.me/1170084556"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="font-semibold text-slate-600 transition hover:text-slate-900"
                 >
                   Soporte
