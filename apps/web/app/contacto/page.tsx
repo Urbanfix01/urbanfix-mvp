@@ -28,7 +28,10 @@ export default function ContactoPage() {
                 Sitio web: <a href="https://www.urbanfix.com.ar" className="underline">www.urbanfix.com.ar</a>
               </p>
               <p>
-                WhatsApp: <a href="https://wa.me/5491170064556" className="underline">+54 9 11 7006-4556</a>
+                Tel: <a href="tel:1170084556" className="underline">1170084556</a>
+              </p>
+              <p>
+                WhatsApp: <a href="https://wa.me/5491170084556" className="underline">+54 9 11 7008-4556</a>
               </p>
             </div>
           </section>

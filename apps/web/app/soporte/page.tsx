@@ -27,12 +27,12 @@ export default function SoportePage() {
                 Email: info@urbanfixar.com
               </a>
               <a
-                href="https://wa.me/5491170064556"
+                href="https://wa.me/5491170084556"
                 target="_blank"
                 rel="noreferrer"
                 className="rounded-xl border border-white/25 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white/90 transition hover:bg-white/[0.08]"
               >
-                WhatsApp soporte
+                WhatsApp soporte: 1170084556
               </a>
             </div>
           </section>
