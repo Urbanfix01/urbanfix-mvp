@@ -1,0 +1,7 @@
+Twemoji graphics by Twitter, Inc and other contributors.
+
+Source: https://github.com/twitter/twemoji
+License: https://creativecommons.org/licenses/by/4.0/
+
+SVG files in this folder were downloaded from:
+https://cdnjs.cloudflare.com/ajax/libs/twemoji/14.0.2/svg/
