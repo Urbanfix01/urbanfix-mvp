@@ -1,17 +1,17 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
+import PublicTopNav from '../../components/PublicTopNav';
 import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
-import HomepageVisualShell from '../../components/HomepageVisualShell';
 
 const sora = Sora({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
 });
 
 export const metadata: Metadata = {
-  title: 'Rubros de construccion y MANO DE OBRA | UrbanFix Argentina',
+  title: 'Rubros y MANO DE OBRA | UrbanFix Argentina',
   description:
-    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro de construccion. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
+    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
   alternates: { canonical: '/rubros' },
 };
 
@@ -24,62 +24,55 @@ export default function RubrosPage() {
 
   return (
     <div className={sora.className}>
-      <HomepageVisualShell audience="tecnicos" activeSection="rubros">
-        <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rubros y mano de obra</p>
-          <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
-            Gestion de presupuestos y MANO DE OBRA por rubro de construccion
-          </h1>
-          <p className="mt-4 text-sm text-slate-600">
-            UrbanFix organiza presupuestos, clientes y materiales de obra por rubro. Elegi el tipo de trabajo y manten
-            tus precios de mano de obra siempre actualizados.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <a
-              href="/precios-mano-de-obra"
-              className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-            >
-              Ver guia de precios
-            </a>
-            <a
-              href="/ciudades"
-              className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-            >
-              Ver ciudades
-            </a>
-            <a
-              href="/guias-precios"
-              className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-            >
-              Ver guias y precios
-            </a>
-            <a
-              href="/urbanfix"
-              className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-            >
-              Conocer UrbanFix
-            </a>
-          </div>
-        </section>
+      <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+        <PublicTopNav activeHref="/rubros" sticky />
 
-        <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {rubrosList.map((rubro) => (
-            <a
-              key={rubro.slug}
-              href={`/rubros/${rubro.slug}`}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
-            >
-              <p className="text-sm font-semibold text-slate-900">{rubro.title}</p>
-              <p className="mt-2 text-xs text-slate-500">{rubro.description}</p>
-            </a>
-          ))}
-        </section>
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rubros UrbanFix</p>
+            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
+              Gestion de presupuestos y mano de obra por rubro
+            </h1>
+            <p className="mt-4 text-sm text-white/80">
+              Elegi el rubro y accede a una estructura de trabajo clara para presupuestar, ordenar clientes y mantener
+              referencias de precios siempre disponibles.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <a
+                href="/precios-mano-de-obra"
+                className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+              >
+                Ver guia de precios
+              </a>
+              <a
+                href="/ciudades"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver ciudades
+              </a>
+              <a
+                href="/guias-precios"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver guias y precios
+              </a>
+            </div>
+          </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-          Cada rubro incluye gestion de presupuestos, gestion de clientes y gestion de materiales de obra con una
-          experiencia clara para equipos y clientes.
-        </section>
-      </HomepageVisualShell>
+          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {rubrosList.map((rubro) => (
+              <a
+                key={rubro.slug}
+                href={`/rubros/${rubro.slug}`}
+                className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
+              >
+                <p className="text-sm font-semibold text-white">{rubro.title}</p>
+                <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
+              </a>
+            ))}
+          </section>
+        </div>
+      </main>
     </div>
   );
 }

@@ -89,7 +89,7 @@ export const guias = {
       {
         title: 'Datos basicos',
         items: [
-          'Cliente, direccion y rubro de construccion.',
+          'Cliente, direccion y rubro del trabajo.',
           'Detalle de MANO DE OBRA y materiales.',
           'Tiempos estimados y condiciones.',
         ],
