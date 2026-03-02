@@ -309,6 +309,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const presentationText =
     String(profile.references_summary || '').trim() ||
     'Profesional activo en UrbanFix. Disponible para coordinar visitas, presupuestos y ejecucion de trabajos por rubro.';
+  const heroSummary =
+    presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
   const profileCode = profile.id.slice(0, 8).toUpperCase();
   const canonicalPath = buildTechnicianPath(profile.id, displayName);
   const canonicalSegment = canonicalPath.split('/').pop() || '';
@@ -390,35 +392,30 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       )}
                     </div>
                     <div className="space-y-1 pb-1">
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-white/65">Perfil tecnico UrbanFix</p>
                       <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
-                      <p className="text-sm text-white/80">{profile.full_name || 'Profesional verificado en UrbanFix'}</p>
+                      {profile.full_name && profile.full_name !== displayName && (
+                        <p className="text-sm text-white/80">{profile.full_name}</p>
+                      )}
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
-                      Perfil verificado: {profileCode}
-                    </span>
-                    {profile.city && (
+                  {profile.city && (
+                    <div className="flex flex-wrap gap-2 text-xs">
                       <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
                         Zona: {profile.city}
                       </span>
-                    )}
-                    <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
-                      Rubros: {specialties.length}
-                    </span>
-                  </div>
+                    </div>
+                  )}
                 </div>
 
-                <p className="max-w-3xl text-sm leading-relaxed text-white/85">{presentationText}</p>
+                <p className="max-w-3xl text-sm leading-relaxed text-white/85">{heroSummary}</p>
 
                 <div className="flex flex-wrap items-center gap-2">
                   <Link
                     href={profileHref}
                     className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                   >
-                    Link publico del perfil
+                    Link del perfil
                   </Link>
                   {whatsappLink && (
                     <a
@@ -430,12 +427,6 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       Contactar por WhatsApp
                     </a>
                   )}
-                  <Link
-                    href="/vidriera"
-                    className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-                  >
-                    Volver a vidriera
-                  </Link>
                 </div>
               </div>
             </section>
