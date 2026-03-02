@@ -3702,6 +3702,7 @@ export default function TechniciansPage() {
     Boolean(profileForm.businessName.trim()) &&
     Boolean(profileForm.phone.trim()) &&
     Boolean(profileForm.address.trim());
+  const hasWorkZoneForShowcase = Boolean(profileForm.address.trim()) || Boolean(profileForm.city.trim());
 
   const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
   const selectedSpecialtiesSet = useMemo(
@@ -3783,13 +3784,24 @@ export default function TechniciansPage() {
       return;
     }
     if (!profileForm.profilePublished) {
+      if (!hasWorkZoneForShowcase) {
+        setProfileMessage('Para aparecer en vidriera debes cargar direccion o ciudad/zona de trabajo.');
+        return;
+      }
+      if (typeof window !== 'undefined') {
+        const confirmed = window.confirm('Vas a aparecer en la vidriera publica de tecnicos. ¿Confirmas publicacion?');
+        if (!confirmed) {
+          setProfileMessage('Publicacion cancelada.');
+          return;
+        }
+      }
       setProfileForm((prev) => ({ ...prev, profilePublished: true }));
       const published = await persistProfile({ silent: false, refreshNearby: false, publishProfile: true });
       if (!published) {
         setProfileForm((prev) => ({ ...prev, profilePublished: false }));
         return;
       }
-      setProfileMessage('Perfil publicado.');
+      setProfileMessage('Perfil publicado en vidriera.');
       return;
     }
     await handleCopyPublicProfileLink();
@@ -7134,7 +7146,7 @@ export default function TechniciansPage() {
                           onClick={handlePublishProfile}
                           className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                         >
-                          {profileForm.profilePublished ? 'Perfil publicado - copiar link' : 'PUBLICAR MI PERFIL'}
+                          {profileForm.profilePublished ? 'Visible en vidriera - copiar link' : 'PUBLICAR EN VIDRIERA'}
                         </button>
                         {publicProfileUrl && (
                           <a
@@ -7182,8 +7194,8 @@ export default function TechniciansPage() {
                       </div>
                       <p className="mt-2 text-[11px] text-slate-500">
                         {profileForm.profilePublished
-                          ? 'Tu perfil ya esta visible para clientes.'
-                          : 'Tu link publico ya funciona. Publicarlo sirve para marcarlo como listo en tu panel.'}
+                          ? 'Tu perfil esta visible en vidriera publica.'
+                          : 'Tu link publico ya funciona. Para vidriera, debes cargar direccion/zona y confirmar publicacion.'}
                       </p>
 
                       <div className="mt-4 grid gap-3 xl:grid-cols-2">
@@ -7367,7 +7379,7 @@ export default function TechniciansPage() {
                     onClick={handlePublishProfile}
                     className="rounded-full border border-slate-300 bg-white px-5 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                   >
-                    {profileForm.profilePublished ? 'Copiar link publico' : 'PUBLICAR MI PERFIL'}
+                    {profileForm.profilePublished ? 'Copiar link publico' : 'PUBLICAR EN VIDRIERA'}
                   </button>
                   <button
                     type="button"

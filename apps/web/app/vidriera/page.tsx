@@ -21,9 +21,12 @@ export const metadata: Metadata = {
 type PublishedProfileRow = {
   id: string;
   access_granted: boolean | null;
+  profile_published: boolean | null;
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
+  address: string | null;
+  company_address: string | null;
   city: string | null;
   coverage_area: string | null;
   specialties: string | null;
@@ -39,6 +42,21 @@ const parseDelimitedValues = (value: string | null | undefined) =>
     .split(/[\n,;|/]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const hasMeaningfulCoverageArea = (value: string | null | undefined) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return !normalized.includes('tu ciudad base');
+};
+
+const hasWorkZoneConfigured = (profile: PublishedProfileRow) =>
+  Boolean(
+    String(profile.city || '').trim() ||
+      String(profile.address || '').trim() ||
+      String(profile.company_address || '').trim() ||
+      hasMeaningfulCoverageArea(profile.coverage_area)
+  );
+
 const buildWhatsappLink = (phone: string | null | undefined) => {
   const raw = String(phone || '').replace(/\D/g, '');
   if (!raw) return '';
@@ -90,15 +108,19 @@ export default async function VidrieraPage() {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,full_name,business_name,phone,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,public_likes_count'
+      'id,access_granted,profile_published,full_name,business_name,phone,address,company_address,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,public_likes_count'
     )
     .eq('access_granted', true)
+    .eq('profile_published', true)
     .order('public_likes_count', { ascending: false, nullsFirst: false })
     .limit(240);
 
   const profiles = (data || []) as PublishedProfileRow[];
-  const safeProfiles = profiles.filter((row) => row.access_granted);
+  const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
   const migrationMissing =
+    String(error?.message || '')
+      .toLowerCase()
+      .includes('profile_published') ||
     String(error?.message || '')
       .toLowerCase()
       .includes('facebook_url') ||
@@ -118,12 +140,11 @@ export default async function VidrieraPage() {
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Tecnicos disponibles</p>
             <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Vidriera de tecnicos disponibles</h1>
             <p className="mt-4 max-w-3xl text-sm text-white/80">
-              Explora perfiles tecnicos por rubro y cobertura. Cada tarjeta te da acceso rapido al perfil profesional y
-              contacto por WhatsApp.
+              Solo mostramos tecnicos que confirmaron aparecer en vidriera y que cargaron direccion o zona de trabajo.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Tecnicos disponibles: {safeProfiles.length}
+                Tecnicos confirmados: {safeProfiles.length}
               </span>
               <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
                 Total de likes: {totalLikes}
@@ -143,7 +164,7 @@ export default async function VidrieraPage() {
           {error && (
             <div className="mt-6 rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
               {migrationMissing
-                ? 'Falta migracion de redes en perfiles (facebook_url, instagram_url).'
+                ? 'Falta migracion de perfil publico/redes en perfiles (profile_published, facebook_url, instagram_url).'
                 : 'No pudimos cargar la vidriera en este momento.'}
             </div>
           )}
@@ -151,7 +172,9 @@ export default async function VidrieraPage() {
           {safeProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
               <p className="text-lg font-semibold text-white">Aun no hay tecnicos disponibles.</p>
-              <p className="mt-2 text-sm text-white/70">Cuando completen su perfil apareceran aqui automaticamente.</p>
+              <p className="mt-2 text-sm text-white/70">
+                Para aparecer, deben confirmar publicacion y cargar direccion o zona de trabajo.
+              </p>
             </section>
           ) : (
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
