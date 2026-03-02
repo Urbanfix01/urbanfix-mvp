@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
-import { rubros, rubroSlugs, type RubroKey } from '../../lib/seo/urbanfix-data';
+import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
+import { rubroTwemoji } from '../../lib/seo/rubro-icons';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -13,43 +14,6 @@ export const metadata: Metadata = {
   description:
     'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
   alternates: { canonical: '/rubros' },
-};
-
-const rubroTwemoji: Record<RubroKey, string> = {
-  electricidad: '26a1',
-  plomeria: '1f527',
-  pintura: '1f3a8',
-  albanileria: '1f9f1',
-  gasista: '1f525',
-  impermeabilizacion: '1f4a7',
-  techos: '1f3e0',
-  carpinteria: '1fa9a',
-  herreria: '1f529',
-  'aire-acondicionado': '2744',
-  refrigeracion: '1f9ca',
-  cerrajeria: '1f510',
-  'durlock-yeseria': '1f9f1',
-  'pisos-revestimientos': '1f9e9',
-  'vidrieria-aberturas': '1fa9f',
-  soldadura: '2699',
-  'portones-automaticos': '1f6aa',
-  'alarmas-camaras': '1f4f9',
-  'redes-datos': '1f310',
-  calefaccion: '2668',
-  'energia-solar': '2600',
-  'jardineria-poda': '1f33f',
-  'limpieza-post-obra': '1f9f9',
-  'control-plagas': '1f41c',
-  'mantenimiento-piletas': '1f3ca',
-  'mantenimiento-consorcios': '1f3e2',
-  'mantenimiento-comercial': '1f3ec',
-  demolicion: '1f9e8',
-  excavaciones: '26cf',
-  'movimiento-suelo': '1f69c',
-  'hormigon-armado': '1f3d7',
-  'estructuras-metalicas': '1f3ed',
-  'banos-cocinas': '1f6bf',
-  'reformas-integrales': '1f6e0',
 };
 
 export default function RubrosPage() {
