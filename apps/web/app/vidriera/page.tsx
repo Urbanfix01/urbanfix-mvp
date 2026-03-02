@@ -43,7 +43,7 @@ type VidrieraSearchParams = {
 };
 
 type VidrieraPageProps = {
-  searchParams?: VidrieraSearchParams | Promise<VidrieraSearchParams>;
+  searchParams?: Promise<VidrieraSearchParams>;
 };
 
 const parseDelimitedValues = (value: string | null | undefined) =>
@@ -105,11 +105,8 @@ const getPublicSupabaseClient = () => {
 
 export const dynamic = 'force-dynamic';
 
-export default async function VidrieraPage({ searchParams }: VidrieraPageProps = {}) {
-  const resolvedSearchParams =
-    searchParams && typeof (searchParams as Promise<VidrieraSearchParams>).then === 'function'
-      ? await (searchParams as Promise<VidrieraSearchParams>)
-      : ((searchParams as VidrieraSearchParams) || {});
+export default async function VidrieraPage({ searchParams }: VidrieraPageProps) {
+  const resolvedSearchParams = (await searchParams) || {};
   const zonaQueryRaw = Array.isArray(resolvedSearchParams.zona)
     ? resolvedSearchParams.zona[0] || ''
     : resolvedSearchParams.zona || '';
