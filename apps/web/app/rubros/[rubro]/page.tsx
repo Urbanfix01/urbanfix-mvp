@@ -10,7 +10,7 @@ import {
   type RubroKey,
 } from '../../../lib/seo/urbanfix-data';
 import { rubroTwemoji } from '../../../lib/seo/rubro-icons';
-import { formatArs, getRubroPriceReferences } from '../../../lib/seo/rubro-prices';
+import { formatArs, formatDateAr, getRubroPriceReferences } from '../../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -48,7 +48,7 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
   const rubro = rubros[rubroKey];
   if (!rubro) return notFound();
 
-  const priceReferences = getRubroPriceReferences(rubroKey);
+  const priceData = await getRubroPriceReferences(rubroKey);
   const twemojiCode = rubroTwemoji[rubroKey];
 
   return (
@@ -97,33 +97,43 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
           </section>
 
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Precios orientativos</p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Precios reales de base</p>
+              <span className="rounded-full border border-white/25 bg-white/[0.03] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
+                Actualizado: {formatDateAr(priceData.lastUpdatedAt)}
+              </span>
+            </div>
             <div className="mt-4 overflow-x-auto">
               <table className="min-w-full text-left">
                 <thead>
                   <tr className="border-b border-white/15 text-[11px] uppercase tracking-[0.1em] text-white/60">
                     <th className="pb-3 pr-4">Item</th>
                     <th className="pb-3 pr-4">Unidad</th>
-                    <th className="pb-3 pr-4">Referencia ARS</th>
-                    <th className="pb-3">Rango sugerido</th>
+                    <th className="pb-3 pr-4">Precio ARS</th>
+                    <th className="pb-3">Fuente</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {priceReferences.map((item) => (
-                    <tr key={item.label} className="border-b border-white/10 last:border-0">
+                  {priceData.items.map((item) => (
+                    <tr key={item.id} className="border-b border-white/10 last:border-0">
                       <td className="py-3 pr-4 text-sm font-medium text-white">{item.label}</td>
                       <td className="py-3 pr-4 text-xs uppercase text-white/65">{item.unit}</td>
                       <td className="py-3 pr-4 text-sm font-semibold text-white">{formatArs(item.reference)}</td>
-                      <td className="py-3 text-xs text-white/70">
-                        {formatArs(item.min)} a {formatArs(item.max)}
-                      </td>
+                      <td className="py-3 text-xs text-white/70">{item.source}</td>
                     </tr>
                   ))}
+                  {priceData.items.length === 0 && (
+                    <tr>
+                      <td className="py-4 text-sm text-white/70" colSpan={4}>
+                        No hay precios cargados para este rubro.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
             <p className="mt-4 text-xs text-white/65">
-              Valores orientativos para arrancar cotizaciones. Puedes ajustarlos segun zona, tipo de obra y urgencia.
+              Valores tomados de la base de datos activa de UrbanFix para mano de obra.
             </p>
           </section>
 
