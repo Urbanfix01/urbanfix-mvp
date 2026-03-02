@@ -15,12 +15,49 @@ export const metadata: Metadata = {
   alternates: { canonical: '/rubros' },
 };
 
+const rubroIcons: Record<string, string> = {
+  electricidad: '⚡',
+  plomeria: '🔧',
+  pintura: '🎨',
+  albanileria: '🧱',
+  gasista: '🔥',
+  impermeabilizacion: '💧',
+  techos: '🏠',
+  carpinteria: '🪚',
+  herreria: '🔩',
+  'aire-acondicionado': '❄️',
+  refrigeracion: '🧊',
+  cerrajeria: '🔐',
+  'durlock-yeseria': '🧱',
+  'pisos-revestimientos': '🧩',
+  'vidrieria-aberturas': '🪟',
+  soldadura: '🧑‍🏭',
+  'portones-automaticos': '🚪',
+  'alarmas-camaras': '📹',
+  'redes-datos': '🌐',
+  calefaccion: '♨️',
+  'energia-solar': '☀️',
+  'jardineria-poda': '🌿',
+  'limpieza-post-obra': '🧹',
+  'control-plagas': '🐜',
+  'mantenimiento-piletas': '🏊',
+  'mantenimiento-consorcios': '🏢',
+  'mantenimiento-comercial': '🏬',
+  demolicion: '🧨',
+  excavaciones: '⛏️',
+  'movimiento-suelo': '🚜',
+  'hormigon-armado': '🏗️',
+  'estructuras-metalicas': '🏭',
+  'banos-cocinas': '🚿',
+  'reformas-integrales': '🛠️',
+};
+
 export default function RubrosPage() {
   const rubrosList = rubroSlugs.map((slug) => ({
     slug,
     title: rubros[slug].title,
     description: rubros[slug].description,
-    item: rubros[slug].services[0],
+    icon: rubroIcons[slug] || '🛠️',
   }));
 
   return (
@@ -69,9 +106,9 @@ export default function RubrosPage() {
               >
                 <p className="text-sm font-semibold text-white">{rubro.title}</p>
                 <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
-                <p className="mt-4 inline-flex rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/85">
-                  Item sugerido: {rubro.item}
-                </p>
+                <span className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/5 text-xl">
+                  {rubro.icon}
+                </span>
               </a>
             ))}
           </section>
