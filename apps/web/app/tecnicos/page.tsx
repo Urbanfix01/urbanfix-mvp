@@ -7381,7 +7381,9 @@ export default function TechniciansPage() {
               </div>
               <div className="flex items-center gap-4 text-xs">
                 <a
-                  href="mailto:info@urbanfix.com.ar"
+                  href="https://wa.me/1170084556"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="font-semibold text-slate-600 transition hover:text-slate-900"
                 >
                   Soporte
