@@ -124,6 +124,13 @@ const toAbsoluteUrl = (value: string) => {
   return `${SITE_ORIGIN}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
 };
 
+const toOptionalAbsoluteUrl = (value: string | null | undefined) => {
+  const normalized = String(value || '').trim();
+  if (!normalized) return '';
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  return `${SITE_ORIGIN}${normalized.startsWith('/') ? '' : '/'}${normalized}`;
+};
+
 const buildTechnicianUrl = (profileId: string, displayName: string) =>
   `${SITE_ORIGIN}${buildTechnicianPath(profileId, displayName)}`;
 
@@ -290,6 +297,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   }
 
   const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
+  const displayInitial = displayName.slice(0, 1).toUpperCase();
   const specialties = parseDelimitedValues(profile.specialties).slice(0, 12);
   const recommendations = splitTextLines(profile.client_recommendations).slice(0, 5);
   const badges = parseBadgeArray(profile.achievement_badges).slice(0, 8);
@@ -308,6 +316,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   if (requestedSegment.toLowerCase() !== canonicalSegment.toLowerCase()) {
     permanentRedirect(canonicalPath);
   }
+  const avatarImageUrl = toOptionalAbsoluteUrl(profile.avatar_url || profile.company_logo_url);
+  const companyBannerUrl = toOptionalAbsoluteUrl(profile.company_logo_url || profile.avatar_url);
   const profileHref = canonicalPath;
   const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const socialLinks = [
@@ -352,81 +362,113 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
           <div className="pointer-events-none absolute -right-16 bottom-10 h-96 w-96 rounded-full bg-[#55207e]/35 blur-3xl" />
 
           <div className="relative mx-auto w-full max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-            <section className="rounded-3xl border border-white/15 bg-white/[0.04] p-6 shadow-[0_28px_90px_-60px_rgba(0,0,0,0.9)] sm:p-8">
-              <div className="grid gap-6 lg:grid-cols-[1.35fr_0.65fr]">
-                <div className="space-y-4">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-white/60">Perfil tecnico UrbanFix</p>
-                  <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
-                  <p className="text-sm text-white/75">{profile.full_name || 'Profesional verificado en UrbanFix'}</p>
+            <section className="overflow-hidden rounded-[32px] border border-white/15 bg-white/[0.04] shadow-[0_35px_110px_-70px_rgba(0,0,0,1)]">
+              <div className="relative h-44 sm:h-56 lg:h-64">
+                {companyBannerUrl ? (
+                  <>
+                    <img src={companyBannerUrl} alt={`Banner de ${displayName}`} className="h-full w-full object-cover" />
+                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.9)_0%,rgba(33,0,47,0.72)_40%,rgba(33,0,47,0.88)_100%)]" />
+                  </>
+                ) : (
+                  <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
+                )}
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0.04)_0%,rgba(33,0,47,0.82)_100%)]" />
+                <span className="absolute left-5 top-5 rounded-full border border-white/25 bg-black/25 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/90">
+                  Banner de empresa
+                </span>
+              </div>
 
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
-                      Perfil unico: {profileCode}
-                    </span>
-                    {profile.city && (
-                      <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
-                        Zona: {profile.city}
-                      </span>
-                    )}
-                    <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
-                      Rubros: {specialties.length}
-                    </span>
-                  </div>
-
-                  <p className="max-w-3xl text-sm leading-relaxed text-white/85">{presentationText}</p>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Link
-                      href={profileHref}
-                      className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                    >
-                      Link publico del perfil
-                    </Link>
-                    <Link
-                      href="/vidriera"
-                      className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-                    >
-                      Volver a vidriera
-                    </Link>
-                  </div>
-                </div>
-
-                <aside className="rounded-3xl border border-white/15 bg-black/20 p-5 sm:p-6">
-                  <div className="mx-auto h-28 w-28 overflow-hidden rounded-3xl border border-white/20 bg-white/[0.08]">
-                    {profile.avatar_url ? (
-                      <img src={profile.avatar_url} alt="Foto tecnico" className="h-full w-full object-cover" />
-                    ) : profile.company_logo_url ? (
-                      <img src={profile.company_logo_url} alt="Logo tecnico" className="h-full w-full object-contain p-2" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-white/80">
-                        {displayName.slice(0, 1).toUpperCase()}
+              <div className="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
+                <div className="grid gap-6 xl:grid-cols-[1.35fr_0.65fr]">
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-end gap-4 sm:gap-5">
+                      <div className="h-28 w-28 overflow-hidden rounded-3xl border border-white/35 bg-[#2a0640] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.95)] ring-4 ring-[#ff8f1f]/35 sm:h-36 sm:w-36">
+                        {avatarImageUrl ? (
+                          <img src={avatarImageUrl} alt={`Foto de ${displayName}`} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-white/90">
+                            {displayInitial}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                      <div className="space-y-1 pb-1">
+                        <p className="text-[11px] uppercase tracking-[0.24em] text-white/65">Perfil tecnico UrbanFix</p>
+                        <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
+                        <p className="text-sm text-white/80">{profile.full_name || 'Profesional verificado en UrbanFix'}</p>
+                      </div>
+                    </div>
 
-                  <div className="mt-4 space-y-2 text-center">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
-                    <p className="text-sm font-semibold text-white">Disponible para contacto directo</p>
-                  </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
+                        Perfil unico: {profileCode}
+                      </span>
+                      {profile.city && (
+                        <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
+                          Zona: {profile.city}
+                        </span>
+                      )}
+                      <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
+                        Rubros: {specialties.length}
+                      </span>
+                    </div>
 
-                  <div className="mt-4 flex flex-col gap-2">
-                    <ProfileLikeButton profileId={profile.id} initialCount={likesCount} className="mx-auto" />
-                    {whatsappLink ? (
-                      <a
-                        href={whatsappLink}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="rounded-full border border-white/35 px-4 py-2 text-center text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                    <p className="max-w-3xl text-sm leading-relaxed text-white/85">{presentationText}</p>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Link
+                        href={profileHref}
+                        className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                       >
-                        Contactar por WhatsApp
-                      </a>
-                    ) : (
-                      <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-3 py-2 text-center text-[11px] text-white/70">
-                        Este tecnico aun no cargo telefono de contacto.
-                      </p>
-                    )}
+                        Link publico del perfil
+                      </Link>
+                      <Link
+                        href="/vidriera"
+                        className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                      >
+                        Volver a vidriera
+                      </Link>
+                    </div>
                   </div>
-                </aside>
+
+                  <aside className="rounded-3xl border border-white/15 bg-black/25 p-5 sm:p-6">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Contacto rapido</p>
+                    <p className="mt-2 text-sm text-white/85">
+                      La foto del tecnico y el banner de empresa destacan la presentacion comercial del perfil.
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {socialLinks.slice(0, 2).map((entry) => (
+                        <a
+                          key={`hero-${entry.label}`}
+                          href={String(entry.href || '')}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="rounded-full border border-white/25 px-3 py-1.5 text-[11px] font-semibold text-white/90 transition hover:border-white hover:text-white"
+                        >
+                          {entry.label}
+                        </a>
+                      ))}
+                    </div>
+
+                    <div className="mt-4 flex flex-col gap-2">
+                      <ProfileLikeButton profileId={profile.id} initialCount={likesCount} className="mx-auto" />
+                      {whatsappLink ? (
+                        <a
+                          href={whatsappLink}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="rounded-full border border-white/35 px-4 py-2 text-center text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                        >
+                          Contactar por WhatsApp
+                        </a>
+                      ) : (
+                        <p className="rounded-2xl border border-white/15 bg-white/[0.04] px-3 py-2 text-center text-[11px] text-white/70">
+                          Este tecnico aun no cargo telefono de contacto.
+                        </p>
+                      )}
+                    </div>
+                  </aside>
+                </div>
               </div>
             </section>
 
