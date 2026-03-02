@@ -37,7 +37,7 @@ const benefits = [
   'Presupuestos listos para enviar desde el celular.',
   'Gestion de clientes y obras con historial completo.',
   'Estados claros: presentado, aprobado, finalizado y cobrado.',
-  'Gestion de materiales de obra y rubros de construccion.',
+  'Gestion de materiales de obra y rubros.',
   'Historial de precios y MANO DE OBRA para volver a cotizar mas rapido.',
   'Visualizacion profesional para clientes.',
 ];
@@ -86,7 +86,7 @@ export default function PreciosManoDeObraPage() {
                 Gestion de presupuestos, clientes y MANO DE OBRA en construccion en Argentina
               </h1>
               <p className="mt-4 text-sm text-slate-600">
-                UrbanFix te ayuda a centralizar tarifas, materiales de obra, rubros de construccion y gestion de
+                UrbanFix te ayuda a centralizar tarifas, materiales de obra, rubros y gestion de
                 presupuestos en un solo lugar, con una experiencia clara para clientes y equipos. Ideal para tecnicos,
                 instaladores y mantenimiento de obra.
               </p>
@@ -101,7 +101,7 @@ export default function PreciosManoDeObraPage() {
                   href="/rubros"
                   className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                 >
-                  Ver rubros de construccion
+                  Ver rubros
                 </a>
                 <a
                   href="/ciudades"

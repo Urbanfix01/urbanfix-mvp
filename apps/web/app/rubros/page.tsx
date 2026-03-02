@@ -9,9 +9,9 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'Rubros de construccion y MANO DE OBRA | UrbanFix Argentina',
+  title: 'Rubros y MANO DE OBRA | UrbanFix Argentina',
   description:
-    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro de construccion. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
+    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
   alternates: { canonical: '/rubros' },
 };
 
@@ -31,7 +31,7 @@ export default function RubrosPage() {
           <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rubros UrbanFix</p>
             <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
-              Gestion de presupuestos y mano de obra por rubro de construccion
+              Gestion de presupuestos y mano de obra por rubro
             </h1>
             <p className="mt-4 text-sm text-white/80">
               Elegi el rubro y accede a una estructura de trabajo clara para presupuestar, ordenar clientes y mantener

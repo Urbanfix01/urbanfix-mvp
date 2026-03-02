@@ -71,7 +71,7 @@ export default function CiudadesPage() {
                   href="/rubros"
                   className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
                 >
-                  Ver rubros de construccion
+                  Ver rubros
                 </a>
                 <a
                   href="/guias-precios"

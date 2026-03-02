@@ -74,7 +74,7 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
             </header>
 
             <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rubro de construccion</p>
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Rubro</p>
               <h1 className="mt-3 text-3xl font-semibold text-slate-900 sm:text-4xl">
                 {rubro.title} Â· MANO DE OBRA y presupuestos
               </h1>
