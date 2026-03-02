@@ -20,6 +20,7 @@ export default function RubrosPage() {
     slug,
     title: rubros[slug].title,
     description: rubros[slug].description,
+    item: rubros[slug].services[0],
   }));
 
   return (
@@ -68,6 +69,9 @@ export default function RubrosPage() {
               >
                 <p className="text-sm font-semibold text-white">{rubro.title}</p>
                 <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
+                <p className="mt-4 inline-flex rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold text-white/85">
+                  Item sugerido: {rubro.item}
+                </p>
               </a>
             ))}
           </section>
