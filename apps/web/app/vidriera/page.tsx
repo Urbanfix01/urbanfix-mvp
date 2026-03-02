@@ -20,6 +20,7 @@ export const metadata: Metadata = {
 
 type PublishedProfileRow = {
   id: string;
+  access_granted: boolean | null;
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
@@ -30,8 +31,6 @@ type PublishedProfileRow = {
   avatar_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
-  profile_published: boolean | null;
-  profile_published_at: string | null;
   public_likes_count: number | null;
 };
 
@@ -40,17 +39,6 @@ const parseDelimitedValues = (value: string | null | undefined) =>
     .split(/[\n,;|/]+/)
     .map((item) => item.trim())
     .filter(Boolean);
-const formatDateLabel = (value: string | null | undefined) => {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('es-AR', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-};
-
 const buildWhatsappLink = (phone: string | null | undefined) => {
   const raw = String(phone || '').replace(/\D/g, '');
   if (!raw) return '';
@@ -102,25 +90,22 @@ export default async function VidrieraPage() {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,full_name,business_name,phone,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,profile_published,profile_published_at,public_likes_count'
+      'id,access_granted,full_name,business_name,phone,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,public_likes_count'
     )
-    .eq('profile_published', true)
-    .order('profile_published_at', { ascending: false })
+    .eq('access_granted', true)
+    .order('public_likes_count', { ascending: false, nullsFirst: false })
     .limit(240);
 
   const profiles = (data || []) as PublishedProfileRow[];
-  const safeProfiles = profiles.filter((row) => row.profile_published);
+  const safeProfiles = profiles.filter((row) => row.access_granted);
   const migrationMissing =
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('profile_published') ||
     String(error?.message || '')
       .toLowerCase()
       .includes('facebook_url') ||
     String(error?.message || '')
       .toLowerCase()
       .includes('instagram_url');
-  const latestPublishedDate = formatDateLabel(safeProfiles[0]?.profile_published_at || '');
+  const whatsappEnabledCount = safeProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const totalLikes = safeProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
 
   return (
@@ -131,23 +116,21 @@ export default async function VidrieraPage() {
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Tecnicos disponibles</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Vidriera de tecnicos publicados</h1>
+            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Vidriera de tecnicos disponibles</h1>
             <p className="mt-4 max-w-3xl text-sm text-white/80">
-              Explora perfiles publicados por rubro y cobertura. Cada tarjeta te da acceso rapido al perfil profesional,
-              contacto por WhatsApp y estado de publicacion.
+              Explora perfiles tecnicos por rubro y cobertura. Cada tarjeta te da acceso rapido al perfil profesional y
+              contacto por WhatsApp.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Tecnicos publicados: {safeProfiles.length}
+                Tecnicos disponibles: {safeProfiles.length}
               </span>
               <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
                 Total de likes: {totalLikes}
               </span>
-              {latestPublishedDate && (
-                <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                  Ultima publicacion: {latestPublishedDate}
-                </span>
-              )}
+              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                Con WhatsApp: {whatsappEnabledCount}
+              </span>
               <Link
                 href="/cliente"
                 className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
@@ -160,15 +143,15 @@ export default async function VidrieraPage() {
           {error && (
             <div className="mt-6 rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
               {migrationMissing
-                ? 'Falta migracion de perfil publico/redes en Supabase (profile_published, facebook_url, instagram_url).'
+                ? 'Falta migracion de redes en perfiles (facebook_url, instagram_url).'
                 : 'No pudimos cargar la vidriera en este momento.'}
             </div>
           )}
 
           {safeProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
-              <p className="text-lg font-semibold text-white">Aun no hay tecnicos publicados.</p>
-              <p className="mt-2 text-sm text-white/70">Cuando publiquen su perfil apareceran aqui automaticamente.</p>
+              <p className="text-lg font-semibold text-white">Aun no hay tecnicos disponibles.</p>
+              <p className="mt-2 text-sm text-white/70">Cuando completen su perfil apareceran aqui automaticamente.</p>
             </section>
           ) : (
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -177,7 +160,6 @@ export default async function VidrieraPage() {
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
                 const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
                 const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
-                const publishedLabel = formatDateLabel(profile.profile_published_at);
                 const whatsappLink = buildWhatsappLink(profile.phone);
 
                 return (
@@ -259,11 +241,6 @@ export default async function VidrieraPage() {
                         >
                           WhatsApp
                         </a>
-                      )}
-                      {publishedLabel && (
-                        <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-semibold text-white/70">
-                          Publicado: {publishedLabel}
-                        </span>
                       )}
                     </div>
                   </article>

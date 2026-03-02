@@ -76,7 +76,7 @@ const getLikesState = async (profileId: string, userId: string | null, sessionKe
 
   const { data: profileData, error: profileError } = await supabase
     .from('profiles')
-    .select('id, profile_published, public_likes_count')
+    .select('id, access_granted, public_likes_count')
     .eq('id', profileId)
     .maybeSingle();
 
@@ -89,7 +89,7 @@ const getLikesState = async (profileId: string, userId: string | null, sessionKe
     } as const;
   }
 
-  if (!profileData || !profileData.id || !profileData.profile_published) {
+  if (!profileData || !profileData.id || !profileData.access_granted) {
     return { status: 404, error: 'Perfil no disponible.' } as const;
   }
 

@@ -3796,8 +3796,8 @@ export default function TechniciansPage() {
   };
 
   const handleSharePublicProfileWhatsApp = () => {
-    if (!profileForm.profilePublished || !publicProfileUrl) {
-      setProfileMessage('Publica tu perfil antes de compartir.');
+    if (!publicProfileUrl) {
+      setProfileMessage('No pudimos generar el link publico.');
       return;
     }
     if (typeof window === 'undefined') return;
@@ -3808,8 +3808,8 @@ export default function TechniciansPage() {
   };
 
   const handleSharePublicProfileFacebook = () => {
-    if (!profileForm.profilePublished || !publicProfileUrl) {
-      setProfileMessage('Publica tu perfil antes de compartir.');
+    if (!publicProfileUrl) {
+      setProfileMessage('No pudimos generar el link publico.');
       return;
     }
     if (typeof window === 'undefined') return;
@@ -6624,7 +6624,7 @@ export default function TechniciansPage() {
                         </div>
 
                         <div className="mt-4 flex flex-wrap items-center gap-2">
-                          {publicProfileUrl && profileForm.profilePublished && (
+                          {publicProfileUrl && (
                             <a
                               href={publicProfileUrl}
                               target="_blank"
@@ -7136,7 +7136,7 @@ export default function TechniciansPage() {
                         >
                           {profileForm.profilePublished ? 'Perfil publicado - copiar link' : 'PUBLICAR MI PERFIL'}
                         </button>
-                        {profileForm.profilePublished && publicProfileUrl && (
+                        {publicProfileUrl && (
                           <a
                             href={publicProfileUrl}
                             target="_blank"
@@ -7183,7 +7183,7 @@ export default function TechniciansPage() {
                       <p className="mt-2 text-[11px] text-slate-500">
                         {profileForm.profilePublished
                           ? 'Tu perfil ya esta visible para clientes.'
-                          : 'Publica tu perfil para que clientes puedan verlo por link.'}
+                          : 'Tu link publico ya funciona. Publicarlo sirve para marcarlo como listo en tu panel.'}
                       </p>
 
                       <div className="mt-4 grid gap-3 xl:grid-cols-2">

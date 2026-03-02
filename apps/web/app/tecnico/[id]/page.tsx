@@ -12,6 +12,7 @@ const manrope = Manrope({
 
 type PublicTechnicianProfile = {
   id: string;
+  access_granted: boolean | null;
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
@@ -29,7 +30,6 @@ type PublicTechnicianProfile = {
   client_recommendations: string | null;
   achievement_badges: string[] | null;
   public_likes_count: number | null;
-  profile_published: boolean | null;
 };
 
 const parseDelimitedValues = (value: string | null | undefined) =>
@@ -96,10 +96,10 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,full_name,business_name,phone,city,coverage_area,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count,profile_published'
+      'id,access_granted,full_name,business_name,phone,city,coverage_area,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
     )
     .eq('id', profileId)
-    .eq('profile_published', true)
+    .eq('access_granted', true)
     .maybeSingle();
 
   if (error) {
@@ -120,7 +120,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   }
 
   const profile = (data || null) as PublicTechnicianProfile | null;
-  if (!profile || !profile.profile_published) {
+  if (!profile || !profile.access_granted) {
     notFound();
   }
 
