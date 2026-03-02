@@ -68,6 +68,55 @@ const buildWhatsappLink = (phone: string | null | undefined) => {
   return `https://wa.me/${normalized}`;
 };
 
+const normalizeSocialUrl = (value: string | null | undefined) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  const prefixed = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  try {
+    return new URL(prefixed).toString();
+  } catch {
+    return raw;
+  }
+};
+
+const toSafeSocialUrl = (value: string | null | undefined) => {
+  const normalized = normalizeSocialUrl(value);
+  if (!normalized) return '';
+  try {
+    return new URL(normalized).toString();
+  } catch {
+    return '';
+  }
+};
+
+const buildFacebookTimelineEmbedUrl = (value: string | null | undefined) => {
+  const url = toSafeSocialUrl(value);
+  if (!url) return '';
+  return `https://www.facebook.com/plugins/page.php?href=${encodeURIComponent(
+    url
+  )}&tabs=timeline&width=500&height=460&small_header=true&adapt_container_width=true&hide_cover=false&show_facepile=false`;
+};
+
+const buildInstagramEmbedUrl = (value: string | null | undefined) => {
+  const normalized = toSafeSocialUrl(value);
+  if (!normalized) return '';
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.toLowerCase();
+    if (!host.includes('instagram.com')) return '';
+    const cleanPath = parsed.pathname.replace(/\/+$/, '');
+    if (!cleanPath || cleanPath === '/') return '';
+    if (/\/(p|reel|tv)\//i.test(cleanPath)) {
+      return `https://www.instagram.com${cleanPath}/embed`;
+    }
+    const handle = cleanPath.split('/').filter(Boolean)[0];
+    if (!handle) return '';
+    return `https://www.instagram.com/${handle}/embed`;
+  } catch {
+    return '';
+  }
+};
+
 const toAbsoluteUrl = (value: string) => {
   const normalized = String(value || '').trim();
   if (!normalized) return `${SITE_ORIGIN}/icon-48.png`;
@@ -265,6 +314,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     { label: 'Facebook', href: profile.facebook_url },
     { label: 'Instagram', href: profile.instagram_url },
   ].filter((entry) => Boolean(entry.href));
+  const facebookFeedEmbedUrl = buildFacebookTimelineEmbedUrl(profile.facebook_url);
+  const instagramPostEmbedUrl = buildInstagramEmbedUrl(profile.instagram_url);
   const sameAs = socialLinks.map((entry) => String(entry.href || '').trim()).filter(Boolean);
   const personJsonLd = {
     '@context': 'https://schema.org',
@@ -476,6 +527,42 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     URL unica del perfil
                   </Link>
                 </div>
+              </article>
+            </section>
+
+            <section className="grid gap-4 xl:grid-cols-2">
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Ultimas publicaciones Facebook</p>
+                {facebookFeedEmbedUrl ? (
+                  <iframe
+                    title="Publicaciones Facebook del tecnico"
+                    src={facebookFeedEmbedUrl}
+                    className="mt-4 h-[360px] w-full rounded-2xl border-0 bg-white"
+                    loading="lazy"
+                    allow="encrypted-media"
+                  />
+                ) : (
+                  <p className="mt-4 text-sm text-white/70">
+                    Este tecnico aun no configuro su pagina de Facebook para mostrar posteos.
+                  </p>
+                )}
+              </article>
+
+              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Ultimas publicaciones Instagram</p>
+                {instagramPostEmbedUrl ? (
+                  <iframe
+                    title="Publicaciones Instagram del tecnico"
+                    src={instagramPostEmbedUrl}
+                    className="mt-4 h-[360px] w-full rounded-2xl border-0 bg-white"
+                    loading="lazy"
+                    allow="encrypted-media"
+                  />
+                ) : (
+                  <p className="mt-4 text-sm text-white/70">
+                    Este tecnico aun no cargo un link de Instagram (idealmente post o reel) para mostrar.
+                  </p>
+                )}
               </article>
             </section>
 
