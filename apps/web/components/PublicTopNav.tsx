@@ -33,10 +33,6 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
           <nav className="hidden items-center gap-4 xl:flex">
-            <span className="inline-flex items-center gap-1 rounded-full border border-white/30 bg-white/5 px-2 py-1">
-              <img src="/argentina-flag.svg" alt="Bandera Argentina" className="h-3 w-4 rounded-[2px]" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-white/90">Argentina</span>
-            </span>
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -75,10 +71,6 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
       {menuOpen && (
         <div className="border-t border-white/10 bg-[#2a0338] px-3 py-3 xl:hidden">
           <nav className="flex flex-col gap-2">
-            <div className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-white/90">
-              <img src="/argentina-flag.svg" alt="Bandera Argentina" className="h-3.5 w-5 rounded-[2px]" />
-              Argentina
-            </div>
             {navLinks.map((link) => (
               <a
                 key={link.label}
