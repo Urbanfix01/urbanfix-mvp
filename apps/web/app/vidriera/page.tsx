@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { Manrope } from 'next/font/google';
+import { Sora } from 'next/font/google';
 import { createClient } from '@supabase/supabase-js';
 import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
+import PublicTopNav from '../../components/PublicTopNav';
 
-const manrope = Manrope({
+const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
 });
@@ -39,6 +40,31 @@ const parseDelimitedValues = (value: string | null | undefined) =>
     .split(/[\n,;|/]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+const formatDateLabel = (value: string | null | undefined) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
+const buildWhatsappLink = (phone: string | null | undefined) => {
+  const raw = String(phone || '').replace(/\D/g, '');
+  if (!raw) return '';
+  let normalized = raw;
+  if (normalized.startsWith('00')) normalized = normalized.slice(2);
+  if (!normalized.startsWith('54')) {
+    if (normalized.startsWith('0')) normalized = normalized.slice(1);
+    if (normalized.length === 11 && normalized.slice(2, 4) === '15') {
+      normalized = `${normalized.slice(0, 2)}${normalized.slice(4)}`;
+    }
+    normalized = `54${normalized}`;
+  }
+  return `https://wa.me/${normalized}`;
+};
 
 const getPublicSupabaseClient = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -59,12 +85,17 @@ export default async function VidrieraPage() {
 
   if (!supabase) {
     return (
-      <main className={`${manrope.className} min-h-screen bg-slate-950 px-4 py-12 text-slate-100`}>
-        <div className="mx-auto max-w-2xl rounded-3xl border border-slate-800 bg-slate-900/70 p-6 text-center">
-          <h1 className="text-2xl font-semibold text-white">Vidriera no disponible</h1>
-          <p className="mt-2 text-sm text-slate-300">Falta configurar variables de Supabase en el deploy.</p>
-        </div>
-      </main>
+      <div className={sora.className}>
+        <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+          <PublicTopNav activeHref="/vidriera" sticky />
+          <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+            <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-center sm:p-8">
+              <h1 className="text-2xl font-semibold text-white">Vidriera no disponible</h1>
+              <p className="mt-2 text-sm text-white/80">Falta configurar variables de Supabase en el deploy.</p>
+            </section>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -89,140 +120,159 @@ export default async function VidrieraPage() {
     String(error?.message || '')
       .toLowerCase()
       .includes('instagram_url');
+  const latestPublishedDate = formatDateLabel(safeProfiles[0]?.profile_published_at || '');
+  const totalLikes = safeProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
 
   return (
-    <main className={`${manrope.className} min-h-screen bg-slate-950 px-4 py-10 text-slate-100`}>
-      <div className="mx-auto max-w-7xl space-y-6">
-        <header className="rounded-3xl border border-slate-800 bg-slate-900/75 p-6 shadow-2xl shadow-black/20">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-              <h1 className="mt-1 text-3xl font-semibold text-white">Vidriera de tecnicos publicados</h1>
-              <p className="mt-2 text-sm text-slate-300">
-                Aqui puedes ver perfiles publicos como exposicion y entrar al detalle de cada tecnico.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-semibold text-slate-200">
-                {safeProfiles.length} tecnicos publicados
+    <div className={sora.className}>
+      <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+        <PublicTopNav activeHref="/vidriera" sticky />
+
+        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Tecnicos disponibles</p>
+            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Vidriera de tecnicos publicados</h1>
+            <p className="mt-4 max-w-3xl text-sm text-white/80">
+              Explora perfiles publicados por rubro y cobertura. Cada tarjeta te da acceso rapido al perfil profesional,
+              contacto por WhatsApp y estado de publicacion.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                Tecnicos publicados: {safeProfiles.length}
               </span>
+              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                Total de likes: {totalLikes}
+              </span>
+              {latestPublishedDate && (
+                <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                  Ultima publicacion: {latestPublishedDate}
+                </span>
+              )}
               <Link
                 href="/cliente"
-                className="rounded-full border border-slate-600 px-4 py-2 text-xs font-semibold text-slate-200 transition hover:border-slate-400 hover:text-white"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
               >
                 Ir a cliente
               </Link>
             </div>
-          </div>
-        </header>
-
-        {error && (
-          <div className="rounded-2xl border border-rose-800 bg-rose-950/30 px-4 py-3 text-sm text-rose-200">
-            {migrationMissing
-              ? 'Falta migracion de perfil publico/redes en Supabase (profile_published, facebook_url, instagram_url).'
-              : 'No pudimos cargar la vidriera en este momento.'}
-          </div>
-        )}
-
-        {safeProfiles.length === 0 ? (
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/75 p-8 text-center">
-            <p className="text-lg font-semibold text-white">Aun no hay tecnicos publicados.</p>
-            <p className="mt-2 text-sm text-slate-300">Cuando publiquen su perfil apareceran aqui automaticamente.</p>
           </section>
-        ) : (
-          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {safeProfiles.map((profile) => {
-              const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
-              const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
-              const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
-              const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
-              const publishedLabel = profile.profile_published_at
-                ? new Date(profile.profile_published_at).toLocaleDateString('es-AR')
-                : '';
-              const whatsappLink = profile.phone ? `https://wa.me/${profile.phone.replace(/\D/g, '')}` : '';
-              return (
-                <article
-                  key={profile.id}
-                  className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5 shadow-xl shadow-black/20"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="h-14 w-14 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800">
-                      {profile.avatar_url ? (
-                        <img src={profile.avatar_url} alt="Foto tecnico" className="h-full w-full object-cover" />
-                      ) : profile.company_logo_url ? (
-                        <img src={profile.company_logo_url} alt="Logo tecnico" className="h-full w-full object-contain p-1.5" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-lg font-bold text-slate-300">
-                          {displayName.slice(0, 1).toUpperCase()}
-                        </div>
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-base font-semibold text-white">{displayName}</p>
-                      <p className="truncate text-xs text-slate-300">{profile.full_name || 'Profesional'}</p>
-                      <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                        {profile.city && <span className="rounded-full bg-slate-800 px-2.5 py-1 text-slate-200">{profile.city}</span>}
-                        {socialCount > 0 && (
-                          <span className="rounded-full bg-slate-800 px-2.5 py-1 text-slate-200">
-                            Redes: {socialCount}
-                          </span>
+
+          {error && (
+            <div className="mt-6 rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              {migrationMissing
+                ? 'Falta migracion de perfil publico/redes en Supabase (profile_published, facebook_url, instagram_url).'
+                : 'No pudimos cargar la vidriera en este momento.'}
+            </div>
+          )}
+
+          {safeProfiles.length === 0 ? (
+            <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
+              <p className="text-lg font-semibold text-white">Aun no hay tecnicos publicados.</p>
+              <p className="mt-2 text-sm text-white/70">Cuando publiquen su perfil apareceran aqui automaticamente.</p>
+            </section>
+          ) : (
+            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              {safeProfiles.map((profile) => {
+                const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
+                const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
+                const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
+                const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
+                const publishedLabel = formatDateLabel(profile.profile_published_at);
+                const whatsappLink = buildWhatsappLink(profile.phone);
+
+                return (
+                  <article
+                    key={profile.id}
+                    className="group rounded-3xl border border-white/15 bg-gradient-to-br from-white/[0.09] to-white/[0.04] p-5 transition hover:-translate-y-1 hover:border-white/30 hover:shadow-[0_20px_45px_-30px_rgba(0,0,0,0.85)]"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-white/[0.06]">
+                        {profile.avatar_url ? (
+                          <img src={profile.avatar_url} alt="Foto tecnico" className="h-full w-full object-cover" />
+                        ) : profile.company_logo_url ? (
+                          <img src={profile.company_logo_url} alt="Logo tecnico" className="h-full w-full object-contain p-1.5" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-lg font-bold text-white/80">
+                            {displayName.slice(0, 1).toUpperCase()}
+                          </div>
                         )}
-                        <span className="rounded-full bg-rose-950/40 px-2.5 py-1 text-rose-200">Likes: {likesCount}</span>
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-base font-semibold text-white">{displayName}</p>
+                        <p className="truncate text-xs text-white/70">{profile.full_name || 'Profesional'}</p>
+                        <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
+                          {profile.city && (
+                            <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
+                              {profile.city}
+                            </span>
+                          )}
+                          {socialCount > 0 && (
+                            <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
+                              Redes: {socialCount}
+                            </span>
+                          )}
+                          <span className="rounded-full border border-[#ff8f1f]/60 bg-[#ff8f1f]/15 px-2.5 py-1 text-[#ffd6a6]">
+                            Likes: {likesCount}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  {profile.coverage_area && (
-                    <p className="mt-3 rounded-xl bg-slate-800/80 px-3 py-2 text-xs text-slate-200">{profile.coverage_area}</p>
-                  )}
+                    {profile.coverage_area && (
+                      <p className="mt-3 rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/80">
+                        Cobertura: {profile.coverage_area}
+                      </p>
+                    )}
 
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {specialties.length > 0 ? (
-                      specialties.map((item) => (
-                        <span
-                          key={`${profile.id}-${item}`}
-                          className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] text-slate-200"
-                        >
-                          {item}
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {specialties.length > 0 ? (
+                        specialties.map((item) => (
+                          <span
+                            key={`${profile.id}-${item}`}
+                            className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[11px] text-white/80"
+                          >
+                            {item}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-[11px] text-white/60">
+                          Sin rubros cargados
                         </span>
-                      ))
-                    ) : (
-                      <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] text-slate-300">
-                        Sin rubros cargados
-                      </span>
-                    )}
-                  </div>
+                      )}
+                    </div>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/tecnico/${profile.id}`}
-                      className="rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 transition hover:bg-slate-200"
-                    >
-                      Ver perfil
-                    </Link>
-                    <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
-                    {whatsappLink && (
-                      <a
-                        href={whatsappLink}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-300 transition hover:border-emerald-400 hover:text-emerald-200"
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
+                      <Link
+                        href={`/tecnico/${profile.id}`}
+                        className="rounded-full bg-[#ff8f1f] px-3 py-1.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                       >
-                        WhatsApp
-                      </a>
-                    )}
-                    {publishedLabel && (
-                      <span className="rounded-full bg-slate-800 px-3 py-1.5 text-[11px] font-semibold text-slate-300">
-                        Publicado: {publishedLabel}
-                      </span>
-                    )}
-                  </div>
-                </article>
-              );
-            })}
-          </section>
-        )}
-      </div>
-    </main>
+                        Ver perfil
+                      </Link>
+                      <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
+                      {whatsappLink && (
+                        <a
+                          href={whatsappLink}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="rounded-full border border-white/35 px-3 py-1.5 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                        >
+                          WhatsApp
+                        </a>
+                      )}
+                      {publishedLabel && (
+                        <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] font-semibold text-white/70">
+                          Publicado: {publishedLabel}
+                        </span>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      </main>
+    </div>
   );
 }
