@@ -102,19 +102,19 @@ export default function RubrosPage() {
               <a
                 key={rubro.slug}
                 href={`/rubros/${rubro.slug}`}
-                className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
+                className="group flex items-start gap-4 rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
               >
-                <p className="text-sm font-semibold text-white">{rubro.title}</p>
-                <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
-                <span className="mt-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/20 bg-white/5">
-                  <img
-                    src={`/twemoji/${rubro.twemojiCode}.svg`}
-                    alt={`Icono ${rubro.title}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="h-6 w-6"
-                  />
-                </span>
+                <img
+                  src={`/twemoji/${rubro.twemojiCode}.svg`}
+                  alt={`Icono ${rubro.title}`}
+                  loading="lazy"
+                  decoding="async"
+                  className="mt-0.5 h-12 w-12 shrink-0 transition-transform duration-200 group-hover:scale-105"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-white">{rubro.title}</p>
+                  <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
+                </div>
               </a>
             ))}
           </section>
