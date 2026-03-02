@@ -38,11 +38,26 @@ type PublishedProfileRow = {
   public_likes_count: number | null;
 };
 
+type VidrieraSearchParams = {
+  zona?: string | string[] | undefined;
+};
+
+type VidrieraPageProps = {
+  searchParams?: VidrieraSearchParams | Promise<VidrieraSearchParams>;
+};
+
 const parseDelimitedValues = (value: string | null | undefined) =>
   String(value || '')
     .split(/[\n,;|/]+/)
     .map((item) => item.trim())
     .filter(Boolean);
+
+const normalizeSearchText = (value: string | null | undefined) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
 const hasMeaningfulCoverageArea = (value: string | null | undefined) => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -57,6 +72,9 @@ const hasWorkZoneConfigured = (profile: PublishedProfileRow) =>
       String(profile.company_address || '').trim() ||
       hasMeaningfulCoverageArea(profile.coverage_area)
   );
+
+const buildProfileZoneText = (profile: PublishedProfileRow) =>
+  [profile.city, profile.coverage_area, profile.address, profile.company_address].filter(Boolean).join(' ');
 
 const buildWhatsappLink = (phone: string | null | undefined) => {
   const raw = String(phone || '').replace(/\D/g, '');
@@ -87,7 +105,17 @@ const getPublicSupabaseClient = () => {
 
 export const dynamic = 'force-dynamic';
 
-export default async function VidrieraPage() {
+export default async function VidrieraPage({ searchParams }: VidrieraPageProps = {}) {
+  const resolvedSearchParams =
+    searchParams && typeof (searchParams as Promise<VidrieraSearchParams>).then === 'function'
+      ? await (searchParams as Promise<VidrieraSearchParams>)
+      : ((searchParams as VidrieraSearchParams) || {});
+  const zonaQueryRaw = Array.isArray(resolvedSearchParams.zona)
+    ? resolvedSearchParams.zona[0] || ''
+    : resolvedSearchParams.zona || '';
+  const zonaQuery = String(zonaQueryRaw || '').trim();
+  const zonaQueryNormalized = normalizeSearchText(zonaQuery);
+
   const supabase = getPublicSupabaseClient();
 
   if (!supabase) {
@@ -118,6 +146,9 @@ export default async function VidrieraPage() {
 
   const profiles = (data || []) as PublishedProfileRow[];
   const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
+  const filteredProfiles = zonaQueryNormalized
+    ? safeProfiles.filter((profile) => normalizeSearchText(buildProfileZoneText(profile)).includes(zonaQueryNormalized))
+    : safeProfiles;
   const migrationMissing =
     String(error?.message || '')
       .toLowerCase()
@@ -130,6 +161,14 @@ export default async function VidrieraPage() {
       .includes('instagram_url');
   const whatsappEnabledCount = safeProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const totalLikes = safeProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
+  const zonaOptions = Array.from(
+    new Set(
+      safeProfiles
+        .map((profile) => String(profile.city || profile.coverage_area || '').trim())
+        .filter(Boolean)
+        .slice(0, 120)
+    )
+  ).sort((a, b) => a.localeCompare(b, 'es'));
 
   return (
     <div className={sora.className}>
@@ -160,6 +199,44 @@ export default async function VidrieraPage() {
                 Ir a cliente
               </Link>
             </div>
+
+            <form method="get" className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <input
+                type="text"
+                name="zona"
+                defaultValue={zonaQuery}
+                list="vidriera-zonas"
+                placeholder="Buscar por zona o ciudad (ej: Palermo, Cordoba, Zona Norte)"
+                className="w-full rounded-2xl border border-white/25 bg-black/25 px-4 py-2.5 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-[#ff8f1f] sm:max-w-xl"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="submit"
+                  className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                >
+                  Buscar zona
+                </button>
+                {zonaQuery && (
+                  <Link
+                    href="/vidriera"
+                    className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                  >
+                    Limpiar
+                  </Link>
+                )}
+              </div>
+              <datalist id="vidriera-zonas">
+                {zonaOptions.map((zone) => (
+                  <option key={`zona-${zone}`} value={zone} />
+                ))}
+              </datalist>
+            </form>
+
+            <p className="mt-3 text-xs text-white/65">
+              {zonaQuery
+                ? `Mostrando ${filteredProfiles.length} tecnico(s) para la zona "${zonaQuery}".`
+                : `Mostrando ${filteredProfiles.length} tecnico(s) en toda la vidriera.`}
+            </p>
           </section>
 
           {error && (
@@ -170,16 +247,20 @@ export default async function VidrieraPage() {
             </div>
           )}
 
-          {safeProfiles.length === 0 ? (
+          {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
-              <p className="text-lg font-semibold text-white">Aun no hay tecnicos disponibles.</p>
+              <p className="text-lg font-semibold text-white">
+                {zonaQuery ? 'No encontramos tecnicos para esa zona.' : 'Aun no hay tecnicos disponibles.'}
+              </p>
               <p className="mt-2 text-sm text-white/70">
-                Para aparecer, deben confirmar publicacion y cargar direccion o zona de trabajo.
+                {zonaQuery
+                  ? 'Prueba otra ciudad o zona, o limpia el buscador para ver toda la vidriera.'
+                  : 'Para aparecer, deben confirmar publicacion y cargar direccion o zona de trabajo.'}
               </p>
             </section>
           ) : (
             <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {safeProfiles.map((profile) => {
+              {filteredProfiles.map((profile) => {
                 const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
                 const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
