@@ -184,6 +184,8 @@ export default async function VidrieraPage() {
                 const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
                 const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
                 const whatsappLink = buildWhatsappLink(profile.phone);
+                const profileHref = `/tecnico/${profile.id}`;
+                const profileCode = profile.id.slice(0, 8).toUpperCase();
 
                 return (
                   <article
@@ -212,6 +214,9 @@ export default async function VidrieraPage() {
                               {profile.city}
                             </span>
                           )}
+                          <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/80">
+                            Perfil: {profileCode}
+                          </span>
                           {socialCount > 0 && (
                             <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
                               Redes: {socialCount}
@@ -249,10 +254,10 @@ export default async function VidrieraPage() {
 
                     <div className="mt-4 flex flex-wrap items-center gap-2">
                       <Link
-                        href={`/tecnico/${profile.id}`}
+                        href={profileHref}
                         className="rounded-full bg-[#ff8f1f] px-3 py-1.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                       >
-                        Ver perfil
+                        Ir al perfil
                       </Link>
                       <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
                       {whatsappLink && (
