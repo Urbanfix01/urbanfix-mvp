@@ -11,9 +11,10 @@ import { getRubroTwemojiByName } from '../../../../lib/seo/rubro-icons';
 import {
   formatArs,
   formatDateAr,
-  getActiveLaborCategoryBySlug,
-  getCategoryPriceReferences,
+  getCatalogRubroBySlug,
+  getCatalogRubroPriceReferences,
 } from '../../../../lib/seo/rubro-prices';
+import { rubroCatalogSlugs } from '../../../../lib/seo/rubro-catalog';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -21,6 +22,11 @@ const sora = Sora({
 });
 
 export const revalidate = 300;
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return rubroCatalogSlugs.flatMap((rubro) => ciudadSlugs.map((ciudad) => ({ rubro, ciudad })));
+}
 
 export async function generateMetadata({
   params,
@@ -28,14 +34,14 @@ export async function generateMetadata({
   params: Promise<{ rubro: string; ciudad: string }>;
 }): Promise<Metadata> {
   const { rubro, ciudad } = await params;
-  const rubroData = await getActiveLaborCategoryBySlug(rubro);
+  const rubroData = getCatalogRubroBySlug(rubro);
   const ciudadData = ciudades[ciudad as CiudadKey];
   if (!rubroData || !ciudadData) {
     return { title: 'Rubro no encontrado | UrbanFix' };
   }
   return {
-    title: `MANO DE OBRA de ${rubroData.name} en ${ciudadData.name} | UrbanFix`,
-    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubroData.name.toLowerCase()} en ${ciudadData.name}.`,
+    title: `MANO DE OBRA de ${rubroData.label} en ${ciudadData.name} | UrbanFix`,
+    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubroData.label.toLowerCase()} en ${ciudadData.name}.`,
     alternates: { canonical: `/rubros/${rubro}/${ciudad}` },
   };
 }
@@ -47,12 +53,12 @@ export default async function RubroCiudadPage({
 }) {
   const { rubro, ciudad } = await params;
   const ciudadKey = ciudad as CiudadKey;
-  const rubroData = await getActiveLaborCategoryBySlug(rubro);
+  const rubroData = getCatalogRubroBySlug(rubro);
   const ciudadData = ciudades[ciudadKey];
   if (!rubroData || !ciudadData) return notFound();
 
-  const priceData = await getCategoryPriceReferences(rubro, ciudadKey);
-  const twemojiCode = getRubroTwemojiByName(rubroData.name);
+  const priceData = await getCatalogRubroPriceReferences(rubro, ciudadKey);
+  const twemojiCode = getRubroTwemojiByName(rubroData.label);
 
   return (
     <div className={sora.className}>
@@ -65,18 +71,18 @@ export default async function RubroCiudadPage({
             <div className="mt-3 flex items-start gap-4">
               <img
                 src={`/twemoji/${twemojiCode}.svg`}
-                alt={`Icono ${rubroData.name}`}
+                alt={`Icono ${rubroData.label}`}
                 className="h-12 w-12 shrink-0"
                 loading="lazy"
                 decoding="async"
               />
               <div className="min-w-0">
                 <h1 className="text-3xl font-semibold text-white sm:text-4xl">
-                  Precios de {rubroData.name} en {ciudadData.name}
+                  Precios de {rubroData.label} en {ciudadData.name}
                 </h1>
                 <p className="mt-4 text-sm text-white/80">
                   Rubro real de base de datos UrbanFix. Organiza presupuestos, clientes y materiales de obra para{' '}
-                  {rubroData.name.toLowerCase()} en {ciudadData.name}.
+                  {rubroData.label.toLowerCase()} en {ciudadData.name}.
                 </p>
               </div>
             </div>
@@ -155,7 +161,7 @@ export default async function RubroCiudadPage({
 
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-sm text-white/75">
             Gestiona presupuestos, clientes y materiales de obra con mano de obra clara para{' '}
-            {rubroData.name.toLowerCase()} en {ciudadData.name}.
+            {rubroData.label.toLowerCase()} en {ciudadData.name}.
           </section>
         </div>
       </main>

@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
 import { getRubroTwemojiByName } from '../../lib/seo/rubro-icons';
-import { formatDateAr, getActiveLaborCategories } from '../../lib/seo/rubro-prices';
+import { formatDateAr, getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function RubrosPage() {
-  const rubrosList = await getActiveLaborCategories();
+  const rubrosList = await getCatalogRubrosOverview();
 
   return (
     <div className={sora.className}>
@@ -60,7 +60,7 @@ export default async function RubrosPage() {
 
           <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {rubrosList.map((rubro) => {
-              const twemojiCode = getRubroTwemojiByName(rubro.name);
+              const twemojiCode = getRubroTwemojiByName(rubro.label);
               return (
                 <a
                   key={rubro.slug}
@@ -69,13 +69,13 @@ export default async function RubrosPage() {
                 >
                   <img
                     src={`/twemoji/${twemojiCode}.svg`}
-                    alt={`Icono ${rubro.name}`}
+                    alt={`Icono ${rubro.label}`}
                     loading="lazy"
                     decoding="async"
                     className="mt-0.5 h-12 w-12 shrink-0 transition-transform duration-200 group-hover:scale-105"
                   />
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{rubro.name}</p>
+                    <p className="text-sm font-semibold text-white">{rubro.label}</p>
                     <p className="mt-2 text-xs text-white/70">
                       {rubro.itemCount} precios activos en base de datos. Ultima actualizacion:{' '}
                       {formatDateAr(rubro.lastUpdatedAt)}.

@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import { supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
+import { rubroCatalog, rubroCatalogBySlug, type RubroCatalogItem } from './rubro-catalog';
 
 type MasterItemRow = {
   id: string;
@@ -29,6 +30,13 @@ export type RubroPriceData = {
 export type ActiveLaborCategory = {
   slug: string;
   name: string;
+  itemCount: number;
+  lastUpdatedAt: string | null;
+};
+
+export type CatalogRubroOverview = {
+  slug: string;
+  label: string;
   itemCount: number;
   lastUpdatedAt: string | null;
 };
@@ -274,6 +282,71 @@ export const getCategoryPriceReferences = async (
         cleanText(a.name).localeCompare(cleanText(b.name), 'es')
     );
 
+  const items: RubroPriceReference[] = selectedRows.map((row) => ({
+    id: row.id,
+    label: cleanText(row.name),
+    unit: inferUnit(row.name),
+    reference: Number(row.suggested_price || 0),
+    source: formatSource(row.source_ref, row.category),
+    updatedAt: row.created_at || null,
+  }));
+
+  return {
+    items,
+    lastUpdatedAt: getLatestDate(selectedRows),
+    city: ciudad || null,
+  };
+};
+
+const categoryMatch = (row: MasterItemRow, terms: string[]) => {
+  const category = normalize(cleanText(row.category));
+  const name = normalize(cleanText(row.name));
+  return terms.some((termRaw) => {
+    const term = normalize(termRaw);
+    if (!term) return false;
+    return category.includes(term) || name.includes(term);
+  });
+};
+
+const getCatalogRows = async (rubro: RubroCatalogItem) => {
+  const allItems = await fetchActiveLaborItems();
+  const selected = allItems.filter((row) => categoryMatch(row, rubro.terms));
+  return selected.sort(
+    (a, b) =>
+      Number(b.suggested_price || 0) - Number(a.suggested_price || 0) ||
+      cleanText(a.name).localeCompare(cleanText(b.name), 'es')
+  );
+};
+
+export const getCatalogRubrosOverview = cache(async (): Promise<CatalogRubroOverview[]> => {
+  const allItems = await fetchActiveLaborItems();
+  return rubroCatalog.map((rubro) => {
+    const selected = allItems.filter((row) => categoryMatch(row, rubro.terms));
+    return {
+      slug: rubro.slug,
+      label: rubro.label,
+      itemCount: selected.length,
+      lastUpdatedAt: getLatestDate(selected),
+    };
+  });
+});
+
+export const getCatalogRubroBySlug = (slug: string) => rubroCatalogBySlug.get(slug) || null;
+
+export const getCatalogRubroPriceReferences = async (
+  rubroSlug: string,
+  ciudad?: CiudadKey
+): Promise<RubroPriceData> => {
+  const rubro = getCatalogRubroBySlug(rubroSlug);
+  if (!rubro) {
+    return {
+      items: [],
+      lastUpdatedAt: null,
+      city: ciudad || null,
+    };
+  }
+
+  const selectedRows = await getCatalogRows(rubro);
   const items: RubroPriceReference[] = selectedRows.map((row) => ({
     id: row.id,
     label: cleanText(row.name),

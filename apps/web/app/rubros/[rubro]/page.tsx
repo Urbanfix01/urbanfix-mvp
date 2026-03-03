@@ -7,9 +7,10 @@ import { getRubroTwemojiByName } from '../../../lib/seo/rubro-icons';
 import {
   formatArs,
   formatDateAr,
-  getActiveLaborCategoryBySlug,
-  getCategoryPriceReferences,
+  getCatalogRubroBySlug,
+  getCatalogRubroPriceReferences,
 } from '../../../lib/seo/rubro-prices';
+import { rubroCatalogSlugs } from '../../../lib/seo/rubro-catalog';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -17,6 +18,11 @@ const sora = Sora({
 });
 
 export const revalidate = 300;
+export const dynamicParams = false;
+
+export function generateStaticParams() {
+  return rubroCatalogSlugs.map((slug) => ({ rubro: slug }));
+}
 
 export async function generateMetadata({
   params,
@@ -24,26 +30,26 @@ export async function generateMetadata({
   params: Promise<{ rubro: string }>;
 }): Promise<Metadata> {
   const { rubro: slug } = await params;
-  const rubro = await getActiveLaborCategoryBySlug(slug);
+  const rubro = getCatalogRubroBySlug(slug);
   if (!rubro) {
     return {
       title: 'Rubro no encontrado | UrbanFix',
     };
   }
   return {
-    title: `MANO DE OBRA en ${rubro.name} | UrbanFix Argentina`,
-    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubro.name.toLowerCase()} en Argentina con datos reales.`,
+    title: `MANO DE OBRA en ${rubro.label} | UrbanFix Argentina`,
+    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubro.label.toLowerCase()} en Argentina con datos reales.`,
     alternates: { canonical: `/rubros/${slug}` },
   };
 }
 
 export default async function RubroPage({ params }: { params: Promise<{ rubro: string }> }) {
   const { rubro: slug } = await params;
-  const rubro = await getActiveLaborCategoryBySlug(slug);
+  const rubro = getCatalogRubroBySlug(slug);
   if (!rubro) return notFound();
 
-  const priceData = await getCategoryPriceReferences(slug);
-  const twemojiCode = getRubroTwemojiByName(rubro.name);
+  const priceData = await getCatalogRubroPriceReferences(slug);
+  const twemojiCode = getRubroTwemojiByName(rubro.label);
 
   return (
     <div className={sora.className}>
@@ -56,14 +62,14 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
             <div className="mt-3 flex items-start gap-4">
               <img
                 src={`/twemoji/${twemojiCode}.svg`}
-                alt={`Icono ${rubro.name}`}
+                alt={`Icono ${rubro.label}`}
                 className="h-12 w-12 shrink-0"
                 loading="lazy"
                 decoding="async"
               />
               <div className="min-w-0">
                 <h1 className="text-3xl font-semibold text-white sm:text-4xl">
-                  {rubro.name} - precios de mano de obra y presupuesto
+                  {rubro.label} - precios de mano de obra y presupuesto
                 </h1>
                 <p className="mt-4 text-sm text-white/80">
                   Rubro real de base de datos UrbanFix con valores activos para cotizar y presupuestar.
@@ -154,7 +160,7 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
 
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-sm text-white/75">
             Gestiona precios, materiales de obra y presupuestos por rubro. UrbanFix centraliza la mano de obra y la
-            comunicacion con clientes para trabajos de {rubro.name.toLowerCase()} en Argentina.
+            comunicacion con clientes para trabajos de {rubro.label.toLowerCase()} en Argentina.
           </section>
         </div>
       </main>

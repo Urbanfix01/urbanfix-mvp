@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
-import { getActiveLaborCategories } from "../lib/seo/rubro-prices";
+import { rubroCatalogSlugs } from "../lib/seo/rubro-catalog";
 
 type ProfileSitemapRow = {
   id: string;
@@ -62,9 +62,7 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfixar.com").replace(/\/+$/, "");
   const technicianEntries = await getTechnicianEntries(baseUrl);
-  const laborCategories = await getActiveLaborCategories();
-  const rubroSlugs = laborCategories.map((item) => item.slug);
-  const rubrosEntries: MetadataRoute.Sitemap = rubroSlugs.map((slug) => ({
+  const rubrosEntries: MetadataRoute.Sitemap = rubroCatalogSlugs.map((slug) => ({
     url: `${baseUrl}/rubros/${slug}`,
     lastModified: new Date(),
     changeFrequency: "monthly",
@@ -76,7 +74,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "monthly",
     priority: 0.6,
   }));
-  const rubroCiudadEntries: MetadataRoute.Sitemap = rubroSlugs.flatMap((rubro) =>
+  const rubroCiudadEntries: MetadataRoute.Sitemap = rubroCatalogSlugs.flatMap((rubro) =>
     ciudadSlugs.map((ciudad) => ({
       url: `${baseUrl}/rubros/${rubro}/${ciudad}`,
       lastModified: new Date(),
