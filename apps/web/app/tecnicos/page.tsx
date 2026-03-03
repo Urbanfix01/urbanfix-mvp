@@ -55,6 +55,7 @@ const DASHBOARD_VIDEO_URL = (process.env.NEXT_PUBLIC_DASHBOARD_VIDEO_URL || POST
 const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
 const POST_LOGIN_VIDEO_MAX_MS = 10000;
 const RESUME_STATIC_IMAGE_MS = 1200;
+const RESUME_STATIC_ON_TAB_RETURN_ENABLED = false;
 const COVERAGE_RADIUS_KM = 20;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
@@ -1541,6 +1542,13 @@ export default function TechniciansPage() {
         resumeStaticTimerRef.current = null;
       }
     };
+
+    if (!RESUME_STATIC_ON_TAB_RETURN_ENABLED) {
+      clearResumeTimer();
+      hiddenAtRef.current = null;
+      setResumeStaticVisible(false);
+      return;
+    }
 
     if (!session?.user?.id) {
       clearResumeTimer();
@@ -4025,7 +4033,7 @@ export default function TechniciansPage() {
 
   const sessionMediaOverlays = session?.user ? (
     <>
-      {resumeStaticVisible && RESUME_STATIC_IMAGE_URL && !postLoginVideoVisible && (
+      {RESUME_STATIC_ON_TAB_RETURN_ENABLED && resumeStaticVisible && RESUME_STATIC_IMAGE_URL && !postLoginVideoVisible && (
         <div className="fixed inset-0 z-[120] bg-black" aria-hidden="true">
           <img src={RESUME_STATIC_IMAGE_URL} alt="" className="h-full w-full object-cover" />
         </div>
