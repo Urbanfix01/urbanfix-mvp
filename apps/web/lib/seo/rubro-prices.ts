@@ -26,6 +26,13 @@ export type RubroPriceData = {
   city: CiudadKey | null;
 };
 
+export type ActiveLaborCategory = {
+  slug: string;
+  name: string;
+  itemCount: number;
+  lastUpdatedAt: string | null;
+};
+
 const STOPWORDS = new Set([
   'de',
   'del',
@@ -115,6 +122,12 @@ const cleanText = (value: string | null | undefined) =>
     .replace(/\t/g, ' ')
     .trim();
 
+const slugify = (value: string) =>
+  normalize(value)
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
 const inferUnit = (name: string) => {
   const text = normalize(name);
   if (text.includes('m3') || text.includes('metro cubico')) return 'm3';
@@ -182,6 +195,100 @@ const fetchActiveLaborItems = cache(async (): Promise<MasterItemRow[]> => {
 
   return (data || []).filter((row) => Number(row.suggested_price || 0) > 0);
 });
+
+export const getActiveLaborCategories = cache(async (): Promise<ActiveLaborCategory[]> => {
+  const rows = await fetchActiveLaborItems();
+  const categories = new Map<
+    string,
+    {
+      name: string;
+      itemCount: number;
+      lastUpdatedAt: string | null;
+      lastUpdatedAtMs: number;
+    }
+  >();
+
+  for (const row of rows) {
+    const categoryName = cleanText(row.category) || 'Sin categoria';
+    const categoryKey = normalize(categoryName);
+    if (!categoryKey) continue;
+
+    const timestampMs = row.created_at ? new Date(row.created_at).getTime() : 0;
+    const current = categories.get(categoryKey);
+
+    if (!current) {
+      categories.set(categoryKey, {
+        name: categoryName,
+        itemCount: 1,
+        lastUpdatedAt: row.created_at || null,
+        lastUpdatedAtMs: Number.isFinite(timestampMs) ? timestampMs : 0,
+      });
+      continue;
+    }
+
+    current.itemCount += 1;
+    if (Number.isFinite(timestampMs) && timestampMs > current.lastUpdatedAtMs) {
+      current.lastUpdatedAtMs = timestampMs;
+      current.lastUpdatedAt = row.created_at || null;
+    }
+  }
+
+  return [...categories.values()]
+    .map((entry) => ({
+      slug: slugify(entry.name),
+      name: entry.name,
+      itemCount: entry.itemCount,
+      lastUpdatedAt: entry.lastUpdatedAt,
+    }))
+    .filter((entry) => entry.slug.length > 0)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
+});
+
+export const getActiveLaborCategoryBySlug = async (
+  slug: string
+): Promise<ActiveLaborCategory | null> => {
+  const categories = await getActiveLaborCategories();
+  return categories.find((item) => item.slug === slug) || null;
+};
+
+export const getCategoryPriceReferences = async (
+  categorySlug: string,
+  ciudad?: CiudadKey
+): Promise<RubroPriceData> => {
+  const category = await getActiveLaborCategoryBySlug(categorySlug);
+  if (!category) {
+    return {
+      items: [],
+      lastUpdatedAt: null,
+      city: ciudad || null,
+    };
+  }
+
+  const allItems = await fetchActiveLaborItems();
+  const categoryKey = normalize(category.name);
+  const selectedRows = allItems
+    .filter((row) => normalize(cleanText(row.category)) === categoryKey)
+    .sort(
+      (a, b) =>
+        Number(b.suggested_price || 0) - Number(a.suggested_price || 0) ||
+        cleanText(a.name).localeCompare(cleanText(b.name), 'es')
+    );
+
+  const items: RubroPriceReference[] = selectedRows.map((row) => ({
+    id: row.id,
+    label: cleanText(row.name),
+    unit: inferUnit(row.name),
+    reference: Number(row.suggested_price || 0),
+    source: formatSource(row.source_ref, row.category),
+    updatedAt: row.created_at || null,
+  }));
+
+  return {
+    items,
+    lastUpdatedAt: getLatestDate(selectedRows),
+    city: ciudad || null,
+  };
+};
 
 export const formatArs = (value: number) => `$${value.toLocaleString('es-AR')}`;
 

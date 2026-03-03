@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
-import { ciudades, ciudadSlugs, type CiudadKey, rubros, rubroSlugs } from '../../../lib/seo/urbanfix-data';
+import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix-data';
 import HomepageVisualShell from '../../../components/HomepageVisualShell';
+import { getActiveLaborCategories } from '../../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -37,11 +38,7 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
   const city = ciudades[slug as CiudadKey];
   if (!city) return notFound();
 
-  const rubrosList = rubroSlugs.map((rubro) => ({
-    slug: rubro,
-    title: rubros[rubro].title,
-    description: rubros[rubro].description,
-  }));
+  const rubrosList = await getActiveLaborCategories();
 
   return (
     <div className={sora.className}>
@@ -81,8 +78,8 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
               href={`/rubros/${rubro.slug}/${slug}`}
               className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:shadow-md"
             >
-              <p className="text-sm font-semibold text-slate-900">{rubro.title}</p>
-              <p className="mt-2 text-xs text-slate-500">{rubro.description}</p>
+              <p className="text-sm font-semibold text-slate-900">{rubro.name}</p>
+              <p className="mt-2 text-xs text-slate-500">{rubro.itemCount} precios activos en este rubro.</p>
             </a>
           ))}
         </section>

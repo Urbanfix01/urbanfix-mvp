@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
-import { rubros, rubroSlugs } from '../../lib/seo/urbanfix-data';
-import { rubroTwemoji } from '../../lib/seo/rubro-icons';
+import { getRubroTwemojiByName } from '../../lib/seo/rubro-icons';
+import { formatDateAr, getActiveLaborCategories } from '../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -12,17 +12,14 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Rubros y MANO DE OBRA | UrbanFix Argentina',
   description:
-    'Gestion de presupuestos, gestion de clientes y materiales de obra por rubro. MANO DE OBRA para electricidad, plomeria, pintura y mas.',
+    'Rubros reales de base para gestionar presupuestos, clientes y mano de obra con datos activos de UrbanFix.',
   alternates: { canonical: '/rubros' },
 };
 
-export default function RubrosPage() {
-  const rubrosList = rubroSlugs.map((slug) => ({
-    slug,
-    title: rubros[slug].title,
-    description: rubros[slug].description,
-    twemojiCode: rubroTwemoji[slug],
-  }));
+export const revalidate = 300;
+
+export default async function RubrosPage() {
+  const rubrosList = await getActiveLaborCategories();
 
   return (
     <div className={sora.className}>
@@ -62,28 +59,40 @@ export default function RubrosPage() {
           </section>
 
           <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {rubrosList.map((rubro) => (
-              <a
-                key={rubro.slug}
-                href={`/rubros/${rubro.slug}`}
-                className="group flex items-start gap-4 rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
-              >
-                <img
-                  src={`/twemoji/${rubro.twemojiCode}.svg`}
-                  alt={`Icono ${rubro.title}`}
-                  loading="lazy"
-                  decoding="async"
-                  className="mt-0.5 h-12 w-12 shrink-0 transition-transform duration-200 group-hover:scale-105"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-white">{rubro.title}</p>
-                  <p className="mt-2 text-xs text-white/70">{rubro.description}</p>
-                  <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
-                    Click para ver precios
-                  </p>
-                </div>
-              </a>
-            ))}
+            {rubrosList.map((rubro) => {
+              const twemojiCode = getRubroTwemojiByName(rubro.name);
+              return (
+                <a
+                  key={rubro.slug}
+                  href={`/rubros/${rubro.slug}`}
+                  className="group flex items-start gap-4 rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
+                >
+                  <img
+                    src={`/twemoji/${twemojiCode}.svg`}
+                    alt={`Icono ${rubro.name}`}
+                    loading="lazy"
+                    decoding="async"
+                    className="mt-0.5 h-12 w-12 shrink-0 transition-transform duration-200 group-hover:scale-105"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-white">{rubro.name}</p>
+                    <p className="mt-2 text-xs text-white/70">
+                      {rubro.itemCount} precios activos en base de datos. Ultima actualizacion:{' '}
+                      {formatDateAr(rubro.lastUpdatedAt)}.
+                    </p>
+                    <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
+                      Click para ver precios
+                    </p>
+                  </div>
+                </a>
+              );
+            })}
+
+            {rubrosList.length === 0 && (
+              <div className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-sm text-white/70 sm:col-span-2 lg:col-span-3">
+                No hay rubros activos cargados en la base de datos.
+              </div>
+            )}
           </section>
         </div>
       </main>

@@ -5,16 +5,14 @@ import PublicTopNav from '../../../../components/PublicTopNav';
 import {
   ciudades,
   ciudadSlugs,
-  rubros,
-  rubroSlugs,
   type CiudadKey,
-  type RubroKey,
 } from '../../../../lib/seo/urbanfix-data';
-import { rubroTwemoji } from '../../../../lib/seo/rubro-icons';
+import { getRubroTwemojiByName } from '../../../../lib/seo/rubro-icons';
 import {
   formatArs,
   formatDateAr,
-  getRubroPriceReferences,
+  getActiveLaborCategoryBySlug,
+  getCategoryPriceReferences,
 } from '../../../../lib/seo/rubro-prices';
 
 const sora = Sora({
@@ -22,11 +20,7 @@ const sora = Sora({
   weight: ['400', '500', '600', '700', '800'],
 });
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return rubroSlugs.flatMap((rubro) => ciudadSlugs.map((ciudad) => ({ rubro, ciudad })));
-}
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -34,14 +28,14 @@ export async function generateMetadata({
   params: Promise<{ rubro: string; ciudad: string }>;
 }): Promise<Metadata> {
   const { rubro, ciudad } = await params;
-  const rubroData = rubros[rubro as RubroKey];
+  const rubroData = await getActiveLaborCategoryBySlug(rubro);
   const ciudadData = ciudades[ciudad as CiudadKey];
   if (!rubroData || !ciudadData) {
     return { title: 'Rubro no encontrado | UrbanFix' };
   }
   return {
-    title: `MANO DE OBRA de ${rubroData.title} en ${ciudadData.name} | UrbanFix`,
-    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubroData.title.toLowerCase()} en ${ciudadData.name}.`,
+    title: `MANO DE OBRA de ${rubroData.name} en ${ciudadData.name} | UrbanFix`,
+    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubroData.name.toLowerCase()} en ${ciudadData.name}.`,
     alternates: { canonical: `/rubros/${rubro}/${ciudad}` },
   };
 }
@@ -52,14 +46,13 @@ export default async function RubroCiudadPage({
   params: Promise<{ rubro: string; ciudad: string }>;
 }) {
   const { rubro, ciudad } = await params;
-  const rubroKey = rubro as RubroKey;
   const ciudadKey = ciudad as CiudadKey;
-  const rubroData = rubros[rubroKey];
+  const rubroData = await getActiveLaborCategoryBySlug(rubro);
   const ciudadData = ciudades[ciudadKey];
   if (!rubroData || !ciudadData) return notFound();
 
-  const priceData = await getRubroPriceReferences(rubroKey, ciudadKey);
-  const twemojiCode = rubroTwemoji[rubroKey];
+  const priceData = await getCategoryPriceReferences(rubro, ciudadKey);
+  const twemojiCode = getRubroTwemojiByName(rubroData.name);
 
   return (
     <div className={sora.className}>
@@ -72,18 +65,18 @@ export default async function RubroCiudadPage({
             <div className="mt-3 flex items-start gap-4">
               <img
                 src={`/twemoji/${twemojiCode}.svg`}
-                alt={`Icono ${rubroData.title}`}
+                alt={`Icono ${rubroData.name}`}
                 className="h-12 w-12 shrink-0"
                 loading="lazy"
                 decoding="async"
               />
               <div className="min-w-0">
                 <h1 className="text-3xl font-semibold text-white sm:text-4xl">
-                  Precios de {rubroData.title} en {ciudadData.name}
+                  Precios de {rubroData.name} en {ciudadData.name}
                 </h1>
                 <p className="mt-4 text-sm text-white/80">
-                  {rubroData.description} UrbanFix ayuda a ordenar presupuestos, clientes y materiales de obra para{' '}
-                  {rubroData.title.toLowerCase()} en {ciudadData.name}.
+                  Rubro real de base de datos UrbanFix. Organiza presupuestos, clientes y materiales de obra para{' '}
+                  {rubroData.name.toLowerCase()} en {ciudadData.name}.
                 </p>
               </div>
             </div>
@@ -153,17 +146,16 @@ export default async function RubroCiudadPage({
           </section>
 
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Servicios frecuentes</p>
-            <ul className="mt-4 space-y-3 text-sm text-white/75">
-              {rubroData.services.map((service) => (
-                <li key={service}>{service}</li>
-              ))}
-            </ul>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Cobertura</p>
+            <p className="mt-4 text-sm text-white/75">
+              Esta vista reutiliza los precios activos del rubro en la base UrbanFix para referencia en{' '}
+              {ciudadData.name}. Puedes ajustar valores finales segun urgencia, tipo de trabajo y distancia.
+            </p>
           </section>
 
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-sm text-white/75">
             Gestiona presupuestos, clientes y materiales de obra con mano de obra clara para{' '}
-            {rubroData.title.toLowerCase()} en {ciudadData.name}.
+            {rubroData.name.toLowerCase()} en {ciudadData.name}.
           </section>
         </div>
       </main>

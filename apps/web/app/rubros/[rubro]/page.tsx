@@ -2,26 +2,21 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
+import { ciudades, ciudadSlugs } from '../../../lib/seo/urbanfix-data';
+import { getRubroTwemojiByName } from '../../../lib/seo/rubro-icons';
 import {
-  ciudades,
-  ciudadSlugs,
-  rubros,
-  rubroSlugs,
-  type RubroKey,
-} from '../../../lib/seo/urbanfix-data';
-import { rubroTwemoji } from '../../../lib/seo/rubro-icons';
-import { formatArs, formatDateAr, getRubroPriceReferences } from '../../../lib/seo/rubro-prices';
+  formatArs,
+  formatDateAr,
+  getActiveLaborCategoryBySlug,
+  getCategoryPriceReferences,
+} from '../../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
 });
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return rubroSlugs.map((slug) => ({ rubro: slug }));
-}
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -29,27 +24,26 @@ export async function generateMetadata({
   params: Promise<{ rubro: string }>;
 }): Promise<Metadata> {
   const { rubro: slug } = await params;
-  const rubro = rubros[slug as RubroKey];
+  const rubro = await getActiveLaborCategoryBySlug(slug);
   if (!rubro) {
     return {
       title: 'Rubro no encontrado | UrbanFix',
     };
   }
   return {
-    title: `MANO DE OBRA en ${rubro.title} | UrbanFix Argentina`,
-    description: `Gestion de presupuestos, gestion de clientes y materiales de obra para ${rubro.title.toLowerCase()} en Argentina.`,
+    title: `MANO DE OBRA en ${rubro.name} | UrbanFix Argentina`,
+    description: `Gestion de presupuestos, clientes y materiales de obra para ${rubro.name.toLowerCase()} en Argentina con datos reales.`,
     alternates: { canonical: `/rubros/${slug}` },
   };
 }
 
 export default async function RubroPage({ params }: { params: Promise<{ rubro: string }> }) {
   const { rubro: slug } = await params;
-  const rubroKey = slug as RubroKey;
-  const rubro = rubros[rubroKey];
+  const rubro = await getActiveLaborCategoryBySlug(slug);
   if (!rubro) return notFound();
 
-  const priceData = await getRubroPriceReferences(rubroKey);
-  const twemojiCode = rubroTwemoji[rubroKey];
+  const priceData = await getCategoryPriceReferences(slug);
+  const twemojiCode = getRubroTwemojiByName(rubro.name);
 
   return (
     <div className={sora.className}>
@@ -62,16 +56,18 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
             <div className="mt-3 flex items-start gap-4">
               <img
                 src={`/twemoji/${twemojiCode}.svg`}
-                alt={`Icono ${rubro.title}`}
+                alt={`Icono ${rubro.name}`}
                 className="h-12 w-12 shrink-0"
                 loading="lazy"
                 decoding="async"
               />
               <div className="min-w-0">
                 <h1 className="text-3xl font-semibold text-white sm:text-4xl">
-                  {rubro.title} - precios de mano de obra y presupuesto
+                  {rubro.name} - precios de mano de obra y presupuesto
                 </h1>
-                <p className="mt-4 text-sm text-white/80">{rubro.description}</p>
+                <p className="mt-4 text-sm text-white/80">
+                  Rubro real de base de datos UrbanFix con valores activos para cotizar y presupuestar.
+                </p>
               </div>
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -158,7 +154,7 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
 
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-sm text-white/75">
             Gestiona precios, materiales de obra y presupuestos por rubro. UrbanFix centraliza la mano de obra y la
-            comunicacion con clientes para trabajos de {rubro.title.toLowerCase()} en Argentina.
+            comunicacion con clientes para trabajos de {rubro.name.toLowerCase()} en Argentina.
           </section>
         </div>
       </main>
