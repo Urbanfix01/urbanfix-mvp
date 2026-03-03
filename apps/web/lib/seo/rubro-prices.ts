@@ -298,7 +298,7 @@ export const getCategoryPriceReferences = async (
   };
 };
 
-const categoryMatch = (row: MasterItemRow, terms: string[]) => {
+const textMatch = (row: MasterItemRow, terms: string[]) => {
   const category = normalize(cleanText(row.category));
   const name = normalize(cleanText(row.name));
   return terms.some((termRaw) => {
@@ -310,7 +310,9 @@ const categoryMatch = (row: MasterItemRow, terms: string[]) => {
 
 const getCatalogRows = async (rubro: RubroCatalogItem) => {
   const allItems = await fetchActiveLaborItems();
-  const selected = allItems.filter((row) => categoryMatch(row, rubro.terms));
+  const sourceSet = new Set(rubro.sources.map((source) => normalize(source)));
+  const selectedBySource = allItems.filter((row) => sourceSet.has(normalize(cleanText(row.source_ref))));
+  const selected = rubro.terms?.length ? selectedBySource.filter((row) => textMatch(row, rubro.terms || [])) : selectedBySource;
   return selected.sort(
     (a, b) =>
       Number(b.suggested_price || 0) - Number(a.suggested_price || 0) ||
@@ -319,16 +321,15 @@ const getCatalogRows = async (rubro: RubroCatalogItem) => {
 };
 
 export const getCatalogRubrosOverview = cache(async (): Promise<CatalogRubroOverview[]> => {
-  const allItems = await fetchActiveLaborItems();
-  return rubroCatalog.map((rubro) => {
-    const selected = allItems.filter((row) => categoryMatch(row, rubro.terms));
+  return Promise.all(rubroCatalog.map(async (rubro) => {
+    const selected = await getCatalogRows(rubro);
     return {
       slug: rubro.slug,
       label: rubro.label,
       itemCount: selected.length,
       lastUpdatedAt: getLatestDate(selected),
     };
-  });
+  }));
 });
 
 export const getCatalogRubroBySlug = (slug: string) => rubroCatalogBySlug.get(slug) || null;
