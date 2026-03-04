@@ -22,6 +22,10 @@ yarn-error.log*
 .expo-shared
 .expo-packager-cache
 .expo-cli
+**/.next
+**/.turbo
+**/dist
+**/build
 
 # Android/iOS build outputs
 **/android/app/build
