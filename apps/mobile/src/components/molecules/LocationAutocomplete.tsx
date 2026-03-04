@@ -21,6 +21,9 @@ interface LocationData {
 interface Prediction {
   description: string;
   place_id: string;
+  lat?: number;
+  lng?: number;
+  source?: 'google' | 'osm';
 }
 
 interface Props {
@@ -31,6 +34,15 @@ interface Props {
 }
 
 const MIN_QUERY_LENGTH = 3;
+
+const OSM_SEARCH_URL = 'https://nominatim.openstreetmap.org/search';
+
+type OsmRow = {
+  place_id?: string | number;
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+};
 
 const getEnvApiKey = () => {
   if (Platform.OS === 'web') {
@@ -80,6 +92,34 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     });
   };
 
+  const geocodeWithOsm = async (address: string, signal?: AbortSignal) => {
+    const trimmed = String(address || '').trim();
+    if (!trimmed) return null;
+    const url =
+      `${OSM_SEARCH_URL}?format=json&limit=1&countrycodes=ar` +
+      `&addressdetails=1&q=${encodeURIComponent(trimmed)}`;
+    const response = await fetch(url, {
+      signal,
+      headers: {
+        'Accept-Language': 'es-AR,es;q=0.9',
+      },
+    });
+    if (!response.ok) return null;
+    const rows = (await response.json()) as OsmRow[];
+    const first = rows?.[0];
+    if (!first) return null;
+    const lat = Number(first.lat);
+    const lng = Number(first.lon);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    return {
+      address: String(first.display_name || trimmed),
+      lat: hasCoords ? lat : 0,
+      lng: hasCoords ? lng : 0,
+      placeId: String(first.place_id || ''),
+      hasCoords,
+    };
+  };
+
   useEffect(() => {
     setQuery(initialValue || '');
     committedAddressRef.current = (initialValue || '').trim();
@@ -95,12 +135,6 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       return;
     }
 
-    if (!finalApiKey) {
-      setPredictions([]);
-      setDebugStatus('MISSING_API_KEY');
-      return;
-    }
-
     const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
     sessionTokenRef.current = sessionToken;
 
@@ -111,21 +145,64 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
 
     const timeoutId = setTimeout(async () => {
       try {
-        const url =
-          `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}` +
-          `&key=${finalApiKey}&language=es&types=address&components=country:ar&sessiontoken=${sessionToken}`;
-        const response = await fetch(url, { signal: controller.signal });
-        const json = await response.json();
-        const status = String(json?.status || '');
+        if (finalApiKey) {
+          const url =
+            `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(query)}` +
+            `&key=${finalApiKey}&language=es&types=address&components=country:ar&sessiontoken=${sessionToken}`;
+          const response = await fetch(url, { signal: controller.signal });
+          const json = await response.json();
+          const status = String(json?.status || '');
 
-        if (status === 'OK' && Array.isArray(json?.predictions)) {
-          setPredictions(json.predictions);
-          setDebugStatus(`OK (${json.predictions.length})`);
+          if (status === 'OK' && Array.isArray(json?.predictions)) {
+            const googleRows: Prediction[] = json.predictions.map((item: any) => ({
+              description: String(item?.description || ''),
+              place_id: String(item?.place_id || ''),
+              source: 'google',
+            }));
+            setPredictions(googleRows);
+            setDebugStatus(`GOOGLE (${googleRows.length})`);
+            return;
+          }
+
+          // Fallback robusto si Google devuelve cero resultados.
+          if (status && status !== 'ZERO_RESULTS') {
+            setDebugStatus(status);
+          }
+        }
+
+        const osmUrl =
+          `${OSM_SEARCH_URL}?format=json&limit=5&countrycodes=ar` +
+          `&addressdetails=1&q=${encodeURIComponent(query)}`;
+        const osmResponse = await fetch(osmUrl, {
+          signal: controller.signal,
+          headers: {
+            'Accept-Language': 'es-AR,es;q=0.9',
+          },
+        });
+        if (!osmResponse.ok) {
+          setPredictions([]);
+          setDebugStatus(finalApiKey ? 'GOOGLE_NO_RESULTS' : 'OSM_ERROR');
           return;
         }
 
-        setPredictions([]);
-        setDebugStatus(status || 'UNKNOWN');
+        const osmRows = (await osmResponse.json()) as OsmRow[];
+        const mapped: Prediction[] = (osmRows || [])
+          .map((row) => {
+            const lat = Number(row.lat);
+            const lng = Number(row.lon);
+            const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+            return {
+              description: String(row.display_name || ''),
+              place_id: String(row.place_id || Math.random().toString(36).slice(2)),
+              lat: hasCoords ? lat : undefined,
+              lng: hasCoords ? lng : undefined,
+              source: 'osm' as const,
+            };
+          })
+          .filter((row) => row.description.trim().length > 0);
+
+        setPredictions(mapped);
+        setDebugStatus(`OSM (${mapped.length})`);
       } catch (error: any) {
         if (error?.name !== 'AbortError') {
           setPredictions([]);
@@ -148,8 +225,27 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     setPredictions([]);
     setIsFocused(false);
 
+    if (prediction.source === 'osm' && Number.isFinite(prediction.lat) && Number.isFinite(prediction.lng)) {
+      commitAddress(
+        fallbackAddress,
+        prediction.place_id,
+        Number(prediction.lat),
+        Number(prediction.lng)
+      );
+      return;
+    }
+
     if (!finalApiKey) {
-      commitAddress(fallbackAddress, prediction.place_id);
+      try {
+        const resolved = await geocodeWithOsm(fallbackAddress);
+        if (resolved?.hasCoords) {
+          commitAddress(resolved.address, resolved.placeId || prediction.place_id, resolved.lat, resolved.lng);
+        } else {
+          commitAddress(fallbackAddress, prediction.place_id);
+        }
+      } catch {
+        commitAddress(fallbackAddress, prediction.place_id);
+      }
       return;
     }
 
@@ -187,6 +283,20 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       setIsFocused(false);
       const typedAddress = query.trim();
       if (typedAddress && typedAddress !== committedAddressRef.current) {
+        if (!finalApiKey) {
+          void geocodeWithOsm(typedAddress)
+            .then((resolved) => {
+              if (resolved?.hasCoords) {
+                commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng);
+                return;
+              }
+              commitAddress(typedAddress);
+            })
+            .catch(() => {
+              commitAddress(typedAddress);
+            });
+          return;
+        }
         commitAddress(typedAddress);
       }
     }, 160);
@@ -227,7 +337,20 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
               onChangeText={setQuery}
               onBlur={() => {
                 const typedAddress = query.trim();
-                if (typedAddress) commitAddress(typedAddress);
+                if (!typedAddress) return;
+                if (!finalApiKey) {
+                  void geocodeWithOsm(typedAddress)
+                    .then((resolved) => {
+                      if (resolved?.hasCoords) {
+                        commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng);
+                        return;
+                      }
+                      commitAddress(typedAddress);
+                    })
+                    .catch(() => commitAddress(typedAddress));
+                  return;
+                }
+                commitAddress(typedAddress);
               }}
             />
           )}

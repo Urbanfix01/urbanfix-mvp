@@ -101,20 +101,6 @@ export default function ClientProfileScreen() {
     }
   };
 
-  const handleSwitchToTech = () => {
-    Alert.alert('Cambiar a modo tecnico', 'Se cerrara sesion para volver a ingresar como tecnico.', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Continuar',
-        style: 'destructive',
-        onPress: async () => {
-          await setStoredAudience('tecnico');
-          await supabase.auth.signOut();
-        },
-      },
-    ]);
-  };
-
   const handleSignOut = () => {
     Alert.alert('Cerrar sesion', 'Seguro que deseas salir?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -235,9 +221,6 @@ export default function ClientProfileScreen() {
 
           <View style={styles.card}>
             <Text style={styles.cardTitle}>Cuenta</Text>
-            <TouchableOpacity style={styles.secondaryBtn} onPress={handleSwitchToTech}>
-              <Text style={styles.secondaryBtnText}>Ingresar como tecnico</Text>
-            </TouchableOpacity>
             <TouchableOpacity
               style={styles.dangerBtn}
               onPress={handleDeleteAccount}
