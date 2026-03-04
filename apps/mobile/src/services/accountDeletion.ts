@@ -13,7 +13,15 @@ export const deleteCurrentAccount = async () => {
     throw new Error(sessionError.message || 'No se pudo validar la sesion.');
   }
 
-  const accessToken = session?.access_token;
+  let accessToken = session?.access_token || '';
+  if (!accessToken) {
+    const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+    if (refreshError) {
+      throw new Error(refreshError.message || 'Sesion expirada. Ingresa nuevamente e intenta otra vez.');
+    }
+    accessToken = refreshData?.session?.access_token || '';
+  }
+
   if (!accessToken) {
     throw new Error('Sesion expirada. Ingresa nuevamente e intenta otra vez.');
   }
@@ -38,6 +46,9 @@ export const deleteCurrentAccount = async () => {
 
   const { error: signOutError } = await supabase.auth.signOut();
   if (signOutError) {
-    throw new Error(signOutError.message || 'La cuenta se elimino, pero no se pudo cerrar sesion.');
+    const signOutMessage = String(signOutError.message || '');
+    if (!/auth session missing/i.test(signOutMessage)) {
+      throw new Error(signOutMessage || 'La cuenta se elimino, pero no se pudo cerrar sesion.');
+    }
   }
 };
