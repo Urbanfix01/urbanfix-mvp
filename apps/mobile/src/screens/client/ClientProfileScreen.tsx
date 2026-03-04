@@ -16,11 +16,13 @@ import { supabase } from '../../lib/supabase';
 import { setStoredAudience } from '../../utils/audience';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { COLORS, FONTS } from '../../utils/theme';
+import { deleteCurrentAccount } from '../../services/accountDeletion';
 
 export default function ClientProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [email, setEmail] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -134,6 +136,34 @@ export default function ClientProfileScreen() {
     ]);
   };
 
+  const confirmDeleteAccount = async () => {
+    try {
+      setDeletingAccount(true);
+      await setStoredAudience('cliente');
+      await deleteCurrentAccount();
+      setMessage('Cuenta eliminada correctamente.');
+    } catch (error: any) {
+      setMessage(error?.message || 'No pudimos eliminar tu cuenta.');
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      'Eliminar cuenta',
+      'Esta accion elimina tu cuenta de forma permanente y no se puede deshacer.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => void confirmDeleteAccount(),
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Mi perfil" subtitle="Cliente" centerTitle />
@@ -198,6 +228,17 @@ export default function ClientProfileScreen() {
             <Text style={styles.cardTitle}>Cuenta</Text>
             <TouchableOpacity style={styles.secondaryBtn} onPress={handleSwitchToTech}>
               <Text style={styles.secondaryBtnText}>Ingresar como tecnico</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.dangerBtn}
+              onPress={handleDeleteAccount}
+              disabled={deletingAccount}
+            >
+              {deletingAccount ? (
+                <ActivityIndicator color="#B91C1C" />
+              ) : (
+                <Text style={styles.dangerBtnText}>Eliminar cuenta</Text>
+              )}
             </TouchableOpacity>
             <TouchableOpacity style={styles.dangerBtn} onPress={handleSignOut}>
               <Text style={styles.dangerBtnText}>Cerrar sesion</Text>

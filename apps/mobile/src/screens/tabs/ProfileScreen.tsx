@@ -12,6 +12,8 @@ import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { uploadImageToSupabase } from '../../services/StorageService';
+import { deleteCurrentAccount } from '../../services/accountDeletion';
+import { setStoredAudience } from '../../utils/audience';
 
 // --- COMPONENTES DE MAPAS ---
 import { LocationAutocomplete } from '../../components/molecules/LocationAutocomplete';
@@ -43,6 +45,7 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<'logo' | 'avatar' | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   
   // Estados de Datos (Formulario)
   const [profile, setProfile] = useState<Profile | null>(null);
@@ -203,6 +206,37 @@ export default function ProfileScreen() {
             { text: "Salir", style: "destructive", onPress: performLogout }
         ]);
     }
+  };
+
+  const confirmDeleteAccount = async () => {
+    try {
+      setDeletingAccount(true);
+      await setStoredAudience('tecnico');
+      await deleteCurrentAccount();
+      const successMessage = 'Tu cuenta fue eliminada correctamente.';
+      isWeb ? alert(successMessage) : Alert.alert('Cuenta eliminada', successMessage);
+    } catch (error: any) {
+      const errorMessage = error?.message || 'No se pudo eliminar la cuenta.';
+      isWeb ? alert(errorMessage) : Alert.alert('Error', errorMessage);
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
+  const handleDeleteAccount = () => {
+    const warningMessage = 'Esta accion elimina tu cuenta de forma permanente y no se puede deshacer.';
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`${warningMessage}\n\nDeseas continuar?`)) {
+        void confirmDeleteAccount();
+      }
+      return;
+    }
+
+    Alert.alert('Eliminar cuenta', warningMessage, [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Eliminar', style: 'destructive', onPress: () => void confirmDeleteAccount() },
+    ]);
   };
 
   const getInitials = (name?: string | null) => {
@@ -436,6 +470,21 @@ export default function ProfileScreen() {
             }} 
           />
         </View>
+
+        <TouchableOpacity
+          style={[styles.logoutBtn, styles.deleteAccountBtn]}
+          onPress={handleDeleteAccount}
+          disabled={deletingAccount}
+        >
+          {deletingAccount ? (
+            <ActivityIndicator color={COLORS.danger} />
+          ) : (
+            <>
+              <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+              <Text style={styles.deleteAccountText}>Eliminar cuenta</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
             <Ionicons name="log-out-outline" size={20} color={COLORS.danger} />
@@ -690,5 +739,7 @@ const styles = StyleSheet.create({
 
   logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF1F2', padding: 16, borderRadius: 14, borderWidth: 1, borderColor: '#FEE2E2' },
   logoutText: { marginLeft: 8, fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.danger },
+  deleteAccountBtn: { marginBottom: 10 },
+  deleteAccountText: { marginLeft: 8, fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.danger },
   versionText: { textAlign: 'center', marginTop: 20, color: '#94A3B8', fontFamily: FONTS.body, fontSize: 10 }
 });

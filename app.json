@@ -5,6 +5,7 @@
     "owner": "urbanfix",
     "ios": {
       "bundleIdentifier": "com.urbanfix.urbanfix",
+      "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }

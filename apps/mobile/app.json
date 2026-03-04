@@ -18,6 +18,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.urbanfix.urbanfix",
       "buildNumber": "11",
+      "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
       }
@@ -50,7 +51,8 @@
     "plugins": [
       "expo-font",
       "expo-router",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-apple-authentication"
     ],
     "extra": {
       "eas": {

@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import Constants from 'expo-constants';
 
 import { supabase } from '../../lib/supabase';
@@ -56,6 +57,7 @@ export default function AuthScreen() {
   const insets = useSafeAreaInsets();
   const isRegister = !isLogin;
   const isClientAudience = audience === 'cliente';
+  const showAppleButton = Platform.OS === 'ios';
 
   const clearRegisterFields = () => {
     setFullName('');
@@ -187,6 +189,45 @@ export default function AuthScreen() {
       Alert.alert('Continuar en Google', 'Si completaste el login, la app deberia abrirse automaticamente.');
     } catch (error: any) {
       Alert.alert('Error', error?.message || 'No se pudo iniciar con Google.');
+    }
+  };
+
+  const handleAppleAuth = async () => {
+    if (!showAppleButton) return;
+    if (loading) return;
+
+    try {
+      const isAvailable = await AppleAuthentication.isAvailableAsync();
+      if (!isAvailable) {
+        throw new Error('Apple Sign-In no disponible en este dispositivo.');
+      }
+
+      await setStoredAudience(audience);
+
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      if (!credential.identityToken) {
+        throw new Error('Apple no devolvio un token valido.');
+      }
+
+      const { error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken,
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error: any) {
+      if (error?.code === 'ERR_REQUEST_CANCELED') {
+        return;
+      }
+      Alert.alert('Error', error?.message || 'No se pudo iniciar con Apple.');
     }
   };
 
@@ -335,6 +376,9 @@ export default function AuthScreen() {
   const registerHint = isClientAudience
     ? 'Completa tus datos para publicar solicitudes.'
     : 'Completa tu perfil profesional y listo.';
+  const socialLoginText = showAppleButton
+    ? 'Usa Apple, Google o tu correo. Rapido y seguro.'
+    : 'Usa Google o tu correo. Rapido y seguro.';
 
   return (
     <LinearGradient colors={['#0B1221', '#1C2A3A', '#0B1221']} style={styles.container}>
@@ -420,11 +464,23 @@ export default function AuthScreen() {
             <Text style={styles.cardTitle}>
               {isLogin ? (isClientAudience ? 'Acceso cliente' : 'Acceso rapido') : isClientAudience ? 'Registro cliente' : 'Registro profesional'}
             </Text>
-            <Text style={styles.cardSubtitle}>Usa Google o tu correo. Rapido y seguro.</Text>
+            <Text style={styles.cardSubtitle}>{socialLoginText}</Text>
 
             <TouchableOpacity style={styles.googleButton} onPress={handleGoogleAuth} disabled={loading} activeOpacity={0.85}>
               <Text style={styles.googleButtonText}>CONTINUAR CON GOOGLE</Text>
             </TouchableOpacity>
+
+            {showAppleButton && (
+              <View style={styles.appleButtonWrap}>
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={14}
+                  style={styles.appleButton}
+                  onPress={handleAppleAuth}
+                />
+              </View>
+            )}
 
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
@@ -702,6 +758,14 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   googleButtonText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14, letterSpacing: 0.5 },
+  appleButtonWrap: {
+    borderRadius: 14,
+    overflow: 'hidden',
+  },
+  appleButton: {
+    width: '100%',
+    height: 52,
+  },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(148,163,184,0.25)' },
   dividerText: { color: 'rgba(255,255,255,0.6)', fontFamily: FONTS.body, fontSize: 11 },
