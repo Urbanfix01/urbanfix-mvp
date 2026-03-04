@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 
 import { ClientRequest, ClientWorkspacePayload, fetchClientWorkspace, patchClientRequest } from '../../api/client';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
@@ -57,6 +57,7 @@ const canAdvance = (status: string) =>
 const canCancel = (status: string) => status !== 'completed' && status !== 'cancelled';
 
 export default function ClientRequestsScreen() {
+  const navigation = useNavigation<any>();
   const [requests, setRequests] = useState<ClientRequest[]>([]);
   const [workspaceWarning, setWorkspaceWarning] = useState('');
   const [workspaceError, setWorkspaceError] = useState('');
@@ -136,6 +137,19 @@ export default function ClientRequestsScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadWorkspace(true)} />}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.heroCard}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroEyebrow}>CLIENTE URBANFIX</Text>
+              <Text style={styles.heroTitle}>Gestiona tus pedidos sin perder seguimiento</Text>
+              <Text style={styles.heroText}>
+                Publica trabajos, revisa ofertas y mueve estados desde un solo panel.
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.heroAction} onPress={() => navigation.navigate('Publicar')}>
+              <Text style={styles.heroActionText}>Nueva solicitud</Text>
+            </TouchableOpacity>
+          </View>
+
           <View style={styles.summaryRow}>
             <View style={styles.summaryCard}>
               <Text style={styles.summaryLabel}>Total</Text>
@@ -154,12 +168,17 @@ export default function ClientRequestsScreen() {
           {!!workspaceWarning && <Text style={styles.warningText}>{workspaceWarning}</Text>}
           {!!workspaceError && <Text style={styles.errorText}>{workspaceError}</Text>}
 
+          <Text style={styles.sectionTitle}>Tus solicitudes</Text>
+
           {requests.length === 0 && (
             <View style={styles.emptyCard}>
               <Text style={styles.emptyTitle}>Sin solicitudes por ahora</Text>
               <Text style={styles.emptyText}>
-                Publica tu primer trabajo desde la pestaÃ±a "Publicar" para recibir ofertas.
+                Publica tu primer trabajo desde la pestana "Publicar" para recibir ofertas.
               </Text>
+              <TouchableOpacity style={styles.emptyBtn} onPress={() => navigation.navigate('Publicar')}>
+                <Text style={styles.emptyBtnText}>Ir a publicar</Text>
+              </TouchableOpacity>
             </View>
           )}
 
@@ -188,7 +207,7 @@ export default function ClientRequestsScreen() {
 
                 {!!request.assignedTechName && (
                   <Text style={styles.assignedText}>
-                    Tecnico: {request.assignedTechName}
+                    Tecnico asignado: {request.assignedTechName}
                     {request.assignedTechPhone ? ` (${request.assignedTechPhone})` : ''}
                   </Text>
                 )}
@@ -309,6 +328,27 @@ const styles = StyleSheet.create({
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontFamily: FONTS.body, color: COLORS.textSecondary },
   content: { padding: 16, gap: 12, paddingBottom: 28 },
+  heroCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 14,
+    gap: 10,
+  },
+  heroCopy: { gap: 6 },
+  heroEyebrow: { fontFamily: FONTS.subtitle, color: '#FCD34D', fontSize: 10, letterSpacing: 1.2 },
+  heroTitle: { fontFamily: FONTS.title, color: '#FFFFFF', fontSize: 18, lineHeight: 24 },
+  heroText: { fontFamily: FONTS.body, color: '#CBD5E1', fontSize: 12, lineHeight: 18 },
+  heroAction: {
+    alignSelf: 'flex-start',
+    backgroundColor: COLORS.primary,
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  heroActionText: { color: '#0F172A', fontFamily: FONTS.subtitle, fontSize: 12 },
+  sectionTitle: { fontFamily: FONTS.subtitle, color: '#64748B', fontSize: 11, letterSpacing: 1.2, textTransform: 'uppercase' },
   summaryRow: { flexDirection: 'row', gap: 8 },
   summaryCard: {
     flex: 1,
@@ -349,9 +389,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E2E8F0',
     padding: 14,
+    gap: 8,
   },
   emptyTitle: { fontFamily: FONTS.subtitle, color: COLORS.text, fontSize: 16 },
-  emptyText: { fontFamily: FONTS.body, color: COLORS.textSecondary, marginTop: 6, lineHeight: 20, fontSize: 13 },
+  emptyText: { fontFamily: FONTS.body, color: COLORS.textSecondary, lineHeight: 20, fontSize: 13 },
+  emptyBtn: {
+    alignSelf: 'flex-start',
+    borderRadius: 10,
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  emptyBtnText: { color: '#FFF', fontFamily: FONTS.subtitle, fontSize: 12 },
   requestCard: {
     backgroundColor: COLORS.white,
     borderRadius: 14,
@@ -395,4 +444,3 @@ const styles = StyleSheet.create({
   rejectBtn: { backgroundColor: '#DC2626' },
   cancelBtn: { backgroundColor: '#B91C1C' },
 });
-

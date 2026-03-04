@@ -52,9 +52,7 @@ export default function ClientProfileScreen() {
         .eq('id', user.id)
         .maybeSingle();
 
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
 
       setFullName(String(data?.full_name || user.user_metadata?.full_name || ''));
       setPhone(String(data?.phone || ''));
@@ -81,9 +79,7 @@ export default function ClientProfileScreen() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) {
-        throw new Error('Sesion no valida.');
-      }
+      if (!user) throw new Error('Sesion no valida.');
       if (!fullName.trim() || !phone.trim() || !city.trim()) {
         throw new Error('Completa nombre, telefono y ciudad.');
       }
@@ -96,10 +92,7 @@ export default function ClientProfileScreen() {
         city: city.trim(),
       });
 
-      if (error) {
-        throw error;
-      }
-
+      if (error) throw error;
       setMessage('Perfil actualizado.');
     } catch (error: any) {
       setMessage(error?.message || 'No pudimos guardar el perfil.');
@@ -123,7 +116,7 @@ export default function ClientProfileScreen() {
   };
 
   const handleSignOut = () => {
-    Alert.alert('Cerrar sesion', 'Â¿Seguro que deseas salir?', [
+    Alert.alert('Cerrar sesion', 'Seguro que deseas salir?', [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Salir',
@@ -164,6 +157,8 @@ export default function ClientProfileScreen() {
     );
   };
 
+  const isErrorMessage = /error|no pudimos|invalida|expirada|missing|unauthorized/i.test(message);
+
   return (
     <View style={styles.container}>
       <ScreenHeader title="Mi perfil" subtitle="Cliente" centerTitle />
@@ -179,7 +174,17 @@ export default function ClientProfileScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadProfile(true)} />}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.heroCard}>
+            <Text style={styles.heroEyebrow}>PERFIL CLIENTE</Text>
+            <Text style={styles.heroTitle}>Tus datos para coordinar trabajos rapido</Text>
+            <Text style={styles.heroText}>
+              Manten tu telefono y ciudad actualizados para recibir mejor atencion de tecnicos.
+            </Text>
+          </View>
+
           <View style={styles.card}>
+            <Text style={styles.cardTitle}>Datos personales</Text>
+
             <Text style={styles.label}>Email</Text>
             <View style={styles.emailPill}>
               <Text style={styles.emailText}>{email || 'Sin email'}</Text>
@@ -213,7 +218,11 @@ export default function ClientProfileScreen() {
               placeholderTextColor="#94A3B8"
             />
 
-            {!!message && <Text style={styles.messageText}>{message}</Text>}
+            {!!message && (
+              <Text style={[styles.messageText, isErrorMessage ? styles.messageError : styles.messageSuccess]}>
+                {message}
+              </Text>
+            )}
 
             <TouchableOpacity style={styles.primaryBtn} disabled={saving} onPress={handleSaveProfile}>
               {saving ? (
@@ -240,8 +249,8 @@ export default function ClientProfileScreen() {
                 <Text style={styles.dangerBtnText}>Eliminar cuenta</Text>
               )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.dangerBtn} onPress={handleSignOut}>
-              <Text style={styles.dangerBtnText}>Cerrar sesion</Text>
+            <TouchableOpacity style={styles.signOutBtn} onPress={handleSignOut}>
+              <Text style={styles.signOutBtnText}>Cerrar sesion</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -255,6 +264,17 @@ const styles = StyleSheet.create({
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontFamily: FONTS.body, color: COLORS.textSecondary },
   content: { padding: 16, gap: 12, paddingBottom: 30 },
+  heroCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 14,
+    gap: 6,
+  },
+  heroEyebrow: { fontFamily: FONTS.subtitle, color: '#FCD34D', fontSize: 10, letterSpacing: 1.2 },
+  heroTitle: { fontFamily: FONTS.title, color: '#FFFFFF', fontSize: 18, lineHeight: 24 },
+  heroText: { fontFamily: FONTS.body, color: '#CBD5E1', fontSize: 12, lineHeight: 18 },
   card: {
     backgroundColor: COLORS.white,
     borderRadius: 14,
@@ -285,7 +305,16 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   emailText: { fontFamily: FONTS.body, color: COLORS.textSecondary, fontSize: 13 },
-  messageText: { fontFamily: FONTS.body, color: COLORS.textSecondary, fontSize: 12 },
+  messageText: {
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  messageError: { borderColor: '#FECACA', backgroundColor: '#FEF2F2', color: '#991B1B' },
+  messageSuccess: { borderColor: '#BBF7D0', backgroundColor: '#F0FDF4', color: '#166534' },
   primaryBtn: {
     backgroundColor: '#0F172A',
     borderRadius: 12,
@@ -315,5 +344,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEF2F2',
   },
   dangerBtnText: { color: '#B91C1C', fontFamily: FONTS.subtitle, fontSize: 13 },
+  signOutBtn: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  signOutBtnText: { color: '#334155', fontFamily: FONTS.subtitle, fontSize: 13 },
 });
-

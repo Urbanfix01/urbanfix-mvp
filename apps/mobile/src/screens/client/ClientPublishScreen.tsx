@@ -13,7 +13,6 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 
 import {
-  ClientWorkspacePayload,
   KnownTechnician,
   createClientRequest,
   fetchClientWorkspace,
@@ -82,6 +81,7 @@ export default function ClientPublishScreen() {
     setTitle('');
     setCategory('');
     setAddress('');
+    setCity('');
     setDescription('');
     setPreferredWindow('');
     setUrgency('media');
@@ -132,7 +132,7 @@ export default function ClientPublishScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Publicar solicitud" subtitle="Flujo cliente" centerTitle />
+      <ScreenHeader title="Publicar solicitud" subtitle="Cliente UrbanFix" centerTitle />
 
       {loading ? (
         <View style={styles.loadingWrap}>
@@ -145,6 +145,14 @@ export default function ClientPublishScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => loadSupportData(true)} />}
           showsVerticalScrollIndicator={false}
         >
+          <View style={styles.heroCard}>
+            <Text style={styles.heroEyebrow}>NUEVA SOLICITUD</Text>
+            <Text style={styles.heroTitle}>Describe el trabajo y recibe respuestas rapido</Text>
+            <Text style={styles.heroText}>
+              Completa los datos clave, define urgencia y elige si quieres publicar en marketplace o directo.
+            </Text>
+          </View>
+
           {!!warning && <Text style={styles.warningText}>{warning}</Text>}
           {!!errorText && <Text style={styles.errorText}>{errorText}</Text>}
 
@@ -154,7 +162,7 @@ export default function ClientPublishScreen() {
               style={styles.input}
               value={title}
               onChangeText={setTitle}
-              placeholder="Titulo (ej: Perdida en baÃ±o)"
+              placeholder="Titulo (ej: Perdida en bano)"
               placeholderTextColor="#94A3B8"
             />
             <TextInput
@@ -245,7 +253,7 @@ export default function ClientPublishScreen() {
                 <Text style={styles.techTitle}>Tecnicos conocidos</Text>
                 {knownTechnicians.length === 0 && (
                   <Text style={styles.techEmpty}>
-                    Aun no hay tecnicos conocidos. Publica en marketplace primero para generar historial.
+                    Todavia no hay tecnicos conocidos. Publica en marketplace primero para generar historial.
                   </Text>
                 )}
                 {knownTechnicians.map((tech) => {
@@ -259,7 +267,7 @@ export default function ClientPublishScreen() {
                       <Text style={[styles.techName, selected && styles.techNameActive]}>{tech.name}</Text>
                       <Text style={[styles.techInfo, selected && styles.techInfoActive]}>
                         {tech.phone}
-                        {tech.specialty ? ` â€¢ ${tech.specialty}` : ''}
+                        {tech.specialty ? ` - ${tech.specialty}` : ''}
                       </Text>
                     </TouchableOpacity>
                   );
@@ -286,6 +294,17 @@ const styles = StyleSheet.create({
   loadingWrap: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
   loadingText: { fontFamily: FONTS.body, color: COLORS.textSecondary },
   content: { padding: 16, gap: 12, paddingBottom: 30 },
+  heroCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 14,
+    gap: 6,
+  },
+  heroEyebrow: { fontFamily: FONTS.subtitle, color: '#FCD34D', fontSize: 10, letterSpacing: 1.2 },
+  heroTitle: { fontFamily: FONTS.title, color: '#FFFFFF', fontSize: 18, lineHeight: 24 },
+  heroText: { fontFamily: FONTS.body, color: '#CBD5E1', fontSize: 12, lineHeight: 18 },
   warningText: {
     borderWidth: 1,
     borderColor: '#FDE68A',
@@ -372,4 +391,3 @@ const styles = StyleSheet.create({
   },
   publishBtnText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 14 },
 });
-
