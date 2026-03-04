@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  ActivityIndicator, Alert, Image, Platform, RefreshControl, TextInput, KeyboardAvoidingView 
+  ActivityIndicator, Alert, Image, Platform, RefreshControl, TextInput, KeyboardAvoidingView, Switch
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native'; 
@@ -30,10 +30,173 @@ interface Profile {
   email?: string;
   phone?: string | null;
   company_address?: string | null;
+  working_hours?: string | null;
   default_discount?: number | null;
   location_lat?: number | null;
   location_lng?: number | null;
 }
+
+type WorkingHoursConfig = {
+  weekdayFrom: string;
+  weekdayTo: string;
+  saturdayEnabled: boolean;
+  saturdayFrom: string;
+  saturdayTo: string;
+  sundayEnabled: boolean;
+  sundayFrom: string;
+  sundayTo: string;
+};
+
+const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
+  weekdayFrom: '09:00',
+  weekdayTo: '18:00',
+  saturdayEnabled: false,
+  saturdayFrom: '09:00',
+  saturdayTo: '13:00',
+  sundayEnabled: false,
+  sundayFrom: '09:00',
+  sundayTo: '13:00',
+};
+
+const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return fallback;
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const normalizeTextForHours = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const extractTimeRange = (value: string, pattern: RegExp): [string, string] | null => {
+  const match = value.match(pattern);
+  if (!match) return null;
+  return [match[1], match[2]];
+};
+
+const parseWorkingHoursConfig = (rawValue: string | null | undefined): WorkingHoursConfig => {
+  const safe = String(rawValue || '').trim();
+  const base: WorkingHoursConfig = { ...DEFAULT_WORKING_HOURS_CONFIG };
+  if (!safe) return base;
+
+  try {
+    const parsed = JSON.parse(safe);
+    if (parsed && typeof parsed === 'object') {
+      const weekday = (parsed as any).weekday || {};
+      const saturday = (parsed as any).saturday || {};
+      const sunday = (parsed as any).sunday || {};
+      return {
+        weekdayFrom: normalizeTimeValue(weekday.from, base.weekdayFrom),
+        weekdayTo: normalizeTimeValue(weekday.to, base.weekdayTo),
+        saturdayEnabled: Boolean(saturday.enabled),
+        saturdayFrom: normalizeTimeValue(saturday.from, base.saturdayFrom),
+        saturdayTo: normalizeTimeValue(saturday.to, base.saturdayTo),
+        sundayEnabled: Boolean(sunday.enabled),
+        sundayFrom: normalizeTimeValue(sunday.from, base.sundayFrom),
+        sundayTo: normalizeTimeValue(sunday.to, base.sundayTo),
+      };
+    }
+  } catch {
+    // Legacy text payload.
+  }
+
+  const normalized = normalizeTextForHours(safe);
+  const weekdayRange =
+    extractTimeRange(
+      normalized,
+      /lun(?:es)?\s*(?:a|-|al)\s*vie(?:rnes)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+    ) || extractTimeRange(normalized, /(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/);
+  const saturdayRange = extractTimeRange(
+    normalized,
+    /sab(?:ado)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+  const sundayRange = extractTimeRange(
+    normalized,
+    /dom(?:ingo)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+
+  if (weekdayRange) {
+    base.weekdayFrom = normalizeTimeValue(weekdayRange[0], base.weekdayFrom);
+    base.weekdayTo = normalizeTimeValue(weekdayRange[1], base.weekdayTo);
+  }
+  if (saturdayRange) {
+    base.saturdayEnabled = true;
+    base.saturdayFrom = normalizeTimeValue(saturdayRange[0], base.saturdayFrom);
+    base.saturdayTo = normalizeTimeValue(saturdayRange[1], base.saturdayTo);
+  }
+  if (sundayRange) {
+    base.sundayEnabled = true;
+    base.sundayFrom = normalizeTimeValue(sundayRange[0], base.sundayFrom);
+    base.sundayTo = normalizeTimeValue(sundayRange[1], base.sundayTo);
+  }
+
+  return base;
+};
+
+const timeToMinutes = (time: string) => {
+  const [hoursRaw, minutesRaw] = String(time || '').split(':');
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return -1;
+  return hours * 60 + minutes;
+};
+
+const validateWorkingHoursConfig = (config: WorkingHoursConfig) => {
+  const weekdayFrom = timeToMinutes(config.weekdayFrom);
+  const weekdayTo = timeToMinutes(config.weekdayTo);
+  if (weekdayFrom < 0 || weekdayTo < 0 || weekdayFrom >= weekdayTo) {
+    return 'Revisa Lunes a Viernes: Desde debe ser menor que Hasta.';
+  }
+  if (config.saturdayEnabled) {
+    const saturdayFrom = timeToMinutes(config.saturdayFrom);
+    const saturdayTo = timeToMinutes(config.saturdayTo);
+    if (saturdayFrom < 0 || saturdayTo < 0 || saturdayFrom >= saturdayTo) {
+      return 'Revisa Sabado: Desde debe ser menor que Hasta.';
+    }
+  }
+  if (config.sundayEnabled) {
+    const sundayFrom = timeToMinutes(config.sundayFrom);
+    const sundayTo = timeToMinutes(config.sundayTo);
+    if (sundayFrom < 0 || sundayTo < 0 || sundayFrom >= sundayTo) {
+      return 'Revisa Domingo: Desde debe ser menor que Hasta.';
+    }
+  }
+  return '';
+};
+
+const stringifyWorkingHoursConfig = (config: WorkingHoursConfig) =>
+  JSON.stringify({
+    weekday: {
+      from: normalizeTimeValue(config.weekdayFrom, DEFAULT_WORKING_HOURS_CONFIG.weekdayFrom),
+      to: normalizeTimeValue(config.weekdayTo, DEFAULT_WORKING_HOURS_CONFIG.weekdayTo),
+    },
+    saturday: {
+      enabled: Boolean(config.saturdayEnabled),
+      from: normalizeTimeValue(config.saturdayFrom, DEFAULT_WORKING_HOURS_CONFIG.saturdayFrom),
+      to: normalizeTimeValue(config.saturdayTo, DEFAULT_WORKING_HOURS_CONFIG.saturdayTo),
+    },
+    sunday: {
+      enabled: Boolean(config.sundayEnabled),
+      from: normalizeTimeValue(config.sundayFrom, DEFAULT_WORKING_HOURS_CONFIG.sundayFrom),
+      to: normalizeTimeValue(config.sundayTo, DEFAULT_WORKING_HOURS_CONFIG.sundayTo),
+    },
+  });
+
+const formatWorkingHoursSummary = (config: WorkingHoursConfig) => {
+  const chunks = [`Lun a Vie ${config.weekdayFrom} - ${config.weekdayTo}`];
+  if (config.saturdayEnabled) chunks.push(`Sab ${config.saturdayFrom} - ${config.saturdayTo}`);
+  if (config.sundayEnabled) chunks.push(`Dom ${config.sundayFrom} - ${config.sundayTo}`);
+  return chunks.join(' | ');
+};
 
 export default function ProfileScreen() {
   const navigation = useNavigation();
@@ -54,6 +217,7 @@ export default function ProfileScreen() {
   const [address, setAddress] = useState('');
   const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({ ...DEFAULT_WORKING_HOURS_CONFIG });
 
   // --- 1. LÓGICA DE CARGA DE DATOS ---
   const getProfile = async (isSilent = false) => {
@@ -79,6 +243,7 @@ export default function ProfileScreen() {
       setPhone(userProfile.phone || '');
       setAddress(userProfile.company_address || '');
       setDefaultDiscount(userProfile.default_discount !== null && userProfile.default_discount !== undefined ? String(userProfile.default_discount) : '');
+      setWorkingHours(parseWorkingHoursConfig(userProfile.working_hours));
       if (userProfile.location_lat && userProfile.location_lng) {
         setLocation({ lat: userProfile.location_lat, lng: userProfile.location_lng });
       }
@@ -157,12 +322,15 @@ export default function ProfileScreen() {
       setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
+      const workingHoursError = validateWorkingHoursConfig(workingHours);
+      if (workingHoursError) throw new Error(workingHoursError);
 
       const updates = {
         business_name: businessName,
         phone: phone,
         company_address: address, 
         default_discount: parsePercent(defaultDiscount),
+        working_hours: stringifyWorkingHoursConfig(workingHours),
         location_lat: location.lat !== 0 ? location.lat : null,
         location_lng: location.lng !== 0 ? location.lng : null,
         updated_at: new Date(),
@@ -253,6 +421,25 @@ export default function ProfileScreen() {
     return Math.min(100, Math.max(0, parsed));
   };
 
+  const handleWorkingTimeChange = (
+    key: 'weekdayFrom' | 'weekdayTo' | 'saturdayFrom' | 'saturdayTo' | 'sundayFrom' | 'sundayTo',
+    rawValue: string
+  ) => {
+    const sanitized = String(rawValue || '')
+      .replace(/[^\d:]/g, '')
+      .slice(0, 5);
+    setWorkingHours((prev) => ({ ...prev, [key]: sanitized }));
+  };
+
+  const finalizeWorkingTime = (
+    key: 'weekdayFrom' | 'weekdayTo' | 'saturdayFrom' | 'saturdayTo' | 'sundayFrom' | 'sundayTo'
+  ) => {
+    setWorkingHours((prev) => ({
+      ...prev,
+      [key]: normalizeTimeValue(prev[key], DEFAULT_WORKING_HOURS_CONFIG[key]),
+    }));
+  };
+
   const handleCancelEdit = () => {
     if (profile) {
       setBusinessName(profile.business_name || '');
@@ -263,6 +450,7 @@ export default function ProfileScreen() {
           ? String(profile.default_discount)
           : ''
       );
+      setWorkingHours(parseWorkingHoursConfig(profile.working_hours));
       if (profile.location_lat && profile.location_lng) {
         setLocation({ lat: profile.location_lat, lng: profile.location_lng });
       } else {
@@ -430,6 +618,122 @@ export default function ProfileScreen() {
             </View>
 
             {/* Botón Guardar Cambios de Texto */}
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>HORARIOS DE ATENCION</Text>
+                <View style={styles.scheduleCard}>
+                  <View style={styles.scheduleRow}>
+                    <View style={styles.scheduleField}>
+                      <Text style={styles.scheduleFieldLabel}>Lun a Vie desde</Text>
+                      <TextInput
+                        style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                        value={workingHours.weekdayFrom}
+                        onChangeText={(value) => handleWorkingTimeChange('weekdayFrom', value)}
+                        onBlur={() => finalizeWorkingTime('weekdayFrom')}
+                        placeholder="09:00"
+                        editable={isEditing}
+                        selectTextOnFocus={isEditing}
+                      />
+                    </View>
+                    <View style={styles.scheduleField}>
+                      <Text style={styles.scheduleFieldLabel}>Lun a Vie hasta</Text>
+                      <TextInput
+                        style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                        value={workingHours.weekdayTo}
+                        onChangeText={(value) => handleWorkingTimeChange('weekdayTo', value)}
+                        onBlur={() => finalizeWorkingTime('weekdayTo')}
+                        placeholder="18:00"
+                        editable={isEditing}
+                        selectTextOnFocus={isEditing}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.weekendCard}>
+                    <View style={styles.weekendHeader}>
+                      <Text style={styles.weekendTitle}>Sabado (opcional)</Text>
+                      <Switch
+                        value={workingHours.saturdayEnabled}
+                        disabled={!isEditing}
+                        onValueChange={(value) => setWorkingHours((prev) => ({ ...prev, saturdayEnabled: value }))}
+                        trackColor={{ false: '#CBD5E1', true: '#FDBA74' }}
+                        thumbColor={workingHours.saturdayEnabled ? '#EA580C' : '#F8FAFC'}
+                      />
+                    </View>
+                    {workingHours.saturdayEnabled && (
+                      <View style={styles.scheduleRow}>
+                        <View style={styles.scheduleField}>
+                          <Text style={styles.scheduleFieldLabel}>Desde</Text>
+                          <TextInput
+                            style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                            value={workingHours.saturdayFrom}
+                            onChangeText={(value) => handleWorkingTimeChange('saturdayFrom', value)}
+                            onBlur={() => finalizeWorkingTime('saturdayFrom')}
+                            placeholder="09:00"
+                            editable={isEditing}
+                            selectTextOnFocus={isEditing}
+                          />
+                        </View>
+                        <View style={styles.scheduleField}>
+                          <Text style={styles.scheduleFieldLabel}>Hasta</Text>
+                          <TextInput
+                            style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                            value={workingHours.saturdayTo}
+                            onChangeText={(value) => handleWorkingTimeChange('saturdayTo', value)}
+                            onBlur={() => finalizeWorkingTime('saturdayTo')}
+                            placeholder="13:00"
+                            editable={isEditing}
+                            selectTextOnFocus={isEditing}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.weekendCard}>
+                    <View style={styles.weekendHeader}>
+                      <Text style={styles.weekendTitle}>Domingo (opcional)</Text>
+                      <Switch
+                        value={workingHours.sundayEnabled}
+                        disabled={!isEditing}
+                        onValueChange={(value) => setWorkingHours((prev) => ({ ...prev, sundayEnabled: value }))}
+                        trackColor={{ false: '#CBD5E1', true: '#FDBA74' }}
+                        thumbColor={workingHours.sundayEnabled ? '#EA580C' : '#F8FAFC'}
+                      />
+                    </View>
+                    {workingHours.sundayEnabled && (
+                      <View style={styles.scheduleRow}>
+                        <View style={styles.scheduleField}>
+                          <Text style={styles.scheduleFieldLabel}>Desde</Text>
+                          <TextInput
+                            style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                            value={workingHours.sundayFrom}
+                            onChangeText={(value) => handleWorkingTimeChange('sundayFrom', value)}
+                            onBlur={() => finalizeWorkingTime('sundayFrom')}
+                            placeholder="09:00"
+                            editable={isEditing}
+                            selectTextOnFocus={isEditing}
+                          />
+                        </View>
+                        <View style={styles.scheduleField}>
+                          <Text style={styles.scheduleFieldLabel}>Hasta</Text>
+                          <TextInput
+                            style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                            value={workingHours.sundayTo}
+                            onChangeText={(value) => handleWorkingTimeChange('sundayTo', value)}
+                            onBlur={() => finalizeWorkingTime('sundayTo')}
+                            placeholder="13:00"
+                            editable={isEditing}
+                            selectTextOnFocus={isEditing}
+                          />
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  <Text style={styles.scheduleSummary}>Horario activo: {formatWorkingHoursSummary(workingHours)}</Text>
+                </View>
+            </View>
+
             {isEditing && (
               <TouchableOpacity 
                   style={[styles.saveButton, saving && { opacity: 0.7 }]} 
@@ -620,6 +924,50 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   readonlyText: { fontSize: 13, fontFamily: FONTS.body, color: '#64748B' },
+  scheduleCard: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    gap: 10,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  scheduleField: {
+    flex: 1,
+    gap: 6,
+  },
+  scheduleFieldLabel: {
+    fontSize: 11,
+    color: '#64748B',
+    fontFamily: FONTS.subtitle,
+  },
+  weekendCard: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    padding: 10,
+    backgroundColor: '#FFFFFF',
+    gap: 8,
+  },
+  weekendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weekendTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.subtitle,
+    color: COLORS.text,
+  },
+  scheduleSummary: {
+    fontSize: 11,
+    color: '#475569',
+    fontFamily: FONTS.body,
+  },
   saveButton: Platform.select({
     web: {
       backgroundColor: COLORS.primary,
