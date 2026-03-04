@@ -44,12 +44,13 @@ const extractCityFromAddress = (value: string) => {
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean);
-  if (!parts.length) return '';
+  if (parts.length < 2) return '';
   const lastPart = parts[parts.length - 1];
-  if (lastPart.toLowerCase() === 'argentina' && parts.length > 1) {
-    return parts[parts.length - 2];
+  const candidate = lastPart.toLowerCase() === 'argentina' ? parts[parts.length - 2] : lastPart;
+  if (!candidate || /\d/.test(candidate)) {
+    return '';
   }
-  return lastPart;
+  return candidate;
 };
 
 export default function ClientPublishScreen() {
@@ -136,8 +137,9 @@ export default function ClientPublishScreen() {
         throw new Error('Completa titulo, rubro, direccion y descripcion.');
       }
 
-      if (!hasPreciseWorkLocation) {
-        throw new Error('Selecciona la direccion exacta de la obra desde el buscador de geolocalizacion.');
+      const hasCityForServerGeocode = city.trim().length > 1;
+      if (!hasPreciseWorkLocation && !hasCityForServerGeocode) {
+        throw new Error('Selecciona direccion de obra con geolocalizacion o completa ciudad para ubicar la obra.');
       }
 
       if (mode === 'direct' && !selectedTechnician) {
@@ -156,8 +158,12 @@ export default function ClientPublishScreen() {
         preferredWindow: preferredWindow.trim(),
         mode,
         radiusKm: Number.isFinite(parsedRadius) ? parsedRadius : 20,
-        locationLat: Number(workLocation.lat.toFixed(6)),
-        locationLng: Number(workLocation.lng.toFixed(6)),
+        ...(hasPreciseWorkLocation
+          ? {
+              locationLat: Number(workLocation.lat.toFixed(6)),
+              locationLng: Number(workLocation.lng.toFixed(6)),
+            }
+          : {}),
         targetTechnicianId: selectedTechnician?.id,
         targetTechnicianName: selectedTechnician?.name,
         targetTechnicianPhone: selectedTechnician?.phone,
@@ -222,13 +228,13 @@ export default function ClientPublishScreen() {
             <Text style={[styles.locationHint, hasPreciseWorkLocation && styles.locationHintOk]}>
               {hasPreciseWorkLocation
                 ? 'Ubicacion de obra confirmada y lista para matching.'
-                : 'Busca y selecciona la direccion exacta donde se va a realizar el trabajo.'}
+                : 'Si no valida coordenadas en el telefono, completa ciudad y ubicamos la obra por direccion.'}
             </Text>
             <TextInput
               style={styles.input}
               value={city}
               onChangeText={setCity}
-              placeholder="Ciudad"
+              placeholder="Ciudad de la obra"
               placeholderTextColor="#94A3B8"
             />
             <TextInput

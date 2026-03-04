@@ -35,12 +35,13 @@ const extractCityFromAddress = (addressRaw: unknown) => {
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean);
-  if (!parts.length) return '';
+  if (parts.length < 2) return '';
   const lastPart = parts[parts.length - 1].toLowerCase();
-  if (lastPart === 'argentina' && parts.length > 1) {
-    return parts[parts.length - 2];
+  const candidate = lastPart === 'argentina' ? parts[parts.length - 2] : parts[parts.length - 1];
+  if (!candidate || /\d/.test(candidate)) {
+    return '';
   }
-  return parts[parts.length - 1];
+  return candidate;
 };
 
 const hasPreciseCoordinates = (lat: number | null, lng: number | null) => {

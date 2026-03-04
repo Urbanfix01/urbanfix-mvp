@@ -251,7 +251,7 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
             {isLoading ? <ActivityIndicator size="small" color="#9CA3AF" /> : null}
           </View>
 
-          {!!debugStatus ? <Text style={styles.debugText}>Places: {debugStatus}</Text> : null}
+          {__DEV__ && !!debugStatus ? <Text style={styles.debugText}>Places: {debugStatus}</Text> : null}
 
           {shouldShowList ? (
             <View style={styles.listView}>
