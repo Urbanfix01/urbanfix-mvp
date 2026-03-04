@@ -5,6 +5,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -32,6 +33,28 @@ const modeOptions = [
   { key: 'direct', label: 'Directa' },
 ] as const;
 
+type PreferredWindowConfig = {
+  weekdayFrom: string;
+  weekdayTo: string;
+  saturdayEnabled: boolean;
+  saturdayFrom: string;
+  saturdayTo: string;
+  sundayEnabled: boolean;
+  sundayFrom: string;
+  sundayTo: string;
+};
+
+const DEFAULT_PREFERRED_WINDOW: PreferredWindowConfig = {
+  weekdayFrom: '09:00',
+  weekdayTo: '18:00',
+  saturdayEnabled: false,
+  saturdayFrom: '09:00',
+  saturdayTo: '13:00',
+  sundayEnabled: false,
+  sundayFrom: '09:00',
+  sundayTo: '13:00',
+};
+
 const ZERO_COORDINATE_EPSILON = 0.000001;
 
 const hasValidCoordinates = (lat: number, lng: number) =>
@@ -53,6 +76,57 @@ const extractCityFromAddress = (value: string) => {
   return candidate;
 };
 
+const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return fallback;
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const timeToMinutes = (time: string) => {
+  const [hoursRaw, minutesRaw] = String(time || '').split(':');
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return -1;
+  return hours * 60 + minutes;
+};
+
+const validatePreferredWindow = (config: PreferredWindowConfig) => {
+  const weekdayFrom = timeToMinutes(config.weekdayFrom);
+  const weekdayTo = timeToMinutes(config.weekdayTo);
+  if (weekdayFrom < 0 || weekdayTo < 0 || weekdayFrom >= weekdayTo) {
+    return 'Revisa horario de Lunes a Viernes: Desde debe ser menor que Hasta.';
+  }
+  if (config.saturdayEnabled) {
+    const saturdayFrom = timeToMinutes(config.saturdayFrom);
+    const saturdayTo = timeToMinutes(config.saturdayTo);
+    if (saturdayFrom < 0 || saturdayTo < 0 || saturdayFrom >= saturdayTo) {
+      return 'Revisa horario de Sabado: Desde debe ser menor que Hasta.';
+    }
+  }
+  if (config.sundayEnabled) {
+    const sundayFrom = timeToMinutes(config.sundayFrom);
+    const sundayTo = timeToMinutes(config.sundayTo);
+    if (sundayFrom < 0 || sundayTo < 0 || sundayFrom >= sundayTo) {
+      return 'Revisa horario de Domingo: Desde debe ser menor que Hasta.';
+    }
+  }
+  return '';
+};
+
+const formatPreferredWindow = (config: PreferredWindowConfig) => {
+  const chunks = [`Lun a Vie ${config.weekdayFrom} - ${config.weekdayTo}`];
+  if (config.saturdayEnabled) chunks.push(`Sab ${config.saturdayFrom} - ${config.saturdayTo}`);
+  if (config.sundayEnabled) chunks.push(`Dom ${config.sundayFrom} - ${config.sundayTo}`);
+  return chunks.join(' | ');
+};
+
 export default function ClientPublishScreen() {
   const [knownTechnicians, setKnownTechnicians] = useState<KnownTechnician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +139,7 @@ export default function ClientPublishScreen() {
   const [workLocation, setWorkLocation] = useState({ lat: 0, lng: 0 });
   const [city, setCity] = useState('');
   const [description, setDescription] = useState('');
-  const [preferredWindow, setPreferredWindow] = useState('');
+  const [preferredWindow, setPreferredWindow] = useState<PreferredWindowConfig>({ ...DEFAULT_PREFERRED_WINDOW });
   const [urgency, setUrgency] = useState<'baja' | 'media' | 'alta'>('media');
   const [mode, setMode] = useState<'marketplace' | 'direct'>('marketplace');
   const [radiusKm, setRadiusKm] = useState('20');
@@ -122,11 +196,30 @@ export default function ClientPublishScreen() {
     setWorkLocation({ lat: 0, lng: 0 });
     setCity('');
     setDescription('');
-    setPreferredWindow('');
+    setPreferredWindow({ ...DEFAULT_PREFERRED_WINDOW });
     setUrgency('media');
     setMode('marketplace');
     setRadiusKm('20');
     setSelectedTechId('');
+  };
+
+  const handlePreferredTimeChange = (
+    key: 'weekdayFrom' | 'weekdayTo' | 'saturdayFrom' | 'saturdayTo' | 'sundayFrom' | 'sundayTo',
+    rawValue: string
+  ) => {
+    const sanitized = String(rawValue || '')
+      .replace(/[^\d:]/g, '')
+      .slice(0, 5);
+    setPreferredWindow((prev) => ({ ...prev, [key]: sanitized }));
+  };
+
+  const finalizePreferredTime = (
+    key: 'weekdayFrom' | 'weekdayTo' | 'saturdayFrom' | 'saturdayTo' | 'sundayFrom' | 'sundayTo'
+  ) => {
+    setPreferredWindow((prev) => ({
+      ...prev,
+      [key]: normalizeTimeValue(prev[key], DEFAULT_PREFERRED_WINDOW[key]),
+    }));
   };
 
   const handleSubmit = async () => {
@@ -146,6 +239,11 @@ export default function ClientPublishScreen() {
         throw new Error('Selecciona un tecnico para solicitud directa.');
       }
 
+      const preferredWindowError = validatePreferredWindow(preferredWindow);
+      if (preferredWindowError) {
+        throw new Error(preferredWindowError);
+      }
+
       const parsedRadius = Math.max(1, Math.min(100, Math.round(Number(radiusKm || 20))));
 
       const payload = await createClientRequest({
@@ -155,7 +253,7 @@ export default function ClientPublishScreen() {
         city: city.trim(),
         description: description.trim(),
         urgency,
-        preferredWindow: preferredWindow.trim(),
+        preferredWindow: formatPreferredWindow(preferredWindow),
         mode,
         radiusKm: Number.isFinite(parsedRadius) ? parsedRadius : 20,
         ...(hasPreciseWorkLocation
@@ -245,13 +343,111 @@ export default function ClientPublishScreen() {
               placeholderTextColor="#94A3B8"
               multiline
             />
-            <TextInput
-              style={styles.input}
-              value={preferredWindow}
-              onChangeText={setPreferredWindow}
-              placeholder="Horario preferido (opcional)"
-              placeholderTextColor="#94A3B8"
-            />
+            <View style={styles.scheduleCard}>
+              <Text style={styles.scheduleTitle}>Horario preferido</Text>
+              <View style={styles.scheduleRow}>
+                <View style={styles.scheduleField}>
+                  <Text style={styles.scheduleFieldLabel}>Lun a Vie desde</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={preferredWindow.weekdayFrom}
+                    onChangeText={(value) => handlePreferredTimeChange('weekdayFrom', value)}
+                    onBlur={() => finalizePreferredTime('weekdayFrom')}
+                    placeholder="09:00"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+                <View style={styles.scheduleField}>
+                  <Text style={styles.scheduleFieldLabel}>Lun a Vie hasta</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={preferredWindow.weekdayTo}
+                    onChangeText={(value) => handlePreferredTimeChange('weekdayTo', value)}
+                    onBlur={() => finalizePreferredTime('weekdayTo')}
+                    placeholder="18:00"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+              </View>
+
+              <View style={styles.weekendCard}>
+                <View style={styles.weekendHeader}>
+                  <Text style={styles.weekendTitle}>Sabado (opcional)</Text>
+                  <Switch
+                    value={preferredWindow.saturdayEnabled}
+                    onValueChange={(value) => setPreferredWindow((prev) => ({ ...prev, saturdayEnabled: value }))}
+                    trackColor={{ false: '#CBD5E1', true: '#FDBA74' }}
+                    thumbColor={preferredWindow.saturdayEnabled ? '#EA580C' : '#F8FAFC'}
+                  />
+                </View>
+                {preferredWindow.saturdayEnabled && (
+                  <View style={styles.scheduleRow}>
+                    <View style={styles.scheduleField}>
+                      <Text style={styles.scheduleFieldLabel}>Desde</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={preferredWindow.saturdayFrom}
+                        onChangeText={(value) => handlePreferredTimeChange('saturdayFrom', value)}
+                        onBlur={() => finalizePreferredTime('saturdayFrom')}
+                        placeholder="09:00"
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                    <View style={styles.scheduleField}>
+                      <Text style={styles.scheduleFieldLabel}>Hasta</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={preferredWindow.saturdayTo}
+                        onChangeText={(value) => handlePreferredTimeChange('saturdayTo', value)}
+                        onBlur={() => finalizePreferredTime('saturdayTo')}
+                        placeholder="13:00"
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.weekendCard}>
+                <View style={styles.weekendHeader}>
+                  <Text style={styles.weekendTitle}>Domingo (opcional)</Text>
+                  <Switch
+                    value={preferredWindow.sundayEnabled}
+                    onValueChange={(value) => setPreferredWindow((prev) => ({ ...prev, sundayEnabled: value }))}
+                    trackColor={{ false: '#CBD5E1', true: '#FDBA74' }}
+                    thumbColor={preferredWindow.sundayEnabled ? '#EA580C' : '#F8FAFC'}
+                  />
+                </View>
+                {preferredWindow.sundayEnabled && (
+                  <View style={styles.scheduleRow}>
+                    <View style={styles.scheduleField}>
+                      <Text style={styles.scheduleFieldLabel}>Desde</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={preferredWindow.sundayFrom}
+                        onChangeText={(value) => handlePreferredTimeChange('sundayFrom', value)}
+                        onBlur={() => finalizePreferredTime('sundayFrom')}
+                        placeholder="09:00"
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                    <View style={styles.scheduleField}>
+                      <Text style={styles.scheduleFieldLabel}>Hasta</Text>
+                      <TextInput
+                        style={styles.input}
+                        value={preferredWindow.sundayTo}
+                        onChangeText={(value) => handlePreferredTimeChange('sundayTo', value)}
+                        onBlur={() => finalizePreferredTime('sundayTo')}
+                        placeholder="13:00"
+                        placeholderTextColor="#94A3B8"
+                      />
+                    </View>
+                  </View>
+                )}
+              </View>
+
+              <Text style={styles.scheduleSummary}>Resumen: {formatPreferredWindow(preferredWindow)}</Text>
+            </View>
           </View>
 
           <View style={styles.card}>
@@ -410,6 +606,55 @@ const styles = StyleSheet.create({
     color: '#64748B',
   },
   locationHintOk: { color: '#166534' },
+  scheduleCard: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    padding: 10,
+    gap: 10,
+  },
+  scheduleTitle: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 13,
+    color: COLORS.text,
+  },
+  scheduleRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  scheduleField: {
+    flex: 1,
+    gap: 6,
+  },
+  scheduleFieldLabel: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 11,
+    color: '#64748B',
+  },
+  weekendCard: {
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    gap: 8,
+  },
+  weekendHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  weekendTitle: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 12,
+    color: COLORS.text,
+  },
+  scheduleSummary: {
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    color: '#475569',
+  },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
