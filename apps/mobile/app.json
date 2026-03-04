@@ -4,7 +4,7 @@
     "slug": "UrbanFix",
     "owner": "urbanfix",
     "scheme": "urbanfix",
-    "version": "1.4.2",
+    "version": "1.4.3",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
