@@ -110,6 +110,17 @@ type NavItem = {
   icon: LucideIcon;
 };
 
+type WorkingHoursForm = {
+  weekdayFrom: string;
+  weekdayTo: string;
+  saturdayEnabled: boolean;
+  saturdayFrom: string;
+  saturdayTo: string;
+  sundayEnabled: boolean;
+  sundayFrom: string;
+  sundayTo: string;
+};
+
 const TAX_RATE = 0.21;
 const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
@@ -231,6 +242,160 @@ const toNumber = (value: string) => {
   const normalized = value.replace(',', '.');
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const DEFAULT_WORKING_HOURS_FORM: WorkingHoursForm = {
+  weekdayFrom: '09:00',
+  weekdayTo: '18:00',
+  saturdayEnabled: false,
+  saturdayFrom: '09:00',
+  saturdayTo: '13:00',
+  sundayEnabled: false,
+  sundayFrom: '09:00',
+  sundayTo: '13:00',
+};
+
+const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
+  const match = String(value || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return fallback;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (Number.isNaN(hours) || Number.isNaN(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return fallback;
+  }
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+};
+
+const normalizeTextForHours = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const extractTimeRange = (value: string, pattern: RegExp): [string, string] | null => {
+  const match = value.match(pattern);
+  if (!match) return null;
+  return [match[1], match[2]];
+};
+
+const parseWorkingHoursForm = (rawValue: string | null | undefined): WorkingHoursForm => {
+  const safe = String(rawValue || '').trim();
+  const base: WorkingHoursForm = { ...DEFAULT_WORKING_HOURS_FORM };
+  if (!safe) return base;
+
+  try {
+    const parsed = JSON.parse(safe);
+    if (parsed && typeof parsed === 'object') {
+      const weekday = (parsed as any).weekday || {};
+      const saturday = (parsed as any).saturday || {};
+      const sunday = (parsed as any).sunday || {};
+      return {
+        weekdayFrom: normalizeTimeValue(weekday.from, base.weekdayFrom),
+        weekdayTo: normalizeTimeValue(weekday.to, base.weekdayTo),
+        saturdayEnabled: Boolean(saturday.enabled),
+        saturdayFrom: normalizeTimeValue(saturday.from, base.saturdayFrom),
+        saturdayTo: normalizeTimeValue(saturday.to, base.saturdayTo),
+        sundayEnabled: Boolean(sunday.enabled),
+        sundayFrom: normalizeTimeValue(sunday.from, base.sundayFrom),
+        sundayTo: normalizeTimeValue(sunday.to, base.sundayTo),
+      };
+    }
+  } catch {
+    // Legacy text payload.
+  }
+
+  const normalized = normalizeTextForHours(safe);
+  const weekdayRange =
+    extractTimeRange(
+      normalized,
+      /lun(?:es)?\s*(?:a|-|al)\s*vie(?:rnes)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+    ) || extractTimeRange(normalized, /(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/);
+  const saturdayRange = extractTimeRange(
+    normalized,
+    /sab(?:ado)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+  const sundayRange = extractTimeRange(
+    normalized,
+    /dom(?:ingo)?[^0-9]*(\d{1,2}:\d{2})\s*(?:-|a|hasta)\s*(\d{1,2}:\d{2})/
+  );
+
+  if (weekdayRange) {
+    base.weekdayFrom = normalizeTimeValue(weekdayRange[0], base.weekdayFrom);
+    base.weekdayTo = normalizeTimeValue(weekdayRange[1], base.weekdayTo);
+  }
+  if (saturdayRange) {
+    base.saturdayEnabled = true;
+    base.saturdayFrom = normalizeTimeValue(saturdayRange[0], base.saturdayFrom);
+    base.saturdayTo = normalizeTimeValue(saturdayRange[1], base.saturdayTo);
+  }
+  if (sundayRange) {
+    base.sundayEnabled = true;
+    base.sundayFrom = normalizeTimeValue(sundayRange[0], base.sundayFrom);
+    base.sundayTo = normalizeTimeValue(sundayRange[1], base.sundayTo);
+  }
+
+  return base;
+};
+
+const timeToMinutes = (time: string) => {
+  const [hoursRaw, minutesRaw] = String(time || '').split(':');
+  const hours = Number(hoursRaw);
+  const minutes = Number(minutesRaw);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return -1;
+  return hours * 60 + minutes;
+};
+
+const validateWorkingHoursForm = (form: WorkingHoursForm) => {
+  const weekdayFrom = timeToMinutes(form.weekdayFrom);
+  const weekdayTo = timeToMinutes(form.weekdayTo);
+  if (weekdayFrom < 0 || weekdayTo < 0 || weekdayFrom >= weekdayTo) {
+    return 'Revisa el rango de Lunes a Viernes (Desde debe ser menor que Hasta).';
+  }
+
+  if (form.saturdayEnabled) {
+    const saturdayFrom = timeToMinutes(form.saturdayFrom);
+    const saturdayTo = timeToMinutes(form.saturdayTo);
+    if (saturdayFrom < 0 || saturdayTo < 0 || saturdayFrom >= saturdayTo) {
+      return 'Revisa el rango del Sabado (Desde debe ser menor que Hasta).';
+    }
+  }
+
+  if (form.sundayEnabled) {
+    const sundayFrom = timeToMinutes(form.sundayFrom);
+    const sundayTo = timeToMinutes(form.sundayTo);
+    if (sundayFrom < 0 || sundayTo < 0 || sundayFrom >= sundayTo) {
+      return 'Revisa el rango del Domingo (Desde debe ser menor que Hasta).';
+    }
+  }
+
+  return '';
+};
+
+const stringifyWorkingHoursForm = (form: WorkingHoursForm) =>
+  JSON.stringify({
+    weekday: {
+      from: normalizeTimeValue(form.weekdayFrom, DEFAULT_WORKING_HOURS_FORM.weekdayFrom),
+      to: normalizeTimeValue(form.weekdayTo, DEFAULT_WORKING_HOURS_FORM.weekdayTo),
+    },
+    saturday: {
+      enabled: Boolean(form.saturdayEnabled),
+      from: normalizeTimeValue(form.saturdayFrom, DEFAULT_WORKING_HOURS_FORM.saturdayFrom),
+      to: normalizeTimeValue(form.saturdayTo, DEFAULT_WORKING_HOURS_FORM.saturdayTo),
+    },
+    sunday: {
+      enabled: Boolean(form.sundayEnabled),
+      from: normalizeTimeValue(form.sundayFrom, DEFAULT_WORKING_HOURS_FORM.sundayFrom),
+      to: normalizeTimeValue(form.sundayTo, DEFAULT_WORKING_HOURS_FORM.sundayTo),
+    },
+  });
+
+const formatWorkingHoursSummary = (form: WorkingHoursForm) => {
+  const chunks = [`Lun a Vie ${form.weekdayFrom} - ${form.weekdayTo}`];
+  if (form.saturdayEnabled) chunks.push(`Sab ${form.saturdayFrom} - ${form.saturdayTo}`);
+  if (form.sundayEnabled) chunks.push(`Dom ${form.sundayFrom} - ${form.sundayTo}`);
+  return chunks.join(' | ');
 };
 
 const toAmountValue = (value: any) => {
@@ -615,6 +780,7 @@ export default function TechniciansPage() {
     avatarUrl: '',
     logoShape: 'auto',
   });
+  const [workingHoursForm, setWorkingHoursForm] = useState<WorkingHoursForm>({ ...DEFAULT_WORKING_HOURS_FORM });
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
@@ -835,6 +1001,7 @@ export default function TechniciansPage() {
       avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
     });
+    setWorkingHoursForm(parseWorkingHoursForm(profile.working_hours || ''));
   }, [profile, session?.user?.email]);
 
   useEffect(() => {
@@ -1729,6 +1896,12 @@ export default function TechniciansPage() {
     setProfileSaving(true);
     setProfileMessage('');
     try {
+      const hoursError = validateWorkingHoursForm(workingHoursForm);
+      if (hoursError) {
+        setProfileMessage(hoursError);
+        return;
+      }
+      const workingHoursPayload = stringifyWorkingHoursForm(workingHoursForm);
       const payload = {
         id: session.user.id,
         full_name: profileForm.fullName,
@@ -1739,7 +1912,7 @@ export default function TechniciansPage() {
         address: profileForm.address,
         city: profileForm.city,
         coverage_area: profileForm.coverageArea,
-        working_hours: profileForm.workingHours,
+        working_hours: workingHoursPayload,
         specialties: profileForm.specialties,
         certifications: profileForm.certifications,
         tax_id: profileForm.taxId,
@@ -1756,6 +1929,7 @@ export default function TechniciansPage() {
       const { data, error } = await supabase.from('profiles').upsert(payload).select().single();
       if (error) throw error;
       setProfile(data);
+      setProfileForm((prev) => ({ ...prev, workingHours: workingHoursPayload }));
       setProfileMessage('Perfil actualizado.');
     } catch (error: any) {
       console.error('Error guardando perfil:', error);
@@ -4520,11 +4694,144 @@ export default function TechniciansPage() {
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Horarios de atencion</label>
-                      <input
-                        value={profileForm.workingHours}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, workingHours: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
+                      <div className="mt-2 rounded-2xl border border-slate-200 bg-white p-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                              Lun a Vie - Desde
+                            </label>
+                            <input
+                              type="time"
+                              value={workingHoursForm.weekdayFrom}
+                              onChange={(event) =>
+                                setWorkingHoursForm((prev) => ({
+                                  ...prev,
+                                  weekdayFrom: normalizeTimeValue(event.target.value, prev.weekdayFrom),
+                                }))
+                              }
+                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                              Lun a Vie - Hasta
+                            </label>
+                            <input
+                              type="time"
+                              value={workingHoursForm.weekdayTo}
+                              onChange={(event) =>
+                                setWorkingHoursForm((prev) => ({
+                                  ...prev,
+                                  weekdayTo: normalizeTimeValue(event.target.value, prev.weekdayTo),
+                                }))
+                              }
+                              className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={workingHoursForm.saturdayEnabled}
+                              onChange={(event) =>
+                                setWorkingHoursForm((prev) => ({ ...prev, saturdayEnabled: event.target.checked }))
+                              }
+                              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                            />
+                            Incluir sabado (opcional)
+                          </label>
+                          {workingHoursForm.saturdayEnabled && (
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                                  Sabado - Desde
+                                </label>
+                                <input
+                                  type="time"
+                                  value={workingHoursForm.saturdayFrom}
+                                  onChange={(event) =>
+                                    setWorkingHoursForm((prev) => ({
+                                      ...prev,
+                                      saturdayFrom: normalizeTimeValue(event.target.value, prev.saturdayFrom),
+                                    }))
+                                  }
+                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                                  Sabado - Hasta
+                                </label>
+                                <input
+                                  type="time"
+                                  value={workingHoursForm.saturdayTo}
+                                  onChange={(event) =>
+                                    setWorkingHoursForm((prev) => ({
+                                      ...prev,
+                                      saturdayTo: normalizeTimeValue(event.target.value, prev.saturdayTo),
+                                    }))
+                                  }
+                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                          <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={workingHoursForm.sundayEnabled}
+                              onChange={(event) =>
+                                setWorkingHoursForm((prev) => ({ ...prev, sundayEnabled: event.target.checked }))
+                              }
+                              className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                            />
+                            Incluir domingo (opcional)
+                          </label>
+                          {workingHoursForm.sundayEnabled && (
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <div>
+                                <label className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                                  Domingo - Desde
+                                </label>
+                                <input
+                                  type="time"
+                                  value={workingHoursForm.sundayFrom}
+                                  onChange={(event) =>
+                                    setWorkingHoursForm((prev) => ({
+                                      ...prev,
+                                      sundayFrom: normalizeTimeValue(event.target.value, prev.sundayFrom),
+                                    }))
+                                  }
+                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold uppercase tracking-[0.15em] text-slate-500">
+                                  Domingo - Hasta
+                                </label>
+                                <input
+                                  type="time"
+                                  value={workingHoursForm.sundayTo}
+                                  onChange={(event) =>
+                                    setWorkingHoursForm((prev) => ({
+                                      ...prev,
+                                      sundayTo: normalizeTimeValue(event.target.value, prev.sundayTo),
+                                    }))
+                                  }
+                                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <p className="mt-3 text-xs text-slate-500">Horario activo: {formatWorkingHoursSummary(workingHoursForm)}</p>
+                      </div>
                     </div>
                   </div>
 
