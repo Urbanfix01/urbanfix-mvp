@@ -60,6 +60,37 @@ export type ClientWorkspacePayload = {
   matches?: unknown[];
 };
 
+export type ClientNearbyTechnician = {
+  id: string;
+  name: string;
+  phone: string | null;
+  city: string;
+  specialty: string;
+  rating: number | null;
+  available_now: boolean;
+  distance_km: number;
+  lat: number;
+  lng: number;
+  address: string;
+};
+
+export type ClientNearbyTechniciansPayload = {
+  center: {
+    lat: number;
+    lng: number;
+    label: string;
+    source: 'request_geo' | 'request_address' | 'profile' | 'fallback' | string;
+    radius_km: number;
+  };
+  technicians: ClientNearbyTechnician[];
+  warning?: string | null;
+  stats?: {
+    loaded_profiles?: number;
+    visible?: number;
+    geocoded_source?: number;
+  };
+};
+
 type ApiErrorPayload = {
   error?: string;
 };
@@ -142,6 +173,13 @@ export const patchClientRequest = async (requestId: string, payload: Record<stri
   return requestApi<ClientWorkspacePayload>(`/api/client/requests/${safeRequestId}`, {
     method: 'PATCH',
     body: JSON.stringify(payload),
+  });
+};
+
+export const fetchClientNearbyTechnicians = async (radiusKm = 20) => {
+  const safeRadius = Math.max(5, Math.min(100, Math.round(Number(radiusKm) || 20)));
+  return requestApi<ClientNearbyTechniciansPayload>(`/api/client/technicians/nearby?radiusKm=${safeRadius}`, {
+    method: 'GET',
   });
 };
 

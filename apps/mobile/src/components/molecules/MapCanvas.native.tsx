@@ -9,9 +9,10 @@ type Props = {
   onSelect: (point: MapPoint) => void;
   formatMoney: (value: number) => string;
   height?: number;
+  valuePrefix?: string;
 };
 
-const MapCanvas = ({ points, region, onSelect, formatMoney, height }: Props) => {
+const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix = '$' }: Props) => {
   const mapHeight = height ?? 220;
   const tracksViewChanges = Platform.OS === 'android';
   const mapRef = useRef<MapView>(null);
@@ -45,7 +46,7 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height }: Props) => 
             anchor={{ x: 0.5, y: 1 }}
             tracksViewChanges={tracksViewChanges}
             title={point.title}
-            description={`$${formatMoney(point.amount)} · ${point.status.label}`}
+            description={`${valuePrefix}${formatMoney(point.amount)} - ${point.status.label}`}
             onPress={() => onSelect(point)}
           >
             <View style={styles.pinWrap}>
@@ -92,6 +93,7 @@ export default memo(
   MapCanvas,
   (prev, next) =>
     prev.height === next.height &&
+    prev.valuePrefix === next.valuePrefix &&
     areRegionsEqual(prev.region, next.region) &&
     arePointsEqual(prev.points, next.points)
 );

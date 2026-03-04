@@ -10,6 +10,7 @@ type Props = {
   onSelect: (point: MapPoint) => void;
   formatMoney: (value: number) => string;
   height?: number;
+  valuePrefix?: string;
 };
 
 const MapCanvas = ({ height }: Props) => {
