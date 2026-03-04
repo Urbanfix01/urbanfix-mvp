@@ -17,6 +17,7 @@ import {
   createClientRequest,
   fetchClientWorkspace,
 } from '../../api/client';
+import { LocationAutocomplete } from '../../components/molecules/LocationAutocomplete';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { COLORS, FONTS } from '../../utils/theme';
 
@@ -31,6 +32,26 @@ const modeOptions = [
   { key: 'direct', label: 'Directa' },
 ] as const;
 
+const ZERO_COORDINATE_EPSILON = 0.000001;
+
+const hasValidCoordinates = (lat: number, lng: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  !(Math.abs(lat) <= ZERO_COORDINATE_EPSILON && Math.abs(lng) <= ZERO_COORDINATE_EPSILON);
+
+const extractCityFromAddress = (value: string) => {
+  const parts = String(value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return '';
+  const lastPart = parts[parts.length - 1];
+  if (lastPart.toLowerCase() === 'argentina' && parts.length > 1) {
+    return parts[parts.length - 2];
+  }
+  return lastPart;
+};
+
 export default function ClientPublishScreen() {
   const [knownTechnicians, setKnownTechnicians] = useState<KnownTechnician[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +61,7 @@ export default function ClientPublishScreen() {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
   const [address, setAddress] = useState('');
+  const [workLocation, setWorkLocation] = useState({ lat: 0, lng: 0 });
   const [city, setCity] = useState('');
   const [description, setDescription] = useState('');
   const [preferredWindow, setPreferredWindow] = useState('');
@@ -76,11 +98,27 @@ export default function ClientPublishScreen() {
 
   const selectedTechnician =
     knownTechnicians.find((tech) => String(tech.id) === String(selectedTechId)) || null;
+  const hasPreciseWorkLocation = hasValidCoordinates(workLocation.lat, workLocation.lng);
+
+  const handleWorkLocationSelect = ({ address: selectedAddress, lat, lng }: { address: string; lat: number; lng: number }) => {
+    const safeAddress = String(selectedAddress || '').trim();
+    setAddress(safeAddress);
+    setWorkLocation({
+      lat: Number.isFinite(lat) ? lat : 0,
+      lng: Number.isFinite(lng) ? lng : 0,
+    });
+
+    if (!city.trim() && safeAddress) {
+      const detectedCity = extractCityFromAddress(safeAddress);
+      if (detectedCity) setCity(detectedCity);
+    }
+  };
 
   const resetForm = () => {
     setTitle('');
     setCategory('');
     setAddress('');
+    setWorkLocation({ lat: 0, lng: 0 });
     setCity('');
     setDescription('');
     setPreferredWindow('');
@@ -96,6 +134,10 @@ export default function ClientPublishScreen() {
     try {
       if (!title.trim() || !category.trim() || !address.trim() || !description.trim()) {
         throw new Error('Completa titulo, rubro, direccion y descripcion.');
+      }
+
+      if (!hasPreciseWorkLocation) {
+        throw new Error('Selecciona la direccion exacta de la obra desde el buscador de geolocalizacion.');
       }
 
       if (mode === 'direct' && !selectedTechnician) {
@@ -114,6 +156,8 @@ export default function ClientPublishScreen() {
         preferredWindow: preferredWindow.trim(),
         mode,
         radiusKm: Number.isFinite(parsedRadius) ? parsedRadius : 20,
+        locationLat: Number(workLocation.lat.toFixed(6)),
+        locationLng: Number(workLocation.lng.toFixed(6)),
         targetTechnicianId: selectedTechnician?.id,
         targetTechnicianName: selectedTechnician?.name,
         targetTechnicianPhone: selectedTechnician?.phone,
@@ -172,13 +216,14 @@ export default function ClientPublishScreen() {
               placeholder="Rubro (ej: Plomeria)"
               placeholderTextColor="#94A3B8"
             />
-            <TextInput
-              style={styles.input}
-              value={address}
-              onChangeText={setAddress}
-              placeholder="Direccion de referencia"
-              placeholderTextColor="#94A3B8"
-            />
+            <View style={styles.locationFieldWrap}>
+              <LocationAutocomplete initialValue={address} onLocationSelect={handleWorkLocationSelect} />
+            </View>
+            <Text style={[styles.locationHint, hasPreciseWorkLocation && styles.locationHintOk]}>
+              {hasPreciseWorkLocation
+                ? 'Ubicacion de obra confirmada y lista para matching.'
+                : 'Busca y selecciona la direccion exacta donde se va a realizar el trabajo.'}
+            </Text>
             <TextInput
               style={styles.input}
               value={city}
@@ -347,6 +392,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     backgroundColor: '#FFFFFF',
   },
+  locationFieldWrap: {
+    zIndex: 50,
+    overflow: 'visible',
+  },
+  locationHint: {
+    marginTop: -8,
+    marginBottom: 4,
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    color: '#64748B',
+  },
+  locationHintOk: { color: '#166534' },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {

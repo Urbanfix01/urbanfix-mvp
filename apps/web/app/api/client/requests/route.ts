@@ -12,6 +12,7 @@ import {
 } from '../../_shared/marketplace';
 
 const toText = (value: unknown) => String(value || '').trim();
+const COORD_ZERO_EPSILON = 0.000001;
 
 const normalizeUrgency = (value: string) => {
   const normalized = value.toLowerCase();
@@ -25,6 +26,26 @@ const normalizeRadius = (value: unknown) => {
   const parsed = Number(value || DEFAULT_MATCH_RADIUS_KM);
   if (!Number.isFinite(parsed)) return DEFAULT_MATCH_RADIUS_KM;
   return Math.min(100, Math.max(1, Math.round(parsed)));
+};
+
+const extractCityFromAddress = (addressRaw: unknown) => {
+  const address = toText(addressRaw);
+  if (!address) return '';
+  const parts = address
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (!parts.length) return '';
+  const lastPart = parts[parts.length - 1].toLowerCase();
+  if (lastPart === 'argentina' && parts.length > 1) {
+    return parts[parts.length - 2];
+  }
+  return parts[parts.length - 1];
+};
+
+const hasPreciseCoordinates = (lat: number | null, lng: number | null) => {
+  if (lat === null || lng === null) return false;
+  return !(Math.abs(lat) <= COORD_ZERO_EPSILON && Math.abs(lng) <= COORD_ZERO_EPSILON);
 };
 
 const createSnapshotResponse = async (userId: string) => {
@@ -115,7 +136,8 @@ export async function POST(request: NextRequest) {
   const category = toText(body.category);
   const address = toText(body.address);
   const city = toText(body.city);
-  const resolvedCity = city || toText(clientProfile?.city);
+  const cityFromAddress = extractCityFromAddress(address);
+  const resolvedCity = city || cityFromAddress || toText(clientProfile?.city);
   const description = toText(body.description);
   const preferredWindow = toText(body.preferredWindow);
   const urgency = normalizeUrgency(toText(body.urgency));
@@ -139,12 +161,15 @@ export async function POST(request: NextRequest) {
 
   let locationLat = toFiniteNumber(body.locationLat);
   let locationLng = toFiniteNumber(body.locationLng);
-  if (locationLat === null || locationLng === null) {
-    const geocodeQuery = [address, resolvedCity].filter(Boolean).join(', ');
+  if (!hasPreciseCoordinates(locationLat, locationLng)) {
+    const geocodeQuery = [address, city || cityFromAddress].filter(Boolean).join(', ');
     const geocode = await geocodeFirstResult(geocodeQuery);
     if (geocode) {
       locationLat = geocode.lat;
       locationLng = geocode.lng;
+    } else {
+      locationLat = null;
+      locationLng = null;
     }
   }
 
