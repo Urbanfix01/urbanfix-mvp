@@ -18,13 +18,14 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
   const tracksViewChanges = Platform.OS === 'android';
   const mapRef = useRef<MapView>(null);
   const coordsKey = points.map((point) => `${point.lat},${point.lng}`).join('|');
+  const hasAndroidMapsKeyFlag = Boolean((Constants.expoConfig as any)?.extra?.hasGoogleMapsAndroidKey);
   const androidGoogleMapsKey = String(
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ||
       (Constants.expoConfig as any)?.android?.config?.googleMaps?.apiKey ||
       (Constants as any)?.manifest2?.extra?.expoClient?.android?.config?.googleMaps?.apiKey ||
       ''
   ).trim();
-  const canRenderNativeMap = Platform.OS !== 'android' || Boolean(androidGoogleMapsKey);
+  const canRenderNativeMap = Platform.OS !== 'android' || hasAndroidMapsKeyFlag || Boolean(androidGoogleMapsKey);
 
   useEffect(() => {
     if (!canRenderNativeMap) return;
@@ -42,7 +43,7 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
       <View style={[styles.placeholder, { height: mapHeight }]}>
         <View style={styles.placeholderDot} />
         <View style={styles.placeholderLine} />
-        <Text style={styles.placeholderText}>Mapa no disponible en este dispositivo.</Text>
+        <Text style={styles.placeholderText}>Mapa no disponible. Falta configurar Google Maps en Android.</Text>
       </View>
     );
   }
