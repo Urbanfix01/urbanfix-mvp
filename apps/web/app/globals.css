@@ -154,6 +154,29 @@ header .header-view-option {
   }
 }
 
+/* --- REVEAL SCROLL (HOME) --- */
+.ufx-reveal {
+  opacity: 0;
+  transform: translate3d(0, 26px, 0) scale(0.99);
+  transition: opacity 680ms cubic-bezier(0.16, 1, 0.3, 1), transform 680ms cubic-bezier(0.16, 1, 0.3, 1);
+  transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
+}
+
+.ufx-reveal.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ufx-reveal,
+  .ufx-reveal.is-visible {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
 /* --- WINDOW NAVIGATION (HOME) --- */
 .window-panel-target {
   scroll-margin-top: 120px;

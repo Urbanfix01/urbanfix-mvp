@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import AuthHashHandler from '../components/AuthHashHandler';
+import HomeScrollShowcase from '../components/home/HomeScrollShowcase';
 import PublicTopNav from '../components/PublicTopNav';
 
 const sora = Sora({
@@ -21,7 +22,8 @@ export default function HomePage() {
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <PublicTopNav />
 
-        <section className="w-full">
+        <section className="relative w-full">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_bottom,rgba(0,0,0,0)_40%,rgba(33,0,47,0.92)_100%)]" />
           <picture>
             <source media="(max-width: 768px)" srcSet="/hero/home-cover-mobile.png" />
             <img
@@ -32,6 +34,8 @@ export default function HomePage() {
             />
           </picture>
         </section>
+
+        <HomeScrollShowcase />
       </main>
     </div>
   );
