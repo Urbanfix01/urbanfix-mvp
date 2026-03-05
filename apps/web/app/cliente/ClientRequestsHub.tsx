@@ -39,6 +39,19 @@ type ClientProfileForm = {
   address: string;
 };
 
+type NearbyTechnician = {
+  id: string;
+  name: string;
+  phone: string;
+  specialty: string;
+  city: string;
+  zoneLabel: string | null;
+  rating: number | null;
+  distanceKm: number;
+  availableNow: boolean;
+  workingHoursLabel: string;
+};
+
 const defaultForm: CreateRequestForm = {
   title: '',
   category: '',
@@ -89,6 +102,12 @@ const normalizeClientRequestRow = (raw: any): ClientRequestRow => ({
   created_at: String(raw?.created_at || raw?.updated_at || raw?.updatedAt || new Date().toISOString()),
 });
 
+const normalizeRadiusKm = (value: unknown, fallback = 20) => {
+  const parsed = Number(value ?? fallback);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(100, Math.max(1, Math.round(parsed)));
+};
+
 export default function ClientRequestsHub() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -115,6 +134,11 @@ export default function ClientRequestsHub() {
   const [savingClientProfile, setSavingClientProfile] = useState(false);
   const [clientProfileError, setClientProfileError] = useState('');
   const [clientProfileNotice, setClientProfileNotice] = useState('');
+  const [nearbyTechnicians, setNearbyTechnicians] = useState<NearbyTechnician[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyError, setNearbyError] = useState('');
+  const [nearbyWarning, setNearbyWarning] = useState('');
+  const [nearbyCenterLabel, setNearbyCenterLabel] = useState('');
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -209,9 +233,50 @@ export default function ClientRequestsHub() {
     }
   };
 
+  const loadNearbyTechnicians = async (radiusOverride?: number) => {
+    if (!session?.access_token) return;
+    const safeRadius = normalizeRadiusKm(radiusOverride ?? form.radiusKm ?? defaultForm.radiusKm, defaultForm.radiusKm);
+    setNearbyLoading(true);
+    setNearbyError('');
+    try {
+      const response = await fetch(`/api/client/technicians/nearby?radiusKm=${safeRadius}`, {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || 'No se pudieron cargar tecnicos por zona.');
+      const normalized = Array.isArray(payload?.technicians)
+        ? (payload.technicians as any[]).map((row) => ({
+            id: String(row?.id || ''),
+            name: String(row?.name || 'Tecnico UrbanFix'),
+            phone: String(row?.phone || '').trim(),
+            specialty: String(row?.specialty || 'General'),
+            city: String(row?.city || ''),
+            zoneLabel: row?.zone_label ? String(row.zone_label) : null,
+            rating: Number.isFinite(Number(row?.rating)) ? Number(row.rating) : null,
+            distanceKm: Number.isFinite(Number(row?.distance_km)) ? Number(row.distance_km) : 0,
+            availableNow: Boolean(row?.available_now),
+            workingHoursLabel: String(row?.working_hours_label || ''),
+          }))
+        : [];
+      setNearbyTechnicians(normalized);
+      setNearbyCenterLabel(String(payload?.center_label || '').trim());
+      setNearbyWarning(String(payload?.warning || '').trim());
+    } catch (error: any) {
+      setNearbyTechnicians([]);
+      setNearbyCenterLabel('');
+      setNearbyWarning('');
+      setNearbyError(error?.message || 'No se pudieron cargar tecnicos por zona.');
+    } finally {
+      setNearbyLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!session?.user) return;
     fetchRequests();
+    loadNearbyTechnicians(defaultForm.radiusKm);
   }, [session?.access_token, session?.user?.id]);
 
   useEffect(() => {
@@ -219,6 +284,10 @@ export default function ClientRequestsHub() {
       setClientProfileForm(defaultClientProfileForm);
       setClientProfileError('');
       setClientProfileNotice('');
+      setNearbyTechnicians([]);
+      setNearbyError('');
+      setNearbyWarning('');
+      setNearbyCenterLabel('');
       return;
     }
     fetchClientProfile(session.user.id);
@@ -298,6 +367,7 @@ export default function ClientRequestsHub() {
 
       setClientProfileNotice('Perfil de cliente guardado.');
       setForm((prev) => ({ ...prev, city: prev.city || city }));
+      await loadNearbyTechnicians(form.radiusKm);
     } catch (error: any) {
       setClientProfileError(error?.message || 'No se pudo guardar tu perfil.');
     } finally {
@@ -346,6 +416,7 @@ export default function ClientRequestsHub() {
         radiusKm: prev.radiusKm || defaultForm.radiusKm,
       }));
       await fetchRequests();
+      await loadNearbyTechnicians(form.radiusKm);
     } catch (error: any) {
       setRequestError(error?.message || 'No se pudo publicar la solicitud.');
     } finally {
@@ -369,6 +440,27 @@ export default function ClientRequestsHub() {
     const published = requests.filter((item) => String(item.status).toLowerCase() === 'published').length;
     return { total, matched, published };
   }, [requests]);
+
+  const selectedNearbyTechnician = useMemo(
+    () => nearbyTechnicians.find((item) => item.id === form.targetTechnicianId) || null,
+    [nearbyTechnicians, form.targetTechnicianId]
+  );
+
+  const handleRefreshWorkspace = async () => {
+    await Promise.all([fetchRequests(), loadNearbyTechnicians(form.radiusKm)]);
+  };
+
+  useEffect(() => {
+    if (form.mode !== 'direct') return;
+    if (!form.targetTechnicianId) return;
+    if (nearbyTechnicians.some((tech) => tech.id === form.targetTechnicianId)) return;
+    setForm((prev) => ({
+      ...prev,
+      targetTechnicianId: '',
+      targetTechnicianName: '',
+      targetTechnicianPhone: '',
+    }));
+  }, [form.mode, form.targetTechnicianId, nearbyTechnicians]);
 
   const handleUseCurrentLocation = () => {
     if (typeof window === 'undefined') return;
@@ -550,7 +642,7 @@ export default function ClientRequestsHub() {
               </Link>
               <button
                 type="button"
-                onClick={fetchRequests}
+                onClick={handleRefreshWorkspace}
                 className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
               >
                 Actualizar
@@ -791,25 +883,59 @@ export default function ClientRequestsHub() {
               </div>
 
               {form.mode === 'direct' && (
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <input
+                <div className="mt-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-xs font-semibold text-slate-600">Selecciona tecnico por zona</label>
+                    <button
+                      type="button"
+                      onClick={() => loadNearbyTechnicians(form.radiusKm)}
+                      disabled={nearbyLoading}
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-60"
+                    >
+                      {nearbyLoading ? 'Actualizando...' : 'Actualizar zona'}
+                    </button>
+                  </div>
+                  <select
                     value={form.targetTechnicianId}
-                    onChange={(event) => setForm((prev) => ({ ...prev, targetTechnicianId: event.target.value }))}
-                    placeholder="ID tecnico"
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <input
-                    value={form.targetTechnicianName}
-                    onChange={(event) => setForm((prev) => ({ ...prev, targetTechnicianName: event.target.value }))}
-                    placeholder="Nombre tecnico"
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <input
-                    value={form.targetTechnicianPhone}
-                    onChange={(event) => setForm((prev) => ({ ...prev, targetTechnicianPhone: event.target.value }))}
-                    placeholder="Telefono tecnico"
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
+                    onChange={(event) => {
+                      const selectedId = event.target.value;
+                      const selected = nearbyTechnicians.find((tech) => tech.id === selectedId) || null;
+                      setForm((prev) => ({
+                        ...prev,
+                        targetTechnicianId: selectedId,
+                        targetTechnicianName: selected?.name || '',
+                        targetTechnicianPhone: selected?.phone || '',
+                      }));
+                    }}
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  >
+                    <option value="">Seleccionar tecnico cercano</option>
+                    {nearbyTechnicians.map((tech) => (
+                      <option key={tech.id} value={tech.id}>
+                        {tech.name} | {tech.city || 'Zona sin ciudad'} | {tech.distanceKm.toFixed(1)} km
+                      </option>
+                    ))}
+                  </select>
+
+                  {selectedNearbyTechnician ? (
+                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs font-semibold text-slate-800">{selectedNearbyTechnician.name}</p>
+                      <p className="mt-1 text-[11px] text-slate-600">
+                        {selectedNearbyTechnician.specialty} | {selectedNearbyTechnician.city || 'Zona no informada'}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Distancia {selectedNearbyTechnician.distanceKm.toFixed(1)} km
+                        {selectedNearbyTechnician.phone ? ` | ${selectedNearbyTechnician.phone}` : ''}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-slate-500">
+                      Elige un tecnico de la zona para enviar la solicitud directa.
+                    </p>
+                  )}
+
+                  {nearbyWarning && <p className="text-[11px] text-amber-700">{nearbyWarning}</p>}
+                  {nearbyError && <p className="text-[11px] text-rose-600">{nearbyError}</p>}
                 </div>
               )}
             </div>
@@ -831,60 +957,107 @@ export default function ClientRequestsHub() {
             {requestNotice && <p className="mt-3 text-xs text-emerald-600">{requestNotice}</p>}
           </article>
 
-          <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tus solicitudes</p>
-                <h2 className="text-xl font-semibold text-slate-900">Historial reciente</h2>
+          <div className="space-y-6">
+            <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tecnicos por zona</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Disponibles cerca de tu obra</h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadNearbyTechnicians(form.radiusKm)}
+                  disabled={nearbyLoading}
+                  className="rounded-full border border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-60"
+                >
+                  {nearbyLoading ? 'Actualizando...' : 'Actualizar'}
+                </button>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                {requests.length}
-              </span>
-            </div>
+              {nearbyCenterLabel && (
+                <p className="mt-2 text-xs text-slate-500">Centro de busqueda: {nearbyCenterLabel}</p>
+              )}
+              {nearbyError && <p className="mt-2 text-xs text-rose-600">{nearbyError}</p>}
+              {nearbyWarning && <p className="mt-2 text-xs text-amber-700">{nearbyWarning}</p>}
 
-            {loadingRequests ? (
-              <p className="mt-4 text-sm text-slate-500">Cargando solicitudes...</p>
-            ) : requests.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                Aun no publicaste solicitudes.
-              </div>
-            ) : (
-              <div className="mt-4 space-y-3">
-                {requests.map((item) => (
-                  <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                        <p className="mt-1 text-xs text-slate-600">
-                          {item.category} {item.city ? `| ${item.city}` : ''}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${urgencyClass(
-                            item.urgency
-                          )}`}
-                        >
-                          {item.urgency}
-                        </span>
-                        <span
-                          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${badgeByStatus(
-                            item.status
-                          )}`}
-                        >
-                          {item.status}
-                        </span>
-                      </div>
+              {nearbyLoading ? (
+                <p className="mt-4 text-sm text-slate-500">Buscando tecnicos por zona...</p>
+              ) : nearbyTechnicians.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  Sin tecnicos cercanos visibles con el radio actual.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-2">
+                  {nearbyTechnicians.slice(0, 8).map((tech) => (
+                    <div key={tech.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-xs font-semibold text-slate-900">{tech.name}</p>
+                      <p className="mt-0.5 text-[11px] text-slate-600">
+                        {tech.specialty} | {tech.city || 'Zona sin ciudad'} | {tech.distanceKm.toFixed(1)} km
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {tech.availableNow ? 'Disponible ahora' : 'Fuera de horario'}
+                        {tech.rating !== null ? ` | ${tech.rating.toFixed(1)} / 5` : ''}
+                      </p>
                     </div>
-                    <p className="mt-3 line-clamp-2 text-xs text-slate-600">{item.description}</p>
-                    <p className="mt-2 text-[11px] text-slate-500">
-                      {new Date(item.created_at).toLocaleString('es-AR')}
-                    </p>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tus solicitudes</p>
+                  <h2 className="text-xl font-semibold text-slate-900">Historial reciente</h2>
+                </div>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                  {requests.length}
+                </span>
               </div>
-            )}
-          </article>
+
+              {loadingRequests ? (
+                <p className="mt-4 text-sm text-slate-500">Cargando solicitudes...</p>
+              ) : requests.length === 0 ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                  Aun no publicaste solicitudes.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {requests.map((item) => (
+                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                          <p className="mt-1 text-xs text-slate-600">
+                            {item.category} {item.city ? `| ${item.city}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${urgencyClass(
+                              item.urgency
+                            )}`}
+                          >
+                            {item.urgency}
+                          </span>
+                          <span
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${badgeByStatus(
+                              item.status
+                            )}`}
+                          >
+                            {item.status}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-3 line-clamp-2 text-xs text-slate-600">{item.description}</p>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        {new Date(item.created_at).toLocaleString('es-AR')}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </article>
+          </div>
         </section>
       </div>
     </div>
