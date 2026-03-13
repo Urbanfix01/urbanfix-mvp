@@ -12,6 +12,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  fetchQuoteFeedbackLink,
   fetchTechnicianDashboardBilling,
   TechnicianDashboardBillingItem,
 } from '../../api/marketplace';
@@ -860,14 +861,24 @@ export default function JobsScreen() {
   const handleShareJob = useCallback(async (job: QuoteListItem) => {
     await ensureShareableStatus(job);
 
-    const link = getPublicQuoteUrl(job.id);
-    const safeTotal = formatMoney(job.total_amount || 0);
-    const message = `Hola! Te paso el presupuesto por $${safeTotal}: ${link}`;
+    const closedJob = isClosed(job.status);
 
     try {
+      if (closedJob) {
+        const payload = await fetchQuoteFeedbackLink(job.id);
+        const message = payload.alreadyReviewed
+          ? `Te comparto nuevamente el link para editar la calificacion del trabajo realizado: ${payload.url}`
+          : `Te comparto el link para calificar el trabajo realizado: ${payload.url}`;
+        await Share.share({ message, title: 'Calificacion UrbanFix', url: payload.url });
+        return;
+      }
+
+      const link = getPublicQuoteUrl(job.id);
+      const safeTotal = formatMoney(job.total_amount || 0);
+      const message = `Hola! Te paso el presupuesto por $${safeTotal}: ${link}`;
       await Share.share({ message, title: 'Presupuesto UrbanFix', url: link });
-    } catch (_err) {
-      Alert.alert("Error", "No se pudo compartir.");
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'No se pudo compartir.');
     }
   }, [ensureShareableStatus, formatMoney]);
 

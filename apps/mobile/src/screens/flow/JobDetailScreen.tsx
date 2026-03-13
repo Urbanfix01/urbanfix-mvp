@@ -16,6 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { fetchQuoteFeedbackLink } from '../../api/marketplace';
 import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { supabase } from '../../lib/supabase';
 import { getPublicQuoteUrl } from '../../utils/config';
@@ -135,6 +136,31 @@ const InfoRow = ({ icon, label, value, valueMuted }: InfoRowProps) => (
   </View>
 );
 
+const shareOrCopyLink = async (link: string, options?: { title?: string; message?: string; copiedLabel?: string }) => {
+  const title = options?.title || 'UrbanFix';
+  const message = options?.message || link;
+  const copiedLabel = options?.copiedLabel || 'Link copiado';
+
+  if (Platform.OS === 'web') {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(link);
+        // @ts-ignore
+        if (typeof window !== 'undefined') window.alert(copiedLabel);
+      } else if (typeof window !== 'undefined') {
+        window.prompt('Copia este link', link);
+      }
+    } catch (_err) {
+      if (typeof window !== 'undefined') {
+        window.prompt('Copia este link', link);
+      }
+    }
+    return;
+  }
+
+  await Share.share({ title, message, url: link });
+};
+
 export default function JobDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute();
@@ -243,22 +269,30 @@ export default function JobDetailScreen() {
 
   const handleShare = async () => {
     const link = getPublicQuoteUrl(jobId);
-    if (Platform.OS === 'web') {
-      try {
-        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-          await navigator.clipboard.writeText(link);
-          alert('Link copiado');
-        } else if (typeof window !== 'undefined') {
-          window.prompt('Copia este link', link);
-        }
-      } catch (_err) {
-        if (typeof window !== 'undefined') {
-          window.prompt('Copia este link', link);
-        }
-      }
-      return;
+    await shareOrCopyLink(link, {
+      title: 'Presupuesto UrbanFix',
+      message: link,
+      copiedLabel: 'Link del presupuesto copiado',
+    });
+  };
+
+  const handleShareFeedbackLink = async () => {
+    try {
+      const payload = await fetchQuoteFeedbackLink(jobId);
+      const message = payload.alreadyReviewed
+        ? `Te comparto nuevamente el link para editar la calificacion del trabajo realizado: ${payload.url}`
+        : `Te comparto el link para calificar el trabajo realizado: ${payload.url}`;
+
+      await shareOrCopyLink(payload.url, {
+        title: 'Calificacion UrbanFix',
+        message,
+        copiedLabel: payload.alreadyReviewed
+          ? 'Link de calificacion copiado. El cliente puede editar su resena con el mismo link.'
+          : 'Link de calificacion copiado',
+      });
+    } catch (shareErr: any) {
+      Alert.alert('No pudimos generar el link', shareErr?.message || 'Intenta nuevamente.');
     }
-    await Share.share({ message: link });
   };
 
   const handleConfirmQuote = async () => {
@@ -325,11 +359,14 @@ export default function JobDetailScreen() {
   const statusKey = getStatusUiKey(quote.status);
   const canFinalize = ['approved', 'accepted'].includes(String(quote.status || '').toLowerCase());
   const isDraft = statusKey === 'draft';
+  const isClosedJob = statusKey === 'completed' || statusKey === 'paid';
   const canEdit = statusKey !== 'completed' && statusKey !== 'paid';
 
   const primaryAction = isDraft
     ? { label: 'Confirmar', icon: 'checkmark-outline' as const, onPress: handleConfirmQuote }
-    : { label: 'Compartir', icon: 'share-social-outline' as const, onPress: handleShare };
+    : isClosedJob
+      ? { label: 'Pedir calificacion', icon: 'star-outline' as const, onPress: handleShareFeedbackLink }
+      : { label: 'Compartir', icon: 'share-social-outline' as const, onPress: handleShare };
 
   const secondaryAction = canFinalize
     ? {
@@ -338,6 +375,14 @@ export default function JobDetailScreen() {
         onPress: handleFinalize,
         style: styles.footerSuccessBtn,
         textStyle: styles.footerSuccessText,
+      }
+    : isClosedJob
+      ? {
+        label: 'Compartir presupuesto',
+        icon: 'paper-plane-outline' as const,
+        onPress: handleShare,
+        style: styles.footerGhostBtn,
+        textStyle: styles.footerGhostText,
       }
     : canEdit
       ? {

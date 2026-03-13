@@ -95,6 +95,14 @@ export type TechnicianPublicProfileStatusPayload = {
   matchSignals: string[];
 };
 
+export type QuoteFeedbackLinkPayload = {
+  ok: true;
+  url: string;
+  token: string;
+  quoteId: string;
+  alreadyReviewed: boolean;
+};
+
 const getAccessToken = async () => {
   const { data } = await supabase.auth.getSession();
   const token = data?.session?.access_token || '';
@@ -153,6 +161,16 @@ export const fetchTechnicianDashboardBilling = async () => {
 export const fetchTechnicianPublicProfileStatus = async () => {
   return requestApi<TechnicianPublicProfileStatusPayload>('/api/tecnico/profile-public-status', {
     method: 'GET',
+  });
+};
+
+export const fetchQuoteFeedbackLink = async (quoteId: string) => {
+  const safeQuoteId = String(quoteId || '').trim();
+  if (!safeQuoteId) {
+    throw new Error('Trabajo invalido.');
+  }
+  return requestApi<QuoteFeedbackLinkPayload>(`/api/tecnico/quotes/${safeQuoteId}/feedback-link`, {
+    method: 'POST',
   });
 };
 
