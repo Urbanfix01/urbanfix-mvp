@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
-  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable,
+  StatusBar, ActivityIndicator, Alert, Share, Platform, Modal, Pressable, LayoutAnimation, UIManager,
   type DimensionValue, type ViewStyle
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +11,10 @@ import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  fetchTechnicianDashboardBilling,
+  TechnicianDashboardBillingItem,
+} from '../../api/marketplace';
 import { COLORS, FONTS } from '../../utils/theme';
 import { ServiceBlueprint } from '../../types/database';
 import MapCanvas from '../../components/molecules/MapCanvas';
@@ -19,7 +23,16 @@ import JobListCard from '../../components/molecules/JobListCard';
 import { MapPoint } from '../../types/maps';
 import { supabase } from '../../lib/supabase'; 
 import { getPublicQuoteUrl } from '../../utils/config';
-import { isApproved, isClosed, isPaid, isPending, isPresented, normalizeStatus } from '../../utils/status';
+import {
+  getStatusLabelEs,
+  getStatusUiKey,
+  isApproved,
+  isClosed,
+  isPaid,
+  isPending,
+  isPresented,
+  normalizeStatus,
+} from '../../utils/status';
 
 type QuoteListItem = {
   id: string;
@@ -32,14 +45,25 @@ type QuoteListItem = {
   total_amount?: number | null;
   status?: string | null;
   created_at: string;
+  paid_at?: string | null;
+  scheduled_date?: string | null;
+  archived_at?: string | null;
 };
 
+type DashboardFinancialItem = Pick<
+  QuoteListItem,
+  'id' | 'total_amount' | 'status' | 'created_at' | 'paid_at' | 'scheduled_date'
+>;
+
 type DashboardFilter = 'total' | 'pending' | 'approved' | 'paid';
-type TrendCoord = { x: number; totalY: number; paidY: number };
+type DashboardSectionKey = 'summary' | 'billing' | 'trend';
+type TrendCoord = { x: number; totalY: number; pendingY: number; paidY: number };
 
 const DASHBOARD_CACHE_KEY = 'dashboard_quotes_cache_v1';
 const DASHBOARD_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 horas
 const QUOTES_QUERY_KEY = ['quotes-list'] as const;
+const ALL_QUOTES_QUERY_KEY = ['quotes-list-all'] as const;
+const DASHBOARD_BILLING_QUERY_KEY = ['technician-dashboard-billing'] as const;
 
 const TrendChart = React.memo(
   ({
@@ -51,6 +75,7 @@ const TrendChart = React.memo(
     maxLabel,
     midLabel,
     totalPoints,
+    pendingPoints,
     paidPoints,
     coords,
   }: {
@@ -62,6 +87,7 @@ const TrendChart = React.memo(
     maxLabel: string;
     midLabel: string;
     totalPoints: string;
+    pendingPoints: string;
     paidPoints: string;
     coords: TrendCoord[];
   }) => (
@@ -124,12 +150,16 @@ const TrendChart = React.memo(
       {!!totalPoints && (
         <Polyline points={totalPoints} fill="none" stroke={STATUS_COLORS.total} strokeWidth={2} />
       )}
+      {!!pendingPoints && (
+        <Polyline points={pendingPoints} fill="none" stroke={STATUS_COLORS.pending} strokeWidth={2} />
+      )}
       {!!paidPoints && (
         <Polyline points={paidPoints} fill="none" stroke={STATUS_COLORS.paid} strokeWidth={2} />
       )}
       {coords.map((point, index) => (
         <React.Fragment key={`point-${index}`}>
           <Circle cx={point.x} cy={point.totalY} r={3} fill={STATUS_COLORS.total} />
+          <Circle cx={point.x} cy={point.pendingY} r={3} fill={STATUS_COLORS.pending} />
           <Circle cx={point.x} cy={point.paidY} r={3} fill={STATUS_COLORS.paid} />
         </React.Fragment>
       ))}
@@ -170,18 +200,96 @@ const FILTER_LABELS: Record<DashboardFilter, string> = {
   paid: 'Cobrados',
 };
 
-async function getQuotes(): Promise<QuoteListItem[]> {
+const createCollapsedDashboardSections = (): Record<DashboardSectionKey, boolean> => ({
+  summary: false,
+  billing: false,
+  trend: false,
+});
+
+const DashboardAccordion = ({
+  title,
+  subtitle,
+  expanded,
+  accent,
+  onPress,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  expanded: boolean;
+  accent: string;
+  onPress: () => void;
+  children: React.ReactNode;
+}) => (
+  <View style={styles.accordionSection}>
+    <TouchableOpacity
+      style={[styles.accordionTrigger, expanded && styles.accordionTriggerExpanded]}
+      onPress={onPress}
+      activeOpacity={0.9}
+      accessibilityRole="button"
+      accessibilityState={{ expanded }}
+    >
+      <View style={styles.accordionTriggerMain}>
+        <View style={[styles.accordionAccent, { backgroundColor: accent }]} />
+        <View style={styles.accordionCopy}>
+          <Text style={styles.accordionTitle}>{title}</Text>
+          <Text style={styles.accordionSubtitle}>{subtitle}</Text>
+        </View>
+      </View>
+      <View style={[styles.accordionChevronWrap, expanded && styles.accordionChevronWrapExpanded]}>
+        <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={expanded ? '#FFFFFF' : '#475569'} />
+      </View>
+    </TouchableOpacity>
+    {expanded ? <View style={styles.accordionBody}>{children}</View> : null}
+  </View>
+);
+
+async function getQuotes(includeArchived = false): Promise<QuoteListItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
-    .from('quotes')
-    .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: false });
+  const attempts = [
+    {
+      select:
+        'id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at, paid_at, scheduled_date, archived_at',
+      filterArchived: true,
+      map: (items: any[]) => items as QuoteListItem[],
+    },
+    {
+      select:
+        'id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at, paid_at, scheduled_date',
+      filterArchived: false,
+      map: (items: any[]) => items.map((item) => ({ ...item, archived_at: null })) as QuoteListItem[],
+    },
+    {
+      select:
+        'id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at, scheduled_date',
+      filterArchived: false,
+      map: (items: any[]) =>
+        items.map((item) => ({
+          ...item,
+          paid_at: null,
+          archived_at: null,
+        })) as QuoteListItem[],
+    },
+  ] as const;
 
-  if (error) throw error;
-  return data || [];
+  let lastError: unknown = null;
+  for (const attempt of attempts) {
+    let query = supabase.from('quotes').select(attempt.select).eq('user_id', user.id).order('created_at', {
+      ascending: false,
+    });
+    if (attempt.filterArchived && !includeArchived) {
+      query = query.is('archived_at', null);
+    }
+    const { data, error } = await query;
+    if (!error) {
+      return attempt.map(data || []);
+    }
+    lastError = error;
+  }
+
+  throw lastError;
 }
 
 export default function JobsScreen() {
@@ -194,6 +302,9 @@ export default function JobsScreen() {
   const [listAnchor, setListAnchor] = useState(0);
   const listRef = useRef<any>(null);
   const [dashboardWidth, setDashboardWidth] = useState(0);
+  const [expandedSections, setExpandedSections] = useState<Record<DashboardSectionKey, boolean>>(
+    createCollapsedDashboardSections
+  );
   const dashboardGap = 6;
   const dashboardColumns = dashboardWidth && dashboardWidth < 300 ? 1 : 2;
   const isDashboardCompact = dashboardWidth > 0 && dashboardWidth < 380;
@@ -204,10 +315,28 @@ export default function JobsScreen() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const { data: jobsData, isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
     queryKey: QUOTES_QUERY_KEY,
-    queryFn: getQuotes,
+    queryFn: () => getQuotes(false),
     staleTime: 60000,
   });
   const jobs: QuoteListItem[] = jobsData ?? [];
+  const { data: allJobsData } = useQuery<QuoteListItem[]>({
+    queryKey: ALL_QUOTES_QUERY_KEY,
+    queryFn: () => getQuotes(true),
+    staleTime: 60000,
+  });
+  const allJobs: QuoteListItem[] = allJobsData ?? jobs;
+  const { data: billingData } = useQuery<{ items: TechnicianDashboardBillingItem[] }>({
+    queryKey: DASHBOARD_BILLING_QUERY_KEY,
+    queryFn: fetchTechnicianDashboardBilling,
+    staleTime: 60000,
+  });
+  const marketplaceBillingItems = billingData?.items ?? [];
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -303,29 +432,53 @@ export default function JobsScreen() {
     };
   }, [jobs]);
 
+  const financialEntries = useMemo<DashboardFinancialItem[]>(
+    () => [
+      ...allJobs.map((job) => ({
+        id: job.id,
+        total_amount: job.total_amount ?? 0,
+        status: job.status ?? null,
+        created_at: job.created_at,
+        paid_at: job.paid_at ?? null,
+        scheduled_date: job.scheduled_date ?? null,
+      })),
+      ...marketplaceBillingItems,
+    ],
+    [allJobs, marketplaceBillingItems]
+  );
+
+  const isSameMonth = useCallback((value: string | null | undefined, month: number, year: number) => {
+    if (!value) return false;
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return false;
+    return date.getFullYear() === year && date.getMonth() === month;
+  }, []);
+
   const monthStats = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
-    let totalAmount = 0;
+    let pendingAmount = 0;
     let approvedAmount = 0;
     let paidAmount = 0;
 
-    jobs.forEach((job) => {
-      const createdAt = new Date(job.created_at);
-      if (Number.isNaN(createdAt.getTime())) return;
-      if (createdAt.getFullYear() !== currentYear || createdAt.getMonth() !== currentMonth) return;
-
-      const amount = job.total_amount || 0;
-      const status = job.status;
-
-      totalAmount += amount;
+    financialEntries.forEach((entry) => {
+      const amount = entry.total_amount || 0;
+      const status = entry.status;
+      if (isPending(status)) pendingAmount += amount;
       if (isApproved(status)) approvedAmount += amount;
-      if (isPaid(status)) paidAmount += amount;
+      if (isPaid(status) && isSameMonth(entry.paid_at || entry.created_at, currentMonth, currentYear)) {
+        paidAmount += amount;
+      }
     });
 
-    return { totalAmount, approvedAmount, paidAmount };
-  }, [jobs]);
+    return {
+      totalAmount: pendingAmount + approvedAmount,
+      pendingAmount,
+      approvedAmount,
+      paidAmount,
+    };
+  }, [financialEntries, isSameMonth]);
 
   const formatNumberSafe = useCallback((value: number) => {
     const safe = Number(value || 0);
@@ -391,14 +544,21 @@ export default function JobsScreen() {
         key: 'billing-total',
         label: 'Total',
         value: `$${formatMoney(monthStats.totalAmount)}`,
-        hint: 'Presupuestos del mes',
+        hint: 'Pipeline activo',
         accent: STATUS_COLORS.total,
+      },
+      {
+        key: 'billing-pending',
+        label: 'Pendientes',
+        value: `$${formatMoney(monthStats.pendingAmount)}`,
+        hint: 'Pendientes de aprobacion',
+        accent: STATUS_COLORS.pending,
       },
       {
         key: 'billing-approved',
         label: 'Aprobados',
         value: `$${formatMoney(monthStats.approvedAmount)}`,
-        hint: 'Aprobados del mes',
+        hint: 'Aprobados por cobrar',
         accent: STATUS_COLORS.approved,
       },
       {
@@ -504,12 +664,20 @@ export default function JobsScreen() {
     const maxLng = Math.max(...lngs);
     const latitude = (minLat + maxLat) / 2;
     const longitude = (minLng + maxLng) / 2;
-    const latitudeDelta = Math.max(0.05, (maxLat - minLat) * 1.6);
-    const longitudeDelta = Math.max(0.05, (maxLng - minLng) * 1.6);
+    const latSpan = maxLat - minLat;
+    const lngSpan = maxLng - minLng;
+    const latitudeDelta = latSpan > 0 ? Math.max(0.012, latSpan * 1.18) : 0.018;
+    const longitudeDelta = lngSpan > 0 ? Math.max(0.012, lngSpan * 1.18) : 0.018;
     return { latitude, longitude, latitudeDelta, longitudeDelta };
   }, [mapPoints]);
 
-  const mapKey = `${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
+  const mapKey = [
+    mapPoints.length,
+    mapRegion.latitude.toFixed(4),
+    mapRegion.longitude.toFixed(4),
+    mapRegion.latitudeDelta.toFixed(4),
+    mapRegion.longitudeDelta.toFixed(4),
+  ].join('-');
 
   const handleOpenMapDetail = (point: MapPoint) => {
     setMapSelection(point);
@@ -534,39 +702,85 @@ export default function JobsScreen() {
       'Nov',
       'Dic',
     ];
-    const months = monthLabels.map((label, index) => ({
-      key: `${year}-${String(index + 1).padStart(2, '0')}`,
-      label,
-      month: index,
-      year,
-    }));
+    const formatDateKey = (date: Date) =>
+      `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    const formatDateLabel = (date: Date) => `${date.getDate()} ${monthLabels[date.getMonth()]}`;
 
-    const totals = new Map<string, { total: number; paid: number }>();
-    months.forEach((month) => totals.set(month.key, { total: 0, paid: 0 }));
+    const timeline = new Map<
+      string,
+      {
+        key: string;
+        label: string;
+        timestamp: number;
+        total: number;
+        pending: number;
+        paid: number;
+        paidCumulative: number;
+      }
+    >();
 
-    jobs.forEach((job) => {
-      const createdAt = new Date(job.created_at);
-      if (Number.isNaN(createdAt.getTime())) return;
-      if (createdAt.getFullYear() !== year) return;
-      const key = `${year}-${String(createdAt.getMonth() + 1).padStart(2, '0')}`;
-      const bucket = totals.get(key);
-      if (!bucket) return;
-      const amount = job.total_amount || 0;
-      const status = job.status;
-      bucket.total += amount;
-      if (isPaid(status)) bucket.paid += amount;
+    const ensureBucket = (value: string | null | undefined) => {
+      if (!value) return null;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime()) || date.getFullYear() !== year) return null;
+      const key = formatDateKey(date);
+      const existing = timeline.get(key);
+      if (existing) return existing;
+      const next = {
+        key,
+        label: formatDateLabel(date),
+        timestamp: date.getTime(),
+        total: 0,
+        pending: 0,
+        paid: 0,
+        paidCumulative: 0,
+      };
+      timeline.set(key, next);
+      return next;
+    };
+
+    financialEntries.forEach((entry) => {
+      const amount = entry.total_amount || 0;
+      const createdBucket = ensureBucket(entry.created_at);
+      if (createdBucket) {
+        createdBucket.total += amount;
+        if (isPending(entry.status)) {
+          createdBucket.pending += amount;
+        }
+      }
+
+      if (isPaid(entry.status)) {
+        const paidBucket = ensureBucket(entry.paid_at || entry.created_at);
+        if (!paidBucket) return;
+        paidBucket.paid += amount;
+      }
     });
 
-    return months.map((month) => ({
-      ...month,
-      total: totals.get(month.key)?.total || 0,
-      paid: totals.get(month.key)?.paid || 0,
+    const points = Array.from(timeline.values()).sort((a, b) => a.timestamp - b.timestamp);
+    let runningPaid = 0;
+    const pointsWithCumulative = points.map((point) => {
+      runningPaid += point.paid;
+      return {
+        ...point,
+        paidCumulative: runningPaid,
+      };
+    });
+    if (pointsWithCumulative.length > 0) return pointsWithCumulative;
+
+    return monthLabels.map((label, index) => ({
+      key: `${year}-${String(index + 1).padStart(2, '0')}`,
+      label,
+      timestamp: new Date(year, index, 1).getTime(),
+      total: 0,
+      pending: 0,
+      paid: 0,
+      paidCumulative: 0,
     }));
-  }, [jobs]);
+  }, [financialEntries]);
 
   const trendSummary = useMemo(() => {
     const lastIndex = trendData.reduce((acc, entry, index) => {
-      if (entry.total > 0 || entry.paid > 0) return index;
+      if (entry.total > 0 || entry.pending > 0 || entry.paid > 0 || entry.paidCumulative > 0) return index;
       return acc;
     }, -1);
     const finalIndex = lastIndex === -1 ? trendData.length - 1 : lastIndex;
@@ -575,7 +789,7 @@ export default function JobsScreen() {
   }, [trendData]);
 
   const maxTrendValue = useMemo(() => {
-    const values = trendData.map((entry) => Math.max(entry.total, entry.paid));
+    const values = trendData.map((entry) => Math.max(entry.total, entry.pending, entry.paidCumulative));
     return Math.max(1, ...values);
   }, [trendData]);
 
@@ -588,18 +802,27 @@ export default function JobsScreen() {
   const showMapSkeleton = isLoading;
 
   const trendPoints = useMemo(() => {
-    if (!trendWidth) return { total: '', paid: '', coords: [] as { x: number; totalY: number; paidY: number }[] };
+    if (!trendWidth) {
+      return {
+        total: '',
+        pending: '',
+        paid: '',
+        coords: [] as { x: number; totalY: number; pendingY: number; paidY: number }[],
+      };
+    }
     const availableWidth = trendWidth - trendPadding * 2;
     const step = trendData.length > 1 ? availableWidth / (trendData.length - 1) : 0;
     const coords = trendData.map((entry, index) => {
       const x = trendPadding + index * step;
       const totalY = trendPadding + (1 - entry.total / maxTrendValue) * trendInnerHeight;
-      const paidY = trendPadding + (1 - entry.paid / maxTrendValue) * trendInnerHeight;
-      return { x, totalY, paidY };
+      const pendingY = trendPadding + (1 - entry.pending / maxTrendValue) * trendInnerHeight;
+      const paidY = trendPadding + (1 - entry.paidCumulative / maxTrendValue) * trendInnerHeight;
+      return { x, totalY, pendingY, paidY };
     });
     const total = coords.map((point) => `${point.x},${point.totalY}`).join(' ');
+    const pending = coords.map((point) => `${point.x},${point.pendingY}`).join(' ');
     const paid = coords.map((point) => `${point.x},${point.paidY}`).join(' ');
-    return { total, paid, coords };
+    return { total, pending, paid, coords };
   }, [trendWidth, trendData, maxTrendValue, trendInnerHeight]);
 
   // --- ACCIONES ---
@@ -628,6 +851,7 @@ export default function JobsScreen() {
         await supabase.from('quotes').update({ status: 'sent' }).eq('id', job.id);
       }
       await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: ALL_QUOTES_QUERY_KEY });
     } catch (err) {
       console.warn('No se pudo confirmar el presupuesto antes de compartir.', err);
     }
@@ -649,25 +873,76 @@ export default function JobsScreen() {
 
   // --- FIX 2: NORMALIZADOR VISUAL DE ESTADOS ---
   const getStatusConfig = useCallback((status?: string | null) => {
-    const normalized = normalizeStatus(status);
-    if (isApproved(status)) {
-        return { label: 'APROBADO', color: STATUS_COLORS.approved, bg: '#D1FAE5' }; // Emerald
+    const label = getStatusLabelEs(status);
+    const statusKey = getStatusUiKey(status);
+
+    if (statusKey === 'paid') {
+      return { label, color: STATUS_COLORS.paid, bg: '#DCFCE7' };
     }
 
-    if (isPresented(status)) {
-        return { label: 'PRESENTADO', color: STATUS_COLORS.presented, bg: '#DBEAFE' }; // Azul
+    if (statusKey === 'completed') {
+      return { label, color: '#4F46E5', bg: '#E0E7FF' };
     }
 
-    if (isPending(status)) {
-        return { label: 'PENDIENTE', color: STATUS_COLORS.pending, bg: '#FFF7ED' }; // Amber
+    if (statusKey === 'approved') {
+      return { label, color: STATUS_COLORS.approved, bg: '#D1FAE5' };
     }
 
-    return { label: normalized.toUpperCase() || 'N/A', color: '#6B7280', bg: '#E5E7EB' };
+    if (statusKey === 'presented') {
+      return { label, color: STATUS_COLORS.presented, bg: '#DBEAFE' };
+    }
+
+    if (statusKey === 'draft' || statusKey === 'pending') {
+      return { label, color: STATUS_COLORS.pending, bg: '#FFF7ED' };
+    }
+
+    if (statusKey === 'cancelled') {
+      return { label, color: '#BE123C', bg: '#FFE4E6' };
+    }
+
+    return { label, color: '#6B7280', bg: '#E5E7EB' };
   }, []);
 
   const toggleSelect = useCallback((id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
+
+  const clearSelection = useCallback(() => {
+    setSelectedIds([]);
+    setSelectionMode(false);
+  }, []);
+
+  const archiveSelectedQuotes = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error('Sesion expirada.');
+    }
+
+    const { error } = await supabase
+      .from('quotes')
+      .update({ archived_at: new Date().toISOString() })
+      .eq('user_id', user.id)
+      .in('id', selectedIds);
+
+    if (error) throw error;
+
+    await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ALL_QUOTES_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ['job_history'] });
+    clearSelection();
+  }, [clearSelection, queryClient, selectedIds]);
+
+  const deleteSelectedQuotes = useCallback(async () => {
+    for (const id of selectedIds) {
+      const { error } = await supabase.rpc('delete_quote', { p_quote_id: id });
+      if (error) throw error;
+    }
+
+    await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ALL_QUOTES_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ['job_history'] });
+    clearSelection();
+  }, [clearSelection, queryClient, selectedIds]);
 
   const handleDashboardFilter = useCallback((filter: DashboardFilter) => {
     setActiveFilter(filter);
@@ -677,6 +952,28 @@ export default function JobsScreen() {
       listRef.current?.scrollToOffset({ offset: listAnchor, animated: true });
     });
   }, [listAnchor]);
+
+  const toggleDashboardSection = useCallback((section: DashboardSectionKey) => {
+    if (Platform.OS !== 'web') {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
+    setExpandedSections((current) => {
+      return {
+        ...current,
+        [section]: !current[section],
+      };
+    });
+  }, []);
+
+  const handleOpenLaborCatalog = useCallback(() => {
+    // @ts-ignore
+    navigation.navigate('Catalogo', { initialTab: 'labor' });
+  }, [navigation]);
+
+  const handleOpenPublicProfile = useCallback(() => {
+    // @ts-ignore
+    navigation.navigate('TechnicianPublicProfile');
+  }, [navigation]);
 
   const renderDashboardCard = useCallback(
     ({ item, index }: { item: typeof dashboardCards[number]; index: number }) => {
@@ -811,11 +1108,18 @@ export default function JobsScreen() {
           ${formatMoney(item.total)}
         </Text>
         <View style={styles.trendSummaryLine}>
+          <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.pending }]} />
+          <Text style={styles.trendSummaryLabel}>Pendientes</Text>
+        </View>
+        <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.pending }]}>
+          ${formatMoney(item.pending)}
+        </Text>
+        <View style={styles.trendSummaryLine}>
           <View style={[styles.trendSummaryDot, { backgroundColor: STATUS_COLORS.paid }]} />
-          <Text style={styles.trendSummaryLabel}>Cobrados</Text>
+          <Text style={styles.trendSummaryLabel}>Cobrados acum.</Text>
         </View>
         <Text style={[styles.trendSummaryValue, { color: STATUS_COLORS.paid }]}>
-          ${formatMoney(item.paid)}
+          ${formatMoney(item.paidCumulative)}
         </Text>
       </View>
     ),
@@ -827,20 +1131,17 @@ export default function JobsScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
-      
-      {/* HEADER DASHBOARD */}
-      <View style={styles.header}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F5F4F0" />
+      <View style={styles.headerCompact}>
         <SafeAreaView edges={['top']}>
-           <View style={styles.headerContent}>
-              <Text style={styles.headerTitle}>PANEL DE CONTROL</Text>
-              {!!lastUpdatedLabel && (
-                <View style={styles.headerMetaRow}>
-                  <Ionicons name="time-outline" size={12} color="rgba(248,250,252,0.7)" />
-                  <Text style={styles.headerMeta}>Actualizado {lastUpdatedLabel}</Text>
-                </View>
-              )}
-           </View>
+          <View style={styles.headerCompactRow}>
+            <View style={styles.headerCompactCopy}>
+              <Text style={styles.headerCompactTitle}>Dashboard</Text>
+              <Text style={styles.headerCompactMeta}>
+                {lastUpdatedLabel ? `Actualizado ${lastUpdatedLabel}` : 'Panel general'}
+              </Text>
+            </View>
+          </View>
         </SafeAreaView>
       </View>
 
@@ -872,197 +1173,273 @@ export default function JobsScreen() {
             ListHeaderComponent={
                 <View>
                   <View style={styles.dashboardWrapper}>
-                  <View style={styles.dashboardPanel}>
-                    
-                    <View
-                      style={styles.dashboardGrid}
-                      onLayout={(event) => setDashboardWidth(event.nativeEvent.layout.width)}
+                    <DashboardAccordion
+                      title="Resumen rapido"
+                      subtitle={`${stats.totalCount} presupuestos | toca una tarjeta para filtrar`}
+                      expanded={expandedSections.summary}
+                      accent={COLORS.secondary}
+                      onPress={() => toggleDashboardSection('summary')}
                     >
-                      <FlashList
-                        key={`dashboard-${dashboardColumns}`}
-                        data={dashboardCards}
-                        numColumns={dashboardColumns}
-                        keyExtractor={(item) => item.key}
-                        renderItem={renderDashboardCard}
-                        scrollEnabled={false}
-                        estimatedItemSize={120}
-                      />
-                    </View>
-                  </View>
-
-                  <View style={styles.billingPanel}>
-                    <Text style={styles.panelTitle}>Facturacion estimada</Text>
-                    <View style={styles.billingGrid}>
-                      {billingCards.map((card) => (
-                        <View key={card.key} style={styles.billingCard}>
-                          <View style={styles.billingLabelRow}>
-                            <View style={[styles.billingDot, { backgroundColor: card.accent }]} />
-                            <Text style={styles.billingLabel}>{card.label}</Text>
-                          </View>
-                          <Text style={[styles.billingValue, { color: card.accent }]}>{card.value}</Text>
-                          <Text style={styles.billingHint}>{card.hint}</Text>
-                        </View>
-                      ))}
-                    </View>
-                    <View style={styles.trendPanel}>
-                      <View style={styles.trendHeader}>
-                        <Text style={styles.trendTitle}>TENDENCIA ANUAL · ENE-DIC</Text>
-                        <View style={styles.trendLegend}>
-                          <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.total }]} />
-                            <Text style={styles.legendText}>Presupuestos</Text>
-                          </View>
-                          <View style={styles.legendItem}>
-                            <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.paid }]} />
-                            <Text style={styles.legendText}>Cobrados</Text>
-                          </View>
-                        </View>
+                      <View style={styles.dashboardPanelHeader}>
+                        <Text style={styles.panelTitle}>Resumen rapido</Text>
+                        <Text style={styles.dashboardPanelHint}>Toca una tarjeta para filtrar tu lista.</Text>
                       </View>
+
                       <View
-                        style={styles.trendChart}
-                        onLayout={(event) => setTrendWidth(event.nativeEvent.layout.width)}
+                        style={styles.dashboardGrid}
+                        onLayout={(event) => setDashboardWidth(event.nativeEvent.layout.width)}
                       >
-                        {showTrendSkeleton ? (
-                          <SkeletonBlock height={trendHeight} radius={12} />
-                        ) : (
-                          <TrendChart
-                            width={trendWidth}
-                            height={trendHeight}
-                            padding={trendPadding}
-                            innerHeight={trendInnerHeight}
-                            midY={trendMidY}
-                            maxLabel={trendMaxLabel}
-                            midLabel={trendMidLabel}
-                            totalPoints={trendPoints.total}
-                            paidPoints={trendPoints.paid}
-                            coords={trendPoints.coords}
-                          />
-                        )}
-                      </View>
-                      {showTrendSkeleton ? (
-                        <>
-                          <View style={styles.trendLabelSkeletonRow}>
-                            {Array.from({ length: 6 }).map((_, index) => (
-                              <SkeletonBlock key={`trend-label-${index}`} width={24} height={8} radius={4} />
-                            ))}
-                          </View>
-                          <View style={styles.trendSummarySkeletonRow}>
-                            {Array.from({ length: 2 }).map((_, index) => (
-                              <SkeletonBlock
-                                key={`trend-card-${index}`}
-                                width={120}
-                                height={88}
-                                radius={14}
-                                style={styles.trendSummarySkeleton}
-                              />
-                            ))}
-                          </View>
-                        </>
-                      ) : (
-                        <>
-                          <View style={styles.trendLabels}>
-                            {trendData.map((entry) => (
-                              <Text key={entry.key} style={styles.trendLabel}>{entry.label}</Text>
-                            ))}
-                          </View>
-                          <FlashList
-                            horizontal
-                            data={trendSummary}
-                            keyExtractor={(item) => item.key}
-                            renderItem={renderTrendSummaryItem}
-                            showsHorizontalScrollIndicator={false}
-                            contentContainerStyle={styles.trendSummaryRow}
-                            estimatedItemSize={120}
-                          />
-                        </>
-                      )}
-                    </View>
-                    <View style={styles.statusPanel}>
-                      <Text style={styles.trendTitle}>TRABAJOS POR ESTADO</Text>
-                      <View style={styles.statusChart}>
-                      {showStatusSkeleton ? (
-                        Array.from({ length: 3 }).map((_, index) => (
-                          <View key={`status-skel-${index}`} style={styles.statusColumn}>
-                            <SkeletonBlock width={24} height={14} radius={6} />
-                            <SkeletonBlock
-                              width="100%"
-                              height={60 - index * 8}
-                              radius={8}
-                              style={styles.statusSkeletonBar}
-                            />
-                            <SkeletonBlock width={50} height={10} radius={6} style={styles.statusSkeletonLabel} />
-                          </View>
-                        ))
-                      ) : (
-                        <StatusChart data={statusChart} max={maxStatusCount} />
-                      )}
-                      </View>
-                    </View>
-                  </View>
-
-                  <View style={styles.mapPanel}>
-                    <View style={styles.mapHeader}>
-                      <View style={styles.mapTitleRow}>
-                        <Text style={styles.trendTitle}>MAPA · ULTIMOS 3 MESES</Text>
-                        {showMapSkeleton ? (
-                          <SkeletonBlock width={70} height={12} radius={6} />
-                        ) : (
-                          <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
-                        )}
-                      </View>
-                      <View style={styles.mapPills}>
-                        {showMapSkeleton ? (
-                          <>
-                            <SkeletonBlock width={120} height={22} radius={999} />
-                            <SkeletonBlock width={110} height={22} radius={999} />
-                            <SkeletonBlock width={100} height={22} radius={999} />
-                          </>
-                        ) : (
-                          <>
-                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
-                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
-                              <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
-                            </View>
-                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
-                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
-                              <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
-                            </View>
-                            <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
-                              <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
-                              <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
-                            </View>
-                          </>
-                        )}
-                      </View>
-                    </View>
-                    {showMapSkeleton ? (
-                      <SkeletonBlock height={260} radius={14} />
-                    ) : (
-                      <>
-                        <MapCanvas
-                          key={mapKey}
-                          points={mapPoints}
-                          region={mapRegion}
-                          onSelect={handleOpenMapDetail}
-                          formatMoney={formatMoney}
-                          height={260}
+                        <FlashList
+                          key={`dashboard-${dashboardColumns}`}
+                          data={dashboardCards}
+                          numColumns={dashboardColumns}
+                          keyExtractor={(item) => item.key}
+                          renderItem={renderDashboardCard}
+                          scrollEnabled={false}
+                          estimatedItemSize={120}
                         />
-                        {!mapPoints.length && (
-                          <Text style={styles.mapEmptyText}>Agrega ubicaciones en tus presupuestos.</Text>
+                      </View>
+
+                      <View style={styles.summaryStatusSection}>
+                        <Text style={styles.trendTitle}>TRABAJOS POR ESTADO</Text>
+                        <Text style={styles.dashboardPanelHint}>
+                          {`${statusCounts.pending} pendientes | ${statusCounts.approved} aprobados | ${statusCounts.closed} cerrados`}
+                        </Text>
+                        <View style={styles.statusChart}>
+                          {showStatusSkeleton ? (
+                            Array.from({ length: 3 }).map((_, index) => (
+                              <View key={`status-skel-${index}`} style={styles.statusColumn}>
+                                <SkeletonBlock width={24} height={14} radius={6} />
+                                <SkeletonBlock
+                                  width="100%"
+                                  height={60 - index * 8}
+                                  radius={8}
+                                  style={styles.statusSkeletonBar}
+                                />
+                                <SkeletonBlock width={50} height={10} radius={6} style={styles.statusSkeletonLabel} />
+                              </View>
+                            ))
+                          ) : (
+                            <StatusChart data={statusChart} max={maxStatusCount} />
+                          )}
+                        </View>
+                      </View>
+
+                      <View style={styles.summaryMapSection}>
+                        <View style={styles.mapHeader}>
+                          <View style={styles.mapTitleRow}>
+                            <Text style={styles.trendTitle}>MAPA DE TRABAJOS</Text>
+                            {showMapSkeleton ? (
+                              <SkeletonBlock width={70} height={12} radius={6} />
+                            ) : (
+                              <Text style={styles.mapCountText}>{mapPoints.length} trabajos</Text>
+                            )}
+                          </View>
+                          <Text style={styles.dashboardPanelHint}>
+                            Ultimos 3 meses | foco en las zonas reales de trabajo
+                          </Text>
+                          <View style={styles.mapPills}>
+                            {showMapSkeleton ? (
+                              <>
+                                <SkeletonBlock width={120} height={22} radius={999} />
+                                <SkeletonBlock width={110} height={22} radius={999} />
+                                <SkeletonBlock width={100} height={22} radius={999} />
+                              </>
+                            ) : (
+                              <>
+                                <View style={[styles.mapPill, { borderColor: STATUS_COLORS.pending }]}>
+                                  <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.pending }]} />
+                                  <Text style={styles.mapPillText}>Presupuestados {mapCounts.pending}</Text>
+                                </View>
+                                <View style={[styles.mapPill, { borderColor: STATUS_COLORS.approved }]}>
+                                  <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.approved }]} />
+                                  <Text style={styles.mapPillText}>Aprobados {mapCounts.approved}</Text>
+                                </View>
+                                <View style={[styles.mapPill, { borderColor: STATUS_COLORS.closed }]}>
+                                  <View style={[styles.mapPillDot, { backgroundColor: STATUS_COLORS.closed }]} />
+                                  <Text style={styles.mapPillText}>Cerrados {mapCounts.closed}</Text>
+                                </View>
+                              </>
+                            )}
+                          </View>
+                        </View>
+                        {showMapSkeleton ? (
+                          <SkeletonBlock height={260} radius={14} />
+                        ) : (
+                          <>
+                            <MapCanvas
+                              key={mapKey}
+                              points={mapPoints}
+                              region={mapRegion}
+                              onSelect={handleOpenMapDetail}
+                              formatMoney={formatMoney}
+                              height={260}
+                            />
+                            {!mapPoints.length && (
+                              <Text style={styles.mapEmptyText}>Agrega ubicaciones en tus presupuestos.</Text>
+                            )}
+                          </>
                         )}
-                      </>
-                    )}
-                    <TouchableOpacity
-                      style={styles.mapCta}
-                      onPress={() => {
-                        // @ts-ignore
-                        navigation.navigate('Mapa');
-                      }}
+                        <TouchableOpacity
+                          style={styles.mapCta}
+                          onPress={() => {
+                            // @ts-ignore
+                            navigation.navigate('Mapa');
+                          }}
+                        >
+                          <Text style={styles.mapCtaText}>Ver mapa completo</Text>
+                          <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                        </TouchableOpacity>
+                      </View>
+                    </DashboardAccordion>
+
+                    <DashboardAccordion
+                      title="Facturacion estimada"
+                      subtitle={`Pipeline activo | $${formatMoney(monthStats.totalAmount)}`}
+                      expanded={expandedSections.billing}
+                      accent={STATUS_COLORS.approved}
+                      onPress={() => toggleDashboardSection('billing')}
                     >
-                      <Text style={styles.mapCtaText}>Ver mapa completo</Text>
-                      <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                      <Text style={styles.panelTitle}>Facturacion estimada</Text>
+                      <View style={styles.billingGrid}>
+                        {billingCards.map((card) => (
+                          <View key={card.key} style={styles.billingCard}>
+                            <View style={styles.billingLabelRow}>
+                              <View style={[styles.billingDot, { backgroundColor: card.accent }]} />
+                              <Text style={styles.billingLabel}>{card.label}</Text>
+                            </View>
+                            <Text style={[styles.billingValue, { color: card.accent }]}>{card.value}</Text>
+                            <Text style={styles.billingHint}>{card.hint}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    </DashboardAccordion>
+
+                    <DashboardAccordion
+                      title="Tendencia anual"
+                      subtitle="Presupuestos, pendientes y cobrados | fechas reales"
+                      expanded={expandedSections.trend}
+                      accent={STATUS_COLORS.total}
+                      onPress={() => toggleDashboardSection('trend')}
+                    >
+                      <View style={styles.trendPanel}>
+                        <View style={styles.trendHeader}>
+                          <Text style={styles.trendTitle}>TENDENCIA ANUAL | FECHAS REALES</Text>
+                          <View style={styles.trendLegend}>
+                            <View style={styles.legendItem}>
+                              <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.total }]} />
+                              <Text style={styles.legendText}>Presupuestos</Text>
+                            </View>
+                            <View style={styles.legendItem}>
+                              <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.pending }]} />
+                              <Text style={styles.legendText}>Pendientes</Text>
+                            </View>
+                            <View style={styles.legendItem}>
+                              <View style={[styles.legendDot, { backgroundColor: STATUS_COLORS.paid }]} />
+                              <Text style={styles.legendText}>Cobrados acumulados</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <View
+                          style={styles.trendChart}
+                          onLayout={(event) => setTrendWidth(event.nativeEvent.layout.width)}
+                        >
+                          {showTrendSkeleton ? (
+                            <SkeletonBlock height={trendHeight} radius={12} />
+                          ) : (
+                            <TrendChart
+                              width={trendWidth}
+                              height={trendHeight}
+                              padding={trendPadding}
+                              innerHeight={trendInnerHeight}
+                              midY={trendMidY}
+                              maxLabel={trendMaxLabel}
+                              midLabel={trendMidLabel}
+                              totalPoints={trendPoints.total}
+                              pendingPoints={trendPoints.pending}
+                              paidPoints={trendPoints.paid}
+                              coords={trendPoints.coords}
+                            />
+                          )}
+                        </View>
+                        {showTrendSkeleton ? (
+                          <>
+                            <View style={styles.trendLabelSkeletonRow}>
+                              {Array.from({ length: 6 }).map((_, index) => (
+                                <SkeletonBlock key={`trend-label-${index}`} width={24} height={8} radius={4} />
+                              ))}
+                            </View>
+                            <View style={styles.trendSummarySkeletonRow}>
+                              {Array.from({ length: 2 }).map((_, index) => (
+                                <SkeletonBlock
+                                  key={`trend-card-${index}`}
+                                  width={120}
+                                  height={88}
+                                  radius={14}
+                                  style={styles.trendSummarySkeleton}
+                                />
+                              ))}
+                            </View>
+                          </>
+                        ) : (
+                          <>
+                            <View style={styles.trendLabels}>
+                              {trendData.map((entry) => (
+                                <Text key={entry.key} style={styles.trendLabel}>{entry.label}</Text>
+                              ))}
+                            </View>
+                            <FlashList
+                              horizontal
+                              data={trendSummary}
+                              keyExtractor={(item) => item.key}
+                              renderItem={renderTrendSummaryItem}
+                              showsHorizontalScrollIndicator={false}
+                              contentContainerStyle={styles.trendSummaryRow}
+                              estimatedItemSize={120}
+                            />
+                          </>
+                        )}
+                      </View>
+                    </DashboardAccordion>
+
+                    <TouchableOpacity
+                      style={styles.dashboardShortcutCard}
+                      onPress={handleOpenLaborCatalog}
+                      activeOpacity={0.9}
+                    >
+                      <View style={styles.dashboardShortcutMain}>
+                        <View style={styles.dashboardShortcutIconWrap}>
+                          <Ionicons name="construct-outline" size={20} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.dashboardShortcutCopy}>
+                          <Text style={styles.dashboardShortcutTitle}>Precios de mano de obra</Text>
+                          <Text style={styles.dashboardShortcutSubtitle}>
+                            Abrir el listado de referencia del catalogo
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="arrow-forward" size={18} color="#0F172A" />
                     </TouchableOpacity>
-                  </View>
+
+                    <TouchableOpacity
+                      style={styles.dashboardShortcutCard}
+                      onPress={handleOpenPublicProfile}
+                      activeOpacity={0.9}
+                    >
+                      <View style={styles.dashboardShortcutMain}>
+                        <View style={[styles.dashboardShortcutIconWrap, styles.dashboardShortcutIconWrapDark]}>
+                          <Ionicons name="storefront-outline" size={20} color="#FFFFFF" />
+                        </View>
+                        <View style={styles.dashboardShortcutCopy}>
+                          <Text style={styles.dashboardShortcutTitle}>Mi perfil publico</Text>
+                          <Text style={styles.dashboardShortcutSubtitle}>
+                            Vista previa de tu ficha en la vidriera de tecnicos
+                          </Text>
+                        </View>
+                      </View>
+                      <Ionicons name="arrow-forward" size={18} color="#0F172A" />
+                    </TouchableOpacity>
+
                   </View>
 
                   <View style={styles.latestHeader}>
@@ -1072,12 +1449,43 @@ export default function JobsScreen() {
                         : `TRABAJOS ${FILTER_LABELS[activeFilter].toUpperCase()}`}
                     </Text>
                     <View style={styles.latestActions}>
+                      {selectionMode && selectedIds.length > 0 && (
+                        <TouchableOpacity
+                          onPress={async () => {
+                            const performArchive = async () => {
+                              try {
+                                await archiveSelectedQuotes();
+                              } catch (_err) {
+                                Alert.alert('Error', 'No se pudieron archivar los presupuestos seleccionados.');
+                              }
+                            };
+
+                            if (Platform.OS === 'web') {
+                              // @ts-ignore
+                              if (window.confirm(`¿Archivar ${selectedIds.length} presupuestos? Se quitaran de la lista activa.`)) {
+                                await performArchive();
+                              }
+                              return;
+                            }
+
+                            Alert.alert(
+                              'Archivar presupuestos',
+                              `¿Seguro que quieres archivar ${selectedIds.length} presupuestos? Se quitaran de la lista activa.`,
+                              [
+                                { text: 'Cancelar', style: 'cancel' },
+                                { text: 'Archivar', onPress: () => void performArchive() },
+                              ]
+                            );
+                          }}
+                          style={[styles.selectBtn, styles.archiveSelectBtn]}
+                        >
+                          <Ionicons name="archive-outline" size={14} color="#0F172A" />
+                          <Text style={[styles.selectBtnText, styles.archiveSelectBtnText]}>Archivar</Text>
+                        </TouchableOpacity>
+                      )}
                       {selectionMode && (
                         <TouchableOpacity 
-                          onPress={() => {
-                            setSelectionMode(false);
-                            setSelectedIds([]);
-                          }} 
+                          onPress={clearSelection}
                           style={[styles.selectBtn, {backgroundColor:'#E5E7EB'}]}
                         >
                           <Text style={[styles.selectBtnText, {color:'#0F172A'}]}>Cancelar</Text>
@@ -1142,13 +1550,7 @@ export default function JobsScreen() {
           onPress={async () => {
             const performDelete = async () => {
               try {
-                for (const id of selectedIds) {
-                  const { error } = await supabase.rpc('delete_quote', { p_quote_id: id });
-                  if (error) throw error;
-                }
-                await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
-                setSelectedIds([]);
-                setSelectionMode(false);
+                await deleteSelectedQuotes();
               } catch (_err) {
                 Alert.alert("Error", "No se pudieron borrar los presupuestos seleccionados.");
               }
@@ -1236,35 +1638,84 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 50 },
   
   // Header
-  header: Platform.select({
-    web: {
-      backgroundColor: COLORS.secondary,
-      paddingBottom: 30,
-      borderBottomLeftRadius: 24,
-      borderBottomRightRadius: 24,
-      zIndex: 10,
-      boxShadow: '0 6px 12px rgba(0,0,0,0.2)',
-    },
-    default: {
-      backgroundColor: COLORS.secondary,
-      paddingBottom: 30,
-      borderBottomLeftRadius: 24,
-      borderBottomRightRadius: 24,
-      shadowColor: "#000", shadowOffset: {width:0, height:4}, shadowOpacity:0.2, elevation: 8,
-      zIndex: 10
-    }
-  }),
-  headerContent: { paddingHorizontal: 20, paddingTop: 10 },
-  headerTitle: { fontSize: 24, fontFamily: FONTS.title, color: '#F8FAFC', marginBottom: 6, textAlign: 'center', letterSpacing: 0.6 },
-  headerMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
-  headerMeta: { fontSize: 11, fontFamily: FONTS.body, color: 'rgba(248,250,252,0.7)', textAlign: 'center' },
-  headerSubtitle: { fontSize: 13, fontFamily: FONTS.body, color: 'rgba(248,250,252,0.7)', textAlign: 'center', marginBottom: 16 },
-  
-  dashboardWrapper: { gap: 16, marginBottom: 6 },
-  dashboardPanel: {
+  headerCompact: {
+    backgroundColor: '#F5F4F0',
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
+  headerCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  headerCompactCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  headerCompactTitle: {
+    fontSize: 24,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+    letterSpacing: 0.1,
+  },
+  headerCompactMeta: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: '#8D8270',
+  },
+  dashboardWrapper: { gap: 16, marginTop: 2, marginBottom: 6 },
+  dashboardShortcutCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
-    padding: 12,
+    borderWidth: 1,
+    borderColor: '#E6DED2',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+    shadowColor: '#C7BBA8',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 6,
+  },
+  dashboardShortcutMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dashboardShortcutIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    backgroundColor: '#F59E0B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dashboardShortcutIconWrapDark: {
+    backgroundColor: COLORS.secondary,
+  },
+  dashboardShortcutCopy: {
+    flex: 1,
+    gap: 3,
+  },
+  dashboardShortcutTitle: {
+    fontSize: 14,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+  },
+  dashboardShortcutSubtitle: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: '#6B7280',
+  },
+  accordionSection: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: '#E6DED2',
     shadowColor: '#C7BBA8',
@@ -1272,6 +1723,66 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 14,
     elevation: 6,
+    overflow: 'hidden',
+  },
+  accordionTrigger: {
+    minHeight: 76,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    backgroundColor: '#FFFDF8',
+  },
+  accordionTriggerExpanded: {
+    backgroundColor: '#FFF8EE',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1E6D7',
+  },
+  accordionTriggerMain: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  accordionAccent: {
+    width: 8,
+    height: 44,
+    borderRadius: 999,
+    shadowColor: '#C7BBA8',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  accordionCopy: { flex: 1, gap: 4 },
+  accordionTitle: {
+    fontSize: 14,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+  },
+  accordionSubtitle: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: '#6B7280',
+  },
+  accordionChevronWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F1F5F9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  accordionChevronWrapExpanded: {
+    backgroundColor: COLORS.secondary,
+  },
+  accordionBody: {
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  dashboardPanelHeader: { marginBottom: 12, gap: 4 },
+  dashboardPanelHint: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: '#8D8270',
   },
   panelTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#8D8270', letterSpacing: 2.4, marginBottom: 12 },
   dashboardGrid: {
@@ -1319,18 +1830,6 @@ const styles = StyleSheet.create({
   dashboardLabelCompact: { fontSize: 9 },
   dashboardValueCompact: { fontSize: 20, marginTop: 4 },
   dashboardHintCompact: { fontSize: 9, marginTop: 2 },
-  billingPanel: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#E6DED2',
-    shadowColor: '#C7BBA8',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 4,
-  },
   billingGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   billingCard: {
     flexGrow: 1,
@@ -1348,12 +1847,7 @@ const styles = StyleSheet.create({
   billingValue: { fontSize: 22, fontFamily: FONTS.title, marginTop: 6, textAlign: 'center', alignSelf: 'center' },
   billingHint: { fontSize: 11, fontFamily: FONTS.body, color: '#6B7280', marginTop: 4, textAlign: 'center' },
   trendPanel: {
-    marginTop: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#EFE9DE',
+    gap: 12,
   },
   trendHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10, flexWrap: 'wrap', gap: 10 },
   trendTitle: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.2 },
@@ -1381,13 +1875,22 @@ const styles = StyleSheet.create({
   trendSummaryDot: { width: 6, height: 6, borderRadius: 999 },
   trendSummaryLabel: { fontSize: 10, fontFamily: FONTS.body, color: '#6B7280' },
   trendSummaryValue: { fontSize: 13, fontFamily: FONTS.subtitle, marginTop: 2 },
+  summaryStatusSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1E6D7',
+    gap: 6,
+  },
+  summaryMapSection: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F1E6D7',
+    gap: 12,
+  },
   statusPanel: {
-    marginTop: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#EFE9DE',
+    gap: 10,
   },
   statusChart: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, marginTop: 10 },
   statusColumn: { flex: 1, alignItems: 'center', justifyContent: 'flex-end' },
@@ -1397,12 +1900,7 @@ const styles = StyleSheet.create({
   statusSkeletonBar: { marginTop: 6 },
   statusSkeletonLabel: { marginTop: 6 },
   mapPanel: {
-    marginTop: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#EFE9DE',
+    gap: 12,
   },
   mapHeader: { gap: 10, marginBottom: 12 },
   mapTitleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -1545,6 +2043,13 @@ const styles = StyleSheet.create({
   }),
   selectBtn: { paddingHorizontal: 14, paddingVertical: 6, backgroundColor: COLORS.primary, borderRadius: 999 },
   selectBtnText: { color: '#FFF', fontFamily: FONTS.subtitle, fontSize: 12, letterSpacing: 0.5 },
+  archiveSelectBtn: {
+    backgroundColor: '#FDE68A',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  archiveSelectBtnText: { color: '#0F172A' },
   bulkDeleteBar: { position: 'absolute', left: 16, right: 16, bottom: 16, backgroundColor: COLORS.danger, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 12, borderRadius: 12, gap: 8 },
   bulkDeleteText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 15 }
 });

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   Platform,
   RefreshControl,
   ScrollView,
@@ -43,9 +44,15 @@ const urgencyLabel = (urgency: NearbyRequest['urgency']) => {
   return 'Media';
 };
 
+const hasSubmittedResponse = (request: NearbyRequest) =>
+  request.my_quote_status === 'submitted' || request.my_quote_status === 'accepted';
+
 const resolveStatusMeta = (request: NearbyRequest) => {
-  if (request.my_quote_status === 'submitted' || request.my_quote_status === 'accepted') {
-    return { key: 'quoted', label: 'Oferta enviada', color: '#10B981' };
+  if (hasSubmittedResponse(request)) {
+    if (request.my_response_type === 'application') {
+      return { key: 'application', label: 'Postulacion enviada', color: '#0EA5E9' };
+    }
+    return { key: 'quoted', label: 'Cotizacion directa', color: '#10B981' };
   }
   if (request.urgency === 'alta') return { key: 'high', label: 'Urgente', color: '#EF4444' };
   if (request.urgency === 'media') return { key: 'mid', label: 'Media', color: '#F59E0B' };
@@ -145,11 +152,16 @@ export default function OperationalScreen() {
       total: requests.length,
       marketplace: requests.filter((request) => request.mode === 'marketplace').length,
       direct: requests.filter((request) => request.mode === 'direct').length,
-      offered: requests.filter(
-        (request) => request.my_quote_status === 'submitted' || request.my_quote_status === 'accepted'
-      ).length,
+      responded: requests.filter((request) => hasSubmittedResponse(request)).length,
     }),
     [requests]
+  );
+
+  const handleOpenApplicationComposer = useCallback(
+    (request: NearbyRequest) => {
+      navigation.navigate('RequestApplication', { request });
+    },
+    [navigation]
   );
 
   const handleOpenBudgetBuilder = useCallback(
@@ -163,6 +175,7 @@ export default function OperationalScreen() {
           location_lat: request.location_lat,
           location_lng: request.location_lng,
           my_eta_hours: request.my_eta_hours,
+          photo_urls: request.photo_urls,
         },
       });
     },
@@ -175,10 +188,10 @@ export default function OperationalScreen() {
   if (isLoading && !data) {
     return (
       <View style={styles.container}>
-        <ScreenHeader title="OPERATIVO" subtitle="Solicitudes por zona" centerTitle />
+        <ScreenHeader title="OPERATIVO" subtitle="Solicitudes activas" centerTitle />
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
-          <Text style={styles.helperText}>Cargando solicitudes cercanas...</Text>
+          <Text style={styles.helperText}>Cargando solicitudes activas...</Text>
         </View>
       </View>
     );
@@ -187,7 +200,7 @@ export default function OperationalScreen() {
   if (error && !data) {
     return (
       <View style={styles.container}>
-        <ScreenHeader title="OPERATIVO" subtitle="Solicitudes por zona" centerTitle />
+        <ScreenHeader title="OPERATIVO" subtitle="Solicitudes activas" centerTitle />
         <View style={styles.center}>
           <Ionicons name="alert-circle-outline" size={38} color={COLORS.danger} />
           <Text style={styles.errorText}>{toErrorMessage(error, 'No se pudo cargar Operativo.')}</Text>
@@ -221,8 +234,8 @@ export default function OperationalScreen() {
       >
         <View style={styles.chipsRow}>
           <View style={styles.chip}>
-            <Text style={styles.chipLabel}>Radio</Text>
-            <Text style={styles.chipValue}>{Math.max(1, Number(technician?.radius_km || 20))} km</Text>
+            <Text style={styles.chipLabel}>Visibles</Text>
+            <Text style={styles.chipValue}>{filteredRequests.length}</Text>
           </View>
           <View style={styles.chip}>
             <Text style={styles.chipLabel}>Horario</Text>
@@ -231,8 +244,8 @@ export default function OperationalScreen() {
             </Text>
           </View>
           <View style={styles.chip}>
-            <Text style={styles.chipLabel}>Ofertas</Text>
-            <Text style={styles.chipValue}>{counts.offered}</Text>
+            <Text style={styles.chipLabel}>Respondidas</Text>
+            <Text style={styles.chipValue}>{counts.responded}</Text>
           </View>
         </View>
 
@@ -249,7 +262,7 @@ export default function OperationalScreen() {
 
         <View style={styles.mapPanel}>
           <View style={styles.mapHeaderRow}>
-            <Text style={styles.mapTitle}>Solicitudes cercanas</Text>
+            <Text style={styles.mapTitle}>Solicitudes publicadas</Text>
             <Text style={styles.mapCount}>{filteredRequests.length} visibles</Text>
           </View>
           <MapCanvas
@@ -292,6 +305,7 @@ export default function OperationalScreen() {
             filteredRequests.map((request) => {
               const selected = selectedRequestId === request.id;
               const statusMeta = resolveStatusMeta(request);
+              const alreadyResponded = hasSubmittedResponse(request);
               return (
                 <View key={request.id} style={[styles.requestCard, selected && styles.requestCardSelected]}>
                   <View style={styles.requestHeader}>
@@ -303,16 +317,35 @@ export default function OperationalScreen() {
                   </View>
 
                   <Text style={styles.requestMeta}>
-                    {modeLabel(request.mode)} | {urgencyLabel(request.urgency)} | {request.distance_km.toFixed(1)} km
+                    {modeLabel(request.mode)} | {urgencyLabel(request.urgency)}
                   </Text>
                   <Text style={styles.requestAddress}>{[request.address, request.city].filter(Boolean).join(', ')}</Text>
                   <Text numberOfLines={2} style={styles.requestDescription}>
                     {request.description || 'Sin descripcion adicional.'}
                   </Text>
 
-                  {!!request.my_quote_status && (
+                  {!!request.photo_urls?.length && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
+                      {request.photo_urls.slice(0, 5).map((photoUrl, index) => (
+                        <Image
+                          key={`${request.id}-photo-${index}`}
+                          source={{ uri: photoUrl }}
+                          style={styles.photoThumb}
+                        />
+                      ))}
+                    </ScrollView>
+                  )}
+
+                  {!!request.my_quote_status && request.my_response_type === 'application' && (
+                    <Text style={[styles.offerInfo, styles.applicationInfo]}>
+                      Tu postulacion: visita en {request.my_visit_eta_hours || '-'} h
+                      {request.my_response_message ? ` | ${request.my_response_message}` : ''}
+                    </Text>
+                  )}
+
+                  {!!request.my_quote_status && request.my_response_type !== 'application' && (
                     <Text style={styles.offerInfo}>
-                      Tu oferta: {request.my_price_ars ? `$${formatCurrency(request.my_price_ars)}` : '-'} | ETA{' '}
+                      Tu cotizacion: {request.my_price_ars ? `$${formatCurrency(request.my_price_ars)}` : '-'} | ETA{' '}
                       {request.my_eta_hours || '-'} h
                     </Text>
                   )}
@@ -324,14 +357,26 @@ export default function OperationalScreen() {
                     >
                       <Text style={styles.secondaryActionText}>Ver en mapa</Text>
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenBudgetBuilder(request)}>
-                      <Text style={styles.primaryActionText}>
-                        {request.my_quote_status === 'submitted' || request.my_quote_status === 'accepted'
-                          ? 'Editar presupuesto'
-                          : 'Ofertar con presupuesto'}
-                      </Text>
-                    </TouchableOpacity>
+                    {alreadyResponded && request.my_response_type === 'application' ? (
+                      <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenApplicationComposer(request)}>
+                        <Text style={styles.primaryActionText}>Editar postulacion</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity style={styles.secondaryAction} onPress={() => handleOpenApplicationComposer(request)}>
+                        <Text style={styles.secondaryActionText}>
+                          {alreadyResponded ? 'Cambiar a postulacion' : 'Postularme'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
+
+                  <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenBudgetBuilder(request)}>
+                    <Text style={styles.primaryActionText}>
+                      {alreadyResponded && request.my_response_type === 'direct_quote'
+                        ? 'Editar cotizacion directa'
+                        : 'Cotizacion directa'}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               );
             })
@@ -457,6 +502,15 @@ const styles = StyleSheet.create({
   requestAddress: { fontFamily: FONTS.body, color: '#0F172A', fontSize: 12 },
   requestDescription: { fontFamily: FONTS.body, color: '#64748B', fontSize: 12, lineHeight: 16 },
   offerInfo: { fontFamily: FONTS.subtitle, color: '#0369A1', fontSize: 12 },
+  applicationInfo: { color: '#0284C7' },
+  photoStrip: { gap: 8 },
+  photoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    marginRight: 8,
+  },
   requestActions: { flexDirection: 'row', gap: 8, marginTop: 2 },
   secondaryAction: {
     flex: 1,

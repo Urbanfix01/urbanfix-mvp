@@ -5,6 +5,7 @@ export const PUBLIC_WEB_URL = normalizeBaseUrl(
 );
 
 export const getPublicQuoteUrl = (quoteId: string) => `${PUBLIC_WEB_URL}/p/${quoteId}`;
+export const getPublicTechnicianProfileUrl = (technicianId: string) => `${PUBLIC_WEB_URL}/tecnicos/${technicianId}`;
 
 export const getWebApiUrl = (path: string) => {
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;

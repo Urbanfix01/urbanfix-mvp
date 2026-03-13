@@ -14,6 +14,7 @@ Entry points y paginas:
 - Favicons y links del head: `apps/web/app/head.tsx`.
 - Home publica (login/registro): `apps/web/app/page.tsx`.
 - Area tecnicos: `apps/web/app/tecnicos/page.tsx`.
+- Perfil publico tecnico por link: `apps/web/app/tecnicos/[id]/page.tsx`.
 - Presupuesto por link: `apps/web/app/p/[id]/page.tsx`.
 - Legal y contenido: `apps/web/app/privacidad/page.tsx`, `apps/web/app/terminos/page.tsx`, `apps/web/app/urbanfix/page.tsx`.
 - Link beta Android: `apps/web/app/page.tsx` (boton Android).
@@ -42,6 +43,7 @@ Puntos clave:
 ## Backend / datos
 - Supabase es el backend principal (auth y datos). En web se usa en `apps/web/lib/supabase`.
 - Migraciones relacionadas a notificaciones: `apps/web/lib/supabase/migrations/20251227_notifications.sql`.
+- Perfil publico de tecnicos: likes de perfil, galeria de trabajos y publicaciones sociales salen desde `profiles` y `apps/web/app/api/client/technicians/[id]/route.ts`.
 
 ## Deploy
 - Web: Vercel (construye `apps/web`).
@@ -78,3 +80,4 @@ Cada vez que se agregue una funcion nueva, se cambie el flujo principal, o se mo
 - 2026-01-02 - IVA reseteado en nuevos presupuestos desde la app movil.
 - 2026-01-02 - Subtotales separados por mano de obra y materiales en la vista de presupuesto web.
 - 2026-01-16 - Panel web: links publicos de presupuestos configurables y datos alineados con la app movil.
+- 2026-03-12 - Perfil publico comercial del tecnico con WhatsApp, likes, compartir, ultimos trabajos, resenas y galeria de fotos.

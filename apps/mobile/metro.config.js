@@ -1,5 +1,6 @@
 const { getDefaultConfig } = require('expo/metro-config');
 const path = require('path');
+const fs = require('fs');
 
 // Obtener rutas
 const projectRoot = __dirname;
@@ -18,11 +19,20 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, 'node_modules'),
 ];
 
+const resolveModulePath = (moduleName) => {
+  const localModulePath = path.resolve(projectRoot, 'node_modules', moduleName);
+  if (fs.existsSync(localModulePath)) {
+    return localModulePath;
+  }
+
+  return path.resolve(workspaceRoot, 'node_modules', moduleName);
+};
+
 config.resolver.extraNodeModules = {
   ...config.resolver.extraNodeModules,
-  react: path.resolve(projectRoot, 'node_modules/react'),
-  'react-dom': path.resolve(projectRoot, 'node_modules/react-dom'),
-  'react-native': path.resolve(projectRoot, 'node_modules/react-native'),
+  react: resolveModulePath('react'),
+  'react-dom': resolveModulePath('react-dom'),
+  'react-native': resolveModulePath('react-native'),
 };
 
 module.exports = config;

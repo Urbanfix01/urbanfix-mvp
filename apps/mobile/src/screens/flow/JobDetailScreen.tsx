@@ -1,21 +1,33 @@
 import React, { useMemo } from 'react';
-import { 
-  View, Text, StyleSheet, TouchableOpacity, ScrollView, 
-  ActivityIndicator, Alert, Share, StatusBar, Platform, Linking 
+import {
+  ActivityIndicator,
+  Alert,
+  Linking,
+  Platform,
+  ScrollView,
+  Share,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { supabase } from '../../lib/supabase';
-import { COLORS, FONTS } from '../../utils/theme';
-import { formatCurrency } from '../../utils/number';
 import { getPublicQuoteUrl } from '../../utils/config';
-import { isApproved, isClosed, isPaid, isPending, isPresented, normalizeStatus } from '../../utils/status';
+import { formatCurrency } from '../../utils/number';
+import { getStatusLabelEs, getStatusUiKey } from '../../utils/status';
+import { COLORS, FONTS } from '../../utils/theme';
 
 async function getQuoteById(id: string) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Sesión expirada');
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesion expirada');
 
   const { data, error } = await supabase
     .from('quotes')
@@ -48,7 +60,9 @@ type RevisionRequest = {
 };
 
 async function getRevisionRequests(quoteId: string): Promise<RevisionRequest[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return [];
 
   const { data, error } = await supabase
@@ -62,6 +76,64 @@ async function getRevisionRequests(quoteId: string): Promise<RevisionRequest[]> 
   if (error) throw error;
   return (data as RevisionRequest[]) || [];
 }
+
+const formatDate = (value?: string | null) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleDateString('es-AR');
+};
+
+const formatDateTime = (value?: string | null) => {
+  if (!value) return '-';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('es-AR');
+};
+
+const getStatusMeta = (status?: string | null) => {
+  const label = getStatusLabelEs(status);
+  const statusKey = getStatusUiKey(status);
+
+  if (statusKey === 'approved') {
+    return { label, bg: '#DCFCE7', text: '#166534', icon: 'thumbs-up-outline' as const };
+  }
+  if (statusKey === 'presented') {
+    return { label, bg: '#DBEAFE', text: '#1D4ED8', icon: 'paper-plane-outline' as const };
+  }
+  if (statusKey === 'paid') {
+    return { label, bg: '#D1FAE5', text: '#047857', icon: 'wallet-outline' as const };
+  }
+  if (statusKey === 'completed') {
+    return { label, bg: '#E0E7FF', text: '#4338CA', icon: 'checkmark-done-circle-outline' as const };
+  }
+  if (statusKey === 'draft' || statusKey === 'pending') {
+    return { label, bg: '#FEF3C7', text: '#B45309', icon: 'time-outline' as const };
+  }
+  if (statusKey === 'cancelled') {
+    return { label, bg: '#FFE4E6', text: '#BE123C', icon: 'close-circle-outline' as const };
+  }
+  return { label, bg: '#E2E8F0', text: '#475569', icon: 'information-circle-outline' as const };
+};
+
+type InfoRowProps = {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+  valueMuted?: boolean;
+};
+
+const InfoRow = ({ icon, label, value, valueMuted }: InfoRowProps) => (
+  <View style={styles.infoRow}>
+    <View style={styles.infoIconWrap}>
+      <Ionicons name={icon} size={18} color={COLORS.secondary} />
+    </View>
+    <View style={styles.infoCopy}>
+      <Text style={styles.infoLabel}>{label}</Text>
+      <Text style={[styles.infoValue, valueMuted && styles.infoValueMuted]}>{value}</Text>
+    </View>
+  </View>
+);
 
 export default function JobDetailScreen() {
   const navigation = useNavigation<any>();
@@ -99,7 +171,7 @@ export default function JobDetailScreen() {
     };
 
     const subtotal = (processedQuote.quote_items || []).reduce(
-      (acc: number, item: any) => acc + (item.unit_price * item.quantity),
+      (acc: number, item: any) => acc + item.unit_price * item.quantity,
       0
     );
     const discountPercent = Math.min(100, Math.max(0, Number(processedQuote.discount_percent || 0)));
@@ -134,385 +206,960 @@ export default function JobDetailScreen() {
     const query = hasCoords ? `${lat},${lng}` : encodeURIComponent(address);
 
     return {
-        embedUrl: `https://maps.google.com/maps?q=${query}&t=m&z=15&output=embed&iwloc=near`,
-        externalUrl: `https://www.google.com/maps/search/?api=1&query=${query}`
+      embedUrl: `https://maps.google.com/maps?q=${query}&t=m&z=15&output=embed&iwloc=near`,
+      externalUrl: `https://www.google.com/maps/search/?api=1&query=${query}`,
     };
-  }, [quote?.client_address, quote?.location_lat, quote?.location_lng]);
+  }, [quote]);
 
-  const renderMapSection = () => {
-    if (!mapData) return null;
-
-    return (
-      <View style={styles.mapContainer}>
-          <Text style={styles.sectionTitle}>UBICACIÓN EN MAPA</Text>
-          
-          {Platform.OS === 'web' ? (
-            /* VERSIÓN WEB: Iframe incrustado */
-            <View style={styles.mapFrame}>
-                <iframe 
-                  title="mapa-ubicacion"
-                  width="100%" 
-                  height="100%" 
-                  style={{ border: 0 }} 
-                  loading="lazy" 
-                  allowFullScreen 
-                  src={mapData.embedUrl}
-                ></iframe>
-            </View>
-          ) : (
-            /* VERSIÓN MÓVIL: Botón de acción */
-            <TouchableOpacity 
-                style={styles.mapButtonMobile} 
-                onPress={() => Linking.openURL(mapData.externalUrl)}
-            >
-                <View style={styles.mapIconCircle}>
-                    <Ionicons name="map" size={24} color="#FFF" />
-                </View>
-                <View>
-                    <Text style={styles.mapBtnTitle}>Abrir en Google Maps</Text>
-                    <Text style={styles.mapBtnSubtitle}>Ver ruta y navegación</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={COLORS.textLight} style={{marginLeft: 'auto'}}/>
-            </TouchableOpacity>
-          )}
-      </View>
-    );
-  };
-
-  // --- ACCIONES DE BOTONES ---
   const handleEdit = () => navigation.navigate('JobConfig', { quote });
-  
+
   const handleDelete = async () => {
-      const performDelete = async () => {
-          try {
-              const { error } = await supabase.rpc('delete_quote', { p_quote_id: jobId });
-              if (error) throw error;
-              await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-              await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
-              navigation.goBack();
-          } catch (err: any) {
-              Alert.alert('Error', err?.message || 'No se pudo borrar el presupuesto.');
-          }
-      };
-
-      if (Platform.OS === 'web') {
-          // @ts-ignore
-          if (window.confirm('Borrar presupuesto?')) {
-              await performDelete();
-          }
-          return;
+    const performDelete = async () => {
+      try {
+        const { error: deleteError } = await supabase.rpc('delete_quote', { p_quote_id: jobId });
+        if (deleteError) throw deleteError;
+        await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
+        await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+        await queryClient.invalidateQueries({ queryKey: ['quotes-list-all'] });
+        navigation.goBack();
+      } catch (deleteErr: any) {
+        Alert.alert('Error', deleteErr?.message || 'No se pudo borrar el presupuesto.');
       }
+    };
 
-      Alert.alert('Borrar presupuesto', 'Seguro que quieres borrar este presupuesto?', [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Borrar', style: 'destructive', onPress: () => void performDelete() },
-      ]);
+    if (Platform.OS === 'web') {
+      // @ts-ignore
+      if (window.confirm('Borrar presupuesto?')) {
+        await performDelete();
+      }
       return;
-      /* Tu lógica de borrado existente... */
-      if(confirm("¿Borrar trabajo?")) {
-          await supabase.from('quotes').delete().eq('id', jobId);
-          await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-          await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
-          navigation.goBack();
-      }
+    }
+
+    Alert.alert('Borrar presupuesto', 'Seguro que quieres borrar este presupuesto?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Borrar', style: 'destructive', onPress: () => void performDelete() },
+    ]);
   };
 
   const handleShare = async () => {
-      /* Tu lógica de compartir... */
-      const link = getPublicQuoteUrl(jobId);
-      if (Platform.OS === 'web') {
-          try {
-              if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-                  await navigator.clipboard.writeText(link);
-                  alert('Link copiado');
-              } else if (typeof window !== 'undefined') {
-                  window.prompt('Copia este link', link);
-              }
-          } catch (_err) {
-              if (typeof window !== 'undefined') {
-                  window.prompt('Copia este link', link);
-              }
-          }
-          return;
+    const link = getPublicQuoteUrl(jobId);
+    if (Platform.OS === 'web') {
+      try {
+        if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(link);
+          alert('Link copiado');
+        } else if (typeof window !== 'undefined') {
+          window.prompt('Copia este link', link);
+        }
+      } catch (_err) {
+        if (typeof window !== 'undefined') {
+          window.prompt('Copia este link', link);
+        }
       }
-      Share.share({message: link});
+      return;
+    }
+    await Share.share({ message: link });
   };
 
   const handleConfirmQuote = async () => {
-      const { error } = await supabase.rpc('update_quote_status', { quote_id: jobId, next_status: 'sent' });
-      if (error) {
-          await supabase.from('quotes').update({ status: 'sent' }).eq('id', jobId);
-      }
-      await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+    const { error: rpcError } = await supabase.rpc('update_quote_status', { quote_id: jobId, next_status: 'sent' });
+    if (rpcError) {
+      await supabase.from('quotes').update({ status: 'sent' }).eq('id', jobId);
+    }
+    await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list-all'] });
   };
 
   const handleFinalize = async () => {
-      await supabase
-        .from('quotes')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
-        .eq('id', jobId);
-      await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
-      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
-      navigation.goBack();
+    await supabase
+      .from('quotes')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', jobId);
+    await queryClient.invalidateQueries({ queryKey: ['quote', jobId] });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list-all'] });
+    navigation.goBack();
   };
 
-  // --- HELPERS UI ---
-  const getStatusColor = (s: string) => {
-      const st = normalizeStatus(s);
-      if (isApproved(st)) return { bg: '#DCFCE7', text: '#166534', label: 'APROBADO' };
-      if (isPresented(st)) return { bg: '#DBEAFE', text: '#1E40AF', label: 'PRESENTADO' };
-      if (isPaid(st) || isClosed(st)) return { bg: '#DCFCE7', text: '#166534', label: 'COBRADO' };
-      if (isPending(st)) return { bg: '#FEF3C7', text: '#B45309', label: 'PENDIENTE' };
-      return { bg: '#E5E7EB', text: '#475569', label: 'SIN ESTADO' };
-  };
+  if (isLoading && !quote) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
+        <ScreenHeader title="Resumen del trabajo" subtitle="Cargando datos" showBack />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+        </View>
+      </View>
+    );
+  }
 
-  if (isLoading && !quote) return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={COLORS.primary}/></View>;
-  if (error) return <View style={styles.center}><Text>Error al cargar el trabajo</Text></View>;
-  if (!quote) return <View style={styles.center}><Text>No se encontró el trabajo</Text></View>;
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
+        <ScreenHeader title="Resumen del trabajo" subtitle="No pudimos cargarlo" showBack />
+        <View style={styles.center}>
+          <Ionicons name="alert-circle-outline" size={40} color={COLORS.danger} />
+          <Text style={styles.errorText}>Error al cargar el trabajo.</Text>
+        </View>
+      </View>
+    );
+  }
 
-  const statusInfo = getStatusColor(quote.status);
+  if (!quote) {
+    return (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
+        <ScreenHeader title="Resumen del trabajo" subtitle="Trabajo no encontrado" showBack />
+        <View style={styles.center}>
+          <Text style={styles.errorText}>No se encontro el trabajo.</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const statusMeta = getStatusMeta(quote.status);
+  const items = Array.isArray(quote.quote_items) ? quote.quote_items : [];
+  const itemCount = items.length;
+  const statusKey = getStatusUiKey(quote.status);
+  const canFinalize = ['approved', 'accepted'].includes(String(quote.status || '').toLowerCase());
+  const isDraft = statusKey === 'draft';
+  const canEdit = statusKey !== 'completed' && statusKey !== 'paid';
+
+  const primaryAction = isDraft
+    ? { label: 'Confirmar', icon: 'checkmark-outline' as const, onPress: handleConfirmQuote }
+    : { label: 'Compartir', icon: 'share-social-outline' as const, onPress: handleShare };
+
+  const secondaryAction = canFinalize
+    ? {
+        label: 'Finalizar',
+        icon: 'checkmark-done-circle-outline' as const,
+        onPress: handleFinalize,
+        style: styles.footerSuccessBtn,
+        textStyle: styles.footerSuccessText,
+      }
+    : canEdit
+      ? {
+        label: 'Editar',
+        icon: 'pencil-outline' as const,
+        onPress: handleEdit,
+        style: styles.footerGhostBtn,
+        textStyle: styles.footerGhostText,
+      }
+      : null;
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
-      
-      {/* HEADER */}
-      <View style={styles.header}>
-        <SafeAreaView edges={['top']}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Resumen del Trabajo</Text>
-            <TouchableOpacity onPress={handleEdit} style={styles.editHeaderBtn}>
-               <Ionicons name="pencil" size={20} color="#FFF" />
-            </TouchableOpacity>
+      <ScreenHeader
+        title="Resumen del trabajo"
+        subtitle={`${statusMeta.label} | ${formatDate(quote.created_at)}`}
+        showBack
+        rightAction={canEdit ? (
+          <TouchableOpacity style={styles.headerActionBtn} onPress={handleEdit}>
+            <Ionicons name="pencil-outline" size={18} color="#FFFFFF" />
+          </TouchableOpacity>
+        ) : undefined}
+      />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.heroCard}>
+          <View style={styles.heroTop}>
+            <View style={styles.heroCopy}>
+              <Text style={styles.heroEyebrow}>Presupuesto activo</Text>
+              <Text style={styles.heroTitle}>{quote.client_name || 'Cliente sin nombre'}</Text>
+              <Text style={styles.heroMeta}>{quote.client_address || 'Sin direccion cargada'}</Text>
+            </View>
+            <View style={[styles.heroStatusPill, { backgroundColor: statusMeta.bg }]}>
+              <Ionicons name={statusMeta.icon} size={14} color={statusMeta.text} />
+              <Text style={[styles.heroStatusText, { color: statusMeta.text }]}>{statusMeta.label}</Text>
+            </View>
           </View>
-        </SafeAreaView>
-      </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        
-        {/* TARJETA DE CLIENTE */}
-        <View style={styles.clientCard}>
-            <View style={styles.clientRow}>
-                <View style={styles.clientIcon}>
-                    <Ionicons name="person" size={24} color={COLORS.primary} />
-                </View>
-                <View style={{flex:1}}>
-                    <Text style={styles.label}>CLIENTE</Text>
-                    <Text style={styles.clientName}>{quote.client_name || 'Sin Nombre'}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: statusInfo.bg }]}>
-                    <Text style={[styles.statusText, { color: statusInfo.text }]}>{statusInfo.label}</Text>
-                </View>
-            </View>
+          <Text style={styles.heroText}>
+            {itemCount > 0
+              ? `${itemCount} item${itemCount > 1 ? 's' : ''} cargados para este trabajo.`
+              : 'Todavia no hay items cargados en este trabajo.'}
+          </Text>
 
-            <View style={[styles.clientRow, { marginTop: 16 }]}>
-                <View style={[styles.clientIcon, { backgroundColor: '#F3F4F6' }]}>
-                    <Ionicons name="location" size={20} color={COLORS.textLight} />
-                </View>
-                <View style={{flex: 1}}>
-                    <Text style={styles.label}>DIRECCIÓN</Text>
-                    <Text style={styles.clientAddress}>
-                        {quote.client_address || 'Sin dirección cargada'}
-                    </Text>
-                </View>
+          <View style={styles.heroMetricRow}>
+            <View style={styles.heroMetricCard}>
+              <Text style={styles.heroMetricLabel}>Items</Text>
+              <Text style={styles.heroMetricValue}>{itemCount}</Text>
             </View>
-            
-            <View style={styles.divider} />
-            <Text style={styles.dateText}>Creado el {new Date(quote.created_at).toLocaleDateString()}</Text>
+            <View style={styles.heroMetricCard}>
+              <Text style={styles.heroMetricLabel}>Revisiones</Text>
+              <Text style={styles.heroMetricValue}>{revisionRequests.length}</Text>
+            </View>
+            <View style={styles.heroMetricCard}>
+              <Text style={styles.heroMetricLabel}>Creado</Text>
+              <Text style={styles.heroMetricValueSmall}>{formatDate(quote.created_at)}</Text>
+            </View>
+          </View>
+
+          <View style={styles.heroTotalBand}>
+            <View>
+              <Text style={styles.heroTotalLabel}>Total estimado</Text>
+              <Text style={styles.heroTotalHint}>Resumen financiero del trabajo</Text>
+            </View>
+            <Text style={styles.heroTotalValue}>${formatCurrency(breakdown.total)}</Text>
+          </View>
         </View>
 
-        {/* MAPA GOOGLE */}
-        {renderMapSection()}
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Cliente y ubicacion</Text>
+            <View style={styles.sectionPill}>
+              <Text style={styles.sectionPillText}>Ficha</Text>
+            </View>
+          </View>
 
-        {/* REVISIONES SOLICITADAS */}
-        {revisionRequests.length > 0 && (
-          <View style={styles.revisionCard}>
-            <Text style={styles.sectionTitle}>REVISIONES SOLICITADAS</Text>
-            {revisionRequests.map((request) => {
-              const items = request.data?.items || [];
+          <InfoRow icon="person-outline" label="Cliente" value={quote.client_name || 'Sin nombre'} />
+          <InfoRow
+            icon="location-outline"
+            label="Direccion"
+            value={quote.client_address || 'Sin direccion cargada'}
+            valueMuted={!quote.client_address}
+          />
+          <InfoRow icon="calendar-outline" label="Fecha de creacion" value={formatDate(quote.created_at)} />
+        </View>
+
+        {mapData ? (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Mapa operativo</Text>
+              <View style={styles.sectionPillSoft}>
+                <Ionicons name="navigate-outline" size={12} color="#0369A1" />
+                <Text style={styles.sectionPillSoftText}>Ruta</Text>
+              </View>
+            </View>
+            <Text style={styles.cardHint}>
+              Verifica la ubicacion antes de salir para trabajar sobre una referencia precisa.
+            </Text>
+
+            {Platform.OS === 'web' ? (
+              <View style={styles.mapFrame}>
+                <iframe
+                  title="mapa-ubicacion"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  src={mapData.embedUrl}
+                />
+              </View>
+            ) : (
+              <TouchableOpacity style={styles.mapButton} onPress={() => Linking.openURL(mapData.externalUrl)}>
+                <View style={styles.mapButtonIcon}>
+                  <Ionicons name="map-outline" size={22} color="#FFFFFF" />
+                </View>
+                <View style={styles.mapButtonCopy}>
+                  <Text style={styles.mapButtonTitle}>Abrir en Google Maps</Text>
+                  <Text style={styles.mapButtonSubtitle}>Ver ruta, zona y navegacion</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </TouchableOpacity>
+            )}
+          </View>
+        ) : null}
+
+        {revisionRequests.length > 0 ? (
+          <View style={styles.card}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Revisiones solicitadas</Text>
+              <View style={styles.sectionPillWarning}>
+                <Text style={styles.sectionPillWarningText}>{revisionRequests.length}</Text>
+              </View>
+            </View>
+
+            {revisionRequests.map((request, requestIndex) => {
+              const requestItems = request.data?.items || [];
               return (
-                <View key={request.id} style={styles.revisionBlock}>
-                  <Text style={styles.revisionTitle}>
-                    {request.data?.client_name
-                      ? `Cliente: ${request.data.client_name}`
-                      : 'Solicitud del cliente'}
-                  </Text>
-                  <Text style={styles.revisionDate}>
-                    {new Date(request.created_at).toLocaleString()}
-                  </Text>
-                  {items.length > 0 ? (
-                    items.map((item, index) => (
+                <View
+                  key={request.id}
+                  style={[styles.revisionCard, requestIndex > 0 && styles.revisionCardSpaced]}
+                >
+                  <View style={styles.revisionTop}>
+                    <View>
+                      <Text style={styles.revisionTitle}>
+                        {request.data?.client_name ? `Cliente: ${request.data.client_name}` : 'Solicitud del cliente'}
+                      </Text>
+                      <Text style={styles.revisionDate}>{formatDateTime(request.created_at)}</Text>
+                    </View>
+                    <View style={styles.revisionPill}>
+                      <Text style={styles.revisionPillText}>
+                        {requestItems.length} item{requestItems.length === 1 ? '' : 's'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {requestItems.length > 0 ? (
+                    requestItems.map((item, itemIndex) => (
                       <View
-                        key={item.id || `${request.id}-${index}`}
-                        style={[styles.revisionItem, index === 0 && styles.revisionItemFirst]}
+                        key={item.id || `${request.id}-${itemIndex}`}
+                        style={[styles.revisionItem, itemIndex > 0 && styles.revisionItemBorder]}
                       >
-                        <Text style={styles.revisionItemText}>{item.description || 'Item'}</Text>
-                        <Text style={styles.revisionItemMeta}>
-                          {item.quantity || 0} x ${formatCurrency(item.unit_price || 0)}
-                        </Text>
-                        {item.note ? (
-                          <Text style={styles.revisionItemNote}>{item.note}</Text>
-                        ) : null}
+                        <View style={styles.revisionItemCopy}>
+                          <Text style={styles.revisionItemText}>{item.description || 'Item sin descripcion'}</Text>
+                          <Text style={styles.revisionItemMeta}>
+                            {item.quantity || 0} x ${formatCurrency(item.unit_price || 0)}
+                          </Text>
+                        </View>
+                        {item.note ? <Text style={styles.revisionNote}>{item.note}</Text> : null}
                       </View>
                     ))
                   ) : (
-                    <Text style={styles.revisionEmpty}>Sin items detallados.</Text>
+                    <Text style={styles.emptyInlineText}>Sin items detallados en la revision.</Text>
                   )}
                 </View>
               );
             })}
           </View>
-        )}
+        ) : null}
 
-        {/* ITEMS */}
-        <Text style={styles.sectionTitle}>DETALLE DEL SERVICIO</Text>
-        <View style={styles.itemsContainer}>
-            {quote.quote_items && quote.quote_items.map((item: any, index: number) => (
-                <View key={item.id} style={[styles.itemRow, index !== quote.quote_items.length - 1 && styles.itemBorder]}>
-                    <View style={{flex: 1}}>
-                        <Text style={styles.itemDesc}>{item.description}</Text>
-                        <Text style={styles.itemMeta}>{item.quantity} x ${formatCurrency(item.unit_price)}</Text>
-                    </View>
-                    <Text style={styles.itemTotal}>${formatCurrency(item.unit_price * item.quantity)}</Text>
+        <View style={styles.card}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Detalle del servicio</Text>
+            <View style={styles.sectionPill}>
+              <Text style={styles.sectionPillText}>
+                {itemCount} item{itemCount === 1 ? '' : 's'}
+              </Text>
+            </View>
+          </View>
+
+          {items.length > 0 ? (
+            items.map((item: any, index: number) => (
+              <View
+                key={item.id || `${jobId}-item-${index}`}
+                style={[styles.lineItemCard, index > 0 && styles.lineItemSpaced]}
+              >
+                <View style={styles.lineItemTop}>
+                  <View style={styles.lineItemCopy}>
+                    <Text style={styles.lineItemTitle}>{item.description || 'Item sin descripcion'}</Text>
+                    <Text style={styles.lineItemMeta}>
+                      {item.quantity || 0} x ${formatCurrency(item.unit_price || 0)}
+                    </Text>
+                  </View>
+                  <Text style={styles.lineItemTotal}>
+                    ${formatCurrency((item.unit_price || 0) * (item.quantity || 0))}
+                  </Text>
                 </View>
-            ))}
-            {(!quote.quote_items || quote.quote_items.length === 0) && (
-                <Text style={{textAlign: 'center', padding: 20, color: '#999'}}>No hay items agregados</Text>
-            )}
+              </View>
+            ))
+          ) : (
+            <View style={styles.emptyCard}>
+              <Ionicons name="document-text-outline" size={22} color="#94A3B8" />
+              <Text style={styles.emptyCardTitle}>Sin items cargados</Text>
+              <Text style={styles.emptyCardText}>Edita el trabajo para agregar mano de obra o materiales.</Text>
+            </View>
+          )}
         </View>
 
-        {/* TOTALES */}
-        <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>${formatCurrency(breakdown.subtotal)}</Text>
+        <View style={[styles.card, styles.financialCard]}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Resumen financiero</Text>
+            <View style={styles.sectionPillSoft}>
+              <Ionicons name="cash-outline" size={12} color="#047857" />
+              <Text style={styles.sectionPillSoftText}>Actual</Text>
             </View>
-            {breakdown.discountAmount > 0 && (
-                <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Descuento ({breakdown.discountPercent.toFixed(0)}%)</Text>
-                    <Text style={styles.summaryValue}>- ${formatCurrency(breakdown.discountAmount)}</Text>
-                </View>
-            )}
-            {breakdown.tax > 0 && (
-                <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>IVA (21%)</Text>
-                    <Text style={styles.summaryValue}>+ ${formatCurrency(breakdown.tax)}</Text>
-                </View>
-            )}
-            <View style={styles.divider} />
-            <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>TOTAL A COBRAR</Text>
-                <Text style={styles.totalValue}>${formatCurrency(breakdown.total)}</Text>
-            </View>
-        </View>
+          </View>
 
+          <View style={styles.summaryLine}>
+            <Text style={styles.summaryLabel}>Subtotal</Text>
+            <Text style={styles.summaryValue}>${formatCurrency(breakdown.subtotal)}</Text>
+          </View>
+          {breakdown.discountAmount > 0 ? (
+            <View style={styles.summaryLine}>
+              <Text style={styles.summaryLabel}>Descuento ({breakdown.discountPercent.toFixed(0)}%)</Text>
+              <Text style={styles.summaryValue}>- ${formatCurrency(breakdown.discountAmount)}</Text>
+            </View>
+          ) : null}
+          {breakdown.tax > 0 ? (
+            <View style={styles.summaryLine}>
+              <Text style={styles.summaryLabel}>IVA (21%)</Text>
+              <Text style={styles.summaryValue}>+ ${formatCurrency(breakdown.tax)}</Text>
+            </View>
+          ) : null}
+
+          <View style={styles.financialDivider} />
+
+          <View style={styles.totalBand}>
+            <View>
+              <Text style={styles.totalBandLabel}>TOTAL A COBRAR</Text>
+              <Text style={styles.totalBandHint}>Valor final del presupuesto</Text>
+            </View>
+            <Text style={styles.totalBandValue}>${formatCurrency(breakdown.total)}</Text>
+          </View>
+        </View>
       </ScrollView>
 
-      {/* FOOTER */}
-      <SafeAreaView edges={['bottom']} style={styles.footer}>
-        <TouchableOpacity style={styles.deleteBtn} onPress={handleDelete}>
-            <Ionicons name="trash-outline" size={24} color={COLORS.danger} />
-        </TouchableOpacity>
-
-        {quote.status === 'draft' ? (
-          <TouchableOpacity style={styles.shareBtn} onPress={handleConfirmQuote}>
-              <Text style={styles.shareText}>Confirmar</Text>
-              <Ionicons name="checkmark" size={20} color="#FFF" style={{marginLeft: 8}} />
+      <SafeAreaView edges={['bottom']} style={styles.footerWrap}>
+        <View style={styles.footerBar}>
+          <TouchableOpacity style={styles.footerIconBtn} onPress={handleDelete}>
+            <Ionicons name="trash-outline" size={20} color={COLORS.danger} />
           </TouchableOpacity>
-        ) : (
-          <TouchableOpacity style={styles.shareBtn} onPress={handleShare}>
-              <Text style={styles.shareText}>Compartir</Text>
-              <Ionicons name="share-social" size={20} color="#FFF" style={{marginLeft: 8}} />
-          </TouchableOpacity>
-        )}
 
-        {['approved', 'accepted'].includes((quote.status || '').toLowerCase()) ? (
-            <TouchableOpacity style={styles.successBtn} onPress={handleFinalize}>
-                <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+          <TouchableOpacity style={styles.footerPrimaryBtn} onPress={primaryAction.onPress}>
+            <Ionicons name={primaryAction.icon} size={18} color="#FFFFFF" />
+            <Text style={styles.footerPrimaryText}>{primaryAction.label}</Text>
+          </TouchableOpacity>
+
+          {secondaryAction ? (
+            <TouchableOpacity style={[styles.footerSecondaryBtn, secondaryAction.style]} onPress={secondaryAction.onPress}>
+              <Ionicons name={secondaryAction.icon} size={18} color={secondaryAction.textStyle.color} />
+              <Text style={[styles.footerSecondaryText, secondaryAction.textStyle]}>{secondaryAction.label}</Text>
             </TouchableOpacity>
-        ) : (
-            <TouchableOpacity style={styles.successBtn} onPress={handleEdit}>
-                <Ionicons name="pencil" size={20} color="#FFF" />
-            </TouchableOpacity>
-        )}
+          ) : null}
+        </View>
       </SafeAreaView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { backgroundColor: COLORS.secondary, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10 },
-  headerTitle: { fontSize: 18, fontFamily: FONTS.title, color: '#FFF' },
-  backBtn: { padding: 8 },
-  editHeaderBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 8 },
-  content: { padding: 20, paddingBottom: 100 },
-  
-  // TARJETAS
-  clientCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, shadowColor: "#000", shadowOpacity: 0.05, elevation: 2 },
-  clientRow: { flexDirection: 'row', alignItems: 'center' },
-  clientIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF5E0', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  label: { fontSize: 10, fontFamily: FONTS.body, color: COLORS.textLight, marginBottom: 2, letterSpacing: 0.5 },
-  clientName: { fontSize: 18, fontFamily: FONTS.title, color: COLORS.text },
-  clientAddress: { fontSize: 15, fontFamily: FONTS.subtitle, color: COLORS.text },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusText: { fontSize: 10, fontFamily: FONTS.title, fontWeight: 'bold' },
-  divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 16 },
-  dateText: { textAlign: 'right', fontSize: 12, color: COLORS.textLight },
-
-  // MAPA
-  mapContainer: { marginBottom: 24 },
-  sectionTitle: { fontSize: 12, fontFamily: FONTS.title, color: COLORS.textLight, marginBottom: 10, letterSpacing: 1, marginLeft: 4 },
-  mapFrame: { width: '100%', height: 200, borderRadius: 16, overflow: 'hidden', backgroundColor: '#E5E7EB', shadowColor: "#000", shadowOpacity: 0.1, elevation: 3 },
-  mapButtonMobile: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderRadius: 16, shadowColor: "#000", shadowOpacity: 0.05, elevation: 2 },
-  mapIconCircle: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#34A853', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  mapBtnTitle: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text },
-  mapBtnSubtitle: { fontSize: 12, color: COLORS.textLight },
-
-  // REVISIONES
-  revisionCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#E2E8F0' },
-  revisionBlock: { marginTop: 12, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 12, backgroundColor: '#F8FAFC' },
-  revisionTitle: { fontSize: 13, fontFamily: FONTS.title, color: COLORS.text },
-  revisionDate: { marginTop: 4, fontSize: 11, color: COLORS.textLight },
-  revisionItem: { marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#E2E8F0' },
-  revisionItemFirst: { marginTop: 8, paddingTop: 0, borderTopWidth: 0 },
-  revisionItemText: { fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
-  revisionItemMeta: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
-  revisionItemNote: { marginTop: 6, fontSize: 12, color: COLORS.text, backgroundColor: '#FFFFFF', padding: 8, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' },
-  revisionEmpty: { marginTop: 8, fontSize: 12, color: COLORS.textLight },
-
-  // ITEMS
-  itemsContainer: { backgroundColor: '#FFF', borderRadius: 16, overflow: 'hidden', marginBottom: 20, elevation: 1 },
-  itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
-  itemBorder: { borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  itemDesc: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text, marginBottom: 4 },
-  itemMeta: { fontSize: 12, color: COLORS.textLight },
-  itemTotal: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text },
-
-  // TOTALES
-  summaryCard: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, elevation: 2 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  summaryLabel: { fontSize: 14, color: COLORS.textLight },
-  summaryValue: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text },
-  totalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 },
-  totalLabel: { fontSize: 12, fontFamily: FONTS.title, color: COLORS.text, letterSpacing: 1 },
-  totalValue: { fontSize: 24, fontFamily: FONTS.title, color: COLORS.primary },
-
-  // FOOTER
-  footer: { 
-      position: 'absolute', bottom: 0, left: 0, right: 0, 
-      backgroundColor: '#FFF', flexDirection: 'row', alignItems: 'center', 
-      padding: 16, paddingBottom: 30, borderTopWidth: 1, borderTopColor: '#F0F0F0',
-      justifyContent: 'space-between', gap: 12
+  container: { flex: 1, backgroundColor: COLORS.background },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 24 },
+  errorText: {
+    marginTop: 12,
+    fontFamily: FONTS.body,
+    fontSize: 13,
+    color: COLORS.text,
+    textAlign: 'center',
   },
-  deleteBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: '#FEF2F2', justifyContent: 'center', alignItems: 'center' },
-  shareBtn: { flex: 1, height: 50, borderRadius: 12, backgroundColor: COLORS.secondary, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  shareText: { color: '#FFF', fontFamily: FONTS.title, fontSize: 16 },
-  successBtn: { width: 50, height: 50, borderRadius: 12, backgroundColor: COLORS.success, justifyContent: 'center', alignItems: 'center' },
+  headerActionBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  content: {
+    padding: 16,
+    paddingBottom: 150,
+    gap: 14,
+  },
+  heroCard: {
+    backgroundColor: '#0F172A',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    padding: 18,
+    gap: 12,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  heroEyebrow: {
+    fontFamily: FONTS.subtitle,
+    color: '#FCD34D',
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  heroTitle: {
+    fontFamily: FONTS.title,
+    color: '#FFFFFF',
+    fontSize: 22,
+  },
+  heroMeta: {
+    fontFamily: FONTS.body,
+    color: '#CBD5E1',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  heroStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  heroStatusText: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 11,
+  },
+  heroText: {
+    fontFamily: FONTS.body,
+    color: '#E2E8F0',
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  heroMetricRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  heroMetricCard: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  heroMetricLabel: {
+    fontFamily: FONTS.body,
+    color: '#94A3B8',
+    fontSize: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  heroMetricValue: {
+    marginTop: 6,
+    fontFamily: FONTS.title,
+    color: '#FFFFFF',
+    fontSize: 20,
+  },
+  heroMetricValueSmall: {
+    marginTop: 8,
+    fontFamily: FONTS.subtitle,
+    color: '#FFFFFF',
+    fontSize: 12,
+  },
+  heroTotalBand: {
+    marginTop: 2,
+    borderRadius: 18,
+    backgroundColor: '#111827',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: '#1F2937',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroTotalLabel: {
+    fontFamily: FONTS.subtitle,
+    color: '#E5E7EB',
+    fontSize: 11,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  heroTotalHint: {
+    marginTop: 4,
+    fontFamily: FONTS.body,
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  heroTotalValue: {
+    fontFamily: FONTS.title,
+    color: '#FCD34D',
+    fontSize: 24,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 16,
+    gap: 12,
+  },
+  financialCard: {
+    marginBottom: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  sectionTitle: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 16,
+  },
+  sectionPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sectionPillText: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 11,
+    color: '#475569',
+  },
+  sectionPillSoft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+  },
+  sectionPillSoftText: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 11,
+    color: '#0369A1',
+  },
+  sectionPillWarning: {
+    minWidth: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FEF3C7',
+  },
+  sectionPillWarningText: {
+    fontFamily: FONTS.title,
+    fontSize: 12,
+    color: '#B45309',
+  },
+  cardHint: {
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 18,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  infoIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: '#FFF7ED',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  infoCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  infoLabel: {
+    fontFamily: FONTS.body,
+    color: '#94A3B8',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  infoValue: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  infoValueMuted: {
+    color: '#94A3B8',
+  },
+  mapFrame: {
+    width: '100%',
+    height: 220,
+    borderRadius: 16,
+    overflow: 'hidden',
+    backgroundColor: '#E2E8F0',
+  },
+  mapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+  },
+  mapButtonIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#059669',
+  },
+  mapButtonCopy: {
+    flex: 1,
+  },
+  mapButtonTitle: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  mapButtonSubtitle: {
+    marginTop: 3,
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 12,
+  },
+  revisionCard: {
+    borderRadius: 16,
+    padding: 14,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 10,
+  },
+  revisionCardSpaced: {
+    marginTop: 10,
+  },
+  revisionTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  revisionTitle: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  revisionDate: {
+    marginTop: 4,
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 11,
+  },
+  revisionPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  revisionPillText: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 10,
+    color: '#475569',
+  },
+  revisionItem: {
+    gap: 6,
+  },
+  revisionItemBorder: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  revisionItemCopy: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  revisionItemText: {
+    flex: 1,
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 13,
+  },
+  revisionItemMeta: {
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 12,
+  },
+  revisionNote: {
+    fontFamily: FONTS.body,
+    color: '#334155',
+    fontSize: 12,
+    lineHeight: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 10,
+  },
+  emptyInlineText: {
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 12,
+  },
+  lineItemCard: {
+    borderRadius: 16,
+    padding: 14,
+    backgroundColor: '#FBFBF9',
+    borderWidth: 1,
+    borderColor: '#EFE9DE',
+  },
+  lineItemSpaced: {
+    marginTop: 10,
+  },
+  lineItemTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  lineItemCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  lineItemTitle: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  lineItemMeta: {
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 12,
+  },
+  lineItemTotal: {
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+    fontSize: 16,
+  },
+  emptyCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderStyle: 'dashed',
+    backgroundColor: '#F8FAFC',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 22,
+    paddingHorizontal: 18,
+    gap: 6,
+  },
+  emptyCardTitle: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  emptyCardText: {
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  summaryLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  summaryLabel: {
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    fontSize: 13,
+  },
+  summaryValue: {
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+    fontSize: 14,
+  },
+  financialDivider: {
+    height: 1,
+    backgroundColor: '#E2E8F0',
+    marginVertical: 2,
+  },
+  totalBand: {
+    marginTop: 2,
+    borderRadius: 16,
+    backgroundColor: '#0F172A',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  totalBandLabel: {
+    fontFamily: FONTS.subtitle,
+    color: '#E2E8F0',
+    fontSize: 11,
+    letterSpacing: 0.8,
+  },
+  totalBandHint: {
+    marginTop: 4,
+    fontFamily: FONTS.body,
+    color: '#94A3B8',
+    fontSize: 11,
+  },
+  totalBandValue: {
+    fontFamily: FONTS.title,
+    color: '#FCD34D',
+    fontSize: 24,
+  },
+  footerWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(244,246,248,0.96)',
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  footerBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  footerIconBtn: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF1F2',
+    borderWidth: 1,
+    borderColor: '#FECDD3',
+  },
+  footerPrimaryBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    backgroundColor: COLORS.secondary,
+  },
+  footerPrimaryText: {
+    fontFamily: FONTS.subtitle,
+    color: '#FFFFFF',
+    fontSize: 14,
+  },
+  footerSecondaryBtn: {
+    flex: 1,
+    height: 52,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    borderWidth: 1,
+  },
+  footerGhostBtn: {
+    backgroundColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  footerSuccessBtn: {
+    backgroundColor: '#DCFCE7',
+    borderColor: '#86EFAC',
+  },
+  footerSecondaryText: {
+    fontFamily: FONTS.subtitle,
+    fontSize: 14,
+  },
+  footerGhostText: {
+    color: '#0F172A',
+  },
+  footerSuccessText: {
+    color: '#166534',
+  },
 });

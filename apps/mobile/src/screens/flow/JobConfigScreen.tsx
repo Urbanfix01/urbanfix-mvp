@@ -69,6 +69,7 @@ type OfferRequestPayload = {
   location_lat?: number;
   location_lng?: number;
   my_eta_hours?: number | null;
+  photo_urls?: string[];
 };
 
 const LABOR_TOOLS: LaborTool[] = [
@@ -595,6 +596,11 @@ export default function JobConfigScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error("Sesión expirada");
 
+        const isRequestLinkColumnError = (error: unknown) => {
+          const message = String((error as any)?.message || '').toLowerCase();
+          return message.includes('client_request_id') || message.includes('client_request_match_id');
+        };
+
         // Datos listos para guardar
         const quoteData = {
             client_name: clientName,
@@ -607,19 +613,33 @@ export default function JobConfigScreen() {
             status: quote?.status || 'draft',
             user_id: user.id,
             scheduled_date: params?.quote?.scheduled_date || null,
+            client_request_id: offerRequest?.id || quote?.client_request_id || null,
+            client_request_match_id: quote?.client_request_match_id || null,
+        };
+
+        const saveQuoteHeader = async (payload: Record<string, unknown>) => {
+          if (isEditMode && quote?.id) {
+            const { error } = await supabase.from('quotes').update(payload).eq('id', quote.id);
+            if (error) throw error;
+            await supabase.from('quote_items').delete().eq('quote_id', quote.id);
+            return quote.id as string;
+          }
+
+          const { data: newQuote, error } = await supabase.from('quotes').insert(payload).select().single();
+          if (error) throw error;
+          return newQuote.id as string;
         };
 
         let targetId = quote?.id;
 
         // Lógica de Upsert
-        if (isEditMode && targetId) {
-            const { error } = await supabase.from('quotes').update(quoteData).eq('id', targetId);
-            if (error) throw error;
-            await supabase.from('quote_items').delete().eq('quote_id', targetId);
-        } else {
-            const { data: newQuote, error } = await supabase.from('quotes').insert(quoteData).select().single();
-            if (error) throw error;
-            targetId = newQuote.id;
+        try {
+            targetId = await saveQuoteHeader(quoteData);
+        } catch (headerError) {
+            if (!isOfferFlow || !isRequestLinkColumnError(headerError)) throw headerError;
+
+            const { client_request_id: _requestId, client_request_match_id: _matchId, ...legacyQuoteData } = quoteData;
+            targetId = await saveQuoteHeader(legacyQuoteData);
         }
 
         // Guardar items
@@ -654,7 +674,18 @@ export default function JobConfigScreen() {
           }
 
           try {
-            const payload = await submitOffer(offerRequest.id, roundedTotal, etaHours);
+            const payload = await submitOffer(offerRequest.id, roundedTotal, etaHours, targetId);
+
+            if (targetId && payload?.match?.id) {
+              await supabase
+                .from('quotes')
+                .update({
+                  client_request_id: offerRequest.id,
+                  client_request_match_id: payload.match.id,
+                })
+                .eq('id', targetId)
+                .eq('user_id', user.id);
+            }
 
             handleSmartInteraction('heavy');
             await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });

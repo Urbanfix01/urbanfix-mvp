@@ -11,11 +11,14 @@ import {
 } from 'react-native';
 import ReactGoogleAutocomplete from 'react-google-autocomplete';
 
-interface LocationData {
+export interface LocationData {
   address: string;
   lat: number;
   lng: number;
   placeId: string;
+  city?: string;
+  province?: string;
+  source?: 'google' | 'osm' | 'manual';
 }
 
 interface Prediction {
@@ -23,6 +26,8 @@ interface Prediction {
   place_id: string;
   lat?: number;
   lng?: number;
+  city?: string;
+  province?: string;
   source?: 'google' | 'osm';
 }
 
@@ -31,6 +36,9 @@ interface Props {
   initialValue?: string;
   apiKey?: string;
   showLabel?: boolean;
+  onQueryChange?: (query: string) => void;
+  onLoadingChange?: (isLoading: boolean) => void;
+  placeholder?: string;
 }
 
 const MIN_QUERY_LENGTH = 3;
@@ -42,27 +50,65 @@ type OsmRow = {
   display_name?: string;
   lat?: string;
   lon?: string;
+  address?: Record<string, string | undefined>;
+};
+
+const pickEnvValue = (...candidates: Array<string | undefined>) => {
+  for (const candidate of candidates) {
+    const trimmed = String(candidate || '').trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
 };
 
 const getEnvApiKey = () => {
   if (Platform.OS === 'web') {
-    return process.env.EXPO_PUBLIC_WEB_API_KEY || process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+    return pickEnvValue(process.env.EXPO_PUBLIC_WEB_API_KEY, process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY);
   }
 
   const platformKey =
-    Platform.OS === 'ios' ? process.env.EXPO_PUBLIC_IOS_API_KEY : process.env.EXPO_PUBLIC_ANDROID_API_KEY;
+    Platform.OS === 'ios'
+      ? pickEnvValue(process.env.EXPO_PUBLIC_GOOGLE_MAPS_IOS_API_KEY, process.env.EXPO_PUBLIC_IOS_API_KEY)
+      : pickEnvValue(process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY, process.env.EXPO_PUBLIC_ANDROID_API_KEY);
 
-  return (
-    process.env.EXPO_PUBLIC_PLACES_API_KEY ||
-    process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY ||
-    platformKey ||
-    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ||
-    process.env.EXPO_PUBLIC_ANDROID_API_KEY ||
+  return pickEnvValue(
+    process.env.EXPO_PUBLIC_PLACES_API_KEY,
+    process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY,
+    platformKey,
+    process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY,
+    process.env.EXPO_PUBLIC_ANDROID_API_KEY,
     process.env.EXPO_PUBLIC_IOS_API_KEY
   );
 };
 
-export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, showLabel = false }: Props) => {
+const pickFirstAddressValue = (address?: Record<string, string | undefined>, keys: string[] = []) => {
+  for (const key of keys) {
+    const candidate = String(address?.[key] || '').trim();
+    if (candidate) return candidate;
+  }
+  return '';
+};
+
+const resolveOsmCity = (address?: Record<string, string | undefined>) =>
+  pickFirstAddressValue(address, ['city', 'town', 'village', 'municipality', 'suburb', 'county', 'state_district']);
+
+const resolveOsmProvince = (address?: Record<string, string | undefined>) =>
+  pickFirstAddressValue(address, ['state', 'region', 'county']);
+
+const resolveGoogleAddressPart = (components: any[] | undefined, type: string) => {
+  const row = (components || []).find((component) => Array.isArray(component?.types) && component.types.includes(type));
+  return String(row?.long_name || '').trim();
+};
+
+export const LocationAutocomplete = ({
+  onLocationSelect,
+  initialValue,
+  apiKey,
+  showLabel = false,
+  onQueryChange,
+  onLoadingChange,
+  placeholder = 'Buscar direccion exacta...',
+}: Props) => {
   const [query, setQuery] = useState(initialValue || '');
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -80,7 +126,13 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
     [isFocused, predictions.length]
   );
 
-  const commitAddress = (address: string, placeId = '', lat = 0, lng = 0) => {
+  const commitAddress = (
+    address: string,
+    placeId = '',
+    lat = 0,
+    lng = 0,
+    meta: Partial<Pick<LocationData, 'city' | 'province' | 'source'>> = {}
+  ) => {
     const safeAddress = address.trim();
     if (!safeAddress) return;
     committedAddressRef.current = safeAddress;
@@ -89,6 +141,9 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       lat,
       lng,
       placeId,
+      city: meta.city,
+      province: meta.province,
+      source: meta.source,
     });
   };
 
@@ -116,14 +171,23 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       lat: hasCoords ? lat : 0,
       lng: hasCoords ? lng : 0,
       placeId: String(first.place_id || ''),
+      city: resolveOsmCity(first.address),
+      province: resolveOsmProvince(first.address),
       hasCoords,
     };
   };
 
   useEffect(() => {
-    setQuery(initialValue || '');
-    committedAddressRef.current = (initialValue || '').trim();
-  }, [initialValue]);
+    const nextValue = initialValue || '';
+    if (nextValue === query) return;
+    setQuery(nextValue);
+    committedAddressRef.current = nextValue.trim();
+    onQueryChange?.(nextValue);
+  }, [initialValue, onQueryChange, query]);
+
+  useEffect(() => {
+    onLoadingChange?.(isLoading);
+  }, [isLoading, onLoadingChange]);
 
   useEffect(() => {
     if (Platform.OS === 'web') return;
@@ -196,6 +260,8 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
               place_id: String(row.place_id || Math.random().toString(36).slice(2)),
               lat: hasCoords ? lat : undefined,
               lng: hasCoords ? lng : undefined,
+              city: resolveOsmCity(row.address),
+              province: resolveOsmProvince(row.address),
               source: 'osm' as const,
             };
           })
@@ -230,7 +296,12 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
         fallbackAddress,
         prediction.place_id,
         Number(prediction.lat),
-        Number(prediction.lng)
+        Number(prediction.lng),
+        {
+          city: prediction.city,
+          province: prediction.province,
+          source: 'osm',
+        }
       );
       return;
     }
@@ -239,12 +310,16 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       try {
         const resolved = await geocodeWithOsm(fallbackAddress);
         if (resolved?.hasCoords) {
-          commitAddress(resolved.address, resolved.placeId || prediction.place_id, resolved.lat, resolved.lng);
+          commitAddress(resolved.address, resolved.placeId || prediction.place_id, resolved.lat, resolved.lng, {
+            city: resolved.city,
+            province: resolved.province,
+            source: 'osm',
+          });
         } else {
-          commitAddress(fallbackAddress, prediction.place_id);
+          commitAddress(fallbackAddress, prediction.place_id, 0, 0, { source: 'manual' });
         }
       } catch {
-        commitAddress(fallbackAddress, prediction.place_id);
+        commitAddress(fallbackAddress, prediction.place_id, 0, 0, { source: 'manual' });
       }
       return;
     }
@@ -254,25 +329,37 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
       const sessionToken = sessionTokenRef.current || Math.random().toString(36).slice(2);
       const detailsUrl =
         `https://maps.googleapis.com/maps/api/place/details/json?place_id=${prediction.place_id}` +
-        `&key=${finalApiKey}&language=es&fields=geometry,formatted_address,place_id&sessiontoken=${sessionToken}`;
+        `&key=${finalApiKey}&language=es&fields=geometry,formatted_address,place_id,address_components&sessiontoken=${sessionToken}`;
       const response = await fetch(detailsUrl);
       const json = await response.json();
 
       const resolvedAddress = json?.result?.formatted_address || fallbackAddress;
       const lat = Number(json?.result?.geometry?.location?.lat);
       const lng = Number(json?.result?.geometry?.location?.lng);
+      const city =
+        resolveGoogleAddressPart(json?.result?.address_components, 'locality') ||
+        resolveGoogleAddressPart(json?.result?.address_components, 'administrative_area_level_2');
+      const province = resolveGoogleAddressPart(json?.result?.address_components, 'administrative_area_level_1');
       const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
 
       setQuery(resolvedAddress);
       sessionTokenRef.current = null;
 
       if (hasCoords) {
-        commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id, lat, lng);
+        commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id, lat, lng, {
+          city,
+          province,
+          source: 'google',
+        });
       } else {
-        commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id);
+        commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id, 0, 0, {
+          city,
+          province,
+          source: 'manual',
+        });
       }
     } catch {
-      commitAddress(fallbackAddress, prediction.place_id);
+      commitAddress(fallbackAddress, prediction.place_id, 0, 0, { source: 'manual' });
     } finally {
       setIsLoading(false);
     }
@@ -287,17 +374,21 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
           void geocodeWithOsm(typedAddress)
             .then((resolved) => {
               if (resolved?.hasCoords) {
-                commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng);
+                commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng, {
+                  city: resolved.city,
+                  province: resolved.province,
+                  source: 'osm',
+                });
                 return;
               }
-              commitAddress(typedAddress);
+              commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
             })
             .catch(() => {
-              commitAddress(typedAddress);
+              commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
             });
           return;
         }
-        commitAddress(typedAddress);
+        commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
       }
     }, 160);
   };
@@ -316,7 +407,7 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                 types: ['address'],
                 componentRestrictions: { country: 'ar' },
               }}
-              placeholder="Buscar direccion..."
+              placeholder={placeholder}
               className="web-input"
               style={styles.webInput}
               onPlaceSelected={(place: any) => {
@@ -324,17 +415,28 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                 const loc = place?.geometry?.location;
                 const lat = typeof loc?.lat === 'function' ? loc.lat() : Number(loc?.lat);
                 const lng = typeof loc?.lng === 'function' ? loc.lng() : Number(loc?.lng);
+                const city =
+                  resolveGoogleAddressPart(place?.address_components, 'locality') ||
+                  resolveGoogleAddressPart(place?.address_components, 'administrative_area_level_2');
+                const province = resolveGoogleAddressPart(place?.address_components, 'administrative_area_level_1');
                 const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-                commitAddress(resolvedAddress, place?.place_id || '', hasCoords ? lat : 0, hasCoords ? lng : 0);
+                commitAddress(resolvedAddress, place?.place_id || '', hasCoords ? lat : 0, hasCoords ? lng : 0, {
+                  city,
+                  province,
+                  source: hasCoords ? 'google' : 'manual',
+                });
               }}
             />
           ) : (
             <TextInput
               style={styles.webInput}
-              placeholder="Buscar direccion..."
+              placeholder={placeholder}
               placeholderTextColor="#9CA3AF"
               value={query}
-              onChangeText={setQuery}
+              onChangeText={(text) => {
+                setQuery(text);
+                onQueryChange?.(text);
+              }}
               onBlur={() => {
                 const typedAddress = query.trim();
                 if (!typedAddress) return;
@@ -342,15 +444,19 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
                   void geocodeWithOsm(typedAddress)
                     .then((resolved) => {
                       if (resolved?.hasCoords) {
-                        commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng);
+                        commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng, {
+                          city: resolved.city,
+                          province: resolved.province,
+                          source: 'osm',
+                        });
                         return;
                       }
-                      commitAddress(typedAddress);
+                      commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
                     })
-                    .catch(() => commitAddress(typedAddress));
+                    .catch(() => commitAddress(typedAddress, '', 0, 0, { source: 'manual' }));
                   return;
                 }
-                commitAddress(typedAddress);
+                commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
               }}
             />
           )}
@@ -360,11 +466,12 @@ export const LocationAutocomplete = ({ onLocationSelect, initialValue, apiKey, s
           <View style={styles.textInputContainer}>
             <TextInput
               style={styles.input}
-              placeholder="Buscar direccion..."
+              placeholder={placeholder}
               placeholderTextColor="#9CA3AF"
               value={query}
               onChangeText={(text) => {
                 setQuery(text);
+                onQueryChange?.(text);
                 if (!isFocused) setIsFocused(true);
               }}
               onFocus={() => setIsFocused(true)}

@@ -31,12 +31,24 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
     if (!canRenderNativeMap) return;
     if (Platform.OS === 'web') return;
     if (!points.length) return;
+    if (points.length === 1) {
+      mapRef.current?.animateToRegion(region, 250);
+      return;
+    }
     const coords = points.map((point) => ({ latitude: point.lat, longitude: point.lng }));
     mapRef.current?.fitToCoordinates(coords, {
-      edgePadding: { top: 32, right: 32, bottom: 32, left: 32 },
+      edgePadding: { top: 18, right: 18, bottom: 18, left: 18 },
       animated: false,
     });
-  }, [canRenderNativeMap, coordsKey]);
+  }, [
+    canRenderNativeMap,
+    coordsKey,
+    points.length,
+    region.latitude,
+    region.longitude,
+    region.latitudeDelta,
+    region.longitudeDelta,
+  ]);
 
   if (!canRenderNativeMap) {
     return (

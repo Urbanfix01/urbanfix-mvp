@@ -85,24 +85,10 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (technicianLat === null || technicianLng === null) {
-    const workingHours = parseWorkingHoursConfig(profile.working_hours || '');
-    return NextResponse.json({
-      requests: [],
-      technician: {
-        radius_km: normalizeRadius(profile.service_radius_km),
-        within_working_hours: isNowWithinWorkingHours(workingHours),
-        working_hours_label: formatWorkingHoursLabel(workingHours),
-      },
-      warning: 'Completa direccion base y ciudad para activar el matching por radio.',
-    });
-  }
-
-  const radiusKm = normalizeRadius(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM);
   const { data: requestsData, error: requestsError } = await supabase
     .from('client_requests')
     .select(
-      'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km'
+      'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km, photo_urls'
     )
     .in('status', ['published', 'matched', 'quoted', 'direct_sent'])
     .order('created_at', { ascending: false })
@@ -123,14 +109,13 @@ export async function GET(request: NextRequest) {
   const normalizedRows: any[] = [];
   let skippedByDirectAssignment = 0;
   let skippedByMissingGeo = 0;
-  let skippedByDistance = 0;
   let geocodedCount = 0;
   const requestIds = (requestsData || []).map((row) => String(row.id || '').trim()).filter(Boolean);
   const ownMatchesByRequestId = new Map<string, any>();
   if (requestIds.length > 0) {
     const { data: ownMatchRows } = await supabase
       .from('client_request_matches')
-      .select('request_id, quote_status, price_ars, eta_hours, updated_at')
+      .select('request_id, quote_status, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at')
       .eq('technician_id', user.id)
       .in('request_id', requestIds);
     (ownMatchRows || []).forEach((row: any) => {
@@ -172,13 +157,8 @@ export async function GET(request: NextRequest) {
       continue;
     }
 
-    const requestRadiusKm = normalizeRadius(row.radius_km || radiusKm);
-    const maxDistance = Math.min(radiusKm, requestRadiusKm);
-    const distanceKm = haversineKm(technicianLat, technicianLng, requestLat, requestLng);
-    if (!Number.isFinite(distanceKm) || distanceKm > maxDistance) {
-      skippedByDistance += 1;
-      continue;
-    }
+    const hasTechnicianGeo = technicianLat !== null && technicianLng !== null;
+    const distanceKm = hasTechnicianGeo ? haversineKm(technicianLat as number, technicianLng as number, requestLat, requestLng) : null;
     const ownMatch = ownMatchesByRequestId.get(String(row.id || '').trim());
     const ownEta = toFiniteNumber(ownMatch?.eta_hours);
 
@@ -194,11 +174,19 @@ export async function GET(request: NextRequest) {
       status: row.status,
       mode: row.mode || 'marketplace',
       created_at: row.created_at,
-      distance_km: Number(distanceKm.toFixed(1)),
-      match_radius_km: maxDistance,
+      distance_km: distanceKm !== null && Number.isFinite(distanceKm) ? Number(distanceKm.toFixed(1)) : 0,
+      match_radius_km: null,
       location_lat: Number(requestLat.toFixed(6)),
       location_lng: Number(requestLng.toFixed(6)),
+      photo_urls: Array.isArray(row.photo_urls)
+        ? row.photo_urls
+            .map((value: unknown) => String(value || '').trim())
+            .filter(Boolean)
+        : [],
       my_quote_status: ownMatch?.quote_status ? String(ownMatch.quote_status) : null,
+      my_response_type: ownMatch?.response_type ? String(ownMatch.response_type) : null,
+      my_response_message: ownMatch?.response_message ? String(ownMatch.response_message) : null,
+      my_visit_eta_hours: toFiniteNumber(ownMatch?.visit_eta_hours),
       my_price_ars: toFiniteNumber(ownMatch?.price_ars),
       my_eta_hours: ownEta === null ? null : Math.max(0, Math.round(ownEta)),
       my_quote_updated_at: ownMatch?.updated_at ? String(ownMatch.updated_at) : null,
@@ -208,7 +196,9 @@ export async function GET(request: NextRequest) {
   normalizedRows.sort((a, b) => {
     const urgencyDiff = urgencyPriority(a.urgency) - urgencyPriority(b.urgency);
     if (urgencyDiff !== 0) return urgencyDiff;
-    if (a.distance_km !== b.distance_km) return a.distance_km - b.distance_km;
+    const aDistance = Number(a.distance_km);
+    const bDistance = Number(b.distance_km);
+    if (aDistance > 0 && bDistance > 0 && aDistance !== bDistance) return aDistance - bDistance;
     return String(b.created_at || '').localeCompare(String(a.created_at || ''));
   });
 
@@ -217,29 +207,29 @@ export async function GET(request: NextRequest) {
   if (normalizedRows.length === 0) {
     if (totalLoaded === 0) {
       warning = 'No hay solicitudes publicadas por ahora.';
-    } else if (skippedByDistance > 0) {
-      warning = `Hay solicitudes activas fuera de tu radio (${radiusKm} km). Ajusta ciudad/radio para ampliar cobertura.`;
     } else if (skippedByMissingGeo > 0) {
       warning = 'Hay solicitudes sin geolocalizacion valida. Completa direccion y ciudad en la solicitud.';
     } else if (skippedByDirectAssignment > 0 && skippedByDirectAssignment === totalLoaded) {
       warning = 'Solo hay solicitudes directas asignadas a otros tecnicos.';
     }
+  } else if (technicianLat === null || technicianLng === null) {
+    warning =
+      'Se muestran todas las solicitudes publicadas. Completa tu direccion base si luego quieres calcular distancias.';
   }
 
   return NextResponse.json({
     requests: normalizedRows.slice(0, 80),
     technician: {
-      radius_km: radiusKm,
+      radius_km: normalizeRadius(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM),
       within_working_hours: withinWorkingHours,
       working_hours_label: formatWorkingHoursLabel(profileHours),
-      service_lat: Number(technicianLat.toFixed(6)),
-      service_lng: Number(technicianLng.toFixed(6)),
+      service_lat: technicianLat === null ? undefined : Number(technicianLat.toFixed(6)),
+      service_lng: technicianLng === null ? undefined : Number(technicianLng.toFixed(6)),
     },
     warning,
     stats: {
       loaded: totalLoaded,
       visible: normalizedRows.length,
-      skipped_by_distance: skippedByDistance,
       skipped_by_missing_geo: skippedByMissingGeo,
       skipped_by_direct_assignment: skippedByDirectAssignment,
       geocoded: geocodedCount,

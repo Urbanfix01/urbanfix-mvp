@@ -6,10 +6,14 @@ import { supabase } from '@/lib/supabase/supabase';
 
 type ClientQuote = {
   id: string;
+  technicianId: string;
   technicianName: string;
   phone: string;
   priceArs: number | null;
   etaHours: number | null;
+  responseType?: 'application' | 'direct_quote' | null | string;
+  responseMessage?: string;
+  visitEtaHours?: number | null;
   quoteStatus: string;
 };
 
@@ -26,8 +30,19 @@ type ClientRequestRow = {
   updatedAt: string;
   assignedTechName?: string | null;
   assignedTechPhone?: string | null;
+  photoUrls?: string[];
   quotes: ClientQuote[];
 };
+
+type WorkPhotoDraft = {
+  id: string;
+  file: File;
+  previewUrl: string;
+  uploadedUrl?: string;
+};
+
+const WORK_PHOTO_MIN = 3;
+const WORK_PHOTO_MAX = 8;
 
 type KnownTechnician = {
   id: string;
@@ -42,10 +57,46 @@ type WorkspacePayload = {
   warning?: string | null;
 };
 
+type NearbyTechnician = {
+  id: string;
+  name: string;
+  phone: string | null;
+  city: string;
+  specialty: string;
+  available_now: boolean;
+  distance_km: number;
+};
+
+type NearbyPayload = {
+  center?: {
+    label?: string;
+    radius_km?: number;
+  };
+  technicians?: NearbyTechnician[];
+  warning?: string | null;
+  error?: string;
+};
+
+type DirectTechnicianOption = {
+  id: string;
+  name: string;
+  phone: string;
+  specialty?: string | null;
+  distanceKm: number | null;
+  availableNow?: boolean;
+  source: 'nearby' | 'history';
+};
+
+const normalizeRadiusKm = (value: unknown) => {
+  const parsed = Number(value || 20);
+  if (!Number.isFinite(parsed)) return 20;
+  return Math.max(5, Math.min(100, Math.round(parsed)));
+};
+
 const statusMeta: Record<string, { label: string; className: string }> = {
   published: { label: 'Publicada', className: 'bg-sky-100 text-sky-700' },
   matched: { label: 'Con tecnicos', className: 'bg-indigo-100 text-indigo-700' },
-  quoted: { label: 'Con ofertas', className: 'bg-amber-100 text-amber-700' },
+  quoted: { label: 'Con respuestas', className: 'bg-amber-100 text-amber-700' },
   direct_sent: { label: 'Directa enviada', className: 'bg-violet-100 text-violet-700' },
   selected: { label: 'Tecnico seleccionado', className: 'bg-emerald-100 text-emerald-700' },
   scheduled: { label: 'Agendada', className: 'bg-teal-100 text-teal-700' },
@@ -92,6 +143,11 @@ export default function ClientePage() {
   const [workspaceWarning, setWorkspaceWarning] = useState('');
   const [requests, setRequests] = useState<ClientRequestRow[]>([]);
   const [knownTechnicians, setKnownTechnicians] = useState<KnownTechnician[]>([]);
+  const [nearbyTechnicians, setNearbyTechnicians] = useState<NearbyTechnician[]>([]);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [nearbyError, setNearbyError] = useState('');
+  const [nearbyWarning, setNearbyWarning] = useState('');
+  const [nearbyCenterLabel, setNearbyCenterLabel] = useState('');
 
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('');
@@ -103,6 +159,7 @@ export default function ClientePage() {
   const [radiusKm, setRadiusKm] = useState('20');
   const [selectedTechnicianId, setSelectedTechnicianId] = useState('');
   const [requestLoading, setRequestLoading] = useState(false);
+  const [workPhotos, setWorkPhotos] = useState<WorkPhotoDraft[]>([]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -118,9 +175,42 @@ export default function ClientePage() {
     };
   }, []);
 
+  const directTechnicians = useMemo<DirectTechnicianOption[]>(() => {
+    const byId = new Map<string, DirectTechnicianOption>();
+
+    nearbyTechnicians.forEach((technician) => {
+      if (!technician.id) return;
+      byId.set(technician.id, {
+        id: technician.id,
+        name: technician.name || 'Tecnico',
+        phone: String(technician.phone || ''),
+        specialty: technician.specialty || null,
+        distanceKm: Number.isFinite(Number(technician.distance_km))
+          ? Number(technician.distance_km)
+          : null,
+        availableNow: Boolean(technician.available_now),
+        source: 'nearby',
+      });
+    });
+
+    knownTechnicians.forEach((technician) => {
+      if (!technician.id || byId.has(technician.id)) return;
+      byId.set(technician.id, {
+        id: technician.id,
+        name: technician.name || 'Tecnico',
+        phone: String(technician.phone || ''),
+        specialty: technician.specialty || null,
+        distanceKm: null,
+        source: 'history',
+      });
+    });
+
+    return Array.from(byId.values());
+  }, [knownTechnicians, nearbyTechnicians]);
+
   const selectedTechnician = useMemo(
-    () => knownTechnicians.find((item) => item.id === selectedTechnicianId) || null,
-    [knownTechnicians, selectedTechnicianId]
+    () => directTechnicians.find((item) => item.id === selectedTechnicianId) || null,
+    [directTechnicians, selectedTechnicianId]
   );
 
   const profileReady = useMemo(
@@ -138,7 +228,68 @@ export default function ClientePage() {
     setMode('marketplace');
     setRadiusKm('20');
     setSelectedTechnicianId('');
+    setWorkPhotos([]);
   };
+
+  const handleWorkPhotosChange = (event: any) => {
+    const remaining = Math.max(0, WORK_PHOTO_MAX - workPhotos.length);
+    if (remaining <= 0) return;
+
+    const files = Array.from((event?.target?.files || []) as File[])
+      .filter((file) => file.type.startsWith('image/'))
+      .slice(0, remaining);
+    if (!files.length) return;
+
+    const drafts = files.map((file, index) => ({
+      id: `${Date.now()}-${index}-${file.name}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+
+    setWorkPhotos((prev) => [...prev, ...drafts].slice(0, WORK_PHOTO_MAX));
+    event.target.value = '';
+  };
+
+  const removeWorkPhoto = (photoId: string) => {
+    setWorkPhotos((prev) => {
+      const target = prev.find((photo) => photo.id === photoId);
+      if (target?.previewUrl) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((photo) => photo.id !== photoId);
+    });
+  };
+
+  const uploadWorkPhotos = useCallback(async () => {
+    if (!session?.user?.id) throw new Error('Sesion expirada.');
+    if (workPhotos.length < WORK_PHOTO_MIN) {
+      throw new Error(`Sube al menos ${WORK_PHOTO_MIN} fotos del trabajo.`);
+    }
+
+    const uploadedUrls: string[] = [];
+    for (const photo of workPhotos) {
+      if (photo.uploadedUrl) {
+        uploadedUrls.push(photo.uploadedUrl);
+        continue;
+      }
+
+      const safeName = photo.file.name.replace(/\s+/g, '_');
+      const filePath = `${session.user.id}/client-requests/${Date.now()}_${safeName}`;
+      const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(filePath, photo.file, {
+        contentType: photo.file.type || 'image/jpeg',
+        upsert: true,
+      });
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('urbanfix-assets').getPublicUrl(filePath);
+      const publicUrl = String(data.publicUrl || '').trim();
+      if (!publicUrl) {
+        throw new Error('No pudimos obtener la URL publica de una foto.');
+      }
+
+      uploadedUrls.push(publicUrl);
+    }
+
+    return uploadedUrls;
+  }, [session?.user?.id, workPhotos]);
 
   const loadProfile = useCallback(async () => {
     if (!session?.user?.id) return;
@@ -187,11 +338,45 @@ export default function ClientePage() {
     }
   }, [session?.access_token]);
 
+  const loadNearbyTechnicians = useCallback(
+    async (radiusValue?: unknown) => {
+      if (!session?.access_token) return;
+      const safeRadius = normalizeRadiusKm(radiusValue);
+      setNearbyLoading(true);
+      setNearbyError('');
+      setNearbyWarning('');
+      try {
+        const response = await fetch(`/api/client/technicians/nearby?radiusKm=${safeRadius}`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const payload = (await response.json()) as NearbyPayload;
+        if (!response.ok) {
+          throw new Error(payload?.error || 'No se pudo cargar tecnicos por zona.');
+        }
+        setNearbyTechnicians(Array.isArray(payload.technicians) ? payload.technicians : []);
+        setNearbyCenterLabel(String(payload.center?.label || ''));
+        if (payload.warning) setNearbyWarning(String(payload.warning));
+      } catch (error: any) {
+        setNearbyError(error?.message || 'No se pudo cargar tecnicos por zona.');
+      } finally {
+        setNearbyLoading(false);
+      }
+    },
+    [session?.access_token]
+  );
+
   useEffect(() => {
     if (!session?.user?.id) return;
     loadProfile();
     loadWorkspace();
-  }, [loadProfile, loadWorkspace, session?.user?.id]);
+    loadNearbyTechnicians();
+  }, [loadNearbyTechnicians, loadProfile, loadWorkspace, session?.user?.id]);
+
+  const handleRefreshWorkspace = async () => {
+    await Promise.all([loadWorkspace(), loadNearbyTechnicians(radiusKm)]);
+  };
 
   const handleGoogleAuth = async () => {
     setAuthError('');
@@ -251,6 +436,10 @@ export default function ClientePage() {
     await supabase.auth.signOut();
     setRequests([]);
     setKnownTechnicians([]);
+    setNearbyTechnicians([]);
+    setNearbyCenterLabel('');
+    setNearbyError('');
+    setNearbyWarning('');
     setWorkspaceError('');
     setWorkspaceWarning('');
   };
@@ -273,6 +462,7 @@ export default function ClientePage() {
       const { error } = await supabase.from('profiles').upsert(payload);
       if (error) throw error;
       setProfileMessage('Perfil cliente actualizado.');
+      await loadNearbyTechnicians(radiusKm);
     } catch (error: any) {
       setProfileMessage(error?.message || 'No pudimos guardar tu perfil.');
     } finally {
@@ -292,9 +482,14 @@ export default function ClientePage() {
       if (!title.trim() || !category.trim() || !address.trim() || !description.trim()) {
         throw new Error('Completa titulo, categoria, direccion y descripcion.');
       }
+      if (workPhotos.length < WORK_PHOTO_MIN) {
+        throw new Error(`Sube al menos ${WORK_PHOTO_MIN} fotos del trabajo.`);
+      }
       if (mode === 'direct' && !selectedTechnician) {
         throw new Error('Selecciona un tecnico para solicitud directa.');
       }
+
+      const photoUrls = await uploadWorkPhotos();
 
       const payload: Record<string, unknown> = {
         title: title.trim(),
@@ -306,6 +501,7 @@ export default function ClientePage() {
         preferredWindow: preferredWindow.trim(),
         mode,
         radiusKm: Number(radiusKm || 20),
+        photoUrls,
       };
 
       if (mode === 'direct' && selectedTechnician) {
@@ -332,6 +528,7 @@ export default function ClientePage() {
         Array.isArray(responseBody.knownTechnicians) ? responseBody.knownTechnicians : knownTechnicians
       );
       if (responseBody.warning) setWorkspaceWarning(String(responseBody.warning));
+      await loadNearbyTechnicians(payload.radiusKm);
       resetRequestForm();
     } catch (error: any) {
       setWorkspaceError(error?.message || 'No se pudo crear la solicitud.');
@@ -350,7 +547,7 @@ export default function ClientePage() {
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
               <h1 className="mt-2 text-2xl font-bold text-slate-900">Acceso clientes</h1>
               <p className="mt-2 text-sm text-slate-600">
-                Publica solicitudes y revisa ofertas de tecnicos cercanos.
+                Publica solicitudes y revisa respuestas de tecnicos cercanos.
               </p>
             </div>
             <div className="flex gap-2">
@@ -378,11 +575,11 @@ export default function ClientePage() {
                 Entra como cliente en 1 minuto
               </h2>
               <p className="mt-3 text-sm text-slate-600">
-                Crea tu cuenta, publica una solicitud y recibe cotizaciones con precio y ETA.
+                Crea tu cuenta, publica una solicitud y recibe postulaciones o cotizaciones directas.
               </p>
               <ul className="mt-5 space-y-2 text-sm text-slate-600">
                 <li>1. Publicas tu necesidad.</li>
-                <li>2. Tecnicos cercanos te envian oferta.</li>
+                <li>2. Tecnicos cercanos se postulan o envian cotizacion directa.</li>
                 <li>3. Eliges y coordinas directo.</li>
               </ul>
             </div>
@@ -533,6 +730,44 @@ export default function ClientePage() {
                     rows={4}
                     className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
                   />
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold text-slate-900">Fotos del trabajo</p>
+                        <p className="mt-1 text-xs text-slate-600">
+                          Sube al menos {WORK_PHOTO_MIN} fotos reales. Los tecnicos las veran antes de postularse o enviar cotizacion directa.
+                        </p>
+                      </div>
+                      <span className="rounded-full border border-amber-200 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700">
+                        {workPhotos.length}/{WORK_PHOTO_MAX}
+                      </span>
+                    </div>
+                    <label className="mt-4 flex cursor-pointer items-center justify-center rounded-xl border border-dashed border-amber-300 bg-white px-4 py-3 text-sm font-semibold text-amber-700 transition hover:border-amber-400">
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleWorkPhotosChange} />
+                      Agregar fotos
+                    </label>
+                    {workPhotos.length > 0 && (
+                      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                        {workPhotos.map((photo) => (
+                          <div key={photo.id} className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white">
+                            <img src={photo.previewUrl} alt={photo.file.name} className="h-28 w-full object-cover" />
+                            <button
+                              type="button"
+                              onClick={() => removeWorkPhoto(photo.id)}
+                              className="absolute right-2 top-2 rounded-full bg-slate-900/80 px-2 py-1 text-[11px] font-semibold text-white"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="mt-3 text-xs text-slate-600">
+                      {workPhotos.length >= WORK_PHOTO_MIN
+                        ? 'Cobertura visual suficiente para publicar.'
+                        : `Faltan ${WORK_PHOTO_MIN - workPhotos.length} foto(s) para habilitar la publicacion.`}
+                    </p>
+                  </div>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <select
                       value={urgency}
@@ -567,18 +802,27 @@ export default function ClientePage() {
                     />
                   </div>
                   {mode === 'direct' && (
-                    <select
-                      value={selectedTechnicianId}
-                      onChange={(event) => setSelectedTechnicianId(event.target.value)}
-                      className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
-                    >
-                      <option value="">Selecciona tecnico conocido</option>
-                      {knownTechnicians.map((tech) => (
-                        <option key={tech.id} value={tech.id}>
-                          {tech.name} {tech.specialty ? `- ${tech.specialty}` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <>
+                      <select
+                        value={selectedTechnicianId}
+                        onChange={(event) => setSelectedTechnicianId(event.target.value)}
+                        className="rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+                      >
+                        <option value="">Selecciona tecnico por zona</option>
+                        {directTechnicians.map((tech) => (
+                          <option key={tech.id} value={tech.id}>
+                            {tech.name}
+                            {tech.specialty ? ` - ${tech.specialty}` : ''}
+                            {tech.distanceKm !== null ? ` (${tech.distanceKm.toFixed(1)} km)` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      {directTechnicians.length === 0 && (
+                        <p className="text-xs text-amber-700">
+                          Todavia no hay tecnicos geolocalizados en la zona para asignacion directa.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -592,75 +836,132 @@ export default function ClientePage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Panel cliente</p>
-                  <h2 className="mt-2 text-lg font-semibold text-slate-900">Solicitudes y ofertas</h2>
+            <div className="space-y-6">
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tecnicos por zona</p>
+                    <h2 className="mt-2 text-lg font-semibold text-slate-900">Disponibles cerca de tu obra</h2>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Referencia: {nearbyCenterLabel || city || 'Sin zona de referencia'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => loadNearbyTechnicians(radiusKm)}
+                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Actualizar zona
+                  </button>
                 </div>
-                <button
-                  onClick={loadWorkspace}
-                  className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Actualizar
-                </button>
+
+                {nearbyLoading && <p className="mt-4 text-sm text-slate-500">Actualizando tecnicos por zona...</p>}
+                {nearbyError && <p className="mt-4 text-xs text-rose-600">{nearbyError}</p>}
+                {nearbyWarning && <p className="mt-4 text-xs text-amber-600">{nearbyWarning}</p>}
+
+                {!nearbyLoading && nearbyTechnicians.length === 0 && !nearbyError && (
+                  <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    No hay tecnicos geolocalizados en este radio por ahora.
+                  </p>
+                )}
+
+                <div className="mt-4 space-y-2">
+                  {nearbyTechnicians.slice(0, 6).map((tech) => (
+                    <div key={tech.id} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs">
+                      <p className="font-semibold text-slate-800">{tech.name}</p>
+                      <p className="text-slate-600">
+                        {tech.specialty || 'Servicios generales'} | {tech.distance_km.toFixed(1)} km
+                      </p>
+                      <p className="text-slate-500">
+                        {tech.city || '-'} | {tech.available_now ? 'Disponible ahora' : 'Fuera de horario'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              {workspaceLoading && <p className="mt-4 text-sm text-slate-500">Cargando panel...</p>}
-              {workspaceError && <p className="mt-4 text-xs text-rose-600">{workspaceError}</p>}
-              {workspaceWarning && <p className="mt-4 text-xs text-amber-600">{workspaceWarning}</p>}
+              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Panel cliente</p>
+                    <h2 className="mt-2 text-lg font-semibold text-slate-900">Solicitudes y respuestas</h2>
+                  </div>
+                  <button
+                    onClick={handleRefreshWorkspace}
+                    className="rounded-full border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Actualizar
+                  </button>
+                </div>
 
-              {!workspaceLoading && requests.length === 0 && (
-                <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  Aun no tienes solicitudes publicadas.
-                </p>
-              )}
+                {workspaceLoading && <p className="mt-4 text-sm text-slate-500">Cargando panel...</p>}
+                {workspaceError && <p className="mt-4 text-xs text-rose-600">{workspaceError}</p>}
+                {workspaceWarning && <p className="mt-4 text-xs text-amber-600">{workspaceWarning}</p>}
 
-              <div className="mt-4 space-y-3">
-                {requests.map((request) => {
-                  const meta = statusMeta[request.status] || {
-                    label: request.status || 'Sin estado',
-                    className: 'bg-slate-100 text-slate-600',
-                  };
-                  return (
-                    <article key={request.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <h3 className="text-sm font-semibold text-slate-900">{request.title}</h3>
-                        <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${meta.className}`}>
-                          {meta.label}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-xs text-slate-500">
-                        {request.category} | {request.city} | {request.mode === 'direct' ? 'Directa' : 'Marketplace'}
-                      </p>
-                      <p className="mt-1 text-xs text-slate-500">Actualizada: {formatDate(request.updatedAt)}</p>
+                {!workspaceLoading && requests.length === 0 && (
+                  <p className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                    Aun no tienes solicitudes publicadas.
+                  </p>
+                )}
 
-                      {request.assignedTechName && (
-                        <p className="mt-2 text-xs font-semibold text-emerald-700">
-                          Tecnico asignado: {request.assignedTechName}
-                          {request.assignedTechPhone ? ` (${request.assignedTechPhone})` : ''}
-                        </p>
-                      )}
-
-                      {Array.isArray(request.quotes) && request.quotes.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {request.quotes.slice(0, 3).map((quote) => (
-                            <div
-                              key={quote.id}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
-                            >
-                              <p className="font-semibold text-slate-800">{quote.technicianName}</p>
-                              <p>
-                                Oferta: ${formatMoney(quote.priceArs)} | ETA {quote.etaHours || '-'} hs |{' '}
-                                {quoteStatusLabel(quote.quoteStatus)}
-                              </p>
-                            </div>
-                          ))}
+                <div className="mt-4 space-y-3">
+                  {requests.map((request) => {
+                    const meta = statusMeta[request.status] || {
+                      label: request.status || 'Sin estado',
+                      className: 'bg-slate-100 text-slate-600',
+                    };
+                    return (
+                      <article key={request.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h3 className="text-sm font-semibold text-slate-900">{request.title}</h3>
+                          <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${meta.className}`}>
+                            {meta.label}
+                          </span>
                         </div>
-                      )}
-                    </article>
-                  );
-                })}
+                        <p className="mt-2 text-xs text-slate-500">
+                          {request.category} | {request.city} | {request.mode === 'direct' ? 'Directa' : 'Marketplace'}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">Actualizada: {formatDate(request.updatedAt)}</p>
+
+                        {request.assignedTechName && (
+                          <p className="mt-2 text-xs font-semibold text-emerald-700">
+                            Tecnico asignado: {request.assignedTechName}
+                            {request.assignedTechPhone ? ` (${request.assignedTechPhone})` : ''}
+                          </p>
+                        )}
+
+                        {Array.isArray(request.quotes) && request.quotes.length > 0 && (
+                          <div className="mt-3 space-y-2">
+                            {request.quotes.slice(0, 3).map((quote) => (
+                              <div
+                                key={quote.id}
+                                className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="font-semibold text-slate-800">{quote.technicianName}</p>
+                                  {quote.technicianId && (
+                                    <a
+                                      href={`/p/${quote.technicianId}`}
+                                      className="rounded-full border border-slate-300 px-2.5 py-1 font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                                    >
+                                      Ver perfil
+                                    </a>
+                                  )}
+                                </div>
+                                <p className="mt-1">
+                                  {quote.responseType === 'application'
+                                    ? `Postulacion | Visita ${quote.visitEtaHours || '-'} hs`
+                                    : `Cotizacion directa | $${formatMoney(quote.priceArs)} | ETA ${quote.etaHours || '-'} hs`}{' '}
+                                  | {quoteStatusLabel(quote.quoteStatus)}
+                                </p>
+                                {quote.responseMessage && <p className="mt-1 text-slate-500">{quote.responseMessage}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </section>

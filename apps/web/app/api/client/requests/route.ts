@@ -28,6 +28,18 @@ const normalizeRadius = (value: unknown) => {
   return Math.min(100, Math.max(1, Math.round(parsed)));
 };
 
+const normalizePhotoUrls = (value: unknown) => {
+  if (!Array.isArray(value)) return [] as string[];
+  const unique = new Set<string>();
+  value.forEach((entry) => {
+    const normalized = String(entry || '').trim();
+    if (!normalized) return;
+    if (!/^https?:\/\//i.test(normalized)) return;
+    unique.add(normalized);
+  });
+  return Array.from(unique);
+};
+
 const extractCityFromAddress = (addressRaw: unknown) => {
   const address = toText(addressRaw);
   if (!address) return '';
@@ -137,6 +149,7 @@ export async function POST(request: NextRequest) {
   const category = toText(body.category);
   const address = toText(body.address);
   const city = toText(body.city);
+  const province = toText(body.province);
   const cityFromAddress = extractCityFromAddress(address);
   const resolvedCity = city || cityFromAddress || toText(clientProfile?.city);
   const description = toText(body.description);
@@ -144,6 +157,7 @@ export async function POST(request: NextRequest) {
   const urgency = normalizeUrgency(toText(body.urgency));
   const mode = normalizeMode(toText(body.mode));
   const radiusKm = normalizeRadius(body.radiusKm);
+  const photoUrls = normalizePhotoUrls(body.photoUrls);
 
   const targetTechnicianId = toText(body.targetTechnicianId) || null;
   const targetTechnicianName = toText(body.targetTechnicianName) || null;
@@ -156,6 +170,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (photoUrls.length < 3) {
+    return NextResponse.json(
+      { error: 'Sube al menos 3 fotos reales del trabajo antes de publicar la solicitud.' },
+      { status: 400 }
+    );
+  }
+
   if (mode === 'direct' && !targetTechnicianId) {
     return NextResponse.json({ error: 'Selecciona un tecnico conocido para solicitud directa.' }, { status: 400 });
   }
@@ -163,7 +184,7 @@ export async function POST(request: NextRequest) {
   let locationLat = toFiniteNumber(body.locationLat);
   let locationLng = toFiniteNumber(body.locationLng);
   if (!hasPreciseCoordinates(locationLat, locationLng)) {
-    const geocodeQuery = [address, city || cityFromAddress].filter(Boolean).join(', ');
+    const geocodeQuery = [address, resolvedCity, province, 'Argentina'].filter(Boolean).join(', ');
     const geocode = await geocodeFirstResult(geocodeQuery);
     if (geocode) {
       locationLat = geocode.lat;
@@ -174,12 +195,23 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  if (!hasPreciseCoordinates(locationLat, locationLng)) {
+    return NextResponse.json(
+      {
+        error:
+          'Necesitamos una direccion de obra precisa para ubicarla en el mapa operativo. Revisa direccion y ciudad antes de publicar.',
+      },
+      { status: 400 }
+    );
+  }
+
   const insertPayload: Record<string, unknown> = {
     client_id: user.id,
     title,
     category,
     address,
     city: resolvedCity || null,
+    province: province || null,
     description,
     urgency,
     preferred_window: preferredWindow || null,
@@ -188,6 +220,7 @@ export async function POST(request: NextRequest) {
     radius_km: radiusKm,
     location_lat: locationLat,
     location_lng: locationLng,
+    photo_urls: photoUrls,
     target_technician_id: mode === 'direct' ? targetTechnicianId : null,
     target_technician_name: mode === 'direct' ? targetTechnicianName : null,
     target_technician_phone: mode === 'direct' ? targetTechnicianPhone : null,
@@ -287,10 +320,6 @@ export async function POST(request: NextRequest) {
           .eq('status', 'published');
       }
     }
-  }
-
-  if (mode === 'marketplace' && !hasRequestGeo) {
-    warning = 'Solicitud publicada, pero sin geolocalizacion precisa. Completa ciudad/direccion para sincronizar mapa.';
   }
 
   const requestStatus =

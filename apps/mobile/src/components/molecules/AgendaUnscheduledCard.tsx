@@ -20,21 +20,24 @@ const AgendaUnscheduledCard = ({
 }: Props) => (
   <View style={styles.unscheduledCard}>
     <View style={styles.unscheduledInfo}>
+      <Text style={styles.unscheduledLabel}>Trabajo pendiente</Text>
       <Text style={styles.unscheduledName} numberOfLines={1}>
         {clientName}
       </Text>
       <Text style={styles.unscheduledAmount}>{amountText}</Text>
     </View>
+
     <View style={styles.quickRow}>
       <TouchableOpacity style={styles.quickChip} onPress={() => onQuickAssign(id, 0)}>
-        <Text style={styles.quickChipText}>Hoy</Text>
+        <Text style={styles.quickChipText}>Inicio hoy</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.quickChip} onPress={() => onQuickAssign(id, 1)}>
-        <Text style={styles.quickChipText}>Mañana</Text>
+        <Text style={styles.quickChipText}>Inicio manana</Text>
       </TouchableOpacity>
     </View>
+
     <TouchableOpacity style={styles.assignBtn} onPress={() => onOpenScheduler(id)}>
-      <Text style={styles.assignBtnText}>Asignar fecha</Text>
+      <Text style={styles.assignBtnText}>Elegir inicio</Text>
       <Ionicons name="calendar" size={14} color="#FFF" style={{ marginLeft: 6 }} />
     </TouchableOpacity>
   </View>
@@ -51,38 +54,47 @@ export default memo(
 const styles = StyleSheet.create({
   unscheduledCard: {
     backgroundColor: '#FFFFFF',
-    width: 180,
-    padding: 12,
-    borderRadius: 14,
+    width: 196,
+    padding: 14,
+    borderRadius: 16,
     marginRight: 12,
     borderWidth: 1,
-    borderColor: '#F3E6CF',
-    shadowColor: '#BFA57A',
-    shadowOpacity: 0.15,
-    elevation: 2,
+    borderColor: '#E2E8F0',
+    shadowColor: '#C7BBA8',
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 3,
   },
   unscheduledInfo: { gap: 4 },
-  unscheduledName: { fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
+  unscheduledLabel: {
+    fontSize: 10,
+    fontFamily: FONTS.subtitle,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.7,
+  },
+  unscheduledName: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.text },
   unscheduledAmount: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
-  quickRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  quickRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
   quickChip: {
     flex: 1,
-    paddingVertical: 6,
+    paddingVertical: 7,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#F3E6CF',
-    backgroundColor: '#FFFDF9',
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
   },
-  quickChipText: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#92400E' },
+  quickChipText: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#334155' },
   assignBtn: {
-    marginTop: 10,
-    backgroundColor: COLORS.primary,
+    marginTop: 12,
+    backgroundColor: COLORS.secondary,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 8,
-    borderRadius: 10,
+    paddingVertical: 9,
+    borderRadius: 12,
   },
   assignBtnText: { color: '#FFF', fontSize: 11, fontFamily: FONTS.subtitle },
 });

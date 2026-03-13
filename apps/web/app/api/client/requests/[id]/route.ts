@@ -25,6 +25,20 @@ const toFiniteNumber = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
+const toBoolean = (value: unknown, defaultValue = true) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true') return true;
+    if (normalized === 'false') return false;
+  }
+  return defaultValue;
+};
+const toRating = (value: unknown) => {
+  const parsed = toFiniteNumber(value);
+  if (parsed === null) return null;
+  return Math.round(parsed);
+};
 const parseMoney = (value: unknown) => {
   if (value === null || value === undefined || value === '') return null;
   if (typeof value === 'number') return Number.isFinite(value) ? value : null;
@@ -41,9 +55,45 @@ const loadRequestMatch = async (client: any, requestId: string, matchId: string)
     .eq('request_id', requestId)
     .maybeSingle();
   if (error || !data) {
-    throw new Error('No encontramos la cotizacion seleccionada.');
+    throw new Error('No encontramos la respuesta seleccionada.');
   }
   return data as Record<string, any>;
+};
+
+const loadLatestQuoteForFeedback = async (
+  client: any,
+  requestId: string,
+  technicianId: string,
+  matchId: string | null
+) => {
+  const attempts = [
+    matchId
+      ? client
+          .from('quotes')
+          .select('id')
+          .eq('client_request_match_id', matchId)
+          .eq('user_id', technicianId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+      : null,
+    client
+      .from('quotes')
+      .select('id')
+      .eq('client_request_id', requestId)
+      .eq('user_id', technicianId)
+      .order('updated_at', { ascending: false })
+      .limit(1),
+  ].filter(Boolean) as any[];
+
+  for (const query of attempts) {
+    const { data, error } = await query;
+    if (error) continue;
+    if (Array.isArray(data) && data[0]?.id) {
+      return data[0] as Record<string, any>;
+    }
+  }
+
+  return null;
 };
 
 const refreshRequestStatusFromQuotes = async (client: any, requestId: string, userId: string) => {
@@ -178,6 +228,31 @@ export async function PATCH(
         return NextResponse.json({ error: 'No encontramos el tecnico seleccionado.' }, { status: 404 });
       }
 
+      const { error: acceptSelectedError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'accepted' })
+        .eq('id', matchRow.id)
+        .eq('request_id', requestId);
+      if (acceptSelectedError) {
+        return NextResponse.json(
+          { error: acceptSelectedError.message || 'No pudimos confirmar la seleccion.' },
+          { status: 500 }
+        );
+      }
+
+      const { error: rejectOthersError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'rejected' })
+        .eq('request_id', requestId)
+        .neq('id', matchRow.id)
+        .eq('quote_status', 'submitted');
+      if (rejectOthersError) {
+        return NextResponse.json(
+          { error: rejectOthersError.message || 'No pudimos cerrar las otras respuestas.' },
+          { status: 500 }
+        );
+      }
+
       await updateRequest(supabase, requestId, user.id, {
         status: 'selected',
         selected_match_id: matchRow.id,
@@ -192,6 +267,11 @@ export async function PATCH(
         return NextResponse.json({ error: 'Cotizacion requerida.' }, { status: 400 });
       }
       const matchRow = await loadRequestMatch(supabase, requestId, matchId);
+
+      if (String(matchRow.response_type || '') && String(matchRow.response_type || '') !== 'direct_quote') {
+        return NextResponse.json({ error: 'Esta respuesta no es una cotizacion directa.' }, { status: 400 });
+      }
+
       const { error: acceptError } = await supabase
         .from('client_request_matches')
         .update({ quote_status: 'accepted' })
@@ -226,7 +306,7 @@ export async function PATCH(
         supabase,
         requestId,
         user.id,
-        `Oferta aceptada: ${matchRow.technician_name || 'tecnico'} seleccionado.`
+        `Cotizacion directa aceptada: ${matchRow.technician_name || 'tecnico'} seleccionado.`
       );
     } else if (action === 'quote_reject') {
       const matchId = toText(body.matchId);
@@ -251,7 +331,7 @@ export async function PATCH(
         supabase,
         requestId,
         user.id,
-        `Oferta rechazada: ${matchRow.technician_name || 'tecnico'}${reason ? ` (${reason})` : ''}.`
+        `Respuesta rechazada: ${matchRow.technician_name || 'tecnico'}${reason ? ` (${reason})` : ''}.`
       );
     } else if (action === 'counter_offer') {
       const matchId = toText(body.matchId);
@@ -314,7 +394,7 @@ export async function PATCH(
         label = 'Trabajo iniciado.';
       } else if (currentStatus === 'in_progress') {
         nextStatus = 'completed';
-        label = 'Trabajo finalizado.';
+        label = 'Trabajo finalizado. Ya puedes calificar al tecnico.';
       }
 
       if (!nextStatus) {
@@ -323,6 +403,105 @@ export async function PATCH(
 
       await updateRequest(supabase, requestId, user.id, { status: nextStatus });
       await insertClientEvent(supabase, requestId, user.id, label);
+    } else if (action === 'submit_feedback') {
+      if (String(row.status || '') !== 'completed') {
+        return NextResponse.json({ error: 'Solo puedes calificar trabajos finalizados.' }, { status: 400 });
+      }
+
+      const rating = toRating(body.rating);
+      const comment = toText(body.comment);
+      const isPublic = toBoolean(body.isPublic, true);
+
+      if (rating === null || rating < 1 || rating > 5) {
+        return NextResponse.json({ error: 'La calificacion debe estar entre 1 y 5 estrellas.' }, { status: 400 });
+      }
+      if (comment.length < 6) {
+        return NextResponse.json(
+          { error: 'Escribe un comentario breve para dejar contexto sobre el trabajo realizado.' },
+          { status: 400 }
+        );
+      }
+
+      let selectedMatch: Record<string, any> | null = null;
+      if (row.selected_match_id) {
+        const { data: matchRow, error: matchError } = await supabase
+          .from('client_request_matches')
+          .select('*')
+          .eq('id', row.selected_match_id)
+          .eq('request_id', requestId)
+          .maybeSingle();
+
+        if (matchError) {
+          return NextResponse.json(
+            { error: matchError.message || 'No pudimos resolver el tecnico seleccionado.' },
+            { status: 500 }
+          );
+        }
+        selectedMatch = (matchRow || null) as Record<string, any> | null;
+      }
+
+      const technicianId = toText(
+        row.assigned_technician_id || selectedMatch?.technician_id || row.target_technician_id
+      );
+      const technicianName =
+        toText(
+          row.assigned_technician_name || selectedMatch?.technician_name || row.target_technician_name || 'Tecnico UrbanFix'
+        ) || 'Tecnico UrbanFix';
+
+      if (!technicianId) {
+        return NextResponse.json(
+          { error: 'No encontramos el tecnico para asociar la resena a este trabajo.' },
+          { status: 400 }
+        );
+      }
+
+      const quoteRow = await loadLatestQuoteForFeedback(
+        supabase,
+        requestId,
+        technicianId,
+        row.selected_match_id ? String(row.selected_match_id) : null
+      );
+
+      const { data: clientProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      const clientNameSnapshot = toText(clientProfile?.full_name) || 'Cliente UrbanFix';
+
+      const feedbackPayload = {
+        client_request_id: requestId,
+        client_request_match_id: row.selected_match_id ? String(row.selected_match_id) : null,
+        quote_id: quoteRow?.id ? String(quoteRow.id) : null,
+        client_id: user.id,
+        technician_id: technicianId,
+        technician_name_snapshot: technicianName,
+        client_name_snapshot: clientNameSnapshot,
+        rating,
+        comment,
+        is_public: isPublic,
+      };
+
+      const { error: feedbackError } = await supabase
+        .from('client_request_feedback')
+        .upsert(feedbackPayload, { onConflict: 'client_request_id,client_id' });
+
+      if (feedbackError) {
+        return NextResponse.json(
+          { error: feedbackError.message || 'No pudimos guardar tu resena.' },
+          { status: 500 }
+        );
+      }
+
+      await insertClientEvent(
+        supabase,
+        requestId,
+        user.id,
+        `Resena guardada para ${technicianName}: ${rating} estrella${rating === 1 ? '' : 's'}${
+          isPublic ? ' (publica).' : ' (privada).'
+        }`
+      );
     } else if (action === 'cancel') {
       const currentStatus = String(row.status || '');
       if (currentStatus === 'completed' || currentStatus === 'cancelled') {

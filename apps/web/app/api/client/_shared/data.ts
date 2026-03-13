@@ -31,6 +31,12 @@ const toNumberOrNull = (value: unknown) => {
 const resolveTechName = (profile: AnyRecord) =>
   String(profile?.full_name || profile?.business_name || 'Tecnico').trim() || 'Tecnico';
 
+const normalizeResponseType = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'application' || normalized === 'direct_quote') return normalized;
+  return null;
+};
+
 const resolveTokensForCategory = (categoryRaw: unknown) => {
   const category = normalizeText(categoryRaw);
   if (!category) return [] as string[];
@@ -53,7 +59,7 @@ const toIso = (value: unknown) => (value ? new Date(String(value)).toISOString()
 
 const isRequestStatus = (value: unknown) => statusSet.has(String(value || '').trim());
 
-const buildKnownTechnicians = (requestRows: AnyRecord[]) => {
+const buildKnownTechnicians = (requestRows: AnyRecord[], matchRows: AnyRecord[]) => {
   const seen = new Set<string>();
   const result: AnyRecord[] = [];
 
@@ -85,6 +91,26 @@ const buildKnownTechnicians = (requestRows: AnyRecord[]) => {
     });
   });
 
+  matchRows.forEach((row) => {
+    const technicianId = String(row.technician_id || '').trim();
+    const technicianName = String(row.technician_name || '').trim();
+    const technicianPhone = String(row.technician_phone || '').trim();
+    if (!technicianId || !technicianName || !technicianPhone) return;
+    if (seen.has(technicianId)) return;
+    if (String(row.quote_status || '').trim() !== 'submitted' && String(row.quote_status || '').trim() !== 'accepted') {
+      return;
+    }
+    seen.add(technicianId);
+    result.push({
+      id: technicianId,
+      name: technicianName,
+      phone: technicianPhone,
+      specialty: String(row.technician_specialty || 'General').trim() || 'General',
+      rating: toNumberOrNull(row.technician_rating),
+      lastJobAt: row.updated_at,
+    });
+  });
+
   return result;
 };
 
@@ -96,16 +122,57 @@ const mapQuoteRow = (row: AnyRecord) => ({
   phone: String(row.technician_phone || ''),
   priceArs: toNumberOrNull(row.price_ars),
   etaHours: toNumberOrNull(row.eta_hours),
+  responseType: normalizeResponseType(row.response_type),
+  responseMessage: String(row.response_message || '').trim(),
+  visitEtaHours: toNumberOrNull(row.visit_eta_hours),
   quoteStatus: String(row.quote_status || 'pending'),
   rating: toNumberOrNull(row.technician_rating),
+  submittedAt: row.submitted_at ? toIso(row.submitted_at) : null,
 });
 
-const mapRequestRow = (row: AnyRecord, quoteRows: AnyRecord[], eventRows: AnyRecord[]) => ({
+const mapFeedbackRow = (row: AnyRecord | null, requestRow: AnyRecord) => {
+  if (!row) return null;
+
+  const parsedRating = Math.round(Number(row.rating || 0));
+
+  return {
+    id: String(row.id),
+    quoteId: row.quote_id ? String(row.quote_id) : null,
+    matchId: row.client_request_match_id ? String(row.client_request_match_id) : null,
+    technicianId: row.technician_id
+      ? String(row.technician_id)
+      : requestRow.assigned_technician_id
+        ? String(requestRow.assigned_technician_id)
+        : requestRow.target_technician_id
+          ? String(requestRow.target_technician_id)
+          : null,
+    technicianName:
+      String(
+        row.technician_name_snapshot ||
+          requestRow.assigned_technician_name ||
+          requestRow.target_technician_name ||
+          'Tecnico UrbanFix'
+      ).trim() || 'Tecnico UrbanFix',
+    rating: Math.min(5, Math.max(1, Number.isFinite(parsedRating) ? parsedRating : 1)),
+    comment: String(row.comment || '').trim(),
+    isPublic: Boolean(row.is_public),
+    createdAt: row.created_at ? toIso(row.created_at) : null,
+    updatedAt: row.updated_at ? toIso(row.updated_at) : null,
+  };
+};
+
+const mapRequestRow = (
+  row: AnyRecord,
+  quoteRows: AnyRecord[],
+  eventRows: AnyRecord[],
+  feedbackRow: AnyRecord | null
+) => ({
   id: String(row.id),
   title: String(row.title || ''),
   category: String(row.category || ''),
   address: String(row.address || ''),
   city: String(row.city || ''),
+  province: String(row.province || ''),
   description: String(row.description || ''),
   urgency: String(row.urgency || 'media'),
   preferredWindow: String(row.preferred_window || ''),
@@ -120,12 +187,22 @@ const mapRequestRow = (row: AnyRecord, quoteRows: AnyRecord[], eventRows: AnyRec
   assignedTechPhone: row.assigned_technician_phone ? String(row.assigned_technician_phone) : null,
   directExpiresAt: row.direct_expires_at ? toIso(row.direct_expires_at) : null,
   selectedQuoteId: row.selected_match_id ? String(row.selected_match_id) : null,
+  photoUrls: Array.isArray(row.photo_urls)
+    ? row.photo_urls
+        .map((value: unknown) => String(value || '').trim())
+        .filter(Boolean)
+    : [],
+  responses: quoteRows.map(mapQuoteRow),
   quotes: quoteRows.map(mapQuoteRow),
   timeline: eventRows.map((event) => ({
     id: String(event.id),
     at: toIso(event.created_at),
     label: String(event.label || ''),
   })),
+  feedbackAllowed:
+    String(row.status || '').trim() === 'completed' &&
+    Boolean(row.assigned_technician_id || row.selected_match_id || row.target_technician_id),
+  feedback: mapFeedbackRow(feedbackRow, row),
 });
 
 export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) => {
@@ -144,9 +221,14 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
 
   let matches: AnyRecord[] = [];
   let events: AnyRecord[] = [];
+  let feedbackRows: AnyRecord[] = [];
 
   if (requestIds.length) {
-    const [{ data: matchRows, error: matchError }, { data: eventRows, error: eventError }] = await Promise.all([
+    const [
+      { data: matchRows, error: matchError },
+      { data: eventRows, error: eventError },
+      { data: feedbackData, error: feedbackError },
+    ] = await Promise.all([
       supabase
         .from('client_request_matches')
         .select('*')
@@ -158,6 +240,12 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
         .select('*')
         .in('request_id', requestIds)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('client_request_feedback')
+        .select('*')
+        .in('client_request_id', requestIds)
+        .eq('client_id', userId)
+        .order('updated_at', { ascending: false }),
     ]);
 
     if (matchError) {
@@ -166,9 +254,13 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
     if (eventError) {
       throw new Error(eventError.message || 'No pudimos cargar timeline.');
     }
+    if (feedbackError) {
+      throw new Error(feedbackError.message || 'No pudimos cargar las resenas del trabajo.');
+    }
 
     matches = (matchRows || []) as AnyRecord[];
     events = (eventRows || []) as AnyRecord[];
+    feedbackRows = (feedbackData || []) as AnyRecord[];
   }
 
   const matchMap = new Map<string, AnyRecord[]>();
@@ -187,9 +279,23 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
     eventMap.set(requestId, list);
   });
 
+  const feedbackMap = new Map<string, AnyRecord>();
+  feedbackRows.forEach((row) => {
+    const requestId = String(row.client_request_id || '');
+    if (!requestId || feedbackMap.has(requestId)) return;
+    feedbackMap.set(requestId, row);
+  });
+
   return {
-    requests: requests.map((row) => mapRequestRow(row, matchMap.get(String(row.id)) || [], eventMap.get(String(row.id)) || [])),
-    knownTechnicians: buildKnownTechnicians(requests),
+    requests: requests.map((row) =>
+      mapRequestRow(
+        row,
+        matchMap.get(String(row.id)) || [],
+        eventMap.get(String(row.id)) || [],
+        feedbackMap.get(String(row.id)) || null
+      )
+    ),
+    knownTechnicians: buildKnownTechnicians(requests, matches),
   };
 };
 
@@ -313,6 +419,10 @@ export const ensureMarketplaceMatches = async (
     technician_rating: null,
     score: candidate.score,
     quote_status: 'pending',
+    response_type: null,
+    response_message: null,
+    visit_eta_hours: null,
+    submitted_at: null,
     price_ars: null,
     eta_hours: null,
   }));

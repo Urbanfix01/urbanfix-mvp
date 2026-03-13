@@ -171,24 +171,28 @@ export const geocodeFirstResult = async (query: string) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
   const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfix.com.ar`;
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'UrbanFix/1.0 (info@urbanfix.com.ar)',
-    },
-    cache: 'no-store',
-  });
-  if (!response.ok) return null;
-  const rows = (await response.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>;
-  const first = rows[0];
-  if (!first) return null;
-  const lat = Number(first.lat);
-  const lng = Number(first.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-  return {
-    lat,
-    lng,
-    displayName: first.display_name || trimmed,
-  };
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'UrbanFix/1.0 (info@urbanfix.com.ar)',
+      },
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const rows = (await response.json()) as Array<{ lat?: string; lon?: string; display_name?: string }>;
+    const first = rows[0];
+    if (!first) return null;
+    const lat = Number(first.lat);
+    const lng = Number(first.lon);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return {
+      lat,
+      lng,
+      displayName: first.display_name || trimmed,
+    };
+  } catch {
+    return null;
+  }
 };
 
 export const parseUrgencyWeight = (urgency: string | null | undefined) => {

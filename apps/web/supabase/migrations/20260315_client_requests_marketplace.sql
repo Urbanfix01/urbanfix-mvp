@@ -1,7 +1,6 @@
 -- Client profile marketplace and direct requests (web + mobile)
 
 create extension if not exists pgcrypto;
-
 create table if not exists public.client_requests (
   id uuid primary key default gen_random_uuid(),
   client_id uuid not null references auth.users(id) on delete cascade,
@@ -27,7 +26,6 @@ create table if not exists public.client_requests (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
-
 create table if not exists public.client_request_matches (
   id uuid primary key default gen_random_uuid(),
   request_id uuid not null references public.client_requests(id) on delete cascade,
@@ -45,7 +43,6 @@ create table if not exists public.client_request_matches (
   updated_at timestamptz not null default now(),
   unique (request_id, technician_id)
 );
-
 create table if not exists public.client_request_events (
   id uuid primary key default gen_random_uuid(),
   request_id uuid not null references public.client_requests(id) on delete cascade,
@@ -53,16 +50,12 @@ create table if not exists public.client_request_events (
   label text not null,
   created_at timestamptz not null default now()
 );
-
 create index if not exists idx_client_requests_client_updated
   on public.client_requests (client_id, updated_at desc);
-
 create index if not exists idx_client_request_matches_request
   on public.client_request_matches (request_id, score desc, created_at desc);
-
 create index if not exists idx_client_request_events_request
   on public.client_request_events (request_id, created_at desc);
-
 do $$
 begin
   if not exists (
@@ -79,7 +72,6 @@ begin
       on delete set null;
   end if;
 end $$;
-
 create or replace function public.client_request_touch_updated_at()
 returns trigger
 language plpgsql
@@ -89,46 +81,38 @@ begin
   return new;
 end;
 $$;
-
 drop trigger if exists trg_client_requests_touch_updated_at on public.client_requests;
 create trigger trg_client_requests_touch_updated_at
 before update on public.client_requests
 for each row execute function public.client_request_touch_updated_at();
-
 drop trigger if exists trg_client_request_matches_touch_updated_at on public.client_request_matches;
 create trigger trg_client_request_matches_touch_updated_at
 before update on public.client_request_matches
 for each row execute function public.client_request_touch_updated_at();
-
 alter table public.client_requests enable row level security;
 alter table public.client_request_matches enable row level security;
 alter table public.client_request_events enable row level security;
-
 drop policy if exists "Client requests select own" on public.client_requests;
 create policy "Client requests select own"
   on public.client_requests
   for select
   using (auth.uid() = client_id);
-
 drop policy if exists "Client requests insert own" on public.client_requests;
 create policy "Client requests insert own"
   on public.client_requests
   for insert
   with check (auth.uid() = client_id);
-
 drop policy if exists "Client requests update own" on public.client_requests;
 create policy "Client requests update own"
   on public.client_requests
   for update
   using (auth.uid() = client_id)
   with check (auth.uid() = client_id);
-
 drop policy if exists "Client requests delete own" on public.client_requests;
 create policy "Client requests delete own"
   on public.client_requests
   for delete
   using (auth.uid() = client_id);
-
 drop policy if exists "Client request matches select own" on public.client_request_matches;
 create policy "Client request matches select own"
   on public.client_request_matches
@@ -141,7 +125,6 @@ create policy "Client request matches select own"
         and r.client_id = auth.uid()
     )
   );
-
 drop policy if exists "Client request events select own" on public.client_request_events;
 create policy "Client request events select own"
   on public.client_request_events
@@ -154,7 +137,6 @@ create policy "Client request events select own"
         and r.client_id = auth.uid()
     )
   );
-
 drop policy if exists "Client request events insert own" on public.client_request_events;
 create policy "Client request events insert own"
   on public.client_request_events

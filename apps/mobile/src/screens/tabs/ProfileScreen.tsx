@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native'; 
 import * as ImagePicker from 'expo-image-picker';
+import Constants from 'expo-constants';
 
 // --- IMPORTS DEL PROYECTO ---
 import { supabase } from '../../lib/supabase';
@@ -17,7 +18,8 @@ import { setStoredAudience } from '../../utils/audience';
 
 // --- COMPONENTES DE MAPAS ---
 import { LocationAutocomplete } from '../../components/molecules/LocationAutocomplete';
-import { WebGoogleMaps } from '../../components/molecules/WebGoogleMaps';
+
+const fallbackExpoVersion = String(require('../../../app.json')?.expo?.version || '').trim();
 
 // --- DEFINICIÓN DE TIPOS CORREGIDA ---
 // Ahora permitimos '| null' en los campos opcionales para evitar el error de TypeScript
@@ -27,13 +29,18 @@ interface Profile {
   business_name: string | null;
   company_logo_url: string | null;
   avatar_url: string | null;
-  email?: string;
+  email?: string | null;
   phone?: string | null;
   company_address?: string | null;
   working_hours?: string | null;
   default_discount?: number | null;
   location_lat?: number | null;
   location_lng?: number | null;
+  instagram_profile_url?: string | null;
+  facebook_profile_url?: string | null;
+  instagram_post_url?: string | null;
+  facebook_post_url?: string | null;
+  work_photo_urls?: string[] | null;
 }
 
 type WorkingHoursConfig = {
@@ -57,6 +64,8 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
   sundayFrom: '09:00',
   sundayTo: '13:00',
 };
+
+const MAX_WORK_PHOTOS = 6;
 
 const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
   const match = String(value || '')
@@ -198,26 +207,86 @@ const formatWorkingHoursSummary = (config: WorkingHoursConfig) => {
   return chunks.join(' | ');
 };
 
-export default function ProfileScreen() {
-  const navigation = useNavigation();
+const normalizeExternalUrl = (value: string) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+};
+
+const normalizeStringArray = (value: unknown) =>
+  Array.isArray(value) ? value.map((item) => String(item || '').trim()).filter(Boolean) : [];
+
+const normalizeSocialUrl = (
+  value: string,
+  allowedHosts: string[],
+  fieldLabel: string
+) => {
+  const trimmed = String(value || '').trim();
+  if (!trimmed) return null;
+
+  const normalized = normalizeExternalUrl(trimmed);
+
+  try {
+    const parsed = new URL(normalized);
+    const host = parsed.hostname.toLowerCase();
+    if (!allowedHosts.some((allowedHost) => host.includes(allowedHost))) {
+      throw new Error(`${fieldLabel}: pega un link publico de ${fieldLabel.toLowerCase()}.`);
+    }
+    return normalized;
+  } catch (error) {
+    if (error instanceof Error && error.message.trim()) {
+      throw error;
+    }
+    throw new Error(`${fieldLabel}: pega una URL valida.`);
+  }
+};
+
+type ProfileScreenProps = {
+  requiredCompletion?: boolean;
+  onProfileUpdated?: () => void;
+};
+
+export default function ProfileScreen({
+  requiredCompletion = false,
+  onProfileUpdated,
+}: ProfileScreenProps) {
+  const navigation = useNavigation<any>();
   const isWeb = Platform.OS === 'web';
+  const appVersion = String(
+    (Constants.expoConfig as any)?.version || (Constants as any)?.manifest2?.extra?.expoClient?.version || fallbackExpoVersion || ''
+  ).trim();
   
   // Estados de UI
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [uploadingImage, setUploadingImage] = useState<'logo' | 'avatar' | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
+  const [uploadingWorkPhoto, setUploadingWorkPhoto] = useState(false);
+  const [isEditing, setIsEditing] = useState(requiredCompletion);
   const [deletingAccount, setDeletingAccount] = useState(false);
   
   // Estados de Datos (Formulario)
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [instagramProfileUrl, setInstagramProfileUrl] = useState('');
+  const [facebookProfileUrl, setFacebookProfileUrl] = useState('');
+  const [instagramPostUrl, setInstagramPostUrl] = useState('');
+  const [facebookPostUrl, setFacebookPostUrl] = useState('');
+  const [showFeaturedPostsEditor, setShowFeaturedPostsEditor] = useState(false);
+  const [workPhotoUrls, setWorkPhotoUrls] = useState<string[]>([]);
   const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
   const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({ ...DEFAULT_WORKING_HOURS_CONFIG });
+
+  useEffect(() => {
+    if (requiredCompletion) {
+      setIsEditing(true);
+    }
+  }, [requiredCompletion]);
 
   // --- 1. LÓGICA DE CARGA DE DATOS ---
   const getProfile = async (isSilent = false) => {
@@ -239,9 +308,16 @@ export default function ProfileScreen() {
       setProfile(userProfile);
 
       // Rellenar formulario local
+      setFullName(userProfile.full_name || '');
       setBusinessName(userProfile.business_name || '');
       setPhone(userProfile.phone || '');
       setAddress(userProfile.company_address || '');
+      setInstagramProfileUrl(userProfile.instagram_profile_url || '');
+      setFacebookProfileUrl(userProfile.facebook_profile_url || '');
+      setInstagramPostUrl(userProfile.instagram_post_url || '');
+      setFacebookPostUrl(userProfile.facebook_post_url || '');
+      setShowFeaturedPostsEditor(Boolean(userProfile.instagram_post_url || userProfile.facebook_post_url));
+      setWorkPhotoUrls(normalizeStringArray(userProfile.work_photo_urls).slice(0, MAX_WORK_PHOTOS));
       setDefaultDiscount(userProfile.default_discount !== null && userProfile.default_discount !== undefined ? String(userProfile.default_discount) : '');
       setWorkingHours(parseWorkingHoursConfig(userProfile.working_hours));
       if (userProfile.location_lat && userProfile.location_lng) {
@@ -310,6 +386,45 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleWorkPhotoPick = async () => {
+    try {
+      if (!isEditing) return;
+      if (workPhotoUrls.length >= MAX_WORK_PHOTOS) {
+        throw new Error(`Puedes mostrar hasta ${MAX_WORK_PHOTOS} fotos de trabajos.`);
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.72,
+      });
+
+      if (result.canceled) return;
+
+      setUploadingWorkPhoto(true);
+
+      const localUri = result.assets[0].uri;
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) throw new Error('Sesion no valida');
+
+      const fileName = `work_${Date.now()}.png`;
+      const publicUrl = await uploadImageToSupabase(localUri, user.id, fileName);
+
+      if (!publicUrl) throw new Error('No se pudo obtener la URL publica');
+
+      setWorkPhotoUrls((prev) => [...prev, publicUrl].slice(0, MAX_WORK_PHOTOS));
+    } catch (error: any) {
+      const msg = error?.message || 'No se pudo subir la foto del trabajo.';
+      isWeb ? alert(msg) : Alert.alert('Error', msg);
+    } finally {
+      setUploadingWorkPhoto(false);
+    }
+  };
+
   // --- 3. LÓGICA DE GUARDADO DE DATOS Y MAPA ---
   const handleLocationSelect = (data: { address: string, lat: number, lng: number }) => {
     console.log("📍 Base operativa seleccionada:", data);
@@ -322,24 +437,52 @@ export default function ProfileScreen() {
       setSaving(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('No user');
+      if (requiredCompletion && (!fullName.trim() || !businessName.trim() || !phone.trim())) {
+        throw new Error('Completa nombre, telefono y nombre comercial para continuar.');
+      }
       const workingHoursError = validateWorkingHoursConfig(workingHours);
       if (workingHoursError) throw new Error(workingHoursError);
+      const normalizedInstagramProfileUrl = normalizeSocialUrl(
+        instagramProfileUrl,
+        ['instagram.com'],
+        'Perfil de Instagram'
+      );
+      const normalizedFacebookProfileUrl = normalizeSocialUrl(
+        facebookProfileUrl,
+        ['facebook.com'],
+        'Perfil de Facebook'
+      );
+      const normalizedInstagramPostUrl = normalizeSocialUrl(
+        instagramPostUrl,
+        ['instagram.com'],
+        'Publicacion de Instagram'
+      );
+      const normalizedFacebookPostUrl = normalizeSocialUrl(
+        facebookPostUrl,
+        ['facebook.com', 'fb.watch'],
+        'Publicacion de Facebook'
+      );
 
       const updates = {
+        id: user.id,
+        email: user.email || null,
+        full_name: fullName,
         business_name: businessName,
         phone: phone,
-        company_address: address, 
+        company_address: address,
+        instagram_profile_url: normalizedInstagramProfileUrl,
+        facebook_profile_url: normalizedFacebookProfileUrl,
+        instagram_post_url: normalizedInstagramPostUrl,
+        facebook_post_url: normalizedFacebookPostUrl,
+        work_photo_urls: workPhotoUrls.filter((url) => isValidUrl(url)).slice(0, MAX_WORK_PHOTOS),
         default_discount: parsePercent(defaultDiscount),
         working_hours: stringifyWorkingHoursConfig(workingHours),
         location_lat: location.lat !== 0 ? location.lat : null,
         location_lng: location.lng !== 0 ? location.lng : null,
-        updated_at: new Date(),
+        updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', user.id);
+      const { error } = await supabase.from('profiles').upsert(updates);
 
       if (error) throw error;
 
@@ -347,6 +490,7 @@ export default function ProfileScreen() {
       // TypeScript ahora estará feliz porque Profile acepta null en lat/lng
       setProfile(prev => prev ? ({ ...prev, ...updates }) : null);
       setIsEditing(false);
+      onProfileUpdated?.();
 
       const msg = "Perfil actualizado correctamente";
       isWeb ? alert(msg) : Alert.alert("Éxito", msg);
@@ -440,11 +584,23 @@ export default function ProfileScreen() {
     }));
   };
 
+  const handleRemoveWorkPhoto = (photoUrl: string) => {
+    if (!isEditing) return;
+    setWorkPhotoUrls((prev) => prev.filter((item) => item !== photoUrl));
+  };
+
   const handleCancelEdit = () => {
     if (profile) {
+      setFullName(profile.full_name || '');
       setBusinessName(profile.business_name || '');
       setPhone(profile.phone || '');
       setAddress(profile.company_address || '');
+      setInstagramProfileUrl(profile.instagram_profile_url || '');
+      setFacebookProfileUrl(profile.facebook_profile_url || '');
+      setInstagramPostUrl(profile.instagram_post_url || '');
+      setFacebookPostUrl(profile.facebook_post_url || '');
+      setShowFeaturedPostsEditor(Boolean(profile.instagram_post_url || profile.facebook_post_url));
+      setWorkPhotoUrls(normalizeStringArray(profile.work_photo_urls).slice(0, MAX_WORK_PHOTOS));
       setDefaultDiscount(
         profile.default_discount !== null && profile.default_discount !== undefined
           ? String(profile.default_discount)
@@ -480,13 +636,26 @@ export default function ProfileScreen() {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <ScreenHeader title="Mi Perfil" subtitle="Configuración y cuenta" centerTitle={isWeb} />
+      <ScreenHeader
+        title={requiredCompletion ? 'Completa tu perfil' : 'Mi Perfil'}
+        subtitle={requiredCompletion ? 'Requisito de acceso' : 'Configuracion y cuenta'}
+        centerTitle={isWeb}
+      />
 
       <ScrollView 
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         keyboardShouldPersistTaps="handled"
       >
+        {requiredCompletion && (
+          <View style={styles.requiredCard}>
+            <Ionicons name="shield-checkmark-outline" size={18} color="#C2410C" />
+            <View style={styles.requiredCopy}>
+              <Text style={styles.requiredTitle}>Completa tus datos personales para habilitar el acceso.</Text>
+              <Text style={styles.requiredText}>Necesitamos nombre real, telefono y nombre comercial.</Text>
+            </View>
+          </View>
+        )}
         
         {/* === SECCIÓN 1: IMÁGENES === */}
         <View style={styles.brandCard}>
@@ -526,7 +695,7 @@ export default function ProfileScreen() {
                 <Image source={{ uri: profile?.avatar_url! }} style={styles.avatarImage} />
               ) : (
                 <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
-                  <Text style={styles.avatarText}>{getInitials(profile?.full_name)}</Text>
+                  <Text style={styles.avatarText}>{getInitials(fullName || profile?.full_name)}</Text>
                 </View>
               )}
               {isEditing && uploadingImage !== 'avatar' && (
@@ -536,7 +705,7 @@ export default function ProfileScreen() {
             
             <View style={styles.brandInfo}>
               <Text style={styles.businessName}>{businessName || 'Tu Empresa Aquí'}</Text>
-              <Text style={styles.personName}>{profile?.full_name || 'Nombre del Técnico'}</Text>
+              <Text style={styles.personName}>{fullName || profile?.full_name || 'Nombre del Técnico'}</Text>
               <View style={styles.verifiedBadge}>
                 <Ionicons name="checkmark-circle" size={14} color="#FFF" />
                 <Text style={styles.verifiedText}>Técnico Verificado</Text>
@@ -548,19 +717,31 @@ export default function ProfileScreen() {
         {/* === SECCIÓN 2: DATOS EDITABLES === */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Datos de la Empresa</Text>
-          {isEditing ? (
-            <TouchableOpacity style={styles.cancelEditBtn} onPress={handleCancelEdit}>
-              <Ionicons name="close" size={14} color="#64748B" />
-              <Text style={styles.cancelEditText}>Cancelar</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}>
-              <Ionicons name="create-outline" size={14} color="#0F172A" />
-              <Text style={styles.editProfileText}>Editar perfil</Text>
-            </TouchableOpacity>
-          )}
+          {!requiredCompletion &&
+            (isEditing ? (
+              <TouchableOpacity style={styles.cancelEditBtn} onPress={handleCancelEdit}>
+                <Ionicons name="close" size={14} color="#64748B" />
+                <Text style={styles.cancelEditText}>Cancelar</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.editProfileBtn} onPress={() => setIsEditing(true)}>
+                <Ionicons name="create-outline" size={14} color="#0F172A" />
+                <Text style={styles.editProfileText}>Editar perfil</Text>
+              </TouchableOpacity>
+            ))}
         </View>
         <View style={styles.formContainer}>
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>NOMBRE REAL</Text>
+                <TextInput 
+                    style={[styles.inputField, !isEditing && styles.inputFieldDisabled]} 
+                    value={fullName} 
+                    onChangeText={setFullName}
+                    placeholder="Ej: Juan Perez"
+                    editable={isEditing}
+                    selectTextOnFocus={isEditing}
+                />
+            </View>
             
             {/* Input Nombre Empresa */}
             <View style={styles.inputGroup}>
@@ -594,20 +775,10 @@ export default function ProfileScreen() {
                 <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
                 <View style={{ marginTop: 5, height: 60, zIndex: 100 }}>
                     {isEditing ? (
-                        isWeb ? (
-                            process.env.EXPO_PUBLIC_WEB_API_KEY ? (
-                                <WebGoogleMaps
-                                    apiKey={process.env.EXPO_PUBLIC_WEB_API_KEY} 
-                                    initialValue={address}
-                                    onPlaceSelected={handleLocationSelect}
-                                />
-                            ) : <Text style={{color:'red'}}>Falta API Key Web</Text>
-                        ) : (
-                            <LocationAutocomplete 
-                                initialValue={address}
-                                onLocationSelect={handleLocationSelect}
-                            />
-                        )
+                        <LocationAutocomplete 
+                            initialValue={address}
+                            onLocationSelect={handleLocationSelect}
+                        />
                     ) : (
                         <View style={styles.readonlyField}>
                           <Ionicons name="location-outline" size={16} color="#94A3B8" />
@@ -734,11 +905,154 @@ export default function ProfileScreen() {
                 </View>
             </View>
 
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>PERFIL DE INSTAGRAM</Text>
+                <TextInput
+                    style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                    value={instagramProfileUrl}
+                    onChangeText={setInstagramProfileUrl}
+                    placeholder="https://www.instagram.com/tu_cuenta/"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={isEditing}
+                    selectTextOnFocus={isEditing}
+                />
+                <Text style={styles.fieldHint}>Este boton aparece en tu perfil publico para abrir tu cuenta de Instagram.</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>PERFIL DE FACEBOOK</Text>
+                <TextInput
+                    style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                    value={facebookProfileUrl}
+                    onChangeText={setFacebookProfileUrl}
+                    placeholder="https://www.facebook.com/tu.pagina"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={isEditing}
+                    selectTextOnFocus={isEditing}
+                />
+                <Text style={styles.fieldHint}>Este boton aparece en tu perfil publico para abrir tu pagina o perfil comercial.</Text>
+            </View>
+
+            <View style={styles.secondaryBlock}>
+              <View style={styles.inlineHeader}>
+                <View style={styles.inlineHeaderCopy}>
+                  <Text style={styles.secondaryBlockTitle}>PUBLICACIONES DESTACADAS</Text>
+                  <Text style={styles.fieldHint}>
+                    Opcional. Solo usalo si queres mostrar un post o reel puntual abajo del perfil.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={[styles.inlineActionBtn, !isEditing && styles.inlineActionBtnDisabled]}
+                  onPress={() => setShowFeaturedPostsEditor((current) => !current)}
+                  disabled={!isEditing}
+                >
+                  <Ionicons
+                    name={showFeaturedPostsEditor ? 'chevron-up-outline' : 'chevron-down-outline'}
+                    size={14}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.inlineActionText}>{showFeaturedPostsEditor ? 'Ocultar' : 'Editar'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {showFeaturedPostsEditor ? (
+                <>
+                  <View style={styles.inputGroup}>
+                      <Text style={styles.inputLabel}>PUBLICACION DE INSTAGRAM</Text>
+                      <TextInput
+                          style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                          value={instagramPostUrl}
+                          onChangeText={setInstagramPostUrl}
+                          placeholder="https://www.instagram.com/p/..."
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          editable={isEditing}
+                          selectTextOnFocus={isEditing}
+                      />
+                      <Text style={styles.fieldHint}>Post o reel publico para mostrar embebido en tu perfil.</Text>
+                  </View>
+
+                  <View style={[styles.inputGroup, styles.secondaryBlockLastField]}>
+                      <Text style={styles.inputLabel}>PUBLICACION DE FACEBOOK</Text>
+                      <TextInput
+                          style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                          value={facebookPostUrl}
+                          onChangeText={setFacebookPostUrl}
+                          placeholder="https://www.facebook.com/..."
+                          autoCapitalize="none"
+                          autoCorrect={false}
+                          editable={isEditing}
+                          selectTextOnFocus={isEditing}
+                      />
+                      <Text style={styles.fieldHint}>Publicacion destacada de Facebook para sumar prueba social.</Text>
+                  </View>
+                </>
+              ) : (
+                <Text style={styles.secondaryBlockSummary}>
+                  {instagramPostUrl || facebookPostUrl
+                    ? 'Hay publicaciones destacadas cargadas, pero quedan plegadas para que el formulario no se vea repetido.'
+                    : 'No hay publicaciones destacadas cargadas.'}
+                </Text>
+              )}
+            </View>
+
+            <View style={styles.inputGroup}>
+                <View style={styles.inlineHeader}>
+                  <View style={styles.inlineHeaderCopy}>
+                    <Text style={styles.inputLabel}>FOTOS DE TRABAJOS</Text>
+                    <Text style={styles.fieldHint}>Estas fotos aparecen en tu perfil publico como galeria comercial.</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.inlineActionBtn, (!isEditing || uploadingWorkPhoto) && styles.inlineActionBtnDisabled]}
+                    onPress={handleWorkPhotoPick}
+                    disabled={!isEditing || uploadingWorkPhoto}
+                  >
+                    {uploadingWorkPhoto ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="images-outline" size={14} color="#FFFFFF" />
+                        <Text style={styles.inlineActionText}>Agregar</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {workPhotoUrls.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.workPhotoStrip}
+                  >
+                    {workPhotoUrls.map((photoUrl, index) => (
+                      <View key={`${photoUrl}-${index}`} style={styles.workPhotoCard}>
+                        <Image source={{ uri: photoUrl }} style={styles.workPhotoImage} />
+                        {isEditing && (
+                          <TouchableOpacity
+                            style={styles.workPhotoRemoveBtn}
+                            onPress={() => handleRemoveWorkPhoto(photoUrl)}
+                          >
+                            <Ionicons name="close" size={14} color="#FFFFFF" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </ScrollView>
+                ) : (
+                  <View style={styles.workPhotoEmptyCard}>
+                    <Ionicons name="image-outline" size={22} color="#94A3B8" />
+                    <Text style={styles.workPhotoEmptyText}>Todavia no cargaste fotos de obras terminadas.</Text>
+                  </View>
+                )}
+            </View>
+
             {isEditing && (
               <TouchableOpacity 
-                  style={[styles.saveButton, saving && { opacity: 0.7 }]} 
+                  style={[styles.saveButton, (saving || uploadingWorkPhoto) && { opacity: 0.7 }]} 
                   onPress={saveProfileData}
-                  disabled={saving}
+                  disabled={saving || uploadingWorkPhoto}
               >
                   {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.saveButtonText}>GUARDAR DATOS</Text>}
               </TouchableOpacity>
@@ -747,33 +1061,34 @@ export default function ProfileScreen() {
 
 
         {/* === SECCIÓN 3: HERRAMIENTAS === */}
-        <Text style={styles.sectionTitle}>Herramientas</Text>
-        <View style={styles.menuContainer}>
-          <MenuOption
-            icon="calculator-outline"
-            label="Configurar Precios"
-            onPress={() => {
-              // @ts-ignore
-              navigation.navigate('Catálogo');
-            }}
-          />
-          <MenuOption
-            icon="chatbubble-ellipses-outline"
-            label="Soporte"
-            onPress={() => {
-              // @ts-ignore
-              navigation.navigate('Support');
-            }}
-          />
-          <MenuOption 
-            icon="document-text-outline" 
-            label="Historial Completo" 
-            onPress={() => {
-               // @ts-ignore
-               navigation.navigate('History');
-            }} 
-          />
-        </View>
+        {!requiredCompletion && (
+          <>
+            <Text style={styles.sectionTitle}>Herramientas</Text>
+            <View style={styles.menuContainer}>
+              <MenuOption
+                icon="calculator-outline"
+                label="Configurar Precios"
+                onPress={() => {
+                  navigation.navigate('Catalogo');
+                }}
+              />
+              <MenuOption
+                icon="chatbubble-ellipses-outline"
+                label="Soporte"
+                onPress={() => {
+                  navigation.navigate('Support');
+                }}
+              />
+              <MenuOption 
+                icon="document-text-outline" 
+                label="Historial de trabajos" 
+                onPress={() => {
+                   navigation.navigate('History');
+                }} 
+              />
+            </View>
+          </>
+        )}
 
         <TouchableOpacity
           style={[styles.logoutBtn, styles.deleteAccountBtn]}
@@ -795,7 +1110,7 @@ export default function ProfileScreen() {
             <Text style={styles.logoutText}>Cerrar Sesión</Text>
         </TouchableOpacity>
 
-        <Text style={styles.versionText}>UrbanFix App v1.2.0</Text>
+        <Text style={styles.versionText}>{appVersion ? `UrbanFix App v${appVersion}` : 'UrbanFix App'}</Text>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -808,6 +1123,33 @@ const styles = StyleSheet.create({
     web: { padding: 24, paddingBottom: 60, maxWidth: 820, width: '100%', alignSelf: 'center' },
     default: { padding: 20, paddingBottom: 50 },
   }),
+  requiredCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#FBD38D',
+    padding: 16,
+    marginBottom: 18,
+  },
+  requiredCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  requiredTitle: {
+    color: '#9A3412',
+    fontFamily: FONTS.subtitle,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  requiredText: {
+    color: '#9A3412',
+    fontFamily: FONTS.body,
+    fontSize: 13,
+    lineHeight: 18,
+  },
 
   // --- BRAND CARD ---
   brandCard: Platform.select({
@@ -912,6 +1254,109 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#8B93A1', marginBottom: 6, letterSpacing: 1, textTransform: 'uppercase' },
   inputField: { backgroundColor: '#FFF', borderRadius: 10, padding: 12, borderWidth: 1, borderColor: '#E2E8F0', fontSize: 14, fontFamily: FONTS.body, color: COLORS.text },
   inputFieldDisabled: { backgroundColor: '#F8FAFC', color: '#94A3B8' },
+  fieldHint: { marginTop: 6, fontSize: 11, lineHeight: 17, fontFamily: FONTS.body, color: '#64748B' },
+  secondaryBlock: {
+    marginBottom: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    padding: 14,
+  },
+  secondaryBlockTitle: {
+    fontSize: 10,
+    fontFamily: FONTS.subtitle,
+    color: '#8B93A1',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  secondaryBlockSummary: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: FONTS.body,
+    color: '#64748B',
+  },
+  secondaryBlockLastField: {
+    marginBottom: 0,
+  },
+  inlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    marginBottom: 10,
+  },
+  inlineHeaderCopy: {
+    flex: 1,
+  },
+  inlineActionBtn: {
+    minWidth: 94,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: COLORS.primary,
+  },
+  inlineActionBtnDisabled: {
+    opacity: 0.55,
+  },
+  inlineActionText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    fontFamily: FONTS.subtitle,
+  },
+  workPhotoStrip: {
+    gap: 12,
+    paddingVertical: 2,
+    paddingRight: 2,
+  },
+  workPhotoCard: {
+    width: 154,
+    height: 118,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    position: 'relative',
+  },
+  workPhotoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  workPhotoRemoveBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15, 23, 42, 0.78)',
+  },
+  workPhotoEmptyCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#F8FAFC',
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  workPhotoEmptyText: {
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+    fontFamily: FONTS.body,
+    color: '#64748B',
+  },
   readonlyField: {
     flexDirection: 'row',
     alignItems: 'center',

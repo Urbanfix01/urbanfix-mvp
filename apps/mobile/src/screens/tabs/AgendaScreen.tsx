@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable, StatusBar } from 'react-native';
 import { Calendar, LocaleConfig } from 'react-native-calendars';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '../../lib/supabase';
 import { COLORS, FONTS } from '../../utils/theme';
 import MapCanvas from '../../components/molecules/MapCanvas';
 import { MapPoint } from '../../types/maps';
-import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { EmptyState } from '../../components/molecules/EmptyState';
 import AgendaItemCard from '../../components/molecules/AgendaItemCard';
 import AgendaUnscheduledCard from '../../components/molecules/AgendaUnscheduledCard';
@@ -165,11 +165,22 @@ export default function AgendaScreen() {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
-        .from('quotes')
-        .select('id, client_name, total_amount, status, scheduled_date, created_at, client_address, address, location_address, location_lat, location_lng')
-        .eq('user_id', user.id)
-        .neq('status', 'completed');
+        let { data, error } = await supabase
+          .from('quotes')
+          .select('id, client_name, total_amount, status, scheduled_date, created_at, client_address, address, location_address, location_lat, location_lng')
+          .eq('user_id', user.id)
+          .is('archived_at', null)
+          .neq('status', 'completed');
+
+        if (error && String(error.message || '').toLowerCase().includes('archived_at')) {
+          const fallback = await supabase
+            .from('quotes')
+            .select('id, client_name, total_amount, status, scheduled_date, created_at, client_address, address, location_address, location_lat, location_lng')
+            .eq('user_id', user.id)
+            .neq('status', 'completed');
+          data = fallback.data;
+          error = fallback.error;
+        }
 
         if (error) throw error;
 
@@ -299,16 +310,6 @@ export default function AgendaScreen() {
     };
   }, [dayItems]);
 
-  const summaryCards = useMemo(
-    () => [
-      { key: 'visits', label: 'Visitas', value: daySummary.totalVisits, accent: '#0F172A' },
-      { key: 'pending', label: 'Pendientes', value: daySummary.pending, accent: statusConfig.pending.color },
-      { key: 'confirmed', label: 'Confirmadas', value: daySummary.confirmed, accent: statusConfig.confirmed.color },
-      { key: 'total', label: 'Estimado', value: `$${formatMoney(daySummary.totalAmount)}`, accent: '#0F172A' },
-    ],
-    [daySummary, formatMoney, statusConfig.confirmed.color, statusConfig.pending.color]
-  );
-
   const weekDays = useMemo(() => {
     const [year, month, day] = selectedDate.split('-').map(Number);
     const base = new Date(year, month - 1, day);
@@ -378,12 +379,31 @@ export default function AgendaScreen() {
       ? 'No tienes visitas hoy.'
       : 'No hay visitas para este filtro.';
 
+  const selectedDateLabel = useMemo(() => formatDateForDisplay(selectedDate), [selectedDate]);
+
   return (
     <View style={styles.container}>
-        <ScreenHeader title="MI AGENDA" subtitle="Organiza tus visitas" centerTitle />
+        <StatusBar barStyle="dark-content" backgroundColor="#F5F4F0" />
+        <View style={styles.headerCompact}>
+            <SafeAreaView edges={['top']}>
+                <View style={styles.headerCompactRow}>
+                    <View style={styles.headerCompactCopy}>
+                        <Text style={styles.headerCompactTitle}>Agenda</Text>
+                        <Text style={styles.headerCompactMeta}>
+                            {`${selectedDateLabel} | ${daySummary.totalVisits} visitas programadas`}
+                        </Text>
+                    </View>
+                </View>
+            </SafeAreaView>
+        </View>
+        <ScrollView
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            contentContainerStyle={styles.scrollContent}
+        >
         
         {/* --- SECCIÓN: POR AGENDAR --- */}
-        {unscheduledItems.length > 0 && (
+        {false && unscheduledItems.length > 0 && (
             <View style={styles.unscheduledContainer}>
                 <Text style={styles.sectionTitle}>⚠️ POR AGENDAR ({unscheduledItems.length})</Text>
                 <FlatList 
@@ -401,22 +421,20 @@ export default function AgendaScreen() {
             </View>
         )}
 
-        <View style={styles.summarySection}>
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={styles.summaryRow}
-            >
-                {summaryCards.map((card) => (
-                    <View key={card.key} style={styles.summaryCard}>
-                        <Text style={styles.summaryLabel}>{card.label}</Text>
-                        <Text style={[styles.summaryValue, { color: card.accent }]}>{card.value}</Text>
-                        {card.key === 'total' && (
-                          <Text style={styles.summaryHint}>Total estimado</Text>
-                        )}
-                    </View>
-                ))}
-            </ScrollView>
+        <View style={styles.heroCard}>
+            <View style={styles.heroTop}>
+                <View style={styles.heroCopy}>
+                    <Text style={styles.heroEyebrow}>Vista del dia</Text>
+                    <Text style={styles.heroTitle}>{selectedDateLabel}</Text>
+                    <Text style={styles.heroText}>
+                        {daySummary.totalVisits} visitas cargadas, {daySummary.pending} pendientes y {daySummary.confirmed} confirmadas.
+                    </Text>
+                </View>
+                <View style={styles.heroBadge}>
+                    <Text style={styles.heroBadgeValue}>{daySummary.totalVisits}</Text>
+                    <Text style={styles.heroBadgeLabel}>Visitas</Text>
+                </View>
+            </View>
         </View>
 
         <NoTranslateView style={styles.calendarCard}>
@@ -469,7 +487,7 @@ export default function AgendaScreen() {
             })()}
         </NoTranslateView>
 
-        <NoTranslateView style={styles.weekRow}>
+        <View style={styles.weekRow}>
             {weekDays.map((day) => {
               const isSelected = day.dateKey === selectedDate;
               return (
@@ -495,7 +513,7 @@ export default function AgendaScreen() {
                 </TouchableOpacity>
               );
             })}
-        </NoTranslateView>
+        </View>
 
         {dayMapPoints.length > 0 && (
             <View style={styles.mapCard}>
@@ -525,7 +543,11 @@ export default function AgendaScreen() {
             </Text>
         </View>
 
-        <View style={styles.filtersRow}>
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersRow}
+        >
             {[
               { key: 'all', label: 'Todas' },
               { key: 'pending', label: 'Pendientes' },
@@ -550,7 +572,7 @@ export default function AgendaScreen() {
                 </Text>
               </TouchableOpacity>
             ))}
-        </View>
+        </ScrollView>
 
         {loading ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
@@ -559,6 +581,7 @@ export default function AgendaScreen() {
                 data={filteredDayItems}
                 keyExtractor={(item) => item.id}
                 renderItem={renderItem}
+                scrollEnabled={false}
                 removeClippedSubviews={Platform.OS === 'android'}
                 initialNumToRender={10}
                 maxToRenderPerBatch={10}
@@ -570,6 +593,32 @@ export default function AgendaScreen() {
                 }
             />
         )}
+
+        {unscheduledItems.length > 0 && (
+            <View style={styles.unscheduledSectionBottom}>
+                <View style={styles.unscheduledHeaderRow}>
+                    <Text style={styles.unscheduledSectionTitle}>Pendientes de agenda</Text>
+                    <Text style={styles.unscheduledSectionMeta}>{unscheduledItems.length} por definir</Text>
+                </View>
+                <Text style={styles.unscheduledSectionHint}>
+                    Define la fecha de inicio de los trabajos que todavia no entraron en agenda.
+                </Text>
+                <FlatList
+                    horizontal
+                    data={unscheduledItems}
+                    renderItem={renderUnscheduledItem}
+                    keyExtractor={(item) => item.id}
+                    showsHorizontalScrollIndicator={false}
+                    nestedScrollEnabled
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    initialNumToRender={6}
+                    maxToRenderPerBatch={6}
+                    windowSize={3}
+                    contentContainerStyle={styles.unscheduledRow}
+                />
+            </View>
+        )}
+        </ScrollView>
 
         {/* CALENDARIO MODAL */}
         {showDatePicker && (
@@ -661,10 +710,126 @@ export default function AgendaScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F4F0' },
+  headerCompact: {
+    backgroundColor: '#F5F4F0',
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
+  headerCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  headerCompactCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  headerCompactTitle: {
+    fontSize: 24,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+    letterSpacing: 0.1,
+  },
+  headerCompactMeta: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: '#8D8270',
+  },
+  scrollContent: { paddingBottom: 36 },
   
   // Estilos Por Agendar
   unscheduledContainer: { backgroundColor: '#FFF5E0', paddingTop: 12, paddingBottom: 8 },
+  unscheduledSectionBottom: {
+    marginTop: 18,
+    marginHorizontal: 16,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FBFBF9',
+  },
+  unscheduledHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  unscheduledSectionTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+  },
+  unscheduledSectionMeta: {
+    fontSize: 11,
+    fontFamily: FONTS.subtitle,
+    color: '#8D8270',
+  },
+  unscheduledSectionHint: {
+    marginTop: 6,
+    marginBottom: 12,
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  unscheduledRow: { paddingRight: 2 },
   sectionTitle: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#B45309', marginLeft: 16, marginBottom: 8, letterSpacing: 1.6 },
+  heroCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    backgroundColor: '#0F172A',
+    padding: 18,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroCopy: { flex: 1, gap: 4 },
+  heroEyebrow: {
+    fontSize: 11,
+    fontFamily: FONTS.subtitle,
+    color: '#FCD34D',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontFamily: FONTS.title,
+    color: '#FFFFFF',
+  },
+  heroText: {
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: '#CBD5E1',
+    lineHeight: 18,
+  },
+  heroBadge: {
+    minWidth: 82,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  heroBadgeValue: {
+    fontSize: 24,
+    fontFamily: FONTS.title,
+    color: '#FFFFFF',
+  },
+  heroBadgeLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: '#94A3B8',
+  },
   unscheduledCard: { 
       backgroundColor: '#FFFFFF', width: 180, padding: 12, borderRadius: 14, marginRight: 12,
       borderWidth: 1, borderColor: '#F3E6CF', shadowColor: "#BFA57A", shadowOpacity: 0.15, elevation: 2
@@ -688,23 +853,6 @@ const styles = StyleSheet.create({
       paddingVertical: 8, borderRadius: 10
   },
   assignBtnText: { color: '#FFF', fontSize: 11, fontFamily: FONTS.subtitle },
-
-  // Resumen
-  summarySection: { paddingVertical: 14 },
-  summaryRow: { paddingHorizontal: 16, gap: 12 },
-  summaryCard: {
-    width: 150,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#EFE6D8',
-    alignItems: 'center',
-  },
-  summaryLabel: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#9A8F7B', letterSpacing: 1.4, textTransform: 'uppercase', textAlign: 'center' },
-  summaryValue: { fontSize: 20, fontFamily: FONTS.title, marginTop: 6, textAlign: 'center' },
-  summaryHint: { fontSize: 10, fontFamily: FONTS.body, color: '#94A3B8', marginTop: 4, textAlign: 'center' },
 
   calendarCard: {
     marginHorizontal: 16,
@@ -731,9 +879,15 @@ const styles = StyleSheet.create({
     color: '#94A3B8',
   },
 
-  weekRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, marginTop: 12 },
+  weekRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
   weekDay: {
-    width: 44,
+    flex: 1,
+    minWidth: 0,
     paddingVertical: 8,
     borderRadius: 12,
     alignItems: 'center',
@@ -773,7 +927,7 @@ const styles = StyleSheet.create({
   listHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6, backgroundColor: '#F5F4F0' },
   dateTitle: { fontFamily: FONTS.title, fontSize: 16, color: COLORS.text, textTransform: 'uppercase' },
   dateMeta: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textLight, marginTop: 4 },
-  filtersRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
+  filtersRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
   filterPill: {
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -785,7 +939,7 @@ const styles = StyleSheet.create({
   filterPillActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
   filterPillText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
   filterPillTextActive: { color: '#FFFFFF' },
-  listContent: { padding: 16 },
+  listContent: { padding: 16, paddingBottom: 12 },
 
   itemCard: {
     backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12,

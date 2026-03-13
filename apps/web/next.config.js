@@ -7,6 +7,9 @@ const nextConfig = {
 
   // Monorepo: ensure output tracing includes the workspace root.
   outputFileTracingRoot: path.join(__dirname, '../..'),
+  turbopack: {
+    root: path.join(__dirname, '../..'),
+  },
 
   // Image config (Supabase)
   images: {

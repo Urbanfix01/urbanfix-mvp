@@ -14,10 +14,14 @@ export type NearbyRequest = {
   mode: 'marketplace' | 'direct';
   created_at: string;
   distance_km: number;
-  match_radius_km: number;
+  match_radius_km: number | null;
   location_lat: number;
   location_lng: number;
+  photo_urls: string[];
   my_quote_status: 'pending' | 'submitted' | 'accepted' | 'rejected' | null;
+  my_response_type: 'application' | 'direct_quote' | null | string;
+  my_response_message: string | null;
+  my_visit_eta_hours: number | null;
   my_price_ars: number | null;
   my_eta_hours: number | null;
   my_quote_updated_at: string | null;
@@ -40,11 +44,55 @@ type OfferPayload = {
     id: string;
     status: string;
     my_quote_status: 'submitted';
-    my_price_ars: number;
-    my_eta_hours: number;
+    my_response_type: 'application' | 'direct_quote';
+    my_response_message?: string | null;
+    my_visit_eta_hours?: number | null;
+    my_price_ars: number | null;
+    my_eta_hours: number | null;
     my_quote_updated_at: string;
   };
+  match?: {
+    id: string | null;
+  } | null;
   message?: string;
+};
+
+export type TechnicianDashboardBillingItem = {
+  id: string;
+  total_amount: number;
+  status: string;
+  created_at: string;
+  paid_at?: string | null;
+  scheduled_date?: string | null;
+  source: 'marketplace';
+};
+
+type TechnicianDashboardBillingPayload = {
+  items: TechnicianDashboardBillingItem[];
+};
+
+export type TechnicianPublicProfileStatusSummary = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  business_name: string | null;
+  phone: string | null;
+  access_granted: boolean;
+  profile_published: boolean;
+  completed_jobs_total: number;
+  public_reviews_count: number;
+  company_logo_url: string | null;
+  avatar_url: string | null;
+  updated_at: string | null;
+};
+
+export type TechnicianPublicProfileStatusPayload = {
+  mode: 'current_profile' | 'recommended_profile';
+  reason: 'published_current' | 'duplicate_unpublished_account' | 'unpublished_profile' | 'missing_profile';
+  currentProfile: TechnicianPublicProfileStatusSummary | null;
+  previewProfile: TechnicianPublicProfileStatusSummary | null;
+  matchingProfilesCount: number;
+  matchSignals: string[];
 };
 
 const getAccessToken = async () => {
@@ -96,7 +144,24 @@ export const fetchNearbyRequests = async () => {
   });
 };
 
-export const submitOffer = async (requestId: string, priceArs: number, etaHours: number) => {
+export const fetchTechnicianDashboardBilling = async () => {
+  return requestApi<TechnicianDashboardBillingPayload>('/api/tecnico/dashboard/billing', {
+    method: 'GET',
+  });
+};
+
+export const fetchTechnicianPublicProfileStatus = async () => {
+  return requestApi<TechnicianPublicProfileStatusPayload>('/api/tecnico/profile-public-status', {
+    method: 'GET',
+  });
+};
+
+export const submitOffer = async (
+  requestId: string,
+  priceArs: number,
+  etaHours: number,
+  quoteId?: string | null
+) => {
   const safeRequestId = String(requestId || '').trim();
   if (!safeRequestId) {
     throw new Error('Solicitud invalida.');
@@ -104,8 +169,25 @@ export const submitOffer = async (requestId: string, priceArs: number, etaHours:
   return requestApi<OfferPayload>(`/api/tecnico/requests/${safeRequestId}/offer`, {
     method: 'POST',
     body: JSON.stringify({
+      response_type: 'direct_quote',
       price_ars: priceArs,
       eta_hours: etaHours,
+      quote_id: quoteId || null,
+    }),
+  });
+};
+
+export const submitRequestApplication = async (requestId: string, message: string, visitEtaHours: number) => {
+  const safeRequestId = String(requestId || '').trim();
+  if (!safeRequestId) {
+    throw new Error('Solicitud invalida.');
+  }
+  return requestApi<OfferPayload>(`/api/tecnico/requests/${safeRequestId}/offer`, {
+    method: 'POST',
+    body: JSON.stringify({
+      response_type: 'application',
+      message,
+      visit_eta_hours: visitEtaHours,
     }),
   });
 };

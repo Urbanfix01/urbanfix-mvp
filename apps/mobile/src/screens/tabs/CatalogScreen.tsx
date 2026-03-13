@@ -1,8 +1,8 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 // 👇 AQUÍ FALTABA 'Text'. YA LO AGREGUÉ.
 import { View, Text, FlatList, TextInput, StyleSheet, ActivityIndicator, TouchableOpacity, StatusBar, ScrollView, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; 
-import { useNavigation } from '@react-navigation/native'; 
+import { useNavigation, useRoute } from '@react-navigation/native'; 
 import { useMasterItems } from '../../hooks/useCatalog'; 
 import { COLORS, FONTS } from '../../utils/theme'; 
 import { CatalogItem } from '../../components/molecules/CatalogItem'; 
@@ -27,11 +27,21 @@ const formatCategoryLabel = (value: string) => {
 };
 
 export default function CatalogScreen() {
-  const navigation = useNavigation(); 
+  const navigation = useNavigation();
+  const route = useRoute();
   const { data: items, isLoading, error } = useMasterItems();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState<FilterType>('all');
+  const initialTab = (route.params as { initialTab?: FilterType } | undefined)?.initialTab;
+  const [activeTab, setActiveTab] = useState<FilterType>(
+    initialTab === 'labor' || initialTab === 'material' || initialTab === 'all' ? initialTab : 'all'
+  );
   const [activeCategory, setActiveCategory] = useState<string>('all');
+
+  useEffect(() => {
+    if (initialTab === 'labor' || initialTab === 'material' || initialTab === 'all') {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   const categories = useMemo(() => {
     const values = new Set<string>();

@@ -48,6 +48,11 @@ const parseHoursValue = (value: unknown) => {
 const formatArs = (value: number) => `$${value.toLocaleString('es-AR')}`;
 
 const activeRequestStatuses = new Set(['published', 'matched', 'quoted', 'direct_sent']);
+const normalizeResponseType = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'application' || normalized === 'direct_quote') return normalized;
+  return 'direct_quote';
+};
 
 export async function POST(
   request: NextRequest,
@@ -75,17 +80,42 @@ export async function POST(
     return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
   }
 
+  const responseType = normalizeResponseType(body.response_type);
+  const responseMessage = String(body.message || '').trim();
+  const rawQuoteId = String(body.quote_id || '').trim();
+  const quoteId = isUuid(rawQuoteId) ? rawQuoteId : null;
+  const parsedVisitEta = parseHoursValue(body.visit_eta_hours);
   const parsedPrice = parseArsValue(body.price_ars);
   const parsedEta = parseHoursValue(body.eta_hours);
-  if (parsedPrice === null || parsedPrice <= 0) {
-    return NextResponse.json({ error: 'Ingresa un precio valido en ARS.' }, { status: 400 });
-  }
-  if (parsedEta === null || parsedEta <= 0) {
-    return NextResponse.json({ error: 'Ingresa una ETA valida en horas.' }, { status: 400 });
-  }
 
-  const priceArs = Math.round(parsedPrice * 100) / 100;
-  const etaHours = Math.max(1, Math.min(720, Math.round(parsedEta)));
+  let priceArs: number | null = null;
+  let etaHours: number | null = null;
+  let visitEtaHours: number | null = null;
+
+  if (responseType === 'application') {
+    if (!responseMessage || responseMessage.length < 12) {
+      return NextResponse.json(
+        { error: 'Describe brevemente tu postulacion para que el cliente pueda evaluarla.' },
+        { status: 400 }
+      );
+    }
+    if (parsedVisitEta === null || parsedVisitEta <= 0) {
+      return NextResponse.json(
+        { error: 'Indica en cuantas horas puedes coordinar una visita.' },
+        { status: 400 }
+      );
+    }
+    visitEtaHours = Math.max(1, Math.min(720, Math.round(parsedVisitEta)));
+  } else {
+    if (parsedPrice === null || parsedPrice <= 0) {
+      return NextResponse.json({ error: 'Ingresa un precio valido en ARS.' }, { status: 400 });
+    }
+    if (parsedEta === null || parsedEta <= 0) {
+      return NextResponse.json({ error: 'Ingresa una ETA valida en horas.' }, { status: 400 });
+    }
+    priceArs = Math.round(parsedPrice * 100) / 100;
+    etaHours = Math.max(1, Math.min(720, Math.round(parsedEta)));
+  }
 
   const { data: technicianProfile, error: technicianError } = await supabase
     .from('profiles')
@@ -146,15 +176,19 @@ export async function POST(
     technician_phone: technicianPhone,
     technician_specialty: technicianSpecialty,
     technician_city: technicianCity,
+    response_type: responseType,
+    response_message: responseMessage || null,
+    visit_eta_hours: visitEtaHours,
     quote_status: 'submitted',
     price_ars: priceArs,
     eta_hours: etaHours,
+    submitted_at: new Date().toISOString(),
   };
 
   const { data: upsertRows, error: upsertError } = await supabase
     .from('client_request_matches')
     .upsert(upsertPayload, { onConflict: 'request_id,technician_id' })
-    .select('id, quote_status, price_ars, eta_hours, updated_at')
+    .select('id, quote_status, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at')
     .limit(1);
 
   if (upsertError) {
@@ -182,7 +216,10 @@ export async function POST(
     }
   }
 
-  const eventLabel = `Oferta recibida de ${technicianName}: ${formatArs(priceArs)} - ETA ${etaHours} hs.`;
+  const eventLabel =
+    responseType === 'application'
+      ? `Postulacion recibida de ${technicianName}: visita en ${visitEtaHours} hs.`
+      : `Cotizacion directa recibida de ${technicianName}: ${formatArs(priceArs as number)} - ETA ${etaHours} hs.`;
   const { error: eventError } = await supabase.from('client_request_events').insert({
     request_id: requestId,
     actor_id: user.id,
@@ -194,13 +231,46 @@ export async function POST(
 
   const firstMatch = Array.isArray(upsertRows) ? upsertRows[0] : null;
   const updatedAt = String(firstMatch?.updated_at || new Date().toISOString());
+
+  if (quoteId) {
+    const { data: quoteRow, error: quoteLookupError } = await supabase
+      .from('quotes')
+      .select('id')
+      .eq('id', quoteId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (quoteLookupError) {
+      console.error('offer quote lookup failed', quoteLookupError.message);
+    } else if (quoteRow?.id) {
+      const { error: quoteLinkError } = await supabase
+        .from('quotes')
+        .update({
+          client_request_id: requestId,
+          client_request_match_id: firstMatch?.id || null,
+        })
+        .eq('id', quoteId)
+        .eq('user_id', user.id);
+
+      if (quoteLinkError) {
+        console.error('offer quote link failed', quoteLinkError.message);
+      }
+    }
+  }
+
   return NextResponse.json({
     ok: true,
-    message: 'Oferta enviada correctamente.',
+    message:
+      responseType === 'application'
+        ? 'Postulacion enviada correctamente.'
+        : 'Cotizacion directa enviada correctamente.',
     request: {
       id: requestId,
       status: nextStatus,
       my_quote_status: 'submitted',
+      my_response_type: responseType,
+      my_response_message: responseMessage || null,
+      my_visit_eta_hours: visitEtaHours,
       my_price_ars: priceArs,
       my_eta_hours: etaHours,
       my_quote_updated_at: updatedAt,
@@ -208,6 +278,9 @@ export async function POST(
     match: {
       id: firstMatch?.id || null,
       quote_status: 'submitted',
+      response_type: responseType,
+      response_message: responseMessage || null,
+      visit_eta_hours: visitEtaHours,
       price_ars: priceArs,
       eta_hours: etaHours,
       updated_at: updatedAt,

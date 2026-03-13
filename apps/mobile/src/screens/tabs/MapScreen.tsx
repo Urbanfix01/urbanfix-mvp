@@ -43,11 +43,22 @@ async function getQuotes(): Promise<QuoteListItem[]> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return [];
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from('quotes')
     .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
     .eq('user_id', user.id)
+    .is('archived_at', null)
     .order('created_at', { ascending: false });
+
+  if (error && String(error.message || '').toLowerCase().includes('archived_at')) {
+    const fallback = await supabase
+      .from('quotes')
+      .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false });
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) throw error;
   return data || [];
