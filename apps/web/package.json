@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "master-items:audit": "node scripts/audit-master-items.js",
+    "master-items:normalize": "node scripts/normalize-master-items.js"
   },
   "engines": {
     "node": "20.x"

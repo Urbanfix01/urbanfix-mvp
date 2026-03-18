@@ -6,6 +6,8 @@
     "web:build": "npm --prefix apps/web run build",
     "web:start": "npm --prefix apps/web run start",
     "web:lint": "npm --prefix apps/web run lint",
+    "web:master-items:audit": "npm --prefix apps/web run master-items:audit",
+    "web:master-items:normalize": "npm --prefix apps/web run master-items:normalize",
     "web:deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-web.ps1",
     "web:deploy:dry": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-web.ps1 -DryRun"
   },

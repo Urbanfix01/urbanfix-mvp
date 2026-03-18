@@ -1,16 +1,15 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
 import { ciudades, ciudadSlugs } from '../../../lib/seo/urbanfix-data';
 import { getRubroTwemojiByName } from '../../../lib/seo/rubro-icons';
+import { formatArs, formatDateAr, getCatalogRubroPriceReferences } from '../../../lib/seo/rubro-prices';
 import {
-  formatArs,
-  formatDateAr,
   getCatalogRubroBySlug,
-  getCatalogRubroPriceReferences,
-} from '../../../lib/seo/rubro-prices';
-import { rubroCatalogSlugs } from '../../../lib/seo/rubro-catalog';
+  resolveCatalogRubroSlug,
+  rubroCatalogRouteSlugs,
+} from '../../../lib/seo/rubro-catalog';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -21,7 +20,7 @@ export const revalidate = 300;
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return rubroCatalogSlugs.map((slug) => ({ rubro: slug }));
+  return rubroCatalogRouteSlugs.map((slug) => ({ rubro: slug }));
 }
 
 export async function generateMetadata({
@@ -29,8 +28,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ rubro: string }>;
 }): Promise<Metadata> {
-  const { rubro: slug } = await params;
-  const rubro = getCatalogRubroBySlug(slug);
+  const { rubro: incomingSlug } = await params;
+  const slug = resolveCatalogRubroSlug(incomingSlug);
+  const rubro = slug ? getCatalogRubroBySlug(slug) : null;
   if (!rubro) {
     return {
       title: 'Rubro no encontrado | UrbanFix',
@@ -44,7 +44,13 @@ export async function generateMetadata({
 }
 
 export default async function RubroPage({ params }: { params: Promise<{ rubro: string }> }) {
-  const { rubro: slug } = await params;
+  const { rubro: incomingSlug } = await params;
+  const slug = resolveCatalogRubroSlug(incomingSlug);
+  if (!slug) return notFound();
+  if (slug !== incomingSlug) {
+    permanentRedirect(`/rubros/${slug}`);
+  }
+
   const rubro = getCatalogRubroBySlug(slug);
   if (!rubro) return notFound();
 

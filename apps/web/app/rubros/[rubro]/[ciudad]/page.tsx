@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { notFound } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../../components/PublicTopNav';
 import {
@@ -8,13 +8,12 @@ import {
   type CiudadKey,
 } from '../../../../lib/seo/urbanfix-data';
 import { getRubroTwemojiByName } from '../../../../lib/seo/rubro-icons';
+import { formatArs, formatDateAr, getCatalogRubroPriceReferences } from '../../../../lib/seo/rubro-prices';
 import {
-  formatArs,
-  formatDateAr,
   getCatalogRubroBySlug,
-  getCatalogRubroPriceReferences,
-} from '../../../../lib/seo/rubro-prices';
-import { rubroCatalogSlugs } from '../../../../lib/seo/rubro-catalog';
+  resolveCatalogRubroSlug,
+  rubroCatalogRouteSlugs,
+} from '../../../../lib/seo/rubro-catalog';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -25,7 +24,7 @@ export const revalidate = 300;
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return rubroCatalogSlugs.flatMap((rubro) => ciudadSlugs.map((ciudad) => ({ rubro, ciudad })));
+  return rubroCatalogRouteSlugs.flatMap((rubro) => ciudadSlugs.map((ciudad) => ({ rubro, ciudad })));
 }
 
 export async function generateMetadata({
@@ -33,8 +32,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ rubro: string; ciudad: string }>;
 }): Promise<Metadata> {
-  const { rubro, ciudad } = await params;
-  const rubroData = getCatalogRubroBySlug(rubro);
+  const { rubro: incomingRubro, ciudad } = await params;
+  const rubro = resolveCatalogRubroSlug(incomingRubro);
+  const rubroData = rubro ? getCatalogRubroBySlug(rubro) : null;
   const ciudadData = ciudades[ciudad as CiudadKey];
   if (!rubroData || !ciudadData) {
     return { title: 'Rubro no encontrado | UrbanFix' };
@@ -51,7 +51,13 @@ export default async function RubroCiudadPage({
 }: {
   params: Promise<{ rubro: string; ciudad: string }>;
 }) {
-  const { rubro, ciudad } = await params;
+  const { rubro: incomingRubro, ciudad } = await params;
+  const rubro = resolveCatalogRubroSlug(incomingRubro);
+  if (!rubro) return notFound();
+  if (rubro !== incomingRubro) {
+    permanentRedirect(`/rubros/${rubro}/${ciudad}`);
+  }
+
   const ciudadKey = ciudad as CiudadKey;
   const rubroData = getCatalogRubroBySlug(rubro);
   const ciudadData = ciudades[ciudadKey];

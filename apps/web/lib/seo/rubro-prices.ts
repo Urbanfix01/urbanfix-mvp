@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
-import { rubroCatalog, rubroCatalogBySlug, type RubroCatalogItem } from './rubro-catalog';
+import { getCatalogRubroBySlug, rubroCatalog, type RubroCatalogItem } from './rubro-catalog';
 
 type MasterItemRow = {
   id: string;
@@ -84,6 +84,15 @@ const STOPWORDS = new Set([
   'clara',
 ]);
 
+const SOURCE_LABEL_ALIASES: Record<string, string> = {
+  mo_rubro_elecdtricidad: 'mo rubro electricidad',
+  mo_rubro_electricidad: 'mo rubro electricidad',
+  mo_rubro_demolicions: 'mo rubro demoliciones',
+  mo_rubro_demoliciones: 'mo rubro demoliciones',
+  mo_rubro_cloaca_plucial_ventilacion: 'mo rubro cloaca pluvial ventilacion',
+  mo_rubro_cloaca_pluvial_ventilacion: 'mo rubro cloaca pluvial ventilacion',
+};
+
 const rubroHints: Partial<Record<RubroKey, string[]>> = {
   electricidad: ['electricidad', 'electrica', 'tablero', 'cable', 'disyuntor'],
   plomeria: ['sanitario', 'plomeria', 'cloaca', 'agua', 'griferia', 'destanque', 'aapsya'],
@@ -161,6 +170,8 @@ const inferUnit = (name: string) => {
 const formatSource = (sourceRef: string | null, category: string | null) => {
   const source = cleanText(sourceRef);
   if (source) {
+    const aliased = SOURCE_LABEL_ALIASES[source.toLowerCase()];
+    if (aliased) return aliased;
     if (source === 'lista_92') return 'Lista 92';
     if (source.includes('_')) return source.replace(/_/g, ' ');
     return source;
@@ -385,8 +396,6 @@ export const getCatalogRubrosOverview = cache(async (): Promise<CatalogRubroOver
     };
   }));
 });
-
-export const getCatalogRubroBySlug = (slug: string) => rubroCatalogBySlug.get(slug) || null;
 
 export const getCatalogRubroPriceReferences = async (
   rubroSlug: string,
