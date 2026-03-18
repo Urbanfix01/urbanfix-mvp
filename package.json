@@ -5,7 +5,9 @@
     "web:dev": "npm --prefix apps/web run dev",
     "web:build": "npm --prefix apps/web run build",
     "web:start": "npm --prefix apps/web run start",
-    "web:lint": "npm --prefix apps/web run lint"
+    "web:lint": "npm --prefix apps/web run lint",
+    "web:deploy": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-web.ps1",
+    "web:deploy:dry": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/deploy-web.ps1 -DryRun"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
