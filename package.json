@@ -1,4 +1,12 @@
 {
+  "name": "urbanfix-root",
+  "private": true,
+  "scripts": {
+    "web:dev": "npm --prefix apps/web run dev",
+    "web:build": "npm --prefix apps/web run build",
+    "web:start": "npm --prefix apps/web run start",
+    "web:lint": "npm --prefix apps/web run lint"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.97.0",
     "lucide-react": "^0.575.0",

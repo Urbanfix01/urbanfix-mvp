@@ -542,6 +542,11 @@ const getPublicBaseUrl = () => {
 
 const buildQuoteLink = (quoteId: string) => `${getPublicBaseUrl()}/p/${quoteId}`;
 
+const canShareQuoteFeedback = (status?: string | null) => {
+  const normalized = normalizeStatusValue(status);
+  return normalized === 'completed' || normalized === 'paid';
+};
+
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value.trim());
 
@@ -1052,6 +1057,33 @@ const addDays = (date: Date, days: number) => {
   return next;
 };
 
+const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+const isSameDay = (left: Date, right: Date) =>
+  left.getFullYear() === right.getFullYear() &&
+  left.getMonth() === right.getMonth() &&
+  left.getDate() === right.getDate();
+
+const diffCalendarDays = (start: Date, end: Date) =>
+  Math.round((startOfDay(end).getTime() - startOfDay(start).getTime()) / 86400000);
+
+const getDatePart = (value?: string | null) => (value ? value.slice(0, 10) : '');
+
+const formatAgendaDateLabel = (value?: string | null) => {
+  const date = parseDateLocal(getDatePart(value));
+  if (!date) return 'Sin fecha';
+  return date.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+};
+
+const formatAgendaRangeLabel = (startValue?: string | null, endValue?: string | null) => {
+  const start = parseDateLocal(getDatePart(startValue));
+  const end = parseDateLocal(getDatePart(endValue));
+  if (!start) return 'Sin fecha definida';
+  if (!end) return `${formatAgendaDateLabel(startValue)} · cierre a confirmar`;
+  if (isSameDay(start, end)) return formatAgendaDateLabel(startValue);
+  return `${formatAgendaDateLabel(startValue)} al ${formatAgendaDateLabel(endValue)}`;
+};
+
 const translateProfileError = (message: string) => {
   if (!message) return 'No pudimos guardar los cambios.';
   const lower = message.toLowerCase();
@@ -1435,7 +1467,7 @@ export default function TechniciansPage() {
     { key: 'operativo', label: 'Operativo', hint: 'Mapa y solicitudes', short: 'OP', icon: Search },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI', icon: Eye },
-    { key: 'agenda', label: 'Agenda', hint: 'Proximamente', short: 'AG', icon: Calendar },
+    { key: 'agenda', label: 'Agenda', hint: 'Planificacion', short: 'AG', icon: Calendar },
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO', icon: Bell },
     { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH', icon: MessageCircle },
     { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI', icon: Clock },
@@ -2131,6 +2163,17 @@ export default function TechniciansPage() {
     } finally {
       setScheduleSavingId(null);
     }
+  };
+
+  const applyQuoteScheduleLocally = (quoteId: string, startDate: string | null, endDate: string | null) => {
+    setQuotes((prev) =>
+      prev.map((item) => (item.id === quoteId ? { ...item, start_date: startDate, end_date: endDate } : item))
+    );
+  };
+
+  const commitQuoteSchedule = (quoteId: string, startDate: string | null, endDate: string | null) => {
+    applyQuoteScheduleLocally(quoteId, startDate, endDate);
+    void handleScheduleUpdate(quoteId, startDate || '', endDate || '');
   };
 
   const fetchMasterItems = async () => {
@@ -2885,6 +2928,11 @@ export default function TechniciansPage() {
       description: 'Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.',
     };
   }, [selectedAccessProfile]);
+  const agendaBaseDate = startOfDay(new Date());
+  const agendaTodayKey = formatDateLocal(agendaBaseDate);
+  const agendaTomorrowKey = formatDateLocal(addDays(agendaBaseDate, 1));
+  const agendaTodayTime = agendaBaseDate.getTime();
+  const agendaNextWindowEndTime = addDays(agendaBaseDate, 7).getTime();
   const agendaCounts = useMemo(() => {
     const scheduled = approvedJobs.filter((quote) => Boolean(quote.start_date)).length;
     const pending = approvedJobs.length - scheduled;
@@ -2918,6 +2966,93 @@ export default function TechniciansPage() {
       return bCreated - aCreated;
     });
   }, [approvedJobs, agendaFilter, agendaSearch]);
+  const agendaOverview = useMemo(() => {
+    let unscheduled = 0;
+    let activeToday = 0;
+    let nextDays = 0;
+    let past = 0;
+    let totalAmount = 0;
+
+    agendaJobs.forEach((quote) => {
+      totalAmount += toAmountValue(quote.total_amount);
+      const start = parseDateLocal(getDatePart(quote.start_date));
+      const end = parseDateLocal(getDatePart(quote.end_date)) || start;
+
+      if (!start) {
+        unscheduled += 1;
+        return;
+      }
+
+      const startTime = start.getTime();
+      const endTime = (end || start).getTime();
+
+      if (endTime < agendaTodayTime) {
+        past += 1;
+        return;
+      }
+
+      if (startTime <= agendaTodayTime && endTime >= agendaTodayTime) {
+        activeToday += 1;
+        return;
+      }
+
+      if (startTime <= agendaNextWindowEndTime) {
+        nextDays += 1;
+      }
+    });
+
+    return {
+      total: agendaJobs.length,
+      unscheduled,
+      activeToday,
+      nextDays,
+      past,
+      totalAmount,
+    };
+  }, [agendaJobs, agendaNextWindowEndTime, agendaTodayTime]);
+  const agendaSections = useMemo(
+    () =>
+      agendaJobs.reduce(
+        (acc, quote) => {
+          const start = parseDateLocal(getDatePart(quote.start_date));
+          const end = parseDateLocal(getDatePart(quote.end_date)) || start;
+
+          if (!start) {
+            acc.unscheduled.push(quote);
+            return acc;
+          }
+
+          const startTime = start.getTime();
+          const endTime = (end || start).getTime();
+
+          if (endTime < agendaTodayTime) {
+            acc.past.push(quote);
+            return acc;
+          }
+
+          if (startTime <= agendaTodayTime && endTime >= agendaTodayTime) {
+            acc.today.push(quote);
+            return acc;
+          }
+
+          if (startTime <= agendaNextWindowEndTime) {
+            acc.nextDays.push(quote);
+            return acc;
+          }
+
+          acc.later.push(quote);
+          return acc;
+        },
+        {
+          unscheduled: [] as QuoteRow[],
+          today: [] as QuoteRow[],
+          nextDays: [] as QuoteRow[],
+          later: [] as QuoteRow[],
+          past: [] as QuoteRow[],
+        }
+      ),
+    [agendaJobs, agendaNextWindowEndTime, agendaTodayTime]
+  );
   const filteredQuotes = useMemo(() => {
     if (quoteFilter === 'pending') {
       return quotes.filter((quote) => pendingStatuses.has(normalizeStatusValue(quote.status)));
@@ -3429,6 +3564,48 @@ export default function TechniciansPage() {
     }
   };
 
+  const getQuoteFeedbackLink = async (quoteId?: string) => {
+    const targetId = quoteId || activeQuoteId;
+    if (!targetId) {
+      throw new Error('Selecciona un presupuesto para generar el link de calificacion.');
+    }
+    if (!session?.access_token) {
+      throw new Error('Inicia sesion para generar links de calificacion.');
+    }
+
+    const response = await fetch(`/api/tecnico/quotes/${targetId}/feedback-link`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(String(payload?.error || 'No pudimos generar el link de calificacion.'));
+    }
+
+    const url = String(payload?.url || '').trim();
+    if (!url) {
+      throw new Error('No pudimos generar el link de calificacion.');
+    }
+
+    return {
+      url,
+      alreadyReviewed: Boolean(payload?.alreadyReviewed),
+    };
+  };
+
+  const copyQuoteFeedbackLink = async (quoteId?: string) => {
+    const { url, alreadyReviewed } = await getQuoteFeedbackLink(quoteId);
+    try {
+      if (!navigator?.clipboard?.writeText) throw new Error('Clipboard no disponible');
+      await navigator.clipboard.writeText(url);
+      return { ok: true, url, alreadyReviewed };
+    } catch (error) {
+      return { ok: false, url, alreadyReviewed };
+    }
+  };
+
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
     if (savingRef.current || isSaving) return;
     savingRef.current = true;
@@ -3544,6 +3721,22 @@ export default function TechniciansPage() {
     const result = await copyQuoteLink(quoteId);
     if (!result.url) return;
     setInfoMessage(result.ok ? 'Link copiado al portapapeles.' : `Link: ${result.url}`);
+  };
+
+  const handleCopyFeedbackLink = async (quoteId?: string) => {
+    try {
+      const result = await copyQuoteFeedbackLink(quoteId);
+      if (!result.url) return;
+      setInfoMessage(
+        result.ok
+          ? result.alreadyReviewed
+            ? 'Link de calificacion copiado. Ese cliente ya puede editar su resena con el mismo link.'
+            : 'Link de calificacion copiado al portapapeles.'
+          : `Link de calificacion: ${result.url}`
+      );
+    } catch (error: any) {
+      setInfoMessage(error?.message || 'No pudimos generar el link de calificacion.');
+    }
   };
 
   const handleOpenQuoteWindow = (quoteId?: string) => {
@@ -5915,7 +6108,8 @@ export default function TechniciansPage() {
                       label: (quote.status || 'N/A').toUpperCase(),
                       className: 'bg-slate-100 text-slate-600',
                     };
-                      return (
+                    const canShareFeedbackLink = canShareQuoteFeedback(quote.status);
+                    return (
                         <button
                           key={quote.id}
                           type="button"
@@ -5934,6 +6128,18 @@ export default function TechniciansPage() {
                               <span className={`rounded-full px-3 py-1 text-[10px] font-semibold ${info.className}`}>
                                 {info.label}
                               </span>
+                              {canShareFeedbackLink && (
+                                <button
+                                  type="button"
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    handleCopyFeedbackLink(quote.id);
+                                  }}
+                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                                >
+                                  Calificacion
+                                </button>
+                              )}
                               <select
                                 value={normalizeStatusValue(quote.status)}
                                 onClick={(event) => event.stopPropagation()}
@@ -5998,18 +6204,29 @@ export default function TechniciansPage() {
                     </p>
                   </div>
                   {activeQuoteId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const nextUrl = buildQuoteLink(activeQuoteId);
-                        setViewerInput(nextUrl);
-                        setViewerUrl(nextUrl);
-                        setViewerError('');
-                      }}
-                      className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                    >
-                      Usar presupuesto activo
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextUrl = buildQuoteLink(activeQuoteId);
+                          setViewerInput(nextUrl);
+                          setViewerUrl(nextUrl);
+                          setViewerError('');
+                        }}
+                        className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                      >
+                        Usar presupuesto activo
+                      </button>
+                      {activeQuote && canShareQuoteFeedback(activeQuote.status) && (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyFeedbackLink(activeQuote.id)}
+                          className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                        >
+                          Copiar link de calificacion
+                        </button>
+                      )}
+                    </div>
                   )}
                   {activeQuote && (
                     <button
@@ -6063,12 +6280,12 @@ export default function TechniciansPage() {
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Agenda</p>
                 <div className="mt-1 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <h2 className="text-xl font-semibold text-slate-900">Trabajos aprobados</h2>
+                    <h2 className="text-xl font-semibold text-slate-900">Agenda operativa</h2>
                     <p className="mt-1 text-sm text-slate-500">
-                      En esta vista ves todos los trabajos aprobados. Solo elegi una fecha y se guarda automaticamente.
+                      Organiza trabajos aprobados, separa lo urgente y define rangos de ejecucion sin salir del panel.
                     </p>
                     <p className="mt-1 text-xs text-slate-400">
-                      Tip: si el trabajo ya tenia duracion (varios dias), la mantenemos al mover la fecha.
+                      Si el trabajo ya tenia duracion, la mantenemos al mover la fecha de inicio.
                     </p>
                   </div>
 
@@ -6123,7 +6340,52 @@ export default function TechniciansPage() {
 
                 {scheduleMessage && <p className="mt-3 text-xs text-slate-600">{scheduleMessage}</p>}
 
-                <div className="mt-6 space-y-3">
+                <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    {
+                      key: 'visible',
+                      label: 'Trabajos visibles',
+                      value: agendaOverview.total,
+                      hint: 'Aprobados listos para coordinar',
+                      className: 'border-slate-200 bg-slate-50',
+                    },
+                    {
+                      key: 'pending',
+                      label: 'Por agendar',
+                      value: agendaOverview.unscheduled,
+                      hint: 'Todavia sin fecha de inicio',
+                      className: 'border-amber-200 bg-amber-50',
+                    },
+                    {
+                      key: 'today',
+                      label: 'Activos hoy',
+                      value: agendaOverview.activeToday,
+                      hint: `Base ${formatAgendaDateLabel(agendaTodayKey)}`,
+                      className: 'border-emerald-200 bg-emerald-50',
+                    },
+                    {
+                      key: 'amount',
+                      label: 'Monto visible',
+                      value: formatCurrency(agendaOverview.totalAmount),
+                      hint:
+                        agendaOverview.past > 0
+                          ? `${agendaOverview.past} con fecha pasada`
+                          : `${agendaOverview.nextDays} en los proximos 7 dias`,
+                      className: 'border-sky-200 bg-sky-50',
+                    },
+                  ].map((card) => (
+                    <div
+                      key={card.key}
+                      className={`rounded-3xl border px-4 py-4 shadow-sm shadow-slate-100/70 ${card.className}`}
+                    >
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
+                      <p className="mt-2 text-2xl font-semibold text-slate-900">{card.value}</p>
+                      <p className="mt-1 text-xs text-slate-500">{card.hint}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-6 space-y-6">
                   {approvedJobs.length === 0 && (
                     <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-xs text-slate-500">
                       No hay trabajos aprobados para coordinar.
@@ -6136,119 +6398,294 @@ export default function TechniciansPage() {
                     </div>
                   )}
 
-                  {agendaJobs.map((quote) => {
-                    const startValue = quote.start_date ? quote.start_date.slice(0, 10) : '';
-                    const endValue = quote.end_date ? quote.end_date.slice(0, 10) : '';
-                    const start = parseDateLocal(startValue);
-                    const end = parseDateLocal(endValue);
-                    const durationDays =
-                      start && end ? Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000)) : 0;
-                    const isSaving = scheduleSavingId === quote.id;
+                  {agendaSections.unscheduled.length > 0 && (
+                    <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-5">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-amber-700">Por agendar</p>
+                          <h3 className="mt-1 text-lg font-semibold text-slate-900">
+                            Trabajos listos para poner en agenda
+                          </h3>
+                          <p className="text-sm text-slate-600">
+                            Asigna una fecha rapida o define el inicio manualmente.
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-amber-700 shadow-sm">
+                          {agendaSections.unscheduled.length} pendientes
+                        </span>
+                      </div>
+
+                      <div className="mt-4 grid gap-3 xl:grid-cols-2">
+                        {agendaSections.unscheduled.map((quote) => {
+                          const startValue = getDatePart(quote.start_date);
+                          const isSaving = scheduleSavingId === quote.id;
+
+                          return (
+                            <div
+                              key={quote.id}
+                              className="rounded-3xl border border-amber-200 bg-white/90 p-4 shadow-sm shadow-amber-100/60"
+                            >
+                              <div className="flex flex-wrap items-start justify-between gap-3">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {quote.client_name || 'Presupuesto'}
+                                    </p>
+                                    <span className="rounded-full bg-amber-100 px-3 py-1 text-[10px] font-semibold text-amber-700">
+                                      Sin fecha
+                                    </span>
+                                  </div>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                                    {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                                  </p>
+                                </div>
+                                <div className="rounded-2xl bg-amber-50 px-4 py-3 text-right">
+                                  <p className="text-[10px] uppercase tracking-[0.2em] text-amber-700">
+                                    Presupuesto
+                                  </p>
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {formatCurrency(toAmountValue(quote.total_amount))}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap items-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => commitQuoteSchedule(quote.id, agendaTodayKey, agendaTodayKey)}
+                                  disabled={isSaving}
+                                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Hoy
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => commitQuoteSchedule(quote.id, agendaTomorrowKey, agendaTomorrowKey)}
+                                  disabled={isSaving}
+                                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Manana
+                                </button>
+                                <div className="flex min-w-[180px] flex-1 flex-col gap-1 sm:flex-none">
+                                  <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                                    Fecha de inicio
+                                  </label>
+                                  <input
+                                    type="date"
+                                    value={startValue}
+                                    disabled={isSaving}
+                                    onChange={(event) => {
+                                      const value = event.target.value;
+                                      if (!value) {
+                                        commitQuoteSchedule(quote.id, null, null);
+                                        return;
+                                      }
+                                      commitQuoteSchedule(quote.id, value, value);
+                                    }}
+                                    className="rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-amber-400 disabled:bg-slate-50 disabled:text-slate-400"
+                                  />
+                                </div>
+                                {isSaving && <span className="text-xs font-semibold text-slate-400">Guardando...</span>}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {[
+                    {
+                      key: 'today',
+                      title: 'Hoy',
+                      description: 'Trabajos que estan en curso o empiezan hoy.',
+                      items: agendaSections.today,
+                      className: 'border-emerald-200 bg-emerald-50/60',
+                      badgeClassName: 'bg-emerald-100 text-emerald-700',
+                    },
+                    {
+                      key: 'nextDays',
+                      title: 'Proximos 7 dias',
+                      description: 'Lo que entra en ventana corta para planificacion semanal.',
+                      items: agendaSections.nextDays,
+                      className: 'border-sky-200 bg-sky-50/60',
+                      badgeClassName: 'bg-sky-100 text-sky-700',
+                    },
+                    {
+                      key: 'later',
+                      title: 'Mas adelante',
+                      description: 'Trabajos ya calendarizados fuera de la proxima semana.',
+                      items: agendaSections.later,
+                      className: 'border-slate-200 bg-slate-50',
+                      badgeClassName: 'bg-slate-200 text-slate-700',
+                    },
+                    {
+                      key: 'past',
+                      title: 'Fechas pasadas',
+                      description: 'Trabajos que siguen abiertos con rango vencido.',
+                      items: agendaSections.past,
+                      className: 'border-rose-200 bg-rose-50/60',
+                      badgeClassName: 'bg-rose-100 text-rose-700',
+                    },
+                  ].map((section) => {
+                    if (section.items.length === 0) return null;
 
                     return (
-                      <div
-                        key={quote.id}
-                        className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-4 sm:flex-row sm:items-center sm:justify-between"
-                      >
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-900">
-                              {quote.client_name || 'Presupuesto'}
-                            </p>
-                            {startValue ? (
-                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700">
-                                Programado
-                              </span>
-                            ) : (
-                              <span className="rounded-full bg-amber-50 px-3 py-1 text-[10px] font-semibold text-amber-700">
-                                Sin fecha
-                              </span>
-                            )}
+                      <div key={section.key} className={`rounded-3xl border p-5 ${section.className}`}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{section.title}</p>
+                            <h3 className="mt-1 text-lg font-semibold text-slate-900">{section.description}</h3>
                           </div>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
-                            {new Date(quote.created_at).toLocaleDateString('es-AR')}
-                          </p>
-                          {durationDays > 0 && (
-                            <p className="mt-1 text-[11px] text-slate-400">
-                              Duracion actual: {durationDays + 1} dias
-                            </p>
-                          )}
+                          <span className={`rounded-full px-3 py-1 text-xs font-semibold ${section.badgeClassName}`}>
+                            {section.items.length} trabajos
+                          </span>
                         </div>
 
-                        <div className="flex flex-wrap items-end gap-2">
-                          <div className="flex flex-col gap-1">
-                            <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
-                              Fecha
-                            </label>
-                            <input
-                              type="date"
-                              value={startValue}
-                              disabled={isSaving}
-                              onChange={(event) => {
-                                const value = event.target.value;
-                                if (!value) {
-                                  setQuotes((prev) =>
-                                    prev.map((item) =>
-                                      item.id === quote.id
-                                        ? { ...item, start_date: null, end_date: null }
-                                        : item
-                                    )
-                                  );
-                                  handleScheduleUpdate(quote.id, '', '');
-                                  return;
-                                }
+                        <div className="mt-4 space-y-3">
+                          {section.items.map((quote) => {
+                            const startValue = getDatePart(quote.start_date);
+                            const endValue = getDatePart(quote.end_date);
+                            const start = parseDateLocal(startValue);
+                            const end = parseDateLocal(endValue);
+                            const durationDays = start && end ? Math.max(0, diffCalendarDays(start, end)) : 0;
+                            const isSaving = scheduleSavingId === quote.id;
+                            const statusInfo = statusMap[normalizeStatusValue(quote.status)] || statusMap.approved;
 
-                                const prevStart = quote.start_date ? quote.start_date.slice(0, 10) : '';
-                                const prevEnd = quote.end_date ? quote.end_date.slice(0, 10) : '';
-                                const prevStartDate = parseDateLocal(prevStart);
-                                const prevEndDate = parseDateLocal(prevEnd);
-                                const nextStartDate = parseDateLocal(value);
-                                if (!nextStartDate) return;
+                            return (
+                              <div
+                                key={quote.id}
+                                className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm shadow-slate-100/70"
+                              >
+                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-sm font-semibold text-slate-900">
+                                        {quote.client_name || 'Presupuesto'}
+                                      </p>
+                                      <span
+                                        className={`rounded-full px-3 py-1 text-[10px] font-semibold ${statusInfo.className}`}
+                                      >
+                                        {statusInfo.label}
+                                      </span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                                      {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                                    </p>
+                                    <p className="mt-2 text-sm font-medium text-slate-800">
+                                      {formatAgendaRangeLabel(startValue, endValue)}
+                                    </p>
+                                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-500">
+                                      <span className="rounded-full bg-slate-100 px-3 py-1">
+                                        Monto {formatCurrency(toAmountValue(quote.total_amount))}
+                                      </span>
+                                      <span className="rounded-full bg-slate-100 px-3 py-1">
+                                        {endValue
+                                          ? `Duracion ${durationDays + 1} dia${durationDays === 0 ? '' : 's'}`
+                                          : 'Sin fecha de cierre'}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="rounded-2xl bg-slate-50 px-4 py-3 text-right">
+                                    <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Inicio</p>
+                                    <p className="text-sm font-semibold text-slate-900">
+                                      {formatAgendaDateLabel(startValue)}
+                                    </p>
+                                    <p className="mt-1 text-[11px] text-slate-500">
+                                      {endValue ? `Fin ${formatAgendaDateLabel(endValue)}` : 'Fin a confirmar'}
+                                    </p>
+                                  </div>
+                                </div>
 
-                                const diffDays =
-                                  prevStartDate && prevEndDate
-                                    ? Math.max(
-                                        0,
-                                        Math.round(
-                                          (prevEndDate.getTime() - prevStartDate.getTime()) / 86400000
-                                        )
-                                      )
-                                    : 0;
-                                const nextEndDate = addDays(nextStartDate, diffDays);
-                                const nextStart = formatDateLocal(nextStartDate);
-                                const nextEnd = formatDateLocal(nextEndDate);
+                                <div className="mt-4 flex flex-wrap items-end gap-2">
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                                      Inicio
+                                    </label>
+                                    <input
+                                      type="date"
+                                      value={startValue}
+                                      disabled={isSaving}
+                                      onChange={(event) => {
+                                        const value = event.target.value;
+                                        if (!value) {
+                                          commitQuoteSchedule(quote.id, null, null);
+                                          return;
+                                        }
 
-                                setQuotes((prev) =>
-                                  prev.map((item) =>
-                                    item.id === quote.id
-                                      ? { ...item, start_date: nextStart, end_date: nextEnd }
-                                      : item
-                                  )
-                                );
-                                handleScheduleUpdate(quote.id, nextStart, nextEnd);
-                              }}
-                              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
-                            />
-                          </div>
+                                        const nextStartDate = parseDateLocal(value);
+                                        const prevStartDate = parseDateLocal(startValue);
+                                        const prevEndDate = parseDateLocal(endValue);
+                                        if (!nextStartDate) return;
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setQuotes((prev) =>
-                                prev.map((item) =>
-                                  item.id === quote.id ? { ...item, start_date: null, end_date: null } : item
-                                )
-                              );
-                              handleScheduleUpdate(quote.id, '', '');
-                            }}
-                            disabled={isSaving || (!quote.start_date && !quote.end_date)}
-                            className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Limpiar
-                          </button>
+                                        const duration =
+                                          prevStartDate && prevEndDate
+                                            ? Math.max(0, diffCalendarDays(prevStartDate, prevEndDate))
+                                            : 0;
+                                        const nextEndDate = prevEndDate ? addDays(nextStartDate, duration) : null;
 
-                          {isSaving && <span className="text-xs font-semibold text-slate-400">Guardando...</span>}
+                                        commitQuoteSchedule(
+                                          quote.id,
+                                          formatDateLocal(nextStartDate),
+                                          nextEndDate ? formatDateLocal(nextEndDate) : null
+                                        );
+                                      }}
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-col gap-1">
+                                    <label className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                                      Fin
+                                    </label>
+                                    <input
+                                      type="date"
+                                      value={endValue}
+                                      min={startValue || undefined}
+                                      disabled={isSaving || !startValue}
+                                      onChange={(event) => {
+                                        if (!startValue) return;
+                                        const value = event.target.value;
+                                        if (!value) {
+                                          commitQuoteSchedule(quote.id, startValue, null);
+                                          return;
+                                        }
+
+                                        const currentStartDate = parseDateLocal(startValue);
+                                        const nextEndDate = parseDateLocal(value);
+                                        if (!currentStartDate || !nextEndDate) return;
+
+                                        const safeEndDate =
+                                          nextEndDate.getTime() < currentStartDate.getTime()
+                                            ? currentStartDate
+                                            : nextEndDate;
+
+                                        commitQuoteSchedule(
+                                          quote.id,
+                                          startValue,
+                                          formatDateLocal(safeEndDate)
+                                        );
+                                      }}
+                                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-600 outline-none focus:border-slate-400 disabled:bg-slate-50 disabled:text-slate-400"
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => commitQuoteSchedule(quote.id, null, null)}
+                                    disabled={isSaving || (!quote.start_date && !quote.end_date)}
+                                    className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    Limpiar
+                                  </button>
+
+                                  {isSaving && <span className="text-xs font-semibold text-slate-400">Guardando...</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );

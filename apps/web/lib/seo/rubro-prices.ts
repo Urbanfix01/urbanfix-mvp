@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { supabase } from '../supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
 import { rubroCatalog, rubroCatalogBySlug, type RubroCatalogItem } from './rubro-catalog';
 
@@ -40,6 +40,17 @@ export type CatalogRubroOverview = {
   itemCount: number;
   lastUpdatedAt: string | null;
 };
+
+const SEO_PRICE_CACHE_TTL_MS = 5 * 60 * 1000;
+
+let activeLaborItemsCache:
+  | {
+      rows: MasterItemRow[];
+      expiresAt: number;
+    }
+  | null = null;
+let activeLaborItemsPromise: Promise<MasterItemRow[]> | null = null;
+let didWarnMasterItemsFetchFailure = false;
 
 const STOPWORDS = new Set([
   'de',
@@ -187,21 +198,64 @@ const getLatestDate = (rows: MasterItemRow[]) => {
   return new Date(Math.max(...dates)).toISOString();
 };
 
-const fetchActiveLaborItems = cache(async (): Promise<MasterItemRow[]> => {
-  const { data, error } = await supabase
-    .from('master_items')
-    .select('id,name,category,source_ref,suggested_price,created_at')
-    .eq('type', 'labor')
-    .eq('active', true)
-    .not('suggested_price', 'is', null)
-    .order('created_at', { ascending: false });
+const warnMasterItemsFetchFailure = (message: string) => {
+  if (didWarnMasterItemsFetchFailure) return;
+  didWarnMasterItemsFetchFailure = true;
+  console.warn(`SEO/rubros: no se pudieron leer precios de master_items; se usa fallback vacio. ${message}`);
+};
 
-  if (error) {
-    console.error('No se pudieron leer precios de master_items:', error.message);
+const fetchActiveLaborItems = cache(async (): Promise<MasterItemRow[]> => {
+  if (!hasSupabaseConfig) {
     return [];
   }
 
-  return (data || []).filter((row) => Number(row.suggested_price || 0) > 0);
+  if (activeLaborItemsCache && activeLaborItemsCache.expiresAt > Date.now()) {
+    return activeLaborItemsCache.rows;
+  }
+
+  if (activeLaborItemsPromise) {
+    return activeLaborItemsPromise;
+  }
+
+  activeLaborItemsPromise = (async () => {
+    const { data, error } = await supabase
+      .from('master_items')
+      .select('id,name,category,source_ref,suggested_price,created_at')
+      .eq('type', 'labor')
+      .eq('active', true)
+      .not('suggested_price', 'is', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      warnMasterItemsFetchFailure(error.message);
+      activeLaborItemsCache = {
+        rows: [],
+        expiresAt: Date.now() + SEO_PRICE_CACHE_TTL_MS,
+      };
+      return [];
+    }
+
+    const rows = (data || []).filter((row) => Number(row.suggested_price || 0) > 0);
+    activeLaborItemsCache = {
+      rows,
+      expiresAt: Date.now() + SEO_PRICE_CACHE_TTL_MS,
+    };
+    return rows;
+  })();
+
+  try {
+    return await activeLaborItemsPromise;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Error desconocido';
+    warnMasterItemsFetchFailure(message);
+    activeLaborItemsCache = {
+      rows: [],
+      expiresAt: Date.now() + SEO_PRICE_CACHE_TTL_MS,
+    };
+    return [];
+  } finally {
+    activeLaborItemsPromise = null;
+  }
 });
 
 export const getActiveLaborCategories = cache(async (): Promise<ActiveLaborCategory[]> => {

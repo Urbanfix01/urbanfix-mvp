@@ -6,3 +6,14 @@ node_modules/
 apps/mobile/.expo/
 apps/web/.expo/
 apps/mobile/.env
+apps/web/.next/
+tmp/
+urbanfix-main-clean/
+urbanfix-mvp/
+tmp_sync_client_map_v1/
+UrbanFix/
+UrbanFix_base_latest/
+agents_out.txt
+app.json
+l.includes*
+[{]if*

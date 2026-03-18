@@ -5,8 +5,8 @@ const nextConfig = {
   // Next.js 15+: moved out of `experimental`
   serverExternalPackages: ['@react-pdf/renderer'],
 
-  // Monorepo: ensure output tracing includes the workspace root.
-  outputFileTracingRoot: path.join(__dirname, '../..'),
+  // Keep tracing scoped to the web app even if the repo root has extra lockfiles.
+  outputFileTracingRoot: path.join(__dirname),
 
   // Image config (Supabase)
   images: {

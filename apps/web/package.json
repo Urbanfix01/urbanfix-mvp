@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "engines": {
+    "node": "20.x"
+  },
   "dependencies": {
     "@react-pdf/renderer": "^4.3.2",
     "@supabase/supabase-js": "^2.97.0",
@@ -17,8 +20,7 @@
     "next": "15.5.12",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "styled-jsx": "^5.1.1",
-    "urbanfix-monorepo": "file:../.."
+    "styled-jsx": "^5.1.1"
   },
   "devDependencies": {
     "@types/node": "^20",
