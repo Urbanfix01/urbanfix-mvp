@@ -1,81 +1,173 @@
-﻿import { Sora } from 'next/font/google';
+import type { Metadata } from 'next';
+import { Sora } from 'next/font/google';
+import Link from 'next/link';
+
+import PublicTopNav from '../../components/PublicTopNav';
 
 const sora = Sora({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700'],
+  weight: ['400', '500', '600', '700', '800'],
 });
+
+export const metadata: Metadata = {
+  title: 'Eliminar cuenta | UrbanFix',
+  description:
+    'Consulta el procedimiento vigente para solicitar la eliminacion de tu cuenta o datos asociados en UrbanFix.',
+  alternates: { canonical: '/eliminar-cuenta' },
+};
+
+const deleteSteps = [
+  'El email con el que te registraste en UrbanFix.',
+  'Tu nombre, marca o nombre del negocio.',
+  'Si deseas eliminar toda la cuenta o solo ciertos datos.',
+];
 
 export default function DeleteAccountPage() {
   return (
     <div className={sora.className}>
-      <div className="min-h-screen bg-[#F5F4F0] text-slate-900">
-        <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(148,163,184,0.25),_transparent_55%)]" />
-          <div className="absolute -left-24 top-16 h-64 w-64 rounded-full bg-[#F5B942]/30 blur-3xl" />
-          <div className="absolute -right-20 bottom-10 h-72 w-72 rounded-full bg-[#94A3B8]/25 blur-3xl" />
+      <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+        <PublicTopNav activeHref="/politicas" sticky />
 
-          <main className="relative mx-auto w-full max-w-4xl px-6 py-12">
-            <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
-              <div className="flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
-                </div>
-                <div>
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Eliminacion de cuenta</p>
-                </div>
+        <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 lg:px-8">
+          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Cuenta</p>
+
+            <div className="mt-3 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <h1 className="text-3xl font-semibold text-white sm:text-4xl">Solicitud de eliminacion de cuenta</h1>
+                <p className="mt-4 text-sm leading-7 text-white/80 sm:text-base">
+                  Esta pagina resume el proceso vigente para pedir la eliminacion de tu cuenta o de datos
+                  asociados a UrbanFix. La solicitud se gestiona por correo y puede requerir validaciones
+                  basicas para proteger la seguridad de la cuenta.
+                </p>
               </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <a
+
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/politicas"
+                  className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                >
+                  Volver a politicas
+                </Link>
+                <Link
                   href="/privacidad"
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                  className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                 >
-                  Politica de privacidad
-                </a>
+                  Privacidad
+                </Link>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Actualizacion</p>
+                <p className="mt-2 text-lg font-semibold text-white">04/02/2026</p>
+                <p className="mt-2 text-sm text-white/70">Fecha de referencia publicada para este procedimiento.</p>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Canal</p>
                 <a
-                  href="/"
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                  href="mailto:info@urbanfixar.com"
+                  className="mt-2 block text-lg font-semibold text-white transition hover:text-white/80"
                 >
-                  Volver al inicio
+                  info@urbanfixar.com
                 </a>
+                <p className="mt-2 text-sm text-white/70">Correo oficial para iniciar la solicitud.</p>
               </div>
-            </header>
 
-            <section className="mt-6 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cuenta</p>
-              <h1 className="mt-2 text-2xl font-semibold text-slate-900 sm:text-3xl">
-                Solicitar eliminacion de cuenta
-              </h1>
-              <p className="mt-2 text-xs text-slate-500">Ultima actualizacion: 04/02/2026</p>
-
-              <div className="mt-6 space-y-4 text-sm leading-relaxed text-slate-600">
-                <p>
-                  Para eliminar tu cuenta de UrbanFix, envia un correo a <strong>info@urbanfixar.com</strong> con el
-                  asunto <strong>&quot;Eliminar cuenta UrbanFix&quot;</strong>.
-                </p>
-                <p>
-                  En el mensaje indica:
-                </p>
-                <ul className="list-disc pl-5">
-                  <li>El email con el que te registraste.</li>
-                  <li>Tu nombre o el nombre del negocio.</li>
-                  <li>Si deseas eliminar toda la cuenta o solo ciertos datos.</li>
-                </ul>
-                <p>
-                  Procesaremos la solicitud en un plazo de hasta <strong>30 dias</strong>. Algunos datos pueden
-                  conservarse por obligaciones legales o de seguridad.
-                </p>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Tiempo estimado</p>
+                <p className="mt-2 text-lg font-semibold text-white">Hasta 30 dias</p>
+                <p className="mt-2 text-sm text-white/70">El plazo puede incluir validaciones y obligaciones legales.</p>
               </div>
-            </section>
+            </div>
+          </section>
 
-            <section className="mt-4 rounded-3xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Contacto</p>
-              <p className="mt-2 font-semibold text-slate-900">info@urbanfixar.com</p>
-            </section>
-          </main>
+          <section className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(280px,0.65fr)]">
+            <article className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Procedimiento</p>
+
+              <div className="mt-5 space-y-8">
+                <section className="border-b border-white/10 pb-6">
+                  <h2 className="text-xl font-semibold text-white">Como solicitar la eliminacion</h2>
+                  <div className="mt-3 space-y-3 text-sm leading-7 text-white/80">
+                    <p>
+                      Envia un correo a <strong className="text-white">info@urbanfixar.com</strong> con el asunto{' '}
+                      <strong className="text-white">&quot;Eliminar cuenta UrbanFix&quot;</strong>.
+                    </p>
+                    <p>
+                      Para que el pedido pueda procesarse con mayor rapidez, incluye los datos listados abajo en el
+                      mismo mensaje.
+                    </p>
+                  </div>
+                </section>
+
+                <section className="border-b border-white/10 pb-6">
+                  <h2 className="text-xl font-semibold text-white">Datos que debes incluir</h2>
+                  <ul className="mt-4 space-y-3 text-sm leading-7 text-white/80">
+                    {deleteSteps.map((step) => (
+                      <li key={step} className="flex gap-3">
+                        <span className="mt-1 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-bold text-white">
+                          •
+                        </span>
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+
+                <section>
+                  <h2 className="text-xl font-semibold text-white">Conservacion parcial de datos</h2>
+                  <div className="mt-3 space-y-3 text-sm leading-7 text-white/80">
+                    <p>
+                      Procesaremos la solicitud en un plazo de hasta <strong className="text-white">30 dias</strong>.
+                    </p>
+                    <p>
+                      Algunos datos pueden mantenerse por razones legales, contables, antifraude o de seguridad, aun
+                      cuando la cuenta haya sido cerrada o desactivada.
+                    </p>
+                  </div>
+                </section>
+              </div>
+            </article>
+
+            <aside className="space-y-6">
+              <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Resumen rapido</p>
+                <div className="mt-4 space-y-3 text-sm leading-7 text-white/80">
+                  <p>El pedido se realiza por email y puede abarcar la cuenta completa o solo ciertos datos.</p>
+                  <p>Si necesitas revisar el tratamiento de informacion personal, consulta tambien la politica de privacidad.</p>
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Enlaces utiles</p>
+                <div className="mt-4 flex flex-col gap-3">
+                  <Link
+                    href="/politicas"
+                    className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
+                  >
+                    Centro de politicas
+                  </Link>
+                  <Link
+                    href="/privacidad"
+                    className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
+                  >
+                    Politica de privacidad
+                  </Link>
+                  <Link
+                    href="/terminos"
+                    className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
+                  >
+                    Terminos y condiciones
+                  </Link>
+                </div>
+              </section>
+            </aside>
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
-
