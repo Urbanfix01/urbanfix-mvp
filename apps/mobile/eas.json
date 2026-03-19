@@ -6,8 +6,7 @@
   "submit": {
     "production": {
       "android": {
-        "track": "beta",
-        "changesNotSentForReview": true
+        "track": "beta"
       },
       "ios": {
         "ascAppId": "6758969211"
