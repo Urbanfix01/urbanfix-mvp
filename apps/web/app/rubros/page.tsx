@@ -65,22 +65,24 @@ export default async function RubrosPage() {
                 <a
                   key={rubro.slug}
                   href={`/rubros/${rubro.slug}`}
-                  className="group flex items-start gap-4 rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
+                  className="group flex min-h-[138px] items-start gap-4 rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
                 >
-                  <img
-                    src={`/twemoji/${twemojiCode}.svg`}
-                    alt={`Icono ${rubro.label}`}
-                    loading="lazy"
-                    decoding="async"
-                    className="mt-0.5 h-12 w-12 shrink-0 transition-transform duration-200 group-hover:scale-105"
-                  />
+                  <div className="mt-0.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_14px_28px_rgba(10,5,20,0.22)]">
+                    <img
+                      src={`/twemoji/${twemojiCode}.svg`}
+                      alt={`Icono ${rubro.label}`}
+                      loading="lazy"
+                      decoding="async"
+                      className="h-10 w-10 object-contain transition-transform duration-200 group-hover:scale-105"
+                    />
+                  </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold text-white">{rubro.label}</p>
-                    <p className="mt-2 text-xs text-white/70">
+                    <p className="text-lg font-semibold tracking-[0.01em] text-white">{rubro.label}</p>
+                    <p className="mt-2 text-sm leading-6 text-white/72">
                       {rubro.itemCount} precios activos en base de datos. Ultima actualizacion:{' '}
                       {formatDateAr(rubro.lastUpdatedAt)}.
                     </p>
-                    <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
+                    <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
                       Click para ver precios
                     </p>
                   </div>

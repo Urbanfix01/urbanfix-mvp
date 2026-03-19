@@ -1,5 +1,41 @@
 import type { RubroKey } from './urbanfix-data';
 
+const AVAILABLE_TWEMOJI_CODES = new Set([
+  '1f310',
+  '1f33f',
+  '1f3a8',
+  '1f3ca',
+  '1f3d7',
+  '1f3e0',
+  '1f3e2',
+  '1f3ec',
+  '1f3ed',
+  '1f41c',
+  '1f4a7',
+  '1f4f9',
+  '1f510',
+  '1f525',
+  '1f527',
+  '1f529',
+  '1f69c',
+  '1f6aa',
+  '1f6bf',
+  '1f6e0',
+  '1f9ca',
+  '1f9e8',
+  '1f9e9',
+  '1f9f1',
+  '1f9f9',
+  '1fa9a',
+  '1fa9f',
+  '2600',
+  '2668',
+  '2699',
+  '26a1',
+  '26cf',
+  '2744',
+]);
+
 export const rubroTwemoji: Record<RubroKey, string> = {
   electricidad: '26a1',
   plomeria: '1f527',
@@ -37,6 +73,8 @@ export const rubroTwemoji: Record<RubroKey, string> = {
   'reformas-integrales': '1f6e0',
 };
 
+const pickAvailableTwemoji = (code: string) => (AVAILABLE_TWEMOJI_CODES.has(code) ? code : '1f6e0');
+
 const normalize = (value: string) =>
   value
     .toLowerCase()
@@ -49,26 +87,27 @@ const normalize = (value: string) =>
 export const getRubroTwemojiByName = (name: string) => {
   const text = normalize(name);
 
-  if (text.includes('electric')) return '26a1';
-  if (text.includes('gas')) return '1f525';
-  if (text.includes('sanitar') || text.includes('pluvial') || text.includes('cloac')) return '1f6bd';
-  if (text.includes('refrig') || text.includes('aire')) return '2744';
-  if (text.includes('pintur')) return '1f3a8';
-  if (text.includes('carpinter')) return '1fa9a';
-  if (text.includes('vidrier')) return '1fa9f';
-  if (text.includes('demolic')) return '1f9e8';
-  if (text.includes('estructura')) return '1f3d7';
-  if (text.includes('mamposter') || text.includes('tabiquer')) return '1f9f1';
-  if (text.includes('cubierta') || text.includes('techo')) return '1f3e0';
-  if (text.includes('revoque')) return '1f9f1';
-  if (text.includes('zocal')) return '1f7eb';
-  if (text.includes('piso') || text.includes('revest')) return '1f9e9';
-  if (text.includes('preliminar')) return '1f4cb';
-  if (text.includes('equipamiento')) return '1f6cb';
-  if (text.includes('aislacion')) return '1f9f0';
-  if (text.includes('contrapiso')) return '1f3d7';
-  if (text.includes('cielorraso')) return '1f4d0';
-  if (text.includes('incendio')) return '1f692';
-  if (text.includes('varios')) return '1f6e0';
-  return '1f6e0';
+  if (text.includes('electric')) return pickAvailableTwemoji('26a1');
+  if (text.includes('gas')) return pickAvailableTwemoji('1f525');
+  if (text.includes('sanitar')) return pickAvailableTwemoji('1f6bf');
+  if (text.includes('pluvial') || text.includes('cloac') || text.includes('agua')) return pickAvailableTwemoji('1f4a7');
+  if (text.includes('incendio')) return pickAvailableTwemoji('1f525');
+  if (text.includes('refrig')) return pickAvailableTwemoji('1f9ca');
+  if (text.includes('aire')) return pickAvailableTwemoji('2744');
+  if (text.includes('pintur')) return pickAvailableTwemoji('1f3a8');
+  if (text.includes('carpinter')) return pickAvailableTwemoji('1fa9a');
+  if (text.includes('vidrier')) return pickAvailableTwemoji('1fa9f');
+  if (text.includes('demolic')) return pickAvailableTwemoji('1f9e8');
+  if (text.includes('estructura') || text.includes('contrapiso')) return pickAvailableTwemoji('1f3d7');
+  if (text.includes('mamposter') || text.includes('tabiquer') || text.includes('revoque') || text.includes('zocal')) {
+    return pickAvailableTwemoji('1f9f1');
+  }
+  if (text.includes('cubierta') || text.includes('techo')) return pickAvailableTwemoji('1f3e0');
+  if (text.includes('piso') || text.includes('revest')) return pickAvailableTwemoji('1f9e9');
+  if (text.includes('preliminar') || text.includes('equipamiento') || text.includes('varios')) {
+    return pickAvailableTwemoji('1f6e0');
+  }
+  if (text.includes('aislacion')) return pickAvailableTwemoji('1f4a7');
+  if (text.includes('cielorraso')) return pickAvailableTwemoji('2699');
+  return pickAvailableTwemoji('1f6e0');
 };
