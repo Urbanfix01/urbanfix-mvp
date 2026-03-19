@@ -13,11 +13,14 @@
 
 const path = require('path');
 const crypto = require('crypto');
-const dotenv = require('dotenv');
 const XLSX = require('xlsx');
 const { createClient } = require('@supabase/supabase-js');
-
-dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
+try {
+  const dotenv = require('dotenv');
+  dotenv.config({ path: path.join(__dirname, '..', '.env.local') });
+} catch (_error) {
+  // Permite ejecutar el importador con variables ya presentes en el entorno.
+}
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -294,12 +297,28 @@ const buildIdentityKey = (item) =>
     normalizeText(item.unit || ''),
   ].join('|');
 
+const buildLegacyIdentityKey = (item) =>
+  [
+    normalizeText(item.name),
+    normalizeText(item.category),
+    normalizeText(item.source_ref),
+    normalizeText(item.technical_notes || ''),
+  ].join('|');
+
 const buildPriceKey = (item) =>
   [
     normalizeText(item.name),
     normalizeText(item.category),
     normalizeText(item.source_ref),
     normalizeText(item.unit || ''),
+    Number(item.suggested_price || 0).toFixed(2),
+  ].join('|');
+
+const buildLegacyPriceKey = (item) =>
+  [
+    normalizeText(item.name),
+    normalizeText(item.category),
+    normalizeText(item.source_ref),
     Number(item.suggested_price || 0).toFixed(2),
   ].join('|');
 
@@ -537,6 +556,18 @@ const main = async () => {
     ])
   );
 
+  const existingLegacyIdentityMap = new Map(
+    (existingRows || []).map((row) => [
+      buildLegacyIdentityKey({
+        name: row.name,
+        category: row.category,
+        source_ref: row.source_ref,
+        technical_notes: row.technical_notes,
+      }),
+      row.id,
+    ])
+  );
+
   const existingPriceMap = new Map(
     (existingRows || []).map((row) => [
       buildPriceKey({
@@ -550,10 +581,28 @@ const main = async () => {
     ])
   );
 
+  const existingLegacyPriceMap = new Map(
+    (existingRows || []).map((row) => [
+      buildLegacyPriceKey({
+        name: row.name,
+        category: row.category,
+        source_ref: row.source_ref,
+        suggested_price: row.suggested_price,
+      }),
+      row.id,
+    ])
+  );
+
   const payload = parsedItems.map((item) => {
     const identityKey = buildIdentityKey(item);
+    const legacyIdentityKey = buildLegacyIdentityKey(item);
     const priceKey = buildPriceKey(item);
-    const existingId = existingIdentityMap.get(identityKey) || existingPriceMap.get(priceKey);
+    const legacyPriceKey = buildLegacyPriceKey(item);
+    const existingId =
+      existingIdentityMap.get(identityKey) ||
+      existingLegacyIdentityMap.get(legacyIdentityKey) ||
+      existingPriceMap.get(priceKey) ||
+      existingLegacyPriceMap.get(legacyPriceKey);
     return {
       id: existingId || crypto.randomUUID(),
       ...removePrivateFields(item),
