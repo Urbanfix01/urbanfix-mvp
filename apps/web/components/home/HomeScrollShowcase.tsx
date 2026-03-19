@@ -5,59 +5,59 @@ import Link from 'next/link';
 
 const flowSteps = [
   {
-    title: '1. Publicas la solicitud',
+    title: '1. Ingreso correcto',
     description:
-      'El cliente carga direccion, rubro y urgencia. UrbanFix organiza el pedido y lo deja listo para cotizar.',
+      'UrbanFix ordena la entrada de tecnico, empresa o cliente para que cada actor caiga en el flujo que le corresponde.',
   },
   {
-    title: '2. Matching por zona',
+    title: '2. Presupuesto estructurado',
     description:
-      'La plataforma prioriza tecnicos cercanos con perfil completo para mejorar velocidad de respuesta y cierre.',
+      'La propuesta se arma con cliente, rubro, mano de obra, materiales y observaciones tecnicas en una misma capa operativa.',
   },
   {
-    title: '3. Cotizacion clara',
+    title: '3. Envio y respuesta',
     description:
-      'Comparas propuestas, tiempos y reputacion en una sola vista para tomar decisiones sin vueltas.',
+      'El presupuesto puede salir por link o WhatsApp, y el cliente revisa la propuesta dentro de una experiencia mas clara.',
   },
   {
-    title: '4. Seguimiento en tiempo real',
+    title: '4. Visibilidad y continuidad',
     description:
-      'Desde la agenda hasta la finalizacion, el estado del trabajo se actualiza para tecnico y cliente.',
+      'Perfil publico, rubros indexables, mapa y soporte completan una presencia mas ordenada para seguir creciendo.',
   },
 ];
 
 const moduleCards = [
   {
     title: 'Panel tecnico',
-    description: 'Controla agenda, presupuestos, historial y estado operativo desde una sola interfaz.',
+    description: 'Cotizacion, items, estados y lectura operativa dentro de una sola interfaz.',
   },
   {
     title: 'Portal cliente',
-    description: 'Publica trabajos, compara tecnicos por zona y gestiona solicitudes sin friccion.',
+    description: 'Ingreso para publicar pedidos, revisar propuestas y responder con menos friccion.',
   },
   {
-    title: 'Vidriera publica',
-    description: 'Perfiles tecnicos verificables para captar consultas y ganar visibilidad comercial.',
+    title: 'Base de rubros',
+    description: 'Mano de obra, variantes tecnicas y referencias para cotizar con mas criterio.',
   },
   {
-    title: 'Rubros y precios',
-    description: 'Base ordenada por rubro para cotizar rapido con referencias consistentes.',
+    title: 'Presupuesto compartible',
+    description: 'Salida por link y presentacion mas prolija para el cliente final.',
   },
   {
-    title: 'Soporte integrado',
-    description: 'Canales directos para resolver dudas operativas y mantener continuidad de trabajo.',
+    title: 'Vidriera y mapa',
+    description: 'Perfiles visibles, cobertura por zona y descubrimiento comercial sin login.',
   },
   {
-    title: 'Roadmap de mejoras',
-    description: 'Evolucion constante del producto con foco en conversion, usabilidad y control.',
+    title: 'Admin y soporte',
+    description: 'Lectura general, seguimiento, feedback y continuidad para el producto.',
   },
 ];
 
 const impactStats = [
-  { label: 'Solicitudes mejor organizadas', value: '100%' },
-  { label: 'Visibilidad por zona', value: '24/7' },
-  { label: 'Trazabilidad del proceso', value: 'End-to-end' },
-  { label: 'Canales unificados', value: '1 plataforma' },
+  { label: 'Panel tecnico y portal cliente', value: '2 frentes' },
+  { label: 'Visibilidad publica', value: '24/7' },
+  { label: 'Presupuesto y respuesta', value: 'Link + PDF' },
+  { label: 'Base operativa', value: '1 plataforma' },
 ];
 
 export default function HomeScrollShowcase() {
@@ -105,11 +105,11 @@ export default function HomeScrollShowcase() {
         >
           <p className="text-[11px] font-semibold uppercase tracking-[0.23em] text-white/60">Plataforma UrbanFix</p>
           <h2 className="mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl">
-            Gestion comercial y operativa para tecnicos, empresas y clientes en una experiencia unificada.
+            La home ahora explica lo mismo que UrbanFix ya ofrece dentro de la plataforma y en sus capas publicas.
           </h2>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/80">
-            UrbanFix centraliza solicitudes, cotizaciones, geolocalizacion y seguimiento para que cada trabajo avance con
-            menos friccion y mas control.
+            Presupuestos compartibles, base tecnica de rubros, portal cliente, perfiles publicos, mapa de tecnicos y
+            lectura administrativa en un mismo ecosistema.
           </p>
         </article>
 
@@ -151,14 +151,22 @@ export default function HomeScrollShowcase() {
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">Modulos clave</p>
-              <h3 className="mt-2 text-2xl font-semibold text-white">Todo conectado para trabajar mejor</h3>
+              <h3 className="mt-2 text-2xl font-semibold text-white">Todo conectado para operar y presentarte mejor</h3>
             </div>
-            <Link
-              href="/tecnicos"
-              className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-            >
-              Entrar a la plataforma
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/urbanfix"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver servicios
+              </Link>
+              <Link
+                href="/tecnicos"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Entrar a la plataforma
+              </Link>
+            </div>
           </div>
           <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {moduleCards.map((item) => (
@@ -179,15 +187,15 @@ export default function HomeScrollShowcase() {
         >
           <h3 className="text-2xl font-semibold text-white sm:text-3xl">Listo para escalar la operacion diaria</h3>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/80">
-            Desde una reparacion puntual hasta una operacion de multiples rubros, UrbanFix te da estructura de trabajo,
-            visibilidad por zona y seguimiento completo del ciclo comercial.
+            Desde un tecnico independiente hasta una operacion con multiples actores, UrbanFix junta presupuesto,
+            cliente, vidriera publica, mapa y soporte en una misma estructura.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/cliente"
+              href="/urbanfix"
               className="rounded-full bg-[#ff8f1f] px-5 py-2.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffb14d]"
             >
-              Publicar una solicitud
+              Ver todo lo que ofrece
             </Link>
             <Link
               href="/vidriera"
