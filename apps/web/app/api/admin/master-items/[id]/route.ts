@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import { canonicalizeMasterItemUnit } from '@/lib/master-items';
 
 const isMissingColumnError = (error: any, column: string) => {
   const message = String(error?.message || '').toLowerCase();
@@ -35,7 +36,7 @@ const parseTechnicalNotes = (value: any) => {
 const parseUnit = (value: any) => {
   if (value === null || value === undefined) return { ok: true, value: null as string | null };
   if (typeof value !== 'string') return { ok: false, value: null as string | null };
-  const normalized = value.trim().toLowerCase();
+  const normalized = canonicalizeMasterItemUnit(value);
   return { ok: true, value: normalized || null };
 };
 

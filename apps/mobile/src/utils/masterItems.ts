@@ -87,6 +87,30 @@ const normalizeSearchValue = (value: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+export const canonicalizeMasterItemUnit = (value: string | null | undefined) => {
+  const normalized = normalizeSearchValue(String(value || '').replace(/\u00B2/g, '2').replace(/\u00B3/g, '3'));
+  if (!normalized) return null;
+
+  if (['m2', 'mt2', 'metro cuadrado', 'metros cuadrados', 'por m2'].includes(normalized)) return 'm2';
+  if (['m3', 'mt3', 'metro cubico', 'metros cubicos', 'por m3'].includes(normalized)) return 'm3';
+  if (['ml', 'm lineal', 'metro lineal', 'metros lineales'].includes(normalized)) return 'ml';
+  if (['m', 'metro', 'metros'].includes(normalized)) return 'metro';
+  if (['u', 'un', 'unid', 'unidad', 'unidades'].includes(normalized)) return 'unidad';
+  if (['boca', 'bocas'].includes(normalized)) return 'boca';
+  if (['hora', 'horas'].includes(normalized)) return 'hora';
+  if (['jornada', 'jornadas'].includes(normalized)) return 'jornada';
+  if (['dia', 'dias'].includes(normalized)) return 'dia';
+  if (['global'].includes(normalized)) return 'global';
+  if (['kg', 'kilo', 'kilos'].includes(normalized)) return 'kg';
+  if (['jgo', 'juego', 'juegos'].includes(normalized)) return 'juego';
+  if (['union', 'uniones'].includes(normalized)) return 'union';
+  if (['par', 'pares'].includes(normalized)) return 'par';
+
+  return normalized;
+};
+
+export const formatMasterItemUnitLabel = (value: string | null | undefined) => canonicalizeMasterItemUnit(value) || '';
+
 const hasPattern = (value: string, patterns: string[]) => patterns.some((pattern) => value.includes(pattern));
 
 export const normalizeTechnicalNotesText = (value: string | null | undefined) =>
@@ -107,9 +131,9 @@ export const compactTechnicalNotesText = (
 };
 
 export const inferCalculatorUnit = (item: MasterItemLike): CalculatorUnit | null => {
-  const explicitUnit = normalizeSearchValue(item.unit);
-  if (explicitUnit === 'm2' || explicitUnit === 'metro cuadrado' || explicitUnit === 'metros cuadrados') return 'm2';
-  if (explicitUnit === 'm3' || explicitUnit === 'metro cubico' || explicitUnit === 'metros cubicos') return 'm3';
+  const explicitUnit = canonicalizeMasterItemUnit(item.unit);
+  if (explicitUnit === 'm2') return 'm2';
+  if (explicitUnit === 'm3') return 'm3';
 
   const combinedText = normalizeSearchValue(
     `${item.name || ''} ${item.technical_notes || ''} ${item.category || ''} ${item.source_ref || ''}`
@@ -140,7 +164,9 @@ export const buildMasterItemChoiceLabel = (
 
 export const buildMasterItemSearchIndex = (item: MasterItemLike) =>
   normalizeSearchValue(
-    `${item.name || ''} ${item.technical_notes || ''} ${item.category || ''} ${item.source_ref || ''} ${item.unit || ''}`
+    `${item.name || ''} ${item.technical_notes || ''} ${item.category || ''} ${item.source_ref || ''} ${
+      canonicalizeMasterItemUnit(item.unit) || item.unit || ''
+    }`
   );
 
 export const formatMasterItemSourceLabel = (item: Pick<MasterItem, 'category' | 'source_ref'>) => {

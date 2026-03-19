@@ -1,5 +1,9 @@
 import { cache } from 'react';
-import { normalizeTechnicalNotesText } from '../master-items';
+import {
+  canonicalizeMasterItemUnit,
+  formatMasterItemUnitLabel,
+  normalizeTechnicalNotesText,
+} from '../master-items';
 import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
 import { getCatalogRubroBySlug, rubroCatalog, type RubroCatalogItem } from './rubro-catalog';
@@ -214,9 +218,9 @@ const getLatestDate = (rows: MasterItemRow[]) => {
 };
 
 const resolveUnit = (row: Pick<MasterItemRow, 'name' | 'unit'>) => {
-  const explicitUnit = normalize(cleanText(row.unit));
-  if (explicitUnit) return explicitUnit;
-  return inferUnit(row.name);
+  const explicitUnit = canonicalizeMasterItemUnit(row.unit);
+  if (explicitUnit) return formatMasterItemUnitLabel(explicitUnit);
+  return formatMasterItemUnitLabel(inferUnit(row.name));
 };
 
 const toRubroPriceReference = (row: MasterItemRow): RubroPriceReference => ({

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { canonicalizeMasterItemUnit } from '../utils/masterItems';
 
 export interface JobItem {
   id: string;
@@ -76,7 +77,7 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
         const safeQuantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
         const technicalNotes = String(item.technicalNotes ?? item.technical_notes ?? '').trim();
         const sourceRef = String(item.sourceRef ?? item.source_ref ?? '').trim();
-        const unit = String(item.unit ?? '').trim();
+        const unit = canonicalizeMasterItemUnit(item.unit) || '';
         const masterItemId =
           typeof item.masterItemId === 'string' && item.masterItemId.trim()
             ? item.masterItemId.trim()

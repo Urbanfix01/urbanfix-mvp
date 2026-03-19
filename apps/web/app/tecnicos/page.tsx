@@ -23,7 +23,12 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
-import { buildMasterItemChoiceLabel, compactTechnicalNotesText, normalizeTechnicalNotesText } from '../../lib/master-items';
+import {
+  buildMasterItemChoiceLabel,
+  canonicalizeMasterItemUnit,
+  compactTechnicalNotesText,
+  normalizeTechnicalNotesText,
+} from '../../lib/master-items';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import type {
   AccessProfile,
@@ -2445,9 +2450,10 @@ export default function TechniciansPage() {
     const candidates = laborMasterNameMap.get(normalized) || [];
     if (candidates.length === 1) return candidates[0] || null;
 
-    const unitKey = normalizeText(item.unit || '');
+    const unitKey = canonicalizeMasterItemUnit(item.unit || '') || '';
     if (unitKey) {
-      const byUnit = candidates.find((candidate) => normalizeText(candidate.unit || '') === unitKey) || null;
+      const byUnit =
+        candidates.find((candidate) => (canonicalizeMasterItemUnit(candidate.unit || '') || '') === unitKey) || null;
       if (byUnit) return byUnit;
     }
 

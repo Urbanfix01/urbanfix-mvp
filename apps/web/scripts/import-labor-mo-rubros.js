@@ -69,6 +69,39 @@ const normalizeText = (value) =>
 
 const cleanText = (value) => (value ?? '').toString().replace(/\s+/g, ' ').trim();
 const normalizeTechnicalNotes = (value) => cleanText(value).replace(/\r/g, '');
+const normalizeUnitToken = (value) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\u00B2/g, '2')
+    .replace(/\u00B3/g, '3')
+    .replace(/\./g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const canonicalizeUnit = (value) => {
+  const normalized = normalizeUnitToken(value);
+  if (!normalized) return '';
+
+  if (['m2', 'mt2', 'metro cuadrado', 'metros cuadrados', 'por m2'].includes(normalized)) return 'm2';
+  if (['m3', 'mt3', 'metro cubico', 'metros cubicos', 'por m3'].includes(normalized)) return 'm3';
+  if (['ml', 'm lineal', 'metro lineal', 'metros lineales'].includes(normalized)) return 'ml';
+  if (['m', 'metro', 'metros'].includes(normalized)) return 'metro';
+  if (['u', 'un', 'unid', 'unidad', 'unidades'].includes(normalized)) return 'unidad';
+  if (['boca', 'bocas'].includes(normalized)) return 'boca';
+  if (['hora', 'horas'].includes(normalized)) return 'hora';
+  if (['jornada', 'jornadas'].includes(normalized)) return 'jornada';
+  if (['dia', 'dias'].includes(normalized)) return 'dia';
+  if (['global'].includes(normalized)) return 'global';
+  if (['kg', 'kilo', 'kilos'].includes(normalized)) return 'kg';
+  if (['jgo', 'juego', 'juegos'].includes(normalized)) return 'juego';
+  if (['union', 'uniones'].includes(normalized)) return 'union';
+  if (['par', 'pares'].includes(normalized)) return 'par';
+
+  return normalized;
+};
 
 const toNumber = (value) => {
   if (typeof value === 'number') {
@@ -376,7 +409,7 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
     const row = matrix[r] || [];
     const name = cleanText(row[idxName]);
     const category = idxCategory >= 0 ? cleanText(row[idxCategory]) || fallbackCategory : fallbackCategory;
-    const unit = idxUnit >= 0 ? cleanText(row[idxUnit]) : '';
+    const unit = idxUnit >= 0 ? canonicalizeUnit(row[idxUnit]) : '';
     const priceRaw = idxMo >= 0 ? row[idxMo] : row[idxPrice];
     const price = toNumber(priceRaw);
     const technicalNotes = buildTechnicalNotes({

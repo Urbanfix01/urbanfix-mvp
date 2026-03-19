@@ -26,6 +26,7 @@ import { formatCurrency } from '../../utils/number';
 import type { MasterItem } from '../../types/database';
 import {
   buildMasterItemSearchIndex,
+  formatMasterItemUnitLabel,
   compactTechnicalNotesText,
   formatMasterItemSourceLabel,
   inferCalculatorUnit,
@@ -835,7 +836,7 @@ export default function JobConfigScreen() {
         const totalPrice = unitPrice * quantity;
         const itemId = item.id ? item.id.toString() : '';
         const itemName = item.name || '';
-        const itemUnit = String(item.unit || '').toLowerCase();
+        const itemUnit = formatMasterItemUnitLabel(item.unit);
         const unitLabel = itemUnit ? `Precio por ${itemUnit}` : 'Precio unitario';
         const quantityLabel = itemUnit ? `${quantity} ${itemUnit}` : `${quantity}`;
         const technicalSummary = compactTechnicalNotesText(item.technicalNotes, { maxLength: 180 });

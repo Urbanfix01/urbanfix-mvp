@@ -16,6 +16,7 @@ import { useMasterItems } from '../../hooks/useCatalog';
 import { MasterItem } from '../../types/database';
 import {
   compactTechnicalNotesText,
+  formatMasterItemUnitLabel,
   formatMasterItemSourceLabel,
   inferCalculatorUnit,
 } from '../../utils/masterItems';
@@ -103,7 +104,7 @@ export default function ItemSelector({ visible, onClose, onSelect, filterType }:
   };
 
   const renderItem = ({ item }: { item: MasterItem }) => {
-    const unit = (item.unit || inferCalculatorUnit(item) || '').toString();
+    const unit = formatMasterItemUnitLabel(item.unit) || inferCalculatorUnit(item) || '';
     const technicalSummary = compactTechnicalNotesText(item.technical_notes, { maxLength: 120 });
     const sourceLabel = formatMasterItemSourceLabel(item);
 
