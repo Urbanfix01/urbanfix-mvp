@@ -29,6 +29,7 @@ interface Prediction {
   city?: string;
   province?: string;
   source?: 'google' | 'osm';
+  score?: number;
 }
 
 interface Props {
@@ -98,6 +99,43 @@ const resolveOsmProvince = (address?: Record<string, string | undefined>) =>
 const resolveGoogleAddressPart = (components: any[] | undefined, type: string) => {
   const row = (components || []).find((component) => Array.isArray(component?.types) && component.types.includes(type));
   return String(row?.long_name || '').trim();
+};
+
+const normalizeSearchValue = (value: string) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const tokenizeSearch = (value: string) =>
+  normalizeSearchValue(value)
+    .split(/[^a-z0-9]+/i)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+const scoreOsmRow = (row: OsmRow, query: string) => {
+  const normalizedDescription = normalizeSearchValue(String(row.display_name || ''));
+  const tokens = tokenizeSearch(query);
+  const hasHouseNumber = Boolean(String(row.address?.house_number || '').trim()) || /\b\d{1,6}\b/.test(normalizedDescription);
+  const hasRoad = Boolean(pickFirstAddressValue(row.address, ['road', 'pedestrian', 'footway', 'street']));
+  const city = resolveOsmCity(row.address);
+  const province = resolveOsmProvince(row.address);
+
+  let score = 0;
+  for (const token of tokens) {
+    if (!token) continue;
+    if (normalizedDescription.startsWith(token)) score += 4;
+    else if (normalizedDescription.includes(token)) score += token.length >= 4 ? 3 : 1;
+  }
+
+  if (hasHouseNumber) score += 8;
+  if (hasRoad) score += 5;
+  if (city) score += 3;
+  if (province) score += 1;
+  if (/\d/.test(query) && hasHouseNumber) score += 6;
+
+  return score;
 };
 
 export const LocationAutocomplete = ({
@@ -177,6 +215,74 @@ export const LocationAutocomplete = ({
     };
   };
 
+  const geocodeWithGoogle = async (address: string, signal?: AbortSignal) => {
+    const trimmed = String(address || '').trim();
+    if (!trimmed || !finalApiKey) return null;
+
+    const url =
+      `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(trimmed)}` +
+      `&components=country:AR&language=es&key=${finalApiKey}`;
+    const response = await fetch(url, { signal });
+    if (!response.ok) return null;
+
+    const json = await response.json();
+    const first = Array.isArray(json?.results) ? json.results[0] : null;
+    if (!first) return null;
+
+    const lat = Number(first?.geometry?.location?.lat);
+    const lng = Number(first?.geometry?.location?.lng);
+    const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+    const city =
+      resolveGoogleAddressPart(first?.address_components, 'locality') ||
+      resolveGoogleAddressPart(first?.address_components, 'administrative_area_level_2');
+    const province = resolveGoogleAddressPart(first?.address_components, 'administrative_area_level_1');
+
+    return {
+      address: String(first?.formatted_address || trimmed),
+      lat: hasCoords ? lat : 0,
+      lng: hasCoords ? lng : 0,
+      placeId: String(first?.place_id || ''),
+      city,
+      province,
+      hasCoords,
+    };
+  };
+
+  const resolveTypedAddress = async (rawAddress: string) => {
+    const typedAddress = String(rawAddress || '').trim();
+    if (!typedAddress) return;
+
+    try {
+      if (finalApiKey) {
+        const googleResolved = await geocodeWithGoogle(typedAddress, abortRef.current?.signal);
+        if (googleResolved?.hasCoords) {
+          setQuery(googleResolved.address);
+          commitAddress(googleResolved.address, googleResolved.placeId, googleResolved.lat, googleResolved.lng, {
+            city: googleResolved.city,
+            province: googleResolved.province,
+            source: 'google',
+          });
+          return;
+        }
+      }
+
+      const osmResolved = await geocodeWithOsm(typedAddress, abortRef.current?.signal);
+      if (osmResolved?.hasCoords) {
+        setQuery(osmResolved.address);
+        commitAddress(osmResolved.address, osmResolved.placeId, osmResolved.lat, osmResolved.lng, {
+          city: osmResolved.city,
+          province: osmResolved.province,
+          source: 'osm',
+        });
+        return;
+      }
+    } catch (_error) {
+      // fallback below
+    }
+
+    commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
+  };
+
   useEffect(() => {
     const nextValue = initialValue || '';
     if (nextValue === query) return;
@@ -235,7 +341,7 @@ export const LocationAutocomplete = ({
         }
 
         const osmUrl =
-          `${OSM_SEARCH_URL}?format=json&limit=5&countrycodes=ar` +
+          `${OSM_SEARCH_URL}?format=json&limit=6&dedupe=1&countrycodes=ar` +
           `&addressdetails=1&q=${encodeURIComponent(query)}`;
         const osmResponse = await fetch(osmUrl, {
           signal: controller.signal,
@@ -263,9 +369,11 @@ export const LocationAutocomplete = ({
               city: resolveOsmCity(row.address),
               province: resolveOsmProvince(row.address),
               source: 'osm' as const,
+              score: scoreOsmRow(row, query),
             };
           })
-          .filter((row) => row.description.trim().length > 0);
+          .filter((row) => row.description.trim().length > 0)
+          .sort((a: any, b: any) => Number(b.score || 0) - Number(a.score || 0));
 
         setPredictions(mapped);
         setDebugStatus(`OSM (${mapped.length})`);
@@ -370,25 +478,7 @@ export const LocationAutocomplete = ({
       setIsFocused(false);
       const typedAddress = query.trim();
       if (typedAddress && typedAddress !== committedAddressRef.current) {
-        if (!finalApiKey) {
-          void geocodeWithOsm(typedAddress)
-            .then((resolved) => {
-              if (resolved?.hasCoords) {
-                commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng, {
-                  city: resolved.city,
-                  province: resolved.province,
-                  source: 'osm',
-                });
-                return;
-              }
-              commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
-            })
-            .catch(() => {
-              commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
-            });
-          return;
-        }
-        commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
+        void resolveTypedAddress(typedAddress);
       }
     }, 160);
   };
@@ -440,23 +530,7 @@ export const LocationAutocomplete = ({
               onBlur={() => {
                 const typedAddress = query.trim();
                 if (!typedAddress) return;
-                if (!finalApiKey) {
-                  void geocodeWithOsm(typedAddress)
-                    .then((resolved) => {
-                      if (resolved?.hasCoords) {
-                        commitAddress(resolved.address, resolved.placeId, resolved.lat, resolved.lng, {
-                          city: resolved.city,
-                          province: resolved.province,
-                          source: 'osm',
-                        });
-                        return;
-                      }
-                      commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
-                    })
-                    .catch(() => commitAddress(typedAddress, '', 0, 0, { source: 'manual' }));
-                  return;
-                }
-                commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
+                void resolveTypedAddress(typedAddress);
               }}
             />
           )}
@@ -476,7 +550,15 @@ export const LocationAutocomplete = ({
               }}
               onFocus={() => setIsFocused(true)}
               onBlur={handleNativeBlur}
+              onSubmitEditing={() => {
+                setIsFocused(false);
+                void resolveTypedAddress(query);
+              }}
               autoCorrect={false}
+              autoCapitalize="words"
+              returnKeyType="search"
+              blurOnSubmit={false}
+              textContentType="fullStreetAddress"
             />
             {isLoading ? <ActivityIndicator size="small" color="#9CA3AF" /> : null}
           </View>
@@ -487,8 +569,17 @@ export const LocationAutocomplete = ({
             <View style={styles.listView}>
               <FlatList
                 keyboardShouldPersistTaps="always"
+                nestedScrollEnabled
                 data={predictions}
                 keyExtractor={(item) => item.place_id}
+                ListFooterComponent={
+                  query.trim().length >= MIN_QUERY_LENGTH ? (
+                    <TouchableOpacity style={styles.manualRow} onPress={() => void resolveTypedAddress(query)}>
+                      <Text style={styles.manualRowTitle}>Usar direccion escrita</Text>
+                      <Text style={styles.manualRowText}>{query.trim()}</Text>
+                    </TouchableOpacity>
+                  ) : null
+                }
                 renderItem={({ item }) => (
                   <TouchableOpacity style={styles.row} onPress={() => handleSelect(item)}>
                     <Text style={styles.rowText}>{item.description}</Text>
@@ -568,6 +659,23 @@ const styles = StyleSheet.create({
   rowText: {
     fontSize: 14,
     color: '#111827',
+  },
+  manualRow: {
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    backgroundColor: '#FFF7ED',
+    borderTopWidth: 1,
+    borderTopColor: '#FED7AA',
+  },
+  manualRowTitle: {
+    fontSize: 12,
+    color: '#9A3412',
+    fontWeight: '700',
+  },
+  manualRowText: {
+    marginTop: 4,
+    fontSize: 12,
+    color: '#C2410C',
   },
   debugText: {
     marginTop: 6,

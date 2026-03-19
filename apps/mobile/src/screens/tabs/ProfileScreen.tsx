@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
   ActivityIndicator, Alert, Image, Platform, RefreshControl, TextInput, KeyboardAvoidingView, Switch
@@ -36,6 +36,11 @@ interface Profile {
   default_discount?: number | null;
   location_lat?: number | null;
   location_lng?: number | null;
+  service_lat?: number | null;
+  service_lng?: number | null;
+  city?: string | null;
+  service_city?: string | null;
+  service_province?: string | null;
   instagram_profile_url?: string | null;
   facebook_profile_url?: string | null;
   instagram_post_url?: string | null;
@@ -66,6 +71,26 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
 };
 
 const MAX_WORK_PHOTOS = 6;
+const ZERO_COORDINATE_EPSILON = 0.000001;
+
+const hasValidCoordinates = (lat: number, lng: number) =>
+  Number.isFinite(lat) &&
+  Number.isFinite(lng) &&
+  !(Math.abs(lat) <= ZERO_COORDINATE_EPSILON && Math.abs(lng) <= ZERO_COORDINATE_EPSILON);
+
+const extractCityFromAddress = (value: string) => {
+  const parts = String(value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length < 2) return '';
+  const lastPart = parts[parts.length - 1];
+  const candidate = lastPart.toLowerCase() === 'argentina' ? parts[parts.length - 2] : lastPart;
+  if (!candidate || /\d/.test(candidate)) {
+    return '';
+  }
+  return candidate;
+};
 
 const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
   const match = String(value || '')
@@ -280,7 +305,18 @@ export default function ProfileScreen({
   const [workPhotoUrls, setWorkPhotoUrls] = useState<string[]>([]);
   const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const [serviceCity, setServiceCity] = useState('');
+  const [serviceProvince, setServiceProvince] = useState('');
+  const [locationResolving, setLocationResolving] = useState(false);
+  const [lastConfirmedAddress, setLastConfirmedAddress] = useState('');
   const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({ ...DEFAULT_WORKING_HOURS_CONFIG });
+  const hasPreciseOperationalBase = useMemo(() => hasValidCoordinates(location.lat, location.lng), [location.lat, location.lng]);
+  const baseReadiness = useMemo(() => {
+    if (locationResolving) return 'Validando';
+    if (hasPreciseOperationalBase) return 'Exacta';
+    if (address.trim()) return 'Revisar';
+    return 'Pendiente';
+  }, [address, hasPreciseOperationalBase, locationResolving]);
 
   useEffect(() => {
     if (requiredCompletion) {
@@ -311,7 +347,9 @@ export default function ProfileScreen({
       setFullName(userProfile.full_name || '');
       setBusinessName(userProfile.business_name || '');
       setPhone(userProfile.phone || '');
-      setAddress(userProfile.company_address || '');
+      const nextAddress = userProfile.company_address || '';
+      setAddress(nextAddress);
+      setLastConfirmedAddress(nextAddress);
       setInstagramProfileUrl(userProfile.instagram_profile_url || '');
       setFacebookProfileUrl(userProfile.facebook_profile_url || '');
       setInstagramPostUrl(userProfile.instagram_post_url || '');
@@ -320,8 +358,14 @@ export default function ProfileScreen({
       setWorkPhotoUrls(normalizeStringArray(userProfile.work_photo_urls).slice(0, MAX_WORK_PHOTOS));
       setDefaultDiscount(userProfile.default_discount !== null && userProfile.default_discount !== undefined ? String(userProfile.default_discount) : '');
       setWorkingHours(parseWorkingHoursConfig(userProfile.working_hours));
-      if (userProfile.location_lat && userProfile.location_lng) {
-        setLocation({ lat: userProfile.location_lat, lng: userProfile.location_lng });
+      setServiceCity(userProfile.service_city || userProfile.city || extractCityFromAddress(nextAddress));
+      setServiceProvince(userProfile.service_province || '');
+      const resolvedLat = Number(userProfile.service_lat ?? userProfile.location_lat ?? 0);
+      const resolvedLng = Number(userProfile.service_lng ?? userProfile.location_lng ?? 0);
+      if (hasValidCoordinates(resolvedLat, resolvedLng)) {
+        setLocation({ lat: resolvedLat, lng: resolvedLng });
+      } else {
+        setLocation({ lat: 0, lng: 0 });
       }
 
     } catch (error) {
@@ -426,10 +470,38 @@ export default function ProfileScreen({
   };
 
   // --- 3. LÓGICA DE GUARDADO DE DATOS Y MAPA ---
-  const handleLocationSelect = (data: { address: string, lat: number, lng: number }) => {
+  const handleLocationQueryChange = (value: string) => {
+    const safeValue = String(value || '');
+    setAddress(safeValue);
+
+    if (!safeValue.trim()) {
+      setLocation({ lat: 0, lng: 0 });
+      setLastConfirmedAddress('');
+      setServiceCity('');
+      setServiceProvince('');
+      return;
+    }
+
+    if (safeValue.trim().toLowerCase() !== lastConfirmedAddress.trim().toLowerCase()) {
+      setLocation({ lat: 0, lng: 0 });
+      setServiceCity('');
+      setServiceProvince('');
+    }
+  };
+
+  const handleLocationSelect = (data: { address: string; lat: number; lng: number; city?: string; province?: string }) => {
     console.log("📍 Base operativa seleccionada:", data);
-    setAddress(data.address);
-    setLocation({ lat: data.lat, lng: data.lng });
+    const safeAddress = String(data.address || '').trim();
+    const safeCity = String(data.city || '').trim();
+    const safeProvince = String(data.province || '').trim();
+    setAddress(safeAddress);
+    setLastConfirmedAddress(safeAddress);
+    setLocation({
+      lat: Number.isFinite(data.lat) ? data.lat : 0,
+      lng: Number.isFinite(data.lng) ? data.lng : 0,
+    });
+    setServiceCity(safeCity || extractCityFromAddress(safeAddress));
+    setServiceProvince(safeProvince);
   };
 
   const saveProfileData = async () => {
@@ -463,13 +535,22 @@ export default function ProfileScreen({
         'Publicacion de Facebook'
       );
 
+      const safeAddress = String(address || '').trim();
+      const safeServiceCity = String(serviceCity || '').trim() || extractCityFromAddress(safeAddress);
+      const safeServiceProvince = String(serviceProvince || '').trim();
+      const preciseLat = hasValidCoordinates(location.lat, location.lng) ? Number(location.lat.toFixed(6)) : null;
+      const preciseLng = hasValidCoordinates(location.lat, location.lng) ? Number(location.lng.toFixed(6)) : null;
+
       const updates = {
         id: user.id,
         email: user.email || null,
         full_name: fullName,
         business_name: businessName,
         phone: phone,
-        company_address: address,
+        city: safeServiceCity || null,
+        company_address: safeAddress,
+        service_city: safeServiceCity || null,
+        service_province: safeServiceProvince || null,
         instagram_profile_url: normalizedInstagramProfileUrl,
         facebook_profile_url: normalizedFacebookProfileUrl,
         instagram_post_url: normalizedInstagramPostUrl,
@@ -477,8 +558,10 @@ export default function ProfileScreen({
         work_photo_urls: workPhotoUrls.filter((url) => isValidUrl(url)).slice(0, MAX_WORK_PHOTOS),
         default_discount: parsePercent(defaultDiscount),
         working_hours: stringifyWorkingHoursConfig(workingHours),
-        location_lat: location.lat !== 0 ? location.lat : null,
-        location_lng: location.lng !== 0 ? location.lng : null,
+        location_lat: preciseLat,
+        location_lng: preciseLng,
+        service_lat: preciseLat,
+        service_lng: preciseLng,
         updated_at: new Date().toISOString(),
       };
 
@@ -594,7 +677,9 @@ export default function ProfileScreen({
       setFullName(profile.full_name || '');
       setBusinessName(profile.business_name || '');
       setPhone(profile.phone || '');
-      setAddress(profile.company_address || '');
+      const safeAddress = profile.company_address || '';
+      setAddress(safeAddress);
+      setLastConfirmedAddress(safeAddress);
       setInstagramProfileUrl(profile.instagram_profile_url || '');
       setFacebookProfileUrl(profile.facebook_profile_url || '');
       setInstagramPostUrl(profile.instagram_post_url || '');
@@ -607,8 +692,12 @@ export default function ProfileScreen({
           : ''
       );
       setWorkingHours(parseWorkingHoursConfig(profile.working_hours));
-      if (profile.location_lat && profile.location_lng) {
-        setLocation({ lat: profile.location_lat, lng: profile.location_lng });
+      setServiceCity(profile.service_city || profile.city || extractCityFromAddress(safeAddress));
+      setServiceProvince(profile.service_province || '');
+      const resolvedLat = Number(profile.service_lat ?? profile.location_lat ?? 0);
+      const resolvedLng = Number(profile.service_lng ?? profile.location_lng ?? 0);
+      if (hasValidCoordinates(resolvedLat, resolvedLng)) {
+        setLocation({ lat: resolvedLat, lng: resolvedLng });
       } else {
         setLocation({ lat: 0, lng: 0 });
       }
@@ -645,7 +734,7 @@ export default function ProfileScreen({
       <ScrollView 
         contentContainerStyle={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
       >
         {requiredCompletion && (
           <View style={styles.requiredCard}>
@@ -771,13 +860,16 @@ export default function ProfileScreen({
             </View>
 
             {/* Selector de Mapa (Base Operativa) */}
-            <View style={[styles.inputGroup, { zIndex: 100 }]}>
+            <View style={[styles.inputGroup, styles.operationalBaseGroup]}>
                 <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
-                <View style={{ marginTop: 5, height: 60, zIndex: 100 }}>
+                <View style={styles.operationalBaseFieldWrap}>
                     {isEditing ? (
                         <LocationAutocomplete 
                             initialValue={address}
                             onLocationSelect={handleLocationSelect}
+                            onQueryChange={handleLocationQueryChange}
+                            onLoadingChange={setLocationResolving}
+                            placeholder="Calle, altura, localidad y provincia"
                         />
                     ) : (
                         <View style={styles.readonlyField}>
@@ -785,6 +877,76 @@ export default function ProfileScreen({
                           <Text style={styles.readonlyText}>{address || 'Sin dirección'}</Text>
                         </View>
                     )}
+                </View>
+                <View
+                  style={[
+                    styles.operationalBaseStatusCard,
+                    hasPreciseOperationalBase && styles.operationalBaseStatusCardOk,
+                    locationResolving && styles.operationalBaseStatusCardPending,
+                  ]}
+                >
+                  <View style={styles.operationalBaseStatusHeader}>
+                    <View style={styles.operationalBaseStatusTitleWrap}>
+                      <Ionicons
+                        name={
+                          locationResolving
+                            ? 'sync-outline'
+                            : hasPreciseOperationalBase
+                              ? 'checkmark-circle-outline'
+                              : 'information-circle-outline'
+                        }
+                        size={16}
+                        color={locationResolving ? '#1D4ED8' : hasPreciseOperationalBase ? '#166534' : '#64748B'}
+                      />
+                      <Text style={styles.operationalBaseStatusTitle}>Precision operativa</Text>
+                    </View>
+                    <View
+                      style={[
+                        styles.operationalBaseBadge,
+                        hasPreciseOperationalBase && styles.operationalBaseBadgeOk,
+                        locationResolving && styles.operationalBaseBadgePending,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.operationalBaseBadgeText,
+                          hasPreciseOperationalBase && styles.operationalBaseBadgeTextOk,
+                          locationResolving && styles.operationalBaseBadgeTextPending,
+                        ]}
+                      >
+                        {baseReadiness}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={[styles.operationalBaseStatusText, hasPreciseOperationalBase && styles.operationalBaseStatusTextOk]}>
+                    {locationResolving
+                      ? 'Validando coordenadas exactas para que el matching use tu base real.'
+                      : hasPreciseOperationalBase
+                        ? 'Base confirmada con coordenadas listas para mapa operativo y matching por radio.'
+                        : 'Escribe una direccion exacta y selecciona una sugerencia para guardar coordenadas precisas.'}
+                  </Text>
+                  <View style={styles.operationalBaseMetaGrid}>
+                    <View style={styles.operationalBaseMetaItem}>
+                      <Text style={styles.operationalBaseMetaLabel}>Ciudad</Text>
+                      <Text style={styles.operationalBaseMetaValue}>{serviceCity || 'Pendiente'}</Text>
+                    </View>
+                    <View style={styles.operationalBaseMetaItem}>
+                      <Text style={styles.operationalBaseMetaLabel}>Provincia</Text>
+                      <Text style={styles.operationalBaseMetaValue}>{serviceProvince || 'Pendiente'}</Text>
+                    </View>
+                    <View style={styles.operationalBaseMetaItem}>
+                      <Text style={styles.operationalBaseMetaLabel}>Latitud</Text>
+                      <Text style={styles.operationalBaseMetaValue}>
+                        {hasPreciseOperationalBase ? location.lat.toFixed(6) : 'Pendiente'}
+                      </Text>
+                    </View>
+                    <View style={styles.operationalBaseMetaItem}>
+                      <Text style={styles.operationalBaseMetaLabel}>Longitud</Text>
+                      <Text style={styles.operationalBaseMetaValue}>
+                        {hasPreciseOperationalBase ? location.lng.toFixed(6) : 'Pendiente'}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
             </View>
 
@@ -1369,6 +1531,109 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
   },
   readonlyText: { fontSize: 13, fontFamily: FONTS.body, color: '#64748B' },
+  operationalBaseGroup: {
+    zIndex: 100,
+  },
+  operationalBaseFieldWrap: {
+    marginTop: 5,
+    zIndex: 100,
+  },
+  operationalBaseStatusCard: {
+    marginTop: 10,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    backgroundColor: '#F8FAFC',
+    padding: 12,
+  },
+  operationalBaseStatusCardOk: {
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+  },
+  operationalBaseStatusCardPending: {
+    borderColor: '#BFDBFE',
+    backgroundColor: '#EFF6FF',
+  },
+  operationalBaseStatusHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  operationalBaseStatusTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  operationalBaseStatusTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.subtitle,
+    color: '#0F172A',
+  },
+  operationalBaseBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#E2E8F0',
+  },
+  operationalBaseBadgeOk: {
+    backgroundColor: '#DCFCE7',
+  },
+  operationalBaseBadgePending: {
+    backgroundColor: '#DBEAFE',
+  },
+  operationalBaseBadgeText: {
+    fontSize: 10,
+    fontFamily: FONTS.subtitle,
+    color: '#475569',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  operationalBaseBadgeTextOk: {
+    color: '#166534',
+  },
+  operationalBaseBadgeTextPending: {
+    color: '#1D4ED8',
+  },
+  operationalBaseStatusText: {
+    fontSize: 12,
+    lineHeight: 18,
+    fontFamily: FONTS.body,
+    color: '#64748B',
+  },
+  operationalBaseStatusTextOk: {
+    color: '#166534',
+  },
+  operationalBaseMetaGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  operationalBaseMetaItem: {
+    flexGrow: 1,
+    minWidth: '45%',
+    borderRadius: 10,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+  },
+  operationalBaseMetaLabel: {
+    fontSize: 10,
+    fontFamily: FONTS.subtitle,
+    color: '#94A3B8',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  operationalBaseMetaValue: {
+    marginTop: 4,
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: '#0F172A',
+  },
   scheduleCard: {
     borderWidth: 1,
     borderColor: '#E2E8F0',
