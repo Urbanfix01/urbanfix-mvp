@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
@@ -39,14 +39,11 @@ const STATUS_COLORS = {
   closed: '#059669',
 };
 
-async function getQuotes(): Promise<QuoteListItem[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
+async function getQuotes(userId: string): Promise<QuoteListItem[]> {
   let { data, error } = await supabase
     .from('quotes')
     .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
-    .eq('user_id', user.id)
+    .eq('user_id', userId)
     .is('archived_at', null)
     .order('created_at', { ascending: false });
 
@@ -54,7 +51,7 @@ async function getQuotes(): Promise<QuoteListItem[]> {
     const fallback = await supabase
       .from('quotes')
       .select('id, client_name, client_address, address, location_address, location_lat, location_lng, total_amount, status, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false });
     data = fallback.data;
     error = fallback.error;
@@ -67,11 +64,49 @@ async function getQuotes(): Promise<QuoteListItem[]> {
 export default function MapScreen() {
   const navigation = useNavigation();
   const [mapSelection, setMapSelection] = useState<MapPoint | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
+  const quotesQueryKey = useMemo(() => ['quotes-list', authUserId ?? 'anonymous'] as const, [authUserId]);
   const { data: jobs = [], isLoading, error, refetch } = useQuery<QuoteListItem[]>({
-    queryKey: ['quotes-list'],
-    queryFn: getQuotes,
+    queryKey: quotesQueryKey,
+    queryFn: () => getQuotes(authUserId as string),
+    enabled: authResolved && Boolean(authUserId),
     staleTime: 60000,
   });
+  const isMapLoading = !authResolved || isLoading;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const hydrateAuthUser = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setAuthUserId(session?.user?.id ?? null);
+      } finally {
+        if (mounted) {
+          setAuthResolved(true);
+        }
+      }
+    };
+
+    void hydrateAuthUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setAuthUserId(nextSession?.user?.id ?? null);
+      setAuthResolved(true);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const formatMoney = useCallback((value: number) => formatCurrency(value), []);
 
@@ -150,7 +185,7 @@ export default function MapScreen() {
     <View style={styles.container}>
       <ScreenHeader title="MAPA" subtitle={subtitle} centerTitle />
       <View style={styles.content}>
-        {isLoading ? (
+        {isMapLoading ? (
           <View style={styles.mapPanel}>
             <View style={styles.mapHeader}>
               <View style={styles.mapTitleRow}>

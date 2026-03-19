@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { supabase } from '../lib/supabase';
 import { COLORS, FONTS } from '../utils/theme';
@@ -233,6 +234,7 @@ function ClientTabs() {
 }
 
 export default function RootNavigator() {
+  const queryClient = useQueryClient();
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [audience, setAudience] = useState<MobileAudience>('tecnico');
@@ -240,9 +242,11 @@ export default function RootNavigator() {
   const [profileGateLoading, setProfileGateLoading] = useState(true);
   const [needsProfileCompletion, setNeedsProfileCompletion] = useState(false);
   const [profileGateVersion, setProfileGateVersion] = useState(0);
+  const previousSessionUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: nextSession } }) => {
+      previousSessionUserIdRef.current = nextSession?.user?.id ?? null;
       setSession(nextSession || null);
       setLoading(false);
     });
@@ -250,12 +254,18 @@ export default function RootNavigator() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      const nextUserId = nextSession?.user?.id ?? null;
+      const previousUserId = previousSessionUserIdRef.current;
+      if (previousUserId && previousUserId !== nextUserId) {
+        queryClient.clear();
+      }
+      previousSessionUserIdRef.current = nextUserId;
       setSession(nextSession || null);
       setLoading(false);
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [queryClient]);
 
   useEffect(() => {
     const resolveAudience = async () => {

@@ -60,11 +60,13 @@ type DashboardFilter = 'total' | 'pending' | 'approved' | 'paid';
 type DashboardSectionKey = 'summary' | 'billing' | 'trend';
 type TrendCoord = { x: number; totalY: number; pendingY: number; paidY: number };
 
-const DASHBOARD_CACHE_KEY = 'dashboard_quotes_cache_v1';
+const LEGACY_DASHBOARD_CACHE_KEY = 'dashboard_quotes_cache_v1';
 const DASHBOARD_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 horas
-const QUOTES_QUERY_KEY = ['quotes-list'] as const;
-const ALL_QUOTES_QUERY_KEY = ['quotes-list-all'] as const;
-const DASHBOARD_BILLING_QUERY_KEY = ['technician-dashboard-billing'] as const;
+const getDashboardCacheKey = (userId: string) => `dashboard_quotes_cache_v1:${userId}`;
+const getQuotesQueryKey = (userId: string | null) => ['quotes-list', userId ?? 'anonymous'] as const;
+const getAllQuotesQueryKey = (userId: string | null) => ['quotes-list-all', userId ?? 'anonymous'] as const;
+const getDashboardBillingQueryKey = (userId: string | null) =>
+  ['technician-dashboard-billing', userId ?? 'anonymous'] as const;
 
 const TrendChart = React.memo(
   ({
@@ -279,10 +281,7 @@ const DashboardAccordion = ({
   </View>
 );
 
-async function getQuotes(includeArchived = false): Promise<QuoteListItem[]> {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return [];
-
+async function getQuotes(userId: string, includeArchived = false): Promise<QuoteListItem[]> {
   const attempts = [
     {
       select:
@@ -311,7 +310,7 @@ async function getQuotes(includeArchived = false): Promise<QuoteListItem[]> {
 
   let lastError: unknown = null;
   for (const attempt of attempts) {
-    let query = supabase.from('quotes').select(attempt.select).eq('user_id', user.id).order('created_at', {
+    let query = supabase.from('quotes').select(attempt.select).eq('user_id', userId).order('created_at', {
       ascending: false,
     });
     if (attempt.filterArchived && !includeArchived) {
@@ -329,6 +328,8 @@ async function getQuotes(includeArchived = false): Promise<QuoteListItem[]> {
 
 export default function JobsScreen() {
   const navigation = useNavigation();
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
+  const [authResolved, setAuthResolved] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [trendWidth, setTrendWidth] = useState(0);
@@ -347,25 +348,73 @@ export default function JobsScreen() {
     dashboardWidth > 0 ? (dashboardWidth - dashboardGap * (dashboardColumns - 1)) / dashboardColumns : undefined;
 
   const queryClient = useQueryClient();
+  const quotesQueryKey = useMemo(() => getQuotesQueryKey(authUserId), [authUserId]);
+  const allQuotesQueryKey = useMemo(() => getAllQuotesQueryKey(authUserId), [authUserId]);
+  const billingQueryKey = useMemo(() => getDashboardBillingQueryKey(authUserId), [authUserId]);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const { data: jobsData, isLoading, error, refetch, isFetching } = useQuery<QuoteListItem[]>({
-    queryKey: QUOTES_QUERY_KEY,
-    queryFn: () => getQuotes(false),
+    queryKey: quotesQueryKey,
+    queryFn: () => getQuotes(authUserId as string, false),
+    enabled: authResolved && Boolean(authUserId),
     staleTime: 60000,
   });
   const jobs: QuoteListItem[] = jobsData ?? [];
   const { data: allJobsData } = useQuery<QuoteListItem[]>({
-    queryKey: ALL_QUOTES_QUERY_KEY,
-    queryFn: () => getQuotes(true),
+    queryKey: allQuotesQueryKey,
+    queryFn: () => getQuotes(authUserId as string, true),
+    enabled: authResolved && Boolean(authUserId),
     staleTime: 60000,
   });
   const allJobs: QuoteListItem[] = allJobsData ?? jobs;
   const { data: billingData } = useQuery<{ items: TechnicianDashboardBillingItem[] }>({
-    queryKey: DASHBOARD_BILLING_QUERY_KEY,
+    queryKey: billingQueryKey,
     queryFn: fetchTechnicianDashboardBilling,
+    enabled: authResolved && Boolean(authUserId),
     staleTime: 60000,
   });
   const marketplaceBillingItems = billingData?.items ?? [];
+  const isDashboardLoading = !authResolved || isLoading;
+  const isDashboardFetching = authResolved ? isFetching : false;
+
+  useEffect(() => {
+    let mounted = true;
+
+    const hydrateAuthUser = async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!mounted) return;
+        setAuthUserId(session?.user?.id ?? null);
+      } finally {
+        if (mounted) {
+          setAuthResolved(true);
+        }
+      }
+    };
+
+    void AsyncStorage.removeItem(LEGACY_DASHBOARD_CACHE_KEY).catch(() => undefined);
+    void hydrateAuthUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (!mounted) return;
+      setAuthUserId(nextSession?.user?.id ?? null);
+      setAuthResolved(true);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    setSelectionMode(false);
+    setSelectedIds([]);
+    setLastUpdatedAt(null);
+  }, [authUserId]);
 
   useEffect(() => {
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -376,15 +425,20 @@ export default function JobsScreen() {
   useEffect(() => {
     let mounted = true;
     const loadCache = async () => {
+      if (!authResolved) return;
+      if (!authUserId) {
+        if (mounted) setLastUpdatedAt(null);
+        return;
+      }
       try {
-        const raw = await AsyncStorage.getItem(DASHBOARD_CACHE_KEY);
+        const raw = await AsyncStorage.getItem(getDashboardCacheKey(authUserId));
         if (!raw) return;
         const parsed = JSON.parse(raw) as { timestamp?: number; data?: QuoteListItem[] } | null;
         if (!parsed || !Array.isArray(parsed.data)) return;
         const cacheTimestamp = typeof parsed.timestamp === 'number' ? parsed.timestamp : null;
         if (cacheTimestamp && Date.now() - cacheTimestamp > DASHBOARD_CACHE_TTL) return;
         if (!mounted) return;
-        queryClient.setQueryData<QuoteListItem[]>(QUOTES_QUERY_KEY, parsed.data);
+        queryClient.setQueryData<QuoteListItem[]>(quotesQueryKey, parsed.data);
         setLastUpdatedAt(cacheTimestamp ? new Date(cacheTimestamp) : null);
       } catch (_err) {
         // ignore cache errors
@@ -394,15 +448,15 @@ export default function JobsScreen() {
     return () => {
       mounted = false;
     };
-  }, [queryClient]);
+  }, [authResolved, authUserId, queryClient, quotesQueryKey]);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isDashboardLoading || !authUserId) return;
     const persistCache = async () => {
       try {
         const timestamp = Date.now();
         await AsyncStorage.setItem(
-          DASHBOARD_CACHE_KEY,
+          getDashboardCacheKey(authUserId),
           JSON.stringify({ timestamp, data: jobs })
         );
         setLastUpdatedAt(new Date(timestamp));
@@ -411,7 +465,7 @@ export default function JobsScreen() {
       }
     };
     void persistCache();
-  }, [isLoading, jobs]);
+  }, [authUserId, isDashboardLoading, jobs]);
 
   const visibleJobs = useMemo(() => {
     return jobs.filter((job) => {
@@ -832,9 +886,9 @@ export default function JobsScreen() {
   const trendPadding = 14;
   const trendInnerHeight = trendHeight - trendPadding * 2;
   const trendMidY = trendPadding + trendInnerHeight / 2;
-  const showTrendSkeleton = isLoading || trendWidth === 0;
-  const showStatusSkeleton = isLoading;
-  const showMapSkeleton = isLoading;
+  const showTrendSkeleton = isDashboardLoading || trendWidth === 0;
+  const showStatusSkeleton = isDashboardLoading;
+  const showMapSkeleton = isDashboardLoading;
 
   const trendPoints = useMemo(() => {
     if (!trendWidth) {
@@ -885,8 +939,8 @@ export default function JobsScreen() {
       if (error) {
         await supabase.from('quotes').update({ status: 'sent' }).eq('id', job.id);
       }
-      await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
-      await queryClient.invalidateQueries({ queryKey: ALL_QUOTES_QUERY_KEY });
+      await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+      await queryClient.invalidateQueries({ queryKey: ['quotes-list-all'] });
     } catch (err) {
       console.warn('No se pudo confirmar el presupuesto antes de compartir.', err);
     }
@@ -985,8 +1039,8 @@ export default function JobsScreen() {
 
     if (error) throw error;
 
-    await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
-    await queryClient.invalidateQueries({ queryKey: ALL_QUOTES_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list-all'] });
     await queryClient.invalidateQueries({ queryKey: ['job_history'] });
     clearSelection();
   }, [clearSelection, queryClient, selectedIds]);
@@ -997,8 +1051,8 @@ export default function JobsScreen() {
       if (error) throw error;
     }
 
-    await queryClient.invalidateQueries({ queryKey: QUOTES_QUERY_KEY });
-    await queryClient.invalidateQueries({ queryKey: ALL_QUOTES_QUERY_KEY });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list'] });
+    await queryClient.invalidateQueries({ queryKey: ['quotes-list-all'] });
     await queryClient.invalidateQueries({ queryKey: ['job_history'] });
     clearSelection();
   }, [clearSelection, queryClient, selectedIds]);
@@ -1205,7 +1259,7 @@ export default function JobsScreen() {
       </View>
 
       {/* LISTA */}
-      {isLoading ? (
+      {isDashboardLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={COLORS.primary} />
         </View>
@@ -1228,7 +1282,7 @@ export default function JobsScreen() {
             estimatedItemSize={150}
             removeClippedSubviews={Platform.OS === 'android'}
             onRefresh={refetch}
-            refreshing={isFetching && !isLoading}
+            refreshing={isDashboardFetching && !isDashboardLoading}
             ListHeaderComponent={
                 <View>
                   <View style={styles.dashboardWrapper}>
