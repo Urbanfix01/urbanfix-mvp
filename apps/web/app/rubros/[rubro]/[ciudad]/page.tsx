@@ -136,7 +136,15 @@ export default async function RubroCiudadPage({
                 <tbody>
                   {priceData.items.map((item) => (
                     <tr key={item.id} className="border-b border-white/10 last:border-0">
-                      <td className="py-3 pr-4 text-sm font-medium text-white">{item.label}</td>
+                      <td className="py-3 pr-4">
+                        <p className="text-sm font-medium text-white">{item.label}</p>
+                        {item.technicalNotes && (
+                          <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-white/70">
+                            <span className="font-semibold text-[#ffbf7a]">Especificacion tecnica:</span>{' '}
+                            {item.technicalNotes}
+                          </p>
+                        )}
+                      </td>
                       <td className="py-3 pr-4 text-xs uppercase text-white/65">{item.unit}</td>
                       <td className="py-3 pr-4 text-sm font-semibold text-white">{formatArs(item.reference)}</td>
                       <td className="py-3 text-xs text-white/70">{item.source}</td>

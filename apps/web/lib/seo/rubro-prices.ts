@@ -1,4 +1,5 @@
 import { cache } from 'react';
+import { normalizeTechnicalNotesText } from '../master-items';
 import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
 import { getCatalogRubroBySlug, rubroCatalog, type RubroCatalogItem } from './rubro-catalog';
@@ -9,12 +10,14 @@ type MasterItemRow = {
   category: string | null;
   source_ref: string | null;
   suggested_price: number | null;
+  technical_notes: string | null;
   created_at: string | null;
 };
 
 export type RubroPriceReference = {
   id: string;
   label: string;
+  technicalNotes: string;
   unit: string;
   reference: number;
   source: string;
@@ -209,6 +212,16 @@ const getLatestDate = (rows: MasterItemRow[]) => {
   return new Date(Math.max(...dates)).toISOString();
 };
 
+const toRubroPriceReference = (row: MasterItemRow): RubroPriceReference => ({
+  id: row.id,
+  label: cleanText(row.name),
+  technicalNotes: normalizeTechnicalNotesText(row.technical_notes),
+  unit: inferUnit(row.name),
+  reference: Number(row.suggested_price || 0),
+  source: formatSource(row.source_ref, row.category),
+  updatedAt: row.created_at || null,
+});
+
 const warnMasterItemsFetchFailure = (message: string) => {
   if (didWarnMasterItemsFetchFailure) return;
   didWarnMasterItemsFetchFailure = true;
@@ -231,7 +244,7 @@ const fetchActiveLaborItems = cache(async (): Promise<MasterItemRow[]> => {
   activeLaborItemsPromise = (async () => {
     const { data, error } = await supabase
       .from('master_items')
-      .select('id,name,category,source_ref,suggested_price,created_at')
+      .select('id,name,category,source_ref,suggested_price,technical_notes,created_at')
       .eq('type', 'labor')
       .eq('active', true)
       .not('suggested_price', 'is', null)
@@ -347,14 +360,7 @@ export const getCategoryPriceReferences = async (
         cleanText(a.name).localeCompare(cleanText(b.name), 'es')
     );
 
-  const items: RubroPriceReference[] = selectedRows.map((row) => ({
-    id: row.id,
-    label: cleanText(row.name),
-    unit: inferUnit(row.name),
-    reference: Number(row.suggested_price || 0),
-    source: formatSource(row.source_ref, row.category),
-    updatedAt: row.created_at || null,
-  }));
+  const items: RubroPriceReference[] = selectedRows.map(toRubroPriceReference);
 
   return {
     items,
@@ -411,14 +417,7 @@ export const getCatalogRubroPriceReferences = async (
   }
 
   const selectedRows = await getCatalogRows(rubro);
-  const items: RubroPriceReference[] = selectedRows.map((row) => ({
-    id: row.id,
-    label: cleanText(row.name),
-    unit: inferUnit(row.name),
-    reference: Number(row.suggested_price || 0),
-    source: formatSource(row.source_ref, row.category),
-    updatedAt: row.created_at || null,
-  }));
+  const items: RubroPriceReference[] = selectedRows.map(toRubroPriceReference);
 
   return {
     items,
@@ -468,14 +467,7 @@ export const getRubroPriceReferences = async (
     }
   }
 
-  const items: RubroPriceReference[] = selectedRows.map((row) => ({
-    id: row.id,
-    label: cleanText(row.name),
-    unit: inferUnit(row.name),
-    reference: Number(row.suggested_price || 0),
-    source: formatSource(row.source_ref, row.category),
-    updatedAt: row.created_at || null,
-  }));
+  const items: RubroPriceReference[] = selectedRows.map(toRubroPriceReference);
 
   return {
     items,
