@@ -23,6 +23,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import { buildMasterItemChoiceLabel, compactTechnicalNotesText, normalizeTechnicalNotesText } from '../../lib/master-items';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import type {
   AccessProfile,
@@ -861,7 +862,7 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-const normalizeTechnicalNotes = (value: string | null | undefined) => String(value || '').replace(/\r/g, '').trim();
+const normalizeTechnicalNotes = (value: string | null | undefined) => normalizeTechnicalNotesText(value);
 
 const buildOsmEmbedUrl = (lat: number, lon: number) => {
   const delta = 0.004;
@@ -1049,6 +1050,14 @@ const formatRubroLabel = (value: string) => {
   const trimmed = value.trim();
   return RUBRO_LABELS[trimmed] || trimmed;
 };
+
+const getMasterItemChoiceValue = (item: Pick<MasterItemRow, 'name' | 'technical_notes'>) =>
+  buildMasterItemChoiceLabel(item);
+
+const getMasterItemTechnicalBadge = (
+  item: Pick<MasterItemRow, 'technical_notes'>,
+  options?: { maxLength?: number }
+) => compactTechnicalNotesText(item.technical_notes, { maxLength: options?.maxLength || 96 });
 
 const parseDateLocal = (value?: string | null) => {
   if (!value) return null;
@@ -2384,25 +2393,67 @@ export default function TechniciansPage() {
     });
     return map;
   }, [laborMasterItems]);
-  const laborMasterMap = useMemo(() => {
+  const laborMasterChoiceMap = useMemo(() => {
     const map = new Map<string, MasterItemRow>();
     laborMasterItems.forEach((item) => {
-      map.set(normalizeText(item.name), item);
+      map.set(normalizeText(getMasterItemChoiceValue(item)), item);
     });
     return map;
   }, [laborMasterItems]);
+  const laborMasterNameMap = useMemo(() => {
+    const map = new Map<string, MasterItemRow[]>();
+    laborMasterItems.forEach((item) => {
+      const key = normalizeText(item.name);
+      const current = map.get(key) || [];
+      current.push(item);
+      map.set(key, current);
+    });
+    return map;
+  }, [laborMasterItems]);
+
+  const isSameLaborSelection = (description: string, item: MasterItemRow) => {
+    const normalizedDescription = normalizeText(description || '').trim();
+    if (!normalizedDescription) return true;
+    return (
+      normalizedDescription === normalizeText(item.name || '') ||
+      normalizedDescription === normalizeText(getMasterItemChoiceValue(item))
+    );
+  };
 
   const resolveLaborMasterItem = (item: {
     type?: 'labor' | 'material';
     description?: string;
     masterItemId?: string;
+    technicalNotes?: string;
+    masterItemSourceRef?: string;
   }) => {
     if (item.type !== 'labor') return null;
     const byId = item.masterItemId ? laborMasterById.get(item.masterItemId) || null : null;
-    if (byId) return byId;
+    if (byId && isSameLaborSelection(item.description || '', byId)) return byId;
     const normalized = normalizeText(item.description || '').trim();
     if (!normalized) return null;
-    return laborMasterMap.get(normalized) || null;
+    const byChoice = laborMasterChoiceMap.get(normalized) || null;
+    if (byChoice) return byChoice;
+
+    const candidates = laborMasterNameMap.get(normalized) || [];
+    if (candidates.length === 1) return candidates[0] || null;
+
+    const noteKey = normalizeText(normalizeTechnicalNotes(item.technicalNotes));
+    if (noteKey) {
+      const byNotes =
+        candidates.find((candidate) => normalizeText(normalizeTechnicalNotes(candidate.technical_notes)) === noteKey) ||
+        null;
+      if (byNotes) return byNotes;
+    }
+
+    const sourceKey = normalizeText(item.masterItemSourceRef || '');
+    if (sourceKey) {
+      const bySource =
+        candidates.find((candidate) => normalizeText(candidate.source_ref || '') === sourceKey) || null;
+      if (bySource) return bySource;
+    }
+
+    return null;
   };
 
   const mergeItemWithMasterItem = (item: ItemForm, options?: { fillNotesFromMaster?: boolean }) => {
@@ -2448,6 +2499,9 @@ export default function TechniciansPage() {
         if ((patch.description !== undefined || patch.type !== undefined) && next.type === 'labor') {
           const match = resolveLaborMasterItem(next);
           if (match) {
+            if (patch.description !== undefined) {
+              next.description = match.name;
+            }
             next.unitPrice = Number(match.suggested_price || 0);
             next.technicalNotes = normalizeTechnicalNotes(match.technical_notes);
             next.masterItemId = match.id;
@@ -2490,7 +2544,7 @@ export default function TechniciansPage() {
       });
       return changed ? next : prev;
     });
-  }, [laborMasterItems, laborMasterById, laborMasterMap]);
+  }, [laborMasterItems, laborMasterById, laborMasterChoiceMap, laborMasterNameMap]);
 
   const handleRemoveItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
@@ -6001,7 +6055,7 @@ export default function TechniciansPage() {
                         ))}
                         <datalist id="labor-master-items">
                           {laborMasterItems.map((laborItem) => (
-                            <option key={laborItem.id} value={laborItem.name} />
+                            <option key={laborItem.id} value={getMasterItemChoiceValue(laborItem)} />
                           ))}
                         </datalist>
                       </div>
@@ -8118,8 +8172,17 @@ export default function TechniciansPage() {
                       key={item.id}
                       className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
                     >
-                      <div>
-                        <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                      <div className="min-w-[240px] flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p title={getMasterItemChoiceValue(item)} className="text-sm font-semibold text-slate-900">
+                            {item.name}
+                          </p>
+                          {item.technical_notes && (
+                            <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
+                              {getMasterItemTechnicalBadge(item)}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">
                           {formatRubroLabel(resolveMasterRubro(item))}
                           {item.source_ref ? ` | ${item.source_ref}` : ''}

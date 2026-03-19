@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Manrope } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 
 type AdminProfile = {
   id: string;
@@ -331,6 +332,14 @@ const normalizeText = (value?: string | null) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+const getMasterItemChoiceValue = (item: Pick<MasterItemAdminRow, 'name' | 'technical_notes'>) =>
+  buildMasterItemChoiceLabel(item);
+
+const getMasterItemTechnicalBadge = (
+  item: Pick<MasterItemAdminRow, 'technical_notes'>,
+  options?: { maxLength?: number }
+) => compactTechnicalNotesText(item.technical_notes, { maxLength: options?.maxLength || 96 });
 
 type ArgentinaZoneAnchor = {
   id: string;
@@ -5712,12 +5721,18 @@ export default function AdminPage() {
                       <div className="min-w-[240px] flex-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <p
+                            title={getMasterItemChoiceValue(item)}
                             className={`text-sm font-semibold ${
                               isActive ? 'text-slate-900' : 'text-slate-400 line-through'
                             }`}
                           >
                             {item.name}
                           </p>
+                          {item.technical_notes && (
+                            <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
+                              {getMasterItemTechnicalBadge(item)}
+                            </span>
+                          )}
                           <span
                             className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
                               isActive
