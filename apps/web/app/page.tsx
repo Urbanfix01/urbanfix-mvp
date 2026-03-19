@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { Sora } from 'next/font/google';
 import { ArrowUpRight, ClipboardList, FileCheck2, MapPinned, MessageCircle, Sparkles } from 'lucide-react';
 import AuthHashHandler from '../components/AuthHashHandler';
+import HomeLeadCapture from '../components/home/HomeLeadCapture';
 import HomeScrollShowcase from '../components/home/HomeScrollShowcase';
 import PublicTopNav from '../components/PublicTopNav';
 
@@ -188,6 +189,10 @@ export default function HomePage() {
                       </Link>
                     );
                   })}
+                </div>
+
+                <div className="mt-4">
+                  <HomeLeadCapture />
                 </div>
               </div>
             </div>
