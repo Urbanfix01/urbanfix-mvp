@@ -43,9 +43,7 @@ export default function HomePage() {
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <PublicTopNav />
 
-        <section className="relative w-full overflow-hidden border-b border-white/10">
-          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(15,4,25,0.2)_0%,rgba(33,0,47,0.25)_38%,rgba(33,0,47,0.95)_100%)]" />
-          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.24),transparent_28%),radial-gradient(circle_at_top_right,rgba(123,97,255,0.2),transparent_34%)]" />
+        <section className="relative w-full border-b border-white/10">
           <picture>
             <source media="(max-width: 768px)" srcSet="/hero/home-cover-mobile.png" />
             <img
@@ -55,9 +53,12 @@ export default function HomePage() {
               loading="eager"
             />
           </picture>
+        </section>
 
-          <div className="absolute inset-x-0 bottom-0">
-            <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 pb-8 sm:px-6 sm:pb-10 lg:px-8 lg:pb-12">
+        <section className="relative overflow-hidden py-8 sm:py-10">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.18),transparent_30%),radial-gradient(circle_at_top_right,rgba(123,97,255,0.16),transparent_34%)]" />
+          <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="rounded-[34px] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.07),rgba(255,255,255,0.03))] p-6 shadow-[0_28px_90px_-48px_rgba(0,0,0,0.9)] sm:p-8 lg:p-10">
               <div className="max-w-4xl">
                 <p className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#ff8f1f]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ffd6a6]">
                   <Sparkles className="h-3.5 w-3.5" />
@@ -68,7 +69,8 @@ export default function HomePage() {
                 </h1>
                 <p className="mt-4 max-w-3xl text-sm leading-7 text-white/82 sm:text-base">
                   UrbanFix une panel tecnico, base de rubros, portal cliente, presencia publica y mapa de tecnicos
-                  disponibles. La home ahora explica el producto desde el primer scroll, no solo desde una imagen.
+                  disponibles. La imagen queda como cabecera principal y la explicacion baja despues, con una lectura
+                  mucho mas limpia.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <Link
@@ -86,7 +88,7 @@ export default function HomePage() {
                 </div>
               </div>
 
-              <div className="grid gap-3 lg:grid-cols-3">
+              <div className="mt-6 grid gap-3 lg:grid-cols-3">
                 {heroPillars.map((pillar) => {
                   const Icon = pillar.icon;
 

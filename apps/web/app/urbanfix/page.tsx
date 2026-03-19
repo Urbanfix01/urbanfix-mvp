@@ -206,7 +206,16 @@ export default function UrbanFixPage() {
 
           <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <section className="rounded-[36px] border border-white/15 bg-[linear-gradient(145deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] p-6 shadow-[0_28px_90px_-48px_rgba(0,0,0,0.9)] sm:p-8 lg:p-10">
-              <div className="grid gap-8 lg:grid-cols-[0.92fr_1.08fr] lg:items-center">
+              <div className="overflow-hidden rounded-[30px] border border-white/10 bg-black/20">
+                <img
+                  src="/urbanfix/services-page-01.png"
+                  alt="Vista de la plataforma UrbanFix"
+                  className="block h-auto w-full max-w-full"
+                  loading="eager"
+                />
+              </div>
+
+              <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
                 <div className="max-w-3xl">
                   <p className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#ff8f1f]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ffd6a6]">
                     <Sparkles className="h-3.5 w-3.5" />
@@ -243,17 +252,16 @@ export default function UrbanFixPage() {
                   </div>
                 </div>
 
-                <aside className="overflow-hidden rounded-[30px] border border-white/10 bg-black/20">
-                  <img
-                    src="/urbanfix/services-page-01.png"
-                    alt="Vista de la plataforma UrbanFix"
-                    className="block h-auto w-full max-w-full"
-                    loading="eager"
-                  />
-                </aside>
+                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,143,31,0.16),rgba(255,143,31,0.06))] p-5">
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#ffd6a6]">En una sola plataforma</p>
+                  <p className="mt-2 text-sm leading-7 text-white/82">
+                    Tecnicos, empresas, clientes, perfiles publicos, mapas, rubros, presupuesto compartible y soporte
+                    operativo conviven dentro del mismo ecosistema.
+                  </p>
+                </div>
               </div>
 
-              <div className="mt-6 grid gap-3 lg:grid-cols-[repeat(3,minmax(0,1fr))_1.15fr]">
+              <div className="mt-6 grid gap-3 lg:grid-cols-3">
                 {heroMetrics.map((metric) => (
                   <div
                     key={metric.label}
@@ -263,14 +271,6 @@ export default function UrbanFixPage() {
                     <p className="mt-2 text-lg font-semibold text-white">{metric.value}</p>
                   </div>
                 ))}
-
-                <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,143,31,0.16),rgba(255,143,31,0.06))] p-5">
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#ffd6a6]">En una sola plataforma</p>
-                  <p className="mt-2 text-sm leading-7 text-white/82">
-                    Tecnicos, empresas, clientes, perfiles publicos, mapas, rubros, presupuesto compartible y soporte
-                    operativo conviven dentro del mismo ecosistema.
-                  </p>
-                </div>
               </div>
             </section>
 
