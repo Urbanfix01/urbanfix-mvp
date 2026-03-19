@@ -51,32 +51,53 @@ export const rubros = {
 
 export type RubroKey = keyof typeof rubros;
 
+export type UrbanFixCity = {
+  name: string;
+  region: string;
+  description: string;
+  coverageFocus: string;
+  zoneQuery: string;
+  highlights: [string, string, string];
+};
+
 export const ciudades = {
   caba: {
     name: 'CABA',
     region: 'Ciudad Autonoma de Buenos Aires',
     description:
-      'Gestion de presupuestos, clientes y materiales de obra para trabajos en CABA.',
+      'Cobertura urbana para presupuestos, mantenimiento, reformas por rubro y referencia de precios activos dentro de CABA.',
+    coverageFocus: 'Ideal para trabajos rapidos, consorcios, locales y operaciones con alta rotacion por barrio.',
+    zoneQuery: 'CABA',
+    highlights: ['Rubros urbanos de alta demanda', 'Presupuestos comparables por zona', 'Cruce rapido con vidriera publica'],
   },
   cordoba: {
     name: 'Cordoba',
     region: 'Provincia de Cordoba',
     description:
-      'Gestion de presupuestos y MANO DE OBRA para obras y mantenimiento en Cordoba.',
+      'Base publica para ordenar mano de obra, rubros y presupuestos de obras, mantenimiento y servicios en Cordoba.',
+    coverageFocus: 'Pensada para operaciones tecnicas mixtas entre mantenimiento, reformas y servicios de campo.',
+    zoneQuery: 'Cordoba',
+    highlights: ['Rubros con lectura simple', 'Guia base para cotizar', 'Cruce con cobertura tecnica'],
   },
   rosario: {
     name: 'Rosario',
     region: 'Provincia de Santa Fe',
     description:
-      'Gestion de presupuestos y materiales de obra para clientes en Rosario.',
+      'Referencias publicas para presupuestar rubros, ordenar clientes y revisar estructura de trabajo en Rosario.',
+    coverageFocus: 'Buena base para trabajos de mantenimiento edilicio, reformas y coordinacion por rubro.',
+    zoneQuery: 'Rosario',
+    highlights: ['Precios base por rubro', 'Entrada rapida a rubros activos', 'Conexion con mapa de tecnicos'],
   },
   mendoza: {
     name: 'Mendoza',
     region: 'Provincia de Mendoza',
     description:
-      'Gestion de presupuestos y MANO DE OBRA para obras y servicios en Mendoza.',
+      'Cobertura inicial de UrbanFix para consultar rubros, mano de obra y estructura de presupuesto en Mendoza.',
+    coverageFocus: 'Sirve como capa publica para evaluar precios, alcance y presencia tecnica por ciudad.',
+    zoneQuery: 'Mendoza',
+    highlights: ['Rubros activos en base', 'Acceso a guias y referencias', 'Vista util para expansion comercial'],
   },
-} as const;
+} as const satisfies Record<string, UrbanFixCity>;
 
 export type CiudadKey = keyof typeof ciudades;
 
