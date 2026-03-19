@@ -442,6 +442,9 @@ export default function QuotePage() {
     return 'labor';
   };
 
+  const getItemTechnicalObservation = (item: any) =>
+    String(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || '').trim();
+
   const getItemId = (item: any) => (item?.id ? item.id.toString() : '');
 
   const isItemSelected = (item: any) => {
@@ -1069,6 +1072,12 @@ export default function QuotePage() {
                                     {typeBadge.label}
                                   </span>
                                 )}
+                                {getItemTechnicalObservation(item) && (
+                                  <p className="max-w-2xl whitespace-pre-wrap text-xs font-medium leading-5 text-slate-500">
+                                    <span className="font-semibold text-slate-600">Obs. tecnica:</span>{' '}
+                                    {getItemTechnicalObservation(item)}
+                                  </p>
+                                )}
                                 {revisionMode && isItemSelected(item) && (
                                   <textarea
                                     value={getItemNote(item)}
@@ -1114,6 +1123,12 @@ export default function QuotePage() {
                               <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
                                 {typeBadge.label}
                               </span>
+                            )}
+                            {getItemTechnicalObservation(item) && (
+                              <p className="max-w-2xl whitespace-pre-wrap text-xs font-medium leading-5 text-slate-500">
+                                <span className="font-semibold text-slate-600">Obs. tecnica:</span>{' '}
+                                {getItemTechnicalObservation(item)}
+                              </p>
                             )}
                           </div>
                           {revisionMode && (

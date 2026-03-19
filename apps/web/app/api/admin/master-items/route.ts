@@ -6,6 +6,21 @@ const isMissingColumnError = (error: any, column: string) => {
   return message.includes('column') && message.includes(column.toLowerCase()) && message.includes('does not exist');
 };
 
+const buildSelectColumns = (includeActive: boolean, includeTechnicalNotes: boolean) =>
+  [
+    'id',
+    'name',
+    'type',
+    'suggested_price',
+    'category',
+    'source_ref',
+    includeTechnicalNotes ? 'technical_notes' : null,
+    includeActive ? 'active' : null,
+    'created_at',
+  ]
+    .filter(Boolean)
+    .join(',');
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
@@ -24,36 +39,47 @@ export async function GET(request: NextRequest) {
   const type = (request.nextUrl.searchParams.get('type') || '').trim() || 'labor';
   const onlyActive = request.nextUrl.searchParams.get('active') === 'true';
 
-  const selectColumns = 'id,name,type,suggested_price,category,source_ref,active,created_at';
-  let query = supabase.from('master_items').select(selectColumns).eq('type', type);
-  if (onlyActive) {
-    query = query.eq('active', true);
-  }
+  const variants = [
+    { includeActive: true, includeTechnicalNotes: true },
+    { includeActive: true, includeTechnicalNotes: false },
+    { includeActive: false, includeTechnicalNotes: true },
+    { includeActive: false, includeTechnicalNotes: false },
+  ];
 
-  const { data, error } = await query
-    .order('active', { ascending: false })
-    .order('category', { ascending: true })
-    .order('name', { ascending: true })
-    .limit(5000);
+  let lastError: any = null;
+  for (const variant of variants) {
+    let query = supabase
+      .from('master_items')
+      .select(buildSelectColumns(variant.includeActive, variant.includeTechnicalNotes))
+      .eq('type', type);
 
-  if (error) {
-    if (onlyActive && isMissingColumnError(error, 'active')) {
-      const fallback = await supabase
-        .from('master_items')
-        .select('id,name,type,suggested_price,category,source_ref,created_at')
-        .eq('type', type)
-        .order('category', { ascending: true })
-        .order('name', { ascending: true })
-        .limit(5000);
-      if (fallback.error) {
-        return NextResponse.json({ error: fallback.error.message }, { status: 500 });
-      }
-      return NextResponse.json({ items: fallback.data || [] });
+    if (onlyActive && variant.includeActive) {
+      query = query.eq('active', true);
     }
 
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    if (variant.includeActive) {
+      query = query.order('active', { ascending: false });
+    }
+
+    const { data, error } = await query.order('category', { ascending: true }).order('name', { ascending: true }).limit(5000);
+    if (!error) {
+      return NextResponse.json({ items: data || [] });
+    }
+
+    lastError = error;
+
+    const activeMissing = isMissingColumnError(error, 'active');
+    const technicalNotesMissing = isMissingColumnError(error, 'technical_notes');
+    if (
+      (activeMissing && variant.includeActive) ||
+      (technicalNotesMissing && variant.includeTechnicalNotes)
+    ) {
+      continue;
+    }
+
+    break;
   }
 
-  return NextResponse.json({ items: data || [] });
+  return NextResponse.json({ error: lastError?.message || 'No se pudo cargar master_items.' }, { status: 500 });
 }
 

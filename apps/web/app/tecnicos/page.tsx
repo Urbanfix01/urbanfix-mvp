@@ -841,6 +841,7 @@ const buildItemsSignature = (items: ItemForm[]) =>
       quantity: Number(item.quantity) || 0,
       unitPrice: Number(item.unitPrice) || 0,
       type: item.type,
+      technicalNotes: (item.technicalNotes || '').trim(),
     }))
   );
 
@@ -2178,43 +2179,46 @@ export default function TechniciansPage() {
 
   const fetchMasterItems = async () => {
     setLoadingMasterItems(true);
-    const selectFields = 'id,name,type,suggested_price,category,source_ref';
+    const buildSelectFields = (includeActive: boolean, includeTechnicalNotes: boolean) =>
+      [
+        'id',
+        'name',
+        'type',
+        'suggested_price',
+        'category',
+        'source_ref',
+        includeTechnicalNotes ? 'technical_notes' : null,
+        includeActive ? 'active' : null,
+      ]
+        .filter(Boolean)
+        .join(',');
 
-    const isMissingActiveColumn = (error: any) => {
-      const message = String(error?.message || '').toLowerCase();
-      return message.includes('column') && message.includes('active') && message.includes('does not exist');
-    };
+    const variants = [
+      { includeActive: true, includeTechnicalNotes: true },
+      { includeActive: true, includeTechnicalNotes: false },
+      { includeActive: false, includeTechnicalNotes: true },
+      { includeActive: false, includeTechnicalNotes: false },
+    ];
 
     try {
-      const { data, error } = await supabase
-        .from('master_items')
-        .select(selectFields)
-        .eq('type', 'labor')
-        .eq('active', true)
-        .order('category', { ascending: true })
-        .order('name', { ascending: true });
-
-      if (error) {
-        if (!isMissingActiveColumn(error)) {
-          throw error;
-        }
-
-        const fallback = await supabase
+      let lastError: any = null;
+      for (const variant of variants) {
+        let query = supabase
           .from('master_items')
-          .select(selectFields)
-          .eq('type', 'labor')
-          .order('category', { ascending: true })
-          .order('name', { ascending: true });
-
-        if (fallback.error) {
-          throw fallback.error;
+          .select(buildSelectFields(variant.includeActive, variant.includeTechnicalNotes))
+          .eq('type', 'labor');
+        if (variant.includeActive) {
+          query = query.eq('active', true).order('active', { ascending: false });
         }
-
-        setMasterItems((fallback.data as MasterItemRow[]) || []);
-        return;
+        const { data, error } = await query.order('category', { ascending: true }).order('name', { ascending: true });
+        if (!error) {
+          setMasterItems(((data as unknown) as MasterItemRow[]) || []);
+          return;
+        }
+        lastError = error;
       }
 
-      setMasterItems((data as MasterItemRow[]) || []);
+      throw lastError || new Error('No se pudo cargar master_items.');
     } catch (error) {
       console.error('Error cargando master items:', error);
     } finally {
@@ -2316,6 +2320,7 @@ export default function TechniciansPage() {
         description: item.description || '',
         quantity: Number(item.quantity || 1),
         unitPrice: Number(item.unit_price || 0),
+        technicalNotes: String(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
         type: normalizedType as 'labor' | 'material',
       };
     });
@@ -2336,6 +2341,7 @@ export default function TechniciansPage() {
         description: item.name,
         quantity: 1,
         unitPrice: Number(item.suggested_price || 0),
+        technicalNotes: String(item.technical_notes || ''),
         type: item.type === 'material' ? 'material' : 'labor',
       },
     ]);
@@ -2349,6 +2355,7 @@ export default function TechniciansPage() {
         description: '',
         quantity: 1,
         unitPrice: 0,
+        technicalNotes: '',
         type: 'labor',
       },
     ]);
@@ -2374,8 +2381,12 @@ export default function TechniciansPage() {
             const match = laborMasterMap.get(normalized);
             if (match) {
               next.unitPrice = Number(match.suggested_price || 0);
+              next.technicalNotes = String(match.technical_notes || '');
             }
           }
+        }
+        if (patch.type === 'material') {
+          next.technicalNotes = '';
         }
         return next;
       })
@@ -3689,7 +3700,7 @@ export default function TechniciansPage() {
           description: item.description,
           unit_price: item.unitPrice,
           quantity: item.quantity,
-          metadata: { type: item.type },
+          metadata: { type: item.type, technical_notes: (item.technicalNotes || '').trim() || null },
         }));
         const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
         if (itemsError) throw itemsError;
@@ -5821,56 +5832,64 @@ export default function TechniciansPage() {
                         {items.map((item) => (
                           <div
                             key={item.id}
-                            className="grid gap-2 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[2fr_0.7fr_0.9fr_1fr_auto]"
+                            className="rounded-2xl border border-slate-200 bg-white p-3"
                           >
-                            <input
-                              value={item.description}
-                              onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
-                              placeholder="Descripcion"
-                              list={item.type === 'labor' ? 'labor-master-items' : undefined}
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              step="1"
-                              value={item.quantity}
-                              onFocus={(event) => event.currentTarget.select()}
-                              onClick={(event) => event.currentTarget.select()}
-                              onChange={(event) =>
-                                handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
-                              }
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
-                            />
-                            <input
-                              type="number"
-                              min={0}
-                              step="0.01"
-                              value={item.unitPrice}
-                              onFocus={(event) => event.currentTarget.select()}
-                              onClick={(event) => event.currentTarget.select()}
-                              onChange={(event) =>
-                                handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
-                              }
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
-                            />
-                            <select
-                              value={item.type}
-                              onChange={(event) =>
-                                handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
-                              }
-                              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none focus:border-slate-400"
-                            >
-                              <option value="labor">Mano de obra</option>
-                              <option value="material">Material</option>
-                            </select>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveItem(item.id)}
-                              className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
-                            >
-                              Quitar
-                            </button>
+                            <div className="grid gap-2 sm:grid-cols-[2fr_0.7fr_0.9fr_1fr_auto]">
+                              <input
+                                value={item.description}
+                                onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
+                                placeholder="Descripcion"
+                                list={item.type === 'labor' ? 'labor-master-items' : undefined}
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                step="1"
+                                value={item.quantity}
+                                onFocus={(event) => event.currentTarget.select()}
+                                onClick={(event) => event.currentTarget.select()}
+                                onChange={(event) =>
+                                  handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
+                              />
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={item.unitPrice}
+                                onFocus={(event) => event.currentTarget.select()}
+                                onClick={(event) => event.currentTarget.select()}
+                                onChange={(event) =>
+                                  handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
+                              />
+                              <select
+                                value={item.type}
+                                onChange={(event) =>
+                                  handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
+                                }
+                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none focus:border-slate-400"
+                              >
+                                <option value="labor">Mano de obra</option>
+                                <option value="material">Material</option>
+                              </select>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveItem(item.id)}
+                                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
+                              >
+                                Quitar
+                              </button>
+                            </div>
+                            {item.technicalNotes && (
+                              <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                                <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Observacion tecnica</p>
+                                <p className="mt-1 whitespace-pre-wrap">{item.technicalNotes}</p>
+                              </div>
+                            )}
                           </div>
                         ))}
                         <datalist id="labor-master-items">
@@ -7998,6 +8017,11 @@ export default function TechniciansPage() {
                           {formatRubroLabel(resolveMasterRubro(item))}
                           {item.source_ref ? ` | ${item.source_ref}` : ''}
                         </p>
+                        {item.technical_notes && (
+                          <p className="mt-2 max-w-2xl whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                            <span className="font-semibold text-slate-700">Obs. tecnica:</span> {item.technical_notes}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-3">
                         <span className="text-sm font-semibold text-slate-900">

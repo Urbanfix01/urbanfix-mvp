@@ -180,6 +180,14 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
   const idxCategory = findColumnIndex(headers, ['categoria', 'rubro']);
   const idxMo = findColumnIndex(headers, ['costo mano obra', 'mano obra', ' mo', 'mo']);
   const idxPrice = findColumnIndex(headers, ['precio total', 'precio', 'total', 'valor']);
+  const idxTechnicalNotes = findColumnIndex(headers, [
+    'observaciones tecnicas',
+    'observacion tecnica',
+    'obs tecnicas',
+    'obs tecnica',
+    'nota tecnica',
+    'detalle tecnico',
+  ]);
 
   if (idxName === -1 || (idxMo === -1 && idxPrice === -1)) {
     return { items: [], skipped: Math.max(matrix.length - headerRowIndex - 1, 0) };
@@ -195,6 +203,7 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
       idxCategory >= 0 ? cleanText(row[idxCategory]) || cleanText(sheetName) : cleanText(sheetName);
     const priceRaw = idxMo >= 0 ? row[idxMo] : row[idxPrice];
     const price = toNumber(priceRaw);
+    const technicalNotes = idxTechnicalNotes >= 0 ? cleanText(row[idxTechnicalNotes]) || null : null;
 
     if (isNoiseName(name) || !category || !Number.isFinite(price) || price <= 0) {
       skipped += 1;
@@ -208,6 +217,7 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
       suggested_price: price,
       source_ref: sourceRef,
       active: true,
+      technical_notes: technicalNotes,
       _sheet: sheetName,
       _row: r + 1,
     });
@@ -232,6 +242,7 @@ const removePrivateFields = (item) => ({
   suggested_price: item.suggested_price,
   source_ref: item.source_ref,
   active: item.active,
+  technical_notes: item.technical_notes || null,
 });
 
 const main = async () => {

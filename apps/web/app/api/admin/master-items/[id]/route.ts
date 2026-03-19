@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
 
+const isMissingColumnError = (error: any, column: string) => {
+  const message = String(error?.message || '').toLowerCase();
+  return message.includes('column') && message.includes(column.toLowerCase()) && message.includes('does not exist');
+};
+
 const parseBoolean = (value: any) => {
   if (typeof value === 'boolean') return value;
   if (typeof value === 'number') return Boolean(value);
@@ -18,6 +23,13 @@ const parseSuggestedPrice = (value: any) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed < 0) return { ok: false, value: null as number | null };
   return { ok: true, value: parsed };
+};
+
+const parseTechnicalNotes = (value: any) => {
+  if (value === null || value === undefined) return { ok: true, value: null as string | null };
+  if (typeof value !== 'string') return { ok: false, value: null as string | null };
+  const normalized = value.trim();
+  return { ok: true, value: normalized || null };
 };
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -66,6 +78,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     patch.suggested_price = parsed.value;
   }
 
+  if (body && Object.prototype.hasOwnProperty.call(body, 'technical_notes')) {
+    const parsed = parseTechnicalNotes(body.technical_notes);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: 'Invalid technical_notes' }, { status: 400 });
+    }
+    patch.technical_notes = parsed.value;
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Missing payload' }, { status: 400 });
   }
@@ -74,10 +94,16 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from('master_items')
     .update(patch)
     .eq('id', itemId)
-    .select('id,name,type,suggested_price,category,source_ref,active,created_at')
+    .select('id,name,type,suggested_price,category,source_ref,technical_notes,active,created_at')
     .maybeSingle();
 
   if (error) {
+    if (isMissingColumnError(error, 'technical_notes') && Object.prototype.hasOwnProperty.call(patch, 'technical_notes')) {
+      return NextResponse.json(
+        { error: 'Falta ejecutar la migracion de observaciones tecnicas para master_items.' },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
