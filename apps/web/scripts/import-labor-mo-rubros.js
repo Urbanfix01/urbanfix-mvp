@@ -36,6 +36,25 @@ const defaultFilePath = path.resolve(
 const today = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
 const defaultSource = `mo_rubros_${today}`;
 
+const CANONICAL_CATEGORY_BY_SOURCE_REF = {
+  mo_rubro_refrigeracion: 'REFRIGERACION',
+  mo_rubro_agua_incendio: 'AGUA/INCENDIO',
+  mo_rubro_cloaca_pluvial_ventilacion: 'CLOACA, PLUVIAL, VENTILACION',
+};
+
+const TECH_SIGNAL_HEADERS = [
+  'rango',
+  'potencia',
+  'kw',
+  'kva',
+  'frigo',
+  'fg',
+  'medida',
+  'diam',
+  'capacidad',
+  'caudal',
+];
+
 const normalizeText = (value) =>
   (value ?? '')
     .toString()
@@ -46,11 +65,13 @@ const normalizeText = (value) =>
     .toLowerCase();
 
 const cleanText = (value) => (value ?? '').toString().replace(/\s+/g, ' ').trim();
+const normalizeTechnicalNotes = (value) => cleanText(value).replace(/\r/g, '');
 
 const toNumber = (value) => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : null;
   }
+
   const raw = cleanText(value);
   if (!raw) return null;
 
@@ -123,7 +144,6 @@ const parseArgs = () => {
     }
     if (token.startsWith('--source=')) {
       options.source = token.split('=').slice(1).join('=');
-      continue;
     }
   }
 
@@ -134,7 +154,7 @@ const findColumnIndex = (headers, candidates) => {
   for (let i = 0; i < headers.length; i += 1) {
     const header = normalizeText(headers[i]);
     if (!header) continue;
-    if (candidates.some((c) => header.includes(c))) return i;
+    if (candidates.some((candidate) => header.includes(candidate))) return i;
   }
   return -1;
 };
@@ -159,18 +179,150 @@ const detectHeaderRow = (rows) => {
 };
 
 const isNoiseName = (name) => {
-  const n = normalizeText(name);
-  if (!n) return true;
-  if (n === 'item' || n === 'tarea / item') return true;
-  if (n === 'categoria') return true;
-  if (/^total(es)?$/.test(n)) return true;
-  if (/^subtotal(es)?$/.test(n)) return true;
+  const normalized = normalizeText(name);
+  if (!normalized) return true;
+  if (normalized === 'item' || normalized === 'tarea / item') return true;
+  if (normalized === 'categoria') return true;
+  if (/^total(es)?$/.test(normalized)) return true;
+  if (/^subtotal(es)?$/.test(normalized)) return true;
   return false;
+};
+
+const appendTechnicalNote = (notes, value) => {
+  const existing = normalizeTechnicalNotes(notes)
+    .split('\n')
+    .map((line) => cleanText(line))
+    .filter(Boolean);
+  const next = cleanText(value);
+  if (!next) return existing.join('\n') || null;
+  const seen = new Set(existing.map((line) => normalizeText(line)));
+  if (!seen.has(normalizeText(next))) {
+    existing.push(next);
+  }
+  return existing.join('\n') || null;
+};
+
+const extractTechnicalTokensFromName = (name) => {
+  const source = cleanText(name);
+  if (!source) return [];
+
+  const patterns = [
+    /\u00D8\s*\d+(?:[.,]\d+)?\s*mm/gi,
+    /\d+\s*x\s*\d+\s*x\s*\d+\s*cm/gi,
+    /\d+\s*x\s*\d+\s*cm/gi,
+    /e\s*=\s*\d+(?:[.,]\d+)?\s*cm/gi,
+    /\d+\+\d+\s*mm/gi,
+    /\d+\/\d+\s*hp/gi,
+    /h\d+\/\d+\s*kg/gi,
+    /\d+(?:[.,]\d+)?\s*(?:mm|cm|lt|lts|kg|hp|cal|fg|kva|kw)\b/gi,
+  ];
+
+  const tokens = [];
+  const seen = new Set();
+  const occupiedRanges = [];
+
+  for (const pattern of patterns) {
+    for (const match of source.matchAll(pattern)) {
+      const raw = cleanText(match[0]);
+      const start = Number(match.index || 0);
+      const end = start + raw.length;
+      const overlapsExisting = occupiedRanges.some((range) => start >= range.start && end <= range.end);
+      if (overlapsExisting) continue;
+
+      const key = normalizeText(raw);
+      if (!raw || seen.has(key)) continue;
+
+      seen.add(key);
+      tokens.push(raw);
+      occupiedRanges.push({ start, end });
+    }
+  }
+
+  return tokens;
+};
+
+const buildTechnicalNotes = ({
+  headers,
+  row,
+  name,
+  idxName,
+  idxCategory,
+  idxUnit,
+  idxMo,
+  idxPrice,
+  idxTechnicalNotes,
+}) => {
+  const parts = [];
+  const seen = new Set();
+  const pushPart = (value) => {
+    const cleaned = cleanText(value);
+    if (!cleaned || cleaned === '-') return;
+    const key = normalizeText(cleaned);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    parts.push(cleaned);
+  };
+
+  if (idxTechnicalNotes >= 0) {
+    pushPart(row[idxTechnicalNotes]);
+  }
+
+  headers.forEach((headerValue, index) => {
+    if ([idxName, idxCategory, idxUnit, idxMo, idxPrice, idxTechnicalNotes].includes(index)) return;
+    const header = cleanText(headerValue);
+    const normalizedHeader = normalizeText(header);
+    const value = cleanText(row[index]);
+    if (!value || value === '-') return;
+    if (!TECH_SIGNAL_HEADERS.some((signal) => normalizedHeader.includes(signal))) return;
+    pushPart(`${header}: ${value}`);
+  });
+
+  const technicalTokens = extractTechnicalTokensFromName(name);
+  if (technicalTokens.length > 0) {
+    pushPart(`Especificacion nominal: ${technicalTokens.join(', ')}`);
+  }
+
+  return parts.length > 0 ? parts.join('\n') : null;
+};
+
+const buildIdentityKey = (item) =>
+  [
+    normalizeText(item.name),
+    normalizeText(item.category),
+    normalizeText(item.source_ref),
+    normalizeText(item.technical_notes || ''),
+  ].join('|');
+
+const buildPriceKey = (item) =>
+  [
+    normalizeText(item.name),
+    normalizeText(item.category),
+    normalizeText(item.source_ref),
+    Number(item.suggested_price || 0).toFixed(2),
+  ].join('|');
+
+const collapseItemsByIdentity = (items) => {
+  const map = new Map();
+  const duplicates = [];
+
+  items.forEach((item) => {
+    const key = buildIdentityKey(item);
+    if (map.has(key)) {
+      duplicates.push({
+        key,
+        keptRow: item._row,
+        replacedRow: map.get(key)._row,
+      });
+    }
+    map.set(key, item);
+  });
+
+  return { items: [...map.values()], duplicates };
 };
 
 const parseSheetRows = (sheetName, matrix, sourceRef) => {
   if (!Array.isArray(matrix) || matrix.length === 0) {
-    return { items: [], skipped: 0 };
+    return { items: [], skipped: 0, collapsedDuplicates: [] };
   }
 
   const headerRowIndex = detectHeaderRow(matrix);
@@ -178,6 +330,7 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
 
   const idxName = findColumnIndex(headers, ['tarea', 'item', 'descripcion']);
   const idxCategory = findColumnIndex(headers, ['categoria', 'rubro']);
+  const idxUnit = findColumnIndex(headers, ['unidad', 'u/m', 'um']);
   const idxMo = findColumnIndex(headers, ['costo mano obra', 'mano obra', ' mo', 'mo']);
   const idxPrice = findColumnIndex(headers, ['precio total', 'precio', 'total', 'valor']);
   const idxTechnicalNotes = findColumnIndex(headers, [
@@ -187,23 +340,35 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
     'obs tecnica',
     'nota tecnica',
     'detalle tecnico',
+    'observaciones',
   ]);
 
   if (idxName === -1 || (idxMo === -1 && idxPrice === -1)) {
-    return { items: [], skipped: Math.max(matrix.length - headerRowIndex - 1, 0) };
+    return { items: [], skipped: Math.max(matrix.length - headerRowIndex - 1, 0), collapsedDuplicates: [] };
   }
 
+  const fallbackCategory = CANONICAL_CATEGORY_BY_SOURCE_REF[sourceRef] || cleanText(sheetName);
   const items = [];
   let skipped = 0;
 
   for (let r = headerRowIndex + 1; r < matrix.length; r += 1) {
     const row = matrix[r] || [];
     const name = cleanText(row[idxName]);
-    const category =
-      idxCategory >= 0 ? cleanText(row[idxCategory]) || cleanText(sheetName) : cleanText(sheetName);
+    const category = idxCategory >= 0 ? cleanText(row[idxCategory]) || fallbackCategory : fallbackCategory;
+    const unit = idxUnit >= 0 ? cleanText(row[idxUnit]) : '';
     const priceRaw = idxMo >= 0 ? row[idxMo] : row[idxPrice];
     const price = toNumber(priceRaw);
-    const technicalNotes = idxTechnicalNotes >= 0 ? cleanText(row[idxTechnicalNotes]) || null : null;
+    const technicalNotes = buildTechnicalNotes({
+      headers,
+      row,
+      name,
+      idxName,
+      idxCategory,
+      idxUnit,
+      idxMo,
+      idxPrice,
+      idxTechnicalNotes,
+    });
 
     if (isNoiseName(name) || !category || !Number.isFinite(price) || price <= 0) {
       skipped += 1;
@@ -218,12 +383,35 @@ const parseSheetRows = (sheetName, matrix, sourceRef) => {
       source_ref: sourceRef,
       active: true,
       technical_notes: technicalNotes,
+      unit,
       _sheet: sheetName,
       _row: r + 1,
     });
   }
 
-  return { items, skipped };
+  const groupedByBaseKey = new Map();
+  items.forEach((item) => {
+    const key = [normalizeText(item.name), normalizeText(item.category), normalizeText(item.source_ref)].join('|');
+    const current = groupedByBaseKey.get(key) || [];
+    current.push(item);
+    groupedByBaseKey.set(key, current);
+  });
+
+  const normalizedItems = items.map((item) => {
+    const key = [normalizeText(item.name), normalizeText(item.category), normalizeText(item.source_ref)].join('|');
+    const siblings = groupedByBaseKey.get(key) || [];
+    const distinctUnits = new Set(siblings.map((entry) => normalizeText(entry.unit || '')));
+    if (distinctUnits.size > 1 && item.unit) {
+      return {
+        ...item,
+        technical_notes: appendTechnicalNote(item.technical_notes, `Unidad de referencia: ${item.unit}`),
+      };
+    }
+    return item;
+  });
+
+  const collapsed = collapseItemsByIdentity(normalizedItems);
+  return { items: collapsed.items, skipped, collapsedDuplicates: collapsed.duplicates };
 };
 
 const groupBySheet = (items) => {
@@ -252,8 +440,8 @@ const main = async () => {
   const workbook = XLSX.readFile(filePath, { cellDates: false });
   const allSheets = workbook.SheetNames || [];
   const wantedSheets = options.sheets.length
-    ? allSheets.filter((s) =>
-        options.sheets.some((target) => normalizeText(target) === normalizeText(s))
+    ? allSheets.filter((sheet) =>
+        options.sheets.some((target) => normalizeText(target) === normalizeText(sheet))
       )
     : allSheets;
 
@@ -270,13 +458,15 @@ const main = async () => {
 
   const parsedItems = [];
   const parseDiagnostics = [];
+  const collapsedDiagnostics = [];
 
   for (const sheetName of wantedSheets) {
     const worksheet = workbook.Sheets[sheetName];
     const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-    const { items, skipped } = parseSheetRows(sheetName, rows, options.source);
+    const { items, skipped, collapsedDuplicates } = parseSheetRows(sheetName, rows, options.source);
     parsedItems.push(...items);
     parseDiagnostics.push({ sheet: sheetName, imported: items.length, skipped });
+    collapsedDiagnostics.push(...collapsedDuplicates.map((entry) => ({ sheet: sheetName, ...entry })));
   }
 
   if (!parsedItems.length) {
@@ -294,15 +484,20 @@ const main = async () => {
   for (const row of parseDiagnostics.sort((a, b) => a.sheet.localeCompare(b.sheet))) {
     console.log(`- ${row.sheet}: ${row.imported} importables, ${row.skipped} omitidos`);
   }
+  if (collapsedDiagnostics.length > 0) {
+    console.log('');
+    console.log(`Duplicados exactos colapsados: ${collapsedDiagnostics.length}`);
+    collapsedDiagnostics.slice(0, 10).forEach((entry) => {
+      console.log(`- ${entry.sheet}: fila ${entry.replacedRow} reemplazada por fila ${entry.keptRow}`);
+    });
+  }
   console.log('');
 
   const bySheet = groupBySheet(parsedItems);
   for (const [sheet, count] of bySheet) {
     const sample = parsedItems.find((item) => item._sheet === sheet);
     if (sample) {
-      console.log(
-        `Ejemplo ${sheet}: ${sample.name} | ${sample.category} | ARS ${sample.suggested_price.toFixed(2)}`
-      );
+      console.log(`Ejemplo ${sheet}: ${sample.name} | ${sample.category} | ARS ${sample.suggested_price.toFixed(2)}`);
     }
   }
 
@@ -317,7 +512,7 @@ const main = async () => {
 
   const { data: existingRows, error: existingError } = await supabase
     .from('master_items')
-    .select('id,name,category,type,source_ref')
+    .select('id,name,category,type,source_ref,technical_notes,suggested_price')
     .eq('type', 'labor')
     .eq('source_ref', options.source);
 
@@ -326,16 +521,34 @@ const main = async () => {
     process.exit(1);
   }
 
-  const existingMap = new Map(
+  const existingIdentityMap = new Map(
     (existingRows || []).map((row) => [
-      `${normalizeText(row.name)}|${normalizeText(row.category)}|${normalizeText(row.source_ref)}`,
+      buildIdentityKey({
+        name: row.name,
+        category: row.category,
+        source_ref: row.source_ref,
+        technical_notes: row.technical_notes,
+      }),
+      row.id,
+    ])
+  );
+
+  const existingPriceMap = new Map(
+    (existingRows || []).map((row) => [
+      buildPriceKey({
+        name: row.name,
+        category: row.category,
+        source_ref: row.source_ref,
+        suggested_price: row.suggested_price,
+      }),
       row.id,
     ])
   );
 
   const payload = parsedItems.map((item) => {
-    const key = `${normalizeText(item.name)}|${normalizeText(item.category)}|${normalizeText(item.source_ref)}`;
-    const existingId = existingMap.get(key);
+    const identityKey = buildIdentityKey(item);
+    const priceKey = buildPriceKey(item);
+    const existingId = existingIdentityMap.get(identityKey) || existingPriceMap.get(priceKey);
     return {
       id: existingId || crypto.randomUUID(),
       ...removePrivateFields(item),
