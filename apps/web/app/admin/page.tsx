@@ -5733,7 +5733,7 @@ export default function AdminPage() {
                         </p>
                         {item.technical_notes && (
                           <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
-                            <span className="font-semibold text-slate-700">Obs. tecnica:</span> {item.technical_notes}
+                            <span className="font-semibold text-slate-700">Especificacion tecnica:</span> {item.technical_notes}
                           </p>
                         )}
                       </div>
@@ -5755,7 +5755,7 @@ export default function AdminPage() {
                           onChange={(event) =>
                             setLaborNotesDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))
                           }
-                          placeholder="Observaciones tecnicas del item..."
+                          placeholder="Medidas, kW, diametro, capacidad, seccion, rendimiento..."
                           className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
                         />
                         <button

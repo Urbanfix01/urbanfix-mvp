@@ -842,6 +842,9 @@ const buildItemsSignature = (items: ItemForm[]) =>
       unitPrice: Number(item.unitPrice) || 0,
       type: item.type,
       technicalNotes: (item.technicalNotes || '').trim(),
+      masterItemId: item.masterItemId || '',
+      masterItemCategory: item.masterItemCategory || '',
+      masterItemSourceRef: item.masterItemSourceRef || '',
     }))
   );
 
@@ -857,6 +860,8 @@ const normalizeText = (value: string) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+const normalizeTechnicalNotes = (value: string | null | undefined) => String(value || '').replace(/\r/g, '').trim();
 
 const buildOsmEmbedUrl = (lat: number, lon: number) => {
   const delta = 0.004;
@@ -2320,15 +2325,19 @@ export default function TechniciansPage() {
         description: item.description || '',
         quantity: Number(item.quantity || 1),
         unitPrice: Number(item.unit_price || 0),
-        technicalNotes: String(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
+        technicalNotes: normalizeTechnicalNotes(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
+        masterItemId: String(item?.metadata?.master_item_id || ''),
+        masterItemCategory: String(item?.metadata?.master_item_category || ''),
+        masterItemSourceRef: String(item?.metadata?.master_item_source_ref || ''),
         type: normalizedType as 'labor' | 'material',
       };
     });
-    setItems(mapped);
+    const hydratedItems = mapped.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }));
+    setItems(hydratedItems);
     lastSavedItemsSignatureRef.current = buildItemsSignature(
-      mapped.filter((item) => item.description.trim())
+      hydratedItems.filter((item) => item.description.trim())
     );
-    lastSavedItemsCountRef.current = mapped.filter((item) => item.description.trim()).length;
+    lastSavedItemsCountRef.current = hydratedItems.filter((item) => item.description.trim()).length;
     await fetchAttachments(quote.id);
   };
 
@@ -2341,7 +2350,10 @@ export default function TechniciansPage() {
         description: item.name,
         quantity: 1,
         unitPrice: Number(item.suggested_price || 0),
-        technicalNotes: String(item.technical_notes || ''),
+        technicalNotes: normalizeTechnicalNotes(item.technical_notes),
+        masterItemId: item.id,
+        masterItemCategory: item.category || '',
+        masterItemSourceRef: item.source_ref || '',
         type: item.type === 'material' ? 'material' : 'labor',
       },
     ]);
@@ -2356,12 +2368,22 @@ export default function TechniciansPage() {
         quantity: 1,
         unitPrice: 0,
         technicalNotes: '',
+        masterItemId: '',
+        masterItemCategory: '',
+        masterItemSourceRef: '',
         type: 'labor',
       },
     ]);
   };
 
   const laborMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'labor'), [masterItems]);
+  const laborMasterById = useMemo(() => {
+    const map = new Map<string, MasterItemRow>();
+    laborMasterItems.forEach((item) => {
+      map.set(item.id, item);
+    });
+    return map;
+  }, [laborMasterItems]);
   const laborMasterMap = useMemo(() => {
     const map = new Map<string, MasterItemRow>();
     laborMasterItems.forEach((item) => {
@@ -2370,28 +2392,105 @@ export default function TechniciansPage() {
     return map;
   }, [laborMasterItems]);
 
+  const resolveLaborMasterItem = (item: {
+    type?: 'labor' | 'material';
+    description?: string;
+    masterItemId?: string;
+  }) => {
+    if (item.type !== 'labor') return null;
+    const byId = item.masterItemId ? laborMasterById.get(item.masterItemId) || null : null;
+    if (byId) return byId;
+    const normalized = normalizeText(item.description || '').trim();
+    if (!normalized) return null;
+    return laborMasterMap.get(normalized) || null;
+  };
+
+  const mergeItemWithMasterItem = (item: ItemForm, options?: { fillNotesFromMaster?: boolean }) => {
+    if (item.type !== 'labor') {
+      return {
+        ...item,
+        technicalNotes: '',
+        masterItemId: '',
+        masterItemCategory: '',
+        masterItemSourceRef: '',
+      };
+    }
+
+    const match = resolveLaborMasterItem(item);
+    if (!match) {
+      return {
+        ...item,
+        masterItemId: '',
+        masterItemCategory: '',
+        masterItemSourceRef: '',
+      };
+    }
+
+    const nextTechnicalNotes =
+      options?.fillNotesFromMaster && !normalizeTechnicalNotes(item.technicalNotes)
+        ? normalizeTechnicalNotes(match.technical_notes)
+        : normalizeTechnicalNotes(item.technicalNotes);
+
+    return {
+      ...item,
+      masterItemId: match.id,
+      masterItemCategory: match.category || '',
+      masterItemSourceRef: match.source_ref || '',
+      technicalNotes: nextTechnicalNotes,
+    };
+  };
+
   const handleItemUpdate = (id: string, patch: Partial<ItemForm>) => {
     setItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
         const next = { ...item, ...patch };
         if ((patch.description !== undefined || patch.type !== undefined) && next.type === 'labor') {
-          const normalized = normalizeText(next.description || '');
-          if (normalized) {
-            const match = laborMasterMap.get(normalized);
-            if (match) {
-              next.unitPrice = Number(match.suggested_price || 0);
-              next.technicalNotes = String(match.technical_notes || '');
-            }
+          const match = resolveLaborMasterItem(next);
+          if (match) {
+            next.unitPrice = Number(match.suggested_price || 0);
+            next.technicalNotes = normalizeTechnicalNotes(match.technical_notes);
+            next.masterItemId = match.id;
+            next.masterItemCategory = match.category || '';
+            next.masterItemSourceRef = match.source_ref || '';
+          } else if (patch.description !== undefined) {
+            next.technicalNotes = '';
+            next.masterItemId = '';
+            next.masterItemCategory = '';
+            next.masterItemSourceRef = '';
           }
         }
         if (patch.type === 'material') {
           next.technicalNotes = '';
+          next.masterItemId = '';
+          next.masterItemCategory = '';
+          next.masterItemSourceRef = '';
         }
         return next;
       })
     );
   };
+
+  useEffect(() => {
+    if (laborMasterItems.length === 0) return;
+    setItems((prev) => {
+      let changed = false;
+      const next = prev.map((item) => {
+        const merged = mergeItemWithMasterItem(item, { fillNotesFromMaster: true });
+        if (
+          merged.technicalNotes !== item.technicalNotes ||
+          merged.masterItemId !== item.masterItemId ||
+          merged.masterItemCategory !== item.masterItemCategory ||
+          merged.masterItemSourceRef !== item.masterItemSourceRef
+        ) {
+          changed = true;
+          return merged;
+        }
+        return item;
+      });
+      return changed ? next : prev;
+    });
+  }, [laborMasterItems, laborMasterById, laborMasterMap]);
 
   const handleRemoveItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
@@ -3635,7 +3734,8 @@ export default function TechniciansPage() {
       savingRef.current = false;
       return;
     }
-    const cleanedItems = items.filter((item) => item.description.trim());
+    const preparedItems = items.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }));
+    const cleanedItems = preparedItems.filter((item) => item.description.trim());
     if (cleanedItems.length === 0) {
       setFormError('Agrega al menos un item.');
       savingRef.current = false;
@@ -3700,7 +3800,13 @@ export default function TechniciansPage() {
           description: item.description,
           unit_price: item.unitPrice,
           quantity: item.quantity,
-          metadata: { type: item.type, technical_notes: (item.technicalNotes || '').trim() || null },
+          metadata: {
+            type: item.type,
+            technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
+            master_item_id: item.masterItemId || null,
+            master_item_category: item.masterItemCategory || null,
+            master_item_source_ref: item.masterItemSourceRef || null,
+          },
         }));
         const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
         if (itemsError) throw itemsError;
@@ -3717,6 +3823,7 @@ export default function TechniciansPage() {
       }
 
       await fetchQuotes(session?.user?.id);
+      setItems(preparedItems);
       setInfoMessage(postSaveMessage);
       lastSavedItemsSignatureRef.current = itemsSignature;
       lastSavedItemsCountRef.current = cleanedItems.length;
@@ -5886,7 +5993,7 @@ export default function TechniciansPage() {
                             </div>
                             {item.technicalNotes && (
                               <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
-                                <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Observacion tecnica</p>
+                                <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Especificacion tecnica</p>
                                 <p className="mt-1 whitespace-pre-wrap">{item.technicalNotes}</p>
                               </div>
                             )}
@@ -8019,7 +8126,7 @@ export default function TechniciansPage() {
                         </p>
                         {item.technical_notes && (
                           <p className="mt-2 max-w-2xl whitespace-pre-wrap text-xs leading-5 text-slate-600">
-                            <span className="font-semibold text-slate-700">Obs. tecnica:</span> {item.technical_notes}
+                            <span className="font-semibold text-slate-700">Especificacion tecnica:</span> {item.technical_notes}
                           </p>
                         )}
                       </div>

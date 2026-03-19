@@ -76,7 +76,7 @@ const getItemLabel = (item: any) => {
   const description = item?.description || 'Item sin nombre';
   const technicalNotes = String(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || '').trim();
   if (!technicalNotes) return description;
-  return `${description}\nObs. tecnica: ${technicalNotes}`;
+  return `${description}\nEspecificacion tecnica: ${technicalNotes}`;
 };
 
 export const QuoteDocument = ({ quote, items, profile }: Props) => {

@@ -1074,7 +1074,7 @@ export default function QuotePage() {
                                 )}
                                 {getItemTechnicalObservation(item) && (
                                   <p className="max-w-2xl whitespace-pre-wrap text-xs font-medium leading-5 text-slate-500">
-                                    <span className="font-semibold text-slate-600">Obs. tecnica:</span>{' '}
+                                    <span className="font-semibold text-slate-600">Especificacion tecnica:</span>{' '}
                                     {getItemTechnicalObservation(item)}
                                   </p>
                                 )}
@@ -1126,7 +1126,7 @@ export default function QuotePage() {
                             )}
                             {getItemTechnicalObservation(item) && (
                               <p className="max-w-2xl whitespace-pre-wrap text-xs font-medium leading-5 text-slate-500">
-                                <span className="font-semibold text-slate-600">Obs. tecnica:</span>{' '}
+                                <span className="font-semibold text-slate-600">Especificacion tecnica:</span>{' '}
                                 {getItemTechnicalObservation(item)}
                               </p>
                             )}
