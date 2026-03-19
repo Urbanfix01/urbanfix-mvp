@@ -2,7 +2,7 @@ import type { MasterItem } from '../types/database';
 
 export type CalculatorUnit = 'm2' | 'm3';
 
-type MasterItemLike = Pick<MasterItem, 'name' | 'technical_notes' | 'category' | 'source_ref'>;
+type MasterItemLike = Pick<MasterItem, 'name' | 'technical_notes' | 'category' | 'source_ref' | 'unit'>;
 
 const EXPLICIT_M3_PATTERNS = [
   'm3',
@@ -107,6 +107,10 @@ export const compactTechnicalNotesText = (
 };
 
 export const inferCalculatorUnit = (item: MasterItemLike): CalculatorUnit | null => {
+  const explicitUnit = normalizeSearchValue(item.unit);
+  if (explicitUnit === 'm2' || explicitUnit === 'metro cuadrado' || explicitUnit === 'metros cuadrados') return 'm2';
+  if (explicitUnit === 'm3' || explicitUnit === 'metro cubico' || explicitUnit === 'metros cubicos') return 'm3';
+
   const combinedText = normalizeSearchValue(
     `${item.name || ''} ${item.technical_notes || ''} ${item.category || ''} ${item.source_ref || ''}`
   );
@@ -136,7 +140,7 @@ export const buildMasterItemChoiceLabel = (
 
 export const buildMasterItemSearchIndex = (item: MasterItemLike) =>
   normalizeSearchValue(
-    `${item.name || ''} ${item.technical_notes || ''} ${item.category || ''} ${item.source_ref || ''}`
+    `${item.name || ''} ${item.technical_notes || ''} ${item.category || ''} ${item.source_ref || ''} ${item.unit || ''}`
   );
 
 export const formatMasterItemSourceLabel = (item: Pick<MasterItem, 'category' | 'source_ref'>) => {

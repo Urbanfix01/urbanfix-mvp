@@ -11,6 +11,7 @@ type MasterItemRow = {
   source_ref: string | null;
   suggested_price: number | null;
   technical_notes: string | null;
+  unit: string | null;
   created_at: string | null;
 };
 
@@ -212,11 +213,17 @@ const getLatestDate = (rows: MasterItemRow[]) => {
   return new Date(Math.max(...dates)).toISOString();
 };
 
+const resolveUnit = (row: Pick<MasterItemRow, 'name' | 'unit'>) => {
+  const explicitUnit = normalize(cleanText(row.unit));
+  if (explicitUnit) return explicitUnit;
+  return inferUnit(row.name);
+};
+
 const toRubroPriceReference = (row: MasterItemRow): RubroPriceReference => ({
   id: row.id,
   label: cleanText(row.name),
   technicalNotes: normalizeTechnicalNotesText(row.technical_notes),
-  unit: inferUnit(row.name),
+  unit: resolveUnit(row),
   reference: Number(row.suggested_price || 0),
   source: formatSource(row.source_ref, row.category),
   updatedAt: row.created_at || null,
@@ -226,6 +233,11 @@ const warnMasterItemsFetchFailure = (message: string) => {
   if (didWarnMasterItemsFetchFailure) return;
   didWarnMasterItemsFetchFailure = true;
   console.warn(`SEO/rubros: no se pudieron leer precios de master_items; se usa fallback vacio. ${message}`);
+};
+
+const isMissingColumnError = (error: unknown, column: string) => {
+  const message = String((error as any)?.message || '').toLowerCase();
+  return message.includes('column') && message.includes(column.toLowerCase()) && message.includes('does not exist');
 };
 
 const fetchActiveLaborItems = cache(async (): Promise<MasterItemRow[]> => {
@@ -242,24 +254,45 @@ const fetchActiveLaborItems = cache(async (): Promise<MasterItemRow[]> => {
   }
 
   activeLaborItemsPromise = (async () => {
-    const { data, error } = await supabase
-      .from('master_items')
-      .select('id,name,category,source_ref,suggested_price,technical_notes,created_at')
-      .eq('type', 'labor')
-      .eq('active', true)
-      .not('suggested_price', 'is', null)
-      .order('created_at', { ascending: false });
+    const variants = [
+      'id,name,category,source_ref,suggested_price,technical_notes,unit,created_at',
+      'id,name,category,source_ref,suggested_price,technical_notes,created_at',
+    ];
 
-    if (error) {
-      warnMasterItemsFetchFailure(error.message);
+    for (const fields of variants) {
+      const { data, error } = await supabase
+        .from('master_items')
+        .select(fields)
+        .eq('type', 'labor')
+        .eq('active', true)
+        .not('suggested_price', 'is', null)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        if (fields.includes('unit') && isMissingColumnError(error, 'unit')) {
+          continue;
+        }
+        warnMasterItemsFetchFailure(error.message);
+        activeLaborItemsCache = {
+          rows: [],
+          expiresAt: Date.now() + SEO_PRICE_CACHE_TTL_MS,
+        };
+        return [];
+      }
+
+      const rows = ((data || []) as any[]).map((row) => ({
+        ...row,
+        unit: row.unit || null,
+      })) as MasterItemRow[];
+      const filteredRows = rows.filter((row) => Number(row.suggested_price || 0) > 0);
       activeLaborItemsCache = {
-        rows: [],
+        rows: filteredRows,
         expiresAt: Date.now() + SEO_PRICE_CACHE_TTL_MS,
       };
-      return [];
+      return filteredRows;
     }
 
-    const rows = (data || []).filter((row) => Number(row.suggested_price || 0) > 0);
+    const rows: MasterItemRow[] = [];
     activeLaborItemsCache = {
       rows,
       expiresAt: Date.now() + SEO_PRICE_CACHE_TTL_MS,

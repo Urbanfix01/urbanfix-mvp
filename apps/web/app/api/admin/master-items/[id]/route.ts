@@ -32,6 +32,13 @@ const parseTechnicalNotes = (value: any) => {
   return { ok: true, value: normalized || null };
 };
 
+const parseUnit = (value: any) => {
+  if (value === null || value === undefined) return { ok: true, value: null as string | null };
+  if (typeof value !== 'string') return { ok: false, value: null as string | null };
+  const normalized = value.trim().toLowerCase();
+  return { ok: true, value: normalized || null };
+};
+
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
@@ -86,6 +93,14 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     patch.technical_notes = parsed.value;
   }
 
+  if (body && Object.prototype.hasOwnProperty.call(body, 'unit')) {
+    const parsed = parseUnit(body.unit);
+    if (!parsed.ok) {
+      return NextResponse.json({ error: 'Invalid unit' }, { status: 400 });
+    }
+    patch.unit = parsed.value;
+  }
+
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: 'Missing payload' }, { status: 400 });
   }
@@ -94,13 +109,19 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     .from('master_items')
     .update(patch)
     .eq('id', itemId)
-    .select('id,name,type,suggested_price,category,source_ref,technical_notes,active,created_at')
+    .select('*')
     .maybeSingle();
 
   if (error) {
     if (isMissingColumnError(error, 'technical_notes') && Object.prototype.hasOwnProperty.call(patch, 'technical_notes')) {
       return NextResponse.json(
         { error: 'Falta ejecutar la migracion de observaciones tecnicas para master_items.' },
+        { status: 409 }
+      );
+    }
+    if (isMissingColumnError(error, 'unit') && Object.prototype.hasOwnProperty.call(patch, 'unit')) {
+      return NextResponse.json(
+        { error: 'Falta ejecutar la migracion de unidad para master_items.' },
         { status: 409 }
       );
     }

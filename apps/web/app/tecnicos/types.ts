@@ -24,6 +24,7 @@ export type ItemForm = {
   quantity: number;
   unitPrice: number;
   type: 'labor' | 'material';
+  unit?: string;
   technicalNotes?: string;
   masterItemId?: string;
   masterItemCategory?: string;
@@ -68,6 +69,7 @@ export type MasterItemRow = {
   category: string | null;
   source_ref?: string | null;
   technical_notes?: string | null;
+  unit?: string | null;
 };
 
 export type GeoResult = {

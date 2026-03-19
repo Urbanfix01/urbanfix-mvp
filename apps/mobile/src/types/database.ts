@@ -17,6 +17,7 @@ export interface MasterItem {
   category?: string | null;
   active?: boolean | null;
   technical_notes?: string | null;
+  unit?: string | null;
   created_at?: string;
 }
 

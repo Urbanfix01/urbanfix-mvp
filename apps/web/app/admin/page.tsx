@@ -177,6 +177,7 @@ type MasterItemAdminRow = {
   category?: string | null;
   source_ref?: string | null;
   technical_notes?: string | null;
+  unit?: string | null;
   active?: boolean | null;
   created_at?: string | null;
 };
@@ -333,7 +334,7 @@ const normalizeText = (value?: string | null) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
-const getMasterItemChoiceValue = (item: Pick<MasterItemAdminRow, 'name' | 'technical_notes'>) =>
+const getMasterItemChoiceValue = (item: Pick<MasterItemAdminRow, 'name' | 'technical_notes' | 'unit'>) =>
   buildMasterItemChoiceLabel(item);
 
 const getMasterItemTechnicalBadge = (
@@ -1678,6 +1679,7 @@ export default function AdminPage() {
   const [laborShowInactive, setLaborShowInactive] = useState(false);
   const [laborPriceDrafts, setLaborPriceDrafts] = useState<Record<string, string>>({});
   const [laborNotesDrafts, setLaborNotesDrafts] = useState<Record<string, string>>({});
+  const [laborUnitDrafts, setLaborUnitDrafts] = useState<Record<string, string>>({});
   const [laborSavingId, setLaborSavingId] = useState<string | null>(null);
   const [laborMessage, setLaborMessage] = useState('');
   const [roadmapUpdates, setRoadmapUpdates] = useState<RoadmapUpdateItem[]>([]);
@@ -2113,13 +2115,16 @@ export default function AdminPage() {
       setLaborItems(items);
       const nextDrafts: Record<string, string> = {};
       const nextNotesDrafts: Record<string, string> = {};
+      const nextUnitDrafts: Record<string, string> = {};
       items.forEach((item) => {
         nextDrafts[item.id] =
           item.suggested_price === null || item.suggested_price === undefined ? '' : String(item.suggested_price);
         nextNotesDrafts[item.id] = item.technical_notes || '';
+        nextUnitDrafts[item.id] = item.unit || '';
       });
       setLaborPriceDrafts(nextDrafts);
       setLaborNotesDrafts(nextNotesDrafts);
+      setLaborUnitDrafts(nextUnitDrafts);
     } catch (error: any) {
       setLaborError(error?.message || 'No se pudieron cargar los valores.');
     } finally {
@@ -2885,7 +2890,7 @@ export default function AdminPage() {
 
   const patchLaborItem = async (
     itemId: string,
-    patch: { active?: boolean; suggested_price?: number | null; technical_notes?: string | null }
+    patch: { active?: boolean; suggested_price?: number | null; technical_notes?: string | null; unit?: string | null }
   ) => {
     if (!session?.access_token) return;
     setLaborError('');
@@ -2920,6 +2925,12 @@ export default function AdminPage() {
           setLaborNotesDrafts((prev) => ({
             ...prev,
             [itemId]: updated.technical_notes || '',
+          }));
+        }
+        if (patch.unit !== undefined) {
+          setLaborUnitDrafts((prev) => ({
+            ...prev,
+            [itemId]: updated.unit || '',
           }));
         }
       }
@@ -3993,7 +4004,9 @@ export default function AdminPage() {
       const source = (item.source_ref || '').toString().trim() || 'Sin fuente';
       if (laborSourceFilter !== 'all' && source !== laborSourceFilter) return false;
       if (!query) return true;
-      const haystack = normalizeText([item.name, item.category, item.source_ref, item.technical_notes].filter(Boolean).join(' '));
+      const haystack = normalizeText(
+        [item.name, item.category, item.source_ref, item.technical_notes, item.unit].filter(Boolean).join(' ')
+      );
       return haystack.includes(query);
     });
   }, [laborItems, laborSearch, laborShowInactive, laborSourceFilter]);
@@ -5709,8 +5722,11 @@ export default function AdminPage() {
                   const current =
                     item.suggested_price === null || item.suggested_price === undefined ? '' : String(item.suggested_price);
                   const notesDraft = laborNotesDrafts[item.id] ?? (item.technical_notes || '');
+                  const unitDraft = laborUnitDrafts[item.id] ?? (item.unit || '');
+                  const currentUnit = (item.unit || '').trim();
                   const currentNotes = (item.technical_notes || '').trim();
-                  const dirty = draft !== current || notesDraft.trim() !== currentNotes;
+                  const dirty =
+                    draft !== current || notesDraft.trim() !== currentNotes || unitDraft.trim().toLowerCase() !== currentUnit.toLowerCase();
                   const saving = laborSavingId === item.id;
 
                   return (
@@ -5733,6 +5749,11 @@ export default function AdminPage() {
                               {getMasterItemTechnicalBadge(item)}
                             </span>
                           )}
+                          {item.unit && (
+                            <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-[10px] font-semibold text-sky-700">
+                              Unidad {item.unit}
+                            </span>
+                          )}
                           <span
                             className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
                               isActive
@@ -5751,6 +5772,11 @@ export default function AdminPage() {
                             <span className="font-semibold text-slate-700">Especificacion tecnica:</span> {item.technical_notes}
                           </p>
                         )}
+                        {item.unit && (
+                          <p className="mt-2 text-xs text-slate-600">
+                            <span className="font-semibold text-slate-700">Unidad real:</span> {item.unit}
+                          </p>
+                        )}
                       </div>
 
                       <div className="min-w-[280px] flex-1 space-y-2">
@@ -5763,6 +5789,15 @@ export default function AdminPage() {
                             setLaborPriceDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))
                           }
                           className="w-36 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                        <input
+                          type="text"
+                          value={unitDraft}
+                          onChange={(event) =>
+                            setLaborUnitDrafts((prev) => ({ ...prev, [item.id]: event.target.value }))
+                          }
+                          placeholder="Unidad real: m2, m3, boca, metro..."
+                          className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
                         />
                         <textarea
                           rows={2}
@@ -5779,8 +5814,13 @@ export default function AdminPage() {
                           onClick={() => {
                             const raw = (laborPriceDrafts[item.id] ?? '').trim();
                             const nextNotes = (laborNotesDrafts[item.id] ?? '').trim();
+                            const nextUnit = (laborUnitDrafts[item.id] ?? '').trim().toLowerCase();
                             if (raw === '') {
-                              patchLaborItem(item.id, { suggested_price: null, technical_notes: nextNotes || null });
+                              patchLaborItem(item.id, {
+                                suggested_price: null,
+                                technical_notes: nextNotes || null,
+                                unit: nextUnit || null,
+                              });
                               return;
                             }
 
@@ -5789,7 +5829,11 @@ export default function AdminPage() {
                               setLaborError('Precio invÃ¡lido. Usa un nÃºmero igual o mayor a 0.');
                               return;
                             }
-                            patchLaborItem(item.id, { suggested_price: parsed, technical_notes: nextNotes || null });
+                            patchLaborItem(item.id, {
+                              suggested_price: parsed,
+                              technical_notes: nextNotes || null,
+                              unit: nextUnit || null,
+                            });
                           }}
                           className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                         >

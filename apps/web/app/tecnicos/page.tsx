@@ -1051,7 +1051,7 @@ const formatRubroLabel = (value: string) => {
   return RUBRO_LABELS[trimmed] || trimmed;
 };
 
-const getMasterItemChoiceValue = (item: Pick<MasterItemRow, 'name' | 'technical_notes'>) =>
+const getMasterItemChoiceValue = (item: Pick<MasterItemRow, 'name' | 'technical_notes' | 'unit'>) =>
   buildMasterItemChoiceLabel(item);
 
 const getMasterItemTechnicalBadge = (
@@ -2193,7 +2193,7 @@ export default function TechniciansPage() {
 
   const fetchMasterItems = async () => {
     setLoadingMasterItems(true);
-    const buildSelectFields = (includeActive: boolean, includeTechnicalNotes: boolean) =>
+    const buildSelectFields = (includeActive: boolean, includeTechnicalNotes: boolean, includeUnit: boolean) =>
       [
         'id',
         'name',
@@ -2202,16 +2202,19 @@ export default function TechniciansPage() {
         'category',
         'source_ref',
         includeTechnicalNotes ? 'technical_notes' : null,
+        includeUnit ? 'unit' : null,
         includeActive ? 'active' : null,
       ]
         .filter(Boolean)
         .join(',');
 
     const variants = [
-      { includeActive: true, includeTechnicalNotes: true },
-      { includeActive: true, includeTechnicalNotes: false },
-      { includeActive: false, includeTechnicalNotes: true },
-      { includeActive: false, includeTechnicalNotes: false },
+      { includeActive: true, includeTechnicalNotes: true, includeUnit: true },
+      { includeActive: true, includeTechnicalNotes: true, includeUnit: false },
+      { includeActive: true, includeTechnicalNotes: false, includeUnit: false },
+      { includeActive: false, includeTechnicalNotes: true, includeUnit: true },
+      { includeActive: false, includeTechnicalNotes: true, includeUnit: false },
+      { includeActive: false, includeTechnicalNotes: false, includeUnit: false },
     ];
 
     try {
@@ -2219,7 +2222,7 @@ export default function TechniciansPage() {
       for (const variant of variants) {
         let query = supabase
           .from('master_items')
-          .select(buildSelectFields(variant.includeActive, variant.includeTechnicalNotes))
+          .select(buildSelectFields(variant.includeActive, variant.includeTechnicalNotes, variant.includeUnit))
           .eq('type', 'labor');
         if (variant.includeActive) {
           query = query.eq('active', true).order('active', { ascending: false });
@@ -2334,6 +2337,7 @@ export default function TechniciansPage() {
         description: item.description || '',
         quantity: Number(item.quantity || 1),
         unitPrice: Number(item.unit_price || 0),
+        unit: String(item?.metadata?.unit || ''),
         technicalNotes: normalizeTechnicalNotes(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
         masterItemId: String(item?.metadata?.master_item_id || ''),
         masterItemCategory: String(item?.metadata?.master_item_category || ''),
@@ -2359,6 +2363,7 @@ export default function TechniciansPage() {
         description: item.name,
         quantity: 1,
         unitPrice: Number(item.suggested_price || 0),
+        unit: item.unit || '',
         technicalNotes: normalizeTechnicalNotes(item.technical_notes),
         masterItemId: item.id,
         masterItemCategory: item.category || '',
@@ -2376,6 +2381,7 @@ export default function TechniciansPage() {
         description: '',
         quantity: 1,
         unitPrice: 0,
+        unit: '',
         technicalNotes: '',
         masterItemId: '',
         masterItemCategory: '',
@@ -2424,6 +2430,7 @@ export default function TechniciansPage() {
     type?: 'labor' | 'material';
     description?: string;
     masterItemId?: string;
+    unit?: string;
     technicalNotes?: string;
     masterItemSourceRef?: string;
   }) => {
@@ -2437,6 +2444,12 @@ export default function TechniciansPage() {
 
     const candidates = laborMasterNameMap.get(normalized) || [];
     if (candidates.length === 1) return candidates[0] || null;
+
+    const unitKey = normalizeText(item.unit || '');
+    if (unitKey) {
+      const byUnit = candidates.find((candidate) => normalizeText(candidate.unit || '') === unitKey) || null;
+      if (byUnit) return byUnit;
+    }
 
     const noteKey = normalizeText(normalizeTechnicalNotes(item.technicalNotes));
     if (noteKey) {
@@ -2460,6 +2473,7 @@ export default function TechniciansPage() {
     if (item.type !== 'labor') {
       return {
         ...item,
+        unit: '',
         technicalNotes: '',
         masterItemId: '',
         masterItemCategory: '',
@@ -2471,6 +2485,7 @@ export default function TechniciansPage() {
     if (!match) {
       return {
         ...item,
+        unit: '',
         masterItemId: '',
         masterItemCategory: '',
         masterItemSourceRef: '',
@@ -2484,6 +2499,7 @@ export default function TechniciansPage() {
 
     return {
       ...item,
+      unit: match.unit || '',
       masterItemId: match.id,
       masterItemCategory: match.category || '',
       masterItemSourceRef: match.source_ref || '',
@@ -2503,11 +2519,13 @@ export default function TechniciansPage() {
               next.description = match.name;
             }
             next.unitPrice = Number(match.suggested_price || 0);
+            next.unit = match.unit || '';
             next.technicalNotes = normalizeTechnicalNotes(match.technical_notes);
             next.masterItemId = match.id;
             next.masterItemCategory = match.category || '';
             next.masterItemSourceRef = match.source_ref || '';
           } else if (patch.description !== undefined) {
+            next.unit = '';
             next.technicalNotes = '';
             next.masterItemId = '';
             next.masterItemCategory = '';
@@ -2515,6 +2533,7 @@ export default function TechniciansPage() {
           }
         }
         if (patch.type === 'material') {
+          next.unit = '';
           next.technicalNotes = '';
           next.masterItemId = '';
           next.masterItemCategory = '';
@@ -3856,6 +3875,7 @@ export default function TechniciansPage() {
           quantity: item.quantity,
           metadata: {
             type: item.type,
+            unit: item.unit || null,
             technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
             master_item_id: item.masterItemId || null,
             master_item_category: item.masterItemCategory || null,

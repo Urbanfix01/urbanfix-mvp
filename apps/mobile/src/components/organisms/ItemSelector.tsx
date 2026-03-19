@@ -103,7 +103,7 @@ export default function ItemSelector({ visible, onClose, onSelect, filterType }:
   };
 
   const renderItem = ({ item }: { item: MasterItem }) => {
-    const unit = inferCalculatorUnit(item);
+    const unit = (item.unit || inferCalculatorUnit(item) || '').toString();
     const technicalSummary = compactTechnicalNotesText(item.technical_notes, { maxLength: 120 });
     const sourceLabel = formatMasterItemSourceLabel(item);
 

@@ -291,6 +291,7 @@ const buildIdentityKey = (item) =>
     normalizeText(item.category),
     normalizeText(item.source_ref),
     normalizeText(item.technical_notes || ''),
+    normalizeText(item.unit || ''),
   ].join('|');
 
 const buildPriceKey = (item) =>
@@ -298,6 +299,7 @@ const buildPriceKey = (item) =>
     normalizeText(item.name),
     normalizeText(item.category),
     normalizeText(item.source_ref),
+    normalizeText(item.unit || ''),
     Number(item.suggested_price || 0).toFixed(2),
   ].join('|');
 
@@ -431,6 +433,7 @@ const removePrivateFields = (item) => ({
   source_ref: item.source_ref,
   active: item.active,
   technical_notes: item.technical_notes || null,
+  unit: item.unit || null,
 });
 
 const main = async () => {
@@ -512,7 +515,7 @@ const main = async () => {
 
   const { data: existingRows, error: existingError } = await supabase
     .from('master_items')
-    .select('id,name,category,type,source_ref,technical_notes,suggested_price')
+    .select('id,name,category,type,source_ref,technical_notes,unit,suggested_price')
     .eq('type', 'labor')
     .eq('source_ref', options.source);
 
@@ -528,6 +531,7 @@ const main = async () => {
         category: row.category,
         source_ref: row.source_ref,
         technical_notes: row.technical_notes,
+        unit: row.unit,
       }),
       row.id,
     ])
@@ -539,6 +543,7 @@ const main = async () => {
         name: row.name,
         category: row.category,
         source_ref: row.source_ref,
+        unit: row.unit,
         suggested_price: row.suggested_price,
       }),
       row.id,

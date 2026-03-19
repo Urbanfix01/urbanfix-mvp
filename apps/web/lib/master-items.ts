@@ -2,6 +2,7 @@ type MasterItemDisplayInput = {
   name?: string | null;
   technical_notes?: string | null;
   technicalNotes?: string | null;
+  unit?: string | null;
 };
 
 export const normalizeTechnicalNotesText = (value: string | null | undefined) =>
@@ -26,10 +27,12 @@ export const buildMasterItemChoiceLabel = (
   options?: { maxTechnicalLength?: number }
 ) => {
   const name = String(item?.name || '').trim();
+  const unit = String(item?.unit || '').trim();
   const technicalNotes = compactTechnicalNotesText(item?.technical_notes || item?.technicalNotes, {
     maxLength: options?.maxTechnicalLength,
   });
+  const suffix = [unit, technicalNotes].filter(Boolean).join(' | ');
 
-  if (!name) return technicalNotes;
-  return technicalNotes ? `${name} | ${technicalNotes}` : name;
+  if (!name) return suffix;
+  return suffix ? `${name} | ${suffix}` : name;
 };

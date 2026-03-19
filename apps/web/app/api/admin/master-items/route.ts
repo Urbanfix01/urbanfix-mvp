@@ -6,7 +6,7 @@ const isMissingColumnError = (error: any, column: string) => {
   return message.includes('column') && message.includes(column.toLowerCase()) && message.includes('does not exist');
 };
 
-const buildSelectColumns = (includeActive: boolean, includeTechnicalNotes: boolean) =>
+const buildSelectColumns = (includeActive: boolean, includeTechnicalNotes: boolean, includeUnit: boolean) =>
   [
     'id',
     'name',
@@ -15,6 +15,7 @@ const buildSelectColumns = (includeActive: boolean, includeTechnicalNotes: boole
     'category',
     'source_ref',
     includeTechnicalNotes ? 'technical_notes' : null,
+    includeUnit ? 'unit' : null,
     includeActive ? 'active' : null,
     'created_at',
   ]
@@ -40,17 +41,19 @@ export async function GET(request: NextRequest) {
   const onlyActive = request.nextUrl.searchParams.get('active') === 'true';
 
   const variants = [
-    { includeActive: true, includeTechnicalNotes: true },
-    { includeActive: true, includeTechnicalNotes: false },
-    { includeActive: false, includeTechnicalNotes: true },
-    { includeActive: false, includeTechnicalNotes: false },
+    { includeActive: true, includeTechnicalNotes: true, includeUnit: true },
+    { includeActive: true, includeTechnicalNotes: true, includeUnit: false },
+    { includeActive: true, includeTechnicalNotes: false, includeUnit: false },
+    { includeActive: false, includeTechnicalNotes: true, includeUnit: true },
+    { includeActive: false, includeTechnicalNotes: true, includeUnit: false },
+    { includeActive: false, includeTechnicalNotes: false, includeUnit: false },
   ];
 
   let lastError: any = null;
   for (const variant of variants) {
     let query = supabase
       .from('master_items')
-      .select(buildSelectColumns(variant.includeActive, variant.includeTechnicalNotes))
+      .select(buildSelectColumns(variant.includeActive, variant.includeTechnicalNotes, variant.includeUnit))
       .eq('type', type);
 
     if (onlyActive && variant.includeActive) {
@@ -70,9 +73,11 @@ export async function GET(request: NextRequest) {
 
     const activeMissing = isMissingColumnError(error, 'active');
     const technicalNotesMissing = isMissingColumnError(error, 'technical_notes');
+    const unitMissing = isMissingColumnError(error, 'unit');
     if (
       (activeMissing && variant.includeActive) ||
-      (technicalNotesMissing && variant.includeTechnicalNotes)
+      (technicalNotesMissing && variant.includeTechnicalNotes) ||
+      (unitMissing && variant.includeUnit)
     ) {
       continue;
     }
