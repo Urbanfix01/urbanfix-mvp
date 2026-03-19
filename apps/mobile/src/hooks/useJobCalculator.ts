@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { MasterItem } from '../types/database';
 
 export interface JobItem {
   id: string;
@@ -10,6 +9,10 @@ export interface JobItem {
   type: 'labor' | 'material' | 'consumable';
   // Agregamos 'category' opcional para compatibilidad con la UI nueva
   category?: 'labor' | 'material' | 'consumable';
+  unit?: string | null;
+  technicalNotes?: string | null;
+  sourceRef?: string | null;
+  masterItemId?: string | null;
 }
 
 export const useJobCalculator = (initialItems: JobItem[] = []) => {
@@ -68,14 +71,31 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
         // Determinamos el tipo: si viene de DB es 'type', si es manual 'category'
         const itemType = item.category || item.type || 'labor';
         const basePrice = item.price !== undefined ? item.price : (item.suggested_price || 0);
+        const normalizedPrice = Number(basePrice);
         const rawQuantity = Number(item.quantity ?? 1);
         const safeQuantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
+        const technicalNotes = String(item.technicalNotes ?? item.technical_notes ?? '').trim();
+        const sourceRef = String(item.sourceRef ?? item.source_ref ?? '').trim();
+        const unit = String(item.unit ?? '').trim();
+        const masterItemId =
+          typeof item.masterItemId === 'string' && item.masterItemId.trim()
+            ? item.masterItemId.trim()
+            : typeof item.id === 'string' && item.id.length > 5
+              ? item.id
+              : '';
 
         // Generamos un ID único si no existe
         const newItemId = item.id && item.id.length > 5 ? item.id : `custom-${Date.now()}`;
 
         // Verificamos si ya existe para sumar cantidad en lugar de duplicar
-        const existingIndex = prev.findIndex(i => i.name === item.name && i.type === itemType);
+        const existingIndex = prev.findIndex(i => {
+            if (i.type !== itemType) return false;
+            if (i.name !== item.name) return false;
+            if (Number(i.price || 0) !== normalizedPrice) return false;
+            if (masterItemId && i.masterItemId) return i.masterItemId === masterItemId;
+            if (technicalNotes && i.technicalNotes) return i.technicalNotes === technicalNotes;
+            return !masterItemId && !technicalNotes;
+        });
 
         if (existingIndex >= 0) {
             const newItems = [...prev];
@@ -86,11 +106,15 @@ export const useJobCalculator = (initialItems: JobItem[] = []) => {
         const newItem: JobItem = {
             id: newItemId,
             name: item.name,
-            price: Number(basePrice),
+            price: normalizedPrice,
             quantity: safeQuantity,
             isActive: true,
             type: itemType,
-            category: itemType // Guardamos ambos por compatibilidad
+            category: itemType, // Guardamos ambos por compatibilidad
+            unit: unit || null,
+            technicalNotes: technicalNotes || null,
+            sourceRef: sourceRef || null,
+            masterItemId: masterItemId || null,
         };
         return [...prev, newItem];
     });

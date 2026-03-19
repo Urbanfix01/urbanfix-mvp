@@ -14,6 +14,9 @@ export interface MasterItem {
   type: ItemType;
   suggested_price: number; 
   source_ref?: string | null; 
+  category?: string | null;
+  active?: boolean | null;
+  technical_notes?: string | null;
   created_at?: string;
 }
 

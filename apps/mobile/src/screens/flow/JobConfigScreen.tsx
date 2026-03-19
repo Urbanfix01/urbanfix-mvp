@@ -19,9 +19,18 @@ import { ClientAddressForm } from '../../components/molecules/ClientAddressForm'
 
 // --- UTILS & HOOKS ---
 import { COLORS, FONTS } from '../../utils/theme';
+import { useMasterItems } from '../../hooks/useCatalog';
 import { useJobCalculator } from '../../hooks/useJobCalculator';
 import { supabase } from '../../lib/supabase';
 import { formatCurrency } from '../../utils/number';
+import type { MasterItem } from '../../types/database';
+import {
+  buildMasterItemSearchIndex,
+  compactTechnicalNotesText,
+  formatMasterItemSourceLabel,
+  inferCalculatorUnit,
+  type CalculatorUnit,
+} from '../../utils/masterItems';
 import { submitOffer } from '../../api/marketplace';
 
 // Habilitar animaciones en Android
@@ -33,25 +42,6 @@ const IS_WEB = Platform.OS === 'web';
 const WEB_MAX_WIDTH = 960;
 const WEB_WIDE_MAX_WIDTH = 1200;
 const WEB_WIDE_BREAKPOINT = 1100;
-
-type LaborToolKey =
-  | 'none'
-  | 'ceiling_m2'
-  | 'roof_chapa_m2'
-  | 'masonry_020_m2'
-  | 'masonry_030_m2'
-  | 'perimetral_flashing_ml'
-  | 'rough_exterior_height_m2'
-  | 'custom';
-
-type LaborTool = {
-  key: LaborToolKey;
-  label: string;
-  itemName: string;
-  unitLabel: string;
-  quantityLabel: string;
-  rateLabel: string;
-};
 
 type QuoteAttachmentItem = {
   id: string;
@@ -72,64 +62,12 @@ type OfferRequestPayload = {
   photo_urls?: string[];
 };
 
-const LABOR_TOOLS: LaborTool[] = [
-  {
-    key: 'ceiling_m2',
-    label: 'Cielorraso (m2)',
-    itemName: 'Cielorraso',
-    unitLabel: 'm2',
-    quantityLabel: 'Metros cuadrados',
-    rateLabel: 'Precio por m2',
-  },
-  {
-    key: 'roof_chapa_m2',
-    label: 'Cubierta chapa (m2)',
-    itemName: 'Coloc. cubierta chapa (estructura + chapas)',
-    unitLabel: 'm2',
-    quantityLabel: 'Metros cuadrados',
-    rateLabel: 'Precio por m2',
-  },
-  {
-    key: 'masonry_020_m2',
-    label: 'Mamposteria 0,20 (m2)',
-    itemName: 'Mamposteria 0,20',
-    unitLabel: 'm2',
-    quantityLabel: 'Metros cuadrados',
-    rateLabel: 'Precio por m2',
-  },
-  {
-    key: 'masonry_030_m2',
-    label: 'Mamposteria 0,30 (m2)',
-    itemName: 'Mamposteria 0,30',
-    unitLabel: 'm2',
-    quantityLabel: 'Metros cuadrados',
-    rateLabel: 'Precio por m2',
-  },
-  {
-    key: 'perimetral_flashing_ml',
-    label: 'Cenefa zingueria perimetral (ml)',
-    itemName: 'Cenefa zingueria perimetral cubierta',
-    unitLabel: 'ml',
-    quantityLabel: 'Metros lineales',
-    rateLabel: 'Precio por ml',
-  },
-  {
-    key: 'rough_exterior_height_m2',
-    label: 'Rustico exterior en altura (m2)',
-    itemName: 'Rustico exterior en altura',
-    unitLabel: 'm2',
-    quantityLabel: 'Metros cuadrados',
-    rateLabel: 'Precio por m2',
-  },
-  {
-    key: 'custom',
-    label: 'Personalizado (m2 / ml)',
-    itemName: 'Item personalizado',
-    unitLabel: 'm2',
-    quantityLabel: 'Metros cuadrados',
-    rateLabel: 'Precio por m2',
-  },
-];
+type CalculatorCatalogItem = MasterItem & {
+  calculatorUnit: CalculatorUnit;
+  technicalSummary: string;
+  searchIndex: string;
+  sourceLabel: string;
+};
 
 export default function JobConfigScreen() {
   const navigation = useNavigation<any>();
@@ -155,11 +93,11 @@ export default function JobConfigScreen() {
   const [activeCategory, setActiveCategory] = useState<'labor' | 'material'>('labor');
   const [location, setLocation] = useState({ lat: 0, lng: 0 }); 
   const [laborToolOpen, setLaborToolOpen] = useState(false);
-  const [selectedLaborTool, setSelectedLaborTool] = useState<LaborToolKey>('none');
+  const [calculatorUnit, setCalculatorUnit] = useState<CalculatorUnit>('m2');
+  const [calculatorSearch, setCalculatorSearch] = useState('');
+  const [selectedLaborTool, setSelectedLaborTool] = useState<string>('');
   const [toolQuantity, setToolQuantity] = useState('');
   const [toolRate, setToolRate] = useState('');
-  const [customToolName, setCustomToolName] = useState('');
-  const [customToolUnit, setCustomToolUnit] = useState<'m2' | 'ml'>('m2');
   const [priceDrafts, setPriceDrafts] = useState<Record<string, string>>({});
   const [attachments, setAttachments] = useState<QuoteAttachmentItem[]>([]);
   const [attachmentsUploading, setAttachmentsUploading] = useState(false);
@@ -167,6 +105,7 @@ export default function JobConfigScreen() {
   const [showCalculator, setShowCalculator] = useState(false);
   const [offerEtaHours, setOfferEtaHours] = useState('');
   const isHeaderCompact = true;
+  const { data: masterItems, isLoading: masterItemsLoading } = useMasterItems();
   
   const hasLoadedData = useRef<string | null>(null);
   const isEditMode = !!(quote && quote.id);
@@ -213,6 +152,12 @@ export default function JobConfigScreen() {
                     setApplyTax(data.tax_rate > 0);
                     const resolvedDiscount = data.discount_percent ?? defaultDiscount;
                     setDiscount(Math.min(100, Math.max(0, Number(resolvedDiscount || 0))));
+                    setSelectedLaborTool('');
+                    setLaborToolOpen(false);
+                    setCalculatorUnit('m2');
+                    setCalculatorSearch('');
+                    setToolQuantity('');
+                    setToolRate('');
                     
                     const { data: itemsData } = await supabase.from('quote_items').select('*').eq('quote_id', quote.id);
                     if (itemsData) {
@@ -223,7 +168,20 @@ export default function JobConfigScreen() {
                             quantity: Number(item.quantity || 1),
                             isActive: true,
                             type: item?.metadata?.type || 'labor',
-                            category: item?.metadata?.category || item?.metadata?.type || 'labor'
+                            category: item?.metadata?.category || item?.metadata?.type || 'labor',
+                            unit: item?.metadata?.unit || null,
+                            technicalNotes:
+                              item?.metadata?.technicalNotes ||
+                              item?.metadata?.technical_notes ||
+                              null,
+                            sourceRef:
+                              item?.metadata?.sourceRef ||
+                              item?.metadata?.source_ref ||
+                              null,
+                            masterItemId:
+                              item?.metadata?.masterItemId ||
+                              item?.metadata?.master_item_id ||
+                              null,
                         }));
                         setItems(mappedItems);
                         setPriceDrafts({});
@@ -276,12 +234,12 @@ export default function JobConfigScreen() {
                 setLocation(hasCoords ? { lat, lng } : { lat: 0, lng: 0 });
                 setApplyTax(false);
                 setDiscount(defaultDiscount);
-                setSelectedLaborTool('none');
+                setSelectedLaborTool('');
                 setLaborToolOpen(false);
+                setCalculatorUnit('m2');
+                setCalculatorSearch('');
                 setToolQuantity('');
                 setToolRate('');
-                setCustomToolName('');
-                setCustomToolUnit('m2');
                 setItems([]);
                 setPriceDrafts({});
                 setAttachments([]);
@@ -292,6 +250,8 @@ export default function JobConfigScreen() {
                 const mapped = blueprint.blueprint_components?.map((comp: any) => {
                     const base = comp.master_items || {};
                     const itemType = base.type || 'material';
+                    const technicalSummary = compactTechnicalNotesText(base.technical_notes);
+                    const inferredUnit = inferCalculatorUnit(base);
                     return {
                         id: (base.id || comp.item_id || `new-${Date.now()}-${Math.random()}`).toString(),
                         name: base.name || 'Item',
@@ -299,7 +259,11 @@ export default function JobConfigScreen() {
                         quantity: Number(comp.quantity || 1),
                         isActive: true,
                         type: itemType,
-                        category: itemType
+                        category: itemType,
+                        unit: inferredUnit,
+                        technicalNotes: technicalSummary || null,
+                        sourceRef: base.source_ref || null,
+                        masterItemId: base.id || null,
                     };
                 });
                 setClientName('');
@@ -307,12 +271,12 @@ export default function JobConfigScreen() {
                 setLocation({ lat: 0, lng: 0 });
                 setApplyTax(false);
                 setDiscount(defaultDiscount);
-                setSelectedLaborTool('none');
+                setSelectedLaborTool('');
                 setLaborToolOpen(false);
+                setCalculatorUnit('m2');
+                setCalculatorSearch('');
                 setToolQuantity('');
                 setToolRate('');
-                setCustomToolName('');
-                setCustomToolUnit('m2');
                 setItems(mapped || []);
                 setPriceDrafts({});
                 setAttachments([]);
@@ -323,12 +287,12 @@ export default function JobConfigScreen() {
                 setLocation({ lat: 0, lng: 0 });
                 setApplyTax(false);
                 setDiscount(defaultDiscount);
-                setSelectedLaborTool('none');
+                setSelectedLaborTool('');
                 setLaborToolOpen(false);
+                setCalculatorUnit('m2');
+                setCalculatorSearch('');
                 setToolQuantity('');
                 setToolRate('');
-                setCustomToolName('');
-                setCustomToolUnit('m2');
                 setItems([]);
                 setPriceDrafts({});
                 setAttachments([]);
@@ -362,13 +326,21 @@ export default function JobConfigScreen() {
     handleSmartInteraction('medium');
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     const normalizedType = activeCategory;
+    const technicalSummary = compactTechnicalNotesText(item.technical_notes || item.technicalNotes, {
+      maxLength: 180,
+    });
+    const inferredUnit = inferCalculatorUnit(item);
     addItem({ 
       ...item, 
       category: normalizedType, 
       type: normalizedType, 
       price: Number(item.price ?? item.suggested_price ?? 0),
       quantity: item.quantity > 0 ? item.quantity : 1,
-      isActive: true
+      isActive: true,
+      unit: item.unit || inferredUnit || null,
+      technicalNotes: technicalSummary || null,
+      sourceRef: item.sourceRef || item.source_ref || null,
+      masterItemId: item.masterItemId || item.id || null,
     });
     setSelectorOpen(false);
   };
@@ -428,30 +400,74 @@ export default function JobConfigScreen() {
     return 0;
   };
 
-  const selectedTool = LABOR_TOOLS.find((tool) => tool.key === selectedLaborTool) || null;
-  const customUnit = customToolUnit === 'ml' ? 'ml' : 'm2';
-  const effectiveTool = selectedTool && selectedTool.key === 'custom'
-    ? {
-        ...selectedTool,
-        unitLabel: customUnit,
-        quantityLabel: customUnit === 'ml' ? 'Metros lineales' : 'Metros cuadrados',
-        rateLabel: `Precio por ${customUnit}`,
-        itemName: customToolName.trim() || selectedTool.itemName,
-      }
-    : selectedTool;
-  const laborToolDisplay = effectiveTool
-    ? effectiveTool.key === 'custom' && customToolName.trim()
-      ? customToolName.trim()
-      : effectiveTool.label
-    : 'Seleccionar';
+  const calculatorCatalog = React.useMemo<CalculatorCatalogItem[]>(
+    () =>
+      (masterItems || [])
+        .filter((item) => item.type === 'labor' && Number(item.suggested_price || 0) > 0)
+        .map((item) => {
+          const unit = inferCalculatorUnit(item);
+          if (!unit) return null;
+
+          return {
+            ...item,
+            calculatorUnit: unit,
+            technicalSummary: compactTechnicalNotesText(item.technical_notes, { maxLength: 180 }),
+            searchIndex: buildMasterItemSearchIndex(item),
+            sourceLabel: formatMasterItemSourceLabel(item),
+          };
+        })
+        .filter((item): item is CalculatorCatalogItem => Boolean(item))
+        .sort((left, right) => {
+          const byName = String(left.name || '').localeCompare(String(right.name || ''), 'es');
+          if (byName !== 0) return byName;
+          return Number(right.suggested_price || 0) - Number(left.suggested_price || 0);
+        }),
+    [masterItems]
+  );
+  const normalizedCalculatorSearch = buildMasterItemSearchIndex({ name: calculatorSearch });
+  const calculatorItems = React.useMemo(
+    () => calculatorCatalog.filter((item) => item.calculatorUnit === calculatorUnit),
+    [calculatorCatalog, calculatorUnit]
+  );
+  const filteredCalculatorItems = React.useMemo(() => {
+    if (!normalizedCalculatorSearch) return calculatorItems;
+    return calculatorItems.filter((item) => item.searchIndex.includes(normalizedCalculatorSearch));
+  }, [calculatorItems, normalizedCalculatorSearch]);
+  const selectedTool =
+    calculatorItems.find((item) => item.id === selectedLaborTool) ||
+    filteredCalculatorItems.find((item) => item.id === selectedLaborTool) ||
+    null;
+  const laborToolDisplay = selectedTool?.name || (masterItemsLoading ? 'Cargando catalogo...' : 'Selecciona un articulo');
   const toolQuantityValue = parseNumber(toolQuantity);
   const toolRateValue = parseNumber(toolRate);
   const toolTotal = toolQuantityValue * toolRateValue;
 
+  useEffect(() => {
+    if (!calculatorItems.length) {
+      setSelectedLaborTool('');
+      setLaborToolOpen(false);
+      return;
+    }
+
+    const stillExists = calculatorItems.some((item) => item.id === selectedLaborTool);
+    if (!stillExists) {
+      setSelectedLaborTool(calculatorItems[0].id);
+    }
+  }, [calculatorItems, selectedLaborTool]);
+
+  useEffect(() => {
+    if (!selectedTool) {
+      setToolRate('');
+      return;
+    }
+
+    const suggestedRate = Number(selectedTool.suggested_price || 0);
+    setToolRate(suggestedRate > 0 ? String(Math.round(suggestedRate)) : '');
+  }, [selectedTool?.id]);
+
   const handleAddLaborCalculator = () => {
-    if (!effectiveTool) return;
-    if (effectiveTool.key === 'custom' && !customToolName.trim()) {
-      Alert.alert('Falta informacion', 'Ingresa el nombre del item personalizado.');
+    if (!selectedTool) {
+      Alert.alert('Falta informacion', 'Selecciona un articulo del catalogo.');
       return;
     }
     if (toolQuantityValue <= 0 || toolRateValue <= 0) {
@@ -460,19 +476,27 @@ export default function JobConfigScreen() {
     }
 
     addItem({
-      name: `${effectiveTool.itemName} ${toolQuantityValue} ${effectiveTool.unitLabel}`,
+      name: selectedTool.technicalSummary
+        ? `${selectedTool.name} | ${selectedTool.technicalSummary}`
+        : selectedTool.name,
       price: toolRateValue,
       quantity: toolQuantityValue,
       category: 'labor',
       type: 'labor',
       isActive: true,
+      unit: selectedTool.calculatorUnit,
+      technicalNotes: selectedTool.technicalSummary || null,
+      sourceRef: selectedTool.source_ref || selectedTool.category || null,
+      masterItemId: selectedTool.id,
     });
 
     setToolQuantity('');
-    setToolRate('');
-    setCustomToolName('');
-    setCustomToolUnit('m2');
-    setSelectedLaborTool('none');
+    setToolRate(
+      selectedTool.suggested_price && Number(selectedTool.suggested_price) > 0
+        ? String(Math.round(Number(selectedTool.suggested_price)))
+        : ''
+    );
+    setCalculatorSearch('');
     setLaborToolOpen(false);
   };
 
@@ -649,7 +673,14 @@ export default function JobConfigScreen() {
                 description: i.name,
                 unit_price: i.price,
                 quantity: i.quantity,
-                metadata: { type: i.type, category: i.category }
+                metadata: {
+                  type: i.type,
+                  category: i.category,
+                  unit: i.unit || null,
+                  technicalNotes: i.technicalNotes || null,
+                  sourceRef: i.sourceRef || null,
+                  masterItemId: i.masterItemId || null,
+                }
             }));
             const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
             if (itemsError) throw itemsError;
@@ -748,6 +779,13 @@ export default function JobConfigScreen() {
           quantity,
           isActive: item.isActive !== false,
           type,
+          unit: item.unit || inferCalculatorUnit({
+            name: item.name,
+            technical_notes: item.technicalNotes,
+            category: item.category,
+            source_ref: item.sourceRef,
+          }),
+          technicalNotes: item.technicalNotes || null,
         };
       }),
     [items, priceDrafts]
@@ -767,6 +805,13 @@ export default function JobConfigScreen() {
   const materialCount = materialItems.length;
   const hasClientInfo = clientName.trim().length > 0 && !!clientAddress?.trim();
   const hasItems = normalizedItems.length > 0;
+  const calculatorUnitLabel = calculatorUnit === 'm3' ? 'm3' : 'm2';
+  const selectedToolRate = Number(selectedTool?.suggested_price || 0);
+  const calculatorEmptyText = masterItemsLoading
+    ? 'Cargando articulos del catalogo...'
+    : normalizedCalculatorSearch
+      ? `No encontramos articulos por ${calculatorUnitLabel} para "${calculatorSearch.trim()}".`
+      : `No encontramos articulos con unidad ${calculatorUnitLabel} en el catalogo activo.`;
 
   // --- RENDERIZADO DE ITEMS ---
   const renderItemList = (category: 'labor' | 'material') => {
@@ -790,8 +835,11 @@ export default function JobConfigScreen() {
         const totalPrice = unitPrice * quantity;
         const itemId = item.id ? item.id.toString() : '';
         const itemName = item.name || '';
-        const isByArea = itemName.toLowerCase().includes('m2');
-        const unitLabel = isByArea ? 'Precio por m2' : 'Precio unitario';
+        const itemUnit = String(item.unit || '').toLowerCase();
+        const unitLabel = itemUnit ? `Precio por ${itemUnit}` : 'Precio unitario';
+        const quantityLabel = itemUnit ? `${quantity} ${itemUnit}` : `${quantity}`;
+        const technicalSummary = compactTechnicalNotesText(item.technicalNotes, { maxLength: 180 });
+        const hasEmbeddedTechnical = !!technicalSummary && itemName.includes(technicalSummary);
         const accentColor = item.type === 'material' ? '#38BDF8' : COLORS.primary;
         const priceDraft = itemId ? priceDrafts[itemId] : undefined;
         const displayPrice = priceDraft ?? (unitPrice ? unitPrice.toString() : '');
@@ -810,8 +858,11 @@ export default function JobConfigScreen() {
                         }}
                     />
                     <Text style={styles.itemMeta}>
-                        {unitLabel}: ${formatCurrency(unitPrice)} · Total: ${formatCurrency(totalPrice)}
+                        {unitLabel}: ${formatCurrency(unitPrice)} · Cantidad: {quantityLabel} · Total: ${formatCurrency(totalPrice)}
                     </Text>
+                    {!!technicalSummary && !hasEmbeddedTechnical && (
+                        <Text style={styles.itemTechnicalNote}>{technicalSummary}</Text>
+                    )}
                     <View style={styles.quantityControls}>
                         <TouchableOpacity style={[styles.qtyBtn, { borderColor: accentColor }]} onPress={() => handleUpdateQty(item.id, -1)}>
                             <Ionicons name="remove" size={16} color={accentColor} />
@@ -1143,8 +1194,8 @@ export default function JobConfigScreen() {
                                 <View style={styles.panel}>
                                     <View style={styles.panelHeader}>
                                         <View style={styles.panelHeaderLeft}>
-                                            <Text style={styles.panelTitle}>Cargar items</Text>
-                                            <Text style={styles.panelHint}>Selecciona tareas y materiales para cotizar.</Text>
+                                            <Text style={styles.panelTitle}>Armar presupuesto</Text>
+                                            <Text style={styles.panelHint}>Combina catalogo real, calculadora por m2/m3 y edicion manual.</Text>
                                         </View>
                                         <View style={styles.panelCounter}>
                                             <Text style={styles.panelCounterLabel}>Items</Text>
@@ -1196,141 +1247,149 @@ export default function JobConfigScreen() {
                                                     onPress={() => setShowCalculator((prev) => !prev)}
                                                     activeOpacity={0.85}
                                                 >
-                                                    <View>
-                                                        <Text style={styles.optionalTitle}>Calculadora rapida</Text>
-                                                        <Text style={styles.optionalHint}>Opcional para m2 / ml</Text>
+                                                    <View style={styles.optionalHeaderCopy}>
+                                                        <Text style={styles.optionalTitle}>Calculadora de superficies</Text>
+                                                        <Text style={styles.optionalHint}>
+                                                            Trabaja por m2 y m3 con articulos reales de mano de obra.
+                                                        </Text>
                                                     </View>
-                                                    <Ionicons
-                                                        name={showCalculator ? 'chevron-up' : 'chevron-down'}
-                                                        size={18}
-                                                        color="#64748B"
-                                                    />
+                                                    <View style={styles.optionalHeaderRight}>
+                                                        <View style={styles.optionalPill}>
+                                                            <Text style={styles.optionalPillText}>{calculatorItems.length} items</Text>
+                                                        </View>
+                                                        <Ionicons
+                                                            name={showCalculator ? 'chevron-up' : 'chevron-down'}
+                                                            size={18}
+                                                            color="#64748B"
+                                                        />
+                                                    </View>
                                                 </TouchableOpacity>
 
                                                 {showCalculator && (
                                                     <>
-                                                        <View style={styles.laborTools}>
-                                                            <TouchableOpacity
-                                                                style={styles.laborToolsHeader}
-                                                                onPress={() => setLaborToolOpen(prev => !prev)}
-                                                                activeOpacity={0.8}
-                                                            >
-                                                                <View>
-                                                                <Text style={styles.laborToolsLabel}>Presupuestador (m2 / ml)</Text>
-                                                                <Text style={styles.laborToolsHint}>Calculadora rapida por unidad (m2 o ml)</Text>
-                                                                </View>
-                                                            <View style={styles.laborToolsValue}>
-                                                                <Text style={styles.laborToolsValueText} numberOfLines={1}>
-                                                                    {laborToolDisplay}
-                                                                </Text>
-                                                                <Ionicons
-                                                                    name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
-                                                                    size={18}
-                                                                    color="#64748B"
-                                                                    />
-                                                                </View>
-                                                            </TouchableOpacity>
-
-                                                            {laborToolOpen && (
-                                                                <View style={styles.laborToolsMenu}>
-                                                                    {LABOR_TOOLS.map((tool) => (
-                                                                    <TouchableOpacity
-                                                                        key={tool.key}
-                                                                        style={styles.laborToolsOption}
-                                                                        onPress={() => {
-                                                                            setSelectedLaborTool(tool.key);
-                                                                            setLaborToolOpen(false);
-                                                                            setToolQuantity('');
-                                                                            setToolRate('');
-                                                                            if (tool.key !== 'custom') {
-                                                                                setCustomToolName('');
-                                                                                setCustomToolUnit('m2');
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        <Text style={styles.laborToolsOptionText}>{tool.label}</Text>
-                                                                    </TouchableOpacity>
-                                                                ))}
-                                                                {selectedLaborTool !== 'none' && (
-                                                                    <TouchableOpacity
-                                                                        style={styles.laborToolsOption}
-                                                                        onPress={() => {
-                                                                            setSelectedLaborTool('none');
-                                                                            setLaborToolOpen(false);
-                                                                            setToolQuantity('');
-                                                                            setToolRate('');
-                                                                            setCustomToolName('');
-                                                                            setCustomToolUnit('m2');
-                                                                        }}
-                                                                    >
-                                                                        <Text style={styles.laborToolsOptionText}>Sin calculadora</Text>
-                                                                    </TouchableOpacity>
-                                                                )}
-                                                            </View>
-                                                        )}
-                                                    </View>
-
-                                                    {effectiveTool && (
                                                         <View style={styles.calculatorCard}>
                                                             <View style={styles.calculatorHeader}>
-                                                                <Ionicons name="grid-outline" size={18} color={COLORS.primary} />
-                                                                <Text style={styles.calculatorTitle}>{effectiveTool.label}</Text>
+                                                                <View>
+                                                                    <Text style={styles.calculatorTitle}>Calculadora por superficie</Text>
+                                                                    <Text style={styles.calculatorSubtitle}>
+                                                                        Elige la unidad y despues el articulo exacto del catalogo.
+                                                                    </Text>
+                                                                </View>
+                                                                <View style={styles.unitChips}>
+                                                                    {(['m2', 'm3'] as CalculatorUnit[]).map((unit) => {
+                                                                        const active = calculatorUnit === unit;
+                                                                        return (
+                                                                            <TouchableOpacity
+                                                                                key={unit}
+                                                                                style={[styles.unitChip, active && styles.unitChipActive]}
+                                                                                onPress={() => {
+                                                                                    setCalculatorUnit(unit);
+                                                                                    setCalculatorSearch('');
+                                                                                    setLaborToolOpen(false);
+                                                                                    setToolQuantity('');
+                                                                                }}
+                                                                            >
+                                                                                <Text
+                                                                                    style={[
+                                                                                        styles.unitChipText,
+                                                                                        active && styles.unitChipTextActive,
+                                                                                    ]}
+                                                                                >
+                                                                                    {unit}
+                                                                                </Text>
+                                                                            </TouchableOpacity>
+                                                                        );
+                                                                    })}
+                                                                </View>
                                                             </View>
 
-                                                            {effectiveTool.key === 'custom' && (
-                                                                <View style={styles.customToolRow}>
-                                                                    <View style={styles.customToolField}>
-                                                                        <Text style={styles.calculatorLabel}>Nombre del item</Text>
-                                                                        <TextInput
-                                                                            style={styles.customToolInput}
-                                                                            placeholder="Ej: Revoque exterior"
-                                                                            value={customToolName}
-                                                                            onChangeText={setCustomToolName}
+                                                            <View style={styles.calculatorSearchBox}>
+                                                                <Ionicons name="search-outline" size={18} color="#64748B" />
+                                                                <TextInput
+                                                                    style={styles.calculatorSearchInput}
+                                                                    placeholder={`Buscar articulo por ${calculatorUnitLabel}`}
+                                                                    placeholderTextColor="#94A3B8"
+                                                                    value={calculatorSearch}
+                                                                    onChangeText={setCalculatorSearch}
+                                                                />
+                                                                <Text style={styles.calculatorSearchCount}>{filteredCalculatorItems.length}</Text>
+                                                            </View>
+
+                                                            <View style={styles.laborTools}>
+                                                                <TouchableOpacity
+                                                                    style={styles.laborToolsHeader}
+                                                                    onPress={() => {
+                                                                        if (!filteredCalculatorItems.length) return;
+                                                                        setLaborToolOpen((prev) => !prev);
+                                                                    }}
+                                                                    activeOpacity={0.85}
+                                                                >
+                                                                    <View style={styles.laborToolsHeaderCopy}>
+                                                                        <Text style={styles.laborToolsLabel}>Articulo calculado</Text>
+                                                                        <Text style={styles.laborToolsHint}>
+                                                                            {selectedTool
+                                                                              ? `${selectedTool.sourceLabel} · sugerido $${formatCurrency(selectedToolRate)}`
+                                                                              : 'Selecciona un articulo de la base activa'}
+                                                                        </Text>
+                                                                        {!!selectedTool?.technicalSummary && (
+                                                                            <Text style={styles.laborToolsDetail}>
+                                                                                {selectedTool.technicalSummary}
+                                                                            </Text>
+                                                                        )}
+                                                                    </View>
+                                                                    <View style={styles.laborToolsValue}>
+                                                                        <Text style={styles.laborToolsValueText} numberOfLines={2}>
+                                                                            {laborToolDisplay}
+                                                                        </Text>
+                                                                        <Ionicons
+                                                                            name={laborToolOpen ? 'chevron-up' : 'chevron-down'}
+                                                                            size={18}
+                                                                            color="#64748B"
                                                                         />
                                                                     </View>
-                                                                    <View style={styles.customUnitGroup}>
-                                                                        <Text style={styles.calculatorLabel}>Unidad</Text>
-                                                                        <View style={styles.unitChips}>
+                                                                </TouchableOpacity>
+
+                                                                {laborToolOpen && (
+                                                                    <ScrollView
+                                                                        style={styles.laborToolsMenu}
+                                                                        nestedScrollEnabled
+                                                                        keyboardShouldPersistTaps="handled"
+                                                                    >
+                                                                        {filteredCalculatorItems.map((tool) => (
                                                                             <TouchableOpacity
+                                                                                key={tool.id}
                                                                                 style={[
-                                                                                    styles.unitChip,
-                                                                                    customUnit === 'm2' && styles.unitChipActive,
+                                                                                    styles.laborToolsOption,
+                                                                                    selectedLaborTool === tool.id && styles.laborToolsOptionActive,
                                                                                 ]}
-                                                                                onPress={() => setCustomToolUnit('m2')}
+                                                                                onPress={() => {
+                                                                                    setSelectedLaborTool(tool.id);
+                                                                                    setLaborToolOpen(false);
+                                                                                    setToolQuantity('');
+                                                                                }}
                                                                             >
-                                                                                <Text
-                                                                                    style={[
-                                                                                        styles.unitChipText,
-                                                                                        customUnit === 'm2' && styles.unitChipTextActive,
-                                                                                    ]}
-                                                                                >
-                                                                                    m2
-                                                                                </Text>
+                                                                                <View style={styles.laborToolsOptionBody}>
+                                                                                    <Text style={styles.laborToolsOptionText}>{tool.name}</Text>
+                                                                                    <Text style={styles.laborToolsOptionMeta}>
+                                                                                        {tool.sourceLabel} · $ {formatCurrency(Number(tool.suggested_price || 0))} / {tool.calculatorUnit}
+                                                                                    </Text>
+                                                                                    {!!tool.technicalSummary && (
+                                                                                        <Text style={styles.laborToolsOptionNote}>
+                                                                                            {tool.technicalSummary}
+                                                                                        </Text>
+                                                                                    )}
+                                                                                </View>
                                                                             </TouchableOpacity>
-                                                                            <TouchableOpacity
-                                                                                style={[
-                                                                                    styles.unitChip,
-                                                                                    customUnit === 'ml' && styles.unitChipActive,
-                                                                                ]}
-                                                                                onPress={() => setCustomToolUnit('ml')}
-                                                                            >
-                                                                                <Text
-                                                                                    style={[
-                                                                                        styles.unitChipText,
-                                                                                        customUnit === 'ml' && styles.unitChipTextActive,
-                                                                                    ]}
-                                                                                >
-                                                                                    ml
-                                                                                </Text>
-                                                                            </TouchableOpacity>
-                                                                        </View>
-                                                                    </View>
-                                                                </View>
-                                                            )}
+                                                                        ))}
+                                                                    </ScrollView>
+                                                                )}
+                                                            </View>
 
                                                             <View style={styles.calculatorRow}>
                                                                 <View style={styles.calculatorField}>
-                                                                    <Text style={styles.calculatorLabel}>{effectiveTool.quantityLabel}</Text>
+                                                                    <Text style={styles.calculatorLabel}>
+                                                                        {calculatorUnit === 'm3' ? 'Metros cubicos' : 'Metros cuadrados'}
+                                                                    </Text>
                                                                     <TextInput
                                                                         style={styles.calculatorInput}
                                                                         placeholder="Ej: 24"
@@ -1340,32 +1399,49 @@ export default function JobConfigScreen() {
                                                                     />
                                                                 </View>
                                                                 <View style={styles.calculatorField}>
-                                                                    <Text style={styles.calculatorLabel}>{effectiveTool.rateLabel}</Text>
+                                                                    <Text style={styles.calculatorLabel}>Precio por {calculatorUnitLabel}</Text>
                                                                     <TextInput
                                                                         style={styles.calculatorInput}
                                                                         placeholder="Ej: 4500"
                                                                         keyboardType="decimal-pad"
                                                                         value={toolRate}
-                                                                            onChangeText={setToolRate}
-                                                                        />
-                                                                    </View>
+                                                                        onChangeText={setToolRate}
+                                                                    />
                                                                 </View>
-
-                                                                <View style={styles.calculatorTotalRow}>
-                                                                    <Text style={styles.calculatorTotalLabel}>Total estimado</Text>
-                                                                    <Text style={styles.calculatorTotalValue}>${formatCurrency(toolTotal)}</Text>
-                                                                </View>
-
-                                                                <TouchableOpacity
-                                                                    style={styles.calculatorAddBtn}
-                                                                    onPress={handleAddLaborCalculator}
-                                                                    activeOpacity={0.9}
-                                                                >
-                                                                    <Ionicons name="add-circle" size={20} color="#FFF" />
-                                                                    <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
-                                                                </TouchableOpacity>
                                                             </View>
-                                                        )}
+
+                                                            {selectedTool ? (
+                                                                <View style={styles.calculatorSelectedFoot}>
+                                                                    <Text style={styles.calculatorSelectedFootText}>{selectedTool.name}</Text>
+                                                                    <Text style={styles.calculatorSelectedFootMeta}>
+                                                                        Base actual: ${formatCurrency(selectedToolRate)} / {selectedTool.calculatorUnit}
+                                                                    </Text>
+                                                                </View>
+                                                            ) : (
+                                                                <View style={styles.calculatorEmptyState}>
+                                                                    <Ionicons name="alert-circle-outline" size={18} color="#94A3B8" />
+                                                                    <Text style={styles.calculatorEmptyStateText}>{calculatorEmptyText}</Text>
+                                                                </View>
+                                                            )}
+
+                                                            <View style={styles.calculatorTotalRow}>
+                                                                <Text style={styles.calculatorTotalLabel}>Total estimado</Text>
+                                                                <Text style={styles.calculatorTotalValue}>${formatCurrency(toolTotal)}</Text>
+                                                            </View>
+
+                                                            <TouchableOpacity
+                                                                style={[
+                                                                    styles.calculatorAddBtn,
+                                                                    !selectedTool && styles.calculatorAddBtnDisabled,
+                                                                ]}
+                                                                onPress={handleAddLaborCalculator}
+                                                                activeOpacity={0.9}
+                                                                disabled={!selectedTool}
+                                                            >
+                                                                <Ionicons name="add-circle" size={20} color="#FFF" />
+                                                                <Text style={styles.calculatorAddText}>Agregar a Mano de Obra</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
                                                     </>
                                                 )}
                                             </View>
@@ -1589,23 +1665,55 @@ const styles = StyleSheet.create({
     borderColor: '#E2E8F0',
     marginBottom: 14,
   },
-  optionalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  optionalHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  optionalHeaderCopy: { flex: 1, minWidth: 0 },
+  optionalHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  optionalPill: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: '#FFF7ED',
+    borderWidth: 1,
+    borderColor: '#FDBA74',
+  },
+  optionalPillText: { fontSize: 11, fontWeight: '700', color: '#9A3412' },
   optionalTitle: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   optionalHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
 
   laborTools: { backgroundColor: '#FFFFFF', borderRadius: 14, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 14, overflow: 'hidden' },
   laborToolsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, gap: 12 },
+  laborToolsHeaderCopy: { flex: 1, minWidth: 0 },
   laborToolsLabel: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
   laborToolsHint: { fontSize: 11, color: '#94A3B8', marginTop: 2 },
-  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0' },
-  laborToolsValueText: { fontSize: 12, color: '#334155', fontWeight: '600', maxWidth: 170 },
-  laborToolsMenu: { borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
+  laborToolsDetail: { fontSize: 11, color: '#475569', marginTop: 6, lineHeight: 16 },
+  laborToolsValue: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 999, borderWidth: 1, borderColor: '#E2E8F0', maxWidth: 190 },
+  laborToolsValueText: { fontSize: 12, color: '#334155', fontWeight: '600', maxWidth: 150 },
+  laborToolsMenu: { borderTopWidth: 1, borderTopColor: '#E2E8F0', backgroundColor: '#FFFFFF', maxHeight: 260 },
   laborToolsOption: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  laborToolsOptionActive: { backgroundColor: '#FFF7ED' },
+  laborToolsOptionBody: { gap: 4 },
   laborToolsOptionText: { fontSize: 13, color: '#1E293B', fontWeight: '600' },
+  laborToolsOptionMeta: { fontSize: 11, color: '#64748B', fontWeight: '600' },
+  laborToolsOptionNote: { fontSize: 11, color: '#475569', lineHeight: 15 },
 
   calculatorCard: { backgroundColor: '#FFF', borderRadius: 14, padding: 16, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 16 },
-  calculatorHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  calculatorTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A', marginLeft: 8 },
+  calculatorHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, marginBottom: 12 },
+  calculatorTitle: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  calculatorSubtitle: { fontSize: 11, color: '#64748B', marginTop: 4, lineHeight: 16 },
+  calculatorSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    paddingHorizontal: 12,
+    height: 46,
+    marginBottom: 12,
+  },
+  calculatorSearchInput: { flex: 1, height: '100%', color: '#0F172A', fontSize: 14, fontWeight: '600' },
+  calculatorSearchCount: { fontSize: 11, color: '#64748B', fontWeight: '700' },
   customToolRow: { flexDirection: 'row', gap: 12, flexWrap: 'wrap', marginBottom: 12 },
   customToolField: { flex: 1, minWidth: 200 },
   customToolInput: { height: 44, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', paddingHorizontal: 10, fontWeight: '700', color: '#0F172A' },
@@ -1619,10 +1727,33 @@ const styles = StyleSheet.create({
   calculatorField: { flex: 1 },
   calculatorLabel: { fontSize: 11, color: '#64748B', marginBottom: 6 },
   calculatorInput: { height: 44, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#F8FAFC', paddingHorizontal: 10, fontWeight: '700', color: '#0F172A' },
+  calculatorSelectedFoot: {
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    marginBottom: 12,
+  },
+  calculatorSelectedFootText: { fontSize: 13, fontWeight: '700', color: '#0F172A' },
+  calculatorSelectedFootMeta: { fontSize: 11, color: '#64748B', marginTop: 4, fontWeight: '600' },
+  calculatorEmptyState: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    marginBottom: 12,
+  },
+  calculatorEmptyStateText: { flex: 1, fontSize: 11, color: '#64748B', lineHeight: 16 },
   calculatorTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   calculatorTotalLabel: { fontSize: 12, color: '#64748B' },
   calculatorTotalValue: { fontSize: 16, fontWeight: '800', color: COLORS.primary },
   calculatorAddBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 10, backgroundColor: COLORS.primary },
+  calculatorAddBtnDisabled: { opacity: 0.55 },
   calculatorAddText: { color: '#FFF', fontWeight: '700' },
 
   listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, marginTop: 4 },
@@ -1645,6 +1776,7 @@ const styles = StyleSheet.create({
     outlineColor: 'transparent',
   },
   itemMeta: { fontSize: 12, color: '#64748B', fontWeight: '600', marginBottom: 6 },
+  itemTechnicalNote: { fontSize: 11, color: '#475569', lineHeight: 16, marginBottom: 8 },
   quantityControls: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F8FAFC', alignSelf: 'flex-start', padding: 4, borderRadius: 8, borderWidth: 1, borderColor: '#E2E8F0' },
   qtyBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF', borderRadius: 6, borderWidth: 1 },
   qtyText: { fontSize: 14, fontWeight: '700', color: '#1E293B', minWidth: 20, textAlign: 'center' },
