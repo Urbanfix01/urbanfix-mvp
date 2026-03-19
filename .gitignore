@@ -15,5 +15,6 @@ UrbanFix/
 UrbanFix_base_latest/
 agents_out.txt
 app.json
+!apps/mobile/app.json
 l.includes*
 [{]if*

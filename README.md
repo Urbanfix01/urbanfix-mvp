@@ -3,6 +3,7 @@
 ## Fuente de verdad
 
 La web activa vive en `apps/web`.
+La app movil activa vive en `apps/mobile`.
 
 No trabajar ni desplegar desde estas carpetas:
 
@@ -14,6 +15,30 @@ No trabajar ni desplegar desde estas carpetas:
 - `tmp/`
 
 Esas carpetas son copias, snapshots o artefactos locales y no son la fuente de verdad.
+
+## Flujo de trabajo movil
+
+Antes de empezar una tarea en mobile:
+
+```bash
+git pull --ff-only origin main
+```
+
+Para correr la app movil desde la raiz:
+
+```bash
+npm run mobile:start
+```
+
+Atajos utiles:
+
+```bash
+npm run mobile:ios
+npm run mobile:android
+npm run mobile:typecheck
+```
+
+La configuracion de Expo/EAS para iOS y Android vive en `apps/mobile`.
 
 ## Flujo de trabajo web
 

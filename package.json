@@ -2,6 +2,11 @@
   "name": "urbanfix-root",
   "private": true,
   "scripts": {
+    "mobile:start": "npm --prefix apps/mobile run start",
+    "mobile:android": "npm --prefix apps/mobile run android",
+    "mobile:ios": "npm --prefix apps/mobile run ios",
+    "mobile:web": "npm --prefix apps/mobile run web",
+    "mobile:typecheck": "npm --prefix apps/mobile exec -- tsc -p apps/mobile/tsconfig.json --noEmit",
     "web:dev": "npm --prefix apps/web run dev",
     "web:build": "npm --prefix apps/web run build",
     "web:start": "npm --prefix apps/web run start",

@@ -1,0 +1,1026 @@
+import React, { useState, useMemo, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Modal, Platform, ScrollView, Pressable, StatusBar } from 'react-native';
+import { Calendar, LocaleConfig } from 'react-native-calendars';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { supabase } from '../../lib/supabase';
+import { COLORS, FONTS } from '../../utils/theme';
+import MapCanvas from '../../components/molecules/MapCanvas';
+import { MapPoint } from '../../types/maps';
+import { EmptyState } from '../../components/molecules/EmptyState';
+import AgendaItemCard from '../../components/molecules/AgendaItemCard';
+import AgendaUnscheduledCard from '../../components/molecules/AgendaUnscheduledCard';
+import { Ionicons } from '@expo/vector-icons';
+import { isApproved, isCancelled, isPaid, isPending, normalizeStatus } from '../../utils/status';
+
+// --- CONFIGURACIÓN DE IDIOMA ---
+LocaleConfig.locales['es'] = {
+  monthNames: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+  monthNamesShort: ['Ene.','Feb.','Mar.','Abr.','May.','Jun.','Jul.','Ago.','Sep.','Oct.','Nov.','Dic.'],
+  dayNames: ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'],
+  dayNamesShort: ['Dom','Lun','Mar','Mié','Jue','Vi','Sáb'],
+  today: "Hoy"
+};
+LocaleConfig.defaultLocale = 'es';
+
+const toDateKey = (date: Date) => {
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().split('T')[0];
+};
+
+const normalizeDateKey = (value?: string | null) => {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const datePart = value.slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+      return datePart;
+    }
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return toDateKey(parsed);
+    }
+  }
+  return null;
+};
+
+const TODAY = toDateKey(new Date());
+const DAY_HEADERS = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vi', 'Sáb'];
+
+const NoTranslateText = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => {
+  if (Platform.OS !== 'web') {
+    return <Text style={style}>{children}</Text>;
+  }
+  const WebText = Text as any;
+  return (
+    <WebText
+      style={style}
+      className="notranslate"
+      dataSet={{ notranslate: 'true' }}
+      translate={false}
+    >
+      {children}
+    </WebText>
+  );
+};
+
+const NoTranslateView = ({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: any;
+}) => {
+  if (Platform.OS !== 'web') {
+    return <View style={style}>{children}</View>;
+  }
+  const WebView = View as any;
+  return (
+    <WebView
+      style={style}
+      className="notranslate"
+      dataSet={{ notranslate: 'true' }}
+      translate={false}
+    >
+      {children}
+    </WebView>
+  );
+};
+
+export default function AgendaScreen() {
+  const navigation = useNavigation();
+  
+  const [selectedDate, setSelectedDate] = useState(TODAY);
+  const [items, setItems] = useState<any>({}); 
+  const [unscheduledItems, setUnscheduledItems] = useState<any[]>([]); 
+  const [markedDates, setMarkedDates] = useState<any>({});
+  const [loading, setLoading] = useState(true);
+  const [dayFilter, setDayFilter] = useState<'all' | 'pending' | 'confirmed' | 'cancelled'>('all');
+  const [quickDetail, setQuickDetail] = useState<any | null>(null);
+
+  // Estado para asignar fecha rápida
+  const [targetJobId, setTargetJobId] = useState<string | null>(null);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // --- FIX FECHA: Función para mostrar la fecha correcta sin restar horas ---
+  const formatDateForDisplay = (dateString: string) => {
+    const dateKey = normalizeDateKey(dateString);
+    if (!dateKey) return dateString;
+    // Rompemos el string "2025-12-01" en partes
+    const [year, month, day] = dateKey.split('-').map(Number);
+    // Creamos la fecha localmente (Mes en JS es índice 0, por eso month - 1)
+    const localDate = new Date(year, month - 1, day);
+    return localDate.toLocaleDateString('es-ES', { day: 'numeric', month: 'long' });
+  };
+
+  const formatNumberSafe = useCallback((value: number) => {
+    const safe = Number(value || 0);
+    try {
+      return new Intl.NumberFormat('es-AR').format(safe);
+    } catch (_err) {
+      const [intPart, decPart] = safe.toString().split('.');
+      const withSeparators = intPart.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+      if (decPart) return `${withSeparators},${decPart}`;
+      return withSeparators;
+    }
+  }, []);
+  const formatMoney = useCallback((value: number) => formatNumberSafe(value), [formatNumberSafe]);
+
+  const statusConfig = useMemo(
+    () => ({
+      pending: { label: 'Pendiente', color: '#F59E0B', bg: '#FFF7ED' },
+      confirmed: { label: 'Confirmado', color: '#10B981', bg: '#D1FAE5' },
+      cancelled: { label: 'Cancelado', color: '#EF4444', bg: '#FEE2E2' },
+    }),
+    []
+  );
+
+  const resolveAgendaStatus = useCallback(
+    (status?: string | null) => {
+      const normalized = normalizeStatus(status);
+      if (isCancelled(normalized)) {
+        return { key: 'cancelled', ...statusConfig.cancelled };
+      }
+      if (isApproved(normalized) || isPaid(normalized)) {
+        return { key: 'confirmed', ...statusConfig.confirmed };
+      }
+      if (isPending(normalized)) {
+        return { key: 'pending', ...statusConfig.pending };
+      }
+      return { key: 'pending', ...statusConfig.pending };
+    },
+    [statusConfig]
+  );
+
+  const loadItems = useCallback(async () => {
+    setLoading(true);
+    try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        let { data, error } = await supabase
+          .from('quotes')
+          .select('id, client_name, total_amount, status, scheduled_date, created_at, client_address, address, location_address, location_lat, location_lng')
+          .eq('user_id', user.id)
+          .is('archived_at', null)
+          .neq('status', 'completed');
+
+        if (error && String(error.message || '').toLowerCase().includes('archived_at')) {
+          const fallback = await supabase
+            .from('quotes')
+            .select('id, client_name, total_amount, status, scheduled_date, created_at, client_address, address, location_address, location_lat, location_lng')
+            .eq('user_id', user.id)
+            .neq('status', 'completed');
+          data = fallback.data;
+          error = fallback.error;
+        }
+
+        if (error) throw error;
+
+        const newItems: any = {};
+        const newMarks: any = {};
+        const pendingList: any[] = [];
+
+        data?.forEach((job) => {
+            const dateKey = normalizeDateKey(job.scheduled_date);
+            if (!dateKey) {
+                pendingList.push(job);
+                return;
+            }
+
+            if (!newItems[dateKey]) newItems[dateKey] = [];
+            newItems[dateKey].push(job);
+
+            const status = resolveAgendaStatus(job.status);
+            if (!newMarks[dateKey]) {
+                newMarks[dateKey] = { marked: true, dots: [] as { key: string; color: string }[] };
+            }
+            if (!newMarks[dateKey].dots.find((dot: any) => dot.key === status.key)) {
+                newMarks[dateKey].dots.push({ key: status.key, color: status.color });
+            }
+        });
+
+        setItems(newItems);
+        setMarkedDates(newMarks);
+        setUnscheduledItems(pendingList);
+
+    } catch (e) {
+        console.error("Error agenda:", e);
+    } finally {
+        setLoading(false);
+    }
+  }, [resolveAgendaStatus]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadItems();
+    }, [loadItems])
+  );
+
+  // --- ACCIÓN: ASIGNAR FECHA ---
+  const updateSchedule = useCallback(async (jobId: string, dateString: string) => {
+    await supabase.from('quotes').update({ scheduled_date: dateString }).eq('id', jobId);
+    setTargetJobId(null);
+    loadItems();
+  }, [loadItems]);
+
+  const quickAssign = useCallback(async (jobId: string, offsetDays: number) => {
+    const date = new Date();
+    date.setDate(date.getDate() + offsetDays);
+    await updateSchedule(jobId, toDateKey(date));
+  }, [updateSchedule]);
+
+  const onDateSelected = useCallback(async (_event: any, date?: Date) => {
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    
+    if (date && targetJobId) {
+        await updateSchedule(targetJobId, toDateKey(date));
+        if (Platform.OS === 'ios') setShowDatePicker(false);
+    }
+  }, [targetJobId, updateSchedule]);
+
+  const openScheduler = useCallback((jobId: string) => {
+      setTargetJobId(jobId);
+      setShowDatePicker(true);
+  }, []);
+
+  // --- RENDERS ---
+  const renderUnscheduledItem = useCallback(({ item }: { item: any }) => (
+    <AgendaUnscheduledCard
+      id={item.id}
+      clientName={item.client_name || 'Sin Nombre'}
+      amountText={`$${formatMoney(item.total_amount || 0)}`}
+      onQuickAssign={quickAssign}
+      onOpenScheduler={openScheduler}
+    />
+  ), [formatMoney, openScheduler, quickAssign]);
+
+  const renderItem = useCallback(({ item }: { item: any }) => {
+    const status = resolveAgendaStatus(item.status);
+    return (
+      <AgendaItemCard
+        id={item.id}
+        clientName={item.client_name || 'Sin Nombre'}
+        amountText={`$${formatMoney(item.total_amount || 0)}`}
+        statusLabel={status.label}
+        statusColor={status.color}
+        statusBg={status.bg}
+        onPress={() => {
+          // @ts-ignore
+          navigation.navigate('JobDetail', { jobId: item.id });
+        }}
+        onLongPress={() => setQuickDetail(item)}
+      />
+    );
+  }, [formatMoney, navigation, resolveAgendaStatus]);
+
+  const dayItems = useMemo(() => items[selectedDate] || [], [items, selectedDate]);
+  const filteredDayItems = useMemo(() => {
+    if (dayFilter === 'all') return dayItems;
+    return dayItems.filter((item: any) => resolveAgendaStatus(item.status).key === dayFilter);
+  }, [dayItems, dayFilter]);
+
+  const daySummary = useMemo(() => {
+    let pending = 0;
+    let confirmed = 0;
+    let cancelled = 0;
+    let totalAmount = 0;
+
+    dayItems.forEach((item: any) => {
+      const status = resolveAgendaStatus(item.status);
+      if (status.key === 'pending') pending += 1;
+      if (status.key === 'confirmed') confirmed += 1;
+      if (status.key === 'cancelled') cancelled += 1;
+      totalAmount += item.total_amount || 0;
+    });
+
+    return {
+      totalVisits: dayItems.length,
+      pending,
+      confirmed,
+      cancelled,
+      totalAmount,
+    };
+  }, [dayItems]);
+
+  const weekDays = useMemo(() => {
+    const [year, month, day] = selectedDate.split('-').map(Number);
+    const base = new Date(year, month - 1, day);
+    const start = new Date(base);
+    start.setDate(base.getDate() - start.getDay());
+    const labels = DAY_HEADERS;
+
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + index);
+      const dateKey = toDateKey(date);
+      return {
+        dateKey,
+        label: labels[date.getDay()],
+        day: date.getDate(),
+        count: (items[dateKey] || []).length,
+        isToday: dateKey === TODAY,
+      };
+    });
+  }, [selectedDate, items]);
+
+  const dayMapPoints = useMemo<MapPoint[]>(() => {
+    return dayItems
+      .map((item: any) => {
+        const lat = Number(item.location_lat);
+        const lng = Number(item.location_lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        const status = resolveAgendaStatus(item.status);
+        return {
+          id: item.id,
+          title: item.client_name || 'Sin nombre',
+          amount: item.total_amount || 0,
+          address: item.client_address || item.address || item.location_address || '',
+          createdAt: item.created_at,
+          lat,
+          lng,
+          status: { key: status.key, label: status.label, color: status.color },
+        };
+      })
+      .filter(Boolean) as MapPoint[];
+  }, [dayItems]);
+
+  const dayMapRegion = useMemo(() => {
+    if (!dayMapPoints.length) {
+      return {
+        latitude: -34.6037,
+        longitude: -58.3816,
+        latitudeDelta: 0.2,
+        longitudeDelta: 0.2,
+      };
+    }
+    const lats = dayMapPoints.map((point) => point.lat);
+    const lngs = dayMapPoints.map((point) => point.lng);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    const latitude = (minLat + maxLat) / 2;
+    const longitude = (minLng + maxLng) / 2;
+    const latitudeDelta = Math.max(0.03, (maxLat - minLat) * 1.6);
+    const longitudeDelta = Math.max(0.03, (maxLng - minLng) * 1.6);
+    return { latitude, longitude, latitudeDelta, longitudeDelta };
+  }, [dayMapPoints]);
+
+  const emptyMessage =
+    dayFilter === 'all'
+      ? 'No tienes visitas hoy.'
+      : 'No hay visitas para este filtro.';
+
+  const selectedDateLabel = useMemo(() => formatDateForDisplay(selectedDate), [selectedDate]);
+
+  return (
+    <View style={styles.container}>
+        <StatusBar barStyle="dark-content" backgroundColor="#F5F4F0" />
+        <View style={styles.headerCompact}>
+            <SafeAreaView edges={['top']}>
+                <View style={styles.headerCompactRow}>
+                    <View style={styles.headerCompactCopy}>
+                        <Text style={styles.headerCompactTitle}>Agenda</Text>
+                        <Text style={styles.headerCompactMeta}>
+                            {`${selectedDateLabel} | ${daySummary.totalVisits} visitas programadas`}
+                        </Text>
+                    </View>
+                </View>
+            </SafeAreaView>
+        </View>
+        <ScrollView
+            showsVerticalScrollIndicator={false}
+            nestedScrollEnabled
+            contentContainerStyle={styles.scrollContent}
+        >
+        
+        {/* --- SECCIÓN: POR AGENDAR --- */}
+        {false && unscheduledItems.length > 0 && (
+            <View style={styles.unscheduledContainer}>
+                <Text style={styles.sectionTitle}>⚠️ POR AGENDAR ({unscheduledItems.length})</Text>
+                <FlatList 
+                    horizontal 
+                    data={unscheduledItems}
+                    renderItem={renderUnscheduledItem}
+                    keyExtractor={item => item.id}
+                    showsHorizontalScrollIndicator={false}
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    initialNumToRender={6}
+                    maxToRenderPerBatch={6}
+                    windowSize={3}
+                    contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 10 }}
+                />
+            </View>
+        )}
+
+        <View style={styles.heroCard}>
+            <View style={styles.heroTop}>
+                <View style={styles.heroCopy}>
+                    <Text style={styles.heroEyebrow}>Vista del dia</Text>
+                    <Text style={styles.heroTitle}>{selectedDateLabel}</Text>
+                    <Text style={styles.heroText}>
+                        {daySummary.totalVisits} visitas cargadas, {daySummary.pending} pendientes y {daySummary.confirmed} confirmadas.
+                    </Text>
+                </View>
+                <View style={styles.heroBadge}>
+                    <Text style={styles.heroBadgeValue}>{daySummary.totalVisits}</Text>
+                    <Text style={styles.heroBadgeLabel}>Visitas</Text>
+                </View>
+            </View>
+        </View>
+
+        <NoTranslateView style={styles.calendarCard}>
+            <View style={styles.calendarDayHeader}>
+              {DAY_HEADERS.map((label) => (
+                <NoTranslateText key={label} style={styles.calendarDayHeaderText}>
+                  {label}
+                </NoTranslateText>
+              ))}
+            </View>
+            {(() => {
+              const calendarTheme: any = {
+                todayTextColor: COLORS.primary,
+                arrowColor: COLORS.primary,
+                textDayFontFamily: FONTS.body,
+                textMonthFontFamily: FONTS.title,
+                textDayHeaderFontFamily: FONTS.subtitle,
+                textMonthFontSize: 16,
+                textDayFontSize: 12,
+                textDayHeaderFontSize: 10,
+                monthTextColor: COLORS.text,
+                calendarBackground: '#FFFFFF',
+                dayTextColor: COLORS.text,
+                'stylesheet.calendar.header': {
+                  dayHeader: {
+                    height: 0,
+                    opacity: 0,
+                    marginTop: 0,
+                  },
+                  week: {
+                    marginTop: 0,
+                    flexDirection: 'row',
+                    justifyContent: 'space-around',
+                  },
+                },
+              };
+              return (
+                <Calendar
+                current={selectedDate}
+                onDayPress={(day: any) => setSelectedDate(day.dateString)}
+                markedDates={{
+                    ...markedDates,
+                    [selectedDate]: { ...(markedDates[selectedDate] || {}), selected: true, selectedColor: COLORS.primary }
+                }}
+                markingType="multi-dot"
+                hideDayNames
+                theme={calendarTheme}
+                />
+              );
+            })()}
+        </NoTranslateView>
+
+        <View style={styles.weekRow}>
+            {weekDays.map((day) => {
+              const isSelected = day.dateKey === selectedDate;
+              return (
+                <TouchableOpacity
+                  key={day.dateKey}
+                  style={[styles.weekDay, isSelected && styles.weekDayActive]}
+                  onPress={() => setSelectedDate(day.dateKey)}
+                  activeOpacity={0.85}
+                >
+                  <NoTranslateText style={[styles.weekLabel, isSelected && styles.weekLabelActive]}>
+                    {day.label}
+                  </NoTranslateText>
+                  <Text style={[styles.weekNumber, isSelected && styles.weekNumberActive]}>
+                    {day.day}
+                  </Text>
+                  {day.count > 0 && (
+                    <View style={[styles.weekCount, isSelected && styles.weekCountActive]}>
+                      <Text style={[styles.weekCountText, isSelected && styles.weekCountTextActive]}>
+                        {day.count}
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
+        </View>
+
+        {dayMapPoints.length > 0 && (
+            <View style={styles.mapCard}>
+                <View style={styles.mapHeader}>
+                    <Text style={styles.sectionTitle}>MAPA DEL DIA</Text>
+                    <Text style={styles.mapCount}>{dayMapPoints.length} visitas</Text>
+                </View>
+                <MapCanvas
+                  points={dayMapPoints}
+                  region={dayMapRegion}
+                  onSelect={(point: MapPoint) => {
+                    // @ts-ignore
+                    navigation.navigate('JobDetail', { jobId: point.id });
+                  }}
+                  formatMoney={formatMoney}
+                />
+            </View>
+        )}
+
+        <View style={styles.listHeader}>
+            {/* AQUÍ ESTABA EL ERROR: Usamos la función corregida */}
+            <Text style={styles.dateTitle}>
+                Agenda del {formatDateForDisplay(selectedDate)}
+            </Text>
+            <Text style={styles.dateMeta}>
+                {daySummary.totalVisits} visitas · {daySummary.pending} pendientes · {daySummary.confirmed} confirmadas
+            </Text>
+        </View>
+
+        <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.filtersRow}
+        >
+            {[
+              { key: 'all', label: 'Todas' },
+              { key: 'pending', label: 'Pendientes' },
+              { key: 'confirmed', label: 'Confirmadas' },
+              { key: 'cancelled', label: 'Canceladas' },
+            ].map((filter) => (
+              <TouchableOpacity
+                key={filter.key}
+                style={[
+                  styles.filterPill,
+                  dayFilter === filter.key && styles.filterPillActive,
+                ]}
+                onPress={() => setDayFilter(filter.key as any)}
+              >
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    dayFilter === filter.key && styles.filterPillTextActive,
+                  ]}
+                >
+                  {filter.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+        </ScrollView>
+
+        {loading ? (
+            <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
+        ) : (
+            <FlatList
+                data={filteredDayItems}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                scrollEnabled={false}
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={10}
+                maxToRenderPerBatch={10}
+                windowSize={7}
+                updateCellsBatchingPeriod={50}
+                contentContainerStyle={styles.listContent}
+                ListEmptyComponent={
+                    <EmptyState icon="calendar-outline" title="Día Libre" message={emptyMessage} />
+                }
+            />
+        )}
+
+        {unscheduledItems.length > 0 && (
+            <View style={styles.unscheduledSectionBottom}>
+                <View style={styles.unscheduledHeaderRow}>
+                    <Text style={styles.unscheduledSectionTitle}>Pendientes de agenda</Text>
+                    <Text style={styles.unscheduledSectionMeta}>{unscheduledItems.length} por definir</Text>
+                </View>
+                <Text style={styles.unscheduledSectionHint}>
+                    Define la fecha de inicio de los trabajos que todavia no entraron en agenda.
+                </Text>
+                <FlatList
+                    horizontal
+                    data={unscheduledItems}
+                    renderItem={renderUnscheduledItem}
+                    keyExtractor={(item) => item.id}
+                    showsHorizontalScrollIndicator={false}
+                    nestedScrollEnabled
+                    removeClippedSubviews={Platform.OS === 'android'}
+                    initialNumToRender={6}
+                    maxToRenderPerBatch={6}
+                    windowSize={3}
+                    contentContainerStyle={styles.unscheduledRow}
+                />
+            </View>
+        )}
+        </ScrollView>
+
+        {/* CALENDARIO MODAL */}
+        {showDatePicker && (
+             Platform.OS === 'ios' ? (
+                <Modal transparent animationType="fade">
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.iosPickerContainer}>
+                             <DateTimePicker value={new Date()} mode="date" display="inline" onChange={onDateSelected} />
+                             <TouchableOpacity onPress={() => setShowDatePicker(false)} style={styles.closeModalBtn}>
+                                 <Text style={{color:'blue', fontWeight:'bold'}}>Cerrar</Text>
+                             </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
+             ) : (
+                <DateTimePicker value={new Date()} mode="date" onChange={onDateSelected} />
+             )
+        )}
+
+        {quickDetail && (
+            <Modal transparent animationType="fade" visible onRequestClose={() => setQuickDetail(null)}>
+                <Pressable style={styles.sheetOverlay} onPress={() => setQuickDetail(null)}>
+                    <Pressable style={styles.sheetContainer} onPress={() => null}>
+                        <View style={styles.sheetHandle} />
+                        <Text style={styles.sheetTitle}>{quickDetail.client_name || 'Sin nombre'}</Text>
+                        <Text style={styles.sheetAmount}>${formatMoney(quickDetail.total_amount || 0)}</Text>
+                        <View style={styles.sheetMetaRow}>
+                            <View
+                                style={[
+                                  styles.sheetBadge,
+                                  {
+                                    backgroundColor: resolveAgendaStatus(quickDetail.status).bg,
+                                    borderColor: resolveAgendaStatus(quickDetail.status).color,
+                                  },
+                                ]}
+                            >
+                                <Text
+                                  style={[
+                                    styles.sheetBadgeText,
+                                    { color: resolveAgendaStatus(quickDetail.status).color },
+                                  ]}
+                                >
+                                  {resolveAgendaStatus(quickDetail.status).label}
+                                </Text>
+                            </View>
+                            {!!quickDetail.scheduled_date && (
+                              <Text style={styles.sheetDate}>
+                                {formatDateForDisplay(quickDetail.scheduled_date)}
+                              </Text>
+                            )}
+                        </View>
+                        <TouchableOpacity
+                            style={styles.sheetSecondaryBtn}
+                            onPress={() => {
+                              const id = quickDetail.id;
+                              setQuickDetail(null);
+                              openScheduler(id);
+                            }}
+                        >
+                            <Ionicons name="calendar" size={16} color="#0F172A" />
+                            <Text style={styles.sheetSecondaryText}>
+                              {normalizeDateKey(quickDetail.scheduled_date) ? 'Cambiar fecha' : 'Asignar fecha'}
+                            </Text>
+                        </TouchableOpacity>
+                        <View style={styles.sheetActions}>
+                            <TouchableOpacity style={styles.sheetGhostBtn} onPress={() => setQuickDetail(null)}>
+                                <Text style={styles.sheetGhostText}>Cerrar</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.sheetPrimaryBtn}
+                                onPress={() => {
+                                  setQuickDetail(null);
+                                  // @ts-ignore
+                                  navigation.navigate('JobDetail', { jobId: quickDetail.id });
+                                }}
+                            >
+                                <Text style={styles.sheetPrimaryText}>Ver detalle</Text>
+                                <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+        )}
+
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F5F4F0' },
+  headerCompact: {
+    backgroundColor: '#F5F4F0',
+    paddingHorizontal: 18,
+    paddingBottom: 6,
+  },
+  headerCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 14,
+  },
+  headerCompactCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  headerCompactTitle: {
+    fontSize: 24,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+    letterSpacing: 0.1,
+  },
+  headerCompactMeta: {
+    fontSize: 11,
+    fontFamily: FONTS.body,
+    color: '#8D8270',
+  },
+  scrollContent: { paddingBottom: 36 },
+  
+  // Estilos Por Agendar
+  unscheduledContainer: { backgroundColor: '#FFF5E0', paddingTop: 12, paddingBottom: 8 },
+  unscheduledSectionBottom: {
+    marginTop: 18,
+    marginHorizontal: 16,
+    padding: 14,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FBFBF9',
+  },
+  unscheduledHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  unscheduledSectionTitle: {
+    fontSize: 12,
+    fontFamily: FONTS.title,
+    color: '#0F172A',
+  },
+  unscheduledSectionMeta: {
+    fontSize: 11,
+    fontFamily: FONTS.subtitle,
+    color: '#8D8270',
+  },
+  unscheduledSectionHint: {
+    marginTop: 6,
+    marginBottom: 12,
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: '#64748B',
+    lineHeight: 18,
+  },
+  unscheduledRow: { paddingRight: 2 },
+  sectionTitle: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#B45309', marginLeft: 16, marginBottom: 8, letterSpacing: 1.6 },
+  heroCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#1E293B',
+    backgroundColor: '#0F172A',
+    padding: 18,
+  },
+  heroTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  heroCopy: { flex: 1, gap: 4 },
+  heroEyebrow: {
+    fontSize: 11,
+    fontFamily: FONTS.subtitle,
+    color: '#FCD34D',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    fontSize: 22,
+    fontFamily: FONTS.title,
+    color: '#FFFFFF',
+  },
+  heroText: {
+    fontSize: 12,
+    fontFamily: FONTS.body,
+    color: '#CBD5E1',
+    lineHeight: 18,
+  },
+  heroBadge: {
+    minWidth: 82,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    alignItems: 'center',
+  },
+  heroBadgeValue: {
+    fontSize: 24,
+    fontFamily: FONTS.title,
+    color: '#FFFFFF',
+  },
+  heroBadgeLabel: {
+    marginTop: 2,
+    fontSize: 10,
+    fontFamily: FONTS.body,
+    color: '#94A3B8',
+  },
+  unscheduledCard: { 
+      backgroundColor: '#FFFFFF', width: 180, padding: 12, borderRadius: 14, marginRight: 12,
+      borderWidth: 1, borderColor: '#F3E6CF', shadowColor: "#BFA57A", shadowOpacity: 0.15, elevation: 2
+  },
+  unscheduledInfo: { gap: 4 },
+  unscheduledName: { fontSize: 13, fontFamily: FONTS.subtitle, color: COLORS.text },
+  unscheduledAmount: { fontSize: 12, fontFamily: FONTS.body, color: COLORS.textLight },
+  quickRow: { flexDirection: 'row', gap: 8, marginTop: 10 },
+  quickChip: {
+      flex: 1,
+      paddingVertical: 6,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: '#F3E6CF',
+      backgroundColor: '#FFFDF9',
+      alignItems: 'center',
+  },
+  quickChipText: { fontSize: 10, fontFamily: FONTS.subtitle, color: '#92400E' },
+  assignBtn: { 
+      marginTop: 10, backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+      paddingVertical: 8, borderRadius: 10
+  },
+  assignBtnText: { color: '#FFF', fontSize: 11, fontFamily: FONTS.subtitle },
+
+  calendarCard: {
+    marginHorizontal: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#EFE6D8',
+    backgroundColor: '#FFFFFF',
+  },
+  calendarDayHeader: {
+    flexDirection: 'row',
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3EDE2',
+    backgroundColor: '#FFFFFF',
+  },
+  calendarDayHeaderText: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: FONTS.subtitle,
+    fontSize: 10,
+    color: '#94A3B8',
+  },
+
+  weekRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 16,
+    marginTop: 12,
+  },
+  weekDay: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 8,
+    borderRadius: 12,
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFE6D8',
+  },
+  weekDayActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
+  weekLabel: { fontSize: 9, fontFamily: FONTS.subtitle, color: '#94A3B8', letterSpacing: 0.6 },
+  weekLabelActive: { color: '#F8FAFC' },
+  weekNumber: { fontSize: 14, fontFamily: FONTS.title, color: '#0F172A', marginTop: 2 },
+  weekNumberActive: { color: '#FFFFFF' },
+  weekCount: {
+    marginTop: 4,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    backgroundColor: '#F3F4F6',
+  },
+  weekCountActive: { backgroundColor: 'rgba(248,250,252,0.15)' },
+  weekCountText: { fontSize: 9, fontFamily: FONTS.subtitle, color: '#475569' },
+  weekCountTextActive: { color: '#F8FAFC' },
+
+  mapCard: {
+    marginTop: 16,
+    marginHorizontal: 16,
+    backgroundColor: '#FBFBF9',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#EFE6D8',
+  },
+  mapHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  mapCount: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#94A3B8' },
+
+  // Resto
+  listHeader: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6, backgroundColor: '#F5F4F0' },
+  dateTitle: { fontFamily: FONTS.title, fontSize: 16, color: COLORS.text, textTransform: 'uppercase' },
+  dateMeta: { fontFamily: FONTS.body, fontSize: 11, color: COLORS.textLight, marginTop: 4 },
+  filtersRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 6 },
+  filterPill: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
+  },
+  filterPillActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
+  filterPillText: { fontSize: 11, fontFamily: FONTS.subtitle, color: '#475569' },
+  filterPillTextActive: { color: '#FFFFFF' },
+  listContent: { padding: 16, paddingBottom: 12 },
+
+  itemCard: {
+    backgroundColor: 'white', borderRadius: 12, padding: 16, marginBottom: 12,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    borderLeftWidth: 5, shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity:0.05, elevation: 2
+  },
+  itemTitle: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text, marginBottom: 4 },
+  badge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  badgeText: { fontSize: 10, fontFamily: FONTS.subtitle, letterSpacing: 0.6 },
+  itemPrice: { fontSize: 16, fontFamily: FONTS.title, color: COLORS.text },
+
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)' },
+  iosPickerContainer: { backgroundColor: 'white', borderRadius: 12, padding: 20, width: '90%' },
+  closeModalBtn: { marginTop: 10, alignItems: 'center', padding: 10 },
+
+  sheetOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.35)', justifyContent: 'flex-end' },
+  sheetContainer: {
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  sheetHandle: {
+    width: 42,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: '#E2E8F0',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  sheetTitle: { fontSize: 16, fontFamily: FONTS.title, color: '#0F172A' },
+  sheetAmount: { fontSize: 18, fontFamily: FONTS.title, color: '#0F172A', marginTop: 6 },
+  sheetMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 10 },
+  sheetBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  sheetBadgeText: { fontSize: 10, fontFamily: FONTS.subtitle, letterSpacing: 0.6 },
+  sheetDate: { fontSize: 11, fontFamily: FONTS.body, color: '#94A3B8' },
+  sheetSecondaryBtn: {
+    marginTop: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sheetSecondaryText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#0F172A' },
+  sheetActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  sheetGhostBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    alignItems: 'center',
+  },
+  sheetGhostText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#475569' },
+  sheetPrimaryBtn: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 999,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  sheetPrimaryText: { fontSize: 12, fontFamily: FONTS.subtitle, color: '#FFFFFF' },
+});

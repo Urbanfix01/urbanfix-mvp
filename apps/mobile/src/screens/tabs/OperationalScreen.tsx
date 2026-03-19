@@ -1,0 +1,548 @@
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ActivityIndicator,
+  Image,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useQuery } from '@tanstack/react-query';
+import MapCanvas from '../../components/molecules/MapCanvas';
+import { ScreenHeader } from '../../components/molecules/ScreenHeader';
+import {
+  fetchNearbyRequests,
+  NearbyRequest,
+  NearbyRequestsPayload,
+} from '../../api/marketplace';
+import { MapPoint } from '../../types/maps';
+import { COLORS, FONTS } from '../../utils/theme';
+import { formatCurrency } from '../../utils/number';
+
+const QUERY_KEY = ['operativo-nearby-requests'] as const;
+const BA_DEFAULT_REGION = {
+  latitude: -34.6037,
+  longitude: -58.3816,
+  latitudeDelta: 0.32,
+  longitudeDelta: 0.32,
+};
+
+const toErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error && error.message.trim()) return error.message;
+  return fallback;
+};
+
+const modeLabel = (mode: NearbyRequest['mode']) => (mode === 'direct' ? 'Directa' : 'Marketplace');
+const urgencyLabel = (urgency: NearbyRequest['urgency']) => {
+  if (urgency === 'alta') return 'Alta';
+  if (urgency === 'baja') return 'Baja';
+  return 'Media';
+};
+
+const hasSubmittedResponse = (request: NearbyRequest) =>
+  request.my_quote_status === 'submitted' || request.my_quote_status === 'accepted';
+
+const resolveStatusMeta = (request: NearbyRequest) => {
+  if (hasSubmittedResponse(request)) {
+    if (request.my_response_type === 'application') {
+      return { key: 'application', label: 'Postulacion enviada', color: '#0EA5E9' };
+    }
+    return { key: 'quoted', label: 'Cotizacion directa', color: '#10B981' };
+  }
+  if (request.urgency === 'alta') return { key: 'high', label: 'Urgente', color: '#EF4444' };
+  if (request.urgency === 'media') return { key: 'mid', label: 'Media', color: '#F59E0B' };
+  return { key: 'low', label: 'Baja', color: '#3B82F6' };
+};
+
+export default function OperationalScreen() {
+  const navigation = useNavigation<any>();
+  const [modeFilter, setModeFilter] = useState<'all' | 'marketplace' | 'direct'>('all');
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+
+  const {
+    data,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useQuery<NearbyRequestsPayload>({
+    queryKey: QUERY_KEY,
+    queryFn: fetchNearbyRequests,
+    staleTime: 30_000,
+  });
+
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch])
+  );
+
+  const requests = data?.requests || [];
+  const technician = data?.technician;
+
+  const filteredRequests = useMemo(() => {
+    if (modeFilter === 'all') return requests;
+    return requests.filter((request) => request.mode === modeFilter);
+  }, [modeFilter, requests]);
+
+  useEffect(() => {
+    if (!selectedRequestId) return;
+    const exists = filteredRequests.some((request) => request.id === selectedRequestId);
+    if (!exists) setSelectedRequestId(null);
+  }, [filteredRequests, selectedRequestId]);
+
+  const mapPoints = useMemo<MapPoint[]>(() => {
+    return filteredRequests
+      .map((request) => {
+        const lat = Number(request.location_lat);
+        const lng = Number(request.location_lng);
+        if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+        return {
+          id: request.id,
+          title: request.title || 'Solicitud sin titulo',
+          amount: Number(request.my_price_ars || 0),
+          address: [request.address, request.city].filter(Boolean).join(', '),
+          createdAt: request.created_at,
+          lat,
+          lng,
+          status: resolveStatusMeta(request),
+        };
+      })
+      .filter(Boolean) as MapPoint[];
+  }, [filteredRequests]);
+
+  const mapRegion = useMemo(() => {
+    if (!mapPoints.length) {
+      const hasTechCoords =
+        typeof technician?.service_lat === 'number' &&
+        Number.isFinite(technician.service_lat) &&
+        typeof technician?.service_lng === 'number' &&
+        Number.isFinite(technician.service_lng);
+      if (hasTechCoords) {
+        return {
+          latitude: Number(technician?.service_lat),
+          longitude: Number(technician?.service_lng),
+          latitudeDelta: 0.2,
+          longitudeDelta: 0.2,
+        };
+      }
+      return BA_DEFAULT_REGION;
+    }
+    const lats = mapPoints.map((point) => point.lat);
+    const lngs = mapPoints.map((point) => point.lng);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+    return {
+      latitude: (minLat + maxLat) / 2,
+      longitude: (minLng + maxLng) / 2,
+      latitudeDelta: Math.max(0.05, (maxLat - minLat) * 1.4),
+      longitudeDelta: Math.max(0.05, (maxLng - minLng) * 1.4),
+    };
+  }, [mapPoints, technician?.service_lat, technician?.service_lng]);
+
+  const counts = useMemo(
+    () => ({
+      total: requests.length,
+      marketplace: requests.filter((request) => request.mode === 'marketplace').length,
+      direct: requests.filter((request) => request.mode === 'direct').length,
+      responded: requests.filter((request) => hasSubmittedResponse(request)).length,
+    }),
+    [requests]
+  );
+
+  const handleOpenApplicationComposer = useCallback(
+    (request: NearbyRequest) => {
+      navigation.navigate('RequestApplication', { request });
+    },
+    [navigation]
+  );
+
+  const handleOpenBudgetBuilder = useCallback(
+    (request: NearbyRequest) => {
+      navigation.navigate('JobConfig', {
+        offerRequest: {
+          id: request.id,
+          title: request.title,
+          city: request.city,
+          address: request.address,
+          location_lat: request.location_lat,
+          location_lng: request.location_lng,
+          my_eta_hours: request.my_eta_hours,
+          photo_urls: request.photo_urls,
+        },
+      });
+    },
+    [navigation]
+  );
+
+  const subtitle = `${filteredRequests.length} solicitudes visibles`;
+  const mapKey = `${modeFilter}-${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
+
+  if (isLoading && !data) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="OPERATIVO" subtitle="Solicitudes activas" centerTitle />
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.helperText}>Cargando solicitudes activas...</Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error && !data) {
+    return (
+      <View style={styles.container}>
+        <ScreenHeader title="OPERATIVO" subtitle="Solicitudes activas" centerTitle />
+        <View style={styles.center}>
+          <Ionicons name="alert-circle-outline" size={38} color={COLORS.danger} />
+          <Text style={styles.errorText}>{toErrorMessage(error, 'No se pudo cargar Operativo.')}</Text>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => refetch()}>
+            <Text style={styles.retryText}>Reintentar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <ScreenHeader
+        title="OPERATIVO"
+        subtitle={subtitle}
+        centerTitle
+        rightAction={
+          <TouchableOpacity style={styles.headerRefreshBtn} onPress={() => refetch()} disabled={isFetching}>
+            <Ionicons name={isFetching ? 'hourglass-outline' : 'refresh'} size={16} color="#FFFFFF" />
+            <Text style={styles.headerRefreshText}>{isFetching ? 'Actualizando' : 'Actualizar'}</Text>
+          </TouchableOpacity>
+        }
+      />
+
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={isFetching} onRefresh={refetch} tintColor={COLORS.primary} colors={[COLORS.primary]} />
+        }
+      >
+        <View style={styles.chipsRow}>
+          <View style={styles.chip}>
+            <Text style={styles.chipLabel}>Visibles</Text>
+            <Text style={styles.chipValue}>{filteredRequests.length}</Text>
+          </View>
+          <View style={styles.chip}>
+            <Text style={styles.chipLabel}>Horario</Text>
+            <Text style={[styles.chipValue, technician?.within_working_hours ? styles.okText : styles.warnText]}>
+              {technician?.within_working_hours ? 'Disponible' : 'Fuera de horario'}
+            </Text>
+          </View>
+          <View style={styles.chip}>
+            <Text style={styles.chipLabel}>Respondidas</Text>
+            <Text style={styles.chipValue}>{counts.responded}</Text>
+          </View>
+        </View>
+
+        {!!technician?.working_hours_label && (
+          <Text style={styles.hoursLabel}>Horario activo: {technician.working_hours_label}</Text>
+        )}
+
+        {!!data?.warning && (
+          <View style={styles.warningCard}>
+            <Ionicons name="warning-outline" size={16} color="#B45309" />
+            <Text style={styles.warningText}>{data.warning}</Text>
+          </View>
+        )}
+
+        <View style={styles.mapPanel}>
+          <View style={styles.mapHeaderRow}>
+            <Text style={styles.mapTitle}>Solicitudes publicadas</Text>
+            <Text style={styles.mapCount}>{filteredRequests.length} visibles</Text>
+          </View>
+          <MapCanvas
+            key={mapKey}
+            points={mapPoints}
+            region={mapRegion}
+            onSelect={(point) => setSelectedRequestId(point.id)}
+            formatMoney={formatCurrency}
+            height={260}
+          />
+          {!mapPoints.length && <Text style={styles.emptyHint}>No hay puntos geolocalizados con estos filtros.</Text>}
+        </View>
+
+        <View style={styles.filterRow}>
+          <FilterButton
+            label={`Todo (${counts.total})`}
+            active={modeFilter === 'all'}
+            onPress={() => setModeFilter('all')}
+          />
+          <FilterButton
+            label={`Marketplace (${counts.marketplace})`}
+            active={modeFilter === 'marketplace'}
+            onPress={() => setModeFilter('marketplace')}
+          />
+          <FilterButton
+            label={`Directa (${counts.direct})`}
+            active={modeFilter === 'direct'}
+            onPress={() => setModeFilter('direct')}
+          />
+        </View>
+
+        <View style={styles.listBlock}>
+          {filteredRequests.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Ionicons name="locate-outline" size={24} color="#94A3B8" />
+              <Text style={styles.emptyCardTitle}>Sin solicitudes para mostrar</Text>
+              <Text style={styles.emptyCardText}>Ajusta filtros o toca "Actualizar".</Text>
+            </View>
+          ) : (
+            filteredRequests.map((request) => {
+              const selected = selectedRequestId === request.id;
+              const statusMeta = resolveStatusMeta(request);
+              const alreadyResponded = hasSubmittedResponse(request);
+              return (
+                <View key={request.id} style={[styles.requestCard, selected && styles.requestCardSelected]}>
+                  <View style={styles.requestHeader}>
+                    <Text style={styles.requestTitle}>{request.title}</Text>
+                    <View style={[styles.pill, { borderColor: statusMeta.color }]}>
+                      <View style={[styles.pillDot, { backgroundColor: statusMeta.color }]} />
+                      <Text style={styles.pillText}>{statusMeta.label}</Text>
+                    </View>
+                  </View>
+
+                  <Text style={styles.requestMeta}>
+                    {modeLabel(request.mode)} | {urgencyLabel(request.urgency)}
+                  </Text>
+                  <Text style={styles.requestAddress}>{[request.address, request.city].filter(Boolean).join(', ')}</Text>
+                  <Text numberOfLines={2} style={styles.requestDescription}>
+                    {request.description || 'Sin descripcion adicional.'}
+                  </Text>
+
+                  {!!request.photo_urls?.length && (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photoStrip}>
+                      {request.photo_urls.slice(0, 5).map((photoUrl, index) => (
+                        <Image
+                          key={`${request.id}-photo-${index}`}
+                          source={{ uri: photoUrl }}
+                          style={styles.photoThumb}
+                        />
+                      ))}
+                    </ScrollView>
+                  )}
+
+                  {!!request.my_quote_status && request.my_response_type === 'application' && (
+                    <Text style={[styles.offerInfo, styles.applicationInfo]}>
+                      Tu postulacion: visita en {request.my_visit_eta_hours || '-'} h
+                      {request.my_response_message ? ` | ${request.my_response_message}` : ''}
+                    </Text>
+                  )}
+
+                  {!!request.my_quote_status && request.my_response_type !== 'application' && (
+                    <Text style={styles.offerInfo}>
+                      Tu cotizacion: {request.my_price_ars ? `$${formatCurrency(request.my_price_ars)}` : '-'} | ETA{' '}
+                      {request.my_eta_hours || '-'} h
+                    </Text>
+                  )}
+
+                  <View style={styles.requestActions}>
+                    <TouchableOpacity
+                      style={styles.secondaryAction}
+                      onPress={() => setSelectedRequestId(request.id)}
+                    >
+                      <Text style={styles.secondaryActionText}>Ver en mapa</Text>
+                    </TouchableOpacity>
+                    {alreadyResponded && request.my_response_type === 'application' ? (
+                      <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenApplicationComposer(request)}>
+                        <Text style={styles.primaryActionText}>Editar postulacion</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity style={styles.secondaryAction} onPress={() => handleOpenApplicationComposer(request)}>
+                        <Text style={styles.secondaryActionText}>
+                          {alreadyResponded ? 'Cambiar a postulacion' : 'Postularme'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
+                  <TouchableOpacity style={styles.primaryAction} onPress={() => handleOpenBudgetBuilder(request)}>
+                    <Text style={styles.primaryActionText}>
+                      {alreadyResponded && request.my_response_type === 'direct_quote'
+                        ? 'Editar cotizacion directa'
+                        : 'Cotizacion directa'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          )}
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+const FilterButton = ({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) => (
+  <TouchableOpacity style={[styles.filterBtn, active && styles.filterBtnActive]} onPress={onPress}>
+    <Text style={[styles.filterBtnText, active && styles.filterBtnTextActive]}>{label}</Text>
+  </TouchableOpacity>
+);
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { padding: 16, paddingBottom: 28, gap: 12 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingHorizontal: 24 },
+  helperText: { fontFamily: FONTS.body, color: '#64748B', fontSize: 13 },
+  errorText: { fontFamily: FONTS.body, color: '#64748B', fontSize: 13, textAlign: 'center' },
+  retryBtn: {
+    marginTop: 6,
+    backgroundColor: COLORS.secondary,
+    borderRadius: 999,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+  },
+  retryText: { color: '#FFFFFF', fontFamily: FONTS.subtitle, fontSize: 12 },
+  headerRefreshBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  headerRefreshText: { color: '#FFFFFF', fontFamily: FONTS.subtitle, fontSize: 11 },
+  chipsRow: { flexDirection: 'row', gap: 8 },
+  chip: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  chipLabel: { fontFamily: FONTS.body, color: '#94A3B8', fontSize: 11 },
+  chipValue: { fontFamily: FONTS.subtitle, color: '#0F172A', fontSize: 13, marginTop: 2 },
+  okText: { color: '#059669' },
+  warnText: { color: '#B45309' },
+  hoursLabel: { fontFamily: FONTS.body, color: '#475569', fontSize: 12 },
+  warningCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FCD34D',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  warningText: { flex: 1, fontFamily: FONTS.body, color: '#92400E', fontSize: 12 },
+  mapPanel: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+  },
+  mapHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  mapTitle: { fontFamily: FONTS.subtitle, color: '#0F172A', fontSize: 13 },
+  mapCount: { fontFamily: FONTS.body, color: '#64748B', fontSize: 11 },
+  emptyHint: { marginTop: 10, fontFamily: FONTS.body, color: '#94A3B8', fontSize: 11 },
+  filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterBtn: {
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 999,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  filterBtnActive: { backgroundColor: '#0F172A', borderColor: '#0F172A' },
+  filterBtnText: { color: '#334155', fontFamily: FONTS.subtitle, fontSize: 11 },
+  filterBtnTextActive: { color: '#FFFFFF' },
+  listBlock: { gap: 10 },
+  emptyCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 18,
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyCardTitle: { fontFamily: FONTS.subtitle, color: '#0F172A', fontSize: 14 },
+  emptyCardText: { fontFamily: FONTS.body, color: '#64748B', fontSize: 12 },
+  requestCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    padding: 12,
+    gap: 8,
+  },
+  requestCardSelected: {
+    borderColor: COLORS.primary,
+    shadowColor: '#0F172A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: Platform.OS === 'web' ? 0 : 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  requestHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
+  requestTitle: { flex: 1, fontFamily: FONTS.subtitle, color: '#0F172A', fontSize: 14 },
+  requestMeta: { fontFamily: FONTS.body, color: '#475569', fontSize: 12 },
+  requestAddress: { fontFamily: FONTS.body, color: '#0F172A', fontSize: 12 },
+  requestDescription: { fontFamily: FONTS.body, color: '#64748B', fontSize: 12, lineHeight: 16 },
+  offerInfo: { fontFamily: FONTS.subtitle, color: '#0369A1', fontSize: 12 },
+  applicationInfo: { color: '#0284C7' },
+  photoStrip: { gap: 8 },
+  photoThumb: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    backgroundColor: '#E2E8F0',
+    marginRight: 8,
+  },
+  requestActions: { flexDirection: 'row', gap: 8, marginTop: 2 },
+  secondaryAction: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  secondaryActionText: { fontFamily: FONTS.subtitle, color: '#334155', fontSize: 12 },
+  primaryAction: {
+    flex: 1,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    backgroundColor: COLORS.primary,
+  },
+  primaryActionText: { fontFamily: FONTS.subtitle, color: '#FFFFFF', fontSize: 12 },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    backgroundColor: '#FFFFFF',
+  },
+  pillDot: { width: 6, height: 6, borderRadius: 999 },
+  pillText: { color: '#334155', fontFamily: FONTS.body, fontSize: 10 },
+});
+
