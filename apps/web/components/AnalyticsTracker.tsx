@@ -3,21 +3,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { supabase } from '../lib/supabase/supabase';
-
-const ANALYTICS_ENDPOINT = '/api/analytics/track';
+import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId } from '../lib/analytics';
 const HEARTBEAT_MS = 60000;
-
-const getSessionId = () => {
-  if (typeof window === 'undefined') return 'server';
-  const existing = window.localStorage.getItem('ux_session_id');
-  if (existing) return existing;
-  const generated =
-    typeof crypto !== 'undefined' && 'randomUUID' in crypto
-      ? crypto.randomUUID()
-      : `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-  window.localStorage.setItem('ux_session_id', generated);
-  return generated;
-};
 
 export default function AnalyticsTracker() {
   const pathname = usePathname();
@@ -25,7 +12,7 @@ export default function AnalyticsTracker() {
   const tokenRef = useRef<string | null>(null);
   const lastPathRef = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
-  const sessionIdRef = useRef<string>(getSessionId());
+  const sessionIdRef = useRef<string>(getOrCreateAnalyticsSessionId());
 
   useEffect(() => {
     tokenRef.current = accessToken;

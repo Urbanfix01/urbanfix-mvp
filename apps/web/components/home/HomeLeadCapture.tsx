@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { ArrowUpRight, Mail, MessageCircle } from 'lucide-react';
+import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId } from '../../lib/analytics';
 
 const WHATSAPP_PHONE = '5491170084556';
 const CONTACT_EMAIL = 'info@urbanfixar.com';
@@ -19,8 +20,10 @@ export default function HomeLeadCapture() {
   const [name, setName] = useState('');
   const [company, setCompany] = useState('');
   const [interest, setInterest] = useState(interestOptions[0]);
+  const [captureState, setCaptureState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [lastChannel, setLastChannel] = useState<'whatsapp' | 'email' | null>(null);
 
-  const payload = useMemo(() => {
+  const leadDraft = useMemo(() => {
     const safeName = sanitizeLine(name);
     const safeCompany = sanitizeLine(company);
     const safeInterest = sanitizeLine(interest);
@@ -33,18 +36,76 @@ export default function HomeLeadCapture() {
       'Vengo desde la homepage.',
     ].filter(Boolean);
 
-    return lines.join('\n');
+    return {
+      safeName,
+      safeCompany,
+      safeInterest,
+      payload: lines.join('\n'),
+    };
   }, [company, interest, name]);
 
   const whatsappHref = useMemo(
-    () => `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(payload)}`,
-    [payload]
+    () => `https://wa.me/${WHATSAPP_PHONE}?text=${encodeURIComponent(leadDraft.payload)}`,
+    [leadDraft.payload]
   );
 
   const mailHref = useMemo(() => {
     const subject = 'Quiero una demo de UrbanFix';
-    return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(payload)}`;
-  }, [payload]);
+    return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(leadDraft.payload)}`;
+  }, [leadDraft.payload]);
+
+  const captureLead = (channel: 'whatsapp' | 'email') => {
+    setCaptureState('saving');
+    setLastChannel(channel);
+
+    const path = typeof window !== 'undefined' ? window.location.pathname || '/' : '/';
+    const referrer = typeof document !== 'undefined' ? document.referrer || '' : '';
+    const target = channel === 'whatsapp' ? WHATSAPP_PHONE : CONTACT_EMAIL;
+
+    const body = {
+      event_type: 'funnel',
+      event_name: 'homepage_demo_lead',
+      session_id: getOrCreateAnalyticsSessionId(),
+      path,
+      referrer,
+      event_context: {
+        source: 'homepage',
+        section: 'demo_capture',
+        channel,
+        target,
+        interest: leadDraft.safeInterest || 'sin_interes',
+        name: leadDraft.safeName || 'sin_nombre',
+        company: leadDraft.safeCompany || 'sin_empresa',
+        message: leadDraft.payload,
+      },
+    };
+
+    try {
+      fetch(ANALYTICS_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        keepalive: true,
+      })
+        .then((response) => {
+          setCaptureState(response.ok ? 'saved' : 'error');
+        })
+        .catch(() => {
+          setCaptureState('error');
+        });
+    } catch {
+      setCaptureState('error');
+    }
+  };
+
+  const captureNote =
+    captureState === 'saved'
+      ? `Lead guardado en UrbanFix antes de abrir ${lastChannel === 'email' ? 'email' : 'WhatsApp'}.`
+      : captureState === 'error'
+        ? 'No pudimos registrar el lead interno, pero el acceso directo sigue funcionando.'
+        : captureState === 'saving'
+          ? 'Guardando el lead en UrbanFix mientras abrimos el canal elegido.'
+          : 'Cada CTA tambien registra este lead dentro de UrbanFix para seguimiento comercial.';
 
   return (
     <section className="rounded-[28px] border border-white/14 bg-black/25 p-5 backdrop-blur-md sm:p-6">
@@ -103,6 +164,7 @@ export default function HomeLeadCapture() {
           href={whatsappHref}
           target="_blank"
           rel="noreferrer"
+          onClick={() => captureLead('whatsapp')}
           className="inline-flex items-center gap-2 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffb45e]"
         >
           <MessageCircle className="h-4 w-4" />
@@ -112,6 +174,7 @@ export default function HomeLeadCapture() {
 
         <a
           href={mailHref}
+          onClick={() => captureLead('email')}
           className="inline-flex items-center gap-2 rounded-full border border-white/30 px-5 py-2.5 text-sm font-semibold text-white/92 transition hover:border-white hover:text-white"
         >
           <Mail className="h-4 w-4" />
@@ -123,6 +186,7 @@ export default function HomeLeadCapture() {
         El mensaje sale precompletado a <span className="font-semibold text-white/72">+54 9 11 7008-4556</span> o{' '}
         <span className="font-semibold text-white/72">info@urbanfixar.com</span>.
       </p>
+      <p className="mt-2 text-xs leading-6 text-white/58">{captureNote}</p>
     </section>
   );
 }
