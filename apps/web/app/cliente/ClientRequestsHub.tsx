@@ -320,17 +320,31 @@ export default function ClientRequestsHub() {
         });
         if (error) throw error;
       } else {
-        const { error } = await supabase.auth.signUp({
+        const safeFullName = fullName.trim() || 'Cliente UrbanFix';
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email: safeEmail,
           password,
           options: {
             data: {
-              full_name: fullName.trim() || 'Cliente UrbanFix',
+              full_name: safeFullName,
             },
           },
         });
         if (error) throw error;
-        setAuthNotice('Cuenta creada. Si tu proveedor lo pide, confirma desde tu correo.');
+        if (signUpData?.user?.id) {
+          const { error: profileError } = await supabase.from('profiles').upsert({
+            id: signUpData.user.id,
+            email: safeEmail,
+            full_name: safeFullName,
+          });
+          if (profileError) throw profileError;
+        }
+        setAuthNotice(
+          signUpData?.session
+            ? 'Cuenta creada. Ya puedes completar tu perfil y publicar tu primera solicitud.'
+            : 'Cuenta creada. Si tu proveedor lo pide, confirma desde tu correo y luego completa tu perfil.'
+        );
+        setPassword('');
       }
     } catch (error: any) {
       setAuthError(error?.message || 'No se pudo iniciar sesion.');
@@ -433,6 +447,36 @@ export default function ClientRequestsHub() {
   }, [clientProfileForm.city, clientProfileForm.fullName, clientProfileForm.phone]);
 
   const isClientProfileComplete = clientProfileMissingFields.length === 0;
+  const clientSetupSteps = useMemo(
+    () => [
+      {
+        key: 'profile',
+        title: 'Completa tu perfil',
+        description: 'Nombre, telefono y ciudad para activar la operativa.',
+        done: isClientProfileComplete,
+        href: '#perfil-cliente',
+      },
+      {
+        key: 'request',
+        title: 'Publica tu primera solicitud',
+        description: 'Carga trabajo, direccion, urgencia y modo de atencion.',
+        done: requests.length > 0,
+        href: '#nueva-solicitud-cliente',
+      },
+      {
+        key: 'nearby',
+        title: 'Revisa tecnicos cercanos',
+        description: 'Valida cobertura, disponibilidad y distancia antes de decidir.',
+        done: nearbyTechnicians.length > 0,
+        href: '#tecnicos-cercanos',
+      },
+    ],
+    [isClientProfileComplete, nearbyTechnicians.length, requests.length]
+  );
+  const clientSetupCompleted = useMemo(
+    () => clientSetupSteps.filter((item) => item.done).length,
+    [clientSetupSteps]
+  );
 
   const requestsByStatus = useMemo(() => {
     const total = requests.length;
@@ -526,6 +570,27 @@ export default function ClientRequestsHub() {
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Matching por distancia</li>
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Solicitud directa opcional</li>
             </ul>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {[
+                {
+                  title: '1. Crea tu cuenta',
+                  description: 'Entras con email o Google y quedas listo para operar sin vueltas.',
+                },
+                {
+                  title: '2. Completa tu perfil',
+                  description: 'Con nombre, telefono y ciudad se activa mejor el matching por zona.',
+                },
+                {
+                  title: '3. Publica y compara',
+                  description: 'UrbanFix te muestra tecnicos cercanos y deja trazable cada solicitud.',
+                },
+              ].map((item) => (
+                <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.title}</p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
+                </div>
+              ))}
+            </div>
             <Link
               href="/vidriera"
               className="mt-5 inline-flex rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
@@ -659,6 +724,54 @@ export default function ClientRequestsHub() {
         </header>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-3xl">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Primeros pasos</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-900">
+                {isClientProfileComplete
+                  ? requests.length > 0
+                    ? 'Tu cuenta ya esta operando con una base mucho mas clara.'
+                    : 'Tu cuenta ya esta lista. Solo falta publicar tu primera solicitud.'
+                  : 'Tu registro ya quedo hecho. Ahora completa el perfil para desbloquear la operativa.'}
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                UrbanFix te lleva por una secuencia simple: perfil, solicitud y lectura de tecnicos cercanos.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Progreso</p>
+              <p className="mt-2 text-2xl font-semibold text-slate-900">{clientSetupCompleted}/3</p>
+              <p className="text-xs text-slate-500">Hitos iniciales completados</p>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-3">
+            {clientSetupSteps.map((step) => (
+              <a
+                key={step.key}
+                href={step.href}
+                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-white"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                      step.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {step.done ? 'Listo' : 'Pendiente'}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
+                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Ir a esta seccion
+                </p>
+              </a>
+            ))}
+          </div>
+        </section>
+
+        <section id="perfil-cliente" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil cliente</p>
@@ -733,7 +846,7 @@ export default function ClientRequestsHub() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <article id="nueva-solicitud-cliente" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva solicitud</p>
             <h2 className="mt-1 text-xl font-semibold text-slate-900">Publicar trabajo</h2>
 
@@ -958,7 +1071,7 @@ export default function ClientRequestsHub() {
           </article>
 
           <div className="space-y-6">
-            <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <article id="tecnicos-cercanos" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tecnicos por zona</p>

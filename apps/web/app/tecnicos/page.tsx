@@ -4040,14 +4040,23 @@ export default function TechniciansPage() {
     setAuthError('');
     setAuthNotice('');
     try {
+      const safeEmail = email.trim().toLowerCase();
+      if (!safeEmail || !password) {
+        setAuthError('Ingresa correo y contrasena.');
+        return;
+      }
+      if (authMode === 'register' && !quickRegisterMode && !fullName.trim()) {
+        setAuthError('Ingresa al menos tu nombre para crear la cuenta.');
+        return;
+      }
       if (authMode === 'login') {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: safeEmail, password });
         if (error) throw error;
       } else {
           const normalizedFullName = fullName.trim() || 'Tecnico UrbanFix';
           const normalizedBusinessName = businessName.trim() || normalizedFullName;
           const { data: signUpData, error } = await supabase.auth.signUp({
-            email,
+            email: safeEmail,
             password,
             options: { data: { full_name: normalizedFullName, business_name: normalizedBusinessName } },
           });
@@ -4057,10 +4066,16 @@ export default function TechniciansPage() {
               id: signUpData.user.id,
               full_name: normalizedFullName,
               business_name: normalizedBusinessName,
-              email,
+              email: safeEmail,
             });
             if (profileError) throw profileError;
           }
+          setAuthNotice(
+            signUpData?.session
+              ? 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
+              : 'Cuenta creada. Revisa tu correo para confirmar y luego termina tu perfil operativo.'
+          );
+          setPassword('');
         }
       } catch (error: any) {
         setAuthError(error?.message || 'No pudimos iniciar sesion.');
@@ -4143,6 +4158,32 @@ export default function TechniciansPage() {
     const completed = profileChecklistItems.filter((item) => item.done).length;
     return Math.round((completed / profileChecklistItems.length) * 100);
   }, [profileChecklistItems]);
+  const lobbySetupSteps = useMemo(
+    () => [
+      {
+        key: 'profile',
+        title: 'Completa tu perfil base',
+        description: 'Nombre, negocio, telefono, zona y rubros para operar sin friccion.',
+        done: canSaveRequiredProfile && selectedSpecialties.length > 0,
+      },
+      {
+        key: 'quotes',
+        title: 'Carga tu primer presupuesto',
+        description: 'Empieza a cotizar para construir historial, seguimiento y facturacion.',
+        done: quotes.length > 0,
+      },
+      {
+        key: 'showcase',
+        title: 'Activa tu vidriera publica',
+        description: 'Publica tu perfil para aparecer en la vidriera y el mapa de tecnicos.',
+        done: Boolean(profileForm.profilePublished),
+      },
+    ],
+    [canSaveRequiredProfile, profileForm.profilePublished, quotes.length, selectedSpecialties.length]
+  );
+  const lobbySetupCompleted = useMemo(() => lobbySetupSteps.filter((item) => item.done).length, [lobbySetupSteps]);
+  const shouldShowLobbyOnboarding =
+    profileCompletionPercent < 100 || quotes.length === 0 || !profileForm.profilePublished;
 
   const handleSpecialtyToggle = (specialty: string) => {
     setProfileForm((prev) => ({
@@ -5079,6 +5120,26 @@ export default function TechniciansPage() {
                 {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
                 {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
 
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    Despues del registro
+                  </p>
+                  <div className="mt-3 space-y-2">
+                    {[
+                      'Entras al panel y completas tu perfil operativo.',
+                      'Cargas rubros, zona de trabajo y tu primer presupuesto.',
+                      'Si quieres, publicas tu perfil para salir en la vidriera y el mapa.',
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600"
+                      >
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <button
                   type="button"
                   onClick={handleEmailAuth}
@@ -5292,6 +5353,90 @@ export default function TechniciansPage() {
               <div className="space-y-6">
                 {activeTab === 'lobby' && (
                   <>
+                    {shouldShowLobbyOnboarding && (
+                      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="max-w-3xl">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Activacion inicial</p>
+                            <h2 className="mt-1 text-2xl font-semibold text-slate-900">
+                              Tu cuenta ya puede operar. Estos son los siguientes pasos.
+                            </h2>
+                            <p className="mt-2 text-sm text-slate-600">
+                              {profileChecklistPending.length > 0
+                                ? `Te faltan ${profileChecklistPending.length} ajustes para dejar el panel mas solido y visible.`
+                                : 'La base ya esta armada. Ahora conviene cargar presupuesto y publicar presencia.'}
+                            </p>
+                          </div>
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Progreso</p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">{profileCompletionPercent}%</p>
+                            <p className="text-xs text-slate-500">{lobbySetupCompleted}/3 hitos operativos listos</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                          {lobbySetupSteps.map((step) => (
+                            <div key={step.key} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                              <div className="flex items-center justify-between gap-3">
+                                <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+                                    step.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                                  }`}
+                                >
+                                  {step.done ? 'Listo' : 'Pendiente'}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
+
+                              {step.key === 'profile' && (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab('perfil')}
+                                  className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                                >
+                                  Abrir perfil
+                                </button>
+                              )}
+
+                              {step.key === 'quotes' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setQuoteFilter('all');
+                                    setActiveTab('presupuestos');
+                                  }}
+                                  className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                                >
+                                  Ir a presupuestos
+                                </button>
+                              )}
+
+                              {step.key === 'showcase' &&
+                                (step.done && publicProfileUrl ? (
+                                  <a
+                                    href={publicProfileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="mt-4 inline-flex rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                                  >
+                                    Ver perfil publico
+                                  </a>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveTab('perfil')}
+                                    className="mt-4 rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                                  >
+                                    Preparar vidriera
+                                  </button>
+                                ))}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="grid gap-4 md:grid-cols-4">
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex items-center justify-between">
