@@ -2,9 +2,17 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
 import { createClient } from '@supabase/supabase-js';
+import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../components/public/PublicTechniciansMap';
 import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../components/PublicTopNav';
+import { resolveArgentinaZoneCoords, toFiniteCoordinate } from '../../lib/geo/argentina-zone-presets';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
+import {
+  DEFAULT_MATCH_RADIUS_KM,
+  formatWorkingHoursLabel,
+  isNowWithinWorkingHours,
+  parseWorkingHoursConfig,
+} from '../api/_shared/marketplace';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -30,12 +38,19 @@ type PublishedProfileRow = {
   company_address: string | null;
   city: string | null;
   coverage_area: string | null;
+  working_hours: string | null;
+  service_lat: number | null;
+  service_lng: number | null;
+  service_radius_km: number | null;
   specialties: string | null;
   company_logo_url: string | null;
   avatar_url: string | null;
   facebook_url: string | null;
   instagram_url: string | null;
   public_likes_count: number | null;
+  public_rating: number | null;
+  public_reviews_count: number | null;
+  completed_jobs_total: number | null;
 };
 
 type VidrieraSearchParams = {
@@ -134,7 +149,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,address,company_address,city,coverage_area,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,public_likes_count'
+      'id,access_granted,profile_published,full_name,business_name,phone,address,company_address,city,coverage_area,working_hours,service_lat,service_lng,service_radius_km,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,public_likes_count,public_rating,public_reviews_count,completed_jobs_total'
     )
     .eq('access_granted', true)
     .eq('profile_published', true)
@@ -166,6 +181,45 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
         .slice(0, 120)
     )
   ).sort((a, b) => a.localeCompare(b, 'es'));
+  const mapPoints = filteredProfiles
+    .map((profile) => {
+      const exactLat = toFiniteCoordinate(profile.service_lat);
+      const exactLng = toFiniteCoordinate(profile.service_lng);
+      const fallbackCoords =
+        exactLat === null || exactLng === null
+          ? resolveArgentinaZoneCoords(profile.city, profile.coverage_area, profile.address, profile.company_address)
+          : null;
+      const lat = exactLat ?? fallbackCoords?.lat ?? null;
+      const lng = exactLng ?? fallbackCoords?.lng ?? null;
+      if (lat === null || lng === null) return null;
+
+      const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
+      const specialties = parseDelimitedValues(profile.specialties).slice(0, 6);
+      const workingHours = parseWorkingHoursConfig(profile.working_hours || '');
+
+      return {
+        id: profile.id,
+        name: displayName,
+        profileHref: buildTechnicianPath(profile.id, displayName),
+        whatsappHref: buildWhatsappLink(profile.phone),
+        city: String(profile.city || fallbackCoords?.label || '').trim(),
+        coverageArea: String(profile.coverage_area || '').trim(),
+        specialties,
+        lat,
+        lng,
+        radiusKm: Math.max(1, Math.round(Number(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM))),
+        precision: exactLat !== null && exactLng !== null ? 'exact' : 'approx',
+        openNow: isNowWithinWorkingHours(workingHours),
+        workingHoursLabel: formatWorkingHoursLabel(workingHours),
+        likesCount: Math.max(0, Number(profile.public_likes_count || 0)),
+        rating: Number.isFinite(Number(profile.public_rating)) ? Number(profile.public_rating) : null,
+        reviewsCount: Math.max(0, Number(profile.public_reviews_count || 0)),
+        completedJobsTotal: Math.max(0, Number(profile.completed_jobs_total || 0)),
+        avatarUrl: String(profile.avatar_url || '').trim(),
+        companyLogoUrl: String(profile.company_logo_url || '').trim(),
+      } satisfies PublicTechnicianMapPoint;
+    })
+    .filter((point): point is PublicTechnicianMapPoint => Boolean(point));
 
   return (
     <div className={sora.className}>
@@ -243,6 +297,8 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 : 'No pudimos cargar la vidriera en este momento.'}
             </div>
           )}
+
+          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} />}
 
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">

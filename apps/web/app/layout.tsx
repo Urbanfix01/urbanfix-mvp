@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import AnalyticsTracker from "../components/AnalyticsTracker";
 import AuthHashHandler from "../components/AuthHashHandler";
