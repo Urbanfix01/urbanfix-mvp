@@ -11,9 +11,9 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'Ciudades con cobertura UrbanFix | Rubros y precios por zona',
+  title: 'Cobertura UrbanFix en Argentina | Provincias, ciudades y rubros',
   description:
-    'Explora ciudades activas de UrbanFix, cruza rubros, referencias de mano de obra y tecnicos disponibles por zona.',
+    'Explora provincias y ciudades activas de UrbanFix, cruza rubros, referencias de mano de obra y tecnicos disponibles por zona.',
   alternates: { canonical: '/ciudades' },
 };
 
@@ -46,12 +46,12 @@ export default async function CiudadesPage() {
 
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Cobertura por ciudad</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Cobertura por provincia y ciudad</p>
             <h1 className="mt-3 max-w-4xl text-3xl font-semibold text-white sm:text-4xl">
-              Ciudades activas para navegar rubros, referencias tecnicas y presencia operativa
+              Provincias y ciudades activas para navegar rubros, referencias tecnicas y presencia operativa
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-white/80">
-              Esta pestaña ordena la capa publica de UrbanFix por ciudad. Desde aqui puedes entrar a rubros con
+              Esta pestaña ordena la capa publica de UrbanFix por jurisdiccion. Desde aqui puedes entrar a rubros con
               precios base, cruzar tecnicos disponibles en la vidriera y usar una misma estructura para ventas,
               presupuesto y expansion comercial.
             </p>
@@ -79,9 +79,9 @@ export default async function CiudadesPage() {
 
             <div className="mt-6 grid gap-3 md:grid-cols-4">
               <div className="rounded-2xl border border-white/12 bg-black/15 p-4">
-                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Ciudades</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Jurisdicciones</p>
                 <p className="mt-2 text-2xl font-semibold text-white">{cities.length}</p>
-                <p className="mt-1 text-xs text-white/65">Entradas publicas activas para cobertura y navegacion.</p>
+                <p className="mt-1 text-xs text-white/65">Entradas publicas activas entre provincias, CABA y ciudades clave.</p>
               </div>
               <div className="rounded-2xl border border-white/12 bg-black/15 p-4">
                 <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Rubros base</p>
@@ -113,7 +113,7 @@ export default async function CiudadesPage() {
                     <h2 className="mt-2 text-2xl font-semibold text-white">{city.name}</h2>
                   </div>
                   <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffd29d]">
-                    Capa publica activa
+                    Cobertura activa
                   </span>
                 </div>
 
@@ -136,7 +136,7 @@ export default async function CiudadesPage() {
                     href={`/ciudades/${city.slug}`}
                     className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                   >
-                    Explorar ciudad
+                    Explorar cobertura
                   </Link>
                   <Link
                     href={`/vidriera?zona=${encodeURIComponent(city.zoneQuery)}`}
@@ -156,13 +156,13 @@ export default async function CiudadesPage() {
                 <div className="rounded-2xl border border-white/12 bg-black/15 p-4">
                   <p className="text-sm font-semibold text-white">1. Entra por ciudad</p>
                   <p className="mt-2 text-sm leading-6 text-white/70">
-                    Usa la ciudad como puerta de entrada para ordenar cobertura, foco comercial y rutas de consulta.
+                    Usa cada provincia o ciudad como puerta de entrada para ordenar cobertura, foco comercial y rutas de consulta.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/12 bg-black/15 p-4">
                   <p className="text-sm font-semibold text-white">2. Baja a rubros</p>
                   <p className="mt-2 text-sm leading-6 text-white/70">
-                    Desde cada ciudad saltas a rubros con referencias de mano de obra y observacion tecnica visible.
+                    Desde cada jurisdiccion saltas a rubros con referencias de mano de obra y observacion tecnica visible.
                   </p>
                 </div>
                 <div className="rounded-2xl border border-white/12 bg-black/15 p-4">

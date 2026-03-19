@@ -108,7 +108,7 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
               <div className="rounded-2xl border border-white/12 bg-black/15 p-4">
                 <p className="text-[11px] uppercase tracking-[0.16em] text-white/50">Enfoque</p>
                 <p className="mt-2 text-base font-semibold leading-6 text-white">{city.highlights[0]}</p>
-                <p className="mt-1 text-xs text-white/65">Ciudad preparada para lectura comercial y operativa.</p>
+                <p className="mt-1 text-xs text-white/65">Jurisdiccion preparada para lectura comercial y operativa.</p>
               </div>
             </div>
           </section>
@@ -123,7 +123,7 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
                       {index + 1}. {item}
                     </p>
                     <p className="mt-2 text-sm leading-6 text-white/70">
-                      Usa esta ciudad como capa de entrada para ordenar navegacion publica, lectura de rubros y salida a
+                      Usa esta jurisdiccion como capa de entrada para ordenar navegacion publica, lectura de rubros y salida a
                       perfiles tecnicos.
                     </p>
                   </div>
