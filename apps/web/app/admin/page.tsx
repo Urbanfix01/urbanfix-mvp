@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Manrope } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 
 type AdminProfile = {
@@ -39,6 +40,7 @@ type AdminTabKey =
   | 'accesos'
   | 'actividad'
   | 'mano_obra'
+  | 'newsletter'
   | 'flujo';
 type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
 type FlowDiagramNodeShape = 'start' | 'process' | 'decision' | 'end';
@@ -3741,6 +3743,7 @@ export default function AdminPage() {
     { key: 'usuarios', label: 'Usuarios' },
     { key: 'facturacion', label: 'FacturaciÃ³n' },
     { key: 'mano_obra', label: 'Mano de obra' },
+    { key: 'newsletter', label: 'Newsletter' },
     { key: 'flujo', label: 'Flujo App/Web' },
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'mensajes', label: 'Mensajes' },
@@ -7767,6 +7770,9 @@ export default function AdminPage() {
                 ))}
               </div>
             </section>
+          )}
+          {activeTab === 'newsletter' && session?.access_token && (
+            <AdminNewsletterPanel accessToken={session.access_token} active={activeTab === 'newsletter'} />
           )}
           {activeTab === 'actividad' && (
             <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">

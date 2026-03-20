@@ -1,0 +1,194 @@
+import { createHmac } from 'node:crypto';
+
+export type NewsletterAudience =
+  | 'opted_in_all'
+  | 'opted_in_tecnicos'
+  | 'opted_in_clientes'
+  | 'base_all'
+  | 'base_tecnicos'
+  | 'base_clientes';
+
+export type NewsletterCampaignStatus = 'draft' | 'sending' | 'sent' | 'failed';
+export type NewsletterRecipientStatus = 'pending' | 'sent' | 'failed' | 'skipped';
+export type NewsletterUserAudience = 'tecnico' | 'cliente' | 'desconocido';
+
+export const NEWSLETTER_AUDIENCE_LABELS: Record<NewsletterAudience, string> = {
+  opted_in_all: 'Solo suscriptos',
+  opted_in_tecnicos: 'Suscriptos tecnicos',
+  opted_in_clientes: 'Suscriptos clientes',
+  base_all: 'Toda la base',
+  base_tecnicos: 'Base tecnicos',
+  base_clientes: 'Base clientes',
+};
+
+export const normalizeNewsletterEmail = (value: string | null | undefined) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized.includes('@') ? normalized : '';
+};
+
+export const resolveNewsletterAudience = (
+  metadataAudience: string | null | undefined,
+  accessGranted: boolean | null | undefined
+): NewsletterUserAudience => {
+  const normalized = String(metadataAudience || '')
+    .trim()
+    .toLowerCase();
+
+  if (normalized === 'tecnico') return 'tecnico';
+  if (normalized === 'cliente') return 'cliente';
+  if (accessGranted === true) return 'tecnico';
+  return 'desconocido';
+};
+
+export const buildNewsletterBodyText = (value: string | null | undefined) =>
+  String(value || '')
+    .replace(/\r\n/g, '\n')
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+export const buildNewsletterHtml = (params: {
+  title: string;
+  previewText?: string | null;
+  intro?: string | null;
+  paragraphs: string[];
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  unsubscribeUrl: string;
+}) => {
+  const title = escapeHtml(params.title);
+  const previewText = escapeHtml(String(params.previewText || '').trim());
+  const intro = escapeHtml(String(params.intro || '').trim());
+  const ctaLabel = String(params.ctaLabel || '').trim();
+  const ctaUrl = String(params.ctaUrl || '').trim();
+
+  const paragraphsHtml = params.paragraphs
+    .map(
+      (paragraph) =>
+        `<p style="margin:0 0 16px;font-size:15px;line-height:1.75;color:#f3e9ff;">${escapeHtml(paragraph)}</p>`
+    )
+    .join('');
+
+  const ctaHtml =
+    ctaLabel && ctaUrl
+      ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 0;">
+          <tr>
+            <td style="border-radius:999px;background:#ff8f1f;">
+              <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;padding:14px 22px;font-size:14px;font-weight:700;color:#2a0338;text-decoration:none;">${escapeHtml(ctaLabel)}</a>
+            </td>
+          </tr>
+        </table>`
+      : '';
+
+  return `<!DOCTYPE html>
+  <html lang="es">
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <title>${title}</title>
+    </head>
+    <body style="margin:0;padding:0;background:#180022;font-family:Arial,sans-serif;">
+      <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${previewText}</div>
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#180022;">
+        <tr>
+          <td align="center" style="padding:32px 16px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:640px;border:1px solid rgba(255,255,255,0.12);border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#2c083c 0%,#240432 100%);box-shadow:0 24px 80px rgba(0,0,0,0.35);">
+              <tr>
+                <td style="padding:32px 32px 12px;">
+                  <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#ffd6a6;">UrbanFix newsletter</p>
+                  <h1 style="margin:0;font-size:34px;line-height:1.08;color:#ffffff;">${title}</h1>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 32px 8px;">
+                  ${
+                    intro
+                      ? `<p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#ffffff;">${intro}</p>`
+                      : ''
+                  }
+                  ${paragraphsHtml}
+                  ${ctaHtml}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:24px 32px 32px;">
+                  <div style="height:1px;background:rgba(255,255,255,0.12);margin-bottom:16px;"></div>
+                  <p style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#d8c8e6;">
+                    Recibiste este correo por tu relaci&oacute;n con UrbanFix.
+                  </p>
+                  <p style="margin:0;font-size:12px;line-height:1.6;color:#d8c8e6;">
+                    Si no quieres seguir recibiendo novedades,
+                    <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#ffd6a6;text-decoration:underline;">darte de baja aqu&iacute;</a>.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+  </html>`;
+};
+
+export const buildNewsletterPlainText = (params: {
+  title: string;
+  intro?: string | null;
+  paragraphs: string[];
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+  unsubscribeUrl: string;
+}) => {
+  const lines = [params.title, ''];
+
+  if (params.intro) {
+    lines.push(String(params.intro).trim(), '');
+  }
+
+  params.paragraphs.forEach((paragraph) => {
+    lines.push(paragraph, '');
+  });
+
+  if (params.ctaLabel && params.ctaUrl) {
+    lines.push(`${params.ctaLabel}: ${params.ctaUrl}`, '');
+  }
+
+  lines.push(`Baja newsletter: ${params.unsubscribeUrl}`);
+  return lines.join('\n').trim();
+};
+
+const getNewsletterSecret = () =>
+  process.env.NEWSLETTER_UNSUBSCRIBE_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY || 'urbanfix-newsletter';
+
+export const buildNewsletterUnsubscribeToken = (email: string, userId?: string | null) =>
+  createHmac('sha256', getNewsletterSecret())
+    .update(`${normalizeNewsletterEmail(email)}|${String(userId || '').trim()}`)
+    .digest('hex');
+
+export const verifyNewsletterUnsubscribeToken = (email: string, token: string, userId?: string | null) =>
+  token === buildNewsletterUnsubscribeToken(email, userId);
+
+export const getNewsletterPublicBaseUrl = () =>
+  (process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.PUBLIC_WEB_URL ||
+    'https://www.urbanfix.com.ar').replace(/\/+$/, '');
+
+export const buildNewsletterUnsubscribeUrl = (email: string, userId?: string | null) => {
+  const base = getNewsletterPublicBaseUrl();
+  const normalizedEmail = normalizeNewsletterEmail(email);
+  const token = buildNewsletterUnsubscribeToken(normalizedEmail, userId);
+  const params = new URLSearchParams({
+    email: normalizedEmail,
+    token,
+  });
+  if (userId) params.set('user', userId);
+  return `${base}/newsletter/baja?${params.toString()}`;
+};
