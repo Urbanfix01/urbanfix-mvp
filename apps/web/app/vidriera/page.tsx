@@ -5,7 +5,12 @@ import { createClient } from '@supabase/supabase-js';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../components/public/PublicTechniciansMap';
 import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../components/PublicTopNav';
-import { resolveArgentinaZoneCoords, toFiniteCoordinate } from '../../lib/geo/argentina-zone-presets';
+import {
+  getArgentinaZoneSearchOptions,
+  matchesArgentinaZoneQuery,
+  resolveArgentinaZoneCoords,
+  toFiniteCoordinate,
+} from '../../lib/geo/argentina-zone-presets';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import {
   DEFAULT_MATCH_RADIUS_KM,
@@ -159,7 +164,15 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   const profiles = (data || []) as PublishedProfileRow[];
   const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
   const filteredProfiles = zonaQueryNormalized
-    ? safeProfiles.filter((profile) => normalizeSearchText(buildProfileZoneText(profile)).includes(zonaQueryNormalized))
+    ? safeProfiles.filter((profile) =>
+        matchesArgentinaZoneQuery(
+          zonaQuery,
+          profile.city,
+          profile.coverage_area,
+          profile.address,
+          profile.company_address
+        )
+      )
     : safeProfiles;
   const migrationMissing =
     String(error?.message || '')
@@ -174,12 +187,12 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   const whatsappEnabledCount = safeProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const totalLikes = safeProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
   const zonaOptions = Array.from(
-    new Set(
-      safeProfiles
+    new Set([
+      ...safeProfiles
         .map((profile) => String(profile.city || profile.coverage_area || '').trim())
-        .filter(Boolean)
-        .slice(0, 120)
-    )
+        .filter(Boolean),
+      ...getArgentinaZoneSearchOptions(),
+    ])
   ).sort((a, b) => a.localeCompare(b, 'es'));
   const mapPoints = filteredProfiles
     .map((profile) => {
