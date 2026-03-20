@@ -17,8 +17,13 @@ type PublicTopNavProps = {
   sticky?: boolean;
 };
 
+const platformButtonClass =
+  'inline-flex rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] transition';
+
 export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const isDownloadActive = activeHref === '/descargar-app';
+  const isPlatformActive = activeHref === '/tecnicos';
 
   return (
     <header
@@ -48,8 +53,23 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
           </nav>
 
           <a
+            href="/descargar-app"
+            className={`hidden ${platformButtonClass} xl:inline-flex ${
+              isDownloadActive
+                ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
+                : 'border-[#ff8f1f]/80 bg-[#ff8f1f] text-[#2a0338] hover:bg-[#ffad56]'
+            }`}
+          >
+            Descargar app
+          </a>
+
+          <a
             href="/tecnicos"
-            className="hidden rounded-full border border-white/70 px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338] xl:inline-flex"
+            className={`hidden ${platformButtonClass} xl:inline-flex ${
+              isPlatformActive
+                ? 'border-white bg-white text-[#2a0338]'
+                : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+            }`}
           >
             Ir a plataforma
           </a>
@@ -85,9 +105,24 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
               </a>
             ))}
             <a
+              href="/descargar-app"
+              onClick={() => setMenuOpen(false)}
+              className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
+                isDownloadActive
+                  ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
+                  : 'border-[#ff8f1f]/80 bg-[#ff8f1f] text-[#2a0338] hover:bg-[#ffad56]'
+              }`}
+            >
+              Descargar app
+            </a>
+            <a
               href="/tecnicos"
               onClick={() => setMenuOpen(false)}
-              className="mt-1 rounded-full border border-white/70 px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] text-white transition hover:bg-white hover:text-[#2a0338]"
+              className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
+                isPlatformActive
+                  ? 'border-white bg-white text-[#2a0338]'
+                  : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+              }`}
             >
               Ir a plataforma
             </a>
