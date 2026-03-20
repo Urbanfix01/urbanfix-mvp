@@ -154,6 +154,63 @@ header .header-view-option {
   }
 }
 
+/* --- HERO TRANSITION (HOME) --- */
+.home-hero-transition {
+  --home-hero-progress: 0;
+  position: relative;
+}
+
+.home-hero-transition__hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hero-transition__hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center top, rgba(255, 143, 31, 0.14), transparent 42%),
+    linear-gradient(
+      180deg,
+      rgba(12, 3, 21, calc(var(--home-hero-progress) * 0.08)) 0%,
+      rgba(33, 0, 47, calc(0.08 + var(--home-hero-progress) * 0.22)) 78%,
+      rgba(33, 0, 47, calc(0.28 + var(--home-hero-progress) * 0.26)) 100%
+    );
+  pointer-events: none;
+  z-index: 1;
+}
+
+.home-hero-transition__hero img {
+  transform: translate3d(0, calc(var(--home-hero-progress) * -28px), 0)
+    scale(calc(1.045 - var(--home-hero-progress) * 0.045));
+  transform-origin: center top;
+  filter: saturate(calc(1 + var(--home-hero-progress) * 0.05))
+    brightness(calc(1 - var(--home-hero-progress) * 0.08));
+  transition: transform 180ms linear, filter 180ms linear;
+  will-change: transform, filter;
+}
+
+.home-hero-transition__content {
+  position: relative;
+  z-index: 2;
+  margin-top: calc(-2.75rem - (1 - var(--home-hero-progress)) * 1rem);
+  transform: translate3d(0, calc(66px - var(--home-hero-progress) * 66px), 0)
+    scale(calc(0.975 + var(--home-hero-progress) * 0.025));
+  opacity: calc(0.72 + var(--home-hero-progress) * 0.28);
+  transform-origin: center top;
+  transition: transform 180ms linear, opacity 180ms linear;
+  will-change: transform, opacity;
+}
+
+@media (max-width: 768px) {
+  .home-hero-transition__content {
+    margin-top: calc(-1.5rem - (1 - var(--home-hero-progress)) * 0.65rem);
+    transform: translate3d(0, calc(38px - var(--home-hero-progress) * 38px), 0)
+      scale(calc(0.986 + var(--home-hero-progress) * 0.014));
+  }
+}
+
 /* --- REVEAL SCROLL (HOME) --- */
 .ufx-reveal {
   opacity: 0;
@@ -169,6 +226,14 @@ header .header-view-option {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-hero-transition__hero img,
+  .home-hero-transition__content {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    transition: none !important;
+  }
+
   .ufx-reveal,
   .ufx-reveal.is-visible {
     opacity: 1 !important;
