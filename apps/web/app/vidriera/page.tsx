@@ -311,7 +311,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
             </div>
           )}
 
-          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} />}
+          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} preferUserLocation={!zonaQueryNormalized} />}
 
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">

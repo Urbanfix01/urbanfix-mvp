@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import type { Circle as LeafletCircle, LayerGroup, Map as LeafletMap } from 'leaflet';
+import type { Circle as LeafletCircle, LayerGroup, Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 
 export type PublicTechnicianMapPoint = {
   id: string;
@@ -28,6 +28,7 @@ export type PublicTechnicianMapPoint = {
 
 type Props = {
   points: PublicTechnicianMapPoint[];
+  preferUserLocation?: boolean;
 };
 
 type DisplayPoint = PublicTechnicianMapPoint & {
@@ -37,8 +38,13 @@ type DisplayPoint = PublicTechnicianMapPoint & {
 
 const ARGENTINA_CENTER: [number, number] = [-38.4, -63.6];
 const ARGENTINA_DEFAULT_ZOOM = 4.2;
+const USER_FOCUS_DISTANCE_KM = 120;
+const USER_FOCUS_NEAREST_LIMIT = 6;
+const USER_FOCUS_FALLBACK_ZOOM = 10;
 
 const formatCompactNumber = (value: number) => value.toLocaleString('es-AR');
+
+const toRadians = (value: number) => (value * Math.PI) / 180;
 
 const escapeHtml = (value: string) =>
   value
@@ -109,20 +115,73 @@ const spreadOverlappingPoints = (points: PublicTechnicianMapPoint[]): DisplayPoi
 const getSelectedMedia = (point: PublicTechnicianMapPoint) =>
   point.avatarUrl || point.companyLogoUrl || '';
 
-export default function PublicTechniciansMap({ points }: Props) {
+const getDistanceKm = (fromLat: number, fromLng: number, toLat: number, toLng: number) => {
+  const earthRadiusKm = 6371;
+  const dLat = toRadians(toLat - fromLat);
+  const dLng = toRadians(toLng - fromLng);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+
+  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+type UserLocationState =
+  | { status: 'idle' | 'requesting' | 'unsupported' | 'denied' | 'error'; lat: null; lng: null; accuracyMeters: null }
+  | { status: 'ready'; lat: number; lng: number; accuracyMeters: number | null };
+
+const getLocationStatusLabel = (status: UserLocationState['status'], preferUserLocation: boolean) => {
+  switch (status) {
+    case 'ready':
+      return preferUserLocation ? 'Mapa centrado en tu ubicacion actual' : 'Ubicacion disponible para recentrar';
+    case 'requesting':
+      return 'Buscando tu ubicacion actual...';
+    case 'denied':
+      return 'Activa el permiso de ubicacion para centrar el mapa cerca tuyo';
+    case 'unsupported':
+      return 'Este dispositivo no permite geolocalizacion desde el navegador';
+    case 'error':
+      return 'No pudimos detectar tu ubicacion en este intento';
+    default:
+      return preferUserLocation ? 'Usaremos tu ubicacion para acercar el mapa automaticamente' : 'Puedes recentrar el mapa usando tu ubicacion';
+  }
+};
+
+export default function PublicTechniciansMap({ points, preferUserLocation = true }: Props) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
   const markersLayerRef = useRef<LayerGroup | null>(null);
   const circleRef = useRef<LeafletCircle | null>(null);
+  const userAccuracyCircleRef = useRef<LeafletCircle | null>(null);
+  const userMarkerRef = useRef<LeafletMarker | null>(null);
+  const isMountedRef = useRef(true);
   const [mapReady, setMapReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(points[0]?.id || null);
+  const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(preferUserLocation);
+  const [userLocation, setUserLocation] = useState<UserLocationState>({
+    status: preferUserLocation ? 'requesting' : 'idle',
+    lat: null,
+    lng: null,
+    accuracyMeters: null,
+  });
 
   const displayPoints = useMemo(() => spreadOverlappingPoints(points), [points]);
   const selectedPoint = useMemo(
     () => displayPoints.find((point) => point.id === selectedId) || displayPoints[0] || null,
     [displayPoints, selectedId]
   );
+  const nearestPointToUser = useMemo(() => {
+    if (userLocation.status !== 'ready' || displayPoints.length === 0) return null;
+
+    return displayPoints
+      .map((point) => ({
+        point,
+        distanceKm: getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng),
+      }))
+      .sort((a, b) => a.distanceKm - b.distanceKm)[0]?.point || null;
+  }, [displayPoints, userLocation]);
+  const shouldFocusUserLocation = preferUserLocation || hasRequestedUserFocus;
 
   const stats = useMemo(() => {
     const exactCount = points.filter((point) => point.precision === 'exact').length;
@@ -136,12 +195,84 @@ export default function PublicTechniciansMap({ points }: Props) {
     };
   }, [points]);
 
+  const requestUserLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setUserLocation({
+        status: 'unsupported',
+        lat: null,
+        lng: null,
+        accuracyMeters: null,
+      });
+      return;
+    }
+
+    setUserLocation(() => ({
+      status: 'requesting',
+      lat: null,
+      lng: null,
+      accuracyMeters: null,
+    }));
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!isMountedRef.current) return;
+
+        setUserLocation({
+          status: 'ready',
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracyMeters: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+        });
+      },
+      (error) => {
+        if (!isMountedRef.current) return;
+
+        setUserLocation({
+          status: error.code === 1 ? 'denied' : 'error',
+          lat: null,
+          lng: null,
+          accuracyMeters: null,
+        });
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 5 * 60 * 1000,
+        timeout: 10 * 1000,
+      }
+    );
+  };
+
   useEffect(() => {
     setSelectedId((current) => {
       if (current && points.some((point) => point.id === current)) return current;
       return points[0]?.id || null;
     });
   }, [points]);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!preferUserLocation) {
+      setUserLocation((current) => (current.status === 'idle' ? current : { status: 'idle', lat: null, lng: null, accuracyMeters: null }));
+      return;
+    }
+
+    requestUserLocation();
+  }, [preferUserLocation]);
+
+  useEffect(() => {
+    if (!shouldFocusUserLocation || !nearestPointToUser) return;
+
+    setSelectedId((current) => {
+      if (!current || current === points[0]?.id) return nearestPointToUser.id;
+      return current;
+    });
+  }, [nearestPointToUser, points, shouldFocusUserLocation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -188,6 +319,8 @@ export default function PublicTechniciansMap({ points }: Props) {
       resizeObserver?.disconnect();
       resizeObserver = null;
       circleRef.current = null;
+      userAccuracyCircleRef.current = null;
+      userMarkerRef.current = null;
       markersLayerRef.current = null;
       if (mapRef.current) {
         mapRef.current.remove();
@@ -232,7 +365,39 @@ export default function PublicTechniciansMap({ points }: Props) {
     });
 
     if (displayPoints.length === 0) {
+      if (shouldFocusUserLocation && userLocation.status === 'ready') {
+        map.setView([userLocation.lat, userLocation.lng], USER_FOCUS_FALLBACK_ZOOM, { animate: false });
+        return;
+      }
       map.setView(ARGENTINA_CENTER, ARGENTINA_DEFAULT_ZOOM);
+      return;
+    }
+
+    if (shouldFocusUserLocation && userLocation.status === 'ready') {
+      const nearestPoints = displayPoints
+        .map((point) => ({
+          point,
+          distanceKm: getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng),
+        }))
+        .sort((a, b) => a.distanceKm - b.distanceKm);
+      const nearbyPoints = nearestPoints
+        .filter((entry) => entry.distanceKm <= USER_FOCUS_DISTANCE_KM)
+        .slice(0, USER_FOCUS_NEAREST_LIMIT)
+        .map((entry) => entry.point);
+
+      if (nearbyPoints.length === 0) {
+        map.setView([userLocation.lat, userLocation.lng], USER_FOCUS_FALLBACK_ZOOM, { animate: false });
+        return;
+      }
+
+      const userBounds = L.latLngBounds([
+        [userLocation.lat, userLocation.lng] as [number, number],
+        ...nearbyPoints.map((point) => [point.mapLat, point.mapLng] as [number, number]),
+      ]);
+      map.fitBounds(userBounds.pad(0.2), {
+        maxZoom: nearbyPoints.length === 1 ? 11 : 12,
+        animate: false,
+      });
       return;
     }
 
@@ -241,7 +406,45 @@ export default function PublicTechniciansMap({ points }: Props) {
       maxZoom: displayPoints.length === 1 ? 12 : 8,
       animate: false,
     });
-  }, [displayPoints, mapReady]);
+  }, [displayPoints, mapReady, shouldFocusUserLocation, userLocation]);
+
+  useEffect(() => {
+    if (!mapReady || !leafletRef.current || !mapRef.current) return;
+
+    userMarkerRef.current?.remove();
+    userMarkerRef.current = null;
+    userAccuracyCircleRef.current?.remove();
+    userAccuracyCircleRef.current = null;
+
+    if (userLocation.status !== 'ready') return;
+
+    const L = leafletRef.current;
+    userMarkerRef.current = L.marker([userLocation.lat, userLocation.lng], {
+      icon: L.divIcon({
+        html: `
+          <div class="ufx-map-user-pin">
+            <span class="ufx-map-user-pin-core"></span>
+            <span class="ufx-map-user-pin-pulse"></span>
+          </div>
+        `,
+        className: 'ufx-map-user-pin-shell',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13],
+      }),
+      title: 'Tu ubicacion',
+    }).addTo(mapRef.current);
+
+    if (userLocation.accuracyMeters) {
+      userAccuracyCircleRef.current = L.circle([userLocation.lat, userLocation.lng], {
+        radius: Math.max(80, Math.min(userLocation.accuracyMeters, 1500)),
+        color: '#5eead4',
+        weight: 1,
+        opacity: 0.9,
+        fillColor: '#2dd4bf',
+        fillOpacity: 0.08,
+      }).addTo(mapRef.current);
+    }
+  }, [mapReady, userLocation]);
 
   useEffect(() => {
     if (!mapReady || !leafletRef.current || !mapRef.current) return;
@@ -281,6 +484,21 @@ export default function PublicTechniciansMap({ points }: Props) {
               Explora tecnicos activos por zona, identifica cobertura real y revisa rapido si la ubicacion es exacta o
               aproximada antes de entrar al perfil.
             </p>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-[11px] font-semibold text-white/75">
+                {getLocationStatusLabel(userLocation.status, preferUserLocation)}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setHasRequestedUserFocus(true);
+                  requestUserLocation();
+                }}
+                className="rounded-full border border-[#5eead4]/45 bg-[#5eead4]/10 px-3 py-1 text-[11px] font-semibold text-[#c6fff6] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
+              >
+                {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
+              </button>
+            </div>
           </div>
           <div className="grid min-w-[250px] grid-cols-2 gap-2 text-xs text-white/80 sm:min-w-[320px]">
             <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
@@ -313,6 +531,11 @@ export default function PublicTechniciansMap({ points }: Props) {
             <span className="rounded-full border border-violet-300/35 bg-violet-400/10 px-3 py-1 text-[11px] font-semibold text-violet-100">
               Zona estimada = radio punteado
             </span>
+            {userLocation.status === 'ready' && (
+              <span className="rounded-full border border-cyan-300/35 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
+                Tu ubicacion = pulso turquesa
+              </span>
+            )}
           </div>
         </div>
 
