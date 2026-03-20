@@ -1,5 +1,6 @@
 param(
   [string]$Project = 'urbanfix-web',
+  [string]$Scope = 'urbanfix01s-projects',
   [string]$ProductionDomain = 'https://www.urbanfix.com.ar',
   [string]$CheckPath = '/tecnicos',
   [int]$PreviewTimeoutSeconds = 300,
@@ -47,7 +48,7 @@ function Invoke-CommandPassthrough([string]$FilePath, [string[]]$Arguments) {
 }
 
 function Get-FirstDeploymentUrl([string]$Environment, [string]$Status = 'READY') {
-  $output = Invoke-CommandCapture 'npx' @('vercel', 'list', $Project, '--environment', $Environment, '--status', $Status)
+  $output = Invoke-CommandCapture 'npx' @('vercel', 'list', $Project, '--environment', $Environment, '--status', $Status, '--scope', $Scope)
   foreach ($line in ($output -split "`r?`n")) {
     if ($line -match 'https://\S+\.vercel\.app') {
       return $matches[0]
@@ -75,7 +76,7 @@ function Wait-ForDeploymentUrlChange(
 }
 
 function Wait-ForReadyDeployment([string]$DeploymentUrl, [int]$TimeoutSeconds) {
-  Invoke-CommandPassthrough 'npx' @('vercel', 'inspect', $DeploymentUrl, '--wait', '--timeout', "${TimeoutSeconds}s")
+  Invoke-CommandPassthrough 'npx' @('vercel', 'inspect', $DeploymentUrl, '--wait', '--timeout', "${TimeoutSeconds}s", '--scope', $Scope)
 }
 
 function Get-GitAheadBehind() {
@@ -102,7 +103,7 @@ function Get-LiveChunkPath([string]$BaseUrl, [string]$Path) {
 }
 
 Write-Step 'Validating Vercel authentication'
-$vercelUser = Invoke-CommandCapture 'npx' @('vercel', 'whoami')
+$vercelUser = Invoke-CommandCapture 'npx' @('vercel', 'whoami', '--scope', $Scope)
 Write-Host "Vercel user: $vercelUser"
 
 Write-Step 'Fetching origin/main'
@@ -170,7 +171,7 @@ Write-Host "New preview deployment: $newPreviewUrl"
 Wait-ForReadyDeployment -DeploymentUrl $newPreviewUrl -TimeoutSeconds $PreviewTimeoutSeconds
 
 Write-Step 'Promoting the preview to production'
-Invoke-CommandPassthrough 'npx' @('vercel', 'promote', $newPreviewUrl, '-y', '--timeout', "${ProductionTimeoutSeconds}s")
+Invoke-CommandPassthrough 'npx' @('vercel', 'promote', $newPreviewUrl, '-y', '--timeout', "${ProductionTimeoutSeconds}s", '--scope', $Scope)
 
 Write-Step 'Waiting for the new production deployment'
 $newProductionUrl = Wait-ForDeploymentUrlChange -Environment 'production' -PreviousUrl $currentProductionUrl -TimeoutSeconds $ProductionTimeoutSeconds
@@ -178,7 +179,7 @@ Write-Host "New production deployment: $newProductionUrl"
 Wait-ForReadyDeployment -DeploymentUrl $newProductionUrl -TimeoutSeconds $ProductionTimeoutSeconds
 
 Write-Step 'Validating aliases and public site'
-$inspectOutput = Invoke-CommandCapture 'npx' @('vercel', 'inspect', $newProductionUrl)
+$inspectOutput = Invoke-CommandCapture 'npx' @('vercel', 'inspect', $newProductionUrl, '--scope', $Scope)
 if ($inspectOutput -notmatch [regex]::Escape($ProductionDomain)) {
   throw "The new production deployment does not expose $ProductionDomain as an alias."
 }
