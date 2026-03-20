@@ -42,7 +42,7 @@ export default function HomePage() {
       <AuthHashHandler />
 
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
-        <PublicTopNav />
+        <PublicTopNav activeHref="/" />
 
         <HomeHeroTransition
           hero={

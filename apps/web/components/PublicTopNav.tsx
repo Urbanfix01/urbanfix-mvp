@@ -3,6 +3,7 @@
 import { useState } from 'react';
 
 const navLinks = [
+  { label: 'Inicio', href: '/' },
   { label: 'Servicios', href: '/urbanfix' },
   { label: 'Rubros', href: '/rubros' },
   { label: 'Ciudades', href: '/ciudades' },
