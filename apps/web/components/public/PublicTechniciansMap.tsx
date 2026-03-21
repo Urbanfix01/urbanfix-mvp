@@ -524,33 +524,33 @@ export default function PublicTechniciansMap({
 
   return (
     <section className="mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]">
-      <div className="relative h-[78vh] min-h-[760px] max-h-[980px]">
+      <div className="relative h-[82vh] min-h-[680px] sm:min-h-[760px] max-h-[980px]">
         <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.16),transparent_24%),linear-gradient(180deg,rgba(19,2,31,0.78)_0%,rgba(19,2,31,0.08)_26%,rgba(19,2,31,0.16)_78%,rgba(19,2,31,0.88)_100%)]" />
 
-        <div className="absolute inset-x-0 top-0 z-[450] p-3 sm:p-4 lg:p-6">
-          <div className="mx-auto max-w-[1500px]">
-            <div className="rounded-[30px] border border-white/14 bg-[#190426]/80 p-4 shadow-[0_24px_80px_-44px_rgba(0,0,0,0.96)] backdrop-blur-xl sm:p-5">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+        <div className="absolute inset-x-0 top-0 z-[450] p-2.5 sm:p-4 lg:p-6">
+          <div className="mx-auto max-w-[1120px] xl:ml-4 xl:mr-auto">
+            <div className="rounded-[28px] border border-white/14 bg-[#190426]/80 p-3 shadow-[0_24px_80px_-44px_rgba(0,0,0,0.96)] backdrop-blur-xl sm:p-4 lg:p-5">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                 <div className="max-w-4xl">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/54">{eyebrow}</p>
-                  <h2 className="mt-2 max-w-4xl text-2xl font-semibold leading-tight text-white sm:text-[2.2rem]">
+                  <h2 className="mt-2 max-w-4xl text-[1.9rem] font-semibold leading-tight text-white sm:text-[2.2rem]">
                     {title}
                   </h2>
-                  <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">{description}</p>
+                  <p className="mt-2 hidden max-w-3xl text-sm leading-7 text-white/72 sm:block">{description}</p>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80">
                     Visibles: {formatCompactNumber(stats.total)}
                   </span>
                   <span className="rounded-full border border-emerald-300/24 bg-emerald-400/10 px-3 py-2 text-[11px] font-semibold text-emerald-100">
                     Disponibles: {formatCompactNumber(stats.openNowCount)}
                   </span>
-                  <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80">
+                  <span className="hidden rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80 sm:inline-flex">
                     Exactos: {formatCompactNumber(stats.exactCount)}
                   </span>
-                  <span className="rounded-full border border-violet-300/24 bg-violet-400/10 px-3 py-2 text-[11px] font-semibold text-violet-100">
+                  <span className="hidden rounded-full border border-violet-300/24 bg-violet-400/10 px-3 py-2 text-[11px] font-semibold text-violet-100 sm:inline-flex">
                     Estimados: {formatCompactNumber(stats.approxCount)}
                   </span>
                 </div>
@@ -560,7 +560,7 @@ export default function PublicTechniciansMap({
                 <form
                   method="get"
                   action={searchConfig.actionHref}
-                  className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_auto_auto_auto]"
+                  className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1.5fr)_auto_auto_auto]"
                 >
                   <div className="min-w-0">
                     <label htmlFor="vidriera-zona" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/46">
@@ -573,7 +573,7 @@ export default function PublicTechniciansMap({
                       defaultValue={searchConfig.query}
                       list={zonesListId}
                       placeholder={searchConfig.placeholder || defaultPlaceholder}
-                      className="h-14 w-full rounded-[22px] border border-white/18 bg-black/25 px-5 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
+                      className="h-12 w-full rounded-[20px] border border-white/18 bg-black/25 px-4 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
                     />
                     <datalist id={zonesListId}>
                       {searchConfig.options.map((zone) => (
@@ -584,7 +584,7 @@ export default function PublicTechniciansMap({
 
                   <button
                     type="submit"
-                    className="mt-auto h-14 rounded-[22px] bg-[#ff8f1f] px-5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                    className="mt-auto h-12 rounded-[20px] bg-[#ff8f1f] px-4 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                   >
                     Buscar zona
                   </button>
@@ -595,16 +595,16 @@ export default function PublicTechniciansMap({
                       setHasRequestedUserFocus(true);
                       requestUserLocation();
                     }}
-                    className="mt-auto h-14 rounded-[22px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-4 text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
+                    className="mt-auto h-12 rounded-[20px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-4 text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
                   >
                     {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
                   </button>
 
-                  <div className="mt-auto flex gap-3">
+                  <div className="mt-auto flex gap-2">
                     {searchConfig.query ? (
                       <Link
                         href={searchConfig.clearHref}
-                        className="inline-flex h-14 items-center justify-center rounded-[22px] border border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                        className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
                       >
                         Limpiar
                       </Link>
@@ -612,7 +612,7 @@ export default function PublicTechniciansMap({
                     {listHref ? (
                       <a
                         href={listHref}
-                        className="inline-flex h-14 items-center justify-center rounded-[22px] border border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                        className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
                       >
                         {searchConfig.listLabel || 'Ver listado'}
                       </a>
@@ -621,22 +621,22 @@ export default function PublicTechniciansMap({
                 </form>
               )}
 
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-3 flex flex-wrap gap-2">
                 <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74">
                   {searchConfig?.resultLabel || `${formatCompactNumber(stats.total)} tecnicos visibles en el mapa`}
                 </span>
-                <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74">
+                <span className="hidden rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74 sm:inline-flex">
                   {getLocationStatusLabel(userLocation.status, preferUserLocation)}
                 </span>
                 {userLocation.status === 'ready' ? (
-                  <span className="rounded-full border border-cyan-300/28 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100">
+                  <span className="hidden rounded-full border border-cyan-300/28 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 sm:inline-flex">
                     Tu ubicacion visible con pulso turquesa
                   </span>
                 ) : null}
               </div>
 
               {searchConfig?.quickLinks?.length ? (
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 hidden flex-wrap gap-2 lg:flex">
                   {searchConfig.quickLinks.map((item) => (
                     <Link
                       key={`${item.href}-${item.label}`}
@@ -652,12 +652,12 @@ export default function PublicTechniciansMap({
           </div>
         </div>
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-3 sm:p-4 lg:p-6">
-          <div className="mx-auto grid max-w-[1500px] gap-3 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-end">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-2.5 sm:p-4 lg:p-6">
+          <div className="mx-auto grid max-w-[1360px] gap-2 sm:gap-3 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-end">
             {selectedPoint ? (
-              <article className="pointer-events-auto ufx-tech-card rounded-[30px] p-5 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)]">
+              <article className="pointer-events-auto ufx-tech-card rounded-[28px] p-3 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)] sm:p-4">
                 <div className="flex items-start gap-4">
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[24px] border border-white/15 bg-white/[0.05]">
+                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[20px] border border-white/15 bg-white/[0.05] sm:h-20 sm:w-20">
                     {getSelectedMedia(selectedPoint) ? (
                       <img src={getSelectedMedia(selectedPoint)} alt={selectedPoint.name} className="h-full w-full object-cover" />
                     ) : (
@@ -669,12 +669,12 @@ export default function PublicTechniciansMap({
 
                   <div className="min-w-0 flex-1">
                     <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Tecnico destacado</p>
-                    <p className="mt-2 truncate text-xl font-semibold text-white">{selectedPoint.name}</p>
-                    <p className="mt-1 text-sm text-white/70">
+                    <p className="mt-1 truncate text-lg font-semibold text-white sm:mt-2 sm:text-xl">{selectedPoint.name}</p>
+                    <p className="mt-1 text-xs text-white/70 sm:text-sm">
                       {selectedPoint.city || 'Sin ciudad visible'}
-                      {selectedPoint.coverageArea ? ` · ${selectedPoint.coverageArea}` : ''}
+                      {selectedPoint.coverageArea ? ` - ${selectedPoint.coverageArea}` : ''}
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] sm:mt-3">
                       <span
                         className={`rounded-full px-2.5 py-1 ${
                           selectedPoint.openNow
@@ -691,7 +691,7 @@ export default function PublicTechniciansMap({
                   </div>
                 </div>
 
-                <div className="mt-5 grid grid-cols-3 gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 text-center">
+                <div className="mt-3 hidden grid-cols-3 gap-3 rounded-[22px] border border-white/10 bg-black/20 p-3 text-center md:grid">
                   <div>
                     <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Likes</p>
                     <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.likesCount)}</p>
@@ -708,15 +708,15 @@ export default function PublicTechniciansMap({
                   </div>
                 </div>
 
-                <p className="mt-4 text-sm leading-7 text-white/74">
+                <p className="mt-3 text-xs leading-6 text-white/74 sm:text-sm">
                   {selectedPoint.rating !== null
                     ? `Rating ${selectedPoint.rating.toFixed(1)} con ${formatCompactNumber(selectedPoint.reviewsCount)} resenas verificadas.`
                     : `Radio operativo estimado de ${selectedPoint.radiusKm} km desde su zona base.`}
                 </p>
 
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {selectedPoint.specialties.length > 0 ? (
-                    selectedPoint.specialties.slice(0, 4).map((specialty) => (
+                    selectedPoint.specialties.slice(0, 2).map((specialty) => (
                       <span
                         key={`${selectedPoint.id}-${specialty}`}
                         className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/82"
@@ -731,7 +731,7 @@ export default function PublicTechniciansMap({
                   )}
                 </div>
 
-                <div className="mt-5 flex flex-wrap gap-3">
+                <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
                   <Link
                     href={selectedPoint.profileHref}
                     className="rounded-full bg-[#ff8f1f] px-4 py-2.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
@@ -752,18 +752,19 @@ export default function PublicTechniciansMap({
               </article>
             ) : null}
 
-            <div className="pointer-events-auto rounded-[30px] border border-white/12 bg-[#170425]/76 p-3 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-4 lg:pr-20">
+            <div className="pointer-events-auto rounded-[28px] border border-white/12 bg-[#170425]/76 p-2.5 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-4 lg:pr-20">
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46">Tecnicos flotando en mapa</p>
-                  <p className="mt-1 text-sm text-white/72">Selecciona una pastilla para enfocar el punto y abrir el perfil.</p>
+                  <p className="mt-1 hidden text-sm text-white/72 sm:block">Selecciona una pastilla para enfocar el punto y abrir el perfil.</p>
                 </div>
                 {listHref ? (
                   <a
                     href={listHref}
                     className="rounded-full border border-white/14 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/84 transition hover:border-white/34 hover:text-white"
                   >
-                    {searchConfig?.listLabel || 'Ver listado'}
+                    <span className="hidden sm:inline">{searchConfig?.listLabel || 'Ver listado'}</span>
+                    <span className="sm:hidden">Listado</span>
                   </a>
                 ) : null}
               </div>
@@ -778,10 +779,10 @@ export default function PublicTechniciansMap({
                       key={point.id}
                       type="button"
                       onClick={() => selectPoint(point.id)}
-                      className={`min-w-[220px] rounded-[24px] border px-3 py-3 text-left transition ${
+                      className={`min-w-[186px] rounded-[22px] border px-3 py-3 text-left transition sm:min-w-[220px] sm:rounded-[24px] ${
                         isActive
                           ? 'border-[#ff8f1f]/55 bg-[#ff8f1f]/12 shadow-[0_18px_40px_-30px_rgba(255,143,31,0.95)]'
-                          : 'border-white/12 bg-black/18 hover:border-white/30 hover:bg-white/[0.06]'
+                          : 'border-white/12 bg-black/[0.18] hover:border-white/30 hover:bg-white/[0.06]'
                       }`}
                     >
                       <div className="flex items-start gap-3">
