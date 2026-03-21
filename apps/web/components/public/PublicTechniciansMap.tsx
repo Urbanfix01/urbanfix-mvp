@@ -151,29 +151,12 @@ type UserLocationState =
   | { status: 'idle' | 'requesting' | 'unsupported' | 'denied' | 'error'; lat: null; lng: null; accuracyMeters: null }
   | { status: 'ready'; lat: number; lng: number; accuracyMeters: number | null };
 
-const getLocationStatusLabel = (status: UserLocationState['status'], preferUserLocation: boolean) => {
-  switch (status) {
-    case 'ready':
-      return preferUserLocation ? 'Mapa centrado cerca tuyo' : 'Ubicacion lista para recentrar';
-    case 'requesting':
-      return 'Buscando tu ubicacion actual...';
-    case 'denied':
-      return 'Activa ubicacion para enfocar el mapa en tu zona';
-    case 'unsupported':
-      return 'Este navegador no permite geolocalizacion';
-    case 'error':
-      return 'No pudimos detectar tu ubicacion en este intento';
-    default:
-      return preferUserLocation ? 'Arrancamos cerca de tu ubicacion si das permiso' : 'Puedes recentrar con tu ubicacion';
-  }
-};
-
 export default function PublicTechniciansMap({
   points,
   preferUserLocation = true,
-  eyebrow = 'Tecnicos disponibles',
-  title = 'Explora cobertura publica con un mapa full screen',
-  description = 'Navega tecnicos publicados, filtra por zona y abre perfiles o WhatsApp sin perder el contexto del mapa.',
+  eyebrow: _eyebrow,
+  title: _title,
+  description: _description,
   searchConfig,
 }: Props) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
@@ -186,7 +169,7 @@ export default function PublicTechniciansMap({
   const isMountedRef = useRef(true);
   const shouldRecenterSelectionRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
-  const [selectedId, setSelectedId] = useState<string | null>(points[0]?.id || null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(preferUserLocation);
   const [userLocation, setUserLocation] = useState<UserLocationState>({
     status: preferUserLocation ? 'requesting' : 'idle',
@@ -198,32 +181,10 @@ export default function PublicTechniciansMap({
 
   const displayPoints = useMemo(() => spreadOverlappingPoints(points), [points]);
   const selectedPoint = useMemo(
-    () => displayPoints.find((point) => point.id === selectedId) || displayPoints[0] || null,
+    () => displayPoints.find((point) => point.id === selectedId) || null,
     [displayPoints, selectedId]
   );
-  const nearestPointToUser = useMemo(() => {
-    if (userLocation.status !== 'ready' || displayPoints.length === 0) return null;
-
-    return displayPoints
-      .map((point) => ({
-        point,
-        distanceKm: getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng),
-      }))
-      .sort((a, b) => a.distanceKm - b.distanceKm)[0]?.point || null;
-  }, [displayPoints, userLocation]);
   const shouldFocusUserLocation = preferUserLocation || hasRequestedUserFocus;
-
-  const stats = useMemo(() => {
-    const exactCount = points.filter((point) => point.precision === 'exact').length;
-    const approxCount = points.length - exactCount;
-    const openNowCount = points.filter((point) => point.openNow).length;
-    return {
-      total: points.length,
-      exactCount,
-      approxCount,
-      openNowCount,
-    };
-  }, [points]);
 
   const requestUserLocation = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -280,7 +241,7 @@ export default function PublicTechniciansMap({
   useEffect(() => {
     setSelectedId((current) => {
       if (current && points.some((point) => point.id === current)) return current;
-      return points[0]?.id || null;
+      return null;
     });
   }, [points]);
 
@@ -299,15 +260,6 @@ export default function PublicTechniciansMap({
 
     requestUserLocation();
   }, [preferUserLocation]);
-
-  useEffect(() => {
-    if (!shouldFocusUserLocation || !nearestPointToUser) return;
-
-    setSelectedId((current) => {
-      if (!current || current === points[0]?.id) return nearestPointToUser.id;
-      return current;
-    });
-  }, [nearestPointToUser, points, shouldFocusUserLocation]);
 
   useEffect(() => {
     let cancelled = false;
@@ -597,145 +549,77 @@ export default function PublicTechniciansMap({
         <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-2.5 sm:p-4 lg:p-5">
-          <div className="mx-auto flex max-w-[1240px] flex-col gap-2 sm:gap-3 lg:flex-row lg:items-end lg:justify-between">
-            {selectedPoint ? (
-              <article className="pointer-events-auto ufx-tech-card w-full rounded-[26px] p-3 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)] sm:p-4 lg:w-[250px]">
-                <div className="flex items-start gap-4">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[20px] border border-white/15 bg-white/[0.05] sm:h-20 sm:w-20">
-                    {getSelectedMedia(selectedPoint) ? (
-                      <img src={getSelectedMedia(selectedPoint)} alt={selectedPoint.name} className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-white/80">
-                        {selectedPoint.name.slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-lg font-semibold text-white sm:text-xl">{selectedPoint.name}</p>
-                    <p className="mt-1 truncate text-xs text-white/70 sm:text-sm">{selectedPoint.city || 'Sin ciudad visible'}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px] sm:mt-3">
-                      <span
-                        className={`rounded-full px-2.5 py-1 ${
-                          selectedPoint.openNow
-                            ? 'border border-emerald-300/28 bg-emerald-400/10 text-emerald-100'
-                            : 'border border-violet-300/28 bg-violet-400/10 text-violet-100'
-                        }`}
-                      >
-                        {selectedPoint.openNow ? 'Disponible ahora' : 'Fuera de horario'}
-                      </span>
-                      <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-2.5 py-1 text-[#ffd6a6]">
-                        {selectedPoint.precision === 'exact' ? 'Punto verificado' : 'Zona estimada'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {selectedPoint.specialties.length > 0 ? (
-                    selectedPoint.specialties.slice(0, 1).map((specialty) => (
-                      <span
-                        key={`${selectedPoint.id}-${specialty}`}
-                        className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/82"
-                      >
-                        {specialty}
-                      </span>
-                    ))
+        {selectedPoint ? (
+          <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[460] sm:bottom-5 sm:left-5 sm:right-auto">
+            <article className="pointer-events-auto ufx-tech-card w-full max-w-[420px] rounded-[28px] px-3 py-3 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)] sm:px-4">
+              <div className="flex items-start gap-3">
+                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[18px] border border-white/15 bg-white/[0.05] sm:h-16 sm:w-16">
+                  {getSelectedMedia(selectedPoint) ? (
+                    <img src={getSelectedMedia(selectedPoint)} alt={selectedPoint.name} className="h-full w-full object-cover" />
                   ) : (
-                    <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/62">
-                      Sin rubros cargados
-                    </span>
+                    <div className="flex h-full w-full items-center justify-center text-xl font-bold text-white/80">
+                      {selectedPoint.name.slice(0, 1).toUpperCase()}
+                    </div>
                   )}
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
-                  <Link
-                    href={selectedPoint.profileHref}
-                    className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                  >
-                    Ver perfil
-                  </Link>
-                  {selectedPoint.whatsappHref ? (
-                    <a
-                      href={selectedPoint.whatsappHref}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-base font-semibold text-white sm:text-lg">{selectedPoint.name}</p>
+                      <p className="mt-0.5 truncate text-xs text-white/70">{selectedPoint.city || 'Sin ciudad visible'}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId(null)}
+                      className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-white/18 bg-white/[0.05] text-xs font-semibold text-white/70 transition hover:border-white/35 hover:text-white"
+                      aria-label="Cerrar tecnico seleccionado"
                     >
-                      WhatsApp
-                    </a>
-                  ) : null}
-                </div>
-              </article>
-            ) : null}
+                      x
+                    </button>
+                  </div>
 
-            <div className="pointer-events-auto w-full rounded-[24px] border border-white/12 bg-[#170425]/70 p-2 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-3 lg:w-[760px] lg:max-w-[760px]">
-              <div className="mb-2 flex items-center justify-end gap-3">
-                {listHref ? (
+                  <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] sm:text-[11px]">
+                    <span
+                      className={`rounded-full px-2.5 py-1 ${
+                        selectedPoint.openNow
+                          ? 'border border-emerald-300/28 bg-emerald-400/10 text-emerald-100'
+                          : 'border border-violet-300/28 bg-violet-400/10 text-violet-100'
+                      }`}
+                    >
+                      {selectedPoint.openNow ? 'Disponible ahora' : 'Fuera de horario'}
+                    </span>
+                    <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-2.5 py-1 text-[#ffd6a6]">
+                      {selectedPoint.precision === 'exact' ? 'Punto verificado' : 'Zona estimada'}
+                    </span>
+                    <span className="rounded-full border border-white/14 bg-white/[0.06] px-2.5 py-1 text-white/78">
+                      {selectedPoint.specialties[0] || 'Sin rubros'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Link
+                  href={selectedPoint.profileHref}
+                  className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                >
+                  Ver perfil
+                </Link>
+                {selectedPoint.whatsappHref ? (
                   <a
-                    href={listHref}
-                    className="rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/84 transition hover:border-white/34 hover:text-white"
+                    href={selectedPoint.whatsappHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                   >
-                    <span className="hidden sm:inline">{searchConfig?.listLabel || 'Ver listado'}</span>
-                    <span className="sm:hidden">Listado</span>
+                    WhatsApp
                   </a>
                 ) : null}
               </div>
-
-              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                {displayPoints.map((point) => {
-                  const pointMedia = getSelectedMedia(point);
-                  const isActive = point.id === selectedPoint?.id;
-
-                  return (
-                    <button
-                      key={point.id}
-                      type="button"
-                      onClick={() => selectPoint(point.id)}
-                      className={`min-w-[154px] rounded-[18px] border px-2.5 py-2.5 text-left transition sm:min-w-[180px] sm:rounded-[20px] ${
-                        isActive
-                          ? 'border-[#ff8f1f]/55 bg-[#ff8f1f]/12 shadow-[0_18px_40px_-30px_rgba(255,143,31,0.95)]'
-                          : 'border-white/12 bg-black/[0.18] hover:border-white/30 hover:bg-white/[0.06]'
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-2xl border border-white/14 bg-white/[0.05] sm:h-11 sm:w-11">
-                          {pointMedia ? (
-                            <img src={pointMedia} alt={point.name} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white/80">
-                              {point.name.slice(0, 1).toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-semibold text-white sm:text-sm">{point.name}</p>
-                          <p className="mt-0.5 truncate text-[11px] text-white/66">{point.city || point.coverageArea || 'UrbanFix'}</p>
-                          <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            <span
-                              className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
-                                point.openNow
-                                  ? 'border border-emerald-300/24 bg-emerald-400/10 text-emerald-100'
-                                  : 'border border-violet-300/24 bg-violet-400/10 text-violet-100'
-                              }`}
-                            >
-                              {point.openNow ? 'Disponible' : 'Fuera'}
-                            </span>
-                            <span className="hidden rounded-full border border-white/14 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-white/78 sm:inline-flex">
-                              Likes {formatCompactNumber(point.likesCount)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            </article>
           </div>
-        </div>
+        ) : null}
       </div>
     </section>
   );
