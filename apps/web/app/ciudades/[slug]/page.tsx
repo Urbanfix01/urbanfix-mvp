@@ -87,6 +87,12 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
               >
                 Ver guias y precios
               </Link>
+              <Link
+                href={`/precios-mano-de-obra/${slug}`}
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver mano de obra en {city.name}
+              </Link>
             </div>
 
             <div className="mt-6 grid gap-3 md:grid-cols-4">

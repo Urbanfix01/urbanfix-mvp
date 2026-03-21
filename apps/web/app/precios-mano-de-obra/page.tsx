@@ -291,12 +291,14 @@ export default function PreciosManoDeObraPage() {
               {featuredCities.map((city) => (
                 <Link
                   key={city.slug}
-                  href={`/ciudades/${city.slug}`}
+                  href={`/precios-mano-de-obra/${city.slug}`}
                   className="rounded-2xl border border-white/12 bg-black/20 p-4 transition hover:border-white/30 hover:bg-white/[0.06]"
                 >
                   <p className="text-base font-semibold text-white">{city.name}</p>
                   <p className="mt-1 text-xs uppercase tracking-[0.12em] text-[#ffbf7a]">{city.region}</p>
-                  <p className="mt-2 text-sm leading-6 text-white/72">{city.description}</p>
+                  <p className="mt-2 text-sm leading-6 text-white/72">
+                    Precios de mano de obra, rubros y cobertura publica para {city.name}.
+                  </p>
                 </Link>
               ))}
             </div>
