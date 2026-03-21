@@ -60,7 +60,7 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
 };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfixar.com").replace(/\/+$/, "");
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfix.com.ar").replace(/\/+$/, "");
   const technicianEntries = await getTechnicianEntries(baseUrl);
   const rubrosEntries: MetadataRoute.Sitemap = rubroCatalogSlugs.map((slug) => ({
     url: `${baseUrl}/rubros/${slug}`,

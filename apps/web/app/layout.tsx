@@ -7,7 +7,7 @@ import AuthHashHandler from "../components/AuthHashHandler";
 import PageTransition from "../components/PageTransition";
 
 const inter = Inter({ subsets: ["latin"] });
-const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfixar.com").replace(/\/+$/, "");
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfix.com.ar").replace(/\/+$/, "");
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),

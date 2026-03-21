@@ -17,7 +17,7 @@ const sora = Sora({
   weight: ['400', '500', '600', '700', '800'],
 });
 
-const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.urbanfixar.com').replace(/\/+$/, '');
+const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.urbanfix.com.ar').replace(/\/+$/, '');
 
 type PublicTechnicianProfile = {
   id: string;
