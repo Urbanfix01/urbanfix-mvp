@@ -6,6 +6,10 @@ import {
   buildNewsletterPreviewHtml,
   normalizeNewsletterPreviewUrl,
 } from '@/lib/newsletter-preview';
+import {
+  buildNewsletterWhatsappCopy,
+  normalizeNewsletterWhatsappUrl,
+} from '@/lib/newsletter-whatsapp';
 
 type NewsletterAudience =
   | 'opted_in_all'
@@ -101,15 +105,19 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
     { label: '', url: '' },
   ]);
 
-  const copyRecipientEmails = async (emails: string[], label: string) => {
-    if (!emails.length) return;
+  const copyText = async (value: string, successMessage: string, errorMessage = 'No se pudo copiar la lista al portapapeles.') => {
+    if (!value.trim()) return;
     try {
-      await navigator.clipboard.writeText(emails.join('\n'));
-      setMessage(`${label} copiados (${emails.length}).`);
+      await navigator.clipboard.writeText(value);
+      setMessage(successMessage);
       setError('');
     } catch {
-      setError('No se pudo copiar la lista al portapapeles.');
+      setError(errorMessage);
     }
+  };
+
+  const copyRecipientEmails = async (emails: string[], label: string) => {
+    await copyText(emails.join('\n'), `${label} copiados (${emails.length}).`);
   };
 
   const loadNewsletter = async () => {
@@ -174,6 +182,19 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
       unsubscribeUrl: 'https://www.urbanfix.com.ar/newsletter/baja?preview=1',
     });
   }, [bodyText, ctaLabel, ctaUrl, heroImageAlt, heroImageUrl, introText, previewText, quickLinks, subject]);
+
+  const whatsappCopy = useMemo(() => {
+    return buildNewsletterWhatsappCopy({
+      subject,
+      introText,
+      bodyText,
+      ctaLabel,
+      ctaUrl,
+      quickLinks,
+    });
+  }, [bodyText, ctaLabel, ctaUrl, introText, quickLinks, subject]);
+
+  const normalizedWhatsappImageUrl = useMemo(() => normalizeNewsletterWhatsappUrl(heroImageUrl), [heroImageUrl]);
 
   const handleSubmit = async (mode: 'test' | 'send') => {
     if (!accessToken) return;
@@ -546,6 +567,64 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                 srcDoc={previewFrameHtml}
                 className="h-[760px] w-full bg-white"
               />
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">WhatsApp</p>
+                <h4 className="text-base font-semibold text-slate-900">Version para canal de novedades</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Texto corto listo para copiar y publicar en tu canal de WhatsApp con los links principales.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => copyText(whatsappCopy, 'Texto de WhatsApp copiado.')}
+                  className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                >
+                  Copiar texto
+                </button>
+                {normalizedWhatsappImageUrl && (
+                  <button
+                    type="button"
+                    onClick={() => copyText(normalizedWhatsappImageUrl, 'URL de imagen copiada.')}
+                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  >
+                    Copiar imagen
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Texto listo para canal</span>
+                <textarea
+                  readOnly
+                  value={whatsappCopy}
+                  rows={12}
+                  className="mt-2 min-h-[240px] w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-700 outline-none"
+                />
+              </label>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Publicacion sugerida</p>
+                <div className="mt-3 rounded-[24px] border border-emerald-200 bg-[#e9fff5] px-4 py-4 text-sm text-slate-800 shadow-[0_12px_30px_rgba(15,23,42,0.06)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Canal UrbanFix</p>
+                  <div className="mt-3 whitespace-pre-wrap leading-6 text-slate-800">
+                    {whatsappCopy || 'Completa asunto, cuerpo o links para generar la version de WhatsApp.'}
+                  </div>
+                </div>
+                {normalizedWhatsappImageUrl && (
+                  <div className="mt-4 rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Imagen sugerida</p>
+                    <p className="mt-2 break-all text-sm text-slate-600">{normalizedWhatsappImageUrl}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
