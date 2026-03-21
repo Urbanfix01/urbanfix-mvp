@@ -135,7 +135,7 @@ export default function HomePage() {
           target="_blank"
           rel="noreferrer"
           aria-label="Sumate al canal de WhatsApp de UrbanFix"
-          className="fixed bottom-4 right-4 z-30 flex items-center gap-3 rounded-full border border-white/12 bg-[#1b0a29]/92 px-3 py-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-[#241138] sm:bottom-6 sm:right-6 sm:px-4"
+          className="fixed bottom-4 left-4 z-30 flex items-center gap-3 rounded-full border border-white/12 bg-[#1b0a29]/92 px-3 py-3 text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-[#241138] sm:bottom-6 sm:left-6 sm:px-4"
         >
           <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
             <svg viewBox="0 0 32 32" aria-hidden="true" className="h-5 w-5 fill-white">
