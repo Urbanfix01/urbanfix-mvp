@@ -597,10 +597,10 @@ export default function PublicTechniciansMap({
         <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-2.5 sm:p-4 lg:p-6">
-          <div className="mx-auto grid max-w-[1360px] gap-2 sm:gap-3 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-end">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-2.5 sm:p-4 lg:p-5">
+          <div className="mx-auto flex max-w-[1240px] flex-col gap-2 sm:gap-3 lg:flex-row lg:items-end lg:justify-between">
             {selectedPoint ? (
-              <article className="pointer-events-auto ufx-tech-card rounded-[28px] p-3 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)] sm:p-4">
+              <article className="pointer-events-auto ufx-tech-card w-full rounded-[26px] p-3 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)] sm:p-4 lg:w-[250px]">
                 <div className="flex items-start gap-4">
                   <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[20px] border border-white/15 bg-white/[0.05] sm:h-20 sm:w-20">
                     {getSelectedMedia(selectedPoint) ? (
@@ -614,10 +614,7 @@ export default function PublicTechniciansMap({
 
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-lg font-semibold text-white sm:text-xl">{selectedPoint.name}</p>
-                    <p className="mt-1 text-xs text-white/70 sm:text-sm">
-                      {selectedPoint.city || 'Sin ciudad visible'}
-                      {selectedPoint.coverageArea ? ` - ${selectedPoint.coverageArea}` : ''}
-                    </p>
+                    <p className="mt-1 truncate text-xs text-white/70 sm:text-sm">{selectedPoint.city || 'Sin ciudad visible'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-[11px] sm:mt-3">
                       <span
                         className={`rounded-full px-2.5 py-1 ${
@@ -635,26 +632,9 @@ export default function PublicTechniciansMap({
                   </div>
                 </div>
 
-                <div className="mt-3 hidden grid-cols-3 gap-3 rounded-[22px] border border-white/10 bg-black/20 p-3 text-center md:grid">
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Likes</p>
-                    <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.likesCount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Resenas</p>
-                    <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.reviewsCount)}</p>
-                  </div>
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Trabajos</p>
-                    <p className="mt-1 text-lg font-semibold text-white">
-                      {formatCompactNumber(selectedPoint.completedJobsTotal)}
-                    </p>
-                  </div>
-                </div>
-
                 <div className="mt-3 flex flex-wrap gap-2">
                   {selectedPoint.specialties.length > 0 ? (
-                    selectedPoint.specialties.slice(0, 2).map((specialty) => (
+                    selectedPoint.specialties.slice(0, 1).map((specialty) => (
                       <span
                         key={`${selectedPoint.id}-${specialty}`}
                         className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/82"
@@ -672,7 +652,7 @@ export default function PublicTechniciansMap({
                 <div className="mt-4 flex flex-wrap gap-2 sm:gap-3">
                   <Link
                     href={selectedPoint.profileHref}
-                    className="rounded-full bg-[#ff8f1f] px-4 py-2.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                    className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                   >
                     Ver perfil
                   </Link>
@@ -681,7 +661,7 @@ export default function PublicTechniciansMap({
                       href={selectedPoint.whatsappHref}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="rounded-full border border-white/30 px-4 py-2.5 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                      className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                     >
                       WhatsApp
                     </a>
@@ -690,13 +670,12 @@ export default function PublicTechniciansMap({
               </article>
             ) : null}
 
-            <div className="pointer-events-auto rounded-[28px] border border-white/12 bg-[#170425]/76 p-2.5 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-4 lg:pr-20">
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="hidden sm:block" />
+            <div className="pointer-events-auto w-full rounded-[24px] border border-white/12 bg-[#170425]/70 p-2 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-3 lg:w-[760px] lg:max-w-[760px]">
+              <div className="mb-2 flex items-center justify-end gap-3">
                 {listHref ? (
                   <a
                     href={listHref}
-                    className="rounded-full border border-white/14 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/84 transition hover:border-white/34 hover:text-white"
+                    className="rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/84 transition hover:border-white/34 hover:text-white"
                   >
                     <span className="hidden sm:inline">{searchConfig?.listLabel || 'Ver listado'}</span>
                     <span className="sm:hidden">Listado</span>
@@ -704,7 +683,7 @@ export default function PublicTechniciansMap({
                 ) : null}
               </div>
 
-              <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                 {displayPoints.map((point) => {
                   const pointMedia = getSelectedMedia(point);
                   const isActive = point.id === selectedPoint?.id;
@@ -714,14 +693,14 @@ export default function PublicTechniciansMap({
                       key={point.id}
                       type="button"
                       onClick={() => selectPoint(point.id)}
-                      className={`min-w-[186px] rounded-[22px] border px-3 py-3 text-left transition sm:min-w-[220px] sm:rounded-[24px] ${
+                      className={`min-w-[154px] rounded-[18px] border px-2.5 py-2.5 text-left transition sm:min-w-[180px] sm:rounded-[20px] ${
                         isActive
                           ? 'border-[#ff8f1f]/55 bg-[#ff8f1f]/12 shadow-[0_18px_40px_-30px_rgba(255,143,31,0.95)]'
                           : 'border-white/12 bg-black/[0.18] hover:border-white/30 hover:bg-white/[0.06]'
                       }`}
                     >
                       <div className="flex items-start gap-3">
-                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/14 bg-white/[0.05]">
+                        <div className="h-10 w-10 shrink-0 overflow-hidden rounded-2xl border border-white/14 bg-white/[0.05] sm:h-11 sm:w-11">
                           {pointMedia ? (
                             <img src={pointMedia} alt={point.name} className="h-full w-full object-cover" />
                           ) : (
@@ -732,9 +711,9 @@ export default function PublicTechniciansMap({
                         </div>
 
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-semibold text-white">{point.name}</p>
-                          <p className="mt-1 truncate text-xs text-white/66">{point.city || point.coverageArea || 'UrbanFix'}</p>
-                          <div className="mt-2 flex flex-wrap gap-1.5">
+                          <p className="truncate text-[13px] font-semibold text-white sm:text-sm">{point.name}</p>
+                          <p className="mt-0.5 truncate text-[11px] text-white/66">{point.city || point.coverageArea || 'UrbanFix'}</p>
+                          <div className="mt-1.5 flex flex-wrap gap-1.5">
                             <span
                               className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
                                 point.openNow
@@ -744,7 +723,7 @@ export default function PublicTechniciansMap({
                             >
                               {point.openNow ? 'Disponible' : 'Fuera'}
                             </span>
-                            <span className="rounded-full border border-white/14 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-white/78">
+                            <span className="hidden rounded-full border border-white/14 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-white/78 sm:inline-flex">
                               Likes {formatCompactNumber(point.likesCount)}
                             </span>
                           </div>
