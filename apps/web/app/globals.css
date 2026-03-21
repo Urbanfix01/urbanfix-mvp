@@ -621,3 +621,44 @@ header .header-view-option {
 .ufx-map-tooltip-subtle {
   color: #ffd6a6;
 }
+
+/* --- PUBLIC TECHNICIAN PROFILE --- */
+.ufx-tech-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 1.75rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.03)),
+    linear-gradient(135deg, rgba(27, 6, 41, 0.96), rgba(20, 3, 31, 0.92));
+  box-shadow: 0 30px 80px -56px rgba(0, 0, 0, 0.96);
+  backdrop-filter: blur(18px);
+}
+
+.ufx-tech-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at top right, rgba(255, 143, 31, 0.1), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.ufx-tech-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.ufx-tech-card--soft {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.03)),
+    linear-gradient(140deg, rgba(39, 9, 58, 0.96), rgba(23, 4, 35, 0.94));
+}
+
+.ufx-tech-card--accent {
+  background:
+    radial-gradient(circle at top right, rgba(255, 143, 31, 0.18), transparent 40%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.03)),
+    linear-gradient(145deg, rgba(54, 16, 81, 0.96), rgba(27, 4, 40, 0.96));
+}

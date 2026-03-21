@@ -4,6 +4,7 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { createClient } from '@supabase/supabase-js';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
+import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
 import { buildTechnicianPath, extractProfileId, isUuid } from '../../../lib/seo/technician-profile';
 import {
   ARGENTINA_TIMEZONE,
@@ -347,7 +348,6 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   }
   const avatarImageUrl = toOptionalAbsoluteUrl(profile.avatar_url || profile.company_logo_url);
   const companyBannerUrl = toOptionalAbsoluteUrl(profile.company_logo_url || profile.avatar_url);
-  const profileHref = canonicalPath;
   const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const socialLinks = [
     { label: 'Facebook', href: profile.facebook_url },
@@ -356,6 +356,60 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const facebookFeedEmbedUrl = buildFacebookTimelineEmbedUrl(profile.facebook_url);
   const instagramPostEmbedUrl = buildInstagramEmbedUrl(profile.instagram_url);
   const sameAs = socialLinks.map((entry) => String(entry.href || '').trim()).filter(Boolean);
+  const ratingLabel = rating > 0 ? rating.toFixed(1) : 'Sin calificar';
+  const availabilityToneClass = hasWorkingHoursConfigured
+    ? isWithinWorkingHours
+      ? 'bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-300/25'
+      : 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-300/25'
+    : 'bg-white/10 text-white/75 ring-1 ring-white/10';
+  const heroPills = [
+    profile.city ? `Zona base: ${profile.city}` : '',
+    profile.coverage_area ? `Cobertura activa` : '',
+    specialties.length > 0 ? `${specialties.length} rubros cargados` : '',
+  ].filter(Boolean);
+  const metricCards = [
+    {
+      label: 'Reputacion',
+      value: ratingLabel,
+      detail: rating > 0 ? 'Puntaje promedio visible al publico' : 'Todavia sin calificacion publica',
+      accent: 'from-[#ffb45c]/18 to-[#ff8f1f]/6',
+    },
+    {
+      label: 'Resenas',
+      value: reviewsCount.toString(),
+      detail: 'Opiniones cargadas por clientes',
+      accent: 'from-white/[0.10] to-white/[0.03]',
+    },
+    {
+      label: 'Trabajos',
+      value: completedJobs.toString(),
+      detail: 'Trabajos finalizados reportados',
+      accent: 'from-[#8b5cf6]/16 to-[#3b1b62]/10',
+    },
+    {
+      label: 'Me gusta',
+      value: likesCount.toString(),
+      detail: 'Interacciones publicas del perfil',
+      accent: 'from-[#f97316]/16 to-[#431407]/10',
+    },
+  ];
+  const profileSignals = [
+    {
+      label: 'Zona de trabajo',
+      value: profile.coverage_area || profile.city || 'Sin zona detallada',
+      note: profile.city ? `Ciudad base: ${profile.city}` : 'Conviene completar zona y ciudad para mejorar alcance.',
+    },
+    {
+      label: 'Disponibilidad',
+      value: availabilityLabel,
+      note: `${workingHoursLabel}. Hora local Argentina: ${argentinaTimeLabel}`,
+    },
+    {
+      label: 'Canales publicos',
+      value: socialLinks.length > 0 ? `${socialLinks.length} canal(es) activos` : 'Sin redes cargadas',
+      note: whatsappLink ? 'Tiene WhatsApp visible para contacto rapido.' : 'No tiene WhatsApp publico visible.',
+    },
+  ];
   const personJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Person',
@@ -407,8 +461,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                 </span>
               </div>
 
-              <div className="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
-                <div className="space-y-4">
+              <div className="relative -mt-16 grid gap-5 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8 lg:grid-cols-[minmax(0,1.18fr)_320px]">
+                <div className="ufx-tech-card ufx-tech-card--soft space-y-5 p-5 sm:p-6">
                   <div className="flex flex-wrap items-end gap-4 sm:gap-5">
                     <div className="h-28 w-28 overflow-hidden rounded-3xl border border-white/35 bg-[#2a0640] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.95)] ring-4 ring-[#ff8f1f]/35 sm:h-36 sm:w-36">
                       {avatarImageUrl ? (
@@ -419,214 +473,272 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                         </div>
                       )}
                     </div>
-                    <div className="space-y-1 pb-1">
-                      <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
-                      {profile.full_name && profile.full_name !== displayName && (
-                        <p className="text-sm text-white/80">{profile.full_name}</p>
-                      )}
+                    <div className="min-w-0 flex-1 space-y-3 pb-1">
+                      <div className="space-y-1">
+                        <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
+                        {profile.full_name && profile.full_name !== displayName && (
+                          <p className="text-sm text-white/80">{profile.full_name}</p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 font-semibold text-white/90">
+                          Codigo publico: {profileCode}
+                        </span>
+                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${availabilityToneClass}`}>
+                          {availabilityLabel}
+                        </span>
+                        {heroPills.map((pill) => (
+                          <span
+                            key={pill}
+                            className="rounded-full border border-white/15 bg-black/20 px-3 py-1 text-white/78"
+                          >
+                            {pill}
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
-                  {profile.city && (
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-white/90">
-                        Zona: {profile.city}
+                  <div className="space-y-3">
+                    <p className="max-w-3xl text-base leading-relaxed text-white/88 sm:text-[1.05rem]">{heroSummary}</p>
+                    <p className="max-w-3xl text-sm leading-7 text-white/66">
+                      Perfil publico dentro de UrbanFix para mostrar especialidad, disponibilidad, reputacion y canales
+                      de contacto en una sola presentacion.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {specialties.length > 0 ? (
+                      specialties.slice(0, 8).map((specialty) => (
+                        <span
+                          key={specialty}
+                          className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-medium text-white/85"
+                        >
+                          {specialty}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
+                        Sin rubros cargados
                       </span>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
-                <p className="max-w-3xl text-sm leading-relaxed text-white/85">{heroSummary}</p>
+                <aside className="ufx-tech-card ufx-tech-card--accent flex flex-col gap-4 p-5 sm:p-6">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffd6a6]">Contacto rapido</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Listo para coordinar</h2>
+                    <p className="mt-2 text-sm leading-6 text-white/72">
+                      Un bloque corto, claro y util para pasar de perfil publico a contacto real.
+                    </p>
+                  </div>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={profileHref}
-                    className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                  >
-                    Link del perfil
-                  </Link>
-                  {whatsappLink && (
-                    <a
-                      href={whatsappLink}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                  <div className="space-y-3">
+                    {whatsappLink ? (
+                      <a
+                        href={whatsappLink}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                      >
+                        Contactar por WhatsApp
+                      </a>
+                    ) : null}
+                    <Link
+                      href="/vidriera"
+                      className="inline-flex w-full items-center justify-center rounded-full border border-white/30 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white hover:text-white"
                     >
-                      Contactar por WhatsApp
-                    </a>
-                  )}
-                </div>
+                      Volver a la vidriera
+                    </Link>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">URL publica</p>
+                    <p className="mt-3 break-all text-sm leading-6 text-white/84">{canonicalUrl}</p>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                    <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Likes</p>
+                      <p className="mt-2 text-2xl font-semibold text-white">{likesCount}</p>
+                      <div className="mt-3">
+                        <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
+                      </div>
+                    </div>
+                    <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Canales activos</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {socialLinks.length > 0 ? (
+                          socialLinks.map((entry) => (
+                            <a
+                              key={entry.label}
+                              href={String(entry.href || '')}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/88 transition hover:border-white hover:text-white"
+                            >
+                              {entry.label}
+                            </a>
+                          ))
+                        ) : (
+                          <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65">
+                            Sin redes cargadas
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </aside>
               </div>
             </section>
 
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Reputacion</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{rating > 0 ? rating.toFixed(1) : '-'}</p>
-                <p className="mt-1 text-xs text-white/70">Puntaje promedio</p>
-              </article>
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Resenas</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{reviewsCount}</p>
-                <p className="mt-1 text-xs text-white/70">Opiniones de clientes</p>
-              </article>
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Trabajos</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{completedJobs}</p>
-                <p className="mt-1 text-xs text-white/70">Trabajos finalizados</p>
-              </article>
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Me gusta</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{likesCount}</p>
-                <p className="mt-1 text-xs text-white/70">Interacciones publicas</p>
-              </article>
+              {metricCards.map((item) => (
+                <article
+                  key={item.label}
+                  className={`ufx-tech-card p-4 bg-gradient-to-br ${item.accent}`}
+                >
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">{item.label}</p>
+                  <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                  <p className="mt-2 text-sm leading-6 text-white/70">{item.detail}</p>
+                </article>
+              ))}
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
-                <p className="mt-3 text-sm leading-relaxed text-white/85">{presentationText}</p>
+            <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+              <article className="ufx-tech-card p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Una presencia mas seria y mas clara</h2>
+                  </div>
+                  <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
+                    Perfil publico UrbanFix
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-8 text-white/84">{presentationText}</p>
 
                 {recommendations.length > 0 && (
-                  <ul className="mt-4 space-y-2">
+                  <div className="mt-5 grid gap-3">
                     {recommendations.map((item, index) => (
-                      <li
+                      <article
                         key={`${index}-${item}`}
-                        className="rounded-2xl border border-white/10 bg-black/20 px-3 py-2 text-sm text-white/80"
+                        className="rounded-3xl border border-white/10 bg-black/20 p-4"
                       >
-                        {item}
-                      </li>
+                        <p className="text-[11px] uppercase tracking-[0.16em] text-[#ffd6a6]">Referencia {index + 1}</p>
+                        <p className="mt-3 text-sm leading-7 text-white/82">{item}</p>
+                      </article>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </article>
 
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Rubros y especialidades</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {specialties.length > 0 ? (
-                    specialties.map((specialty) => (
+              <div className="grid gap-4">
+                <article className="ufx-tech-card p-5 sm:p-6">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Rubros y especialidades</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">Lo que este tecnico comunica mejor</h2>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {specialties.length > 0 ? (
+                      specialties.map((specialty) => (
+                        <span
+                          key={specialty}
+                          className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-white/85"
+                        >
+                          {specialty}
+                        </span>
+                      ))
+                    ) : (
                       <span
-                        key={specialty}
-                        className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/85"
+                        className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65"
                       >
-                        {specialty}
+                        Sin rubros cargados
                       </span>
-                    ))
-                  ) : (
-                    <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
-                      Sin rubros cargados
-                    </span>
-                  )}
-                </div>
-              </article>
+                    )}
+                  </div>
+                </article>
+
+                {badges.length > 0 && (
+                  <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Insignias</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Senales de confianza</h2>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {badges.map((badge) => (
+                        <span
+                          key={badge}
+                          className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-3 py-1.5 text-xs font-medium text-[#ffd6a6]"
+                        >
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  </article>
+                )}
+              </div>
             </section>
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Zona de trabajo</p>
-                <p className="mt-3 text-sm text-white/85">{profile.coverage_area || 'Sin cobertura detallada.'}</p>
-                {profile.city && <p className="mt-2 text-xs text-white/70">Ciudad base: {profile.city}</p>}
-              </article>
-
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Disponibilidad</p>
-                <span
-                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
-                    hasWorkingHoursConfigured
-                      ? isWithinWorkingHours
-                        ? 'bg-emerald-500/20 text-emerald-200'
-                        : 'bg-amber-500/20 text-amber-100'
-                      : 'bg-white/10 text-white/75'
-                  }`}
-                >
-                  {availabilityLabel}
-                </span>
-                <p className="mt-3 text-sm text-white/85">{workingHoursLabel}</p>
-                <p className="mt-2 text-xs text-white/65">Hora local Argentina: {argentinaTimeLabel}</p>
-              </article>
-
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Redes y contacto</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {socialLinks.length > 0 ? (
-                    socialLinks.map((entry) => (
-                      <a
-                        key={entry.label}
-                        href={String(entry.href || '')}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-                      >
-                        {entry.label}
-                      </a>
-                    ))
-                  ) : (
-                    <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
-                      Sin redes cargadas
-                    </span>
-                  )}
-                  <Link
-                    href={profileHref}
-                    className="rounded-full border border-[#ff8f1f]/65 bg-[#ff8f1f]/10 px-4 py-2 text-xs font-semibold text-[#ffd6a6] transition hover:border-[#ff8f1f] hover:text-[#ffe2bf]"
-                  >
-                    URL unica del perfil
-                  </Link>
-                </div>
-              </article>
+              {profileSignals.map((item) => (
+                <article key={item.label} className="ufx-tech-card p-5 sm:p-6">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">{item.label}</p>
+                  <p className="mt-3 text-lg font-semibold leading-7 text-white">{item.value}</p>
+                  <p className="mt-3 text-sm leading-6 text-white/70">{item.note}</p>
+                </article>
+              ))}
             </section>
 
             <section className="grid gap-4 xl:grid-cols-2">
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Ultimas publicaciones Facebook</p>
+              <article className="ufx-tech-card p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Actividad publica</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Facebook</h2>
+                  </div>
+                  <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
+                    Feed visible
+                  </span>
+                </div>
                 {facebookFeedEmbedUrl ? (
                   <iframe
                     title="Publicaciones Facebook del tecnico"
                     src={facebookFeedEmbedUrl}
-                    className="mt-4 h-[360px] w-full rounded-2xl border-0 bg-white"
+                    className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
                     loading="lazy"
                     allow="encrypted-media"
                   />
                 ) : (
-                  <p className="mt-4 text-sm text-white/70">
+                  <div className="mt-4 rounded-[24px] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/70">
                     Este tecnico aun no configuro su pagina de Facebook para mostrar posteos.
-                  </p>
+                  </div>
                 )}
               </article>
 
-              <article className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Ultimas publicaciones Instagram</p>
+              <article className="ufx-tech-card p-5 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Actividad publica</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Instagram</h2>
+                  </div>
+                  <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
+                    Reel o post embebido
+                  </span>
+                </div>
                 {instagramPostEmbedUrl ? (
                   <iframe
                     title="Publicaciones Instagram del tecnico"
                     src={instagramPostEmbedUrl}
-                    className="mt-4 h-[360px] w-full rounded-2xl border-0 bg-white"
+                    className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
                     loading="lazy"
                     allow="encrypted-media"
                   />
                 ) : (
-                  <p className="mt-4 text-sm text-white/70">
-                    Este tecnico aun no cargo un link de Instagram (idealmente post o reel) para mostrar.
-                  </p>
+                  <div className="mt-4 rounded-[24px] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/70">
+                    Este tecnico aun no cargo un link de Instagram, idealmente un post o reel, para mostrar actividad.
+                  </div>
                 )}
               </article>
             </section>
-
-            {badges.length > 0 && (
-              <section className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Insignias</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {badges.map((badge) => (
-                    <span
-                      key={badge}
-                      className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-3 py-1 text-xs text-[#ffd6a6]"
-                    >
-                      {badge}
-                    </span>
-                  ))}
-                </div>
-              </section>
-            )}
           </div>
         </div>
       </main>
