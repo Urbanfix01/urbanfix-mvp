@@ -32,6 +32,10 @@ const featuredCities = ['buenos-aires', 'caba', 'cordoba', 'mendoza', 'rosario',
 
 const guideLinks = [
   { slug: 'guia-mano-de-obra', title: guias['guia-mano-de-obra'].title },
+  { slug: 'precio-mano-de-obra-electricidad', title: guias['precio-mano-de-obra-electricidad'].title },
+  { slug: 'precio-mano-de-obra-refrigeracion', title: guias['precio-mano-de-obra-refrigeracion'].title },
+  { slug: 'precio-mano-de-obra-sanitarios', title: guias['precio-mano-de-obra-sanitarios'].title },
+  { slug: 'precio-mano-de-obra-pintura', title: guias['precio-mano-de-obra-pintura'].title },
   { slug: 'guia-presupuestos-construccion', title: guias['guia-presupuestos-construccion'].title },
   { slug: 'guia-materiales-obra', title: guias['guia-materiales-obra'].title },
 ];
@@ -131,6 +135,19 @@ const breadcrumbJsonLd = {
   ],
 };
 
+const faqJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqItems.map((item) => ({
+    '@type': 'Question',
+    name: item.question,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: item.answer,
+    },
+  })),
+};
+
 export const metadata: Metadata = {
   title: 'Precios de mano de obra en Argentina | Rubros y referencias | UrbanFix',
   description:
@@ -153,6 +170,7 @@ export default function PreciosManoDeObraPage() {
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
         <PublicTopNav sticky />
 
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -287,7 +305,7 @@ export default function PreciosManoDeObraPage() {
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.04] p-6">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Guias relacionadas</p>
             <h2 className="mt-3 text-2xl font-semibold text-white">Contenido de apoyo para presupuestar mejor</h2>
-            <div className="mt-5 grid gap-3 md:grid-cols-3">
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
               {guideLinks.map((guide) => (
                 <Link
                   key={guide.slug}

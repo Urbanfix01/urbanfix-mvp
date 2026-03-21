@@ -376,6 +376,98 @@ export const guias = {
       },
     ],
   },
+  'precio-mano-de-obra-electricidad': {
+    title: 'Precio de mano de obra de electricidad en Argentina',
+    description:
+      'Guia practica para entender precios de mano de obra de electricidad por boca, metro, tablero y complejidad tecnica.',
+    sections: [
+      {
+        title: 'Que cambia el precio en electricidad',
+        items: [
+          'No vale lo mismo una instalacion por boca que un tendido por metro o una intervencion sobre tablero.',
+          'La cantidad de bocas, el tipo de canalizacion, el acceso y la necesidad de amurado cambian la referencia.',
+          'Tambien influyen las observaciones tecnicas como diametro, punteado, cierre posterior y nivel de terminacion.',
+        ],
+      },
+      {
+        title: 'Como presupuestarlo mejor',
+        items: [
+          'Separa mano de obra por unidad de referencia: boca, metro, jornada o trabajo completo.',
+          'Aclara si incluye canalizacion, amurado, tendido, conexion final o solo una parte del trabajo.',
+          'Cruza siempre el item con su variante tecnica antes de comparar precios o copiar referencias.',
+        ],
+      },
+    ],
+  },
+  'precio-mano-de-obra-refrigeracion': {
+    title: 'Precios de mano de obra de refrigeracion en Argentina',
+    description:
+      'Guia orientativa para leer precios de mano de obra de refrigeracion por rango FG, instalacion, desmontaje y mantenimiento.',
+    sections: [
+      {
+        title: 'Por que varia tanto en refrigeracion',
+        items: [
+          'Una instalacion estandar de aire acondicionado cambia segun el rango FG del equipo y la complejidad del montaje.',
+          'No es igual un split chico que una instalacion con preinstalacion, roof-top o equipos de mayor capacidad.',
+          'Tambien cambian el precio la distancia entre unidades, el tendido, la carga y el contexto de obra.',
+        ],
+      },
+      {
+        title: 'Buenas practicas para comparar valores',
+        items: [
+          'Usa siempre el rango FG o la capacidad del equipo como dato tecnico visible.',
+          'Aclara si el precio incluye soporte, cañeria, cableado, vacio, prueba y puesta en marcha.',
+          'Diferencia instalaciones nuevas, preinstalaciones, desmontajes y mantenimientos preventivos.',
+        ],
+      },
+    ],
+  },
+  'precio-mano-de-obra-sanitarios': {
+    title: 'Precio de mano de obra sanitaria en Argentina',
+    description:
+      'Guia para ordenar precios de mano de obra sanitaria por diametro, tramo, montaje y sistema de agua, cloaca o pluvial.',
+    sections: [
+      {
+        title: 'Factores tecnicos en sanitarios',
+        items: [
+          'El diametro de la cañeria, el tipo de material y la altura de trabajo modifican la referencia.',
+          'No es lo mismo agua fria, agua caliente, incendio, cloaca o pluvial aunque el item parezca similar.',
+          'La apertura de muros, el acceso y el cierre posterior suelen explicar buena parte de la diferencia.',
+        ],
+      },
+      {
+        title: 'Como comunicarlo al cliente',
+        items: [
+          'Define si la unidad es por metro, punto, tramo, artefacto o trabajo completo.',
+          'Indica el diametro, la red y el alcance del trabajo para que el presupuesto sea comparable.',
+          'Separa los adicionales por roturas, pruebas, desmontes o reinstalaciones.',
+        ],
+      },
+    ],
+  },
+  'precio-mano-de-obra-pintura': {
+    title: 'Precio de mano de obra de pintura en Argentina',
+    description:
+      'Guia para leer precios de mano de obra de pintura por m2, preparacion de superficie, manos y terminacion.',
+    sections: [
+      {
+        title: 'Que mueve el precio en pintura',
+        items: [
+          'Los metros cuadrados por si solos no alcanzan: importa mucho la preparacion previa y el estado de la superficie.',
+          'No vale igual una mano de mantenimiento que una pintura con enduido, lijado, sellado o reparacion previa.',
+          'Tambien cambia segun interior, exterior, altura, andamio y tipo de terminacion final.',
+        ],
+      },
+      {
+        title: 'Como dejar la referencia clara',
+        items: [
+          'Expresa la unidad en m2 cuando corresponda y detalla cantidad de manos y tratamiento previo.',
+          'Aclara si el precio incluye proteccion, reparacion de fisuras, enduido o solo aplicacion final.',
+          'Cruza la referencia con ciudad, superficie y condicion de la obra antes de cerrar el valor.',
+        ],
+      },
+    ],
+  },
 } as const;
 
 export type GuiaKey = keyof typeof guias;
