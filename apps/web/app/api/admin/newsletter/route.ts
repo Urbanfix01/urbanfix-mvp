@@ -53,6 +53,7 @@ type NewsletterCampaignRecipientRow = {
 
 type NewsletterCampaignContentRow = {
   id: string;
+  audience: NewsletterAudience;
   subject: string;
   preview_text?: string | null;
   intro_text?: string | null;
@@ -332,6 +333,7 @@ const loadCampaignContent = async (campaignId: string) => {
   const variants = [
     [
       'id',
+      'audience',
       'subject',
       'preview_text',
       'intro_text',
@@ -342,7 +344,7 @@ const loadCampaignContent = async (campaignId: string) => {
       'hero_image_alt',
       'quick_links',
     ],
-    ['id', 'subject', 'preview_text', 'intro_text', 'body_text', 'cta_label', 'cta_url'],
+    ['id', 'audience', 'subject', 'preview_text', 'intro_text', 'body_text', 'cta_label', 'cta_url'],
   ];
 
   for (const columns of variants) {
@@ -693,6 +695,31 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const campaignId = request.nextUrl.searchParams.get('campaignId')?.trim();
+    if (campaignId) {
+      const { campaign, payloadReady } = await loadCampaignContent(campaignId);
+      if (!campaign) {
+        return NextResponse.json({ error: 'No se encontro la campana.' }, { status: 404 });
+      }
+
+      return NextResponse.json({
+        campaign: {
+          id: campaign.id,
+          audience: campaign.audience,
+          subject: String(campaign.subject || '').trim(),
+          previewText: String(campaign.preview_text || '').trim(),
+          introText: String(campaign.intro_text || '').trim(),
+          bodyText: String(campaign.body_text || '').trim(),
+          heroImageUrl: payloadReady ? normalizeNewsletterUrl(campaign.hero_image_url) : '',
+          heroImageAlt: payloadReady ? String(campaign.hero_image_alt || '').trim() : '',
+          quickLinks: payloadReady ? parseStoredQuickLinks(campaign.quick_links) : [],
+          ctaLabel: String(campaign.cta_label || '').trim(),
+          ctaUrl: normalizeNewsletterUrl(campaign.cta_url),
+        },
+        payloadReady,
+      });
+    }
+
     const [{ recipients, newsletterColumnsReady }, recentCampaignsResult] = await Promise.all([
       buildNewsletterRecipients(),
       loadRecentCampaigns(),

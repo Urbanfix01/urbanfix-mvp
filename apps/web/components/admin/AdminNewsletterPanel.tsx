@@ -39,6 +39,20 @@ type NewsletterCampaign = {
   }>;
 };
 
+type NewsletterCampaignDraft = {
+  id: string;
+  audience: NewsletterAudience;
+  subject: string;
+  previewText: string;
+  introText: string;
+  bodyText: string;
+  heroImageUrl: string;
+  heroImageAlt: string;
+  quickLinks: QuickLinkDraft[];
+  ctaLabel: string;
+  ctaUrl: string;
+};
+
 type NewsletterData = {
   capabilities: {
     resendConfigured: boolean;
@@ -70,6 +84,24 @@ const audienceOptions: NewsletterAudience[] = [
   'base_clientes',
 ];
 
+const createEmptyQuickLinks = (): QuickLinkDraft[] => [
+  { label: '', url: '' },
+  { label: '', url: '' },
+  { label: '', url: '' },
+];
+
+const toQuickLinkDrafts = (quickLinks: Array<Partial<QuickLinkDraft>> | null | undefined) => {
+  const drafts = createEmptyQuickLinks();
+  const items = Array.isArray(quickLinks) ? quickLinks : [];
+  items.slice(0, drafts.length).forEach((link, index) => {
+    drafts[index] = {
+      label: String(link?.label || '').trim(),
+      url: String(link?.url || '').trim(),
+    };
+  });
+  return drafts;
+};
+
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return 'Sin fecha';
   const parsed = new Date(value);
@@ -89,6 +121,7 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState<'test' | 'send' | 'retry_failed' | null>(null);
+  const [loadingCampaignId, setLoadingCampaignId] = useState('');
   const [subject, setSubject] = useState('');
   const [previewText, setPreviewText] = useState('');
   const [introText, setIntroText] = useState('');
@@ -99,11 +132,20 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
   const [ctaUrl, setCtaUrl] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [audience, setAudience] = useState<NewsletterAudience>('opted_in_all');
-  const [quickLinks, setQuickLinks] = useState<QuickLinkDraft[]>([
-    { label: '', url: '' },
-    { label: '', url: '' },
-    { label: '', url: '' },
-  ]);
+  const [quickLinks, setQuickLinks] = useState<QuickLinkDraft[]>(createEmptyQuickLinks);
+
+  const applyCampaignDraft = (campaign: NewsletterCampaignDraft) => {
+    setAudience(campaign.audience);
+    setSubject(campaign.subject);
+    setPreviewText(campaign.previewText);
+    setIntroText(campaign.introText);
+    setBodyText(campaign.bodyText);
+    setHeroImageUrl(campaign.heroImageUrl);
+    setHeroImageAlt(campaign.heroImageAlt);
+    setQuickLinks(toQuickLinkDrafts(campaign.quickLinks));
+    setCtaLabel(campaign.ctaLabel);
+    setCtaUrl(campaign.ctaUrl);
+  };
 
   const copyText = async (value: string, successMessage: string, errorMessage = 'No se pudo copiar la lista al portapapeles.') => {
     if (!value.trim()) return;
@@ -275,6 +317,50 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
       setError(nextError?.message || 'No se pudo reenviar a los fallidos.');
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  const handleLoadCampaign = async (campaignId: string) => {
+    if (!accessToken || !campaignId) return;
+
+    setLoadingCampaignId(campaignId);
+    setError('');
+    setMessage('');
+    try {
+      const response = await fetch(`/api/admin/newsletter?campaignId=${encodeURIComponent(campaignId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudo cargar la campana.');
+      }
+
+      applyCampaignDraft({
+        id: String(payload?.campaign?.id || campaignId),
+        audience: (payload?.campaign?.audience || 'base_all') as NewsletterAudience,
+        subject: String(payload?.campaign?.subject || '').trim(),
+        previewText: String(payload?.campaign?.previewText || '').trim(),
+        introText: String(payload?.campaign?.introText || '').trim(),
+        bodyText: String(payload?.campaign?.bodyText || '').trim(),
+        heroImageUrl: String(payload?.campaign?.heroImageUrl || '').trim(),
+        heroImageAlt: String(payload?.campaign?.heroImageAlt || '').trim(),
+        quickLinks: toQuickLinkDrafts(payload?.campaign?.quickLinks),
+        ctaLabel: String(payload?.campaign?.ctaLabel || '').trim(),
+        ctaUrl: String(payload?.campaign?.ctaUrl || '').trim(),
+      });
+
+      setMessage(
+        payload?.payloadReady === false
+          ? 'Campana recargada en el borrador. Esta version no tenia imagen o enlaces directos persistidos.'
+          : 'Campana recargada en el borrador.'
+      );
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 50);
+    } catch (nextError: any) {
+      setError(nextError?.message || 'No se pudo cargar la campana.');
+    } finally {
+      setLoadingCampaignId('');
     }
   };
 
@@ -667,6 +753,16 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                     <span className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700">
                       {campaign.status}
                     </span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleLoadCampaign(campaign.id)}
+                      disabled={Boolean(loadingCampaignId) || submitting !== null}
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {loadingCampaignId === campaign.id ? 'Cargando campana...' : 'Recargar borrador'}
+                    </button>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-slate-600">
                     <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
