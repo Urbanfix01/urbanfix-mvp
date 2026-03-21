@@ -79,7 +79,7 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [submitting, setSubmitting] = useState<'test' | 'send' | null>(null);
+  const [submitting, setSubmitting] = useState<'test' | 'send' | 'retry_failed' | null>(null);
   const [subject, setSubject] = useState('');
   const [previewText, setPreviewText] = useState('');
   const [introText, setIntroText] = useState('');
@@ -190,6 +190,41 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
       }
     } catch (nextError: any) {
       setError(nextError?.message || 'No se pudo enviar el newsletter.');
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  const handleRetryFailed = async (campaignId: string) => {
+    if (!accessToken) return;
+
+    setSubmitting('retry_failed');
+    setError('');
+    setMessage('');
+    try {
+      const response = await fetch('/api/admin/newsletter', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          mode: 'retry_failed',
+          campaignId,
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudo reenviar a los fallidos.');
+      }
+      setMessage(
+        payload?.warnings?.length
+          ? `${payload?.message || 'Listo.'} ${payload.warnings.join(' ')}`
+          : payload?.message || 'Listo.'
+      );
+      await loadNewsletter();
+    } catch (nextError: any) {
+      setError(nextError?.message || 'No se pudo reenviar a los fallidos.');
     } finally {
       setSubmitting(null);
     }
@@ -511,18 +546,28 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                             <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
                               Fallidos ({failedRecipients.length})
                             </p>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                copyRecipientEmails(
-                                  failedRecipients.map((recipient) => recipient.email),
-                                  `Fallidos de ${campaign.subject}`
-                                )
-                              }
-                              className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:text-rose-800"
-                            >
-                              Copiar fallidos
-                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleRetryFailed(campaign.id)}
+                                disabled={submitting !== null}
+                                className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {submitting === 'retry_failed' ? 'Reenviando...' : 'Reenviar fallidos'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  copyRecipientEmails(
+                                    failedRecipients.map((recipient) => recipient.email),
+                                    `Fallidos de ${campaign.subject}`
+                                  )
+                                }
+                                className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:text-rose-800"
+                              >
+                                Copiar fallidos
+                              </button>
+                            </div>
                           </div>
                           {failedErrors.length > 0 && (
                             <p className="mt-2 text-xs leading-5 text-rose-700">{failedErrors.join(' | ')}</p>

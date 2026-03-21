@@ -4,9 +4,9 @@ import {
   NEWSLETTER_AUDIENCE_LABELS,
   type NewsletterAudience,
   type NewsletterQuickLink,
+  buildNewsletterBodyText,
   buildNewsletterHtml,
   buildNewsletterPlainText,
-  buildNewsletterBodyText,
   buildNewsletterUnsubscribeUrl,
   normalizeNewsletterEmail,
   normalizeNewsletterUrl,
@@ -43,10 +43,37 @@ type NewsletterRecipient = {
 type NewsletterCampaignRecipientRow = {
   campaign_id: string;
   email: string;
+  user_id?: string | null;
   status: 'pending' | 'sent' | 'failed' | 'skipped';
   error_text?: string | null;
+  provider_message_id?: string | null;
   sent_at?: string | null;
   created_at?: string | null;
+};
+
+type NewsletterCampaignContentRow = {
+  id: string;
+  subject: string;
+  preview_text?: string | null;
+  intro_text?: string | null;
+  body_text: string;
+  cta_label?: string | null;
+  cta_url?: string | null;
+  hero_image_url?: string | null;
+  hero_image_alt?: string | null;
+  quick_links?: unknown;
+};
+
+type NewsletterRenderContent = {
+  subject: string;
+  previewText: string;
+  introText: string;
+  bodyText: string;
+  heroImageUrl: string;
+  heroImageAlt: string;
+  quickLinks: NewsletterQuickLink[];
+  ctaLabel: string;
+  ctaUrl: string;
 };
 
 const isMissingColumnError = (error: any, column: string) => {
@@ -99,6 +126,20 @@ const parseQuickLinks = (value: unknown) => {
   }
 
   return quickLinks;
+};
+
+const parseStoredQuickLinks = (value: unknown) => {
+  if (Array.isArray(value)) return parseQuickLinks(value);
+
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      return parseQuickLinks(JSON.parse(value));
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
 };
 
 const getNewsletterProviderConfig = () => ({
@@ -246,7 +287,7 @@ const loadRecentCampaignRecipients = async (campaignIds: string[]) => {
 
   const { data, error } = await supabase
     .from('newsletter_campaign_recipients')
-    .select('campaign_id,email,status,error_text,sent_at,created_at')
+    .select('campaign_id,email,user_id,status,error_text,provider_message_id,sent_at,created_at')
     .in('campaign_id', campaignIds)
     .order('created_at', { ascending: false });
 
@@ -285,28 +326,115 @@ const loadRecentCampaignRecipients = async (campaignIds: string[]) => {
   return grouped;
 };
 
+const loadCampaignContent = async (campaignId: string) => {
+  if (!supabase) return { campaign: null as NewsletterCampaignContentRow | null, payloadReady: false };
+
+  const variants = [
+    [
+      'id',
+      'subject',
+      'preview_text',
+      'intro_text',
+      'body_text',
+      'cta_label',
+      'cta_url',
+      'hero_image_url',
+      'hero_image_alt',
+      'quick_links',
+    ],
+    ['id', 'subject', 'preview_text', 'intro_text', 'body_text', 'cta_label', 'cta_url'],
+  ];
+
+  for (const columns of variants) {
+    const { data, error } = await supabase.from('newsletter_campaigns').select(columns.join(',')).eq('id', campaignId).single();
+
+    if (error) {
+      const missingPayloadColumns =
+        isMissingColumnError(error, 'hero_image_url') ||
+        isMissingColumnError(error, 'hero_image_alt') ||
+        isMissingColumnError(error, 'quick_links');
+      if (missingPayloadColumns && columns.includes('hero_image_url')) {
+        continue;
+      }
+      if (isMissingRelationError(error, 'newsletter_campaigns')) {
+        return { campaign: null, payloadReady: false };
+      }
+      throw error;
+    }
+
+    return {
+      campaign: (data || null) as unknown as NewsletterCampaignContentRow | null,
+      payloadReady: columns.includes('hero_image_url'),
+    };
+  }
+
+  return { campaign: null, payloadReady: false };
+};
+
 const createCampaignRecord = async (payload: Record<string, unknown>) => {
   if (!supabase) return { campaign: null, tablesReady: false };
 
-  const { data, error } = await supabase.from('newsletter_campaigns').insert(payload).select().single();
-  if (error) {
-    if (isMissingRelationError(error, 'newsletter_campaigns')) {
-      return { campaign: null, tablesReady: false };
+  const variants = [
+    payload,
+    Object.fromEntries(
+      Object.entries(payload).filter(
+        ([key]) => !['hero_image_url', 'hero_image_alt', 'quick_links'].includes(key)
+      )
+    ),
+  ];
+
+  for (const candidate of variants) {
+    const { data, error } = await supabase.from('newsletter_campaigns').insert(candidate).select().single();
+    if (error) {
+      const missingPayloadColumns =
+        isMissingColumnError(error, 'hero_image_url') ||
+        isMissingColumnError(error, 'hero_image_alt') ||
+        isMissingColumnError(error, 'quick_links');
+      if (missingPayloadColumns && Object.prototype.hasOwnProperty.call(candidate, 'hero_image_url')) {
+        continue;
+      }
+      if (isMissingRelationError(error, 'newsletter_campaigns')) {
+        return { campaign: null, tablesReady: false };
+      }
+      throw error;
     }
-    throw error;
+
+    return { campaign: data, tablesReady: true };
   }
 
-  return { campaign: data, tablesReady: true };
+  return { campaign: null, tablesReady: false };
 };
 
 const updateCampaignRecord = async (campaignId: string, payload: Record<string, unknown>) => {
   if (!supabase) return false;
-  const { error } = await supabase.from('newsletter_campaigns').update(payload).eq('id', campaignId);
-  if (error) {
-    if (isMissingRelationError(error, 'newsletter_campaigns')) return false;
-    throw error;
+
+  const variants = [
+    payload,
+    Object.fromEntries(
+      Object.entries(payload).filter(
+        ([key]) => !['hero_image_url', 'hero_image_alt', 'quick_links'].includes(key)
+      )
+    ),
+  ];
+
+  for (const candidate of variants) {
+    const { error } = await supabase.from('newsletter_campaigns').update(candidate).eq('id', campaignId);
+    if (error) {
+      const missingPayloadColumns =
+        isMissingColumnError(error, 'hero_image_url') ||
+        isMissingColumnError(error, 'hero_image_alt') ||
+        isMissingColumnError(error, 'quick_links');
+      if (missingPayloadColumns && Object.prototype.hasOwnProperty.call(candidate, 'hero_image_url')) {
+        continue;
+      }
+      if (isMissingRelationError(error, 'newsletter_campaigns')) return false;
+      throw error;
+    }
+
+    return true;
   }
-  return true;
+
+  return false;
 };
 
 const seedCampaignRecipients = async (campaignId: string, recipients: NewsletterRecipient[]) => {
@@ -351,6 +479,66 @@ const updateCampaignRecipients = async (
   }
 
   return true;
+};
+
+const loadCampaignRecipientsByStatus = async (
+  campaignId: string,
+  status: NewsletterCampaignRecipientRow['status']
+) => {
+  if (!supabase) return [];
+
+  const { data, error } = await supabase
+    .from('newsletter_campaign_recipients')
+    .select('campaign_id,email,user_id,status,error_text,provider_message_id,sent_at,created_at')
+    .eq('campaign_id', campaignId)
+    .eq('status', status)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    if (isMissingRelationError(error, 'newsletter_campaign_recipients')) {
+      return [];
+    }
+    throw error;
+  }
+
+  return (data || []) as NewsletterCampaignRecipientRow[];
+};
+
+const summarizeCampaignRecipientStatuses = async (campaignId: string) => {
+  if (!supabase) {
+    return {
+      totalRecipients: 0,
+      sentCount: 0,
+      failedCount: 0,
+      pendingCount: 0,
+    };
+  }
+
+  const { data, error } = await supabase.from('newsletter_campaign_recipients').select('status').eq('campaign_id', campaignId);
+
+  if (error) {
+    if (isMissingRelationError(error, 'newsletter_campaign_recipients')) {
+      return {
+        totalRecipients: 0,
+        sentCount: 0,
+        failedCount: 0,
+        pendingCount: 0,
+      };
+    }
+    throw error;
+  }
+
+  const rows = data || [];
+  const sentCount = rows.filter((row: any) => row.status === 'sent').length;
+  const failedCount = rows.filter((row: any) => row.status === 'failed').length;
+  const pendingCount = rows.filter((row: any) => row.status === 'pending').length;
+
+  return {
+    totalRecipients: rows.length,
+    sentCount,
+    failedCount,
+    pendingCount,
+  };
 };
 
 const sendNewsletterEmail = async (params: {
@@ -409,6 +597,84 @@ const sendNewsletterEmailWithRetry = async (params: {
     await wait(SEND_BATCH_DELAY_MS);
     return await sendNewsletterEmail(params);
   }
+};
+
+const buildRenderedNewsletterContent = (content: NewsletterRenderContent, recipient: { email: string; userId?: string | null }) => {
+  const paragraphs = buildNewsletterBodyText(content.bodyText);
+  const unsubscribeUrl = buildNewsletterUnsubscribeUrl(recipient.email, recipient.userId);
+
+  return {
+    html: buildNewsletterHtml({
+      title: content.subject,
+      previewText: content.previewText,
+      intro: content.introText,
+      paragraphs,
+      heroImageUrl: content.heroImageUrl,
+      heroImageAlt: content.heroImageAlt,
+      quickLinks: content.quickLinks,
+      ctaLabel: content.ctaLabel,
+      ctaUrl: content.ctaUrl,
+      unsubscribeUrl,
+    }),
+    text: buildNewsletterPlainText({
+      title: content.subject,
+      intro: content.introText,
+      paragraphs,
+      heroImageUrl: content.heroImageUrl,
+      quickLinks: content.quickLinks,
+      ctaLabel: content.ctaLabel,
+      ctaUrl: content.ctaUrl,
+      unsubscribeUrl,
+    }),
+  };
+};
+
+const deliverNewsletterRecipients = async (
+  recipients: Array<{ email: string; userId?: string | null }>,
+  content: NewsletterRenderContent,
+  replyTo?: string | null
+) => {
+  const results: Array<{ email: string; status: 'sent' | 'failed'; providerMessageId?: string | null; errorText?: string | null }> =
+    [];
+
+  const recipientBatches = chunk(recipients, SEND_BATCH_SIZE);
+
+  for (const [batchIndex, batch] of recipientBatches.entries()) {
+    const batchResults = await Promise.all(
+      batch.map(async (recipient) => {
+        const rendered = buildRenderedNewsletterContent(content, recipient);
+
+        try {
+          const sent = await sendNewsletterEmailWithRetry({
+            to: recipient.email,
+            subject: content.subject,
+            html: rendered.html,
+            text: rendered.text,
+            replyTo: replyTo || null,
+          });
+          return {
+            email: recipient.email,
+            status: 'sent' as const,
+            providerMessageId: sent.id,
+          };
+        } catch (error: any) {
+          return {
+            email: recipient.email,
+            status: 'failed' as const,
+            errorText: error?.message || 'No se pudo enviar.',
+          };
+        }
+      })
+    );
+
+    results.push(...batchResults);
+
+    if (batchIndex < recipientBatches.length - 1) {
+      await wait(SEND_BATCH_DELAY_MS);
+    }
+  }
+
+  return results;
 };
 
 export async function GET(request: NextRequest) {
@@ -481,8 +747,9 @@ export async function POST(request: NextRequest) {
     body = null;
   }
 
-  const mode = body?.mode === 'test' ? 'test' : 'send';
+  const mode = body?.mode === 'test' ? 'test' : body?.mode === 'retry_failed' ? 'retry_failed' : 'send';
   const audience = String(body?.audience || 'opted_in_all') as NewsletterAudience;
+  const campaignId = String(body?.campaignId || '').trim();
   const subject = String(body?.subject || '').trim();
   const previewText = String(body?.previewText || '').trim();
   const introText = String(body?.introText || '').trim();
@@ -493,11 +760,11 @@ export async function POST(request: NextRequest) {
   const ctaUrl = normalizeNewsletterUrl(body?.ctaUrl);
   const testEmail = normalizeNewsletterEmail(body?.testEmail);
 
-  if (!Object.prototype.hasOwnProperty.call(NEWSLETTER_AUDIENCE_LABELS, audience)) {
+  if (mode !== 'retry_failed' && !Object.prototype.hasOwnProperty.call(NEWSLETTER_AUDIENCE_LABELS, audience)) {
     return NextResponse.json({ error: 'Audience invalida.' }, { status: 400 });
   }
 
-  if (subject.length < 4 || bodyText.length < 12) {
+  if (mode !== 'retry_failed' && (subject.length < 4 || bodyText.length < 12)) {
     return NextResponse.json({ error: 'Completa asunto y cuerpo del newsletter.' }, { status: 400 });
   }
 
@@ -506,16 +773,16 @@ export async function POST(request: NextRequest) {
   }
 
   const heroImageUrl = heroImageRawUrl ? normalizeNewsletterUrl(heroImageRawUrl) : '';
-  if (heroImageRawUrl && !heroImageUrl) {
+  if (mode !== 'retry_failed' && heroImageRawUrl && !heroImageUrl) {
     return NextResponse.json({ error: 'La URL de la imagen principal no es valida.' }, { status: 400 });
   }
 
-  if ((ctaLabel && !ctaUrl) || (!ctaLabel && ctaUrl)) {
+  if (mode !== 'retry_failed' && ((ctaLabel && !ctaUrl) || (!ctaLabel && ctaUrl))) {
     return NextResponse.json({ error: 'Completa ambos campos del CTA o deja ambos vacios.' }, { status: 400 });
   }
 
   try {
-    const quickLinks = parseQuickLinks(body?.quickLinks);
+    const quickLinks = mode === 'retry_failed' ? [] : parseQuickLinks(body?.quickLinks);
     const { recipients, newsletterColumnsReady } = await buildNewsletterRecipients();
     const provider = getNewsletterProviderConfig();
 
@@ -526,44 +793,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (audience.startsWith('opted_in_') && !newsletterColumnsReady) {
+    if (mode !== 'retry_failed' && audience.startsWith('opted_in_') && !newsletterColumnsReady) {
       return NextResponse.json(
         { error: 'Falta la migracion newsletter_opt_in/newsletter_unsubscribed_at en profiles.' },
         { status: 409 }
       );
     }
 
-    const paragraphs = buildNewsletterBodyText(bodyText);
+    const draftContent: NewsletterRenderContent = {
+      subject,
+      previewText,
+      introText,
+      bodyText,
+      heroImageUrl,
+      heroImageAlt,
+      quickLinks,
+      ctaLabel,
+      ctaUrl,
+    };
 
     if (mode === 'test') {
-      const unsubscribeUrl = buildNewsletterUnsubscribeUrl(testEmail, user.id);
-      const html = buildNewsletterHtml({
-        title: subject,
-        previewText,
-        intro: introText,
-        paragraphs,
-        heroImageUrl,
-        heroImageAlt,
-        quickLinks,
-        ctaLabel,
-        ctaUrl,
-        unsubscribeUrl,
-      });
-      const text = buildNewsletterPlainText({
-        title: subject,
-        intro: introText,
-        paragraphs,
-        heroImageUrl,
-        quickLinks,
-        ctaLabel,
-        ctaUrl,
-        unsubscribeUrl,
-      });
+      const rendered = buildRenderedNewsletterContent(draftContent, { email: testEmail, userId: user.id });
       const result = await sendNewsletterEmail({
         to: testEmail,
         subject,
-        html,
-        text,
+        html: rendered.html,
+        text: rendered.text,
         replyTo: provider.replyTo || null,
       });
 
@@ -572,6 +827,82 @@ export async function POST(request: NextRequest) {
         mode,
         message: `Prueba enviada a ${testEmail}.`,
         provider: result.provider,
+      });
+    }
+
+    if (mode === 'retry_failed') {
+      if (!campaignId) {
+        return NextResponse.json({ error: 'Falta indicar la campana a reintentar.' }, { status: 400 });
+      }
+
+      const { campaign, payloadReady } = await loadCampaignContent(campaignId);
+      if (!campaign) {
+        return NextResponse.json({ error: 'No se encontro la campana para reintentar.' }, { status: 404 });
+      }
+
+      const failedRecipients = await loadCampaignRecipientsByStatus(campaignId, 'failed');
+      if (failedRecipients.length === 0) {
+        return NextResponse.json({ error: 'Esta campana no tiene destinatarios fallidos para reenviar.' }, { status: 400 });
+      }
+
+      const retryContent: NewsletterRenderContent = {
+        subject: String(campaign.subject || '').trim(),
+        previewText: String(campaign.preview_text || '').trim(),
+        introText: String(campaign.intro_text || '').trim(),
+        bodyText: String(campaign.body_text || '').trim(),
+        heroImageUrl: payloadReady ? normalizeNewsletterUrl(campaign.hero_image_url) : '',
+        heroImageAlt: payloadReady ? String(campaign.hero_image_alt || '').trim() : '',
+        quickLinks: payloadReady ? parseStoredQuickLinks(campaign.quick_links) : [],
+        ctaLabel: String(campaign.cta_label || '').trim(),
+        ctaUrl: normalizeNewsletterUrl(campaign.cta_url),
+      };
+
+      const retryWarnings: string[] = [];
+      if (!payloadReady) {
+        retryWarnings.push(
+          'La campana fue creada sin payload enriquecido; el reenvio conserva texto y CTA, pero puede omitir imagen y enlaces directos.'
+        );
+      }
+
+      const retryResults = await deliverNewsletterRecipients(
+        failedRecipients.map((recipient) => ({
+          email: recipient.email,
+          userId: recipient.user_id || null,
+        })),
+        retryContent,
+        provider.replyTo || null
+      );
+
+      await updateCampaignRecipients(campaignId, retryResults);
+
+      const summary = await summarizeCampaignRecipientStatuses(campaignId);
+      const retrySentCount = retryResults.filter((result) => result.status === 'sent').length;
+      const retryFailedCount = retryResults.filter((result) => result.status === 'failed').length;
+      const retryLimited = retryResults.some(
+        (result) => result.status === 'failed' && isRateLimitMessage(result.errorText)
+      );
+
+      if (retryLimited) {
+        retryWarnings.push('Parte del reenvio volvio a quedar limitada por Resend.');
+      }
+
+      await updateCampaignRecord(campaignId, {
+        status: summary.failedCount > 0 ? 'failed' : 'sent',
+        sent_count: summary.sentCount,
+        failed_count: summary.failedCount,
+        warning_text: retryWarnings.join(' ') || null,
+        sent_at: new Date().toISOString(),
+      });
+
+      return NextResponse.json({
+        ok: true,
+        mode,
+        message: `Reenvio completado. ${retrySentCount} recuperados, ${retryFailedCount} siguieron fallando.`,
+        sentCount: retrySentCount,
+        failedCount: retryFailedCount,
+        remainingFailedCount: summary.failedCount,
+        totalRecipients: failedRecipients.length,
+        warnings: retryWarnings,
       });
     }
 
@@ -600,6 +931,9 @@ export async function POST(request: NextRequest) {
       body_html: '',
       cta_label: ctaLabel || null,
       cta_url: ctaUrl || null,
+      hero_image_url: heroImageUrl || null,
+      hero_image_alt: heroImageAlt || null,
+      quick_links: quickLinks,
       audience,
       status: 'sending',
       from_email: provider.fromEmail,
@@ -610,71 +944,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (!tablesReady) {
-      warningMessages.push('La migracion de historial de campañas todavia no esta aplicada; el envio no quedara persistido.');
+      warningMessages.push('La migracion de historial de campanas todavia no esta aplicada; el envio no quedara persistido.');
     } else if (campaign?.id) {
       await seedCampaignRecipients(campaign.id, campaignRecipients);
     }
 
-    const results: Array<{ email: string; status: 'sent' | 'failed'; providerMessageId?: string | null; errorText?: string | null }> = [];
-
-    const campaignBatches = chunk(campaignRecipients, SEND_BATCH_SIZE);
-
-    for (const [batchIndex, batch] of campaignBatches.entries()) {
-      const batchResults = await Promise.all(
-        batch.map(async (recipient) => {
-          const unsubscribeUrl = buildNewsletterUnsubscribeUrl(recipient.email, recipient.userId);
-          const html = buildNewsletterHtml({
-            title: subject,
-            previewText,
-            intro: introText,
-            paragraphs,
-            heroImageUrl,
-            heroImageAlt,
-            quickLinks,
-            ctaLabel,
-            ctaUrl,
-            unsubscribeUrl,
-          });
-          const text = buildNewsletterPlainText({
-            title: subject,
-            intro: introText,
-            paragraphs,
-            heroImageUrl,
-            quickLinks,
-            ctaLabel,
-            ctaUrl,
-            unsubscribeUrl,
-          });
-
-          try {
-            const sent = await sendNewsletterEmailWithRetry({
-              to: recipient.email,
-              subject,
-              html,
-              text,
-              replyTo: provider.replyTo || null,
-            });
-            return {
-              email: recipient.email,
-              status: 'sent' as const,
-              providerMessageId: sent.id,
-            };
-          } catch (error: any) {
-            return {
-              email: recipient.email,
-              status: 'failed' as const,
-              errorText: error?.message || 'No se pudo enviar.',
-            };
-          }
-        })
-      );
-
-      results.push(...batchResults);
-
-      if (batchIndex < campaignBatches.length - 1) {
-        await wait(SEND_BATCH_DELAY_MS);
-      }
-    }
+    const results = await deliverNewsletterRecipients(
+      campaignRecipients.map((recipient) => ({
+        email: recipient.email,
+        userId: recipient.userId,
+      })),
+      draftContent,
+      provider.replyTo || null
+    );
 
     const sentCount = results.filter((result) => result.status === 'sent').length;
     const failedCount = results.length - sentCount;
@@ -689,21 +971,16 @@ export async function POST(request: NextRequest) {
     if (tablesReady && campaign?.id) {
       await updateCampaignRecipients(campaign.id, results);
       await updateCampaignRecord(campaign.id, {
-        status: failedCount === results.length ? 'failed' : 'sent',
+        status: failedCount === 0 ? 'sent' : 'failed',
         sent_count: sentCount,
         failed_count: failedCount,
-        body_html: buildNewsletterHtml({
-          title: subject,
-          previewText,
-          intro: introText,
-          paragraphs,
-          heroImageUrl,
-          heroImageAlt,
-          quickLinks,
-          ctaLabel,
-          ctaUrl,
-          unsubscribeUrl: buildNewsletterUnsubscribeUrl(campaignRecipients[0].email, campaignRecipients[0].userId),
-        }),
+        body_html: buildRenderedNewsletterContent(draftContent, {
+          email: campaignRecipients[0].email,
+          userId: campaignRecipients[0].userId,
+        }).html,
+        hero_image_url: heroImageUrl || null,
+        hero_image_alt: heroImageAlt || null,
+        quick_links: quickLinks,
         warning_text: warningMessages.join(' ') || null,
         sent_at: new Date().toISOString(),
       });
