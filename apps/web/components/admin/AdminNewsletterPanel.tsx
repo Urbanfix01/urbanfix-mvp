@@ -22,6 +22,12 @@ type NewsletterCampaign = {
   sent_at?: string | null;
   created_at: string;
   created_by_label?: string | null;
+  recipients?: Array<{
+    email: string;
+    status: 'pending' | 'sent' | 'failed' | 'skipped';
+    error_text?: string | null;
+    sent_at?: string | null;
+  }>;
 };
 
 type NewsletterData = {
@@ -89,6 +95,17 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
     { label: '', url: '' },
     { label: '', url: '' },
   ]);
+
+  const copyRecipientEmails = async (emails: string[], label: string) => {
+    if (!emails.length) return;
+    try {
+      await navigator.clipboard.writeText(emails.join('\n'));
+      setMessage(`${label} copiados (${emails.length}).`);
+      setError('');
+    } catch {
+      setError('No se pudo copiar la lista al portapapeles.');
+    }
+  };
 
   const loadNewsletter = async () => {
     if (!accessToken) return;
@@ -451,6 +468,17 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
               )}
               {data.recentCampaigns.map((campaign) => (
                 <article key={campaign.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  {(() => {
+                    const recipients = campaign.recipients || [];
+                    const sentRecipients = recipients.filter((recipient) => recipient.status === 'sent');
+                    const failedRecipients = recipients.filter((recipient) => recipient.status === 'failed');
+                    const pendingRecipients = recipients.filter((recipient) => recipient.status === 'pending');
+                    const failedErrors = Array.from(
+                      new Set(failedRecipients.map((recipient) => String(recipient.error_text || '').trim()).filter(Boolean))
+                    );
+
+                    return (
+                      <>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-slate-900">{campaign.subject}</p>
@@ -475,6 +503,111 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                     </span>
                   </div>
                   {campaign.warning_text && <p className="mt-3 text-xs text-amber-700">{campaign.warning_text}</p>}
+                  {(failedRecipients.length > 0 || pendingRecipients.length > 0 || sentRecipients.length > 0) && (
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      {failedRecipients.length > 0 && (
+                        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
+                              Fallidos ({failedRecipients.length})
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                copyRecipientEmails(
+                                  failedRecipients.map((recipient) => recipient.email),
+                                  `Fallidos de ${campaign.subject}`
+                                )
+                              }
+                              className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:text-rose-800"
+                            >
+                              Copiar fallidos
+                            </button>
+                          </div>
+                          {failedErrors.length > 0 && (
+                            <p className="mt-2 text-xs leading-5 text-rose-700">{failedErrors.join(' | ')}</p>
+                          )}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {failedRecipients.map((recipient) => (
+                              <span
+                                key={`${campaign.id}-failed-${recipient.email}`}
+                                className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] text-rose-700"
+                              >
+                                {recipient.email}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {pendingRecipients.length > 0 && (
+                        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-700">
+                              Pendientes ({pendingRecipients.length})
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                copyRecipientEmails(
+                                  pendingRecipients.map((recipient) => recipient.email),
+                                  `Pendientes de ${campaign.subject}`
+                                )
+                              }
+                              className="rounded-full border border-amber-200 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 transition hover:border-amber-300 hover:text-amber-800"
+                            >
+                              Copiar pendientes
+                            </button>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {pendingRecipients.map((recipient) => (
+                              <span
+                                key={`${campaign.id}-pending-${recipient.email}`}
+                                className="rounded-full border border-amber-200 bg-white px-3 py-1 text-[11px] text-amber-700"
+                              >
+                                {recipient.email}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {sentRecipients.length > 0 && (
+                        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-4 lg:col-span-2">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">
+                              Enviados ({sentRecipients.length})
+                            </p>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                copyRecipientEmails(
+                                  sentRecipients.map((recipient) => recipient.email),
+                                  `Enviados de ${campaign.subject}`
+                                )
+                              }
+                              className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[11px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:text-emerald-800"
+                            >
+                              Copiar enviados
+                            </button>
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {sentRecipients.map((recipient) => (
+                              <span
+                                key={`${campaign.id}-sent-${recipient.email}`}
+                                className="rounded-full border border-emerald-200 bg-white px-3 py-1 text-[11px] text-emerald-700"
+                              >
+                                {recipient.email}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                      </>
+                    );
+                  })()}
                 </article>
               ))}
             </div>

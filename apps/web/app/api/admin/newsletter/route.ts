@@ -15,7 +15,8 @@ import {
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const AUTH_USERS_PAGE_SIZE = 200;
-const SEND_BATCH_SIZE = 20;
+const SEND_BATCH_SIZE = 4;
+const SEND_BATCH_DELAY_MS = 1100;
 const MAX_NEWSLETTER_RECIPIENTS = 500;
 const MAX_QUICK_LINKS = 3;
 
@@ -39,6 +40,15 @@ type NewsletterRecipient = {
   unsubscribedAt: string | null;
 };
 
+type NewsletterCampaignRecipientRow = {
+  campaign_id: string;
+  email: string;
+  status: 'pending' | 'sent' | 'failed' | 'skipped';
+  error_text?: string | null;
+  sent_at?: string | null;
+  created_at?: string | null;
+};
+
 const isMissingColumnError = (error: any, column: string) => {
   const message = String(error?.message || '').toLowerCase();
   return message.includes('column') && message.includes(column.toLowerCase()) && message.includes('does not exist');
@@ -58,6 +68,13 @@ const chunk = <T,>(items: T[], size: number) => {
     result.push(items.slice(index, index + size));
   }
   return result;
+};
+
+const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isRateLimitMessage = (value: unknown) => {
+  const message = String(value || '').toLowerCase();
+  return message.includes('too many requests') || message.includes('rate limit') || message.includes('requests per second');
 };
 
 const parseQuickLinks = (value: unknown) => {
@@ -224,6 +241,50 @@ const loadRecentCampaigns = async () => {
   return { campaigns: data || [], tablesReady: true };
 };
 
+const loadRecentCampaignRecipients = async (campaignIds: string[]) => {
+  if (!supabase || campaignIds.length === 0) return new Map<string, NewsletterCampaignRecipientRow[]>();
+
+  const { data, error } = await supabase
+    .from('newsletter_campaign_recipients')
+    .select('campaign_id,email,status,error_text,sent_at,created_at')
+    .in('campaign_id', campaignIds)
+    .order('created_at', { ascending: false });
+
+  if (error) {
+    if (isMissingRelationError(error, 'newsletter_campaign_recipients')) {
+      return new Map<string, NewsletterCampaignRecipientRow[]>();
+    }
+    throw error;
+  }
+
+  const grouped = new Map<string, NewsletterCampaignRecipientRow[]>();
+  const priority: Record<NewsletterCampaignRecipientRow['status'], number> = {
+    failed: 0,
+    pending: 1,
+    sent: 2,
+    skipped: 3,
+  };
+
+  for (const row of (data || []) as NewsletterCampaignRecipientRow[]) {
+    const current = grouped.get(row.campaign_id) || [];
+    current.push(row);
+    grouped.set(row.campaign_id, current);
+  }
+
+  grouped.forEach((items, campaignId) => {
+    items.sort((left, right) => {
+      const priorityDelta = priority[left.status] - priority[right.status];
+      if (priorityDelta !== 0) return priorityDelta;
+      const leftTime = new Date(left.sent_at || left.created_at || 0).getTime();
+      const rightTime = new Date(right.sent_at || right.created_at || 0).getTime();
+      return rightTime - leftTime;
+    });
+    grouped.set(campaignId, items);
+  });
+
+  return grouped;
+};
+
 const createCampaignRecord = async (payload: Record<string, unknown>) => {
   if (!supabase) return { campaign: null, tablesReady: false };
 
@@ -308,7 +369,7 @@ const sendNewsletterEmail = async (params: {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${provider.apiKey}`,
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
     },
     body: JSON.stringify({
       from: provider.fromEmail,
@@ -331,6 +392,25 @@ const sendNewsletterEmail = async (params: {
   };
 };
 
+const sendNewsletterEmailWithRetry = async (params: {
+  to: string;
+  subject: string;
+  html: string;
+  text: string;
+  replyTo?: string | null;
+}) => {
+  try {
+    return await sendNewsletterEmail(params);
+  } catch (error: any) {
+    if (!isRateLimitMessage(error?.message)) {
+      throw error;
+    }
+
+    await wait(SEND_BATCH_DELAY_MS);
+    return await sendNewsletterEmail(params);
+  }
+};
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
@@ -351,6 +431,11 @@ export async function GET(request: NextRequest) {
       buildNewsletterRecipients(),
       loadRecentCampaigns(),
     ]);
+    const recentCampaignRecipientMap = recentCampaignsResult.tablesReady
+      ? await loadRecentCampaignRecipients(
+          (recentCampaignsResult.campaigns || []).map((campaign: any) => campaign.id).filter(Boolean)
+        )
+      : new Map<string, NewsletterCampaignRecipientRow[]>();
 
     const provider = getNewsletterProviderConfig();
     const audienceCounts = buildAudienceCounts(recipients, newsletterColumnsReady);
@@ -364,7 +449,10 @@ export async function GET(request: NextRequest) {
       },
       audienceCounts,
       audienceLabels: NEWSLETTER_AUDIENCE_LABELS,
-      recentCampaigns: recentCampaignsResult.campaigns,
+      recentCampaigns: (recentCampaignsResult.campaigns || []).map((campaign: any) => ({
+        ...campaign,
+        recipients: recentCampaignRecipientMap.get(campaign.id) || [],
+      })),
     });
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'No se pudo cargar el newsletter.' }, { status: 500 });
@@ -529,7 +617,9 @@ export async function POST(request: NextRequest) {
 
     const results: Array<{ email: string; status: 'sent' | 'failed'; providerMessageId?: string | null; errorText?: string | null }> = [];
 
-    for (const batch of chunk(campaignRecipients, SEND_BATCH_SIZE)) {
+    const campaignBatches = chunk(campaignRecipients, SEND_BATCH_SIZE);
+
+    for (const [batchIndex, batch] of campaignBatches.entries()) {
       const batchResults = await Promise.all(
         batch.map(async (recipient) => {
           const unsubscribeUrl = buildNewsletterUnsubscribeUrl(recipient.email, recipient.userId);
@@ -557,7 +647,7 @@ export async function POST(request: NextRequest) {
           });
 
           try {
-            const sent = await sendNewsletterEmail({
+            const sent = await sendNewsletterEmailWithRetry({
               to: recipient.email,
               subject,
               html,
@@ -580,10 +670,21 @@ export async function POST(request: NextRequest) {
       );
 
       results.push(...batchResults);
+
+      if (batchIndex < campaignBatches.length - 1) {
+        await wait(SEND_BATCH_DELAY_MS);
+      }
     }
 
     const sentCount = results.filter((result) => result.status === 'sent').length;
     const failedCount = results.length - sentCount;
+    const failedByRateLimit = results.some(
+      (result) => result.status === 'failed' && isRateLimitMessage(result.errorText)
+    );
+
+    if (failedByRateLimit) {
+      warningMessages.push('Parte del envio quedo limitada por Resend. Revisa el detalle de fallidos en el historial.');
+    }
 
     if (tablesReady && campaign?.id) {
       await updateCampaignRecipients(campaign.id, results);
