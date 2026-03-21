@@ -13,6 +13,7 @@ import {
   parseWorkingHoursConfig,
 } from '../../api/_shared/marketplace';
 import {
+  getArgentinaZoneSearchOptions,
   matchesArgentinaZoneQuery,
   resolveArgentinaZoneCoords,
   toFiniteCoordinate,
@@ -168,6 +169,7 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
   );
   const totalLikes = filteredProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
   const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
+  const zonaOptions = getArgentinaZoneSearchOptions();
   const mapPoints = filteredProfiles
     .map((profile) => {
       const exactLat = toFiniteCoordinate(profile.service_lat);
@@ -252,6 +254,11 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
       })),
     },
   };
+  const explorerQuickLinks = [
+    { label: 'Volver a toda la vidriera', href: '/vidriera' },
+    { label: `Ver ${city.name}`, href: `/ciudades/${zona}` },
+    { label: `Precios en ${city.name}`, href: `/precios-mano-de-obra/${zona}` },
+  ];
 
   return (
     <div className={sora.className}>
@@ -260,47 +267,36 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }} />
         <PublicTopNav activeHref="/vidriera" sticky />
 
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">{city.region}</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Tecnicos disponibles en {city.name}</h1>
-            <p className="mt-4 max-w-3xl text-sm text-white/80">
-              Pagina estable para Google y para usuarios que buscan tecnicos publicados en {city.name}. Cruza mapa,
-              perfiles publicos y cobertura operativa desde la vidriera de UrbanFix.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Tecnicos visibles: {filteredProfiles.length}
-              </span>
-              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Total de likes: {totalLikes}
-              </span>
-              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Con WhatsApp: {whatsappEnabledCount}
-              </span>
-              <Link
-                href="/vidriera"
-                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-              >
-                Volver a vidriera
-              </Link>
-              <Link
-                href={`/ciudades/${zona}`}
-                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-              >
-                Ver pagina de {city.name}
-              </Link>
-            </div>
-          </section>
-
+        <div className="px-3 pb-4 pt-3 sm:px-4 lg:px-6">
           {error && (
-            <div className="mt-6 rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            <div className="mx-auto mb-4 w-full max-w-[1500px] rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
               No pudimos cargar la vidriera en este momento.
             </div>
           )}
 
-          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} preferUserLocation={false} />}
+          {mapPoints.length > 0 && (
+            <PublicTechniciansMap
+              points={mapPoints}
+              preferUserLocation={false}
+              eyebrow={city.region}
+              title={`Tecnicos disponibles en ${city.name}`}
+              description={`Mapa full screen y listado flotante para explorar tecnicos publicados en ${city.name}. Esta entrada combina descubrimiento rapido, acceso directo al perfil y una ruta estable para Google.`}
+              searchConfig={{
+                actionHref: '/vidriera',
+                clearHref: `/vidriera/${zona}`,
+                query: city.name,
+                options: zonaOptions,
+                resultLabel: `Mostrando ${filteredProfiles.length} tecnico(s) visibles en ${city.name}.`,
+                listAnchorId: 'vidriera-listado',
+                listLabel: 'Ver listado',
+                placeholder: 'Ingresa otra ciudad, provincia o barrio',
+                quickLinks: explorerQuickLinks,
+              }}
+            />
+          )}
+        </div>
 
+        <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
               <p className="text-lg font-semibold text-white">Aun no encontramos tecnicos visibles para {city.name}.</p>
@@ -309,7 +305,29 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
               </p>
             </section>
           ) : (
-            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <section id="vidriera-listado" className="mt-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Listado completo</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-[2rem]">Tecnicos visibles en {city.name}</h2>
+                  <p className="mt-2 max-w-3xl text-sm text-white/72">
+                    Debajo queda el listado tradicional para comparar perfiles uno abajo del otro sin salir de la zona actual.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                    Tecnicos visibles: {filteredProfiles.length}
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                    Total de likes: {totalLikes}
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                    Con WhatsApp: {whatsappEnabledCount}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProfiles.map((profile) => {
                 const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
@@ -406,6 +424,7 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
                   </article>
                 );
               })}
+              </div>
             </section>
           )}
         </div>

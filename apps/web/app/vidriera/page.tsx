@@ -239,76 +239,50 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
       } satisfies PublicTechnicianMapPoint;
     })
     .filter((point): point is PublicTechnicianMapPoint => Boolean(point));
+  const explorerQuickLinks = featuredVidrieraZones.map((zone) => ({
+    label: zone.name,
+    href: `/vidriera/${zone.slug}`,
+  }));
 
   return (
     <div className={sora.className}>
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <PublicTopNav activeHref="/vidriera" sticky />
 
-        <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Tecnicos disponibles</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Vidriera de tecnicos disponibles</h1>
-            <p className="mt-4 max-w-3xl text-sm text-white/80">
-              Solo mostramos tecnicos que confirmaron aparecer en vidriera y que cargaron direccion o zona de trabajo.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Tecnicos confirmados: {safeProfiles.length}
-              </span>
-              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Total de likes: {totalLikes}
-              </span>
-              <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Con WhatsApp: {whatsappEnabledCount}
-              </span>
-              <Link
-                href="/cliente"
-                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-              >
-                Ir a cliente
-              </Link>
+        <div className="px-3 pb-4 pt-3 sm:px-4 lg:px-6">
+          {error && (
+            <div className="mx-auto mb-4 w-full max-w-[1500px] rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+              {migrationMissing
+                ? 'Falta migracion de perfil publico/redes en perfiles (profile_published, facebook_url, instagram_url).'
+                : 'No pudimos cargar la vidriera en este momento.'}
             </div>
+          )}
 
-            <form method="get" className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <input
-                type="text"
-                name="zona"
-                defaultValue={zonaQuery}
-                list="vidriera-zonas"
-                placeholder="Buscar por zona o ciudad (ej: Palermo, Cordoba, Zona Norte)"
-                className="w-full rounded-2xl border border-white/25 bg-black/25 px-4 py-2.5 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-[#ff8f1f] sm:max-w-xl"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                >
-                  Buscar zona
-                </button>
-                {zonaQuery && (
-                  <Link
-                    href="/vidriera"
-                    className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-                  >
-                    Limpiar
-                  </Link>
-                )}
-              </div>
-              <datalist id="vidriera-zonas">
-                {zonaOptions.map((zone) => (
-                  <option key={`zona-${zone}`} value={zone} />
-                ))}
-              </datalist>
-            </form>
+          {mapPoints.length > 0 && (
+            <PublicTechniciansMap
+              points={mapPoints}
+              preferUserLocation={!zonaQueryNormalized}
+              eyebrow="Tecnicos disponibles"
+              title="Mapa full screen para explorar tecnicos por zona"
+              description="Busca barrios, ciudades o provincias, mueve el mapa y abre fichas flotantes sin salir del contexto. La vidriera ahora prioriza cobertura, seleccion rapida y acceso directo al perfil publico."
+              searchConfig={{
+                actionHref: '/vidriera',
+                clearHref: '/vidriera',
+                query: zonaQuery,
+                options: zonaOptions,
+                resultLabel: zonaQuery
+                  ? `Mostrando ${filteredProfiles.length} tecnico(s) para la zona "${zonaQuery}".`
+                  : `Mostrando ${filteredProfiles.length} tecnico(s) en toda la vidriera.`,
+                listAnchorId: 'vidriera-listado',
+                listLabel: 'Ver listado',
+                placeholder: 'Ingresa ciudades, provincias o barrios',
+                quickLinks: explorerQuickLinks,
+              }}
+            />
+          )}
+        </div>
 
-            <p className="mt-3 text-xs text-white/65">
-              {zonaQuery
-                ? `Mostrando ${filteredProfiles.length} tecnico(s) para la zona "${zonaQuery}".`
-                : `Mostrando ${filteredProfiles.length} tecnico(s) en toda la vidriera.`}
-            </p>
-          </section>
-
+        <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
           {!zonaQuery && (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -341,16 +315,6 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
             </section>
           )}
 
-          {error && (
-            <div className="mt-6 rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-              {migrationMissing
-                ? 'Falta migracion de perfil publico/redes en perfiles (profile_published, facebook_url, instagram_url).'
-                : 'No pudimos cargar la vidriera en este momento.'}
-            </div>
-          )}
-
-          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} preferUserLocation={!zonaQueryNormalized} />}
-
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
               <p className="text-lg font-semibold text-white">
@@ -363,7 +327,29 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
               </p>
             </section>
           ) : (
-            <section className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <section id="vidriera-listado" className="mt-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Listado completo</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-[2rem]">Tecnicos visibles en vidriera</h2>
+                  <p className="mt-2 max-w-3xl text-sm text-white/72">
+                    Si prefieres comparar uno debajo del otro, aqui tienes el listado expandido con likes, rubros y acceso al perfil.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                    Tecnicos confirmados: {safeProfiles.length}
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                    Total de likes: {totalLikes}
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
+                    Con WhatsApp: {whatsappEnabledCount}
+                  </span>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProfiles.map((profile) => {
                 const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
@@ -460,6 +446,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                   </article>
                 );
               })}
+              </div>
             </section>
           )}
         </div>

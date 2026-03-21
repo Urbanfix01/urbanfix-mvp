@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Circle as LeafletCircle, LayerGroup, Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
 
 export type PublicTechnicianMapPoint = {
@@ -26,9 +26,30 @@ export type PublicTechnicianMapPoint = {
   companyLogoUrl: string;
 };
 
+export type PublicTechniciansMapQuickLink = {
+  label: string;
+  href: string;
+};
+
+export type PublicTechniciansMapSearchConfig = {
+  actionHref: string;
+  clearHref: string;
+  query: string;
+  options: string[];
+  resultLabel: string;
+  listAnchorId?: string;
+  listLabel?: string;
+  placeholder?: string;
+  quickLinks?: PublicTechniciansMapQuickLink[];
+};
+
 type Props = {
   points: PublicTechnicianMapPoint[];
   preferUserLocation?: boolean;
+  eyebrow?: string;
+  title?: string;
+  description?: string;
+  searchConfig?: PublicTechniciansMapSearchConfig;
 };
 
 type DisplayPoint = PublicTechnicianMapPoint & {
@@ -41,6 +62,7 @@ const ARGENTINA_DEFAULT_ZOOM = 4.2;
 const USER_FOCUS_DISTANCE_KM = 120;
 const USER_FOCUS_NEAREST_LIMIT = 6;
 const USER_FOCUS_FALLBACK_ZOOM = 10;
+const defaultPlaceholder = 'Ingresa ciudades o barrios';
 
 const formatCompactNumber = (value: number) => value.toLocaleString('es-AR');
 
@@ -54,10 +76,10 @@ const escapeHtml = (value: string) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
-const buildMarkerHtml = (point: DisplayPoint) => {
+const buildMarkerHtml = (point: DisplayPoint, selected: boolean) => {
   const badge = point.openNow ? 'Disponible' : 'Fuera';
   return `
-    <div class="ufx-map-pin ${point.openNow ? 'is-open' : 'is-closed'}">
+    <div class="ufx-map-pin ${point.openNow ? 'is-open' : 'is-closed'} ${selected ? 'is-selected' : ''}">
       <div class="ufx-map-pin-core"></div>
       <div class="ufx-map-pin-glow"></div>
       <span class="ufx-map-pin-badge">${badge}</span>
@@ -112,8 +134,7 @@ const spreadOverlappingPoints = (points: PublicTechnicianMapPoint[]): DisplayPoi
   });
 };
 
-const getSelectedMedia = (point: PublicTechnicianMapPoint) =>
-  point.avatarUrl || point.companyLogoUrl || '';
+const getSelectedMedia = (point: PublicTechnicianMapPoint) => point.avatarUrl || point.companyLogoUrl || '';
 
 const getDistanceKm = (fromLat: number, fromLng: number, toLat: number, toLng: number) => {
   const earthRadiusKm = 6371;
@@ -133,21 +154,28 @@ type UserLocationState =
 const getLocationStatusLabel = (status: UserLocationState['status'], preferUserLocation: boolean) => {
   switch (status) {
     case 'ready':
-      return preferUserLocation ? 'Mapa centrado en tu ubicacion actual' : 'Ubicacion disponible para recentrar';
+      return preferUserLocation ? 'Mapa centrado cerca tuyo' : 'Ubicacion lista para recentrar';
     case 'requesting':
       return 'Buscando tu ubicacion actual...';
     case 'denied':
-      return 'Activa el permiso de ubicacion para centrar el mapa cerca tuyo';
+      return 'Activa ubicacion para enfocar el mapa en tu zona';
     case 'unsupported':
-      return 'Este dispositivo no permite geolocalizacion desde el navegador';
+      return 'Este navegador no permite geolocalizacion';
     case 'error':
       return 'No pudimos detectar tu ubicacion en este intento';
     default:
-      return preferUserLocation ? 'Usaremos tu ubicacion para acercar el mapa automaticamente' : 'Puedes recentrar el mapa usando tu ubicacion';
+      return preferUserLocation ? 'Arrancamos cerca de tu ubicacion si das permiso' : 'Puedes recentrar con tu ubicacion';
   }
 };
 
-export default function PublicTechniciansMap({ points, preferUserLocation = true }: Props) {
+export default function PublicTechniciansMap({
+  points,
+  preferUserLocation = true,
+  eyebrow = 'Tecnicos disponibles',
+  title = 'Explora cobertura publica con un mapa full screen',
+  description = 'Navega tecnicos publicados, filtra por zona y abre perfiles o WhatsApp sin perder el contexto del mapa.',
+  searchConfig,
+}: Props) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -156,6 +184,7 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
   const userAccuracyCircleRef = useRef<LeafletCircle | null>(null);
   const userMarkerRef = useRef<LeafletMarker | null>(null);
   const isMountedRef = useRef(true);
+  const shouldRecenterSelectionRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(points[0]?.id || null);
   const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(preferUserLocation);
@@ -165,6 +194,7 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
     lng: null,
     accuracyMeters: null,
   });
+  const zonesListId = useId().replace(/:/g, '');
 
   const displayPoints = useMemo(() => spreadOverlappingPoints(points), [points]);
   const selectedPoint = useMemo(
@@ -206,12 +236,12 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
       return;
     }
 
-    setUserLocation(() => ({
+    setUserLocation({
       status: 'requesting',
       lat: null,
       lng: null,
       accuracyMeters: null,
-    }));
+    });
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
@@ -240,6 +270,11 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
         timeout: 10 * 1000,
       }
     );
+  };
+
+  const selectPoint = (pointId: string) => {
+    shouldRecenterSelectionRef.current = true;
+    setSelectedId(pointId);
   };
 
   useEffect(() => {
@@ -309,7 +344,7 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
         map.invalidateSize(false);
       });
       resizeObserver.observe(mapHostRef.current);
-      window.setTimeout(() => map.invalidateSize(false), 90);
+      window.setTimeout(() => map.invalidateSize(false), 120);
     };
 
     initMap();
@@ -342,7 +377,7 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
     displayPoints.forEach((point) => {
       const marker = L.marker([point.mapLat, point.mapLng], {
         icon: L.divIcon({
-          html: buildMarkerHtml(point),
+          html: buildMarkerHtml(point, point.id === selectedId),
           className: 'ufx-map-pin-shell',
           iconSize: [42, 54],
           iconAnchor: [21, 42],
@@ -358,7 +393,7 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
       });
 
       marker.on('click', () => {
-        setSelectedId(point.id);
+        selectPoint(point.id);
       });
 
       marker.addTo(layer);
@@ -394,7 +429,7 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
         [userLocation.lat, userLocation.lng] as [number, number],
         ...nearbyPoints.map((point) => [point.mapLat, point.mapLng] as [number, number]),
       ]);
-      map.fitBounds(userBounds.pad(0.2), {
+      map.fitBounds(userBounds.pad(0.18), {
         maxZoom: nearbyPoints.length === 1 ? 11 : 12,
         animate: false,
       });
@@ -402,11 +437,11 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
     }
 
     const bounds = L.latLngBounds(displayPoints.map((point) => [point.mapLat, point.mapLng] as [number, number]));
-    map.fitBounds(bounds.pad(0.18), {
+    map.fitBounds(bounds.pad(0.14), {
       maxZoom: displayPoints.length === 1 ? 12 : 8,
       animate: false,
     });
-  }, [displayPoints, mapReady, shouldFocusUserLocation, userLocation]);
+  }, [displayPoints, mapReady, selectedId, shouldFocusUserLocation, userLocation]);
 
   useEffect(() => {
     if (!mapReady || !leafletRef.current || !mapRef.current) return;
@@ -467,202 +502,324 @@ export default function PublicTechniciansMap({ points, preferUserLocation = true
     }).addTo(mapRef.current);
   }, [mapReady, selectedPoint]);
 
+  useEffect(() => {
+    if (!mapReady || !mapRef.current || !selectedPoint || !shouldRecenterSelectionRef.current) return;
+
+    shouldRecenterSelectionRef.current = false;
+    mapRef.current.flyTo(
+      [selectedPoint.mapLat, selectedPoint.mapLng],
+      Math.max(mapRef.current.getZoom(), selectedPoint.precision === 'exact' ? 11 : 10),
+      {
+        animate: true,
+        duration: 0.55,
+      }
+    );
+  }, [mapReady, selectedPoint]);
+
   if (points.length === 0) {
     return null;
   }
 
+  const listHref = searchConfig?.listAnchorId ? `#${searchConfig.listAnchorId}` : null;
+
   return (
-    <section className="mt-6 overflow-hidden rounded-[32px] border border-white/15 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(255,255,255,0.03))] shadow-[0_24px_70px_-40px_rgba(0,0,0,0.88)]">
-      <div className="border-b border-white/10 px-5 py-5 sm:px-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-3xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/55">Mapa interactivo</p>
-            <h2 className="mt-2 text-2xl font-semibold text-white sm:text-[2rem]">
-              Tecnicos disponibles en un mapa publico y navegable
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-white/72">
-              Explora tecnicos activos por zona, identifica cobertura real y revisa rapido si la ubicacion es exacta o
-              aproximada antes de entrar al perfil.
-            </p>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-[11px] font-semibold text-white/75">
-                {getLocationStatusLabel(userLocation.status, preferUserLocation)}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setHasRequestedUserFocus(true);
-                  requestUserLocation();
-                }}
-                className="rounded-full border border-[#5eead4]/45 bg-[#5eead4]/10 px-3 py-1 text-[11px] font-semibold text-[#c6fff6] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
-              >
-                {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
-              </button>
-            </div>
-          </div>
-          <div className="grid min-w-[250px] grid-cols-2 gap-2 text-xs text-white/80 sm:min-w-[320px]">
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Visibles</p>
-              <p className="mt-1 text-xl font-semibold text-white">{formatCompactNumber(stats.total)}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Disponibles ahora</p>
-              <p className="mt-1 text-xl font-semibold text-[#ffd7a8]">{formatCompactNumber(stats.openNowCount)}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Ubicacion exacta</p>
-              <p className="mt-1 text-xl font-semibold text-white">{formatCompactNumber(stats.exactCount)}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
-              <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Zona estimada</p>
-              <p className="mt-1 text-xl font-semibold text-white">{formatCompactNumber(stats.approxCount)}</p>
+    <section className="mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]">
+      <div className="relative h-[78vh] min-h-[760px] max-h-[980px]">
+        <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.16),transparent_24%),linear-gradient(180deg,rgba(19,2,31,0.78)_0%,rgba(19,2,31,0.08)_26%,rgba(19,2,31,0.16)_78%,rgba(19,2,31,0.88)_100%)]" />
+
+        <div className="absolute inset-x-0 top-0 z-[450] p-3 sm:p-4 lg:p-6">
+          <div className="mx-auto max-w-[1500px]">
+            <div className="rounded-[30px] border border-white/14 bg-[#190426]/80 p-4 shadow-[0_24px_80px_-44px_rgba(0,0,0,0.96)] backdrop-blur-xl sm:p-5">
+              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+                <div className="max-w-4xl">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/54">{eyebrow}</p>
+                  <h2 className="mt-2 max-w-4xl text-2xl font-semibold leading-tight text-white sm:text-[2.2rem]">
+                    {title}
+                  </h2>
+                  <p className="mt-3 max-w-3xl text-sm leading-7 text-white/72">{description}</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80">
+                    Visibles: {formatCompactNumber(stats.total)}
+                  </span>
+                  <span className="rounded-full border border-emerald-300/24 bg-emerald-400/10 px-3 py-2 text-[11px] font-semibold text-emerald-100">
+                    Disponibles: {formatCompactNumber(stats.openNowCount)}
+                  </span>
+                  <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80">
+                    Exactos: {formatCompactNumber(stats.exactCount)}
+                  </span>
+                  <span className="rounded-full border border-violet-300/24 bg-violet-400/10 px-3 py-2 text-[11px] font-semibold text-violet-100">
+                    Estimados: {formatCompactNumber(stats.approxCount)}
+                  </span>
+                </div>
+              </div>
+
+              {searchConfig && (
+                <form
+                  method="get"
+                  action={searchConfig.actionHref}
+                  className="mt-5 grid gap-3 xl:grid-cols-[minmax(0,1.7fr)_auto_auto_auto]"
+                >
+                  <div className="min-w-0">
+                    <label htmlFor="vidriera-zona" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/46">
+                      Buscar por zona
+                    </label>
+                    <input
+                      id="vidriera-zona"
+                      type="text"
+                      name="zona"
+                      defaultValue={searchConfig.query}
+                      list={zonesListId}
+                      placeholder={searchConfig.placeholder || defaultPlaceholder}
+                      className="h-14 w-full rounded-[22px] border border-white/18 bg-black/25 px-5 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
+                    />
+                    <datalist id={zonesListId}>
+                      {searchConfig.options.map((zone) => (
+                        <option key={`zona-${zone}`} value={zone} />
+                      ))}
+                    </datalist>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="mt-auto h-14 rounded-[22px] bg-[#ff8f1f] px-5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                  >
+                    Buscar zona
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setHasRequestedUserFocus(true);
+                      requestUserLocation();
+                    }}
+                    className="mt-auto h-14 rounded-[22px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-4 text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
+                  >
+                    {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
+                  </button>
+
+                  <div className="mt-auto flex gap-3">
+                    {searchConfig.query ? (
+                      <Link
+                        href={searchConfig.clearHref}
+                        className="inline-flex h-14 items-center justify-center rounded-[22px] border border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                      >
+                        Limpiar
+                      </Link>
+                    ) : null}
+                    {listHref ? (
+                      <a
+                        href={listHref}
+                        className="inline-flex h-14 items-center justify-center rounded-[22px] border border-white/18 bg-white/[0.04] px-5 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                      >
+                        {searchConfig.listLabel || 'Ver listado'}
+                      </a>
+                    ) : null}
+                  </div>
+                </form>
+              )}
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74">
+                  {searchConfig?.resultLabel || `${formatCompactNumber(stats.total)} tecnicos visibles en el mapa`}
+                </span>
+                <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74">
+                  {getLocationStatusLabel(userLocation.status, preferUserLocation)}
+                </span>
+                {userLocation.status === 'ready' ? (
+                  <span className="rounded-full border border-cyan-300/28 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100">
+                    Tu ubicacion visible con pulso turquesa
+                  </span>
+                ) : null}
+              </div>
+
+              {searchConfig?.quickLinks?.length ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {searchConfig.quickLinks.map((item) => (
+                    <Link
+                      key={`${item.href}-${item.label}`}
+                      href={item.href}
+                      className="rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/80 transition hover:border-white/34 hover:bg-white/[0.08] hover:text-white"
+                    >
+                      {item.label}
+                    </Link>
+                  ))}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
-      </div>
 
-      <div className="grid gap-0 xl:grid-cols-[1.45fr_0.8fr]">
-        <div className="relative min-h-[520px] border-b border-white/10 xl:border-b-0 xl:border-r">
-          <div ref={mapHostRef} className="ufx-public-map h-[520px] w-full" />
-          <div className="pointer-events-none absolute left-4 top-4 flex flex-wrap gap-2">
-            <span className="rounded-full border border-emerald-300/35 bg-emerald-400/10 px-3 py-1 text-[11px] font-semibold text-emerald-100">
-              Punto exacto = pin sin guiones
-            </span>
-            <span className="rounded-full border border-violet-300/35 bg-violet-400/10 px-3 py-1 text-[11px] font-semibold text-violet-100">
-              Zona estimada = radio punteado
-            </span>
-            {userLocation.status === 'ready' && (
-              <span className="rounded-full border border-cyan-300/35 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold text-cyan-100">
-                Tu ubicacion = pulso turquesa
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col bg-[linear-gradient(180deg,rgba(7,3,18,0.35),rgba(17,8,28,0.72))]">
-          {selectedPoint ? (
-            <>
-              <div className="border-b border-white/10 px-5 py-5 sm:px-6">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/50">Tecnico seleccionado</p>
-                <div className="mt-4 flex items-start gap-4">
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[22px] border border-white/15 bg-white/[0.06]">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-3 sm:p-4 lg:p-6">
+          <div className="mx-auto grid max-w-[1500px] gap-3 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-end">
+            {selectedPoint ? (
+              <article className="pointer-events-auto ufx-tech-card rounded-[30px] p-5 shadow-[0_24px_90px_-48px_rgba(0,0,0,1)]">
+                <div className="flex items-start gap-4">
+                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-[24px] border border-white/15 bg-white/[0.05]">
                     {getSelectedMedia(selectedPoint) ? (
-                      <img
-                        src={getSelectedMedia(selectedPoint)}
-                        alt={selectedPoint.name}
-                        className="h-full w-full object-cover"
-                      />
+                      <img src={getSelectedMedia(selectedPoint)} alt={selectedPoint.name} className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-2xl font-bold text-white/80">
                         {selectedPoint.name.slice(0, 1).toUpperCase()}
                       </div>
                     )}
                   </div>
-                  <div className="min-w-0">
-                    <p className="truncate text-xl font-semibold text-white">{selectedPoint.name}</p>
-                    <div className="mt-2 flex flex-wrap gap-2 text-[11px]">
-                      <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/85">
-                        {selectedPoint.city || 'Sin ciudad'}
-                      </span>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Tecnico destacado</p>
+                    <p className="mt-2 truncate text-xl font-semibold text-white">{selectedPoint.name}</p>
+                    <p className="mt-1 text-sm text-white/70">
+                      {selectedPoint.city || 'Sin ciudad visible'}
+                      {selectedPoint.coverageArea ? ` · ${selectedPoint.coverageArea}` : ''}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
                       <span
                         className={`rounded-full px-2.5 py-1 ${
                           selectedPoint.openNow
-                            ? 'border border-emerald-300/30 bg-emerald-400/12 text-emerald-100'
-                            : 'border border-violet-300/30 bg-violet-400/12 text-violet-100'
+                            ? 'border border-emerald-300/28 bg-emerald-400/10 text-emerald-100'
+                            : 'border border-violet-300/28 bg-violet-400/10 text-violet-100'
                         }`}
                       >
                         {selectedPoint.openNow ? 'Disponible ahora' : 'Fuera de horario'}
                       </span>
-                      <span className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-2.5 py-1 text-[#ffd6a6]">
+                      <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-2.5 py-1 text-[#ffd6a6]">
                         {selectedPoint.precision === 'exact' ? 'Punto verificado' : 'Zona estimada'}
                       </span>
                     </div>
-                    {selectedPoint.rating !== null && (
-                      <p className="mt-3 text-sm text-white/74">
-                        Rating {selectedPoint.rating.toFixed(1)} · {formatCompactNumber(selectedPoint.reviewsCount)} reseñas ·{' '}
-                        {formatCompactNumber(selectedPoint.completedJobsTotal)} trabajos
-                      </p>
-                    )}
                   </div>
                 </div>
-              </div>
 
-              <div className="space-y-5 px-5 py-5 text-sm text-white/74 sm:px-6">
-                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Cobertura</p>
-                  <p className="mt-2 leading-7 text-white/84">
-                    {selectedPoint.coverageArea || `Radio de ${selectedPoint.radiusKm} km desde ${selectedPoint.city || 'su zona base'}`}
-                  </p>
-                  <p className="mt-2 text-xs text-white/55">Radio estimado: {selectedPoint.radiusKm} km</p>
+                <div className="mt-5 grid grid-cols-3 gap-3 rounded-[24px] border border-white/10 bg-black/20 p-4 text-center">
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Likes</p>
+                    <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.likesCount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Resenas</p>
+                    <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.reviewsCount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Trabajos</p>
+                    <p className="mt-1 text-lg font-semibold text-white">
+                      {formatCompactNumber(selectedPoint.completedJobsTotal)}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Horario operativo</p>
-                  <p className="mt-2 leading-7 text-white/84">{selectedPoint.workingHoursLabel}</p>
-                </div>
+                <p className="mt-4 text-sm leading-7 text-white/74">
+                  {selectedPoint.rating !== null
+                    ? `Rating ${selectedPoint.rating.toFixed(1)} con ${formatCompactNumber(selectedPoint.reviewsCount)} resenas verificadas.`
+                    : `Radio operativo estimado de ${selectedPoint.radiusKm} km desde su zona base.`}
+                </p>
 
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Rubros</p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {selectedPoint.specialties.length > 0 ? (
-                      selectedPoint.specialties.map((specialty) => (
-                        <span
-                          key={`${selectedPoint.id}-${specialty}`}
-                          className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/82"
-                        >
-                          {specialty}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/60">
-                        Sin rubros cargados
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {selectedPoint.specialties.length > 0 ? (
+                    selectedPoint.specialties.slice(0, 4).map((specialty) => (
+                      <span
+                        key={`${selectedPoint.id}-${specialty}`}
+                        className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/82"
+                      >
+                        {specialty}
                       </span>
-                    )}
-                  </div>
+                    ))
+                  ) : (
+                    <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-1.5 text-[11px] text-white/62">
+                      Sin rubros cargados
+                    </span>
+                  )}
                 </div>
 
-                <div className="rounded-[24px] border border-white/10 bg-black/20 p-4">
-                  <div className="grid grid-cols-3 gap-3 text-center">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Likes</p>
-                      <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.likesCount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Reseñas</p>
-                      <p className="mt-1 text-lg font-semibold text-white">{formatCompactNumber(selectedPoint.reviewsCount)}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-[0.18em] text-white/45">Trabajos</p>
-                      <p className="mt-1 text-lg font-semibold text-white">
-                        {formatCompactNumber(selectedPoint.completedJobsTotal)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-auto flex flex-wrap gap-3 border-t border-white/10 px-5 py-5 sm:px-6">
-                <Link
-                  href={selectedPoint.profileHref}
-                  className="rounded-full bg-[#ff8f1f] px-4 py-2.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                >
-                  Ver perfil
-                </Link>
-                {selectedPoint.whatsappHref && (
-                  <a
-                    href={selectedPoint.whatsappHref}
-                    target="_blank"
-                    rel="noreferrer noopener"
-                    className="rounded-full border border-white/30 px-4 py-2.5 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                <div className="mt-5 flex flex-wrap gap-3">
+                  <Link
+                    href={selectedPoint.profileHref}
+                    className="rounded-full bg-[#ff8f1f] px-4 py-2.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
                   >
-                    WhatsApp
+                    Ver perfil
+                  </Link>
+                  {selectedPoint.whatsappHref ? (
+                    <a
+                      href={selectedPoint.whatsappHref}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="rounded-full border border-white/30 px-4 py-2.5 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                    >
+                      WhatsApp
+                    </a>
+                  ) : null}
+                </div>
+              </article>
+            ) : null}
+
+            <div className="pointer-events-auto rounded-[30px] border border-white/12 bg-[#170425]/76 p-3 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-4 lg:pr-20">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46">Tecnicos flotando en mapa</p>
+                  <p className="mt-1 text-sm text-white/72">Selecciona una pastilla para enfocar el punto y abrir el perfil.</p>
+                </div>
+                {listHref ? (
+                  <a
+                    href={listHref}
+                    className="rounded-full border border-white/14 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/84 transition hover:border-white/34 hover:text-white"
+                  >
+                    {searchConfig?.listLabel || 'Ver listado'}
                   </a>
-                )}
+                ) : null}
               </div>
-            </>
-          ) : (
-            <div className="px-5 py-8 text-sm text-white/72 sm:px-6">Todavia no hay tecnicos visibles en el mapa.</div>
-          )}
+
+              <div className="flex gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                {displayPoints.map((point) => {
+                  const pointMedia = getSelectedMedia(point);
+                  const isActive = point.id === selectedPoint?.id;
+
+                  return (
+                    <button
+                      key={point.id}
+                      type="button"
+                      onClick={() => selectPoint(point.id)}
+                      className={`min-w-[220px] rounded-[24px] border px-3 py-3 text-left transition ${
+                        isActive
+                          ? 'border-[#ff8f1f]/55 bg-[#ff8f1f]/12 shadow-[0_18px_40px_-30px_rgba(255,143,31,0.95)]'
+                          : 'border-white/12 bg-black/18 hover:border-white/30 hover:bg-white/[0.06]'
+                      }`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div className="h-12 w-12 shrink-0 overflow-hidden rounded-2xl border border-white/14 bg-white/[0.05]">
+                          {pointMedia ? (
+                            <img src={pointMedia} alt={point.name} className="h-full w-full object-cover" />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-bold text-white/80">
+                              {point.name.slice(0, 1).toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-semibold text-white">{point.name}</p>
+                          <p className="mt-1 truncate text-xs text-white/66">{point.city || point.coverageArea || 'UrbanFix'}</p>
+                          <div className="mt-2 flex flex-wrap gap-1.5">
+                            <span
+                              className={`rounded-full px-2 py-1 text-[10px] font-semibold ${
+                                point.openNow
+                                  ? 'border border-emerald-300/24 bg-emerald-400/10 text-emerald-100'
+                                  : 'border border-violet-300/24 bg-violet-400/10 text-violet-100'
+                              }`}
+                            >
+                              {point.openNow ? 'Disponible' : 'Fuera'}
+                            </span>
+                            <span className="rounded-full border border-white/14 bg-white/[0.06] px-2 py-1 text-[10px] font-semibold text-white/78">
+                              Likes {formatCompactNumber(point.likesCount)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
