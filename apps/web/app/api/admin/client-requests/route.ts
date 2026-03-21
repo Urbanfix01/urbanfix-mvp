@@ -5,6 +5,7 @@ import {
   buildAdminClientRequestEmailHtml,
   buildAdminClientRequestEmailSubject,
   buildAdminClientRequestEmailText,
+  buildAdminClientRequestTicketHref,
   buildAdminClientRequestWhatsappHref,
   buildAdminClientRequestWhatsappText,
 } from '@/lib/client-requests-share';
@@ -22,6 +23,30 @@ type RequestProfileRow = {
 };
 
 const toText = (value: unknown) => String(value || '').trim();
+
+const normalizeUrgency = (value: unknown) => {
+  const normalized = toText(value).toLowerCase();
+  if (normalized === 'alta' || normalized === 'media' || normalized === 'baja') return normalized;
+  return 'media';
+};
+
+const normalizeMode = (value: unknown) => (toText(value).toLowerCase() === 'direct' ? 'direct' : 'marketplace');
+
+const normalizeStatus = (value: unknown) => {
+  const normalized = toText(value).toLowerCase();
+  const allowed = new Set([
+    'published',
+    'matched',
+    'quoted',
+    'direct_sent',
+    'selected',
+    'scheduled',
+    'in_progress',
+    'completed',
+    'cancelled',
+  ]);
+  return allowed.has(normalized) ? normalized : 'published';
+};
 
 const getProviderConfig = () => ({
   apiKey: (process.env.RESEND_API_KEY || '').trim(),
@@ -179,6 +204,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       requests: requests.map((item) => ({
         ...item,
+        ticketHref: buildAdminClientRequestTicketHref(item),
         whatsappHref: buildAdminClientRequestWhatsappHref(item),
         whatsappText: buildAdminClientRequestWhatsappText(item),
         emailSubject: buildAdminClientRequestEmailSubject(item),
@@ -189,6 +215,113 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     return NextResponse.json({ error: error?.message || 'No se pudieron cargar las solicitudes.' }, { status: 500 });
   }
+}
+
+export async function PATCH(request: NextRequest) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+  }
+
+  const user = await getAuthUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const isAdmin = await ensureAdmin(user.id);
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  }
+
+  const requestId = toText(body.requestId);
+  if (!requestId) {
+    return NextResponse.json({ error: 'Falta requestId.' }, { status: 400 });
+  }
+
+  const updatePayload = {
+    title: toText(body.title),
+    category: toText(body.category),
+    address: toText(body.address),
+    city: toText(body.city) || null,
+    description: toText(body.description),
+    urgency: normalizeUrgency(body.urgency),
+    mode: normalizeMode(body.mode),
+    status: normalizeStatus(body.status),
+    preferred_window: toText(body.preferredWindow) || null,
+    target_technician_name: toText(body.targetTechnicianName) || null,
+    target_technician_phone: toText(body.targetTechnicianPhone) || null,
+  };
+
+  if (!updatePayload.title || !updatePayload.category || !updatePayload.address || !updatePayload.description) {
+    return NextResponse.json(
+      { error: 'Completa titulo, categoria, direccion y descripcion para guardar la solicitud.' },
+      { status: 400 }
+    );
+  }
+
+  const { data: updatedRow, error: updateError } = await supabase
+    .from('client_requests')
+    .update(updatePayload)
+    .eq('id', requestId)
+    .select('id')
+    .maybeSingle();
+
+  if (updateError) {
+    return NextResponse.json({ error: updateError.message || 'No se pudo editar la solicitud.' }, { status: 500 });
+  }
+  if (!updatedRow) {
+    return NextResponse.json({ error: 'Solicitud no encontrada.' }, { status: 404 });
+  }
+
+  await supabase.from('client_request_events').insert({
+    request_id: requestId,
+    actor_id: user.id,
+    label: 'Admin actualizo la solicitud.',
+  });
+
+  return NextResponse.json({ ok: true });
+}
+
+export async function DELETE(request: NextRequest) {
+  if (!supabase) {
+    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+  }
+
+  const user = await getAuthUser(request);
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const isAdmin = await ensureAdmin(user.id);
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  const requestId = toText(request.nextUrl.searchParams.get('requestId'));
+  if (!requestId) {
+    return NextResponse.json({ error: 'Falta requestId.' }, { status: 400 });
+  }
+
+  const { data: deletedRow, error: deleteError } = await supabase
+    .from('client_requests')
+    .delete()
+    .eq('id', requestId)
+    .select('id')
+    .maybeSingle();
+  if (deleteError) {
+    return NextResponse.json({ error: deleteError.message || 'No se pudo eliminar la solicitud.' }, { status: 500 });
+  }
+  if (!deletedRow) {
+    return NextResponse.json({ error: 'Solicitud no encontrada.' }, { status: 404 });
+  }
+
+  return NextResponse.json({ ok: true });
 }
 
 export async function POST(request: NextRequest) {

@@ -62,6 +62,9 @@ const formatStatusLabel = (value: string) => {
   return 'Publicada';
 };
 
+export const buildAdminClientRequestTicketHref = (request: Pick<AdminClientRequestRecord, 'id'>) =>
+  `${getNewsletterPublicBaseUrl()}/solicitudes/${encodeURIComponent(toText(request.id))}`;
+
 export const buildAdminClientRequestZoneHref = (request: AdminClientRequestRecord) => {
   const city = toText(request.city);
   const base = getNewsletterPublicBaseUrl();
@@ -70,6 +73,7 @@ export const buildAdminClientRequestZoneHref = (request: AdminClientRequestRecor
 };
 
 export const buildAdminClientRequestWhatsappText = (request: AdminClientRequestRecord) => {
+  const ticketHref = buildAdminClientRequestTicketHref(request);
   const lines = [
     'UrbanFix | Solicitud nueva',
     '',
@@ -86,17 +90,11 @@ export const buildAdminClientRequestWhatsappText = (request: AdminClientRequestR
     lines.push(`Franja sugerida: ${toText(request.preferredWindow)}`);
   }
 
-  if (toText(request.clientName) || toText(request.clientPhone)) {
-    lines.push(
-      `Cliente: ${toText(request.clientName) || 'Cliente UrbanFix'}${toText(request.clientPhone) ? ` | ${toText(request.clientPhone)}` : ''}`
-    );
-  }
-
   if (toText(request.targetTechnicianName)) {
     lines.push(`Tecnico objetivo: ${toText(request.targetTechnicianName)}`);
   }
 
-  lines.push('', 'Detalle:', request.description, '', `Ver zona: ${buildAdminClientRequestZoneHref(request)}`);
+  lines.push('', 'Detalle:', request.description, '', `Ver ticket: ${ticketHref}`);
 
   return lines.join('\n').trim();
 };
@@ -108,6 +106,7 @@ export const buildAdminClientRequestEmailSubject = (request: AdminClientRequestR
   `UrbanFix | Solicitud ${request.category} en ${toText(request.city) || 'tu zona'}`;
 
 export const buildAdminClientRequestEmailText = (request: AdminClientRequestRecord) => {
+  const ticketHref = buildAdminClientRequestTicketHref(request);
   const lines = [
     buildAdminClientRequestEmailSubject(request),
     '',
@@ -141,12 +140,13 @@ export const buildAdminClientRequestEmailText = (request: AdminClientRequestReco
     lines.push(`Cotizaciones recibidas: ${Number(request.submittedQuotesCount || 0)}`);
   }
 
-  lines.push('', `Explorar tecnicos de la zona: ${buildAdminClientRequestZoneHref(request)}`);
+  lines.push('', `Ver ticket del trabajo: ${ticketHref}`, `Explorar tecnicos de la zona: ${buildAdminClientRequestZoneHref(request)}`);
   return lines.join('\n').trim();
 };
 
 export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestRecord) => {
   const zoneHref = buildAdminClientRequestZoneHref(request);
+  const ticketHref = buildAdminClientRequestTicketHref(request);
 
   return `<!DOCTYPE html>
   <html lang="es">
@@ -190,12 +190,15 @@ export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestReco
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin-top:8px;">
               <tr>
                 <td style="border-radius:999px;background:#ff8f1f;">
-                  <a href="${escapeHtml(zoneHref)}" style="display:inline-block;padding:14px 22px;font-size:14px;font-weight:700;color:#2a0338;text-decoration:none;">
-                    Ver tecnicos de la zona
+                  <a href="${escapeHtml(ticketHref)}" style="display:inline-block;padding:14px 22px;font-size:14px;font-weight:700;color:#2a0338;text-decoration:none;">
+                    Ver ticket del trabajo
                   </a>
                 </td>
               </tr>
             </table>
+            <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#475569;">
+              Zona y cobertura: <a href="${escapeHtml(zoneHref)}" style="color:#7c3aed;text-decoration:underline;">explorar tecnicos de la zona</a>.
+            </p>
           </td>
         </tr>
       </table>
