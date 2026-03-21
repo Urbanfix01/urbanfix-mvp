@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import Link from 'next/link';
@@ -74,6 +74,8 @@ const defaultClientProfileForm: ClientProfileForm = {
   address: '',
 };
 
+const CREATE_REQUEST_INTENT = 'create-request';
+
 const badgeByStatus = (status: string) => {
   const normalized = status.toLowerCase();
   if (normalized === 'matched') return 'bg-emerald-100 text-emerald-700';
@@ -109,9 +111,13 @@ const normalizeRadiusKm = (value: unknown, fallback = 20) => {
 };
 
 export default function ClientRequestsHub() {
+  const requestTitleInputRef = useRef<HTMLInputElement | null>(null);
+  const profileIntentHandledRef = useRef(false);
+  const requestIntentHandledRef = useRef(false);
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [createRequestIntent, setCreateRequestIntent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -156,6 +162,7 @@ export default function ClientRequestsHub() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const mode = (params.get('mode') || '').toLowerCase();
+    const intent = (params.get('intent') || '').toLowerCase();
     if (mode === 'register') {
       setAuthMode('register');
     }
@@ -163,7 +170,26 @@ export default function ClientRequestsHub() {
       setAuthMode('register');
       setAuthNotice('Modo rapido activo: puedes continuar con Google.');
     }
+    if (intent === CREATE_REQUEST_INTENT) {
+      setCreateRequestIntent(true);
+      setAuthMode('register');
+      setAuthNotice('Crea tu cuenta o ingresa para publicar tu solicitud.');
+    }
   }, []);
+
+  const clearCreateRequestIntent = () => {
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('intent');
+      url.searchParams.delete('quick');
+      url.searchParams.delete('mode');
+      const nextSearch = url.searchParams.toString();
+      window.history.replaceState({}, '', `${url.pathname}${nextSearch ? `?${nextSearch}` : ''}`);
+    }
+    setCreateRequestIntent(false);
+    profileIntentHandledRef.current = false;
+    requestIntentHandledRef.current = false;
+  };
 
   const fetchRequests = async () => {
     if (!session?.access_token) return;
@@ -296,7 +322,7 @@ export default function ClientRequestsHub() {
   const handleGoogleAuth = async () => {
     setAuthError('');
     setAuthNotice('');
-    const redirectTo = `${window.location.origin}/cliente`;
+    const redirectTo = `${window.location.origin}/cliente${window.location.search || ''}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
@@ -429,6 +455,7 @@ export default function ClientRequestsHub() {
         city: prev.city || clientProfileForm.city.trim(),
         radiusKm: prev.radiusKm || defaultForm.radiusKm,
       }));
+      clearCreateRequestIntent();
       await fetchRequests();
       await loadNearbyTechnicians(form.radiusKm);
     } catch (error: any) {
@@ -495,6 +522,33 @@ export default function ClientRequestsHub() {
   };
 
   useEffect(() => {
+    if (!session?.user) {
+      profileIntentHandledRef.current = false;
+      requestIntentHandledRef.current = false;
+      return;
+    }
+    if (!createRequestIntent) return;
+
+    if (!isClientProfileComplete) {
+      if (profileIntentHandledRef.current) return;
+      profileIntentHandledRef.current = true;
+      setClientProfileNotice((current) => current || 'Completa tu perfil para desbloquear la publicacion de la solicitud.');
+      window.setTimeout(() => {
+        document.getElementById('perfil-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 180);
+      return;
+    }
+
+    if (requestIntentHandledRef.current) return;
+    requestIntentHandledRef.current = true;
+    setRequestNotice((current) => current || 'Tu cuenta ya esta lista. Carga los datos y publica tu solicitud.');
+    window.setTimeout(() => {
+      document.getElementById('nueva-solicitud-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      requestTitleInputRef.current?.focus();
+    }, 180);
+  }, [createRequestIntent, isClientProfileComplete, session?.user]);
+
+  useEffect(() => {
     if (form.mode !== 'direct') return;
     if (!form.targetTechnicianId) return;
     if (nearbyTechnicians.some((tech) => tech.id === form.targetTechnicianId)) return;
@@ -558,12 +612,15 @@ export default function ClientRequestsHub() {
         <div className="mx-auto grid w-full max-w-6xl gap-6 md:grid-cols-[1.05fr_0.95fr]">
           <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <p className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white">
-              UrbanFix clientes
+              {createRequestIntent ? 'Crear solicitud' : 'UrbanFix clientes'}
             </p>
-            <h1 className="mt-4 text-4xl font-black text-slate-900">Publica tu solicitud y recibe tecnicos cercanos</h1>
+            <h1 className="mt-4 text-4xl font-black text-slate-900">
+              {createRequestIntent ? 'Crea tu cuenta y publica tu solicitud' : 'Publica tu solicitud y recibe tecnicos cercanos'}
+            </h1>
             <p className="mt-4 text-sm leading-relaxed text-slate-600">
-              Este panel te permite crear solicitudes de trabajo para que UrbanFix busque tecnicos en un radio de 20 km
-              segun tu ubicacion y urgencia.
+              {createRequestIntent
+                ? 'Entras, completas tu perfil y publicas el trabajo para que UrbanFix busque tecnicos cercanos segun tu zona.'
+                : 'Este panel te permite crear solicitudes de trabajo para que UrbanFix busque tecnicos en un radio de 20 km segun tu ubicacion y urgencia.'}
             </p>
             <ul className="mt-6 space-y-2 text-sm text-slate-600">
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Publicacion en segundos</li>
@@ -626,7 +683,7 @@ export default function ClientRequestsHub() {
               onClick={handleGoogleAuth}
               className="mt-5 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
             >
-              Continuar con Google
+              {createRequestIntent ? 'Continuar y crear solicitud con Google' : 'Continuar con Google'}
             </button>
 
             <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
@@ -671,7 +728,15 @@ export default function ClientRequestsHub() {
               disabled={authLoading}
               className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
             >
-              {authLoading ? 'Procesando...' : authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+              {authLoading
+                ? 'Procesando...'
+                : authMode === 'login'
+                  ? createRequestIntent
+                    ? 'Ingresar y crear solicitud'
+                    : 'Ingresar'
+                  : createRequestIntent
+                    ? 'Crear cuenta y continuar'
+                    : 'Crear cuenta'}
             </button>
 
             {authError && <p className="mt-3 text-xs text-rose-600">{authError}</p>}
@@ -854,6 +919,7 @@ export default function ClientRequestsHub() {
               <div>
                 <label className="text-xs font-semibold text-slate-600">Titulo</label>
                 <input
+                  ref={requestTitleInputRef}
                   value={form.title}
                   onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
                   className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"

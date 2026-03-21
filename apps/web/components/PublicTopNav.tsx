@@ -13,6 +13,8 @@ const navLinks = [
   { label: 'Contacto', href: '/contacto' },
 ];
 
+const createRequestHref = '/cliente?mode=register&quick=1&intent=create-request';
+
 type PublicTopNavProps = {
   activeHref?: string;
   sticky?: boolean;
@@ -23,6 +25,7 @@ const platformButtonClass =
 
 export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const isCreateRequestActive = activeHref === '/cliente';
   const isDownloadActive = activeHref === '/descargar-app';
   const isPlatformActive = activeHref === '/tecnicos';
 
@@ -52,6 +55,17 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
               </a>
             ))}
           </nav>
+
+          <a
+            href={createRequestHref}
+            className={`hidden ${platformButtonClass} xl:inline-flex ${
+              isCreateRequestActive
+                ? 'border-white bg-white text-[#2a0338]'
+                : 'border-[#ffbf73]/70 bg-[#fff5e8] text-[#2a0338] hover:bg-white'
+            }`}
+          >
+            Crear solicitud
+          </a>
 
           <a
             href="/descargar-app"
@@ -105,6 +119,17 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
                 {link.label}
               </a>
             ))}
+            <a
+              href={createRequestHref}
+              onClick={() => setMenuOpen(false)}
+              className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
+                isCreateRequestActive
+                  ? 'border-white bg-white text-[#2a0338]'
+                  : 'border-[#ffbf73]/70 bg-[#fff5e8] text-[#2a0338] hover:bg-white'
+              }`}
+            >
+              Crear solicitud
+            </a>
             <a
               href="/descargar-app"
               onClick={() => setMenuOpen(false)}

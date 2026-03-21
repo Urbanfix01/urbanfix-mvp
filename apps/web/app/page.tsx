@@ -14,6 +14,7 @@ const sora = Sora({
 });
 
 const WHATSAPP_CHANNEL_URL = 'https://whatsapp.com/channel/0029VbCFl1TKQuJGScUp4b0J';
+const CREATE_REQUEST_HREF = '/cliente?mode=register&quick=1&intent=create-request';
 
 export const metadata: Metadata = {
   title: 'UrbanFix | Plataforma operativa',
@@ -86,6 +87,12 @@ export default function HomePage() {
                     la app y entrar a la plataforma correcta segun cada perfil.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href={CREATE_REQUEST_HREF}
+                      className="rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#fff1de]"
+                    >
+                      Crear solicitud
+                    </Link>
                     <Link
                       href="/urbanfix"
                       className="rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffad56]"
