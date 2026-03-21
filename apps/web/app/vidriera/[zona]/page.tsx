@@ -1,42 +1,58 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import { createClient } from '@supabase/supabase-js';
-import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../components/public/PublicTechniciansMap';
-import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
-import PublicTopNav from '../../components/PublicTopNav';
-import {
-  getArgentinaZoneSearchOptions,
-  matchesArgentinaZoneQuery,
-  resolveArgentinaZoneCoords,
-  toFiniteCoordinate,
-} from '../../lib/geo/argentina-zone-presets';
-import { buildTechnicianPath } from '../../lib/seo/technician-profile';
+import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../../components/public/PublicTechniciansMap';
+import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
+import PublicTopNav from '../../../components/PublicTopNav';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
   isNowWithinWorkingHours,
   parseWorkingHoursConfig,
-} from '../api/_shared/marketplace';
-import { ciudades } from '../../lib/seo/urbanfix-data';
+} from '../../api/_shared/marketplace';
+import {
+  matchesArgentinaZoneQuery,
+  resolveArgentinaZoneCoords,
+  toFiniteCoordinate,
+} from '../../../lib/geo/argentina-zone-presets';
+import { buildTechnicianPath } from '../../../lib/seo/technician-profile';
+import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix-data';
 
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
 });
 
-export const metadata: Metadata = {
-  title: 'Vidriera de Tecnicos | UrbanFix',
-  description: 'Explora tecnicos publicados, rubros y cobertura para solicitar tu trabajo.',
-  alternates: {
-    canonical: '/vidriera',
-  },
-};
+export const dynamicParams = false;
+export const revalidate = 300;
 
-const featuredVidrieraZones = ['buenos-aires', 'caba', 'cordoba', 'mendoza', 'rosario', 'salta'].map((slug) => ({
-  slug,
-  ...(ciudades as Record<string, (typeof ciudades)[keyof typeof ciudades]>)[slug],
-}));
+export function generateStaticParams() {
+  return ciudadSlugs.map((zona) => ({ zona }));
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ zona: string }>;
+}): Promise<Metadata> {
+  const { zona } = await params;
+  const city = ciudades[zona as CiudadKey];
+  if (!city) return { title: 'Zona no encontrada | UrbanFix' };
+
+  return {
+    title: `Tecnicos disponibles en ${city.name} | UrbanFix`,
+    description: `Explora tecnicos publicados, mapa de cobertura y perfiles visibles en ${city.name} dentro de UrbanFix.`,
+    alternates: { canonical: `/vidriera/${zona}` },
+    openGraph: {
+      title: `Tecnicos disponibles en ${city.name} | UrbanFix`,
+      description: `Mapa publico, cobertura y perfiles de tecnicos publicados en ${city.name}.`,
+      url: `https://www.urbanfix.com.ar/vidriera/${zona}`,
+      type: 'website',
+    },
+  };
+}
 
 type PublishedProfileRow = {
   id: string;
@@ -64,26 +80,11 @@ type PublishedProfileRow = {
   completed_jobs_total: number | null;
 };
 
-type VidrieraSearchParams = {
-  zona?: string | string[] | undefined;
-};
-
-type VidrieraPageProps = {
-  searchParams?: Promise<VidrieraSearchParams>;
-};
-
 const parseDelimitedValues = (value: string | null | undefined) =>
   String(value || '')
     .split(/[\n,;|/]+/)
     .map((item) => item.trim())
     .filter(Boolean);
-
-const normalizeSearchText = (value: string | null | undefined) =>
-  String(value || '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim();
 
 const hasMeaningfulCoverageArea = (value: string | null | undefined) => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -98,9 +99,6 @@ const hasWorkZoneConfigured = (profile: PublishedProfileRow) =>
       String(profile.company_address || '').trim() ||
       hasMeaningfulCoverageArea(profile.coverage_area)
   );
-
-const buildProfileZoneText = (profile: PublishedProfileRow) =>
-  [profile.city, profile.coverage_area, profile.address, profile.company_address].filter(Boolean).join(' ');
 
 const buildWhatsappLink = (phone: string | null | undefined) => {
   const raw = String(phone || '').replace(/\D/g, '');
@@ -129,17 +127,13 @@ const getPublicSupabaseClient = () => {
   });
 };
 
-export const dynamic = 'force-dynamic';
-
-export default async function VidrieraPage({ searchParams }: VidrieraPageProps) {
-  const resolvedSearchParams = (await searchParams) || {};
-  const zonaQueryRaw = Array.isArray(resolvedSearchParams.zona)
-    ? resolvedSearchParams.zona[0] || ''
-    : resolvedSearchParams.zona || '';
-  const zonaQuery = String(zonaQueryRaw || '').trim();
-  const zonaQueryNormalized = normalizeSearchText(zonaQuery);
+export default async function VidrieraZonaPage({ params }: { params: Promise<{ zona: string }> }) {
+  const { zona } = await params;
+  const city = ciudades[zona as CiudadKey];
+  if (!city) return notFound();
 
   const supabase = getPublicSupabaseClient();
+  const zoneQuery = city.zoneQuery;
 
   if (!supabase) {
     return (
@@ -169,37 +163,11 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
 
   const profiles = (data || []) as PublishedProfileRow[];
   const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
-  const filteredProfiles = zonaQueryNormalized
-    ? safeProfiles.filter((profile) =>
-        matchesArgentinaZoneQuery(
-          zonaQuery,
-          profile.city,
-          profile.coverage_area,
-          profile.address,
-          profile.company_address
-        )
-      )
-    : safeProfiles;
-  const migrationMissing =
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('profile_published') ||
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('facebook_url') ||
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('instagram_url');
-  const whatsappEnabledCount = safeProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
-  const totalLikes = safeProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
-  const zonaOptions = Array.from(
-    new Set([
-      ...safeProfiles
-        .map((profile) => String(profile.city || profile.coverage_area || '').trim())
-        .filter(Boolean),
-      ...getArgentinaZoneSearchOptions(),
-    ])
-  ).sort((a, b) => a.localeCompare(b, 'es'));
+  const filteredProfiles = safeProfiles.filter((profile) =>
+    matchesArgentinaZoneQuery(zoneQuery, profile.city, profile.coverage_area, profile.address, profile.company_address)
+  );
+  const totalLikes = filteredProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
+  const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const mapPoints = filteredProfiles
     .map((profile) => {
       const exactLat = toFiniteCoordinate(profile.service_lat);
@@ -240,21 +208,69 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
     })
     .filter((point): point is PublicTechnicianMapPoint => Boolean(point));
 
+  const breadcrumbJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      {
+        '@type': 'ListItem',
+        position: 1,
+        name: 'Inicio',
+        item: 'https://www.urbanfix.com.ar/',
+      },
+      {
+        '@type': 'ListItem',
+        position: 2,
+        name: 'Vidriera de tecnicos',
+        item: 'https://www.urbanfix.com.ar/vidriera',
+      },
+      {
+        '@type': 'ListItem',
+        position: 3,
+        name: city.name,
+        item: `https://www.urbanfix.com.ar/vidriera/${zona}`,
+      },
+    ],
+  };
+
+  const collectionJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: `Tecnicos disponibles en ${city.name}`,
+    description: `Mapa publico y perfiles publicados de tecnicos en ${city.name}.`,
+    url: `https://www.urbanfix.com.ar/vidriera/${zona}`,
+    mainEntity: {
+      '@type': 'ItemList',
+      itemListElement: filteredProfiles.slice(0, 12).map((profile, index) => ({
+        '@type': 'ListItem',
+        position: index + 1,
+        name: String(profile.business_name || profile.full_name || 'Tecnico UrbanFix'),
+        url: `https://www.urbanfix.com.ar${buildTechnicianPath(
+          profile.id,
+          String(profile.business_name || profile.full_name || 'Tecnico UrbanFix')
+        )}`,
+      })),
+    },
+  };
+
   return (
     <div className={sora.className}>
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }} />
         <PublicTopNav activeHref="/vidriera" sticky />
 
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Tecnicos disponibles</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Vidriera de tecnicos disponibles</h1>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">{city.region}</p>
+            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">Tecnicos disponibles en {city.name}</h1>
             <p className="mt-4 max-w-3xl text-sm text-white/80">
-              Solo mostramos tecnicos que confirmaron aparecer en vidriera y que cargaron direccion o zona de trabajo.
+              Pagina estable para Google y para usuarios que buscan tecnicos publicados en {city.name}. Cruza mapa,
+              perfiles publicos y cobertura operativa desde la vidriera de UrbanFix.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                Tecnicos confirmados: {safeProfiles.length}
+                Tecnicos visibles: {filteredProfiles.length}
               </span>
               <span className="rounded-full border border-white/20 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
                 Total de likes: {totalLikes}
@@ -263,103 +279,33 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 Con WhatsApp: {whatsappEnabledCount}
               </span>
               <Link
-                href="/cliente"
+                href="/vidriera"
                 className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
               >
-                Ir a cliente
+                Volver a vidriera
+              </Link>
+              <Link
+                href={`/ciudades/${zona}`}
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver pagina de {city.name}
               </Link>
             </div>
-
-            <form method="get" className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-              <input
-                type="text"
-                name="zona"
-                defaultValue={zonaQuery}
-                list="vidriera-zonas"
-                placeholder="Buscar por zona o ciudad (ej: Palermo, Cordoba, Zona Norte)"
-                className="w-full rounded-2xl border border-white/25 bg-black/25 px-4 py-2.5 text-sm text-white placeholder:text-white/50 outline-none transition focus:border-[#ff8f1f] sm:max-w-xl"
-              />
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="submit"
-                  className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                >
-                  Buscar zona
-                </button>
-                {zonaQuery && (
-                  <Link
-                    href="/vidriera"
-                    className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-                  >
-                    Limpiar
-                  </Link>
-                )}
-              </div>
-              <datalist id="vidriera-zonas">
-                {zonaOptions.map((zone) => (
-                  <option key={`zona-${zone}`} value={zone} />
-                ))}
-              </datalist>
-            </form>
-
-            <p className="mt-3 text-xs text-white/65">
-              {zonaQuery
-                ? `Mostrando ${filteredProfiles.length} tecnico(s) para la zona "${zonaQuery}".`
-                : `Mostrando ${filteredProfiles.length} tecnico(s) en toda la vidriera.`}
-            </p>
           </section>
-
-          {!zonaQuery && (
-            <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Zonas indexables</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">Entradas directas por zona</h2>
-                </div>
-                <Link
-                  href="/ciudades"
-                  className="text-xs font-semibold text-[#ffbf7a] transition hover:text-[#ffd5a8]"
-                >
-                  Ver todas las jurisdicciones
-                </Link>
-              </div>
-              <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {featuredVidrieraZones.map((zone) => (
-                  <Link
-                    key={zone.slug}
-                    href={`/vidriera/${zone.slug}`}
-                    className="rounded-2xl border border-white/12 bg-black/20 p-4 transition hover:border-white/30 hover:bg-white/[0.06]"
-                  >
-                    <p className="text-base font-semibold text-white">Tecnicos en {zone.name}</p>
-                    <p className="mt-1 text-xs uppercase tracking-[0.12em] text-[#ffbf7a]">{zone.region}</p>
-                    <p className="mt-2 text-sm leading-6 text-white/72">
-                      Pagina estable para cobertura, perfiles publicados y mapa de tecnicos en {zone.name}.
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          )}
 
           {error && (
             <div className="mt-6 rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-              {migrationMissing
-                ? 'Falta migracion de perfil publico/redes en perfiles (profile_published, facebook_url, instagram_url).'
-                : 'No pudimos cargar la vidriera en este momento.'}
+              No pudimos cargar la vidriera en este momento.
             </div>
           )}
 
-          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} preferUserLocation={!zonaQueryNormalized} />}
+          {mapPoints.length > 0 && <PublicTechniciansMap points={mapPoints} preferUserLocation={false} />}
 
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
-              <p className="text-lg font-semibold text-white">
-                {zonaQuery ? 'No encontramos tecnicos para esa zona.' : 'Aun no hay tecnicos disponibles.'}
-              </p>
+              <p className="text-lg font-semibold text-white">Aun no encontramos tecnicos visibles para {city.name}.</p>
               <p className="mt-2 text-sm text-white/70">
-                {zonaQuery
-                  ? 'Prueba otra ciudad o zona, o limpia el buscador para ver toda la vidriera.'
-                  : 'Para aparecer, deben confirmar publicacion y cargar direccion o zona de trabajo.'}
+                La zona ya quedo lista como ruta indexable. Cuando haya perfiles publicados, esta pagina los mostrara.
               </p>
             </section>
           ) : (

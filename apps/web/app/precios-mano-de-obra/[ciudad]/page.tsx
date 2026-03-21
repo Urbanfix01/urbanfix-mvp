@@ -169,7 +169,7 @@ export default async function PreciosManoDeObraCiudadPage({
                 Volver a mano de obra
               </Link>
               <Link
-                href={`/vidriera?zona=${encodeURIComponent(city.zoneQuery)}`}
+                href={`/vidriera/${ciudad}`}
                 className="rounded-full border border-white/35 px-5 py-2.5 text-sm font-semibold text-white/90 transition hover:border-white hover:text-white"
               >
                 Ver tecnicos en {city.name}
@@ -271,7 +271,7 @@ export default async function PreciosManoDeObraCiudadPage({
 
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <Link
-              href={`/vidriera?zona=${encodeURIComponent(city.zoneQuery)}`}
+              href={`/vidriera/${ciudad}`}
               className="rounded-3xl border border-white/15 bg-gradient-to-br from-white/[0.06] to-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30"
             >
               <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Mapa publico</p>

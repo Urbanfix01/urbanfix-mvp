@@ -74,6 +74,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "monthly",
     priority: 0.6,
   }));
+  const vidrieraZonaEntries: MetadataRoute.Sitemap = ciudadSlugs.map((slug) => ({
+    url: `${baseUrl}/vidriera/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.7,
+  }));
   const manoDeObraCiudadEntries: MetadataRoute.Sitemap = ciudadSlugs.map((slug) => ({
     url: `${baseUrl}/precios-mano-de-obra/${slug}`,
     lastModified: new Date(),
@@ -143,6 +149,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 0.8,
     },
+    ...vidrieraZonaEntries,
     ...technicianEntries,
     {
       url: `${baseUrl}/soporte`,

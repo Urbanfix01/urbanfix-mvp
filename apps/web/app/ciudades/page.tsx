@@ -64,7 +64,7 @@ export default async function CiudadesPage() {
                 Ver rubros activos
               </Link>
               <Link
-                href="/vidriera"
+                href="/vidriera/buenos-aires"
                 className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
               >
                 Ver mapa de tecnicos
@@ -139,7 +139,7 @@ export default async function CiudadesPage() {
                     Explorar cobertura
                   </Link>
                   <Link
-                    href={`/vidriera?zona=${encodeURIComponent(city.zoneQuery)}`}
+                    href={`/vidriera/${city.slug}`}
                     className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                   >
                     Ver tecnicos en zona

@@ -76,7 +76,7 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
                 Volver a ciudades
               </Link>
               <Link
-                href={`/vidriera?zona=${encodeURIComponent(city.zoneQuery)}`}
+                href={`/vidriera/${slug}`}
                 className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
               >
                 Ver tecnicos en {city.name}
@@ -176,7 +176,7 @@ export default async function CiudadPage({ params }: { params: Promise<{ slug: s
 
           <section className="mt-6 grid gap-4 lg:grid-cols-3">
             <Link
-              href={`/vidriera?zona=${encodeURIComponent(city.zoneQuery)}`}
+              href={`/vidriera/${slug}`}
               className="rounded-3xl border border-white/15 bg-gradient-to-br from-white/[0.06] to-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30"
             >
               <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Vidriera</p>

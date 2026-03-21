@@ -22,6 +22,7 @@ const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.urbanfix.c
 type PublicTechnicianProfile = {
   id: string;
   access_granted: boolean | null;
+  profile_published: boolean | null;
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
@@ -160,10 +161,11 @@ const getPublicProfileById = async (profileId: string) => {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
     )
     .eq('id', profileId)
     .eq('access_granted', true)
+    .eq('profile_published', true)
     .maybeSingle();
 
   return {
@@ -200,7 +202,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 
   const { data: profile } = await getPublicProfileById(profileId);
-  if (!profile || !profile.access_granted) {
+  if (!profile || !profile.access_granted || !profile.profile_published) {
     return {
       title: 'Perfil tecnico | UrbanFix',
       description: 'Perfil tecnico publico en UrbanFix.',
@@ -277,10 +279,11 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
     )
     .eq('id', profileId)
     .eq('access_granted', true)
+    .eq('profile_published', true)
     .maybeSingle();
 
   if (error) {
@@ -306,7 +309,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   }
 
   const profile = (data || null) as PublicTechnicianProfile | null;
-  if (!profile || !profile.access_granted) {
+  if (!profile || !profile.access_granted || !profile.profile_published) {
     notFound();
   }
 
