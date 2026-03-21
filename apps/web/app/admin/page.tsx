@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Manrope } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 
@@ -40,6 +41,7 @@ type AdminTabKey =
   | 'accesos'
   | 'actividad'
   | 'mano_obra'
+  | 'solicitudes'
   | 'newsletter'
   | 'flujo';
 type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
@@ -3743,6 +3745,7 @@ export default function AdminPage() {
     { key: 'usuarios', label: 'Usuarios' },
     { key: 'facturacion', label: 'FacturaciÃ³n' },
     { key: 'mano_obra', label: 'Mano de obra' },
+    { key: 'solicitudes', label: 'Solicitudes' },
     { key: 'newsletter', label: 'Newsletter' },
     { key: 'flujo', label: 'Flujo App/Web' },
     { key: 'roadmap', label: 'Roadmap' },
@@ -7770,6 +7773,9 @@ export default function AdminPage() {
                 ))}
               </div>
             </section>
+          )}
+          {activeTab === 'solicitudes' && session?.access_token && (
+            <AdminClientRequestsPanel accessToken={session.access_token} active={activeTab === 'solicitudes'} />
           )}
           {activeTab === 'newsletter' && session?.access_token && (
             <AdminNewsletterPanel accessToken={session.access_token} active={activeTab === 'newsletter'} />
