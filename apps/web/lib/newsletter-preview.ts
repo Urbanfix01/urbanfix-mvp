@@ -69,7 +69,7 @@ export const buildNewsletterPreviewHtml = (params: {
     ctaLabel && ctaUrl
       ? `<table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:24px 0 0;">
           <tr>
-            <td style="border-radius:999px;background:#ff8f1f;">
+            <td class="newsletter-cta" style="border-radius:999px;background:#ff8f1f;">
               <a href="${escapeHtml(ctaUrl)}" style="display:inline-block;padding:14px 22px;font-size:14px;font-weight:700;color:#2a0338;text-decoration:none;">${escapeHtml(ctaLabel)}</a>
             </td>
           </tr>
@@ -90,7 +90,7 @@ export const buildNewsletterPreviewHtml = (params: {
          ${quickLinks
            .map(
              (item) =>
-               `<a href="${escapeHtml(item.url)}" style="display:block;margin:0 0 10px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);text-decoration:none;">
+               `<a href="${escapeHtml(item.url)}" class="newsletter-link-card" style="display:block;margin:0 0 10px;padding:14px 16px;border-radius:18px;border:1px solid #5d3f77;background:#311046;text-decoration:none;">
                   <span style="display:block;font-size:15px;font-weight:700;line-height:1.5;color:#ffffff;">${escapeHtml(item.label)}</span>
                   <span style="display:block;margin-top:4px;font-size:12px;line-height:1.5;color:#d8c8e6;">${escapeHtml(item.url)}</span>
                 </a>`
@@ -105,23 +105,75 @@ export const buildNewsletterPreviewHtml = (params: {
       <meta charset="utf-8" />
       <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <meta name="color-scheme" content="dark" />
+      <meta name="supported-color-schemes" content="dark" />
       <title>${title}</title>
+      <style>
+        :root {
+          color-scheme: dark;
+          supported-color-schemes: dark;
+        }
+        body,
+        table,
+        td,
+        div,
+        p,
+        a,
+        span {
+          font-family: Arial, sans-serif !important;
+        }
+        @media (prefers-color-scheme: dark) {
+          body,
+          .newsletter-body,
+          .newsletter-shell,
+          .newsletter-card {
+            background: #180022 !important;
+            color: #ffffff !important;
+          }
+          .newsletter-card {
+            border-color: #5d3f77 !important;
+          }
+          .newsletter-copy,
+          .newsletter-copy p,
+          .newsletter-copy span,
+          .newsletter-footer,
+          .newsletter-footer p {
+            color: #f3e9ff !important;
+          }
+          .newsletter-muted {
+            color: #d8c8e6 !important;
+          }
+          .newsletter-link-card {
+            background: #311046 !important;
+            border-color: #5d3f77 !important;
+          }
+          .newsletter-rule {
+            background: #5d3f77 !important;
+          }
+          .newsletter-cta {
+            background: #ff8f1f !important;
+          }
+          .newsletter-cta a {
+            color: #2a0338 !important;
+          }
+        }
+      </style>
     </head>
-    <body style="margin:0;padding:0;background:#180022;font-family:Arial,sans-serif;">
+    <body class="newsletter-body" style="margin:0;padding:0;background:#180022;font-family:Arial,sans-serif;">
       <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${previewText}</div>
-      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background:#180022;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="newsletter-shell" bgcolor="#180022" style="background:#180022;">
         <tr>
           <td align="center" style="padding:32px 16px;">
-            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:640px;border:1px solid rgba(255,255,255,0.12);border-radius:28px;overflow:hidden;background:linear-gradient(180deg,#2c083c 0%,#240432 100%);box-shadow:0 24px 80px rgba(0,0,0,0.35);">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="newsletter-card" bgcolor="#240432" style="max-width:640px;border:1px solid #5d3f77;border-radius:28px;overflow:hidden;background:#240432;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
               <tr>
                 <td style="padding:32px 32px 12px;">
-                  <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#ffd6a6;">UrbanFix newsletter</p>
+                  <p class="newsletter-muted" style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#ffd6a6;">UrbanFix newsletter</p>
                   <h1 style="margin:0;font-size:34px;line-height:1.08;color:#ffffff;">${title}</h1>
                 </td>
               </tr>
               ${heroImageHtml}
               <tr>
-                <td style="padding:12px 32px 8px;">
+                <td class="newsletter-copy" style="padding:12px 32px 8px;">
                   ${
                     intro
                       ? `<p style="margin:0 0 18px;font-size:16px;line-height:1.7;color:#ffffff;">${intro}</p>`
@@ -133,12 +185,12 @@ export const buildNewsletterPreviewHtml = (params: {
                 </td>
               </tr>
               <tr>
-                <td style="padding:24px 32px 32px;">
-                  <div style="height:1px;background:rgba(255,255,255,0.12);margin-bottom:16px;"></div>
-                  <p style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#d8c8e6;">
+                <td class="newsletter-footer" style="padding:24px 32px 32px;">
+                  <div class="newsletter-rule" style="height:1px;background:#5d3f77;margin-bottom:16px;"></div>
+                  <p class="newsletter-muted" style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#d8c8e6;">
                     Recibiste este correo por tu relacion con UrbanFix.
                   </p>
-                  <p style="margin:0;font-size:12px;line-height:1.6;color:#d8c8e6;">
+                  <p class="newsletter-muted" style="margin:0;font-size:12px;line-height:1.6;color:#d8c8e6;">
                     Si no quieres seguir recibiendo novedades,
                     <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#ffd6a6;text-decoration:underline;">darte de baja aqui</a>.
                   </p>
