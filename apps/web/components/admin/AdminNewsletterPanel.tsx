@@ -1,6 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import {
+  buildNewsletterPreviewBodyText,
+  buildNewsletterPreviewHtml,
+  normalizeNewsletterPreviewUrl,
+} from '@/lib/newsletter-preview';
 
 type NewsletterAudience =
   | 'opted_in_all'
@@ -147,6 +152,28 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
     }
     return 'Este segmento solo toma usuarios con consentimiento de newsletter activo.';
   }, [audience, data]);
+
+  const previewFrameHtml = useMemo(() => {
+    const normalizedQuickLinks = quickLinks
+      .map((link) => ({
+        label: link.label.trim(),
+        url: normalizeNewsletterPreviewUrl(link.url),
+      }))
+      .filter((link) => link.label && link.url);
+
+    return buildNewsletterPreviewHtml({
+      title: subject.trim() || 'UrbanFix | Vista previa de campaña',
+      previewText: previewText.trim() || 'Vista previa del newsletter de UrbanFix.',
+      intro: introText.trim(),
+      paragraphs: buildNewsletterPreviewBodyText(bodyText),
+      heroImageUrl: heroImageUrl.trim(),
+      heroImageAlt: heroImageAlt.trim(),
+      quickLinks: normalizedQuickLinks,
+      ctaLabel: ctaLabel.trim(),
+      ctaUrl: ctaUrl.trim(),
+      unsubscribeUrl: 'https://www.urbanfix.com.ar/newsletter/baja?preview=1',
+    });
+  }, [bodyText, ctaLabel, ctaUrl, heroImageAlt, heroImageUrl, introText, previewText, quickLinks, subject]);
 
   const handleSubmit = async (mode: 'test' | 'send') => {
     if (!accessToken) return;
@@ -483,6 +510,42 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                   Para enviar campanas reales debes configurar `RESEND_API_KEY` y `NEWSLETTER_FROM_EMAIL`.
                 </p>
               )}
+            </div>
+          </div>
+
+          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Vista previa</p>
+                <h4 className="text-base font-semibold text-slate-900">Previsualizacion de la campaña</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  Asi se vera el newsletter antes de enviarlo. Se actualiza en vivo con el borrador actual.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                <p>
+                  <span className="font-semibold text-slate-700">Asunto:</span>{' '}
+                  {subject.trim() || 'UrbanFix | Vista previa de campaña'}
+                </p>
+                <p className="mt-1">
+                  <span className="font-semibold text-slate-700">Preview:</span>{' '}
+                  {previewText.trim() || 'Vista previa del newsletter de UrbanFix.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 overflow-hidden rounded-[28px] border border-slate-200 bg-slate-950/95 shadow-[0_20px_60px_rgba(15,23,42,0.12)]">
+              <div className="flex items-center gap-2 border-b border-white/10 bg-slate-900 px-4 py-3">
+                <span className="h-3 w-3 rounded-full bg-rose-400" />
+                <span className="h-3 w-3 rounded-full bg-amber-400" />
+                <span className="h-3 w-3 rounded-full bg-emerald-400" />
+                <span className="ml-3 text-xs font-medium text-slate-300">UrbanFix newsletter preview</span>
+              </div>
+              <iframe
+                title="Vista previa del newsletter"
+                srcDoc={previewFrameHtml}
+                className="h-[760px] w-full bg-white"
+              />
             </div>
           </div>
 
