@@ -524,133 +524,78 @@ export default function PublicTechniciansMap({
 
   return (
     <section className="mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]">
-      <div className="relative h-[82vh] min-h-[680px] sm:min-h-[760px] max-h-[980px]">
-        <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.16),transparent_24%),linear-gradient(180deg,rgba(19,2,31,0.78)_0%,rgba(19,2,31,0.08)_26%,rgba(19,2,31,0.16)_78%,rgba(19,2,31,0.88)_100%)]" />
-
-        <div className="absolute inset-x-0 top-0 z-[450] p-2.5 sm:p-4 lg:p-6">
-          <div className="mx-auto max-w-[1120px] xl:ml-4 xl:mr-auto">
-            <div className="rounded-[28px] border border-white/14 bg-[#190426]/80 p-3 shadow-[0_24px_80px_-44px_rgba(0,0,0,0.96)] backdrop-blur-xl sm:p-4 lg:p-5">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
-                <div className="max-w-4xl">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/54">{eyebrow}</p>
-                  <h2 className="mt-2 max-w-4xl text-[1.9rem] font-semibold leading-tight text-white sm:text-[2.2rem]">
-                    {title}
-                  </h2>
-                  <p className="mt-2 hidden max-w-3xl text-sm leading-7 text-white/72 sm:block">{description}</p>
-                </div>
-
-                <div className="flex flex-wrap gap-1.5">
-                  <span className="rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80">
-                    Visibles: {formatCompactNumber(stats.total)}
-                  </span>
-                  <span className="rounded-full border border-emerald-300/24 bg-emerald-400/10 px-3 py-2 text-[11px] font-semibold text-emerald-100">
-                    Disponibles: {formatCompactNumber(stats.openNowCount)}
-                  </span>
-                  <span className="hidden rounded-full border border-white/14 bg-white/[0.06] px-3 py-2 text-[11px] font-semibold text-white/80 sm:inline-flex">
-                    Exactos: {formatCompactNumber(stats.exactCount)}
-                  </span>
-                  <span className="hidden rounded-full border border-violet-300/24 bg-violet-400/10 px-3 py-2 text-[11px] font-semibold text-violet-100 sm:inline-flex">
-                    Estimados: {formatCompactNumber(stats.approxCount)}
-                  </span>
-                </div>
+      <div className="border-b border-white/12 bg-[#190426] px-3 py-3 sm:px-4 lg:px-6">
+        <div className="mx-auto w-full max-w-[1500px]">
+          {searchConfig ? (
+            <form
+              method="get"
+              action={searchConfig.actionHref}
+              className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
+            >
+              <div className="min-w-0 xl:col-span-1">
+                <input
+                  id="vidriera-zona"
+                  type="text"
+                  name="zona"
+                  defaultValue={searchConfig.query}
+                  list={zonesListId}
+                  placeholder={searchConfig.placeholder || defaultPlaceholder}
+                  className="h-12 w-full rounded-[20px] border border-white/18 bg-black/25 px-4 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
+                />
+                <datalist id={zonesListId}>
+                  {searchConfig.options.map((zone) => (
+                    <option key={`zona-${zone}`} value={zone} />
+                  ))}
+                </datalist>
               </div>
 
-              {searchConfig && (
-                <form
-                  method="get"
-                  action={searchConfig.actionHref}
-                  className="mt-4 grid gap-2 lg:grid-cols-[minmax(0,1.5fr)_auto_auto_auto]"
+              <button
+                type="submit"
+                className="h-12 rounded-[20px] bg-[#ff8f1f] px-4 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+              >
+                Buscar zona
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setHasRequestedUserFocus(true);
+                  requestUserLocation();
+                }}
+                className="h-12 rounded-[20px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-4 text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
+              >
+                {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
+              </button>
+
+              {searchConfig.query ? (
+                <Link
+                  href={searchConfig.clearHref}
+                  className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
                 >
-                  <div className="min-w-0">
-                    <label htmlFor="vidriera-zona" className="mb-2 block text-[11px] font-semibold uppercase tracking-[0.22em] text-white/46">
-                      Buscar por zona
-                    </label>
-                    <input
-                      id="vidriera-zona"
-                      type="text"
-                      name="zona"
-                      defaultValue={searchConfig.query}
-                      list={zonesListId}
-                      placeholder={searchConfig.placeholder || defaultPlaceholder}
-                      className="h-12 w-full rounded-[20px] border border-white/18 bg-black/25 px-4 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
-                    />
-                    <datalist id={zonesListId}>
-                      {searchConfig.options.map((zone) => (
-                        <option key={`zona-${zone}`} value={zone} />
-                      ))}
-                    </datalist>
-                  </div>
-
-                  <button
-                    type="submit"
-                    className="mt-auto h-12 rounded-[20px] bg-[#ff8f1f] px-4 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                  >
-                    Buscar zona
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setHasRequestedUserFocus(true);
-                      requestUserLocation();
-                    }}
-                    className="mt-auto h-12 rounded-[20px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-4 text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
-                  >
-                    {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
-                  </button>
-
-                  <div className="mt-auto flex gap-2">
-                    {searchConfig.query ? (
-                      <Link
-                        href={searchConfig.clearHref}
-                        className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
-                      >
-                        Limpiar
-                      </Link>
-                    ) : null}
-                    {listHref ? (
-                      <a
-                        href={listHref}
-                        className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
-                      >
-                        {searchConfig.listLabel || 'Ver listado'}
-                      </a>
-                    ) : null}
-                  </div>
-                </form>
+                  Limpiar
+                </Link>
+              ) : (
+                <div className="hidden xl:block" />
               )}
 
-              <div className="mt-3 flex flex-wrap gap-2">
-                <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74">
-                  {searchConfig?.resultLabel || `${formatCompactNumber(stats.total)} tecnicos visibles en el mapa`}
-                </span>
-                <span className="hidden rounded-full border border-white/12 bg-black/20 px-3 py-1.5 text-[11px] font-semibold text-white/74 sm:inline-flex">
-                  {getLocationStatusLabel(userLocation.status, preferUserLocation)}
-                </span>
-                {userLocation.status === 'ready' ? (
-                  <span className="hidden rounded-full border border-cyan-300/28 bg-cyan-400/10 px-3 py-1.5 text-[11px] font-semibold text-cyan-100 sm:inline-flex">
-                    Tu ubicacion visible con pulso turquesa
-                  </span>
-                ) : null}
-              </div>
-
-              {searchConfig?.quickLinks?.length ? (
-                <div className="mt-3 hidden flex-wrap gap-2 lg:flex">
-                  {searchConfig.quickLinks.map((item) => (
-                    <Link
-                      key={`${item.href}-${item.label}`}
-                      href={item.href}
-                      className="rounded-full border border-white/14 bg-white/[0.04] px-3 py-1.5 text-[11px] font-semibold text-white/80 transition hover:border-white/34 hover:bg-white/[0.08] hover:text-white"
-                    >
-                      {item.label}
-                    </Link>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          </div>
+              {listHref ? (
+                <a
+                  href={listHref}
+                  className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                >
+                  {searchConfig.listLabel || 'Ver listado'}
+                </a>
+              ) : (
+                <div className="hidden xl:block" />
+              )}
+            </form>
+          ) : null}
         </div>
+      </div>
+
+      <div className="relative h-[82vh] min-h-[680px] sm:min-h-[760px] max-h-[980px]">
+        <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
         <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[460] p-2.5 sm:p-4 lg:p-6">
           <div className="mx-auto grid max-w-[1360px] gap-2 sm:gap-3 lg:grid-cols-[280px_minmax(0,1fr)] lg:items-end">
@@ -668,8 +613,7 @@ export default function PublicTechniciansMap({
                   </div>
 
                   <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/45">Tecnico destacado</p>
-                    <p className="mt-1 truncate text-lg font-semibold text-white sm:mt-2 sm:text-xl">{selectedPoint.name}</p>
+                    <p className="truncate text-lg font-semibold text-white sm:text-xl">{selectedPoint.name}</p>
                     <p className="mt-1 text-xs text-white/70 sm:text-sm">
                       {selectedPoint.city || 'Sin ciudad visible'}
                       {selectedPoint.coverageArea ? ` - ${selectedPoint.coverageArea}` : ''}
@@ -707,12 +651,6 @@ export default function PublicTechniciansMap({
                     </p>
                   </div>
                 </div>
-
-                <p className="mt-3 text-xs leading-6 text-white/74 sm:text-sm">
-                  {selectedPoint.rating !== null
-                    ? `Rating ${selectedPoint.rating.toFixed(1)} con ${formatCompactNumber(selectedPoint.reviewsCount)} resenas verificadas.`
-                    : `Radio operativo estimado de ${selectedPoint.radiusKm} km desde su zona base.`}
-                </p>
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   {selectedPoint.specialties.length > 0 ? (
@@ -754,10 +692,7 @@ export default function PublicTechniciansMap({
 
             <div className="pointer-events-auto rounded-[28px] border border-white/12 bg-[#170425]/76 p-2.5 shadow-[0_20px_80px_-48px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-4 lg:pr-20">
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/46">Tecnicos flotando en mapa</p>
-                  <p className="mt-1 hidden text-sm text-white/72 sm:block">Selecciona una pastilla para enfocar el punto y abrir el perfil.</p>
-                </div>
+                <div className="hidden sm:block" />
                 {listHref ? (
                   <a
                     href={listHref}
