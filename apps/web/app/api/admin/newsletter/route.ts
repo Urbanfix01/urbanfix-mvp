@@ -3,11 +3,13 @@ import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/a
 import {
   NEWSLETTER_AUDIENCE_LABELS,
   type NewsletterAudience,
+  type NewsletterQuickLink,
   buildNewsletterHtml,
   buildNewsletterPlainText,
   buildNewsletterBodyText,
   buildNewsletterUnsubscribeUrl,
   normalizeNewsletterEmail,
+  normalizeNewsletterUrl,
   resolveNewsletterAudience,
 } from '@/lib/newsletter';
 
@@ -15,6 +17,7 @@ const RESEND_API_URL = 'https://api.resend.com/emails';
 const AUTH_USERS_PAGE_SIZE = 200;
 const SEND_BATCH_SIZE = 20;
 const MAX_NEWSLETTER_RECIPIENTS = 500;
+const MAX_QUICK_LINKS = 3;
 
 type NewsletterProfileRow = {
   id: string;
@@ -55,6 +58,30 @@ const chunk = <T,>(items: T[], size: number) => {
     result.push(items.slice(index, index + size));
   }
   return result;
+};
+
+const parseQuickLinks = (value: unknown) => {
+  const rawItems = Array.isArray(value) ? value.slice(0, MAX_QUICK_LINKS) : [];
+  const quickLinks: NewsletterQuickLink[] = [];
+
+  for (const item of rawItems) {
+    const label = String((item as any)?.label || '').trim();
+    const rawUrl = String((item as any)?.url || '').trim();
+
+    if (!label && !rawUrl) continue;
+    if (!label || !rawUrl) {
+      throw new Error('Completa etiqueta y URL en cada enlace directo o deja ambos vacios.');
+    }
+
+    const url = normalizeNewsletterUrl(rawUrl);
+    if (!url) {
+      throw new Error(`URL invalida en enlace directo: ${rawUrl}`);
+    }
+
+    quickLinks.push({ label, url });
+  }
+
+  return quickLinks;
 };
 
 const getNewsletterProviderConfig = () => ({
@@ -372,8 +399,10 @@ export async function POST(request: NextRequest) {
   const previewText = String(body?.previewText || '').trim();
   const introText = String(body?.introText || '').trim();
   const bodyText = String(body?.bodyText || '').trim();
+  const heroImageRawUrl = String(body?.heroImageUrl || '').trim();
+  const heroImageAlt = String(body?.heroImageAlt || '').trim();
   const ctaLabel = String(body?.ctaLabel || '').trim();
-  const ctaUrl = String(body?.ctaUrl || '').trim();
+  const ctaUrl = normalizeNewsletterUrl(body?.ctaUrl);
   const testEmail = normalizeNewsletterEmail(body?.testEmail);
 
   if (!Object.prototype.hasOwnProperty.call(NEWSLETTER_AUDIENCE_LABELS, audience)) {
@@ -388,11 +417,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Ingresa un email de prueba valido.' }, { status: 400 });
   }
 
+  const heroImageUrl = heroImageRawUrl ? normalizeNewsletterUrl(heroImageRawUrl) : '';
+  if (heroImageRawUrl && !heroImageUrl) {
+    return NextResponse.json({ error: 'La URL de la imagen principal no es valida.' }, { status: 400 });
+  }
+
   if ((ctaLabel && !ctaUrl) || (!ctaLabel && ctaUrl)) {
     return NextResponse.json({ error: 'Completa ambos campos del CTA o deja ambos vacios.' }, { status: 400 });
   }
 
   try {
+    const quickLinks = parseQuickLinks(body?.quickLinks);
     const { recipients, newsletterColumnsReady } = await buildNewsletterRecipients();
     const provider = getNewsletterProviderConfig();
 
@@ -419,6 +454,9 @@ export async function POST(request: NextRequest) {
         previewText,
         intro: introText,
         paragraphs,
+        heroImageUrl,
+        heroImageAlt,
+        quickLinks,
         ctaLabel,
         ctaUrl,
         unsubscribeUrl,
@@ -427,6 +465,8 @@ export async function POST(request: NextRequest) {
         title: subject,
         intro: introText,
         paragraphs,
+        heroImageUrl,
+        quickLinks,
         ctaLabel,
         ctaUrl,
         unsubscribeUrl,
@@ -498,6 +538,9 @@ export async function POST(request: NextRequest) {
             previewText,
             intro: introText,
             paragraphs,
+            heroImageUrl,
+            heroImageAlt,
+            quickLinks,
             ctaLabel,
             ctaUrl,
             unsubscribeUrl,
@@ -506,6 +549,8 @@ export async function POST(request: NextRequest) {
             title: subject,
             intro: introText,
             paragraphs,
+            heroImageUrl,
+            quickLinks,
             ctaLabel,
             ctaUrl,
             unsubscribeUrl,
@@ -551,6 +596,9 @@ export async function POST(request: NextRequest) {
           previewText,
           intro: introText,
           paragraphs,
+          heroImageUrl,
+          heroImageAlt,
+          quickLinks,
           ctaLabel,
           ctaUrl,
           unsubscribeUrl: buildNewsletterUnsubscribeUrl(campaignRecipients[0].email, campaignRecipients[0].userId),

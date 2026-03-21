@@ -41,6 +41,11 @@ type Props = {
   active: boolean;
 };
 
+type QuickLinkDraft = {
+  label: string;
+  url: string;
+};
+
 const audienceOptions: NewsletterAudience[] = [
   'opted_in_all',
   'opted_in_tecnicos',
@@ -73,10 +78,17 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
   const [previewText, setPreviewText] = useState('');
   const [introText, setIntroText] = useState('');
   const [bodyText, setBodyText] = useState('');
+  const [heroImageUrl, setHeroImageUrl] = useState('');
+  const [heroImageAlt, setHeroImageAlt] = useState('');
   const [ctaLabel, setCtaLabel] = useState('');
   const [ctaUrl, setCtaUrl] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [audience, setAudience] = useState<NewsletterAudience>('opted_in_all');
+  const [quickLinks, setQuickLinks] = useState<QuickLinkDraft[]>([
+    { label: '', url: '' },
+    { label: '', url: '' },
+    { label: '', url: '' },
+  ]);
 
   const loadNewsletter = async () => {
     if (!accessToken) return;
@@ -139,6 +151,9 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
           previewText,
           introText,
           bodyText,
+          heroImageUrl,
+          heroImageAlt,
+          quickLinks,
           ctaLabel,
           ctaUrl,
           testEmail,
@@ -272,6 +287,27 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
 
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Imagen principal URL</span>
+                  <input
+                    value={heroImageUrl}
+                    onChange={(event) => setHeroImageUrl(event.target.value)}
+                    placeholder="https://www.urbanfix.com.ar/..."
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Imagen alt</span>
+                  <input
+                    value={heroImageAlt}
+                    onChange={(event) => setHeroImageAlt(event.target.value)}
+                    placeholder="Ej: Mapa publico y rubros de UrbanFix"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">CTA label</span>
                   <input
                     value={ctaLabel}
@@ -289,6 +325,53 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                     className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   />
                 </label>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Enlaces directos</p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Puedes agregar hasta tres links para llevar directo a ventanas o novedades concretas.
+                </p>
+                <div className="mt-4 space-y-4">
+                  {quickLinks.map((link, index) => (
+                    <div key={`quick-link-${index}`} className="grid gap-4 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                          Link {index + 1} label
+                        </span>
+                        <input
+                          value={link.label}
+                          onChange={(event) =>
+                            setQuickLinks((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, label: event.target.value } : item
+                              )
+                            )
+                          }
+                          placeholder="Ej: Ver mapa de tecnicos"
+                          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                          Link {index + 1} URL
+                        </span>
+                        <input
+                          value={link.url}
+                          onChange={(event) =>
+                            setQuickLinks((current) =>
+                              current.map((item, itemIndex) =>
+                                itemIndex === index ? { ...item, url: event.target.value } : item
+                              )
+                            )
+                          }
+                          placeholder="https://www.urbanfix.com.ar/vidriera"
+                          className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
 

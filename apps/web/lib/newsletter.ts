@@ -11,6 +11,10 @@ export type NewsletterAudience =
 export type NewsletterCampaignStatus = 'draft' | 'sending' | 'sent' | 'failed';
 export type NewsletterRecipientStatus = 'pending' | 'sent' | 'failed' | 'skipped';
 export type NewsletterUserAudience = 'tecnico' | 'cliente' | 'desconocido';
+export type NewsletterQuickLink = {
+  label: string;
+  url: string;
+};
 
 export const NEWSLETTER_AUDIENCE_LABELS: Record<NewsletterAudience, string> = {
   opted_in_all: 'Solo suscriptos',
@@ -47,6 +51,23 @@ export const buildNewsletterBodyText = (value: string | null | undefined) =>
     .map((paragraph) => paragraph.trim())
     .filter(Boolean);
 
+export const normalizeNewsletterUrl = (value: string | null | undefined) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  try {
+    if (raw.startsWith('/')) {
+      return `${getNewsletterPublicBaseUrl()}${raw}`;
+    }
+
+    const parsed = new URL(raw);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') return '';
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+};
+
 const escapeHtml = (value: string) =>
   value
     .replace(/&/g, '&amp;')
@@ -60,6 +81,9 @@ export const buildNewsletterHtml = (params: {
   previewText?: string | null;
   intro?: string | null;
   paragraphs: string[];
+  heroImageUrl?: string | null;
+  heroImageAlt?: string | null;
+  quickLinks?: NewsletterQuickLink[];
   ctaLabel?: string | null;
   ctaUrl?: string | null;
   unsubscribeUrl: string;
@@ -67,8 +91,11 @@ export const buildNewsletterHtml = (params: {
   const title = escapeHtml(params.title);
   const previewText = escapeHtml(String(params.previewText || '').trim());
   const intro = escapeHtml(String(params.intro || '').trim());
+  const heroImageUrl = normalizeNewsletterUrl(params.heroImageUrl);
+  const heroImageAlt = escapeHtml(String(params.heroImageAlt || params.title || 'UrbanFix').trim());
+  const quickLinks = (params.quickLinks || []).filter((item) => item.label && item.url);
   const ctaLabel = String(params.ctaLabel || '').trim();
-  const ctaUrl = String(params.ctaUrl || '').trim();
+  const ctaUrl = normalizeNewsletterUrl(params.ctaUrl);
 
   const paragraphsHtml = params.paragraphs
     .map(
@@ -87,6 +114,29 @@ export const buildNewsletterHtml = (params: {
           </tr>
         </table>`
       : '';
+
+  const heroImageHtml = heroImageUrl
+    ? `<tr>
+        <td style="padding:0 32px 8px;">
+          <img src="${escapeHtml(heroImageUrl)}" alt="${heroImageAlt}" style="display:block;width:100%;height:auto;border-radius:24px;border:1px solid rgba(255,255,255,0.12);" />
+        </td>
+      </tr>`
+    : '';
+
+  const quickLinksHtml = quickLinks.length
+    ? `<div style="margin:28px 0 0;">
+         <p style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#ffd6a6;">Enlaces directos</p>
+         ${quickLinks
+           .map(
+             (item) =>
+               `<a href="${escapeHtml(item.url)}" style="display:block;margin:0 0 10px;padding:14px 16px;border-radius:18px;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);text-decoration:none;">
+                  <span style="display:block;font-size:15px;font-weight:700;line-height:1.5;color:#ffffff;">${escapeHtml(item.label)}</span>
+                  <span style="display:block;margin-top:4px;font-size:12px;line-height:1.5;color:#d8c8e6;">${escapeHtml(item.url)}</span>
+                </a>`
+           )
+           .join('')}
+       </div>`
+    : '';
 
   return `<!DOCTYPE html>
   <html lang="es">
@@ -107,6 +157,7 @@ export const buildNewsletterHtml = (params: {
                   <h1 style="margin:0;font-size:34px;line-height:1.08;color:#ffffff;">${title}</h1>
                 </td>
               </tr>
+              ${heroImageHtml}
               <tr>
                 <td style="padding:12px 32px 8px;">
                   ${
@@ -116,6 +167,7 @@ export const buildNewsletterHtml = (params: {
                   }
                   ${paragraphsHtml}
                   ${ctaHtml}
+                  ${quickLinksHtml}
                 </td>
               </tr>
               <tr>
@@ -142,6 +194,8 @@ export const buildNewsletterPlainText = (params: {
   title: string;
   intro?: string | null;
   paragraphs: string[];
+  heroImageUrl?: string | null;
+  quickLinks?: NewsletterQuickLink[];
   ctaLabel?: string | null;
   ctaUrl?: string | null;
   unsubscribeUrl: string;
@@ -156,8 +210,27 @@ export const buildNewsletterPlainText = (params: {
     lines.push(paragraph, '');
   });
 
+  if (params.heroImageUrl) {
+    const heroImageUrl = normalizeNewsletterUrl(params.heroImageUrl);
+    if (heroImageUrl) {
+      lines.push(`Imagen: ${heroImageUrl}`, '');
+    }
+  }
+
   if (params.ctaLabel && params.ctaUrl) {
-    lines.push(`${params.ctaLabel}: ${params.ctaUrl}`, '');
+    const ctaUrl = normalizeNewsletterUrl(params.ctaUrl);
+    if (ctaUrl) {
+      lines.push(`${params.ctaLabel}: ${ctaUrl}`, '');
+    }
+  }
+
+  const quickLinks = (params.quickLinks || []).filter((item) => item.label && item.url);
+  if (quickLinks.length) {
+    lines.push('Enlaces directos:');
+    quickLinks.forEach((item) => {
+      lines.push(`- ${item.label}: ${item.url}`);
+    });
+    lines.push('');
   }
 
   lines.push(`Baja newsletter: ${params.unsubscribeUrl}`);
