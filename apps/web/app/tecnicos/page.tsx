@@ -51,17 +51,10 @@ const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
 const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
-const RESUME_STATIC_IMAGE_URL = (
-  process.env.NEXT_PUBLIC_RESUME_STATIC_IMAGE_URL || '/playstore/feature-graphic.png'
-).trim();
-const ACCESS_VIDEO_POSTER_URL = (
-  process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || RESUME_STATIC_IMAGE_URL || '/playstore/feature-graphic.png'
-).trim();
+const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
 const DASHBOARD_VIDEO_URL = (process.env.NEXT_PUBLIC_DASHBOARD_VIDEO_URL || POST_LOGIN_VIDEO_URL || ACCESS_VIDEO_URL).trim();
 const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
 const POST_LOGIN_VIDEO_MAX_MS = 10000;
-const RESUME_STATIC_IMAGE_MS = 1200;
-const RESUME_STATIC_ON_TAB_RETURN_ENABLED = false;
 const COVERAGE_RADIUS_KM = 20;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
@@ -1218,9 +1211,6 @@ export default function TechniciansPage() {
   );
   const [postLoginVideoVisible, setPostLoginVideoVisible] = useState(false);
   const [postLoginVideoPending, setPostLoginVideoPending] = useState(false);
-  const [resumeStaticVisible, setResumeStaticVisible] = useState(false);
-  const resumeStaticTimerRef = useRef<number | null>(null);
-  const hiddenAtRef = useRef<number | null>(null);
   const accessVideoRef = useRef<HTMLVideoElement | null>(null);
   const dashboardVideoRef = useRef<HTMLVideoElement | null>(null);
   const postLoginVideoRef = useRef<HTMLVideoElement | null>(null);
@@ -1539,7 +1529,6 @@ export default function TechniciansPage() {
       if (event === 'SIGNED_OUT') {
         setPostLoginVideoPending(false);
         setPostLoginVideoVisible(false);
-        setResumeStaticVisible(false);
       }
     });
     return () => {
@@ -1584,53 +1573,6 @@ export default function TechniciansPage() {
       window.clearTimeout(timeoutId);
     };
   }, [postLoginVideoVisible]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined') return;
-
-    const clearResumeTimer = () => {
-      if (resumeStaticTimerRef.current !== null) {
-        window.clearTimeout(resumeStaticTimerRef.current);
-        resumeStaticTimerRef.current = null;
-      }
-    };
-
-    if (!RESUME_STATIC_ON_TAB_RETURN_ENABLED) {
-      clearResumeTimer();
-      hiddenAtRef.current = null;
-      setResumeStaticVisible(false);
-      return;
-    }
-
-    if (!session?.user?.id) {
-      clearResumeTimer();
-      hiddenAtRef.current = null;
-      setResumeStaticVisible(false);
-      return;
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden') {
-        hiddenAtRef.current = Date.now();
-        clearResumeTimer();
-        return;
-      }
-      if (!RESUME_STATIC_IMAGE_URL) return;
-      if (hiddenAtRef.current === null) return;
-      hiddenAtRef.current = null;
-      setResumeStaticVisible(true);
-      clearResumeTimer();
-      resumeStaticTimerRef.current = window.setTimeout(() => {
-        setResumeStaticVisible(false);
-      }, RESUME_STATIC_IMAGE_MS);
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      clearResumeTimer();
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user) {
@@ -4465,17 +4407,12 @@ export default function TechniciansPage() {
 
   const sessionMediaOverlays = session?.user ? (
     <>
-      {RESUME_STATIC_ON_TAB_RETURN_ENABLED && resumeStaticVisible && RESUME_STATIC_IMAGE_URL && !postLoginVideoVisible && (
-        <div className="fixed inset-0 z-[120] bg-black" aria-hidden="true">
-          <img src={RESUME_STATIC_IMAGE_URL} alt="" className="h-full w-full object-cover" />
-        </div>
-      )}
       {postLoginVideoVisible && postLoginVideoAvailable && (
         <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black" aria-hidden="true">
           <video
             ref={postLoginVideoRef}
             src={POST_LOGIN_VIDEO_URL}
-            poster={RESUME_STATIC_IMAGE_URL || ACCESS_VIDEO_POSTER_URL}
+            poster={ACCESS_VIDEO_POSTER_URL}
             autoPlay
             playsInline
             preload="auto"
