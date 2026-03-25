@@ -265,7 +265,18 @@ export default function ClientRequestsHub() {
     setNearbyLoading(true);
     setNearbyError('');
     try {
-      const response = await fetch(`/api/client/technicians/nearby?radiusKm=${safeRadius}`, {
+      const params = new URLSearchParams();
+      params.set('radiusKm', String(safeRadius));
+      if (form.address.trim()) params.set('address', form.address.trim());
+      if ((form.city.trim() || clientProfileForm.city.trim())) {
+        params.set('city', form.city.trim() || clientProfileForm.city.trim());
+      }
+      if (locationLat !== null && locationLng !== null) {
+        params.set('locationLat', String(locationLat));
+        params.set('locationLng', String(locationLng));
+      }
+
+      const response = await fetch(`/api/client/technicians/nearby?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
         },

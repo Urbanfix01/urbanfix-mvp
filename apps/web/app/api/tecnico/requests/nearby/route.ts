@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
   const { data: requestsData, error: requestsError } = await supabase
     .from('client_requests')
     .select(
-      'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km'
+      'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km, photo_urls'
     )
     .in('status', ['published', 'matched', 'quoted', 'direct_sent'])
     .order('created_at', { ascending: false })
@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
   if (requestIds.length > 0) {
     const { data: ownMatchRows } = await supabase
       .from('client_request_matches')
-      .select('request_id, quote_status, price_ars, eta_hours, updated_at')
+      .select('request_id, quote_status, quote_id, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at')
       .eq('technician_id', user.id)
       .in('request_id', requestIds);
     (ownMatchRows || []).forEach((row: any) => {
@@ -198,7 +198,13 @@ export async function GET(request: NextRequest) {
       match_radius_km: maxDistance,
       location_lat: Number(requestLat.toFixed(6)),
       location_lng: Number(requestLng.toFixed(6)),
+      photo_urls: Array.isArray(row.photo_urls)
+        ? row.photo_urls.map((item: unknown) => String(item || '').trim()).filter(Boolean)
+        : [],
       my_quote_status: ownMatch?.quote_status ? String(ownMatch.quote_status) : null,
+      my_response_type: ownMatch?.response_type ? String(ownMatch.response_type) : null,
+      my_response_message: ownMatch?.response_message ? String(ownMatch.response_message) : null,
+      my_visit_eta_hours: toFiniteNumber(ownMatch?.visit_eta_hours),
       my_price_ars: toFiniteNumber(ownMatch?.price_ars),
       my_eta_hours: ownEta === null ? null : Math.max(0, Math.round(ownEta)),
       my_quote_updated_at: ownMatch?.updated_at ? String(ownMatch.updated_at) : null,

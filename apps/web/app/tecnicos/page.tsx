@@ -30,6 +30,8 @@ import {
   normalizeTechnicalNotesText,
 } from '../../lib/master-items';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
+import TechnicianLocationPicker from '../../components/TechnicianLocationPicker';
+import { parseTechnicianLocation } from '../../lib/technician-location';
 import type {
   AccessProfile,
   AttachmentRow,
@@ -1235,6 +1237,13 @@ export default function TechniciansPage() {
   const [offerErrorByRequestId, setOfferErrorByRequestId] = useState<Record<string, string>>({});
 
   const [profile, setProfile] = useState<any>(null);
+  const [technicianLocationResult, setTechnicianLocationResult] = useState<{
+    lat: number;
+    lng: number;
+    displayName: string;
+    isValid: boolean;
+    precision: 'exact' | 'approx';
+  } | null>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
   const [clientName, setClientName] = useState('');
@@ -1280,6 +1289,7 @@ export default function TechniciansPage() {
     companyLogoUrl: '',
     avatarUrl: '',
     logoShape: 'auto',
+    locationPickerResult: null as any,
   });
   const [customSpecialtyDraft, setCustomSpecialtyDraft] = useState('');
   const [customPaymentMethodDraft, setCustomPaymentMethodDraft] = useState('');
@@ -1644,6 +1654,11 @@ export default function TechniciansPage() {
     const parsedCertifications = parseCertificationFilesTag(profile.certifications || '');
     const rawBankValue = String(profile.bank_alias || '').trim();
     const detectedBankType: 'alias' | 'cbu' = normalizeCbu(rawBankValue).length === 22 ? 'cbu' : 'alias';
+    
+    // Parse location from profile
+    const locationResult = parseTechnicianLocation(profile);
+    setTechnicianLocationResult(locationResult);
+    
     setProfileForm({
       fullName: profile.full_name || '',
       businessName: profile.business_name || '',
@@ -1676,6 +1691,7 @@ export default function TechniciansPage() {
       companyLogoUrl: profile.company_logo_url || legacyLogoUrl || '',
       avatarUrl: hasLegacyLogo ? '' : profile.avatar_url || '',
       logoShape: profile.logo_shape || 'auto',
+      locationPickerResult: locationResult,
     });
     setBankAccountType(detectedBankType);
     setCustomPaymentMethodDraft('');

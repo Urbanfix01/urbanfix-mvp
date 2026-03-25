@@ -44,6 +44,20 @@ const toInt = (value: unknown, fallback = 0) => {
   return Math.max(0, Math.round(parsed));
 };
 
+const toIsoOrNull = (value: unknown) => {
+  if (!value) return null;
+  const parsed = new Date(String(value));
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+};
+
+const normalizeStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) return [] as string[];
+  return value
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+};
+
 const splitTextLines = (value: unknown) =>
   String(value || '')
     .split('\n')
@@ -220,6 +234,10 @@ const mapQuoteRow = (row: AnyRecord, profile?: AnyRecord | null) => {
     coverageZones,
     coverageArea: coverageArea || null,
     phone: String(row.technician_phone || '').trim() || String(profile?.phone || '').trim() || '',
+    quoteId: String(row.quote_id || '').trim() || null,
+    responseType: String(row.response_type || '').trim() || null,
+    responseMessage: String(row.response_message || '').trim() || '',
+    visitEtaHours: toNumberOrNull(row.visit_eta_hours),
     workingHours: String(profile?.working_hours || '').trim() || null,
     priceArs: toNumberOrNull(row.price_ars),
     etaHours: toNumberOrNull(row.eta_hours),
@@ -231,6 +249,7 @@ const mapQuoteRow = (row: AnyRecord, profile?: AnyRecord | null) => {
     recommendations,
     badges: parseBadgeArray(profile?.achievement_badges),
     visibilityScore: getTechnicianVisibilityScore(profile),
+    submittedAt: toIsoOrNull(row.updated_at || row.created_at),
   };
 };
 
@@ -238,34 +257,69 @@ const mapRequestRow = (
   row: AnyRecord,
   quoteRows: AnyRecord[],
   eventRows: AnyRecord[],
-  profilesById: Map<string, AnyRecord>
-) => ({
-  id: String(row.id),
-  title: String(row.title || ''),
-  category: String(row.category || ''),
-  address: String(row.address || ''),
-  city: String(row.city || ''),
-  description: String(row.description || ''),
-  urgency: String(row.urgency || 'media'),
-  preferredWindow: String(row.preferred_window || ''),
-  mode: String(row.mode || 'marketplace'),
-  status: isRequestStatus(row.status) ? String(row.status) : 'published',
-  updatedAt: toIso(row.updated_at),
-  targetTechId: row.target_technician_id ? String(row.target_technician_id) : null,
-  targetTechName: row.target_technician_name ? String(row.target_technician_name) : null,
-  targetTechPhone: row.target_technician_phone ? String(row.target_technician_phone) : null,
-  assignedTechId: row.assigned_technician_id ? String(row.assigned_technician_id) : null,
-  assignedTechName: row.assigned_technician_name ? String(row.assigned_technician_name) : null,
-  assignedTechPhone: row.assigned_technician_phone ? String(row.assigned_technician_phone) : null,
-  directExpiresAt: row.direct_expires_at ? toIso(row.direct_expires_at) : null,
-  selectedQuoteId: row.selected_match_id ? String(row.selected_match_id) : null,
-  quotes: quoteRows.map((quoteRow) => mapQuoteRow(quoteRow, profilesById.get(String(quoteRow.technician_id || '')))),
-  timeline: eventRows.map((event) => ({
-    id: String(event.id),
-    at: toIso(event.created_at),
-    label: String(event.label || ''),
-  })),
-});
+  profilesById: Map<string, AnyRecord>,
+  feedbackByQuoteId: Map<string, AnyRecord>
+) => {
+  const mappedResponses = quoteRows.map((quoteRow) => mapQuoteRow(quoteRow, profilesById.get(String(quoteRow.technician_id || ''))));
+  const selectedResponse =
+    mappedResponses.find((item) => item.id === String(row.selected_match_id || '')) ||
+    mappedResponses.find((item) => item.technicianId === String(row.assigned_technician_id || '')) ||
+    null;
+  const selectedQuoteId = selectedResponse?.quoteId || null;
+  const savedFeedback = selectedQuoteId ? feedbackByQuoteId.get(selectedQuoteId) || null : null;
+  const feedbackTechnicianName =
+    String(savedFeedback?.technicianName || '').trim() ||
+    selectedResponse?.technicianName ||
+    String(row.assigned_technician_name || '').trim() ||
+    String(row.target_technician_name || '').trim() ||
+    'Tecnico UrbanFix';
+
+  return {
+    id: String(row.id),
+    title: String(row.title || ''),
+    category: String(row.category || ''),
+    address: String(row.address || ''),
+    city: String(row.city || ''),
+    province: String(row.province || ''),
+    description: String(row.description || ''),
+    urgency: String(row.urgency || 'media'),
+    preferredWindow: String(row.preferred_window || ''),
+    mode: String(row.mode || 'marketplace'),
+    status: isRequestStatus(row.status) ? String(row.status) : 'published',
+    updatedAt: toIso(row.updated_at),
+    targetTechId: row.target_technician_id ? String(row.target_technician_id) : null,
+    targetTechName: row.target_technician_name ? String(row.target_technician_name) : null,
+    targetTechPhone: row.target_technician_phone ? String(row.target_technician_phone) : null,
+    assignedTechId: row.assigned_technician_id ? String(row.assigned_technician_id) : null,
+    assignedTechName: row.assigned_technician_name ? String(row.assigned_technician_name) : null,
+    assignedTechPhone: row.assigned_technician_phone ? String(row.assigned_technician_phone) : null,
+    directExpiresAt: row.direct_expires_at ? toIso(row.direct_expires_at) : null,
+    selectedQuoteId: row.selected_match_id ? String(row.selected_match_id) : null,
+    photoUrls: normalizeStringArray(row.photo_urls),
+    responses: mappedResponses,
+    quotes: mappedResponses,
+    timeline: eventRows.map((event) => ({
+      id: String(event.id),
+      at: toIso(event.created_at),
+      label: String(event.label || ''),
+    })),
+    feedbackAllowed: String(row.status || '').trim() === 'completed' && Boolean(selectedQuoteId),
+    feedback: savedFeedback
+      ? {
+          id: String(savedFeedback.id || ''),
+          quoteId: selectedQuoteId,
+          matchId: selectedResponse?.id || null,
+          technicianId: selectedResponse?.technicianId || String(row.assigned_technician_id || '').trim() || null,
+          technicianName: feedbackTechnicianName,
+          rating: Math.max(1, Math.min(5, Number(savedFeedback.rating || 0))),
+          comment: String(savedFeedback.comment || ''),
+          isPublic: Boolean(savedFeedback.is_public),
+          createdAt: toIsoOrNull(savedFeedback.submitted_at),
+          updatedAt: toIsoOrNull(savedFeedback.updated_at),
+        }
+      : null,
+  };
+};
 
 export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) => {
   const { data: requestRows, error: requestError } = await supabase
@@ -357,6 +411,30 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
     }
   }
 
+  const feedbackByQuoteId = new Map<string, AnyRecord>();
+  const quoteIds = Array.from(
+    new Set(
+      matches
+        .map((row) => String(row.quote_id || '').trim())
+        .filter(Boolean)
+    )
+  );
+  if (quoteIds.length) {
+    const { data: feedbackRows, error: feedbackError } = await supabase
+      .from('quote_feedback_reviews')
+      .select('id, quote_id, technician_id, client_name, rating, comment, is_public, submitted_at, updated_at')
+      .in('quote_id', quoteIds);
+
+    if (!feedbackError) {
+      (feedbackRows || []).forEach((feedbackRow: AnyRecord) => {
+        const quoteId = String(feedbackRow.quote_id || '').trim();
+        if (quoteId) {
+          feedbackByQuoteId.set(quoteId, feedbackRow);
+        }
+      });
+    }
+  }
+
   const eventMap = new Map<string, AnyRecord[]>();
   events.forEach((row) => {
     const requestId = String(row.request_id);
@@ -371,7 +449,8 @@ export const getClientWorkspaceSnapshot = async (supabase: any, userId: string) 
         row,
         matchMap.get(String(row.id)) || [],
         eventMap.get(String(row.id)) || [],
-        profilesById
+        profilesById,
+        feedbackByQuoteId
       )
     ),
     knownTechnicians: buildKnownTechnicians(requests),

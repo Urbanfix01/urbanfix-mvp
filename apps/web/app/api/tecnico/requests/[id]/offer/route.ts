@@ -46,6 +46,9 @@ const parseHoursValue = (value: unknown) => {
 };
 
 const formatArs = (value: number) => `$${value.toLocaleString('es-AR')}`;
+const toText = (value: unknown) => String(value || '').trim();
+const normalizeResponseType = (value: unknown) =>
+  String(value || '').trim().toLowerCase() === 'application' ? 'application' : 'direct_quote';
 
 const activeRequestStatuses = new Set(['published', 'matched', 'quoted', 'direct_sent']);
 
@@ -75,17 +78,39 @@ export async function POST(
     return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
   }
 
+  const responseType = normalizeResponseType(body.response_type);
   const parsedPrice = parseArsValue(body.price_ars);
   const parsedEta = parseHoursValue(body.eta_hours);
-  if (parsedPrice === null || parsedPrice <= 0) {
-    return NextResponse.json({ error: 'Ingresa un precio valido en ARS.' }, { status: 400 });
-  }
-  if (parsedEta === null || parsedEta <= 0) {
-    return NextResponse.json({ error: 'Ingresa una ETA valida en horas.' }, { status: 400 });
-  }
+  const parsedVisitEta = parseHoursValue(body.visit_eta_hours);
+  const responseMessage = toText(body.message);
+  const quoteIdRaw = toText(body.quote_id);
 
-  const priceArs = Math.round(parsedPrice * 100) / 100;
-  const etaHours = Math.max(1, Math.min(720, Math.round(parsedEta)));
+  const priceArs =
+    parsedPrice === null || parsedPrice <= 0 ? null : Math.round(parsedPrice * 100) / 100;
+  const etaHours =
+    parsedEta === null || parsedEta <= 0 ? null : Math.max(1, Math.min(720, Math.round(parsedEta)));
+  const visitEtaHours =
+    parsedVisitEta === null || parsedVisitEta <= 0 ? null : Math.max(1, Math.min(720, Math.round(parsedVisitEta)));
+  const quoteId = quoteIdRaw ? (isUuid(quoteIdRaw) ? quoteIdRaw : '__invalid__') : null;
+
+  if (responseType === 'direct_quote') {
+    if (priceArs === null) {
+      return NextResponse.json({ error: 'Ingresa un precio valido en ARS.' }, { status: 400 });
+    }
+    if (etaHours === null) {
+      return NextResponse.json({ error: 'Ingresa una ETA valida en horas.' }, { status: 400 });
+    }
+    if (quoteId === '__invalid__') {
+      return NextResponse.json({ error: 'Presupuesto invalido.' }, { status: 400 });
+    }
+  } else {
+    if (responseMessage.length < 12) {
+      return NextResponse.json({ error: 'Escribe un mensaje breve para postularte.' }, { status: 400 });
+    }
+    if (visitEtaHours === null) {
+      return NextResponse.json({ error: 'Indica en cuantas horas puedes coordinar la visita.' }, { status: 400 });
+    }
+  }
 
   const { data: technicianProfile, error: technicianError } = await supabase
     .from('profiles')
@@ -147,14 +172,18 @@ export async function POST(
     technician_specialty: technicianSpecialty,
     technician_city: technicianCity,
     quote_status: 'submitted',
-    price_ars: priceArs,
-    eta_hours: etaHours,
+    quote_id: responseType === 'direct_quote' ? quoteId : null,
+    response_type: responseType,
+    response_message: responseType === 'application' ? responseMessage : null,
+    visit_eta_hours: responseType === 'application' ? visitEtaHours : null,
+    price_ars: responseType === 'direct_quote' ? priceArs : null,
+    eta_hours: responseType === 'direct_quote' ? etaHours : null,
   };
 
   const { data: upsertRows, error: upsertError } = await supabase
     .from('client_request_matches')
     .upsert(upsertPayload, { onConflict: 'request_id,technician_id' })
-    .select('id, quote_status, price_ars, eta_hours, updated_at')
+    .select('id, quote_status, quote_id, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at')
     .limit(1);
 
   if (upsertError) {
@@ -182,7 +211,10 @@ export async function POST(
     }
   }
 
-  const eventLabel = `Oferta recibida de ${technicianName}: ${formatArs(priceArs)} - ETA ${etaHours} hs.`;
+  const eventLabel =
+    responseType === 'application'
+      ? `Postulacion recibida de ${technicianName}: visita en ${visitEtaHours} hs.${responseMessage ? ` ${responseMessage}` : ''}`
+      : `Oferta recibida de ${technicianName}: ${formatArs(priceArs!)} - ETA ${etaHours} hs.`;
   const { error: eventError } = await supabase.from('client_request_events').insert({
     request_id: requestId,
     actor_id: user.id,
@@ -194,6 +226,22 @@ export async function POST(
 
   const firstMatch = Array.isArray(upsertRows) ? upsertRows[0] : null;
   const updatedAt = String(firstMatch?.updated_at || new Date().toISOString());
+
+  if (responseType === 'direct_quote' && quoteId && firstMatch?.id) {
+    const { error: quoteLinkError } = await supabase
+      .from('quotes')
+      .update({
+        client_request_id: requestId,
+        client_request_match_id: firstMatch.id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', quoteId)
+      .eq('user_id', user.id);
+    if (quoteLinkError) {
+      console.error('offer quote link update failed', quoteLinkError.message);
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     message: 'Oferta enviada correctamente.',
@@ -201,15 +249,22 @@ export async function POST(
       id: requestId,
       status: nextStatus,
       my_quote_status: 'submitted',
-      my_price_ars: priceArs,
-      my_eta_hours: etaHours,
+      my_response_type: responseType,
+      my_response_message: responseType === 'application' ? responseMessage : null,
+      my_visit_eta_hours: responseType === 'application' ? visitEtaHours : null,
+      my_price_ars: responseType === 'direct_quote' ? priceArs : null,
+      my_eta_hours: responseType === 'direct_quote' ? etaHours : null,
       my_quote_updated_at: updatedAt,
     },
     match: {
       id: firstMatch?.id || null,
       quote_status: 'submitted',
-      price_ars: priceArs,
-      eta_hours: etaHours,
+      quote_id: responseType === 'direct_quote' ? quoteId : null,
+      response_type: responseType,
+      response_message: responseType === 'application' ? responseMessage : null,
+      visit_eta_hours: responseType === 'application' ? visitEtaHours : null,
+      price_ars: responseType === 'direct_quote' ? priceArs : null,
+      eta_hours: responseType === 'direct_quote' ? etaHours : null,
       updated_at: updatedAt,
     },
   });

@@ -12,6 +12,13 @@ import {
 } from '../../_shared/marketplace';
 
 const toText = (value: unknown) => String(value || '').trim();
+const normalizeStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) return [] as string[];
+  return value
+    .map((item) => String(item || '').trim())
+    .filter(Boolean)
+    .slice(0, 12);
+};
 
 const normalizeUrgency = (value: string) => {
   const normalized = value.toLowerCase();
@@ -115,12 +122,14 @@ export async function POST(request: NextRequest) {
   const category = toText(body.category);
   const address = toText(body.address);
   const city = toText(body.city);
+  const province = toText(body.province);
   const resolvedCity = city || toText(clientProfile?.city);
   const description = toText(body.description);
   const preferredWindow = toText(body.preferredWindow);
   const urgency = normalizeUrgency(toText(body.urgency));
   const mode = normalizeMode(toText(body.mode));
   const radiusKm = normalizeRadius(body.radiusKm);
+  const photoUrls = normalizeStringArray(body.photoUrls);
 
   const targetTechnicianId = toText(body.targetTechnicianId) || null;
   const targetTechnicianName = toText(body.targetTechnicianName) || null;
@@ -140,7 +149,7 @@ export async function POST(request: NextRequest) {
   let locationLat = toFiniteNumber(body.locationLat);
   let locationLng = toFiniteNumber(body.locationLng);
   if (locationLat === null || locationLng === null) {
-    const geocodeQuery = [address, resolvedCity].filter(Boolean).join(', ');
+    const geocodeQuery = [address, resolvedCity, province].filter(Boolean).join(', ');
     const geocode = await geocodeFirstResult(geocodeQuery);
     if (geocode) {
       locationLat = geocode.lat;
@@ -154,6 +163,7 @@ export async function POST(request: NextRequest) {
     category,
     address,
     city: resolvedCity || null,
+    province: province || null,
     description,
     urgency,
     preferred_window: preferredWindow || null,
@@ -162,6 +172,7 @@ export async function POST(request: NextRequest) {
     radius_km: radiusKm,
     location_lat: locationLat,
     location_lng: locationLng,
+    photo_urls: photoUrls,
     target_technician_id: mode === 'direct' ? targetTechnicianId : null,
     target_technician_name: mode === 'direct' ? targetTechnicianName : null,
     target_technician_phone: mode === 'direct' ? targetTechnicianPhone : null,

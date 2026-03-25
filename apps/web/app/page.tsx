@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
-import { ClipboardList, FileCheck2, MapPinned, Sparkles } from 'lucide-react';
+import { ClipboardList, FileCheck2, MapPinned, Sparkles, ArrowDown } from 'lucide-react';
 import AuthHashHandler from '../components/AuthHashHandler';
 import FloatingWhatsappChannelButton from '../components/home/FloatingWhatsappChannelButton';
 import HomeHeroTransition from '../components/home/HomeHeroTransition';
@@ -62,8 +62,8 @@ export default function HomePage() {
               </picture>
               <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#21002f] via-[#21002f]/70 to-transparent sm:h-44" />
               <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center sm:bottom-6">
-                <div className="rounded-full border border-white/20 bg-black/25 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-white/75 backdrop-blur-md">
-                  Baja y descubre la plataforma
+                <div className="animate-bounce">
+                  <ArrowDown className="h-6 w-6 text-white/75" />
                 </div>
               </div>
             </section>

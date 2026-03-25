@@ -17,6 +17,10 @@ const normalizeRadius = (value: unknown) => {
 };
 
 const toText = (value: unknown) => String(value || '').trim();
+const toFiniteCoordinate = (value: unknown) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 export async function GET(request: NextRequest) {
   if (!supabase) {
@@ -29,6 +33,10 @@ export async function GET(request: NextRequest) {
   }
 
   const radiusKm = normalizeRadius(request.nextUrl.searchParams.get('radiusKm'));
+  const requestLat = toFiniteCoordinate(request.nextUrl.searchParams.get('locationLat'));
+  const requestLng = toFiniteCoordinate(request.nextUrl.searchParams.get('locationLng'));
+  const requestAddress = toText(request.nextUrl.searchParams.get('address'));
+  const requestCity = toText(request.nextUrl.searchParams.get('city'));
 
   const { data: clientProfile, error: clientProfileError } = await supabase
     .from('profiles')
@@ -42,9 +50,13 @@ export async function GET(request: NextRequest) {
 
   const profileCity = toText(clientProfile?.city);
   const profileAddress = toText(clientProfile?.address || clientProfile?.company_address);
-  const geocodeQuery = [profileAddress, profileCity].filter(Boolean).join(', ');
+  const requestedGeocodeQuery = [requestAddress, requestCity].filter(Boolean).join(', ');
+  const profileGeocodeQuery = [profileAddress, profileCity].filter(Boolean).join(', ');
 
-  if (!geocodeQuery) {
+  const hasExactRequestCenter = requestLat !== null && requestLng !== null;
+  const geocodeQuery = requestedGeocodeQuery || profileGeocodeQuery;
+
+  if (!hasExactRequestCenter && !geocodeQuery) {
     return NextResponse.json({
       technicians: [],
       center_label: '',
@@ -58,7 +70,13 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const centerGeo = await geocodeFirstResult(geocodeQuery);
+  const centerGeo = hasExactRequestCenter
+    ? {
+        lat: requestLat!,
+        lng: requestLng!,
+        displayName: requestedGeocodeQuery || 'Ubicacion actual de la solicitud',
+      }
+    : await geocodeFirstResult(geocodeQuery);
   if (!centerGeo) {
     return NextResponse.json({
       technicians: [],
