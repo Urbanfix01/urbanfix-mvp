@@ -29,19 +29,19 @@ type PublicTechnicianProfile = {
   phone: string | null;
   city: string | null;
   coverage_area: string | null;
-  working_hours: string | null;
+  working_hours?: string | null;
   specialties: string | null;
-  avatar_url: string | null;
-  company_logo_url: string | null;
-  facebook_url: string | null;
-  instagram_url: string | null;
-  public_rating: number | null;
-  public_reviews_count: number | null;
-  completed_jobs_total: number | null;
-  references_summary: string | null;
-  client_recommendations: string | null;
-  achievement_badges: string[] | null;
-  public_likes_count: number | null;
+  avatar_url?: string | null;
+  company_logo_url?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  public_rating?: number | null;
+  public_reviews_count?: number | null;
+  completed_jobs_total?: number | null;
+  references_summary?: string | null;
+  client_recommendations?: string | null;
+  achievement_badges?: string[] | null;
+  public_likes_count?: number | null;
 };
 
 const parseDelimitedValues = (value: string | null | undefined) =>
@@ -162,7 +162,7 @@ const getPublicProfileById = async (profileId: string) => {
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,specialties,created_at'
     )
     .eq('id', profileId)
     .eq('access_granted', true)
@@ -177,9 +177,9 @@ const getPublicProfileById = async (profileId: string) => {
 
 const getSupabase = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) return null;
-  return createClient(url, serviceRoleKey, {
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return createClient(url, anonKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -280,7 +280,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,working_hours,specialties,avatar_url,company_logo_url,facebook_url,instagram_url,public_rating,public_reviews_count,completed_jobs_total,references_summary,client_recommendations,achievement_badges,public_likes_count'
+      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,specialties,created_at'
     )
     .eq('id', profileId)
     .eq('access_granted', true)
