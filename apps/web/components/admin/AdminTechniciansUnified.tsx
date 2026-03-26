@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase/supabase';
+import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../public/PublicTechniciansMap';
 
 type TechnicianProfile = {
   id: string;
@@ -148,6 +149,31 @@ export default function AdminTechniciansUnified() {
   };
 
   const cities = Array.from(new Set(allProfiles.map((p) => p.city).filter(Boolean))).sort() as string[];
+
+  // Convertir perfiles a puntos de mapa
+  const mapPoints: PublicTechnicianMapPoint[] = filteredProfiles
+    .filter((p) => p.service_lat && p.service_lng)
+    .map((p) => ({
+      id: p.id,
+      name: p.full_name || p.business_name || 'Técnico',
+      profileHref: `/tecnico/${p.id}`,
+      whatsappHref: p.phone ? `https://wa.me/54${p.phone.replace(/\D/g, '')}` : '#',
+      city: p.city || 'UrbanFix',
+      coverageArea: p.coverage_area || '',
+      specialties: p.specialties ? p.specialties.split(',').map((s) => s.trim()) : [],
+      lat: p.service_lat!,
+      lng: p.service_lng!,
+      radiusKm: 5,
+      precision: 'exact' as const,
+      openNow: p.access_granted ? true : false,
+      workingHoursLabel: p.access_granted ? 'Disponible' : 'No disponible',
+      likesCount: 0,
+      rating: null,
+      reviewsCount: 0,
+      completedJobsTotal: 0,
+      avatarUrl: '',
+      companyLogoUrl: '',
+    }));
   
   const stats = {
     total: allProfiles.length,
@@ -213,30 +239,56 @@ export default function AdminTechniciansUnified() {
           </button>
         </div>
 
-        <div className="flex gap-3 flex-wrap">
-          <input
-            type="text"
-            placeholder="🔍 Buscar por nombre, email, teléfono..."
-            value={searchQuery}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            className="flex-1 min-w-[200px] rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
-          />
-          <select
-            value={filterCity}
-            onChange={(e) => handleCityFilter(e.target.value)}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none"
-          >
-            <option value="all">📍 Todas las ciudades</option>
-            {cities.map((city) => (
-              <option key={city} value={city}>
-                📍 {city}
-              </option>
-            ))}
-          </select>
+        <div className="flex gap-3 flex-wrap items-center justify-between">
+          <div className="flex gap-3 flex-wrap flex-1">
+            <input
+              type="text"
+              placeholder="🔍 Buscar por nombre, email, teléfono..."
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="flex-1 min-w-[200px] rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-slate-500 focus:outline-none"
+            />
+            <select
+              value={filterCity}
+              onChange={(e) => handleCityFilter(e.target.value)}
+              className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm text-slate-700 focus:border-slate-500 focus:outline-none"
+            >
+              <option value="all">📍 Todas las ciudades</option>
+              {cities.map((city) => (
+                <option key={city} value={city}>
+                  📍 {city}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* SELECTOR DE VISTA */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-lg font-semibold text-sm transition ${
+                viewMode === 'list'
+                  ? 'bg-slate-900 text-white'
+                  : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              📋 Lista
+            </button>
+            <button
+              onClick={() => setViewMode('map')}
+              className={`px-3 py-2 rounded-lg font-semibold text-sm transition ${
+                viewMode === 'map'
+                  ? 'bg-slate-900 text-white'
+                  : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+              }`}
+            >
+              🗺️ Mapa
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* VISTA DE LISTA */}
+      {/* VISTA DE LISTA O MAPA */}
       {isLoading ? (
         <div className="text-center py-16">
           <p className="text-lg text-slate-600">⏳ Cargando técnicos...</p>
@@ -245,6 +297,14 @@ export default function AdminTechniciansUnified() {
         <div className="text-center py-16">
           <p className="text-lg text-slate-600">No se encontraron técnicos</p>
           <p className="text-sm text-slate-500 mt-2">Intenta con otros criterios de búsqueda</p>
+        </div>
+      ) : viewMode === 'map' ? (
+        <div className="rounded-lg border border-slate-200 bg-white p-4" style={{ height: '600px' }}>
+          <PublicTechniciansMap
+            points={mapPoints}
+            title="Mapa de Técnicos"
+            description={`Mostrando ${filteredProfiles.length} de ${allProfiles.length} técnicos`}
+          />
         </div>
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-4">
