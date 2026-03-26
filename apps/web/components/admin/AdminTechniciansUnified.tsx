@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase/supabase';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../public/PublicTechniciansMap';
+import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 
 type TechnicianProfile = {
   id: string;
@@ -18,6 +19,8 @@ type TechnicianProfile = {
   profile_published: boolean | null;
   service_lat: number | null;
   service_lng: number | null;
+  service_radius_km: number | null;
+  service_location_precision: string | null;
   created_at: string | null;
 };
 
@@ -152,21 +155,24 @@ export default function AdminTechniciansUnified() {
 
   // Convertir perfiles a puntos de mapa
   const mapPoints: PublicTechnicianMapPoint[] = filteredProfiles
-    .filter((p) => p.service_lat && p.service_lng)
+    .filter(
+      (p) => Number.isFinite(Number(p.service_lat)) && Number.isFinite(Number(p.service_lng))
+    )
     .map((p) => ({
       id: p.id,
-      name: p.full_name || p.business_name || 'Técnico',
-      profileHref: `/tecnico/${p.id}`,
+      name: p.business_name || p.full_name || 'Tecnico',
+      profileHref: buildTechnicianPath(p.id, p.business_name || p.full_name || 'Tecnico UrbanFix'),
       whatsappHref: p.phone ? `https://wa.me/54${p.phone.replace(/\D/g, '')}` : '#',
       city: p.city || 'UrbanFix',
       coverageArea: p.coverage_area || '',
       specialties: p.specialties ? p.specialties.split(',').map((s) => s.trim()) : [],
       lat: p.service_lat!,
       lng: p.service_lng!,
-      radiusKm: 5,
-      precision: 'exact' as const,
-      openNow: p.access_granted ? true : false,
-      workingHoursLabel: p.access_granted ? 'Disponible' : 'No disponible',
+      radiusKm: Math.max(1, Math.round(Number(p.service_radius_km || 20))),
+      precision: p.service_location_precision === 'exact' ? 'exact' : 'approx',
+      openNow: false,
+      availabilityStatus: 'unspecified',
+      workingHoursLabel: 'Disponibilidad a coordinar',
       likesCount: 0,
       rating: null,
       reviewsCount: 0,
@@ -180,6 +186,9 @@ export default function AdminTechniciansUnified() {
     registered: allProfiles.filter((p) => p.access_granted).length,
     unregistered: allProfiles.filter((p) => !p.access_granted).length,
     published: allProfiles.filter((p) => p.profile_published).length,
+    mapped: allProfiles.filter(
+      (p) => Number.isFinite(Number(p.service_lat)) && Number.isFinite(Number(p.service_lng))
+    ).length,
   };
 
   return (
@@ -201,6 +210,10 @@ export default function AdminTechniciansUnified() {
         <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
           <p className="text-xs uppercase text-blue-700 font-semibold">📢 Publicados</p>
           <p className="mt-2 text-3xl font-bold text-blue-900">{stats.published}</p>
+        </div>
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 md:col-span-4 xl:col-span-1">
+          <p className="text-xs uppercase text-amber-700 font-semibold">📍 Con ubicación</p>
+          <p className="mt-2 text-3xl font-bold text-amber-900">{stats.mapped}</p>
         </div>
       </div>
 
@@ -299,6 +312,14 @@ export default function AdminTechniciansUnified() {
           <p className="text-sm text-slate-500 mt-2">Intenta con otros criterios de búsqueda</p>
         </div>
       ) : viewMode === 'map' ? (
+        mapPoints.length === 0 ? (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-8 text-center">
+            <p className="text-lg font-semibold text-amber-900">No hay técnicos con ubicación mapeable en este filtro</p>
+            <p className="mt-2 text-sm text-amber-800">
+              Revisa si cargaron coordenadas válidas o cambia los filtros para ver otros perfiles.
+            </p>
+          </div>
+        ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-4" style={{ height: '600px' }}>
           <PublicTechniciansMap
             points={mapPoints}
@@ -306,6 +327,7 @@ export default function AdminTechniciansUnified() {
             description={`Mostrando ${filteredProfiles.length} de ${allProfiles.length} técnicos`}
           />
         </div>
+        )
       ) : (
         <div className="rounded-lg border border-slate-200 bg-white p-4">
           <p className="text-xs uppercase font-semibold text-slate-500 mb-3">
@@ -346,6 +368,11 @@ export default function AdminTechniciansUnified() {
                     <p className="text-xs text-slate-600 truncate mt-1">{profile.email || '—'}</p>
                     <p className="text-xs text-slate-500 mt-1">
                       📍 {profile.city || 'Sin ciudad'} {profile.phone && `| 📱 ${profile.phone}`}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {Number.isFinite(Number(profile.service_lat)) && Number.isFinite(Number(profile.service_lng))
+                        ? `🗺️ ${profile.service_location_precision === 'exact' ? 'Ubicación verificada' : 'Zona estimada'}`
+                        : '🗺️ Sin ubicación para mapa'}
                     </p>
                     {profile.specialties && (
                       <p className="text-xs text-slate-600 mt-1">🔧 {profile.specialties}</p>
