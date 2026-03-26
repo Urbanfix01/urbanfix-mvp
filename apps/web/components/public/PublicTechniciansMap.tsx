@@ -17,6 +17,7 @@ export type PublicTechnicianMapPoint = {
   radiusKm: number;
   precision: 'exact' | 'approx';
   openNow: boolean;
+  availabilityStatus?: 'open' | 'closed' | 'unspecified';
   workingHoursLabel: string;
   likesCount: number;
   rating: number | null;
@@ -77,9 +78,10 @@ const escapeHtml = (value: string) =>
     .replace(/'/g, '&#039;');
 
 const buildMarkerHtml = (point: DisplayPoint, selected: boolean) => {
-  const badge = point.openNow ? 'Disponible' : 'Fuera';
+  const availabilityStatus = point.availabilityStatus || (point.openNow ? 'open' : 'closed');
+  const badge = availabilityStatus === 'open' ? 'Disponible' : availabilityStatus === 'closed' ? 'Fuera' : 'Consultar';
   return `
-    <div class="ufx-map-pin ${point.openNow ? 'is-open' : 'is-closed'} ${selected ? 'is-selected' : ''}">
+    <div class="ufx-map-pin ${availabilityStatus === 'open' ? 'is-open' : availabilityStatus === 'closed' ? 'is-closed' : 'is-unspecified'} ${selected ? 'is-selected' : ''}">
       <div class="ufx-map-pin-core"></div>
       <div class="ufx-map-pin-glow"></div>
       <span class="ufx-map-pin-badge">${badge}</span>
@@ -443,12 +445,14 @@ export default function PublicTechniciansMap({
 
     if (!selectedPoint) return;
 
+    const availabilityStatus = selectedPoint.availabilityStatus || (selectedPoint.openNow ? 'open' : 'closed');
+
     circleRef.current = leafletRef.current.circle([selectedPoint.mapLat, selectedPoint.mapLng], {
       radius: Math.max(1000, selectedPoint.radiusKm * 1000),
-      color: selectedPoint.openNow ? '#ff9b30' : '#7c3aed',
+      color: availabilityStatus === 'open' ? '#ff9b30' : availabilityStatus === 'closed' ? '#7c3aed' : '#94a3b8',
       weight: 1.5,
       opacity: 0.9,
-      fillColor: selectedPoint.openNow ? '#ff9b30' : '#7c3aed',
+      fillColor: availabilityStatus === 'open' ? '#ff9b30' : availabilityStatus === 'closed' ? '#7c3aed' : '#94a3b8',
       fillOpacity: 0.12,
       dashArray: selectedPoint.precision === 'approx' ? '8 8' : undefined,
     }).addTo(mapRef.current);
@@ -581,13 +585,19 @@ export default function PublicTechniciansMap({
 
                   <div className="mt-2 flex flex-wrap gap-1.5 text-[10px] sm:text-[11px]">
                     <span
-                      className={`rounded-full px-2.5 py-1 ${
-                        selectedPoint.openNow
+                        className={`rounded-full px-2.5 py-1 ${
+                          (selectedPoint.availabilityStatus || (selectedPoint.openNow ? 'open' : 'closed')) === 'open'
                           ? 'border border-emerald-300/28 bg-emerald-400/10 text-emerald-100'
-                          : 'border border-violet-300/28 bg-violet-400/10 text-violet-100'
+                            : (selectedPoint.availabilityStatus || (selectedPoint.openNow ? 'open' : 'closed')) === 'closed'
+                              ? 'border border-violet-300/28 bg-violet-400/10 text-violet-100'
+                              : 'border border-slate-300/28 bg-slate-400/10 text-slate-100'
                       }`}
                     >
-                      {selectedPoint.openNow ? 'Disponible ahora' : 'Fuera de horario'}
+                        {(selectedPoint.availabilityStatus || (selectedPoint.openNow ? 'open' : 'closed')) === 'open'
+                          ? 'Disponible ahora'
+                          : (selectedPoint.availabilityStatus || (selectedPoint.openNow ? 'open' : 'closed')) === 'closed'
+                            ? 'Fuera de horario'
+                            : 'Disponibilidad a coordinar'}
                     </span>
                     <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-2.5 py-1 text-[#ffd6a6]">
                       {selectedPoint.precision === 'exact' ? 'Punto verificado' : 'Zona estimada'}

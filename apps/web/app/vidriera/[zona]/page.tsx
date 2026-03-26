@@ -8,9 +8,6 @@ import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../../components/PublicTopNav';
 import {
   DEFAULT_MATCH_RADIUS_KM,
-  formatWorkingHoursLabel,
-  isNowWithinWorkingHours,
-  parseWorkingHoursConfig,
 } from '../../api/_shared/marketplace';
 import {
   getArgentinaZoneSearchOptions,
@@ -168,7 +165,6 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
   const filteredProfiles = safeProfiles.filter((profile) =>
     matchesArgentinaZoneQuery(zoneQuery, profile.city, profile.coverage_area, profile.address, profile.company_address)
   );
-  const totalLikes = filteredProfiles.reduce((acc, profile) => acc + Math.max(0, Number(profile.public_likes_count || 0)), 0);
   const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = getArgentinaZoneSearchOptions();
   const mapPoints = filteredProfiles
@@ -185,9 +181,9 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
 
       const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
       const specialties = parseDelimitedValues(profile.specialties).slice(0, 6);
-      const workingHours = parseWorkingHoursConfig(profile.working_hours || '');
+      const hasExactLocation = exactLat !== null && exactLng !== null;
 
-      return {
+      const mapPoint: PublicTechnicianMapPoint = {
         id: profile.id,
         name: displayName,
         profileHref: buildTechnicianPath(profile.id, displayName),
@@ -198,18 +194,21 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
         lat,
         lng,
         radiusKm: Math.max(1, Math.round(Number(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM))),
-        precision: exactLat !== null && exactLng !== null ? 'exact' : 'approx',
-        openNow: isNowWithinWorkingHours(workingHours),
-        workingHoursLabel: formatWorkingHoursLabel(workingHours),
+        precision: hasExactLocation ? 'exact' : 'approx',
+        openNow: false,
+        availabilityStatus: 'unspecified',
+        workingHoursLabel: 'Disponibilidad a coordinar',
         likesCount: Math.max(0, Number(profile.public_likes_count || 0)),
         rating: Number.isFinite(Number(profile.public_rating)) ? Number(profile.public_rating) : null,
         reviewsCount: Math.max(0, Number(profile.public_reviews_count || 0)),
         completedJobsTotal: Math.max(0, Number(profile.completed_jobs_total || 0)),
         avatarUrl: String(profile.avatar_url || '').trim(),
         companyLogoUrl: String(profile.company_logo_url || '').trim(),
-      } satisfies PublicTechnicianMapPoint;
+      };
+
+      return mapPoint;
     })
-    .filter((point): point is PublicTechnicianMapPoint => Boolean(point));
+    .filter((point): point is PublicTechnicianMapPoint => point !== null);
 
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
@@ -320,7 +319,7 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
                     Tecnicos visibles: {filteredProfiles.length}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                    Total de likes: {totalLikes}
+                    Con ubicacion en mapa: {mapPoints.length}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
                     Con WhatsApp: {whatsappEnabledCount}
@@ -332,11 +331,11 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
               {filteredProfiles.map((profile) => {
                 const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
-                const socialCount = [profile.facebook_url, profile.instagram_url].filter(Boolean).length;
                 const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
                 const whatsappLink = buildWhatsappLink(profile.phone);
                 const profileHref = buildTechnicianPath(profile.id, displayName);
                 const profileCode = profile.id.slice(0, 8).toUpperCase();
+                const hasExactLocation = Number.isFinite(Number(profile.service_lat)) && Number.isFinite(Number(profile.service_lng));
 
                 return (
                   <article
@@ -368,13 +367,8 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
                           <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/80">
                             Perfil: {profileCode}
                           </span>
-                          {socialCount > 0 && (
-                            <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
-                              Redes: {socialCount}
-                            </span>
-                          )}
-                          <span className="rounded-full border border-[#ff8f1f]/60 bg-[#ff8f1f]/15 px-2.5 py-1 text-[#ffd6a6]">
-                            Likes: {likesCount}
+                          <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
+                            {hasExactLocation ? 'Ubicacion verificada' : 'Zona estimada'}
                           </span>
                         </div>
                       </div>
