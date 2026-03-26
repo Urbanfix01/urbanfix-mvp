@@ -16,6 +16,12 @@ No trabajar ni desplegar desde estas carpetas:
 
 Esas carpetas son copias, snapshots o artefactos locales y no son la fuente de verdad.
 
+## Documentacion
+
+La documentacion operativa y los resúmenes tecnicos viven en `docs/`.
+
+En particular, todo el material historico de la integracion de Location Picker quedó agrupado en `docs/location-picker/`.
+
 ## Flujo de trabajo movil
 
 Antes de empezar una tarea en mobile:
