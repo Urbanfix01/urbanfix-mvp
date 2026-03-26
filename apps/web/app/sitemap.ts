@@ -12,7 +12,6 @@ type ProfileSitemapRow = {
   business_name: string | null;
   city: string | null;
   address: string | null;
-  company_address: string | null;
   coverage_area: string | null;
 };
 
@@ -26,22 +25,21 @@ const hasWorkZoneConfigured = (profile: ProfileSitemapRow) =>
   Boolean(
     String(profile.city || "").trim() ||
       String(profile.address || "").trim() ||
-      String(profile.company_address || "").trim() ||
       hasMeaningfulCoverageArea(profile.coverage_area)
   );
 
 const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Sitemap> => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !serviceRoleKey) return [];
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !anonKey) return [];
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  const supabase = createClient(supabaseUrl, anonKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id,access_granted,profile_published,full_name,business_name,city,address,company_address,coverage_area")
+    .select("id,access_granted,profile_published,full_name,business_name,city,address,coverage_area")
     .eq("access_granted", true)
     .eq("profile_published", true)
     .limit(2400);

@@ -6,7 +6,6 @@ import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
 import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
-import AdminProfileEditPanelFixed from '../../components/admin/AdminProfileEditPanelFixed';
 import AdminTechniciansUnified from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 

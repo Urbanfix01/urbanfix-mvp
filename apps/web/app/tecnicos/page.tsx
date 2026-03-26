@@ -3380,38 +3380,29 @@ export default function TechniciansPage() {
         service_radius_km: COVERAGE_RADIUS_KM,
       };
 
-      let { data, error } = await supabase.from('profiles').upsert(payloadWithGeo).select().single();
-      if (error) {
-        const message = String(error?.message || '').toLowerCase();
-        const hasMissingGeoColumn =
-          message.includes('service_lat') || message.includes('service_lng') || message.includes('service_radius_km');
-        const hasMissingSocialColumn =
-          message.includes('facebook_url') ||
-          message.includes('instagram_url') ||
-          message.includes('profile_published') ||
-          message.includes('profile_published_at');
-        if (!hasMissingGeoColumn && !hasMissingSocialColumn) throw error;
-        if (hasMissingSocialColumn) {
-          const tryingSocialOrPublish =
-            Boolean(publishProfile) ||
-            Boolean(normalizedFacebookUrl) ||
-            Boolean(normalizedInstagramUrl) ||
-            Boolean(profileForm.profilePublished);
-          if (tryingSocialOrPublish) {
-            throw new Error('Missing profile_published/profile social columns migration on profiles table.');
+      const upsertProfileWithSchemaFallback = async (initialPayload: Record<string, any>) => {
+        const attemptPayload: Record<string, any> = { ...initialPayload };
+
+        for (let attempt = 0; attempt < 12; attempt += 1) {
+          const result = await supabase.from('profiles').upsert(attemptPayload).select().single();
+          if (!result.error) return result;
+
+          const message = String(result.error.message || '').toLowerCase();
+          const removableKeys = Object.keys(attemptPayload).filter((key) => message.includes(key.toLowerCase()));
+
+          if (removableKeys.length === 0) {
+            return result;
           }
+
+          removableKeys.forEach((key) => {
+            delete attemptPayload[key];
+          });
         }
-        const fallbackPayload = { ...basePayload } as Record<string, any>;
-        if (hasMissingSocialColumn) {
-          delete fallbackPayload.facebook_url;
-          delete fallbackPayload.instagram_url;
-          delete fallbackPayload.profile_published;
-          delete fallbackPayload.profile_published_at;
-        }
-        const fallback = await supabase.from('profiles').upsert(fallbackPayload).select().single();
-        data = fallback.data;
-        error = fallback.error;
-      }
+
+        return supabase.from('profiles').upsert({ id: session.user.id }).select().single();
+      };
+
+      let { data, error } = await upsertProfileWithSchemaFallback(payloadWithGeo as Record<string, any>);
       if (error) throw error;
 
       setProfile(data);
