@@ -3313,12 +3313,35 @@ export default function TechniciansPage() {
         typeof publishProfile === 'boolean' ? publishProfile : Boolean(profileForm.profilePublished);
       const existingPublishedAt = String(profile?.profile_published_at || '').trim();
       const profilePublishedAt = effectiveProfilePublished ? existingPublishedAt || new Date().toISOString() : null;
-      const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
-      const geocoded = await geocodeAddressFirstResult(geocodeQuery);
-      const currentServiceLat = Number(profile?.service_lat);
-      const currentServiceLng = Number(profile?.service_lng);
-      const serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
-      const serviceLng = geocoded?.lon ?? (Number.isFinite(currentServiceLng) ? currentServiceLng : null);
+      
+      // Use technician location if available, otherwise fall back to geocoding
+      let serviceLat: number | null = null;
+      let serviceLng: number | null = null;
+      let serviceLocationName: string | null = null;
+      let serviceLocationPrecision: string = 'approx';
+      let wasGeocodedFromAddress = false;
+      
+      if (technicianLocationResult?.isValid) {
+        serviceLat = technicianLocationResult.lat;
+        serviceLng = technicianLocationResult.lng;
+        serviceLocationName = technicianLocationResult.displayName;
+        serviceLocationPrecision = technicianLocationResult.precision;
+      } else {
+        // Fall back to geocoding if no location picker result
+        const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
+        const geocoded = await geocodeAddressFirstResult(geocodeQuery);
+        const currentServiceLat = Number(profile?.service_lat);
+        const currentServiceLng = Number(profile?.service_lng);
+        serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
+        serviceLng = geocoded?.lon ?? (Number.isFinite(currentServiceLng) ? currentServiceLng : null);
+        serviceLocationName = geocoded?.display_name || null;
+        serviceLocationPrecision = 'approx';
+        wasGeocodedFromAddress = Boolean(geocoded);
+      }
+      
+      if (effectiveProfilePublished && !serviceLat && !serviceLng) {
+        throw new Error('Completa tu ubicación en el mapa para publicar en la vidriera.');
+      }
 
       const basePayload = {
         id: session.user.id,
@@ -3352,6 +3375,8 @@ export default function TechniciansPage() {
         ...basePayload,
         service_lat: serviceLat,
         service_lng: serviceLng,
+        service_location_name: serviceLocationName,
+        service_location_precision: serviceLocationPrecision,
         service_radius_km: COVERAGE_RADIUS_KM,
       };
 
@@ -3398,7 +3423,13 @@ export default function TechniciansPage() {
       }
 
       if (!silent) {
-        setProfileMessage(geocoded ? 'Perfil actualizado con geolocalizacion.' : 'Perfil actualizado.');
+        if (technicianLocationResult?.isValid) {
+          setProfileMessage('Perfil actualizado con tu ubicación del mapa.');
+        } else if (wasGeocodedFromAddress) {
+          setProfileMessage('Perfil actualizado con geolocalizacion.');
+        } else {
+          setProfileMessage('Perfil actualizado.');
+        }
       } else {
         setAutoSaveMessage('Guardado automatico.');
         autoSaveMessageTimerRef.current = window.setTimeout(() => {
@@ -4362,6 +4393,12 @@ export default function TechniciansPage() {
         companyLogoUrl: profileForm.companyLogoUrl.trim(),
         avatarUrl: profileForm.avatarUrl.trim(),
         logoShape: profileForm.logoShape,
+        technicianLocation: technicianLocationResult ? {
+          lat: technicianLocationResult.lat,
+          lng: technicianLocationResult.lng,
+          displayName: technicianLocationResult.displayName,
+          precision: technicianLocationResult.precision,
+        } : null,
       }),
     [
       bankAccountType,
@@ -4388,6 +4425,7 @@ export default function TechniciansPage() {
       profileForm.specialties,
       profileForm.taxId,
       profileForm.taxStatus,
+      technicianLocationResult,
       workingHoursConfig,
     ]
   );
@@ -4419,7 +4457,7 @@ export default function TechniciansPage() {
         autoSaveTimerRef.current = null;
       }
     };
-  }, [autoSaveBootstrapped, autoSaveSignature, profilePersistTick, session?.user?.id]);
+  }, [autoSaveBootstrapped, autoSaveSignature, profilePersistTick, session?.user?.id, technicianLocationResult]);
 
   const sessionMediaOverlays = session?.user ? (
     <>
@@ -7717,6 +7755,25 @@ export default function TechniciansPage() {
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+
+                      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                        <TechnicianLocationPicker
+                          value={technicianLocationResult}
+                          onChange={(result) => {
+                            setTechnicianLocationResult(result);
+                            setProfilePersistTick((prev) => prev + 1);
+                          }}
+                          label="Tu ubicación de trabajo"
+                          description="Selecciona donde trabajas. Esto es importante: aparecerás en el mapa de la vidriera."
+                          required={profileForm.profilePublished}
+                          error={
+                            profileForm.profilePublished && !technicianLocationResult?.isValid
+                              ? 'Completa tu ubicación para publicar en la vidriera'
+                              : undefined
+                          }
+                        />
+                      </div>
+
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
                       <div className="mt-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
                         <p className="text-sm font-semibold text-slate-900">Solicitudes en radio de {COVERAGE_RADIUS_KM} km</p>
