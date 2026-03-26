@@ -48,13 +48,22 @@ export default function AdminTechniciansUnified() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase Error:', error);
+        throw error;
+      }
+      
+      console.log('Profiles loaded:', data?.length || 0);
       const profiles = (data || []) as TechnicianProfile[];
       setAllProfiles(profiles);
       applyFilters(profiles, searchQuery, filterStatus, filterCity);
+      
+      if (profiles.length === 0) {
+        setMessage('⚠️ No hay técnicos en la base de datos. Verifica la tabla "profiles" en Supabase.');
+      }
     } catch (err) {
-      console.error('Error:', err);
-      setMessage('Error al cargar técnicos');
+      console.error('Error completo:', err);
+      setMessage('Error al cargar técnicos: ' + (err instanceof Error ? err.message : 'Error desconocido'));
     } finally {
       setIsLoading(false);
     }
