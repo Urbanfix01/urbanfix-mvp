@@ -6,11 +6,11 @@ const LIKE_COOKIE_KEY = 'urbanfix_profile_like_sid';
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365;
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 const supabase =
-  supabaseUrl && serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey, {
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
@@ -71,7 +71,7 @@ const buildResponse = (
 
 const getLikesState = async (profileId: string, userId: string | null, sessionKey: string) => {
   if (!supabase) {
-    return { status: 500, error: 'Missing server config' } as const;
+    return { status: 200, likesCount: 0, liked: false, unavailable: true } as const;
   }
 
   const { data: profileData, error: profileError } = await supabase
@@ -137,7 +137,8 @@ const getLikesState = async (profileId: string, userId: string | null, sessionKe
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    const { key: sessionKey, created } = await getOrCreateSessionKey();
+    return buildResponse({ likesCount: 0, liked: false, unavailable: true }, 200, created, sessionKey);
   }
 
   const resolvedParams = await params;
@@ -167,7 +168,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    const { key: sessionKey, created } = await getOrCreateSessionKey();
+    return buildResponse({ likesCount: 0, liked: false, unavailable: true }, 200, created, sessionKey);
   }
 
   const resolvedParams = await params;
@@ -207,11 +209,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     }
     const { error } = await deleteQuery;
     if (error) {
+      if (isMissingLikesMigration(error.message || '')) {
+        return buildResponse(
+          {
+            profileId,
+            likesCount: currentState.likesCount,
+            liked: currentState.liked,
+            unavailable: true,
+          },
+          200,
+          created,
+          sessionKey
+        );
+      }
       return buildResponse(
         {
-          error: isMissingLikesMigration(error.message || '')
-            ? 'Falta migracion de likes de perfiles (profile_likes/public_likes_count).'
-            : error.message || 'No se pudo quitar el like.',
+          error: error.message || 'No se pudo quitar el like.',
         },
         500,
         created,
@@ -226,11 +239,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     };
     const { error } = await supabase.from('profile_likes').insert(payload);
     if (error) {
+      if (isMissingLikesMigration(error.message || '')) {
+        return buildResponse(
+          {
+            profileId,
+            likesCount: currentState.likesCount,
+            liked: currentState.liked,
+            unavailable: true,
+          },
+          200,
+          created,
+          sessionKey
+        );
+      }
       return buildResponse(
         {
-          error: isMissingLikesMigration(error.message || '')
-            ? 'Falta migracion de likes de perfiles (profile_likes/public_likes_count).'
-            : error.message || 'No se pudo registrar el like.',
+          error: error.message || 'No se pudo registrar el like.',
         },
         500,
         created,
