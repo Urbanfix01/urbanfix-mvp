@@ -476,15 +476,15 @@ export default function PublicTechniciansMap({
 
   return (
     <section className="mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]">
-      <div className="border-b border-white/12 bg-[#190426] px-3 py-3 sm:px-4 lg:px-6">
+      <div className="border-b border-white/12 bg-[#190426] px-2.5 py-2.5 sm:px-4 lg:px-6">
         <div className="mx-auto w-full max-w-[1500px]">
           {searchConfig ? (
             <form
               method="get"
               action={searchConfig.actionHref}
-              className="grid gap-2 xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
+              className="grid gap-1.5 sm:gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
             >
-              <div className="min-w-0 xl:col-span-1">
+              <div className="min-w-0 sm:col-span-1">
                 <input
                   id="vidriera-zona"
                   type="text"
@@ -492,7 +492,7 @@ export default function PublicTechniciansMap({
                   defaultValue={searchConfig.query}
                   list={zonesListId}
                   placeholder={searchConfig.placeholder || defaultPlaceholder}
-                  className="h-12 w-full rounded-[20px] border border-white/18 bg-black/25 px-4 text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
+                  className="h-10 sm:h-12 w-full rounded-[18px] sm:rounded-[20px] border border-white/18 bg-black/25 px-3 sm:px-4 text-xs sm:text-sm text-white placeholder:text-white/45 outline-none transition focus:border-[#ff8f1f] focus:bg-black/34"
                 />
                 <datalist id={zonesListId}>
                   {searchConfig.options.map((zone) => (
@@ -503,9 +503,9 @@ export default function PublicTechniciansMap({
 
               <button
                 type="submit"
-                className="h-12 rounded-[20px] bg-[#ff8f1f] px-4 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                className="h-10 sm:h-12 rounded-[18px] sm:rounded-[20px] bg-[#ff8f1f] px-3 sm:px-4 text-xs sm:text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
               >
-                Buscar zona
+                Buscar
               </button>
 
               <button
@@ -514,32 +514,31 @@ export default function PublicTechniciansMap({
                   setHasRequestedUserFocus(true);
                   requestUserLocation();
                 }}
-                className="h-12 rounded-[20px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-4 text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
+                className="h-10 sm:h-12 rounded-[18px] sm:rounded-[20px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
               >
-                {userLocation.status === 'requesting' ? 'Buscando...' : 'Usar mi ubicacion'}
+                {userLocation.status === 'requesting' ? 'Buscando...' : 'Ubicación'}
               </button>
 
               {searchConfig.query ? (
                 <Link
                   href={searchConfig.clearHref}
-                  className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                  className="inline-flex h-10 sm:h-12 items-center justify-center rounded-[18px] sm:rounded-[20px] border border-white/18 bg-white/[0.04] px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white lg:block"
                 >
                   Limpiar
                 </Link>
               ) : (
-                <div className="hidden xl:block" />
+                <div className="hidden lg:block" />
               )}
 
               {listHref ? (
                 <a
                   href={listHref}
-                  className="inline-flex h-12 items-center justify-center rounded-[20px] border border-white/18 bg-white/[0.04] px-4 text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
+                  className="hidden lg:inline-flex h-10 sm:h-12 items-center justify-center rounded-[18px] sm:rounded-[20px] border border-white/18 bg-white/[0.04] px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white"
                 >
                   {searchConfig.listLabel || 'Ver listado'}
                 </a>
               ) : (
-                <div className="hidden xl:block" />
-              )}
+                <div className="hidden lg:block" />
             </form>
           ) : null}
         </div>
