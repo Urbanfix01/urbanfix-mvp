@@ -4,6 +4,8 @@ import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
 import { rubroCatalogSlugs } from "../lib/seo/rubro-catalog";
 
+export const dynamic = "force-dynamic";
+
 type ProfileSitemapRow = {
   id: string;
   access_granted: boolean | null;
@@ -30,10 +32,10 @@ const hasWorkZoneConfigured = (profile: ProfileSitemapRow) =>
 
 const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Sitemap> => {
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !anonKey) return [];
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !key) return [];
 
-  const supabase = createClient(supabaseUrl, anonKey, {
+  const supabase = createClient(supabaseUrl, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 

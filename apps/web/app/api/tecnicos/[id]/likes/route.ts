@@ -81,11 +81,17 @@ const getLikesState = async (profileId: string, userId: string | null, sessionKe
     .maybeSingle();
 
   if (profileError) {
+    if (isMissingLikesMigration(profileError.message || '')) {
+      return {
+        status: 200,
+        likesCount: 0,
+        liked: false,
+        unavailable: true,
+      } as const;
+    }
     return {
-      status: isMissingLikesMigration(profileError.message || '') ? 500 : 500,
-      error: isMissingLikesMigration(profileError.message || '')
-        ? 'Falta migracion de likes de perfiles (profile_likes/public_likes_count).'
-        : profileError.message || 'No se pudo leer el perfil.',
+      status: 500,
+      error: profileError.message || 'No se pudo leer el perfil.',
     } as const;
   }
 
@@ -107,11 +113,17 @@ const getLikesState = async (profileId: string, userId: string | null, sessionKe
 
   const { data: likedData, error: likedError } = await likedQuery.maybeSingle();
   if (likedError) {
+    if (isMissingLikesMigration(likedError.message || '')) {
+      return {
+        status: 200,
+        likesCount: Math.max(0, Number(profileData.public_likes_count || 0)),
+        liked: false,
+        unavailable: true,
+      } as const;
+    }
     return {
-      status: isMissingLikesMigration(likedError.message || '') ? 500 : 500,
-      error: isMissingLikesMigration(likedError.message || '')
-        ? 'Falta migracion de likes de perfiles (profile_likes/public_likes_count).'
-        : likedError.message || 'No se pudo consultar likes.',
+      status: 500,
+      error: likedError.message || 'No se pudo consultar likes.',
     } as const;
   }
 
@@ -119,6 +131,7 @@ const getLikesState = async (profileId: string, userId: string | null, sessionKe
     status: 200,
     likesCount: Math.max(0, Number(profileData.public_likes_count || 0)),
     liked: Boolean(likedData?.id),
+    unavailable: false,
   } as const;
 };
 
@@ -144,6 +157,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       profileId,
       likesCount: state.likesCount,
       liked: state.liked,
+      unavailable: 'unavailable' in state ? state.unavailable : false,
     },
     200,
     created,
@@ -168,6 +182,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const currentState = await getLikesState(profileId, userId, sessionKey);
   if (currentState.status !== 200) {
     return buildResponse({ error: currentState.error }, currentState.status, created, sessionKey);
+  }
+
+  if ('unavailable' in currentState && currentState.unavailable) {
+    return buildResponse(
+      {
+        profileId,
+        likesCount: currentState.likesCount,
+        liked: false,
+        unavailable: true,
+      },
+      200,
+      created,
+      sessionKey
+    );
   }
 
   if (currentState.liked) {
@@ -221,6 +249,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       profileId,
       likesCount: nextState.likesCount,
       liked: nextState.liked,
+      unavailable: 'unavailable' in nextState ? nextState.unavailable : false,
     },
     200,
     created,
