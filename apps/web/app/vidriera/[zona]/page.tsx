@@ -63,22 +63,23 @@ type PublishedProfileRow = {
   business_name: string | null;
   phone: string | null;
   address: string | null;
-  company_address: string | null;
+  company_address?: string | null;
   city: string | null;
   coverage_area: string | null;
-  working_hours: string | null;
+  working_hours?: string | null;
   service_lat: number | null;
   service_lng: number | null;
-  service_radius_km: number | null;
+  service_radius_km?: number | null;
   specialties: string | null;
-  company_logo_url: string | null;
-  avatar_url: string | null;
-  facebook_url: string | null;
-  instagram_url: string | null;
-  public_likes_count: number | null;
-  public_rating: number | null;
-  public_reviews_count: number | null;
-  completed_jobs_total: number | null;
+  company_logo_url?: string | null;
+  avatar_url?: string | null;
+  facebook_url?: string | null;
+  instagram_url?: string | null;
+  public_likes_count?: number | null;
+  public_rating?: number | null;
+  public_reviews_count?: number | null;
+  completed_jobs_total?: number | null;
+  created_at?: string | null;
 };
 
 const parseDelimitedValues = (value: string | null | undefined) =>
@@ -155,11 +156,11 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
   const { data, error } = await supabase
     .from('profiles')
     .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,address,company_address,city,coverage_area,working_hours,service_lat,service_lng,service_radius_km,specialties,company_logo_url,avatar_url,facebook_url,instagram_url,public_likes_count,public_rating,public_reviews_count,completed_jobs_total'
+      'id,access_granted,profile_published,full_name,business_name,phone,address,city,coverage_area,service_lat,service_lng,specialties,created_at'
     )
     .eq('access_granted', true)
     .eq('profile_published', true)
-    .order('public_likes_count', { ascending: false, nullsFirst: false })
+    .order('created_at', { ascending: false, nullsFirst: false })
     .limit(240);
 
   const profiles = (data || []) as PublishedProfileRow[];
