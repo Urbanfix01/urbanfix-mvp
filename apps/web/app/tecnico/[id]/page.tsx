@@ -323,21 +323,24 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const rating = Number(profile.public_rating || 0);
   const reviewsCount = Math.max(0, Number(profile.public_reviews_count || 0));
   const completedJobsRaw = Number(profile.completed_jobs_total);
-  const completedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0 ? completedJobsRaw : 3;
+  const hasRating = Number.isFinite(rating) && rating > 0;
+  const hasReviews = Number.isFinite(reviewsCount) && reviewsCount > 0;
+  const hasCompletedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0;
+  const completedJobsLabel = hasCompletedJobs ? completedJobsRaw.toString() : 'No informado';
   const hasWorkingHoursConfigured = Boolean(String(profile.working_hours || '').trim());
   const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
-  const workingHoursLabel = hasWorkingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Sin horario cargado';
+  const workingHoursLabel = hasWorkingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Horario a coordinar';
   const isWithinWorkingHours = hasWorkingHoursConfigured ? isNowWithinWorkingHours(workingHoursConfig) : false;
   const availabilityLabel = hasWorkingHoursConfigured
     ? isWithinWorkingHours
       ? 'Disponible ahora'
       : 'Fuera de horario'
-    : 'Horario no informado';
+    : 'A coordinar';
   const argentinaTimeLabel = formatArgentinaTimeLabel();
   const whatsappLink = buildWhatsappLink(profile.phone);
   const presentationText =
     String(profile.references_summary || '').trim() ||
-    'Profesional activo en UrbanFix. Disponible para coordinar visitas, presupuestos y ejecucion de trabajos por rubro.';
+    'Perfil publico de UrbanFix. Este profesional aun no cargo una presentacion detallada.';
   const heroSummary =
     presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
   const profileCode = profile.id.slice(0, 8).toUpperCase();
@@ -356,7 +359,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const facebookFeedEmbedUrl = buildFacebookTimelineEmbedUrl(profile.facebook_url);
   const instagramPostEmbedUrl = buildInstagramEmbedUrl(profile.instagram_url);
   const sameAs = socialLinks.map((entry) => String(entry.href || '').trim()).filter(Boolean);
-  const ratingLabel = rating > 0 ? rating.toFixed(1) : 'Sin calificar';
+  const ratingLabel = hasRating ? rating.toFixed(1) : 'Sin calificar';
   const availabilityToneClass = hasWorkingHoursConfigured
     ? isWithinWorkingHours
       ? 'bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-300/25'
@@ -371,25 +374,25 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     {
       label: 'Reputacion',
       value: ratingLabel,
-      detail: rating > 0 ? 'Puntaje promedio visible al publico' : 'Todavia sin calificacion publica',
+      detail: hasRating ? 'Puntaje promedio visible al publico' : 'Aun sin calificacion publica registrada',
       accent: 'from-[#ffb45c]/18 to-[#ff8f1f]/6',
     },
     {
       label: 'Resenas',
       value: reviewsCount.toString(),
-      detail: 'Opiniones cargadas por clientes',
+      detail: hasReviews ? 'Opiniones visibles de clientes' : 'Aun no hay resenas publicas',
       accent: 'from-white/[0.10] to-white/[0.03]',
     },
     {
       label: 'Trabajos',
-      value: completedJobs.toString(),
-      detail: 'Trabajos finalizados reportados',
+      value: completedJobsLabel,
+      detail: hasCompletedJobs ? 'Trabajos completados informados en el perfil' : 'Este perfil todavia no informa trabajos completados',
       accent: 'from-[#8b5cf6]/16 to-[#3b1b62]/10',
     },
     {
       label: 'Me gusta',
       value: likesCount.toString(),
-      detail: 'Interacciones publicas del perfil',
+      detail: likesCount > 0 ? 'Interacciones publicas registradas' : 'Aun no hay me gusta registrados',
       accent: 'from-[#f97316]/16 to-[#431407]/10',
     },
   ];
@@ -406,8 +409,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     },
     {
       label: 'Canales publicos',
-      value: socialLinks.length > 0 ? `${socialLinks.length} canal(es) activos` : 'Sin redes cargadas',
-      note: whatsappLink ? 'Tiene WhatsApp visible para contacto rapido.' : 'No tiene WhatsApp publico visible.',
+      value: socialLinks.length > 0 ? `${socialLinks.length} canal(es) activos` : 'Sin canales sociales publicados',
+      note: whatsappLink ? 'Tiene WhatsApp visible para contacto rapido.' : 'No hay un canal directo publicado por el momento.',
     },
   ];
   const personJsonLd = {
@@ -503,8 +506,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   <div className="space-y-3">
                     <p className="max-w-3xl text-base leading-relaxed text-white/88 sm:text-[1.05rem]">{heroSummary}</p>
                     <p className="max-w-3xl text-sm leading-7 text-white/66">
-                      Perfil publico dentro de UrbanFix para mostrar especialidad, disponibilidad, reputacion y canales
-                      de contacto en una sola presentacion.
+                      Perfil publico de UrbanFix con datos de contacto, zona de trabajo y especialidades declaradas por el profesional.
                     </p>
                   </div>
 
@@ -520,7 +522,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       ))
                     ) : (
                       <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
-                        Sin rubros cargados
+                        Especialidades no informadas
                       </span>
                     )}
                   </div>
@@ -531,7 +533,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffd6a6]">Contacto rapido</p>
                     <h2 className="mt-2 text-2xl font-semibold text-white">Listo para coordinar</h2>
                     <p className="mt-2 text-sm leading-6 text-white/72">
-                      Un bloque corto, claro y util para pasar de perfil publico a contacto real.
+                      Canal directo para consultar disponibilidad, pedir presupuesto o iniciar una visita.
                     </p>
                   </div>
 
@@ -584,7 +586,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                           ))
                         ) : (
                           <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65">
-                            Sin redes cargadas
+                            Sin canales sociales publicados
                           </span>
                         )}
                       </div>
@@ -612,7 +614,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">Una presencia mas seria y mas clara</h2>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Presentacion del perfil</h2>
                   </div>
                   <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
                     Perfil publico UrbanFix
@@ -638,7 +640,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
               <div className="grid gap-4">
                 <article className="ufx-tech-card p-5 sm:p-6">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Rubros y especialidades</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">Lo que este tecnico comunica mejor</h2>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">Especialidades declaradas</h2>
                   <div className="mt-4 flex flex-wrap gap-2">
                     {specialties.length > 0 ? (
                       specialties.map((specialty) => (
@@ -653,7 +655,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       <span
                         className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65"
                       >
-                        Sin rubros cargados
+                        Especialidades no informadas
                       </span>
                     )}
                   </div>
@@ -696,7 +698,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     <h2 className="mt-2 text-2xl font-semibold text-white">Facebook</h2>
                   </div>
                   <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
-                    Feed visible
+                    {facebookFeedEmbedUrl ? 'Feed activo' : 'No configurado'}
                   </span>
                 </div>
                 {facebookFeedEmbedUrl ? (
@@ -709,7 +711,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   />
                 ) : (
                   <div className="mt-4 rounded-[24px] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/70">
-                    Este tecnico aun no configuro su pagina de Facebook para mostrar posteos.
+                    Este perfil todavia no publico una pagina de Facebook para mostrar actividad.
                   </div>
                 )}
               </article>
@@ -721,7 +723,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     <h2 className="mt-2 text-2xl font-semibold text-white">Instagram</h2>
                   </div>
                   <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
-                    Reel o post embebido
+                    {instagramPostEmbedUrl ? 'Post activo' : 'No configurado'}
                   </span>
                 </div>
                 {instagramPostEmbedUrl ? (
@@ -734,7 +736,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   />
                 ) : (
                   <div className="mt-4 rounded-[24px] border border-white/10 bg-black/20 p-5 text-sm leading-7 text-white/70">
-                    Este tecnico aun no cargo un link de Instagram, idealmente un post o reel, para mostrar actividad.
+                    Este perfil todavia no publico un enlace de Instagram para mostrar actividad reciente.
                   </div>
                 )}
               </article>
