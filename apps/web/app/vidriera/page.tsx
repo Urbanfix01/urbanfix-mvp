@@ -449,6 +449,27 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
               </div>
             </section>
           )}
+
+          {/* MAPA INTERACTIVO */}
+          {mapPoints.length > 0 && (
+            <section className="mt-12">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Visualización geográfica</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-[2rem]">Mapa de Cobertura</h2>
+                  <p className="mt-2 max-w-3xl text-sm text-white/72">
+                    Observa la ubicación de nuestros técnicos y sus zonas de cobertura en el mapa interactivo.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-3xl border border-white/15 bg-white/[0.03] overflow-hidden" style={{ height: '600px' }}>
+                <PublicTechniciansMap
+                  points={mapPoints}
+                  preferUserLocation={true}
+                />
+              </div>
+            </section>
+          )}
         </div>
       </main>
     </div>
