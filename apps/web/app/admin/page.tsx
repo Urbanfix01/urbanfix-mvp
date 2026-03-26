@@ -7,6 +7,7 @@ import AuthHashHandler from '../../components/AuthHashHandler';
 import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import AdminProfileEditPanelFixed from '../../components/admin/AdminProfileEditPanelFixed';
+import AdminTechniciansUnified from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 
 type AdminProfile = {
@@ -35,7 +36,7 @@ type RoadmapSector = 'interfaz' | 'operativo' | 'clientes' | 'web' | 'app' | 'fu
 type RoadmapSentiment = 'positive' | 'neutral' | 'negative';
 type AdminTabKey =
   | 'resumen'
-  | 'usuarios'
+  | 'tecnicos'
   | 'facturacion'
   | 'roadmap'
   | 'mensajes'
@@ -44,7 +45,6 @@ type AdminTabKey =
   | 'mano_obra'
   | 'solicitudes'
   | 'newsletter'
-  | 'perfiles'
   | 'flujo';
 type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
 type FlowDiagramNodeShape = 'start' | 'process' | 'decision' | 'end';
@@ -3744,12 +3744,11 @@ export default function AdminPage() {
 
   const tabs = [
     { key: 'resumen', label: 'Resumen' },
-    { key: 'usuarios', label: 'Usuarios' },
+    { key: 'tecnicos', label: 'Técnicos' },
     { key: 'facturacion', label: 'FacturaciÃ³n' },
     { key: 'mano_obra', label: 'Mano de obra' },
     { key: 'solicitudes', label: 'Solicitudes' },
     { key: 'newsletter', label: 'Newsletter' },
-    { key: 'perfiles', label: 'Editar Perfiles' },
     { key: 'flujo', label: 'Flujo App/Web' },
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'mensajes', label: 'Mensajes' },
@@ -5130,7 +5129,7 @@ export default function AdminPage() {
               </section>
             </>
           )}
-          {activeTab === 'usuarios' && (
+          {activeTab === 'tecnicos' && (
             <>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-1 flex-wrap items-center gap-3">
@@ -7783,11 +7782,6 @@ export default function AdminPage() {
           {activeTab === 'newsletter' && session?.access_token && (
             <AdminNewsletterPanel accessToken={session.access_token} active={activeTab === 'newsletter'} />
           )}
-          {activeTab === 'perfiles' && (
-            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
-              <AdminProfileEditPanelFixed />
-            </section>
-          )}
           {activeTab === 'actividad' && (
             <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -8325,6 +8319,13 @@ export default function AdminPage() {
               )}
             </section>
           )}
+
+          {activeTab === 'tecnicos' && (
+            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
+              <AdminTechniciansUnified />
+            </section>
+          )}
+
             </>
           )}
         </div>
