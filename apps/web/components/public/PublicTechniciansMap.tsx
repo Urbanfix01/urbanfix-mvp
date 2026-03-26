@@ -539,6 +539,7 @@ export default function PublicTechniciansMap({
                 </a>
               ) : (
                 <div className="hidden lg:block" />
+              )}
             </form>
           ) : null}
         </div>
