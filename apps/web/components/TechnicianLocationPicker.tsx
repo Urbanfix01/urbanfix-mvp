@@ -16,6 +16,7 @@ interface Props {
   onChange: (result: LocationPickerResult | null) => void;
   query?: string;
   onQueryChange?: (query: string) => void;
+  cityHint?: string;
   label?: string;
   description?: string;
   required?: boolean;
@@ -40,13 +41,18 @@ const isArgentinaCoordinate = (lat: number, lng: number): boolean => {
 };
 
 const geocodeAddress = async (
-  query: string
+  query: string,
+  cityHint?: string
 ): Promise<{ results: LocationPickerResult[]; error?: string }> => {
   const trimmed = query.trim();
   if (trimmed.length < 3) return { results: [] };
 
   try {
-    const response = await fetch(`/api/geocode/search?query=${encodeURIComponent(trimmed)}&limit=12`, {
+    const params = new URLSearchParams({ query: trimmed, limit: '12' });
+    if (cityHint?.trim()) {
+      params.set('city', cityHint.trim());
+    }
+    const response = await fetch(`/api/geocode/search?${params.toString()}`, {
       cache: 'no-store',
     });
     const payload = (await response.json()) as {
@@ -74,6 +80,7 @@ export default function TechnicianLocationPicker({
   onChange,
   query,
   onQueryChange,
+  cityHint,
   label = 'Ubicación de trabajo',
   description: descriptionProp,
   required = true,
@@ -125,7 +132,7 @@ export default function TechnicianLocationPicker({
     setSearchError('');
 
     const timer = window.setTimeout(async () => {
-      const { results, error: nextError } = await geocodeAddress(trimmed);
+      const { results, error: nextError } = await geocodeAddress(trimmed, cityHint);
       if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
       setSuggestions(results);
       setSearchError(nextError || '');
@@ -135,7 +142,7 @@ export default function TechnicianLocationPicker({
     return () => {
       window.clearTimeout(timer);
     };
-  }, [input]);
+  }, [cityHint, input]);
 
   const handleSearch = (query: string) => {
     setInput(query);

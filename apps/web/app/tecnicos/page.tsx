@@ -5015,6 +5015,7 @@ export default function TechniciansPage() {
                       query={profileForm.address}
                       onQueryChange={handleTechnicianAddressQueryChange}
                       onChange={handleTechnicianLocationChange}
+                      cityHint={profileForm.city}
                       label="Dirección base"
                       description="Busca tu dirección, elige una sugerencia o abre el mapa para ajustar el punto exacto arrastrando el marcador."
                       required={false}
@@ -7942,6 +7943,7 @@ export default function TechniciansPage() {
                           query={profileForm.address}
                           onQueryChange={handleTechnicianAddressQueryChange}
                           onChange={handleTechnicianLocationChange}
+                          cityHint={profileForm.city}
                           label="Direccion base"
                           description="Busca la dirección de tu base, selecciona una sugerencia y ajusta el punto exacto en el mapa si hace falta."
                           required={profileForm.profilePublished}

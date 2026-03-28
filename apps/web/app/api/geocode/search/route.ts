@@ -24,8 +24,105 @@ const isArgentinaCoordinate = (lat: number, lng: number) => {
   );
 };
 
+type NominatimRow = {
+  display_name?: string;
+  lat?: string;
+  lon?: string;
+  importance?: number;
+};
+
+const buildQueryVariants = (query: string, cityHint = '') => {
+  const compact = String(query || '').trim().replace(/\s+/g, ' ');
+  const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
+  const variants = [compact];
+  const tokens = compact.split(' ').filter(Boolean);
+  const numberToken = tokens.find((token) => /\d/.test(token)) || '';
+  const streetTokens = tokens.filter((token) => !/\d/.test(token));
+  const streetPart = streetTokens.join(' ').trim();
+
+  if (numberToken && streetPart) {
+    variants.push(`${numberToken} ${streetPart}`);
+    variants.push(`${streetPart} ${numberToken}, Argentina`);
+    variants.push(`${numberToken} ${streetPart}, Argentina`);
+  }
+
+  if (streetPart) {
+    variants.push(`${streetPart}, Argentina`);
+  }
+
+  if (normalizedCityHint) {
+    variants.push(`${compact}, ${normalizedCityHint}, Argentina`);
+    if (numberToken && streetPart) {
+      variants.push(`${streetPart} ${numberToken}, ${normalizedCityHint}, Argentina`);
+      variants.push(`${numberToken} ${streetPart}, ${normalizedCityHint}, Argentina`);
+    }
+    if (streetPart) {
+      variants.push(`${streetPart}, ${normalizedCityHint}, Argentina`);
+    }
+  }
+
+  variants.push(`${compact}, Argentina`);
+
+  return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
+};
+
+const buildStreetFallbackVariants = (query: string, cityHint = '') => {
+  const compact = String(query || '').trim().replace(/\s+/g, ' ');
+  const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
+  const tokens = compact.split(' ').filter(Boolean);
+  const streetTokens = tokens.filter((token) => !/\d/.test(token));
+  const streetPart = streetTokens.join(' ').trim();
+
+  if (!streetPart) return [];
+
+  const variants = [streetPart, `${streetPart}, Argentina`];
+  if (normalizedCityHint) {
+    variants.push(`${streetPart}, ${normalizedCityHint}`);
+    variants.push(`${streetPart}, ${normalizedCityHint}, Argentina`);
+  }
+
+  return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
+};
+
+const fetchNominatimRows = async (query: string, limit: number) => {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&dedupe=0&countrycodes=ar&q=${encodeURIComponent(
+    query
+  )}&addressdetails=1&email=info@urbanfixar.com`;
+
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
+      'Accept-Language': 'es-AR,es;q=0.9,en;q=0.6',
+    },
+    cache: 'no-store',
+  });
+
+  if (response.status === 429) {
+    return {
+      rows: [] as NominatimRow[],
+      error: 'Demasiadas busquedas seguidas. Espera unos segundos e intenta nuevamente.',
+      rateLimited: true,
+    };
+  }
+
+  if (!response.ok) {
+    return {
+      rows: [] as NominatimRow[],
+      error: 'No pudimos buscar direcciones en este momento.',
+      rateLimited: false,
+    };
+  }
+
+  return {
+    rows: ((await response.json()) as NominatimRow[]) || [],
+    error: '',
+    rateLimited: false,
+  };
+};
+
 export async function GET(request: NextRequest) {
   const query = String(request.nextUrl.searchParams.get('query') || '').trim();
+  const cityHint = String(request.nextUrl.searchParams.get('city') || '').trim();
   const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 5);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(12, Math.round(requestedLimit))) : 8;
 
@@ -34,35 +131,19 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const upstreamLimit = Math.max(limit, 12);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${upstreamLimit}&dedupe=0&countrycodes=ar&q=${encodeURIComponent(
-      query
-    )}&addressdetails=1&email=info@urbanfixar.com`;
-
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
-        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.6',
-      },
-      cache: 'no-store',
-    });
-
-    if (response.status === 429) {
-      return NextResponse.json({ results: [], error: 'Demasiadas busquedas seguidas. Espera unos segundos e intenta nuevamente.' });
-    }
-
-    if (!response.ok) {
-      return NextResponse.json({ results: [], error: 'No pudimos buscar direcciones en este momento.' });
-    }
-
-    const rows = (await response.json()) as Array<{
-      display_name?: string;
-      lat?: string;
-      lon?: string;
-      importance?: number;
-    }>;
+    const upstreamLimit = Math.max(limit, 10);
+    const variants = buildQueryVariants(query, cityHint).slice(0, 6);
+    const fallbackVariants = buildStreetFallbackVariants(query, cityHint).slice(0, 3);
+    const settled = await Promise.all(
+      variants.map((variant) => fetchNominatimRows(variant, upstreamLimit)).concat(
+        fallbackVariants.map((variant) => fetchNominatimRows(variant, Math.max(6, limit)))
+      )
+    );
+    const firstError = settled.find((item) => item.error)?.error || '';
+    const rows = settled.flatMap((item) => item.rows);
 
     const normalizedQuery = normalizeSearchText(query);
+    const normalizedCityHint = normalizeSearchText(cityHint);
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
     const queryNumber = queryTokens.find((token) => /\d/.test(token)) || '';
     const seen = new Set<string>();
@@ -87,6 +168,8 @@ export async function GET(request: NextRequest) {
         else if (normalizedDisplayName.includes(normalizedQuery)) score += 2;
         score += queryTokens.filter((token) => normalizedDisplayName.includes(token)).length * 0.45;
         if (queryNumber && normalizedDisplayName.includes(queryNumber)) score += 1.5;
+        if (normalizedCityHint && normalizedDisplayName.includes(normalizedCityHint)) score += 2.5;
+        if (queryNumber && !normalizedDisplayName.includes(queryNumber)) score -= 0.75;
 
         return {
           display_name: displayName,
@@ -104,7 +187,7 @@ export async function GET(request: NextRequest) {
         lon: (item as any).lon,
       }));
 
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, error: results.length === 0 ? firstError : '' });
   } catch {
     return NextResponse.json({ results: [], error: 'No pudimos buscar direcciones en este momento.' });
   }
