@@ -528,6 +528,36 @@ const darkThemeStyles = {
   '--ui-accent-soft': '#F5B942',
 } as React.CSSProperties;
 
+const authSurfaceClass =
+  'rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/96 p-8 shadow-[0_24px_80px_-32px_rgba(15,23,42,0.45)] backdrop-blur';
+
+const authSurfaceMutedClass =
+  'rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/84 p-6 shadow-[0_18px_48px_-28px_rgba(15,23,42,0.32)] backdrop-blur';
+
+const authSurfaceSoftClass =
+  'rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 p-6 shadow-[0_14px_36px_-28px_rgba(15,23,42,0.28)] backdrop-blur';
+
+const authPillClass =
+  'inline-flex items-center gap-2 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/76 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[color:var(--ui-muted)] shadow-sm';
+
+const authLogoFrameClass =
+  'flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center overflow-hidden ring-1 ring-[color:var(--ui-border)] shadow-lg shadow-black/10';
+
+const authInputClass =
+  'mt-2 w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-sm text-[color:var(--ui-ink)] outline-none transition placeholder:text-[color:var(--ui-muted)]/70 focus:border-[color:var(--ui-accent-soft)]';
+
+const authPrimaryButtonClass =
+  'w-full rounded-2xl bg-[color:var(--ui-accent)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50';
+
+const authSecondaryButtonClass =
+  'inline-flex items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-5 py-2 text-sm font-semibold text-[color:var(--ui-ink)] transition hover:border-[color:var(--ui-accent-soft)] hover:text-[color:var(--ui-ink)]';
+
+const authSecondaryButtonBlockClass =
+  'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-4 py-3 text-xs font-semibold text-[color:var(--ui-muted)] transition hover:border-[color:var(--ui-accent-soft)] hover:text-[color:var(--ui-ink)]';
+
+const authOptionButtonClass =
+  'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-left transition hover:border-[color:var(--ui-accent-soft)]';
+
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 
 const getPublicBaseUrl = () => {
@@ -4472,15 +4502,24 @@ export default function TechniciansPage() {
   );
 
   useEffect(() => {
-    if (!session?.user?.id || !profileHydrated || autoSaveBootstrapped) return;
+    if (!session?.user?.id || !profileHydrated || autoSaveBootstrapped || profileRequiredMissing.length > 0) return;
     lastPersistedProfileSignatureRef.current = autoSaveSignature;
     setAutoSaveBootstrapped(true);
     setAutoSaveState('idle');
     setAutoSaveMessage('');
-  }, [autoSaveBootstrapped, autoSaveSignature, profileHydrated, session?.user?.id]);
+  }, [autoSaveBootstrapped, autoSaveSignature, profileHydrated, profileRequiredMissing.length, session?.user?.id]);
 
   useEffect(() => {
     if (!session?.user?.id || !autoSaveBootstrapped) return;
+    if (profileRequiredMissing.length > 0) {
+      if (autoSaveTimerRef.current !== null) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      setAutoSaveState('idle');
+      setAutoSaveMessage('');
+      return;
+    }
     if (profilePersistInFlightRef.current) return;
     if (autoSaveSignature === lastPersistedProfileSignatureRef.current) return;
 
@@ -4498,7 +4537,14 @@ export default function TechniciansPage() {
         autoSaveTimerRef.current = null;
       }
     };
-  }, [autoSaveBootstrapped, autoSaveSignature, profilePersistTick, session?.user?.id, technicianLocationResult]);
+  }, [
+    autoSaveBootstrapped,
+    autoSaveSignature,
+    profilePersistTick,
+    profileRequiredMissing.length,
+    session?.user?.id,
+    technicianLocationResult,
+  ]);
 
   const sessionMediaOverlays = session?.user ? (
     <>
@@ -4551,7 +4597,7 @@ export default function TechniciansPage() {
           data-ui-theme={uiTheme}
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
-          <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
+          <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/84 px-6 py-4 text-sm text-[color:var(--ui-muted)] shadow-sm backdrop-blur">
             {adminGateStatus === 'checking' ? 'Validando acceso...' : 'Cargando perfil...'}
           </div>
         </div>
@@ -4569,22 +4615,22 @@ export default function TechniciansPage() {
           data-ui-theme={uiTheme}
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
         >
-          <div className="max-w-lg rounded-3xl border border-rose-200 bg-white p-8 shadow-xl shadow-slate-200/60">
+          <div className={`${authSurfaceClass} max-w-lg border-rose-200`}>
             <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Perfil técnico</p>
-            <h1 className="mt-2 text-2xl font-bold text-slate-900">No pudimos abrir tu perfil</h1>
-            <p className="mt-3 text-sm text-slate-600">{profileLoadError}</p>
+            <h1 className="mt-2 text-2xl font-bold text-[color:var(--ui-ink)]">No pudimos abrir tu perfil</h1>
+            <p className="mt-3 text-sm text-[color:var(--ui-muted)]">{profileLoadError}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-2xl bg-[color:var(--ui-accent)] px-4 py-3 text-sm font-semibold text-white transition hover:opacity-95"
               >
                 Reintentar
               </button>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-4 py-3 text-sm font-semibold text-[color:var(--ui-ink)] transition hover:border-[color:var(--ui-accent-soft)]"
               >
                 Cerrar sesión
               </button>
@@ -4604,14 +4650,14 @@ export default function TechniciansPage() {
           data-ui-theme={uiTheme}
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
         >
-          <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
-            <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
-            <p className="mt-3 text-sm text-slate-600">
+          <div className={`${authSurfaceClass} max-w-lg text-center`}>
+            <h1 className="text-2xl font-bold text-[color:var(--ui-ink)]">Acceso administrativo</h1>
+            <p className="mt-3 text-sm text-[color:var(--ui-muted)]">
               Tu cuenta está configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
-              className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-2xl bg-[color:var(--ui-accent)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:opacity-95"
             >
               Ir al panel admin
             </a>
@@ -4649,7 +4695,7 @@ export default function TechniciansPage() {
                 <div className="flex items-center justify-center gap-3 md:justify-start">
                   <div
                     style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                    className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                    className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} ${
                       brandLogoUrl ? 'bg-white' : 'bg-white'
                     }`}
                   >
@@ -4665,27 +4711,27 @@ export default function TechniciansPage() {
                     )}
                   </div>
                   <div className="text-left">
-                    <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                    <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
+                    <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
+                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">Panel técnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseña</h1>
-                <p className="text-base text-slate-600 md:text-lg">
+                <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">Restablecer contraseña</h1>
+                <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
                   Define una nueva contraseña para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
                   onClick={exitRecoveryMode}
-                  className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  className={authSecondaryButtonClass}
                 >
                   Volver al inicio
                 </button>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+              <div className={authSurfaceClass}>
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseña</h2>
-                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseña para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Nueva contraseña</h2>
+                  <p className="text-sm text-[color:var(--ui-muted)]">Ingresa tu nueva contraseña para finalizar.</p>
                 </div>
 
                 {!session?.user && (
@@ -4702,14 +4748,14 @@ export default function TechniciansPage() {
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
                         placeholder="Nueva contraseña"
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        className={authInputClass.replace('mt-2 ', '')}
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
                         placeholder="Repetir contraseña"
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        className={authInputClass.replace('mt-2 ', '')}
                       />
                     </div>
 
@@ -4721,7 +4767,7 @@ export default function TechniciansPage() {
                         type="button"
                         onClick={handleUpdatePassword}
                         disabled={updatingRecovery}
-                        className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        className={`mt-5 ${authPrimaryButtonClass}`}
                       >
                           {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
                       </button>
@@ -4731,7 +4777,7 @@ export default function TechniciansPage() {
                       <button
                         type="button"
                         onClick={exitRecoveryMode}
-                        className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                        className={`mt-5 ${authPrimaryButtonClass}`}
                       >
                         Ir al panel
                       </button>
@@ -4772,44 +4818,44 @@ export default function TechniciansPage() {
 
             <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr]">
               <div className="space-y-6 text-center lg:text-left">
-                <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 shadow-sm">
+                <div className={authPillClass}>
                   Primer ingreso
                 </div>
-                <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">Configura tu perfil</h1>
-                <p className="text-base text-slate-600 md:text-lg">
+                <h1 className="text-4xl font-black text-[color:var(--ui-ink)] sm:text-5xl">Configura tu perfil</h1>
+                <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
                   Antes de crear presupuestos necesitamos tus datos básicos. Esto se muestra en el link público y en el
                   PDF que recibe tu cliente.
                 </p>
 
-                <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl shadow-slate-200/60">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por qué te lo pedimos</p>
-                  <ul className="mt-4 space-y-3 text-sm text-slate-600">
+                <div className={authSurfaceMutedClass}>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">Por qué te lo pedimos</p>
+                  <ul className="mt-4 space-y-3 text-sm text-[color:var(--ui-muted)]">
                     <li className="flex gap-3">
-                      <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
+                      <span className="mt-2 h-2 w-2 rounded-full bg-[color:var(--ui-accent-soft)]" />
                       Tu cliente identifica rápido tu negocio y confía más en el presupuesto.
                     </li>
                     <li className="flex gap-3">
-                      <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
+                      <span className="mt-2 h-2 w-2 rounded-full bg-[color:var(--ui-accent-soft)]" />
                       Evitas preguntas repetidas (teléfono, dirección, horarios) y aceleras la aprobación.
                     </li>
                     <li className="flex gap-3">
-                      <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
+                      <span className="mt-2 h-2 w-2 rounded-full bg-[color:var(--ui-accent-soft)]" />
                       Tu marca (logo + foto) hace que el documento se vea profesional y memorable.
                     </li>
                   </ul>
                 </div>
 
-                <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejo de marca</p>
-                  <p className="mt-3 text-sm text-slate-600">
+                <div className={authSurfaceSoftClass}>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">Consejo de marca</p>
+                  <p className="mt-3 text-sm text-[color:var(--ui-muted)]">
                     Logo recomendado: fondo transparente o claro, alto contraste y versión horizontal si es posible.
                     Foto recomendada: rostro visible, luz natural y fondo simple.
                   </p>
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
-                <div className="rounded-3xl border border-slate-200 bg-slate-50 overflow-hidden">
+              <div className={authSurfaceClass}>
+                <div className="overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/78">
                   <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
                     {profileForm.companyLogoUrl ? (
                       <img
@@ -4824,7 +4870,7 @@ export default function TechniciansPage() {
                         <p className="mt-1 text-xs text-white/70">Recomendado: 1200x675 (16:9)</p>
                       </div>
                     )}
-                    <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center rounded-full bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white">
+                    <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center rounded-full bg-[color:var(--ui-card)]/92 px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
                       {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
                       <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
                     </label>
@@ -4832,11 +4878,11 @@ export default function TechniciansPage() {
 
                   <div className="relative flex flex-wrap items-end gap-4 px-6 pb-6 pt-0">
                     <div className="-mt-8 flex items-end gap-4">
-                      <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
+                      <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-[color:var(--ui-card)] bg-[color:var(--ui-bg)] shadow-sm">
                         {profileForm.avatarUrl ? (
                           <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-slate-600">
+                          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[color:var(--ui-muted)]">
                             {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
                           </div>
                         )}
@@ -4851,10 +4897,10 @@ export default function TechniciansPage() {
                       </div>
 
                       <div className="pb-1">
-                        <p className="text-base font-semibold text-slate-900">
+                        <p className="text-base font-semibold text-[color:var(--ui-ink)]">
                           {profileForm.businessName || 'Tu negocio'}
                         </p>
-                        <p className="text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
+                        <p className="text-sm text-[color:var(--ui-muted)]">{profileForm.fullName || 'Tu nombre'}</p>
                       </div>
                     </div>
                   </div>
@@ -4863,52 +4909,52 @@ export default function TechniciansPage() {
                 <div className="mt-6 space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-600">Nombre y apellido</label>
+                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre y apellido</label>
                       <input
                         value={profileForm.fullName}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        className={authInputClass}
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-600">Nombre del negocio</label>
+                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre del negocio</label>
                       <input
                         value={profileForm.businessName}
                         onChange={(event) =>
                           setProfileForm((prev) => ({ ...prev, businessName: event.target.value }))
                         }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        className={authInputClass}
                       />
                     </div>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-600">Teléfono / WhatsApp</label>
+                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Teléfono / WhatsApp</label>
                       <input
                         value={profileForm.phone}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
                         placeholder="+54 9 ..."
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        className={authInputClass}
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-semibold text-slate-600">Email</label>
+                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Email</label>
                       <input
                         value={profileForm.email}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        className={authInputClass}
                       />
                     </div>
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-600">Dirección base</label>
+                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Dirección base</label>
                     <input
                       value={profileForm.address}
                       onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
                       placeholder="Calle y ciudad"
-                      className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      className={authInputClass}
                     />
                   </div>
 
@@ -4922,19 +4968,19 @@ export default function TechniciansPage() {
                     type="button"
                     onClick={handleProfileSave}
                     disabled={profileSaving || !canSaveRequiredProfile}
-                    className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    className={authPrimaryButtonClass}
                   >
                     {profileSaving ? 'Guardando...' : 'Guardar y entrar'}
                   </button>
 
-                  {profileMessage && <p className="text-xs text-slate-600">{profileMessage}</p>}
+                  {profileMessage && <p className="text-xs text-[color:var(--ui-muted)]">{profileMessage}</p>}
 
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                    className={authSecondaryButtonBlockClass}
                   >
-                    Cerrar sesion
+                    Cerrar sesión
                   </button>
                 </div>
               </div>
@@ -4973,7 +5019,7 @@ export default function TechniciansPage() {
               <div className="flex items-center justify-center gap-3 md:justify-start">
                 <div
                   style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                  className={`flex h-14 w-auto min-w-14 max-w-[112px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/60 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                  className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} ${
                     brandLogoUrl ? 'bg-white' : 'bg-white'
                   }`}
                 >
@@ -4989,16 +5035,16 @@ export default function TechniciansPage() {
                   )}
                 </div>
                 <div className="text-left">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
+                  <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
                     {!selectedAccessProfile ? 'Acceso inicial' : accessProfileCopy.panelLabel}
                   </p>
                 </div>
               </div>
-              <h1 className="text-5xl font-black text-slate-900 md:text-6xl">
+              <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">
                 {!selectedAccessProfile ? 'Elige como quieres ingresar' : accessProfileCopy.heading}
               </h1>
-              <p className="text-base text-slate-600 md:text-lg">
+              <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
                 {!selectedAccessProfile
                   ? 'Antes de entrar, selecciona si eres tecnico, empresa o cliente para ir al flujo correcto.'
                   : accessProfileCopy.description}
@@ -5008,14 +5054,14 @@ export default function TechniciansPage() {
                   <button
                     type="button"
                     onClick={handleBackToProfileSelector}
-                    className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    className={authSecondaryButtonClass}
                   >
                     Cambiar perfil
                   </button>
                 )}
                 <a
                   href="https://www.urbanfix.com.ar"
-                  className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                  className={authSecondaryButtonClass}
                 >
                   Volver al inicio
                 </a>
@@ -5023,45 +5069,45 @@ export default function TechniciansPage() {
             </div>
 
             {!selectedAccessProfile ? (
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+              <div className={authSurfaceClass}>
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Selecciona tu perfil</h2>
-                  <p className="text-sm text-slate-600">Esto define a qué panel o vista te llevamos.</p>
+                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Selecciona tu perfil</h2>
+                  <p className="text-sm text-[color:var(--ui-muted)]">Esto define a qué panel o vista te llevamos.</p>
                 </div>
                 <div className="mt-6 space-y-3">
                   <button
                     type="button"
                     onClick={() => handleAccessProfileSelect('tecnico')}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                    className={authOptionButtonClass}
                   >
-                    <p className="text-sm font-bold text-slate-900">Tecnico</p>
-                    <p className="mt-1 text-xs text-slate-600">Crear presupuestos y hacer seguimiento de obras.</p>
+                    <p className="text-sm font-bold text-[color:var(--ui-ink)]">Técnico</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-muted)]">Crear presupuestos y hacer seguimiento de obras.</p>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAccessProfileSelect('empresa')}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                    className={authOptionButtonClass}
                   >
-                    <p className="text-sm font-bold text-slate-900">Empresa</p>
-                    <p className="mt-1 text-xs text-slate-600">Gestion comercial, responsables y operacion.</p>
+                    <p className="text-sm font-bold text-[color:var(--ui-ink)]">Empresa</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-muted)]">Gestión comercial, responsables y operación.</p>
                   </button>
                   <button
                     type="button"
                     onClick={() => handleAccessProfileSelect('cliente')}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-slate-400"
+                    className={authOptionButtonClass}
                   >
-                    <p className="text-sm font-bold text-slate-900">Cliente</p>
-                    <p className="mt-1 text-xs text-slate-600">Quiero pedir y revisar una cotizacion de reparacion.</p>
+                    <p className="text-sm font-bold text-[color:var(--ui-ink)]">Cliente</p>
+                    <p className="mt-1 text-xs text-[color:var(--ui-muted)]">Quiero pedir y revisar una cotización de reparación.</p>
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+              <div className={authSurfaceClass}>
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">
+                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">
                     {quickRegisterMode ? 'Registro en 2 segundos' : 'Ingresa a tu cuenta'}
                   </h2>
-                  <p className="text-sm text-slate-600">
+                  <p className="text-sm text-[color:var(--ui-muted)]">
                     {quickRegisterMode
                       ? 'Entra con Google o crea tu cuenta con correo en un paso.'
                       : 'Accede con Google o con tu correo.'}
@@ -5073,8 +5119,8 @@ export default function TechniciansPage() {
                   onClick={handleGoogleLogin}
                   className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
                     quickRegisterMode
-                      ? 'bg-slate-900 text-white shadow-lg shadow-slate-400/40 hover:bg-slate-800'
-                      : 'border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:text-slate-900'
+                      ? 'bg-[color:var(--ui-accent)] text-white shadow-lg shadow-black/20 hover:opacity-95'
+                      : 'border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] text-[color:var(--ui-ink)] hover:border-[color:var(--ui-accent-soft)]'
                   }`}
                 >
                   {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
@@ -5086,13 +5132,13 @@ export default function TechniciansPage() {
                   </p>
                 )}
 
-                <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-                  <div className="h-px flex-1 bg-slate-200" />
+                <div className="my-5 flex items-center gap-3 text-xs text-[color:var(--ui-muted)]">
+                  <div className="h-px flex-1 bg-[color:var(--ui-border)]" />
                   o
-                  <div className="h-px flex-1 bg-slate-200" />
+                  <div className="h-px flex-1 bg-[color:var(--ui-border)]" />
                 </div>
 
-                <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 p-1">
                   <button
                     type="button"
                     onClick={() => {
@@ -5103,8 +5149,8 @@ export default function TechniciansPage() {
                     }}
                     className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
                       authMode === 'login'
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
+                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-card)] hover:text-[color:var(--ui-ink)]'
                     }`}
                   >
                     Iniciar sesión
@@ -5118,8 +5164,8 @@ export default function TechniciansPage() {
                     }}
                     className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
                       authMode === 'register'
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
+                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-card)] hover:text-[color:var(--ui-ink)]'
                     }`}
                   >
                     Crear cuenta
@@ -5132,13 +5178,13 @@ export default function TechniciansPage() {
                       value={fullName}
                       onChange={(event) => setFullName(event.target.value)}
                       placeholder="Nombre completo"
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      className={authInputClass.replace('mt-2 ', '')}
                     />
                     <input
                       value={businessName}
                       onChange={(event) => setBusinessName(event.target.value)}
                       placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      className={authInputClass.replace('mt-2 ', '')}
                     />
                   </div>
                 )}
@@ -5161,14 +5207,14 @@ export default function TechniciansPage() {
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     placeholder="Correo"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    className={authInputClass.replace('mt-2 ', '')}
                   />
                   <input
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     type="password"
                     placeholder="Contraseña"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    className={authInputClass.replace('mt-2 ', '')}
                   />
                 </div>
 
@@ -5178,7 +5224,7 @@ export default function TechniciansPage() {
                       type="button"
                       onClick={handlePasswordRecovery}
                       disabled={sendingRecovery}
-                      className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
+                      className="text-xs font-semibold text-[color:var(--ui-muted)] transition hover:text-[color:var(--ui-ink)] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {sendingRecovery ? 'Enviando correo...' : '¿Olvidaste tu contraseña?'}
                     </button>
@@ -5188,8 +5234,8 @@ export default function TechniciansPage() {
                 {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
                 {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
 
-                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <div className="mt-5 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 p-4">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-muted)]">
                     Después del registro
                   </p>
                   <div className="mt-3 space-y-2">
@@ -5200,7 +5246,7 @@ export default function TechniciansPage() {
                     ].map((item) => (
                       <div
                         key={item}
-                        className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs leading-5 text-slate-600"
+                        className="rounded-xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-xs leading-5 text-[color:var(--ui-muted)]"
                       >
                         {item}
                       </div>
@@ -5212,7 +5258,7 @@ export default function TechniciansPage() {
                   type="button"
                   onClick={handleEmailAuth}
                   disabled={authLoading}
-                  className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className={`mt-5 ${authPrimaryButtonClass}`}
                 >
                   {authLoading
                     ? 'Procesando...'
@@ -5230,9 +5276,9 @@ export default function TechniciansPage() {
                     setAuthError('');
                     setAuthNotice('');
                   }}
-                  className="mt-4 w-full text-sm text-slate-500 hover:text-slate-800"
+                  className="mt-4 w-full text-sm text-[color:var(--ui-muted)] transition hover:text-[color:var(--ui-ink)]"
                 >
-                  {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
+                  {authMode === 'login' ? 'No tienes cuenta? Regístrate' : 'Ya tienes cuenta? Ingresa'}
                 </button>
               </div>
             )}
