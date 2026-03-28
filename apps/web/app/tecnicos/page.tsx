@@ -83,6 +83,60 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
   sundayTo: '13:00',
 };
 
+const ARGENTINA_PROVINCES = [
+  'Buenos Aires',
+  'Ciudad Autonoma de Buenos Aires',
+  'Catamarca',
+  'Chaco',
+  'Chubut',
+  'Cordoba',
+  'Corrientes',
+  'Entre Rios',
+  'Formosa',
+  'Jujuy',
+  'La Pampa',
+  'La Rioja',
+  'Mendoza',
+  'Misiones',
+  'Neuquen',
+  'Rio Negro',
+  'Salta',
+  'San Juan',
+  'San Luis',
+  'Santa Cruz',
+  'Santa Fe',
+  'Santiago del Estero',
+  'Tierra del Fuego',
+  'Tucuman',
+];
+
+const PROVINCE_ALIASES: Record<string, string[]> = {
+  'Buenos Aires': ['provincia de buenos aires', 'buenos aires'],
+  'Ciudad Autonoma de Buenos Aires': ['ciudad autonoma de buenos aires', 'capital federal', 'caba'],
+  Catamarca: ['catamarca'],
+  Chaco: ['chaco'],
+  Chubut: ['chubut'],
+  Cordoba: ['cordoba'],
+  Corrientes: ['corrientes'],
+  'Entre Rios': ['entre rios'],
+  Formosa: ['formosa'],
+  Jujuy: ['jujuy'],
+  'La Pampa': ['la pampa'],
+  'La Rioja': ['la rioja'],
+  Mendoza: ['mendoza'],
+  Misiones: ['misiones'],
+  Neuquen: ['neuquen'],
+  'Rio Negro': ['rio negro'],
+  Salta: ['salta'],
+  'San Juan': ['san juan'],
+  'San Luis': ['san luis'],
+  'Santa Cruz': ['santa cruz'],
+  'Santa Fe': ['santa fe'],
+  'Santiago del Estero': ['santiago del estero'],
+  'Tierra del Fuego': ['tierra del fuego'],
+  Tucuman: ['tucuman'],
+};
+
 const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
   const match = String(value || '')
     .trim()
@@ -101,6 +155,17 @@ const normalizeTextForParsing = (value: string) =>
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
+
+const extractProvinceHint = (...candidates: Array<string | null | undefined>) => {
+  const normalizedCandidates = candidates.map((value) => normalizeTextForParsing(String(value || '')));
+  for (const province of ARGENTINA_PROVINCES) {
+    const aliases = PROVINCE_ALIASES[province] || [normalizeTextForParsing(province)];
+    if (normalizedCandidates.some((candidate) => aliases.some((alias) => candidate.includes(alias)))) {
+      return province;
+    }
+  }
+  return '';
+};
 
 const extractTimeRange = (value: string, pattern: RegExp): [string, string] | null => {
   const match = value.match(pattern);
@@ -1291,6 +1356,7 @@ export default function TechniciansPage() {
     phone: '',
     address: '',
     city: '',
+    province: '',
     coverageArea: '',
     workingHours: '',
     weekdayFrom: DEFAULT_WORKING_HOURS_CONFIG.weekdayFrom,
@@ -1715,6 +1781,13 @@ export default function TechniciansPage() {
     const parsedCertifications = parseCertificationFilesTag(profile.certifications || '');
     const rawBankValue = String(profile.bank_alias || '').trim();
     const detectedBankType: 'alias' | 'cbu' = normalizeCbu(rawBankValue).length === 22 ? 'cbu' : 'alias';
+    const provinceHint = extractProvinceHint(
+      profile.service_location_name,
+      profile.company_address,
+      profile.address,
+      profile.coverage_area,
+      profile.city
+    );
     
     // Parse location from profile
     const locationResult = parseTechnicianLocation(profile);
@@ -1727,6 +1800,7 @@ export default function TechniciansPage() {
       phone: profile.phone || '',
       address: profile.company_address || profile.address || '',
       city: profile.city || '',
+      province: provinceHint,
       coverageArea,
       workingHours: formatWorkingHoursLabel(workingHoursConfig),
       weekdayFrom: workingHoursConfig.weekdayFrom,
@@ -2651,11 +2725,13 @@ export default function TechniciansPage() {
   };
 
   const handleTechnicianLocationChange = (result: LocationPickerResult | null) => {
+    const provinceHint = result ? extractProvinceHint(result.displayName) : '';
     setTechnicianLocationResult(result);
     setProfileForm((prev) => ({
       ...prev,
       address:
         result && result.displayName !== 'Ubicación seleccionada en mapa' ? result.displayName : prev.address,
+      province: provinceHint || prev.province,
       locationPickerResult: result,
     }));
     setProfilePersistTick((prev) => prev + 1);
@@ -5010,12 +5086,39 @@ export default function TechniciansPage() {
                   </div>
 
                   <div>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div>
+                        <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Pais</label>
+                        <input value="Argentina" disabled className={`${authInputClass} cursor-not-allowed opacity-80`} />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Provincia</label>
+                        <select
+                          value={profileForm.province}
+                          onChange={(event) =>
+                            setProfileForm((prev) => ({ ...prev, province: event.target.value }))
+                          }
+                          className={authInputClass}
+                        >
+                          <option value="">Seleccionar provincia</option>
+                          {ARGENTINA_PROVINCES.map((province) => (
+                            <option key={province} value={province}>
+                              {province}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
                     <TechnicianLocationPicker
                       value={technicianLocationResult}
                       query={profileForm.address}
                       onQueryChange={handleTechnicianAddressQueryChange}
                       onChange={handleTechnicianLocationChange}
                       cityHint={profileForm.city}
+                      provinceHint={profileForm.province}
                       label="Dirección base"
                       description="Busca tu dirección, elige una sugerencia o abre el mapa para ajustar el punto exacto arrastrando el marcador."
                       required={false}
@@ -7937,6 +8040,33 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura y horarios</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600">Pais</label>
+                          <input
+                            value="Argentina"
+                            disabled
+                            className="mt-2 w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600">Provincia</label>
+                          <select
+                            value={profileForm.province}
+                            onChange={(event) =>
+                              setProfileForm((prev) => ({ ...prev, province: event.target.value }))
+                            }
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                          >
+                            <option value="">Seleccionar provincia</option>
+                            {ARGENTINA_PROVINCES.map((province) => (
+                              <option key={province} value={province}>
+                                {province}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
                       <div className="mt-3">
                         <TechnicianLocationPicker
                           value={technicianLocationResult}
@@ -7944,6 +8074,7 @@ export default function TechniciansPage() {
                           onQueryChange={handleTechnicianAddressQueryChange}
                           onChange={handleTechnicianLocationChange}
                           cityHint={profileForm.city}
+                          provinceHint={profileForm.province}
                           label="Direccion base"
                           description="Busca la dirección de tu base, selecciona una sugerencia y ajusta el punto exacto en el mapa si hace falta."
                           required={profileForm.profilePublished}

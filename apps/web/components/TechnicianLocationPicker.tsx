@@ -17,6 +17,7 @@ interface Props {
   query?: string;
   onQueryChange?: (query: string) => void;
   cityHint?: string;
+  provinceHint?: string;
   label?: string;
   description?: string;
   required?: boolean;
@@ -42,7 +43,8 @@ const isArgentinaCoordinate = (lat: number, lng: number): boolean => {
 
 const geocodeAddress = async (
   query: string,
-  cityHint?: string
+  cityHint?: string,
+  provinceHint?: string
 ): Promise<{ results: LocationPickerResult[]; error?: string }> => {
   const trimmed = query.trim();
   if (trimmed.length < 3) return { results: [] };
@@ -51,6 +53,9 @@ const geocodeAddress = async (
     const params = new URLSearchParams({ query: trimmed, limit: '12' });
     if (cityHint?.trim()) {
       params.set('city', cityHint.trim());
+    }
+    if (provinceHint?.trim()) {
+      params.set('province', provinceHint.trim());
     }
     const response = await fetch(`/api/geocode/search?${params.toString()}`, {
       cache: 'no-store',
@@ -81,6 +86,7 @@ export default function TechnicianLocationPicker({
   query,
   onQueryChange,
   cityHint,
+  provinceHint,
   label = 'Ubicación de trabajo',
   description: descriptionProp,
   required = true,
@@ -132,17 +138,17 @@ export default function TechnicianLocationPicker({
     setSearchError('');
 
     const timer = window.setTimeout(async () => {
-      const { results, error: nextError } = await geocodeAddress(trimmed, cityHint);
+      const { results, error: nextError } = await geocodeAddress(trimmed, cityHint, provinceHint);
       if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
       setSuggestions(results);
       setSearchError(nextError || '');
       setLoading(false);
-    }, 450);
+    }, 650);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [cityHint, input]);
+  }, [cityHint, input, provinceHint]);
 
   const handleSearch = (query: string) => {
     setInput(query);

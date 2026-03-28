@@ -31,9 +31,10 @@ type NominatimRow = {
   importance?: number;
 };
 
-const buildQueryVariants = (query: string, cityHint = '') => {
+const buildQueryVariants = (query: string, cityHint = '', provinceHint = '') => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
+  const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
   const variants = [compact];
   const tokens = compact.split(' ').filter(Boolean);
   const numberToken = tokens.find((token) => /\d/.test(token)) || '';
@@ -50,11 +51,24 @@ const buildQueryVariants = (query: string, cityHint = '') => {
     variants.push(`${streetPart}, Argentina`);
   }
 
+  if (normalizedProvinceHint) {
+    variants.push(`${compact}, ${normalizedProvinceHint}, Argentina`);
+    if (numberToken && streetPart) {
+      variants.push(`${streetPart} ${numberToken}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${numberToken} ${streetPart}, ${normalizedProvinceHint}, Argentina`);
+    }
+    if (streetPart) {
+      variants.push(`${streetPart}, ${normalizedProvinceHint}, Argentina`);
+    }
+  }
+
   if (normalizedCityHint) {
     variants.push(`${compact}, ${normalizedCityHint}, Argentina`);
+    if (normalizedProvinceHint) {
+      variants.push(`${compact}, ${normalizedCityHint}, ${normalizedProvinceHint}, Argentina`);
+    }
     if (numberToken && streetPart) {
       variants.push(`${streetPart} ${numberToken}, ${normalizedCityHint}, Argentina`);
-      variants.push(`${numberToken} ${streetPart}, ${normalizedCityHint}, Argentina`);
     }
     if (streetPart) {
       variants.push(`${streetPart}, ${normalizedCityHint}, Argentina`);
@@ -66,20 +80,28 @@ const buildQueryVariants = (query: string, cityHint = '') => {
   return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
 };
 
-const buildStreetFallbackVariants = (query: string, cityHint = '') => {
+const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint = '') => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
+  const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
   const tokens = compact.split(' ').filter(Boolean);
   const streetTokens = tokens.filter((token) => !/\d/.test(token));
   const streetPart = streetTokens.join(' ').trim();
 
   if (!streetPart) return [];
 
-  const variants = [streetPart, `${streetPart}, Argentina`];
+  const variants = [] as string[];
+  if (normalizedProvinceHint) {
+    variants.push(`${streetPart}, ${normalizedProvinceHint}, Argentina`);
+  }
   if (normalizedCityHint) {
     variants.push(`${streetPart}, ${normalizedCityHint}`);
     variants.push(`${streetPart}, ${normalizedCityHint}, Argentina`);
+    if (normalizedProvinceHint) {
+      variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedProvinceHint}, Argentina`);
+    }
   }
+  variants.push(streetPart, `${streetPart}, Argentina`);
 
   return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
 };
@@ -123,6 +145,7 @@ const fetchNominatimRows = async (query: string, limit: number) => {
 export async function GET(request: NextRequest) {
   const query = String(request.nextUrl.searchParams.get('query') || '').trim();
   const cityHint = String(request.nextUrl.searchParams.get('city') || '').trim();
+  const provinceHint = String(request.nextUrl.searchParams.get('province') || '').trim();
   const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 5);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(12, Math.round(requestedLimit))) : 8;
 
@@ -131,9 +154,9 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const upstreamLimit = Math.max(limit, 10);
-    const variants = buildQueryVariants(query, cityHint).slice(0, 6);
-    const fallbackVariants = buildStreetFallbackVariants(query, cityHint).slice(0, 3);
+    const upstreamLimit = Math.max(limit, 8);
+    const variants = buildQueryVariants(query, cityHint, provinceHint).slice(0, provinceHint ? 3 : 4);
+    const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint).slice(0, provinceHint ? 1 : 2);
     const settled = await Promise.all(
       variants.map((variant) => fetchNominatimRows(variant, upstreamLimit)).concat(
         fallbackVariants.map((variant) => fetchNominatimRows(variant, Math.max(6, limit)))
@@ -144,6 +167,7 @@ export async function GET(request: NextRequest) {
 
     const normalizedQuery = normalizeSearchText(query);
     const normalizedCityHint = normalizeSearchText(cityHint);
+    const normalizedProvinceHint = normalizeSearchText(provinceHint);
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
     const queryNumber = queryTokens.find((token) => /\d/.test(token)) || '';
     const seen = new Set<string>();
@@ -169,6 +193,7 @@ export async function GET(request: NextRequest) {
         score += queryTokens.filter((token) => normalizedDisplayName.includes(token)).length * 0.45;
         if (queryNumber && normalizedDisplayName.includes(queryNumber)) score += 1.5;
         if (normalizedCityHint && normalizedDisplayName.includes(normalizedCityHint)) score += 2.5;
+        if (normalizedProvinceHint && normalizedDisplayName.includes(normalizedProvinceHint)) score += 3;
         if (queryNumber && !normalizedDisplayName.includes(queryNumber)) score -= 0.75;
 
         return {
