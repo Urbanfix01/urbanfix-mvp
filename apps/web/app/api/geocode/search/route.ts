@@ -29,12 +29,68 @@ type NominatimRow = {
   lat?: string;
   lon?: string;
   importance?: number;
+  addresstype?: string;
+  place_rank?: number;
+  address?: {
+    house_number?: string;
+    road?: string;
+    pedestrian?: string;
+    footway?: string;
+    residential?: string;
+    suburb?: string;
+    neighbourhood?: string;
+    quarter?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    hamlet?: string;
+    county?: string;
+    state_district?: string;
+    state?: string;
+    postcode?: string;
+  };
 };
+
+const buildLocationAliases = (value: string) => {
+  const compact = String(value || '').trim().replace(/\s+/g, ' ');
+  if (!compact) return [] as string[];
+
+  const tokens = compact.split(' ').filter(Boolean);
+  const aliases = [compact];
+
+  if (tokens.length >= 2) {
+    aliases.push(tokens.slice(-2).join(' '));
+  }
+  if (tokens.length >= 1) {
+    aliases.push(tokens[tokens.length - 1]);
+  }
+
+  return Array.from(new Set(aliases.map((item) => item.trim()).filter((item) => item.length >= 4)));
+};
+
+const getRoadLabel = (row: NominatimRow) =>
+  String(row.address?.road || row.address?.pedestrian || row.address?.footway || row.address?.residential || '').trim();
+
+const getLocalityLabels = (row: NominatimRow) =>
+  [
+    row.address?.city,
+    row.address?.town,
+    row.address?.village,
+    row.address?.hamlet,
+    row.address?.suburb,
+    row.address?.neighbourhood,
+    row.address?.quarter,
+    row.address?.county,
+    row.address?.state_district,
+  ]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
 
 const buildQueryVariants = (query: string, cityHint = '', provinceHint = '') => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
   const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
+  const localityAliases = buildLocationAliases(normalizedCityHint).slice(0, 3);
   const variants = [compact];
   const tokens = compact.split(' ').filter(Boolean);
   const numberToken = tokens.find((token) => /\d/.test(token)) || '';
@@ -75,6 +131,25 @@ const buildQueryVariants = (query: string, cityHint = '', provinceHint = '') => 
     }
   }
 
+  localityAliases.forEach((locality) => {
+    variants.push(`${compact}, ${locality}, Argentina`);
+    if (normalizedProvinceHint) {
+      variants.push(`${compact}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+    }
+    if (numberToken && streetPart) {
+      variants.push(`${streetPart} ${numberToken}, ${locality}, Argentina`);
+      if (normalizedProvinceHint) {
+        variants.push(`${streetPart} ${numberToken}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+      }
+    }
+    if (streetPart) {
+      variants.push(`${streetPart}, ${locality}, Argentina`);
+      if (normalizedProvinceHint) {
+        variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+      }
+    }
+  });
+
   variants.push(`${compact}, Argentina`);
 
   return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
@@ -84,6 +159,7 @@ const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint 
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
   const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
+  const localityAliases = buildLocationAliases(normalizedCityHint).slice(0, 3);
   const tokens = compact.split(' ').filter(Boolean);
   const streetTokens = tokens.filter((token) => !/\d/.test(token));
   const streetPart = streetTokens.join(' ').trim();
@@ -101,6 +177,12 @@ const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint 
       variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedProvinceHint}, Argentina`);
     }
   }
+  localityAliases.forEach((locality) => {
+    variants.push(`${streetPart}, ${locality}, Argentina`);
+    if (normalizedProvinceHint) {
+      variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+    }
+  });
   variants.push(streetPart, `${streetPart}, Argentina`);
 
   return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
@@ -111,13 +193,29 @@ const fetchNominatimRows = async (query: string, limit: number) => {
     query
   )}&addressdetails=1&email=info@urbanfixar.com`;
 
-  const response = await fetch(url, {
-    headers: {
-      'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
-      'Accept-Language': 'es-AR,es;q=0.9,en;q=0.6',
-    },
-    cache: 'no-store',
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: {
+        'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
+        'Accept-Language': 'es-AR,es;q=0.9,en;q=0.6',
+      },
+      cache: 'no-store',
+      signal: controller.signal,
+    });
+  } catch {
+    clearTimeout(timeoutId);
+    return {
+      rows: [] as NominatimRow[],
+      error: 'La búsqueda de direcciones tardó demasiado. Intenta de nuevo con la localidad cargada.',
+      rateLimited: false,
+    };
+  }
+
+  clearTimeout(timeoutId);
 
   if (response.status === 429) {
     return {
@@ -155,8 +253,11 @@ export async function GET(request: NextRequest) {
 
   try {
     const upstreamLimit = Math.max(limit, 8);
-    const variants = buildQueryVariants(query, cityHint, provinceHint).slice(0, provinceHint ? 3 : 4);
-    const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint).slice(0, provinceHint ? 1 : 2);
+    const variants = buildQueryVariants(query, cityHint, provinceHint).slice(0, cityHint ? 6 : provinceHint ? 4 : 4);
+    const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint).slice(
+      0,
+      cityHint ? 3 : provinceHint ? 1 : 2
+    );
     const settled = await Promise.all(
       variants.map((variant) => fetchNominatimRows(variant, upstreamLimit)).concat(
         fallbackVariants.map((variant) => fetchNominatimRows(variant, Math.max(6, limit)))
@@ -168,8 +269,10 @@ export async function GET(request: NextRequest) {
     const normalizedQuery = normalizeSearchText(query);
     const normalizedCityHint = normalizeSearchText(cityHint);
     const normalizedProvinceHint = normalizeSearchText(provinceHint);
+    const normalizedLocalityAliases = buildLocationAliases(cityHint).map((item) => normalizeSearchText(item));
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
     const queryNumber = queryTokens.find((token) => /\d/.test(token)) || '';
+    const queryStreet = normalizeSearchText(queryTokens.filter((token) => !/\d/.test(token)).join(' '));
     const seen = new Set<string>();
 
     const results = rows
@@ -187,19 +290,44 @@ export async function GET(request: NextRequest) {
         }
         seen.add(dedupeKey);
 
+        const normalizedRoad = normalizeSearchText(getRoadLabel(item));
+        const normalizedHouseNumber = normalizeSearchText(String(item.address?.house_number || ''));
+        const normalizedLocalities = getLocalityLabels(item).map((part) => normalizeSearchText(part));
         let score = Number(item.importance || 0);
         if (normalizedDisplayName.startsWith(normalizedQuery)) score += 4;
         else if (normalizedDisplayName.includes(normalizedQuery)) score += 2;
         score += queryTokens.filter((token) => normalizedDisplayName.includes(token)).length * 0.45;
-        if (queryNumber && normalizedDisplayName.includes(queryNumber)) score += 1.5;
+        if (queryStreet) {
+          if (normalizedRoad === queryStreet) score += 4.5;
+          else if (normalizedRoad.includes(queryStreet) || queryStreet.includes(normalizedRoad)) score += 3;
+          else if (normalizedDisplayName.includes(queryStreet)) score += 1.5;
+        }
+        if (queryNumber && normalizedHouseNumber === queryNumber) score += 7;
+        else if (queryNumber && normalizedDisplayName.includes(queryNumber)) score += 1.5;
         if (normalizedCityHint && normalizedDisplayName.includes(normalizedCityHint)) score += 2.5;
         if (normalizedProvinceHint && normalizedDisplayName.includes(normalizedProvinceHint)) score += 3;
-        if (queryNumber && !normalizedDisplayName.includes(queryNumber)) score -= 0.75;
+        if (normalizedLocalityAliases.length > 0) {
+          if (normalizedLocalities.some((locality) => normalizedLocalityAliases.includes(locality))) {
+            score += 5;
+          } else if (
+            normalizedLocalities.some((locality) =>
+              normalizedLocalityAliases.some((alias) => locality.includes(alias) || alias.includes(locality))
+            )
+          ) {
+            score += 3.5;
+          } else if (normalizedLocalityAliases.some((alias) => normalizedDisplayName.includes(alias))) {
+            score += 2;
+          }
+        }
+        if (queryNumber && !normalizedDisplayName.includes(queryNumber) && !normalizedHouseNumber) score -= 2.25;
+        if (queryNumber && normalizedHouseNumber && normalizedHouseNumber !== queryNumber) score -= 1.25;
+        if (queryNumber && !normalizedHouseNumber && item.addresstype === 'road') score -= 1;
 
         return {
           display_name: displayName,
           lat,
           lon: lng,
+          precision: normalizedHouseNumber === queryNumber && queryNumber ? 'exact' : 'approx',
           score,
         };
       })
@@ -210,6 +338,7 @@ export async function GET(request: NextRequest) {
         display_name: (item as any).display_name,
         lat: (item as any).lat,
         lon: (item as any).lon,
+        precision: (item as any).precision,
       }));
 
     return NextResponse.json({ results, error: results.length === 0 ? firstError : '' });

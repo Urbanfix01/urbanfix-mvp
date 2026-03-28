@@ -167,6 +167,49 @@ const extractProvinceHint = (...candidates: Array<string | null | undefined>) =>
   return '';
 };
 
+const LOCALITY_CONTAINER_PREFIXES = ['partido de ', 'departamento de ', 'comuna ', 'provincia de '];
+
+const isLikelyPostalSegment = (value: string) => /^[a-z]{0,3}\d{4,}[a-z0-9-]*$/i.test(value.replace(/\s+/g, ''));
+
+const isLocalityCandidate = (value: string) => {
+  const trimmed = String(value || '').trim();
+  const normalized = normalizeTextForParsing(trimmed);
+  if (!trimmed || !normalized || normalized === 'argentina') return false;
+  if (extractProvinceHint(trimmed)) return false;
+  if (LOCALITY_CONTAINER_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return false;
+  if (isLikelyPostalSegment(normalized)) return false;
+  return true;
+};
+
+const extractLocalityHint = (...candidates: Array<string | null | undefined>) => {
+  for (const candidate of candidates) {
+    const parts = String(candidate || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (parts.length === 0) continue;
+
+    const partsToCheck = parts.length > 1 ? parts.slice(1) : parts;
+
+    for (let index = 0; index < partsToCheck.length; index += 1) {
+      const current = partsToCheck[index];
+      const nextNormalized = normalizeTextForParsing(partsToCheck[index + 1] || '');
+      if (
+        isLocalityCandidate(current) &&
+        LOCALITY_CONTAINER_PREFIXES.some((prefix) => nextNormalized.startsWith(prefix))
+      ) {
+        return current;
+      }
+    }
+
+    const fallback = partsToCheck.find((part) => isLocalityCandidate(part));
+    if (fallback) {
+      return fallback;
+    }
+  }
+  return '';
+};
+
 const extractTimeRange = (value: string, pattern: RegExp): [string, string] | null => {
   const match = value.match(pattern);
   if (!match) return null;
@@ -1269,6 +1312,7 @@ export default function TechniciansPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const sessionUserIdRef = useRef<string | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1621,13 +1665,21 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
+      sessionUserIdRef.current = session?.user?.id ?? null;
       setSession(session);
       setLoadingProfile(Boolean(session?.user));
       setLoadingSession(false);
     });
     const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
+      const previousUserId = sessionUserIdRef.current;
+      const nextUserId = nextSession?.user?.id ?? null;
+      sessionUserIdRef.current = nextUserId;
       setSession(nextSession);
-      setLoadingProfile(Boolean(nextSession?.user));
+      if (previousUserId !== nextUserId) {
+        setLoadingProfile(Boolean(nextSession?.user));
+      } else if (!nextUserId) {
+        setLoadingProfile(false);
+      }
       if (POST_LOGIN_VIDEO_ENABLED && event === 'SIGNED_IN' && nextSession?.user) {
         setPostLoginVideoPending(true);
       }
@@ -1788,6 +1840,13 @@ export default function TechniciansPage() {
       profile.coverage_area,
       profile.city
     );
+    const localityHint = extractLocalityHint(
+      profile.city,
+      profile.service_location_name,
+      profile.company_address,
+      profile.address,
+      profile.coverage_area
+    );
     
     // Parse location from profile
     const locationResult = parseTechnicianLocation(profile);
@@ -1799,7 +1858,7 @@ export default function TechniciansPage() {
       email: profile.email || session?.user?.email || '',
       phone: profile.phone || '',
       address: profile.company_address || profile.address || '',
-      city: profile.city || '',
+      city: localityHint || profile.city || '',
       province: provinceHint,
       coverageArea,
       workingHours: formatWorkingHoursLabel(workingHoursConfig),
@@ -2726,11 +2785,13 @@ export default function TechniciansPage() {
 
   const handleTechnicianLocationChange = (result: LocationPickerResult | null) => {
     const provinceHint = result ? extractProvinceHint(result.displayName) : '';
+    const localityHint = result ? extractLocalityHint(result.displayName) : '';
     setTechnicianLocationResult(result);
     setProfileForm((prev) => ({
       ...prev,
       address:
         result && result.displayName !== 'Ubicación seleccionada en mapa' ? result.displayName : prev.address,
+      city: localityHint || prev.city,
       province: provinceHint || prev.province,
       locationPickerResult: result,
     }));
@@ -5112,6 +5173,16 @@ export default function TechniciansPage() {
                   </div>
 
                   <div>
+                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Ciudad / localidad</label>
+                    <input
+                      value={profileForm.city}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                      placeholder="Ej: Ingeniero Adolfo Sourdeaux"
+                      className={authInputClass}
+                    />
+                  </div>
+
+                  <div>
                     <TechnicianLocationPicker
                       value={technicianLocationResult}
                       query={profileForm.address}
@@ -5120,7 +5191,7 @@ export default function TechniciansPage() {
                       cityHint={profileForm.city}
                       provinceHint={profileForm.province}
                       label="Dirección base"
-                      description="Busca tu dirección, elige una sugerencia o abre el mapa para ajustar el punto exacto arrastrando el marcador."
+                      description="Completa primero tu ciudad o localidad, luego busca la dirección con altura para obtener coordenadas más precisas y ajustar el punto exacto en el mapa si hace falta."
                       required={false}
                     />
                   </div>
@@ -8067,6 +8138,13 @@ export default function TechniciansPage() {
                           </select>
                         </div>
                       </div>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad / localidad</label>
+                      <input
+                        value={profileForm.city}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                        placeholder="Ej: Ingeniero Adolfo Sourdeaux"
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
                       <div className="mt-3">
                         <TechnicianLocationPicker
                           value={technicianLocationResult}
@@ -8076,7 +8154,7 @@ export default function TechniciansPage() {
                           cityHint={profileForm.city}
                           provinceHint={profileForm.province}
                           label="Direccion base"
-                          description="Busca la dirección de tu base, selecciona una sugerencia y ajusta el punto exacto en el mapa si hace falta."
+                          description="Completa primero tu ciudad o localidad, luego busca la dirección con altura para conseguir coordenadas más precisas y ajustar el punto en el mapa si hace falta."
                           required={profileForm.profilePublished}
                           error={
                             profileForm.profilePublished && !technicianLocationResult?.isValid
@@ -8085,12 +8163,6 @@ export default function TechniciansPage() {
                           }
                         />
                       </div>
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad</label>
-                      <input
-                        value={profileForm.city}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
 
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
                       <div className="mt-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">

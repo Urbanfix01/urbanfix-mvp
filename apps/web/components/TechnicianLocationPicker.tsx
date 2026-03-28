@@ -61,17 +61,17 @@ const geocodeAddress = async (
       cache: 'no-store',
     });
     const payload = (await response.json()) as {
-      results?: Array<{ display_name: string; lat: number; lon: number }>;
+      results?: Array<{ display_name: string; lat: number; lon: number; precision?: 'exact' | 'approx' }>;
       error?: string;
     };
     const data = Array.isArray(payload.results) ? payload.results : [];
     const results = data
-      .map((item) => ({
+      .map((item): LocationPickerResult => ({
         lat: Number(item.lat),
         lng: Number(item.lon),
         displayName: item.display_name,
         isValid: isArgentinaCoordinate(Number(item.lat), Number(item.lon)),
-        precision: 'approx' as const,
+        precision: item.precision === 'exact' ? 'exact' : 'approx',
       }))
       .filter((item) => item.isValid);
     return { results, error: payload.error };
