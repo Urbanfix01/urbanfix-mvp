@@ -52,6 +52,10 @@ export const parseTechnicianLocation = (profile: any): {
     return null;
   }
 
+  if (!isValidArgentinaCoordinate(lat, lng)) {
+    return null;
+  }
+
   return {
     lat,
     lng,

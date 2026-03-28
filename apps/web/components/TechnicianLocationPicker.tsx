@@ -39,25 +39,22 @@ const isArgentinaCoordinate = (lat: number, lng: number): boolean => {
   );
 };
 
-const geocodeAddress = async (query: string): Promise<LocationPickerResult[]> => {
+const geocodeAddress = async (
+  query: string
+): Promise<{ results: LocationPickerResult[]; error?: string }> => {
   const trimmed = query.trim();
-  if (!trimmed) return [];
+  if (trimmed.length < 3) return { results: [] };
 
   try {
-    const url = `https://nominatim.openstreetmap.org/search?format=json&limit=8&q=${encodeURIComponent(
-      trimmed
-    )}&addressdetails=1&email=info@urbanfixar.com`;
-
-    const response = await fetch(url, { cache: 'no-store' });
-    if (!response.ok) return [];
-
-    const data = (await response.json()) as Array<{
-      display_name: string;
-      lat: string;
-      lon: string;
-    }>;
-
-    return data
+    const response = await fetch(`/api/geocode/search?query=${encodeURIComponent(trimmed)}&limit=8`, {
+      cache: 'no-store',
+    });
+    const payload = (await response.json()) as {
+      results?: Array<{ display_name: string; lat: number; lon: number }>;
+      error?: string;
+    };
+    const data = Array.isArray(payload.results) ? payload.results : [];
+    const results = data
       .map((item) => ({
         lat: Number(item.lat),
         lng: Number(item.lon),
@@ -66,8 +63,9 @@ const geocodeAddress = async (query: string): Promise<LocationPickerResult[]> =>
         precision: 'approx' as const,
       }))
       .filter((item) => item.isValid);
+    return { results, error: payload.error };
   } catch {
-    return [];
+    return { results: [], error: 'No pudimos buscar direcciones en este momento.' };
   }
 };
 
@@ -87,11 +85,13 @@ export default function TechnicianLocationPicker({
   const [loading, setLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [mapError, setMapError] = useState('');
+  const [searchError, setSearchError] = useState('');
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
   const mapRef = useRef<any | null>(null);
   const markerRef = useRef<any | null>(null);
   const isMountedRef = useRef(true);
+  const searchRequestIdRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -106,29 +106,42 @@ export default function TechnicianLocationPicker({
     setInput((current) => (current === nextInput ? current : nextInput));
     if (!nextInput.trim()) {
       setSuggestions([]);
+      setSearchError('');
     }
   }, [query, value?.displayName]);
 
-  // Search addresses
-  const handleSearch = async (query: string) => {
+  useEffect(() => {
+    const trimmed = input.trim();
+    if (trimmed.length === 0 || trimmed.length < 3) {
+      setSuggestions([]);
+      setLoading(false);
+      setSearchError('');
+      return;
+    }
+
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
+    setLoading(true);
+    setSearchError('');
+
+    const timer = window.setTimeout(async () => {
+      const { results, error: nextError } = await geocodeAddress(trimmed);
+      if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
+      setSuggestions(results);
+      setSearchError(nextError || '');
+      setLoading(false);
+    }, 450);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [input]);
+
+  const handleSearch = (query: string) => {
     setInput(query);
     onQueryChange?.(query);
-    setSuggestions([]);
     if (value && query.trim() !== value.displayName.trim()) {
       onChange(null);
-    }
-    if (!query.trim()) return;
-
-    setLoading(true);
-    try {
-      const results = await geocodeAddress(query);
-      if (isMountedRef.current) {
-        setSuggestions(results);
-      }
-    } finally {
-      if (isMountedRef.current) {
-        setLoading(false);
-      }
     }
   };
 
@@ -138,6 +151,7 @@ export default function TechnicianLocationPicker({
     setInput(result.displayName);
     onQueryChange?.(result.displayName);
     setSuggestions([]);
+    setSearchError('');
   };
 
   // Clear location
@@ -148,6 +162,7 @@ export default function TechnicianLocationPicker({
     setSuggestions([]);
     setShowMap(false);
     setMapError('');
+    setSearchError('');
   };
 
   // Initialize and manage map
@@ -397,6 +412,12 @@ export default function TechnicianLocationPicker({
       {error && (
         <div className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800">
           {error}
+        </div>
+      )}
+
+      {searchError && !error && (
+        <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          {searchError}
         </div>
       )}
 

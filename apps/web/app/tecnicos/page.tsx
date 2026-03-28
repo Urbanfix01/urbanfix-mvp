@@ -2671,12 +2671,14 @@ export default function TechniciansPage() {
     setGeoError('');
     setGeoResults([]);
     try {
-      const url = `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(
-        query
-      )}&addressdetails=1&email=info@urbanfixar.com`;
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('No se pudo geocodificar la direccion.');
-      const data = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+      const response = await fetch(`/api/geocode/search?query=${encodeURIComponent(query)}&limit=5`, {
+        cache: 'no-store',
+      });
+      const payload = (await response.json()) as {
+        results?: Array<{ display_name: string; lat: number; lon: number }>;
+        error?: string;
+      };
+      const data = Array.isArray(payload.results) ? payload.results : [];
       const mapped = data
         .map((item) => ({
           display_name: item.display_name,
@@ -2685,11 +2687,10 @@ export default function TechniciansPage() {
         }))
         .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
       if (mapped.length === 0) {
-        setGeoError('No encontramos esa direccion. Prueba con mas detalles.');
+        setGeoError(payload.error || 'No encontramos esa direccion. Prueba con mas detalles.');
       }
       setGeoResults(mapped);
-    } catch (error) {
-      console.error('Error geocodificando direccion:', error);
+    } catch {
       setGeoError('No pudimos buscar la direccion. Intenta nuevamente.');
     } finally {
       setGeoLoading(false);

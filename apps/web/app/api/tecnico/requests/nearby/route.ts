@@ -98,6 +98,10 @@ const normalizeRadius = (value: unknown) => {
   return Math.min(100, Math.max(1, Math.round(parsed)));
 };
 
+const isArgentinaCoordinate = (lat: number, lng: number) => {
+  return lat >= -55.5 && lat <= -21.78 && lng >= -73.56 && lng <= -53.64;
+};
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
@@ -124,6 +128,14 @@ export async function GET(request: NextRequest) {
 
   let technicianLat = toFiniteNumber(profile.service_lat);
   let technicianLng = toFiniteNumber(profile.service_lng);
+  if (
+    technicianLat !== null &&
+    technicianLng !== null &&
+    !isArgentinaCoordinate(technicianLat, technicianLng)
+  ) {
+    technicianLat = null;
+    technicianLng = null;
+  }
   const profileGeoMissing = technicianLat === null || technicianLng === null;
   if (profileGeoMissing) {
     const geocodeQuery = [profile.company_address || profile.address || '', profile.city || ''].filter(Boolean).join(', ');
@@ -214,6 +226,10 @@ export async function GET(request: NextRequest) {
 
     let requestLat = toFiniteNumber(row.location_lat);
     let requestLng = toFiniteNumber(row.location_lng);
+    if (requestLat !== null && requestLng !== null && !isArgentinaCoordinate(requestLat, requestLng)) {
+      requestLat = null;
+      requestLng = null;
+    }
     if (requestLat === null || requestLng === null) {
       const geocodeQuery = [row.address || '', row.city || ''].filter(Boolean).join(', ');
       const geocode = await geocodeFirstResult(geocodeQuery);
