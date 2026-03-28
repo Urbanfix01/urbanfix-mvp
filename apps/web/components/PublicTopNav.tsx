@@ -86,7 +86,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
                 : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
             }`}
           >
-            Ir a plataforma
+            Registrarme
           </a>
 
           <button
@@ -150,7 +150,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
                   : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
               }`}
             >
-              Ir a plataforma
+              Registrarme
             </a>
           </nav>
         </div>
