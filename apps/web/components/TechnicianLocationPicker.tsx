@@ -46,7 +46,7 @@ const geocodeAddress = async (
   if (trimmed.length < 3) return { results: [] };
 
   try {
-    const response = await fetch(`/api/geocode/search?query=${encodeURIComponent(trimmed)}&limit=8`, {
+    const response = await fetch(`/api/geocode/search?query=${encodeURIComponent(trimmed)}&limit=12`, {
       cache: 'no-store',
     });
     const payload = (await response.json()) as {
@@ -358,7 +358,7 @@ export default function TechnicianLocationPicker({
 
         {/* Sugerencias */}
         {suggestions.length > 0 && (
-          <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
