@@ -114,7 +114,7 @@ export async function POST(
 
   const { data: technicianProfile, error: technicianError } = await supabase
     .from('profiles')
-    .select('id, full_name, business_name, phone, specialties, service_city, city')
+    .select('id, access_granted, full_name, business_name, phone, specialties, service_city, city')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -126,6 +126,9 @@ export async function POST(
   }
   if (!technicianProfile) {
     return NextResponse.json({ error: 'Perfil tecnico no encontrado.' }, { status: 404 });
+  }
+  if (technicianProfile.access_granted !== true) {
+    return NextResponse.json({ error: 'Tu acceso tecnico todavia no esta habilitado.' }, { status: 403 });
   }
 
   const { data: requestRow, error: requestError } = await supabase

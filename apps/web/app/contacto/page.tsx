@@ -12,7 +12,7 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Contacto | UrbanFix',
   description:
-    'Canales oficiales de contacto de UrbanFix para consultas comerciales, implementacion y conversaciones sobre la plataforma.',
+    'Canales oficiales de contacto de UrbanFix para consultas comerciales, implementación y conversaciones sobre la plataforma.',
   alternates: { canonical: '/contacto' },
 };
 
@@ -24,7 +24,7 @@ const contactChannels = [
     note: 'Consultas generales, demos y conversaciones comerciales.',
   },
   {
-    title: 'Telefono',
+    title: 'Teléfono',
     value: '11 7008-4556',
     href: 'tel:1170084556',
     note: 'Canal directo para contacto inicial y seguimiento.',
@@ -33,7 +33,7 @@ const contactChannels = [
     title: 'WhatsApp',
     value: '+54 9 11 7008-4556',
     href: 'https://wa.me/5491170084556',
-    note: 'Ideal para coordinar rapido por mensaje.',
+    note: 'Ideal para coordinar rápido por mensaje.',
   },
 ];
 
@@ -81,7 +81,7 @@ export default function ContactoPage() {
                 >
                   urbanfix.com.ar
                 </a>
-                <p className="mt-2 text-sm text-white/70">Sitio principal y acceso a la experiencia publica.</p>
+                <p className="mt-2 text-sm text-white/70">Sitio principal y acceso a la experiencia pública.</p>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -93,7 +93,7 @@ export default function ContactoPage() {
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Respuesta</p>
                 <p className="mt-2 text-lg font-semibold text-white">Email o WhatsApp</p>
-                <p className="mt-2 text-sm text-white/70">Escoge el canal segun prefieras formalidad o velocidad.</p>
+                <p className="mt-2 text-sm text-white/70">Escoge el canal según prefieras formalidad o velocidad.</p>
               </div>
             </div>
           </section>
@@ -123,8 +123,8 @@ export default function ContactoPage() {
               <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Cuando escribirnos</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-white/80">
-                  <p>Si quieres implementar UrbanFix en una operacion tecnica o comercial.</p>
-                  <p>Si necesitas una demo, una presentacion o una conversacion sobre el producto.</p>
+                  <p>Si quieres implementar UrbanFix en una operación técnica o comercial.</p>
+                  <p>Si necesitas una demo, una presentación o una conversación sobre el producto.</p>
                   <p>Si tienes dudas sobre planes, alcance o uso institucional de la plataforma.</p>
                 </div>
               </section>
@@ -136,7 +136,7 @@ export default function ContactoPage() {
                     href="/urbanfix"
                     className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
                   >
-                    Que es UrbanFix
+                    Qué es UrbanFix
                   </Link>
                   <Link
                     href="/soporte"
@@ -148,7 +148,7 @@ export default function ContactoPage() {
                     href="/politicas"
                     className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
                   >
-                    Politicas y legales
+                    Políticas y legales
                   </Link>
                 </div>
               </section>

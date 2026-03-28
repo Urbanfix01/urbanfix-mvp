@@ -115,6 +115,26 @@ const formatDateTime = (value: string | null | undefined) => {
   });
 };
 
+const normalizeEmail = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized.includes('@') ? normalized : '';
+};
+
+const getQuickLinksValidationError = (quickLinks: QuickLinkDraft[]) => {
+  for (const [index, link] of quickLinks.entries()) {
+    const label = String(link.label || '').trim();
+    const url = String(link.url || '').trim();
+    if (!label && !url) continue;
+    if (!label || !url) {
+      return `Completa etiqueta y URL en el enlace ${index + 1}, o deja ambos vacios.`;
+    }
+    if (!normalizeNewsletterPreviewUrl(url)) {
+      return `La URL del enlace ${index + 1} no es valida.`;
+    }
+  }
+  return '';
+};
+
 export default function AdminNewsletterPanel({ accessToken, active }: Props) {
   const [data, setData] = useState<NewsletterData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -238,8 +258,61 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
 
   const normalizedWhatsappImageUrl = useMemo(() => normalizeNewsletterWhatsappUrl(heroImageUrl), [heroImageUrl]);
 
+  const draftValidationError = useMemo(() => {
+    if (!data) return 'Cargando configuracion del newsletter...';
+    if (!data.capabilities.resendConfigured) {
+      return 'Configura RESEND_API_KEY y NEWSLETTER_FROM_EMAIL antes de enviar campañas.';
+    }
+    if (audience.startsWith('opted_in_') && !data.capabilities.newsletterColumnsReady) {
+      return 'Falta la migracion de consentimiento para usar segmentos suscriptos.';
+    }
+    if (audienceCount <= 0) {
+      return 'Este segmento no tiene destinatarios validos.';
+    }
+    if (subject.trim().length < 4) {
+      return 'El asunto debe tener al menos 4 caracteres.';
+    }
+    if (bodyText.trim().length < 12) {
+      return 'El cuerpo debe tener al menos 12 caracteres.';
+    }
+    if (heroImageUrl.trim() && !normalizeNewsletterPreviewUrl(heroImageUrl)) {
+      return 'La URL de la imagen principal no es valida.';
+    }
+    if ((ctaLabel.trim() && !ctaUrl.trim()) || (!ctaLabel.trim() && ctaUrl.trim())) {
+      return 'Completa ambos campos del CTA o deja ambos vacios.';
+    }
+    if (ctaUrl.trim() && !normalizeNewsletterPreviewUrl(ctaUrl)) {
+      return 'La URL del CTA no es valida.';
+    }
+    return getQuickLinksValidationError(quickLinks);
+  }, [audience, audienceCount, bodyText, ctaLabel, ctaUrl, data, heroImageUrl, quickLinks, subject]);
+
+  const testValidationError = useMemo(() => {
+    if (draftValidationError) return draftValidationError;
+    if (!normalizeEmail(testEmail)) {
+      return 'Ingresa un email de prueba valido antes de enviar.';
+    }
+    return '';
+  }, [draftValidationError, testEmail]);
+
   const handleSubmit = async (mode: 'test' | 'send') => {
     if (!accessToken) return;
+    const validationError = mode === 'test' ? testValidationError : draftValidationError;
+    if (validationError) {
+      setError(validationError);
+      setMessage('');
+      return;
+    }
+
+    if (mode === 'send') {
+      const segmentLabel = data?.audienceLabels[audience] || audience;
+      const confirmed = window.confirm(
+        `Vas a enviar esta campana a ${audienceCount} destinatarios del segmento "${segmentLabel}". ¿Continuar?`
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
 
     setSubmitting(mode);
     setError('');
@@ -285,8 +358,20 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
     }
   };
 
-  const handleRetryFailed = async (campaignId: string) => {
+  const handleRetryFailed = async (campaignId: string, campaignSubject: string, failedCount: number) => {
     if (!accessToken) return;
+    if (failedCount <= 0) {
+      setError('Esta campana no tiene destinatarios fallidos para reenviar.');
+      setMessage('');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Vas a reenviar ${failedCount} envio(s) fallidos de "${campaignSubject}". ¿Continuar?`
+    );
+    if (!confirmed) {
+      return;
+    }
 
     setSubmitting('retry_failed');
     setError('');
@@ -597,7 +682,7 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                 <button
                   type="button"
                   onClick={() => handleSubmit('test')}
-                  disabled={submitting !== null}
+                  disabled={submitting !== null || Boolean(testValidationError)}
                   className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting === 'test' ? 'Enviando prueba...' : 'Enviar prueba'}
@@ -605,12 +690,25 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                 <button
                   type="button"
                   onClick={() => handleSubmit('send')}
-                  disabled={submitting !== null}
+                  disabled={submitting !== null || Boolean(draftValidationError)}
                   className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
                   {submitting === 'send' ? 'Enviando campana...' : 'Enviar newsletter'}
                 </button>
               </div>
+
+              {!draftValidationError && audienceCount > 0 && (
+                <p className="mt-3 text-xs text-slate-500">
+                  Se enviara a {audienceCount} contacto(s) del segmento seleccionado.
+                </p>
+              )}
+
+              {(draftValidationError || testValidationError) && (
+                <div className="mt-4 space-y-1 text-xs text-amber-700">
+                  <p>{draftValidationError || 'El borrador esta listo para enviar.'}</p>
+                  {testValidationError && testValidationError !== draftValidationError && <p>{testValidationError}</p>}
+                </div>
+              )}
 
               {!data.capabilities.resendConfigured && (
                 <p className="mt-4 text-xs text-amber-700">
@@ -787,8 +885,8 @@ export default function AdminNewsletterPanel({ accessToken, active }: Props) {
                             <div className="flex flex-wrap gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleRetryFailed(campaign.id)}
-                                disabled={submitting !== null}
+                                onClick={() => handleRetryFailed(campaign.id, campaign.subject, failedRecipients.length)}
+                                disabled={submitting !== null || failedRecipients.length === 0}
                                 className="rounded-full border border-rose-200 bg-white px-3 py-1 text-[11px] font-semibold text-rose-700 transition hover:border-rose-300 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
                               >
                                 {submitting === 'retry_failed' ? 'Reenviando...' : 'Reenviar fallidos'}

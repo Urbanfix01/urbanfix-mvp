@@ -19,22 +19,22 @@ const CREATE_REQUEST_HREF = '/cliente?mode=register&quick=1&intent=create-reques
 export const metadata: Metadata = {
   title: 'UrbanFix | Plataforma operativa',
   description:
-    'UrbanFix conecta panel tecnico, presupuestos compartibles, rubros, portal cliente, vidriera publica y mapa de tecnicos en una sola plataforma.',
+    'UrbanFix conecta panel técnico, presupuestos compartibles, rubros, portal cliente, vidriera pública y mapa de técnicos en una sola plataforma.',
 };
 
 const heroPillars = [
   {
     title: 'Presupuestos compartibles',
-    description: 'Link publico, presentacion clara y salida lista para WhatsApp o cliente.',
+    description: 'Link público, presentación clara y salida lista para WhatsApp o cliente.',
     icon: FileCheck2,
   },
   {
     title: 'Rubros y mano de obra',
-    description: 'Base tecnica para cotizar con variantes, referencias y estructura mas consistente.',
+    description: 'Base técnica para cotizar con variantes, referencias y estructura más consistente.',
     icon: ClipboardList,
   },
   {
-    title: 'Vidriera publica y mapa',
+    title: 'Vidriera pública y mapa',
     description: 'Perfiles visibles, cobertura por zona y descubrimiento comercial sin login.',
     icon: MapPinned,
   },
@@ -79,12 +79,12 @@ export default function HomePage() {
                     UrbanFix en una sola capa operativa
                   </p>
                   <h1 className="mt-4 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
-                    Presupuestar, operar, mostrar cobertura y crecer con una estructura mucho mas clara.
+                    Presupuestar, operar, mostrar cobertura y crecer con una estructura mucho más clara.
                   </h1>
                   <p className="mt-4 max-w-3xl text-sm leading-7 text-white/82 sm:text-base">
-                    UrbanFix une panel tecnico, base de rubros, portal cliente, presencia publica y mapa de tecnicos
-                    disponibles. La portada ordena los accesos principales para entender rapido el producto, descargar
-                    la app y entrar a la plataforma correcta segun cada perfil.
+                    UrbanFix une panel técnico, base de rubros, portal cliente, presencia pública y mapa de técnicos
+                    disponibles. La portada ordena los accesos principales para entender rápido el producto, descargar
+                    la app y entrar a la plataforma correcta según cada perfil.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link

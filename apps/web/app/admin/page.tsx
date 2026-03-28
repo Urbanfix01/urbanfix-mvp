@@ -747,10 +747,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 44,
     title: 'Inicio',
     subtitle: 'Primer contacto',
-    description: 'Ingreso del usuario desde bÃºsqueda, anuncio, recomendaciÃ³n o link directo.',
+    description: 'Ingreso del usuario desde búsqueda, anuncio, recomendación o link directo.',
     flowLabel: ['Inicio'],
     preview: '/illustrations/window-tecnicos.svg',
-    highlights: ['Entrada pÃºblica', 'Carga rÃ¡pida', 'Primer impacto'],
+    highlights: ['Entrada pública', 'Carga rápida', 'Primer impacto'],
     target: { type: 'web', href: '/tecnicos' },
   },
   {
@@ -762,11 +762,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 232,
     height: 74,
     title: 'Landing por perfil',
-    subtitle: 'TÃ©cnicos, empresas y clientes',
-    description: 'Presenta propuesta y CTA segÃºn perfil, sin romper la experiencia en una sola pÃ¡gina.',
+    subtitle: 'Técnicos, empresas y clientes',
+    description: 'Presenta propuesta y CTA según perfil, sin romper la experiencia en una sola página.',
     flowLabel: ['Landing tecnicos', 'empresas y clientes'],
     preview: '/illustrations/window-negocio.svg',
-    highlights: ['SegmentaciÃ³n', 'Propuesta de valor', 'NavegaciÃ³n integrada'],
+    highlights: ['Segmentación', 'Propuesta de valor', 'Navegación integrada'],
     target: { type: 'web', href: '/tecnicos' },
   },
   {
@@ -778,11 +778,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 178,
     height: 98,
     title: 'Decision de valor',
-    subtitle: 'Filtro de intenciÃ³n',
-    description: 'EvalÃºa si la propuesta es suficiente para avanzar a selecciÃ³n de perfil.',
+    subtitle: 'Filtro de intención',
+    description: 'Evalúa si la propuesta es suficiente para avanzar a selección de perfil.',
     flowLabel: ['Encuentra', 'valor?'],
     preview: '/illustrations/window-institucional.svg',
-    highlights: ['Mensaje claro', 'ObjeciÃ³n detectada', 'Siguiente acciÃ³n'],
+    highlights: ['Mensaje claro', 'Objeción detectada', 'Siguiente acción'],
     target: { type: 'web', href: '/tecnicos' },
   },
   {
@@ -810,11 +810,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 178,
     height: 98,
     title: 'Seleccion de perfil',
-    subtitle: 'SegmentaciÃ³n operativa',
-    description: 'Define el carril de ingreso correcto para tÃ©cnico, empresa o cliente.',
+    subtitle: 'Segmentación operativa',
+    description: 'Define el carril de ingreso correcto para técnico, empresa o cliente.',
     flowLabel: ['Perfil', 'T/E/C?'],
     preview: '/illustrations/window-negocio.svg',
-    highlights: ['TÃ©cnico', 'Empresa', 'Cliente'],
+    highlights: ['Técnico', 'Empresa', 'Cliente'],
     target: { type: 'web', href: '/tecnicos' },
   },
   {
@@ -826,11 +826,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 72,
     title: 'Acceso tecnico',
-    subtitle: 'ProducciÃ³n diaria',
-    description: 'Ingreso tÃ©cnico para cotizar, enviar propuestas y gestionar estados de obra.',
+    subtitle: 'Producción diaria',
+    description: 'Ingreso técnico para cotizar, enviar propuestas y gestionar estados de obra.',
     flowLabel: ['Acceso', 'tecnico'],
     preview: '/illustrations/window-tecnicos.svg',
-    highlights: ['CotizaciÃ³n', 'Agenda', 'Estados'],
+    highlights: ['Cotización', 'Agenda', 'Estados'],
     target: { type: 'web', href: '/tecnicos?mode=login&perfil=tecnico' },
   },
   {
@@ -842,8 +842,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 72,
     title: 'Acceso empresa',
-    subtitle: 'GestiÃ³n de negocio',
-    description: 'Ingreso empresa para administrar responsables, pipeline comercial y operaciÃ³n.',
+    subtitle: 'Gestión de negocio',
+    description: 'Ingreso empresa para administrar responsables, pipeline comercial y operación.',
     flowLabel: ['Acceso', 'empresa'],
     preview: '/illustrations/window-negocio.svg',
     highlights: ['Responsables', 'Pipeline', 'Rentabilidad'],
@@ -858,11 +858,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 72,
     title: 'Acceso cliente',
-    subtitle: 'Solicitud y aprobaciÃ³n',
-    description: 'Ingreso cliente para pedir reparaciÃ³n, revisar cotizaciÃ³n y aprobar/rechazar.',
+    subtitle: 'Solicitud y aprobación',
+    description: 'Ingreso cliente para pedir reparación, revisar cotización y aprobar/rechazar.',
     flowLabel: ['Acceso', 'cliente'],
     preview: '/illustrations/window-institucional.svg',
-    highlights: ['Solicitud', 'CotizaciÃ³n', 'AprobaciÃ³n'],
+    highlights: ['Solicitud', 'Cotización', 'Aprobación'],
     target: { type: 'web', href: '/urbanfix?view=personas' },
   },
   {
@@ -874,11 +874,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 70,
     title: 'Login tecnico',
-    subtitle: 'AutenticaciÃ³n tÃ©cnica',
-    description: 'Valida identidad y habilita herramientas de trabajo para el tÃ©cnico.',
+    subtitle: 'Autenticación técnica',
+    description: 'Valida identidad y habilita herramientas de trabajo para el técnico.',
     flowLabel: ['Login', 'tecnico'],
     preview: '/illustrations/PANEL DE CONTROL.jpeg',
-    highlights: ['AutenticaciÃ³n', 'Panel operativo', 'Inicio inmediato'],
+    highlights: ['Autenticación', 'Panel operativo', 'Inicio inmediato'],
     target: { type: 'web', href: '/tecnicos?mode=login&perfil=tecnico' },
   },
   {
@@ -890,11 +890,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 70,
     title: 'Login empresa',
-    subtitle: 'AutenticaciÃ³n empresa',
-    description: 'Ingreso del perfil empresa para coordinar equipo, ventas y ejecuciÃ³n.',
+    subtitle: 'Autenticación empresa',
+    description: 'Ingreso del perfil empresa para coordinar equipo, ventas y ejecución.',
     flowLabel: ['Login', 'empresa'],
     preview: '/illustrations/window-negocio.svg',
-    highlights: ['Equipo', 'Comercial', 'OperaciÃ³n'],
+    highlights: ['Equipo', 'Comercial', 'Operación'],
     target: { type: 'web', href: '/tecnicos?mode=login&perfil=empresa' },
   },
   {
@@ -910,7 +910,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     description: 'Entrada del cliente para generar pedido, revisar propuesta y dar respuesta.',
     flowLabel: ['Ingreso', 'cliente'],
     preview: '/illustrations/window-institucional.svg',
-    highlights: ['Pedido', 'RevisiÃ³n', 'DecisiÃ³n'],
+    highlights: ['Pedido', 'Revisión', 'Decisión'],
     target: { type: 'web', href: '/urbanfix?view=personas' },
   },
   {
@@ -923,10 +923,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 74,
     title: 'Hub operativo compartido',
     subtitle: 'Convergencia T/E/C',
-    description: 'TÃ©cnicos, empresas y clientes convergen en un Ãºnico motor de presupuesto y estados.',
+    description: 'Técnicos, empresas y clientes convergen en un único motor de presupuesto y estados.',
     flowLabel: ['Hub operativo', 'compartido'],
     preview: '/illustrations/dashboard.svg',
-    highlights: ['Motor Ãºnico', 'Estados comunes', 'Escala'],
+    highlights: ['Motor único', 'Estados comunes', 'Escala'],
     target: { type: 'admin', tab: 'resumen' },
   },
   {
@@ -939,7 +939,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 70,
     title: 'Crear presupuesto',
     subtitle: 'Carga estructurada',
-    description: 'Carga cliente, direcciÃ³n, mano de obra, materiales y reglas comerciales en un solo flujo.',
+    description: 'Carga cliente, dirección, mano de obra, materiales y reglas comerciales en un solo flujo.',
     flowLabel: ['Armar', 'presupuesto'],
     preview: '/illustrations/PRESUPUESTADOR.jpeg',
     highlights: ['Formulario integral', 'Items m2/ml', 'Total en vivo'],
@@ -955,10 +955,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 70,
     title: 'Compartir propuesta',
     subtitle: 'Enlace al cliente',
-    description: 'EnvÃ­a presupuesto por link/WhatsApp para revisiÃ³n y respuesta del cliente.',
+    description: 'Envía presupuesto por link/WhatsApp para revisión y respuesta del cliente.',
     flowLabel: ['Compartir link', 'de presupuesto'],
     preview: '/illustrations/LINK DEL PRESUPUESTO.jpeg',
-    highlights: ['EnvÃ­o directo', 'Formato claro', 'Trazabilidad'],
+    highlights: ['Envío directo', 'Formato claro', 'Trazabilidad'],
     target: { type: 'web', href: '/pagina' },
   },
   {
@@ -970,11 +970,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 156,
     height: 96,
     title: 'Decision cliente',
-    subtitle: 'DecisiÃ³n final',
+    subtitle: 'Decisión final',
     description: 'Valida si el cliente aprueba para ejecutar o rechaza para recotizar.',
     flowLabel: ['Cliente', 'confirma?'],
     preview: '/illustrations/PRESUPUESTO PDF.jpeg',
-    highlights: ['RevisiÃ³n cliente', 'SÃ­/No', 'Rama automÃ¡tica'],
+    highlights: ['Revisión cliente', 'Sí/No', 'Rama automática'],
     target: { type: 'web', href: '/pagina' },
   },
   {
@@ -986,11 +986,11 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 156,
     height: 72,
     title: 'Ajustar propuesta',
-    subtitle: 'IteraciÃ³n controlada',
-    description: 'Si no confirma, vuelve al armado con contexto de objeciones y nueva versiÃ³n.',
+    subtitle: 'Iteración controlada',
+    description: 'Si no confirma, vuelve al armado con contexto de objeciones y nueva versión.',
     flowLabel: ['Ajustar y', 're-cotizar'],
     preview: '/illustrations/window-guias.svg',
-    highlights: ['Feedback', 'RevisiÃ³n rÃ¡pida', 'Loop controlado'],
+    highlights: ['Feedback', 'Revisión rápida', 'Loop controlado'],
     target: { type: 'web', href: '/guias-precios' },
   },
   {
@@ -1002,8 +1002,8 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 70,
     title: 'Seguimiento y agenda',
-    subtitle: 'EjecuciÃ³n y agenda',
-    description: 'Con aprobaciÃ³n, avanza ejecuciÃ³n, agenda de tareas y trazabilidad de estados.',
+    subtitle: 'Ejecución y agenda',
+    description: 'Con aprobación, avanza ejecución, agenda de tareas y trazabilidad de estados.',
     flowLabel: ['Seguimiento', 'de obra'],
     preview: '/illustrations/AGENDA.jpeg',
     highlights: ['Agenda', 'Estados', 'Notificaciones'],
@@ -1019,10 +1019,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 62,
     title: 'Sincronizar con admin',
     subtitle: 'Control del negocio',
-    description: 'La operaciÃ³n alimenta mÃ©tricas y reportes para gestiÃ³n ejecutiva y mejora continua.',
+    description: 'La operación alimenta métricas y reportes para gestión ejecutiva y mejora continua.',
     flowLabel: ['Sincronizar con', 'panel admin'],
     preview: '/illustrations/dashboard.svg',
-    highlights: ['MÃ©tricas', 'Ingresos', 'Visibilidad'],
+    highlights: ['Métricas', 'Ingresos', 'Visibilidad'],
     target: { type: 'admin', tab: 'facturacion' },
   },
   {
@@ -1035,7 +1035,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 70,
     title: 'Resumen ejecutivo',
     subtitle: 'Monitoreo gerencial',
-    description: 'KPIs centrales para lectura rÃ¡pida de salud operativa y comercial.',
+    description: 'KPIs centrales para lectura rápida de salud operativa y comercial.',
     flowLabel: ['Resumen', 'ejecutivo'],
     preview: '/illustrations/dashboard.svg',
     highlights: ['KPIs', 'Usuarios', 'Salud general'],
@@ -1049,10 +1049,10 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     y: 248,
     width: 220,
     height: 70,
-    title: 'Facturacion',
+    title: 'Facturación',
     subtitle: 'Ingresos por zona',
-    description: 'Control de ingresos, pagos, zonas activas y tendencia de facturaciÃ³n.',
-    flowLabel: ['Facturacion', 'y zonas'],
+    description: 'Control de ingresos, pagos, zonas activas y tendencia de facturación.',
+    flowLabel: ['Facturación', 'y zonas'],
     preview: '/illustrations/quotes.svg',
     highlights: ['Ingresos', 'Zonas', 'Exportables'],
     target: { type: 'admin', tab: 'facturacion' },
@@ -1067,7 +1067,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 70,
     title: 'Roadmap',
     subtitle: 'Plan y feedback',
-    description: 'Prioriza mejoras, asigna responsables y coordina ejecuciÃ³n entre equipos y PCs.',
+    description: 'Prioriza mejoras, asigna responsables y coordina ejecución entre equipos y PCs.',
     flowLabel: ['Roadmap', 'operativo'],
     preview: '/illustrations/viewer.svg',
     highlights: ['Prioridades', 'Estado', 'Feedback'],
@@ -1083,7 +1083,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     height: 70,
     title: 'Mensajes',
     subtitle: 'Soporte operativo',
-    description: 'GestiÃ³n de conversaciones para soporte, seguimiento y cierre de dudas.',
+    description: 'Gestión de conversaciones para soporte, seguimiento y cierre de dudas.',
     flowLabel: ['Mensajes y', 'soporte'],
     preview: '/illustrations/notifications.svg',
     highlights: ['Inbox', 'Respuesta', 'Seguimiento'],
@@ -1098,7 +1098,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     width: 220,
     height: 70,
     title: 'Actividad',
-    subtitle: 'AnalÃ­tica de uso',
+    subtitle: 'Analítica de uso',
     description: 'Analiza embudo, rutas y comportamiento real para decisiones de producto.',
     flowLabel: ['Actividad', 'y embudo'],
     preview: '/illustrations/dashboard.svg',
@@ -1118,7 +1118,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     description: 'El control cierra ciclo, documenta aprendizaje y relanza nuevas iteraciones.',
     flowLabel: ['Fin / mejora'],
     preview: '/illustrations/window-institucional.svg',
-    highlights: ['DecisiÃ³n', 'IteraciÃ³n', 'Escala'],
+    highlights: ['Decisión', 'Iteración', 'Escala'],
     target: { type: 'admin', tab: 'roadmap' },
   },
 ];
@@ -1626,7 +1626,7 @@ export default function AdminPage() {
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [grantingId, setGrantingId] = useState<string | null>(null);
+  const [accessUpdatingId, setAccessUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
@@ -1639,6 +1639,7 @@ export default function AdminPage() {
   const [messageSearch, setMessageSearch] = useState('');
   const [billingRange, setBillingRange] = useState<BillingRange>('30d');
   const [billingExportType, setBillingExportType] = useState<BillingExportType>('subscriptions');
+  const [billingMessage, setBillingMessage] = useState('');
   const [activityRange, setActivityRange] = useState<7 | 30 | 90>(30);
   const [activityStart, setActivityStart] = useState('');
   const [activityEnd, setActivityEnd] = useState('');
@@ -1867,7 +1868,7 @@ export default function AdminPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || 'No se pudo cargar la Ãºltima revisiÃ³n del flujo.');
+        throw new Error(data?.error || 'No se pudo cargar la última revisión del flujo.');
       }
 
       const remoteStateRaw = data?.state || null;
@@ -1896,11 +1897,11 @@ export default function AdminPage() {
         setFlowCurrentSource(latest.source);
         if (!options?.silent) {
           if (latest.source === 'local' && remoteState) {
-            setFlowRevisionMessage('Se cargÃ³ la revisiÃ³n local mÃ¡s reciente (current).');
+            setFlowRevisionMessage('Se cargó la revisión local más reciente (current).');
           } else if (latest.source === 'local') {
-            setFlowRevisionMessage('Se cargÃ³ una revisiÃ³n local.');
+            setFlowRevisionMessage('Se cargó una revisión local.');
           } else {
-            setFlowRevisionMessage('Se cargÃ³ la Ãºltima revisiÃ³n guardada.');
+            setFlowRevisionMessage('Se cargó la última revisión guardada.');
           }
         }
       } else {
@@ -1910,11 +1911,11 @@ export default function AdminPage() {
         setFlowLastSavedBy(null);
         setFlowCurrentSource('base');
         if (!options?.silent) {
-          setFlowRevisionMessage('No hay revisiÃ³n guardada todavÃ­a.');
+          setFlowRevisionMessage('No hay revisión guardada todavía.');
         }
       }
     } catch (error: any) {
-      const message = error?.message || 'No se pudo cargar la revisiÃ³n del flujo.';
+      const message = error?.message || 'No se pudo cargar la revisión del flujo.';
       const localState = readFlowLayoutFromLocalStorage();
       if (localState?.nodes?.length) {
         setFlowNodes(mergeFlowNodesWithPositions(localState.nodes));
@@ -1925,10 +1926,10 @@ export default function AdminPage() {
         if (!options?.silent) {
           if (isMissingFlowDiagramTableError(message)) {
             setFlowRevisionMessage(
-              'Se cargÃ³ revisiÃ³n local. Falta aplicar migraciÃ³n de base para sincronizar con Supabase.'
+              'Se cargó revisión local. Falta aplicar migración de base para sincronizar con Supabase.'
             );
           } else {
-            setFlowRevisionMessage('Se cargÃ³ la revisiÃ³n local por un fallo de sincronizaciÃ³n remota.');
+            setFlowRevisionMessage('Se cargó la revisión local por un fallo de sincronización remota.');
           }
         }
         return;
@@ -1936,7 +1937,7 @@ export default function AdminPage() {
       setFlowCurrentSource('base');
       if (!options?.silent) {
         if (isMissingFlowDiagramTableError(message)) {
-          setFlowRevisionError('Falta migraciÃ³n de base para guardar/cargar remoto. Mientras tanto, usa guardado local.');
+          setFlowRevisionError('Falta migración de base para guardar/cargar remoto. Mientras tanto, usa guardado local.');
         } else {
           setFlowRevisionError(message);
         }
@@ -1989,12 +1990,12 @@ export default function AdminPage() {
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || 'No se pudieron cargar las mÃ©tricas de Play.');
+        throw new Error(data?.error || 'No se pudieron cargar las métricas de Play.');
       }
       const data = await response.json();
       setPlayMetrics(data);
     } catch (error: any) {
-      setPlayError(error?.message || 'No se pudieron cargar las mÃ©tricas de Play.');
+      setPlayError(error?.message || 'No se pudieron cargar las métricas de Play.');
     } finally {
       setPlayLoading(false);
     }
@@ -2186,7 +2187,7 @@ export default function AdminPage() {
     if (!session?.access_token) return;
     const title = roadmapForm.title.trim();
     if (title.length < 3) {
-      setRoadmapError('Escribe un tÃ­tulo de al menos 3 caracteres.');
+      setRoadmapError('Escribe un título de al menos 3 caracteres.');
       return;
     }
     const initialFeedback = roadmapForm.initial_feedback.trim();
@@ -2261,7 +2262,7 @@ export default function AdminPage() {
         initial_feedback: '',
         initial_feedback_sentiment: 'neutral',
       }));
-      setRoadmapMessage('ActualizaciÃ³n agregada.');
+      setRoadmapMessage('Actualización agregada.');
     } catch (error: any) {
       setRoadmapError(error?.message || 'No se pudo crear el item.');
     } finally {
@@ -2337,7 +2338,7 @@ export default function AdminPage() {
       }
       const successMessage = options?.successMessage || 'Roadmap actualizado.';
       if (auditError) {
-        setRoadmapMessage(`${successMessage} (sin feedback automÃ¡tico: ${auditError})`);
+        setRoadmapMessage(`${successMessage} (sin feedback automático: ${auditError})`);
       } else {
         setRoadmapMessage(successMessage);
       }
@@ -2387,7 +2388,7 @@ export default function AdminPage() {
 
     if (!eligibleItems.length) {
       setRoadmapError('');
-      setRoadmapMessage('No hay items seleccionados compatibles con esa acciÃ³n.');
+      setRoadmapMessage('No hay items seleccionados compatibles con esa acción.');
       return;
     }
 
@@ -2403,6 +2404,13 @@ export default function AdminPage() {
       block: 'Bloquear',
       resolve: 'Resolver',
     };
+
+    const confirmed = window.confirm(
+      `Vas a ${labelByAction[action].toLowerCase()} ${eligibleItems.length} item(s) del roadmap. ¿Continuar?`
+    );
+    if (!confirmed) {
+      return;
+    }
 
     setRoadmapError('');
     setRoadmapMessage('');
@@ -2421,13 +2429,13 @@ export default function AdminPage() {
             },
             body: JSON.stringify({
               status: targetStatus,
-              audit_message: `AcciÃ³n masiva (${actionLabel}): estado ${getRoadmapStatusLabel(item.status)} -> ${getRoadmapStatusLabel(targetStatus)}.`,
+              audit_message: `Acción masiva (${actionLabel}): estado ${getRoadmapStatusLabel(item.status)} -> ${getRoadmapStatusLabel(targetStatus)}.`,
               audit_sentiment: actionSentiment,
             }),
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(data?.error || 'No se pudo aplicar la acciÃ³n masiva.');
+            throw new Error(data?.error || 'No se pudo aplicar la acción masiva.');
           }
           return {
             id: item.id,
@@ -2456,16 +2464,16 @@ export default function AdminPage() {
       if (failureCount > 0 && successIds.length > 0) {
         setRoadmapError(`Se actualizaron ${successIds.length} item(s), pero ${failureCount} fallaron.`);
       } else if (failureCount > 0) {
-        setRoadmapError('No se pudo aplicar la acciÃ³n masiva.');
+        setRoadmapError('No se pudo aplicar la acción masiva.');
       } else if (auditWarningCount > 0) {
         setRoadmapMessage(
-          `AcciÃ³n aplicada a ${successIds.length} item(s). ${auditWarningCount} quedaron sin feedback automÃ¡tico.`
+          `Acción aplicada a ${successIds.length} item(s). ${auditWarningCount} quedaron sin feedback automático.`
         );
       } else {
-        setRoadmapMessage(`AcciÃ³n aplicada a ${successIds.length} item(s).`);
+        setRoadmapMessage(`Acción aplicada a ${successIds.length} item(s).`);
       }
     } catch (error: any) {
-      setRoadmapError(error?.message || 'No se pudo aplicar la acciÃ³n masiva.');
+      setRoadmapError(error?.message || 'No se pudo aplicar la acción masiva.');
     } finally {
       setRoadmapBulkUpdating(false);
     }
@@ -2505,7 +2513,7 @@ export default function AdminPage() {
 
     if (action === 'set_area' && !areaTarget) {
       setRoadmapError('');
-      setRoadmapMessage('Selecciona un Ã¡rea para aplicar en lote.');
+      setRoadmapMessage('Selecciona un área para aplicar en lote.');
       return;
     }
 
@@ -2534,7 +2542,7 @@ export default function AdminPage() {
           return {
             id: item.id,
             patch: { owner: ownerTarget },
-            auditMessage: `AcciÃ³n masiva (Responsable): ${currentOwner || 'Sin asignar'} -> ${ownerTarget}.`,
+            auditMessage: `Acción masiva (Responsable): ${currentOwner || 'Sin asignar'} -> ${ownerTarget}.`,
           };
         }
 
@@ -2543,7 +2551,7 @@ export default function AdminPage() {
           return {
             id: item.id,
             patch: { owner: null },
-            auditMessage: `AcciÃ³n masiva (Responsable): ${currentOwner} -> Sin asignar.`,
+            auditMessage: `Acción masiva (Responsable): ${currentOwner} -> Sin asignar.`,
           };
         }
 
@@ -2552,7 +2560,7 @@ export default function AdminPage() {
           return {
             id: item.id,
             patch: { eta_date: etaTarget },
-            auditMessage: `AcciÃ³n masiva (ETA): ${currentEta ? formatShortDate(currentEta) : 'Sin fecha'} -> ${formatShortDate(etaTarget || '')}.`,
+            auditMessage: `Acción masiva (ETA): ${currentEta ? formatShortDate(currentEta) : 'Sin fecha'} -> ${formatShortDate(etaTarget || '')}.`,
           };
         }
 
@@ -2561,7 +2569,7 @@ export default function AdminPage() {
           return {
             id: item.id,
             patch: { area: areaTarget },
-            auditMessage: `AcciÃ³n masiva (Ãrea): ${getRoadmapAreaLabel(currentArea)} -> ${getRoadmapAreaLabel(areaTarget || 'web')}.`,
+            auditMessage: `Acción masiva (Área): ${getRoadmapAreaLabel(currentArea)} -> ${getRoadmapAreaLabel(areaTarget || 'web')}.`,
           };
         }
 
@@ -2570,7 +2578,7 @@ export default function AdminPage() {
           return {
             id: item.id,
             patch: { priority: priorityTarget },
-            auditMessage: `AcciÃ³n masiva (Prioridad): ${getRoadmapPriorityLabel(currentPriority)} -> ${getRoadmapPriorityLabel(
+            auditMessage: `Acción masiva (Prioridad): ${getRoadmapPriorityLabel(currentPriority)} -> ${getRoadmapPriorityLabel(
               priorityTarget || 'medium'
             )}.`,
           };
@@ -2581,7 +2589,7 @@ export default function AdminPage() {
           return {
             id: item.id,
             patch: { sector: sectorTarget },
-            auditMessage: `AcciÃ³n masiva (Sector): ${getRoadmapSectorLabel(currentSector)} -> ${getRoadmapSectorLabel(
+            auditMessage: `Acción masiva (Sector): ${getRoadmapSectorLabel(currentSector)} -> ${getRoadmapSectorLabel(
               sectorTarget || 'funcionalidades'
             )}.`,
           };
@@ -2591,7 +2599,7 @@ export default function AdminPage() {
         return {
           id: item.id,
           patch: { eta_date: null },
-          auditMessage: `AcciÃ³n masiva (ETA): ${formatShortDate(currentEta)} -> Sin fecha.`,
+          auditMessage: `Acción masiva (ETA): ${formatShortDate(currentEta)} -> Sin fecha.`,
         };
       })
       .filter(Boolean) as Array<{
@@ -2608,7 +2616,23 @@ export default function AdminPage() {
 
     if (!updates.length) {
       setRoadmapError('');
-      setRoadmapMessage('No hay cambios pendientes para aplicar en la selecciÃ³n.');
+      setRoadmapMessage('No hay cambios pendientes para aplicar en la selección.');
+      return;
+    }
+
+    const actionLabelByType: Record<typeof action, string> = {
+      set_owner: `asignar responsable "${ownerTarget}"`,
+      clear_owner: 'quitar responsable',
+      set_eta: `aplicar ETA ${formatShortDate(etaTarget || '')}`,
+      clear_eta: 'quitar ETA',
+      set_area: `aplicar área ${getRoadmapAreaLabel(areaTarget || 'web')}`,
+      set_priority: `aplicar prioridad ${getRoadmapPriorityLabel(priorityTarget || 'medium')}`,
+      set_sector: `aplicar sector ${getRoadmapSectorLabel(sectorTarget || 'funcionalidades')}`,
+    };
+    const confirmed = window.confirm(
+      `Vas a ${actionLabelByType[action]} en ${updates.length} item(s) seleccionados. ¿Continuar?`
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -2632,7 +2656,7 @@ export default function AdminPage() {
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            throw new Error(data?.error || 'No se pudo aplicar la acciÃ³n masiva.');
+            throw new Error(data?.error || 'No se pudo aplicar la acción masiva.');
           }
           return {
             id: entry.id,
@@ -2660,16 +2684,16 @@ export default function AdminPage() {
       if (failureCount > 0 && successIds.length > 0) {
         setRoadmapError(`Se actualizaron ${successIds.length} item(s), pero ${failureCount} fallaron.`);
       } else if (failureCount > 0) {
-        setRoadmapError('No se pudo aplicar la acciÃ³n masiva.');
+        setRoadmapError('No se pudo aplicar la acción masiva.');
       } else if (auditWarningCount > 0) {
         setRoadmapMessage(
-          `AcciÃ³n aplicada a ${successIds.length} item(s). ${auditWarningCount} quedaron sin feedback automÃ¡tico.`
+          `Acción aplicada a ${successIds.length} item(s). ${auditWarningCount} quedaron sin feedback automático.`
         );
       } else {
-        setRoadmapMessage(`AcciÃ³n aplicada a ${successIds.length} item(s).`);
+        setRoadmapMessage(`Acción aplicada a ${successIds.length} item(s).`);
       }
     } catch (error: any) {
-      setRoadmapError(error?.message || 'No se pudo aplicar la acciÃ³n masiva.');
+      setRoadmapError(error?.message || 'No se pudo aplicar la acción masiva.');
     } finally {
       setRoadmapBulkUpdating(false);
     }
@@ -2710,9 +2734,9 @@ export default function AdminPage() {
       item.id,
       { status },
       {
-        auditMessage: `${prefix}AcciÃ³n rÃ¡pida (${labelByAction[action]}): estado ${fromLabel} -> ${toLabel}.`,
+        auditMessage: `${prefix}Acción rápida (${labelByAction[action]}): estado ${fromLabel} -> ${toLabel}.`,
         auditSentiment,
-        successMessage: options?.successMessage || 'AcciÃ³n rÃ¡pida aplicada.',
+        successMessage: options?.successMessage || 'Acción rápida aplicada.',
       }
     );
   };
@@ -2743,7 +2767,7 @@ export default function AdminPage() {
     if (alert.rule === 'blocked_stale') {
       return runRoadmapQuickAction(target, 'unblock', {
         contextLabel: `SLA ${alert.title}`,
-        successMessage: 'AcciÃ³n SLA aplicada.',
+        successMessage: 'Acción SLA aplicada.',
       });
     }
 
@@ -2751,12 +2775,12 @@ export default function AdminPage() {
       if (target.status === 'planned') {
         return runRoadmapQuickAction(target, 'start', {
           contextLabel: `SLA ${alert.title}`,
-          successMessage: 'AcciÃ³n SLA aplicada.',
+          successMessage: 'Acción SLA aplicada.',
         });
       }
       return runRoadmapQuickAction(target, 'resolve', {
         contextLabel: `SLA ${alert.title}`,
-        successMessage: 'AcciÃ³n SLA aplicada.',
+        successMessage: 'Acción SLA aplicada.',
       });
     }
 
@@ -2766,9 +2790,9 @@ export default function AdminPage() {
         target.id,
         { eta_date: nextEta },
         {
-          auditMessage: `SLA ${alert.title}: ETA ajustada a ${formatShortDate(nextEta)} por inactividad en ejecuciÃ³n.`,
+          auditMessage: `SLA ${alert.title}: ETA ajustada a ${formatShortDate(nextEta)} por inactividad en ejecución.`,
           auditSentiment: 'neutral',
-          successMessage: 'AcciÃ³n SLA aplicada.',
+          successMessage: 'Acción SLA aplicada.',
         }
       );
     }
@@ -2782,7 +2806,7 @@ export default function AdminPage() {
           {
             auditMessage: `SLA ${alert.title}: responsable asignado (${owner}) y estado ${getRoadmapStatusLabel(target.status)} -> ${getRoadmapStatusLabel('in_progress')}.`,
             auditSentiment: 'neutral',
-            successMessage: 'AcciÃ³n SLA aplicada.',
+            successMessage: 'Acción SLA aplicada.',
           }
         );
       }
@@ -2792,7 +2816,7 @@ export default function AdminPage() {
         {
           auditMessage: `SLA ${alert.title}: responsable asignado (${owner}).`,
           auditSentiment: 'neutral',
-          successMessage: 'AcciÃ³n SLA aplicada.',
+          successMessage: 'Acción SLA aplicada.',
         }
       );
     }
@@ -2811,11 +2835,19 @@ export default function AdminPage() {
     });
 
     const severityLabel =
-      severity === 'critical' ? 'crÃ­ticas' : severity === 'warning' ? 'de advertencia' : 'totales';
+      severity === 'critical' ? 'críticas' : severity === 'warning' ? 'de advertencia' : 'totales';
+    const batchSize = Math.min(queue.length, ROADMAP_SLA_ALERT_LIMIT);
 
     if (!queue.length) {
       setRoadmapError('');
       setRoadmapMessage(`No hay alertas SLA ${severityLabel} para aplicar.`);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Vas a aplicar ${batchSize} sugerencia(s) SLA ${severityLabel}. ¿Continuar?`
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -2831,7 +2863,7 @@ export default function AdminPage() {
       if (appliedCount > 0) {
         setRoadmapMessage(`SLA: se aplicaron ${appliedCount} sugerencia(s) ${severityLabel}.`);
       } else {
-        setRoadmapMessage('SLA: no se pudieron aplicar sugerencias automÃ¡ticamente.');
+        setRoadmapMessage('SLA: no se pudieron aplicar sugerencias automáticamente.');
       }
     } finally {
       setRoadmapSlaBatchApplying(false);
@@ -2948,9 +2980,15 @@ export default function AdminPage() {
   };
 
   const handleSendSupportMessage = async () => {
-    if (!session?.access_token || !activeSupportUserId) return;
+    if (!session?.access_token || !activeSupportUserId) {
+      setSupportError('Selecciona una conversación antes de responder.');
+      return;
+    }
     const trimmed = supportDraft.trim();
-    if (!trimmed) return;
+    if (!trimmed) {
+      setSupportError('Escribe un mensaje antes de responder.');
+      return;
+    }
     setSupportSending(true);
     setSupportError('');
     try {
@@ -3129,7 +3167,7 @@ export default function AdminPage() {
     setFlowNodeDragStart(null);
     setFlowLayoutDirty(true);
     setFlowRevisionError('');
-    setFlowRevisionMessage('Layout restablecido a la base. Guarda para dejarlo como Ãºltima revisiÃ³n.');
+    setFlowRevisionMessage('Layout restablecido a la base. Guarda para dejarlo como última revisión.');
   };
 
   const handleSaveFlowLayout = async () => {
@@ -3154,7 +3192,7 @@ export default function AdminPage() {
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data?.error || 'No se pudo guardar la revisiÃ³n del flujo.');
+        throw new Error(data?.error || 'No se pudo guardar la revisión del flujo.');
       }
       const savedState = data?.state || null;
       const savedPositions = sanitizeFlowPositions(savedState?.nodes);
@@ -3171,9 +3209,9 @@ export default function AdminPage() {
       setFlowLastSavedAt(savedState?.updated_at || null);
       setFlowLastSavedBy(savedState?.updated_by_label || null);
       setFlowCurrentSource('remote');
-      setFlowRevisionMessage('RevisiÃ³n guardada correctamente y marcada como current.');
+      setFlowRevisionMessage('Revisión guardada correctamente y marcada como current.');
     } catch (error: any) {
-      const message = error?.message || 'No se pudo guardar la revisiÃ³n del flujo.';
+      const message = error?.message || 'No se pudo guardar la revisión del flujo.';
       const localState = writeFlowLayoutToLocalStorage({
         nodes: positions,
         note,
@@ -3186,11 +3224,11 @@ export default function AdminPage() {
         setFlowCurrentSource('local');
         if (isMissingFlowDiagramTableError(message)) {
           setFlowRevisionMessage(
-            'Guardado local exitoso. Esta revisiÃ³n quedÃ³ como current en este navegador (falta migraciÃ³n para remoto).'
+            'Guardado local exitoso. Esta revisión quedó como current en este navegador (falta migración para remoto).'
           );
         } else {
           setFlowRevisionMessage(
-            'Guardado local exitoso. Esta revisiÃ³n quedÃ³ como current en este navegador mientras vuelve la sincronizaciÃ³n remota.'
+            'Guardado local exitoso. Esta revisión quedó como current en este navegador mientras vuelve la sincronización remota.'
           );
         }
       } else {
@@ -3286,7 +3324,7 @@ export default function AdminPage() {
         <body>
           <div class="sheet">
             <p class="title">Diagrama de flujo operativo App/Web</p>
-            <p class="hint">Usa "Guardar como PDF" en el diÃ¡logo de impresiÃ³n.</p>
+            <p class="hint">Usa "Guardar como PDF" en el diálogo de impresión.</p>
             <div class="diagram">${svgMarkup}</div>
           </div>
         </body>
@@ -3352,9 +3390,22 @@ export default function AdminPage() {
     }
   };
 
-  const handleGrantAccess = async (userId: string) => {
-    if (!session?.access_token) return;
-    setGrantingId(userId);
+  const handleSetAccess = async (userId: string, accessGranted: boolean) => {
+    if (!session?.access_token) {
+      setOverviewError('Tu sesion admin no esta disponible. Recarga antes de actualizar accesos.');
+      return;
+    }
+    if (!String(userId || '').trim()) {
+      setOverviewError('No pudimos identificar al usuario para actualizar el acceso.');
+      return;
+    }
+    if (accessUpdatingId) return;
+    if (!accessGranted) {
+      const confirmed = window.confirm('Vas a revocar el acceso de este usuario. Podra dejar de operar en la plataforma.');
+      if (!confirmed) return;
+    }
+    setOverviewError('');
+    setAccessUpdatingId(userId);
     try {
       const response = await fetch('/api/admin/access', {
         method: 'POST',
@@ -3362,72 +3413,36 @@ export default function AdminPage() {
           Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId, accessGranted }),
       });
       if (!response.ok) {
         const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || 'No se pudo habilitar el acceso.');
+        throw new Error(data?.error || (accessGranted ? 'No se pudo habilitar el acceso.' : 'No se pudo revocar el acceso.'));
       }
       await loadOverview(session.access_token);
     } catch (error: any) {
-      setOverviewError(error?.message || 'No se pudo habilitar el acceso.');
+      setOverviewError(error?.message || (accessGranted ? 'No se pudo habilitar el acceso.' : 'No se pudo revocar el acceso.'));
     } finally {
-      setGrantingId(null);
+      setAccessUpdatingId(null);
     }
   };
 
   const handleBillingExport = () => {
-    if (!overview) return;
-    if (billingExportType === 'subscriptions') {
-      downloadCsv(
-        'suscripciones_recientes.csv',
-        overview.lists.recentSubscriptions.map((sub) => ({
-          usuario: getProfileLabel(sub.profile),
-          email: sub.profile?.email || '',
-          estado: sub.status || '',
-          plan: sub.plan?.name || '',
-          periodo_meses: sub.plan?.period_months || '',
-          precio: sub.plan?.price_ars || '',
-          creado: sub.created_at,
-          renueva: sub.current_period_end || '',
-        }))
-      );
+    if (!billingExportConfig.rows.length) {
+      setBillingMessage('No hay datos disponibles para exportar con la fuente seleccionada.');
       return;
     }
-    if (billingExportType === 'payments') {
-      downloadCsv(
-        'pagos_recientes.csv',
-        overview.lists.recentPayments.map((payment) => ({
-          usuario: getProfileLabel(payment.profile),
-          email: payment.profile?.email || '',
-          estado: payment.status || '',
-          monto: payment.amount || 0,
-          pagado: payment.paid_at || payment.created_at,
-        }))
-      );
-      return;
-    }
-    downloadCsv(
-      'ingresos_por_zona.csv',
-      overview.lists.incomeByZone.map((item) => ({
-        zona: item.zone,
-        total: item.total_amount,
-        presupuestos: item.quotes_amount,
-        suscripciones: item.subscriptions_amount,
-        presupuestos_cobrados: item.quotes_count,
-        pagos: item.payments_count,
-        usuarios: item.users_count,
-      }))
-    );
+    downloadCsv(billingExportConfig.filename, billingExportConfig.rows);
+    setBillingMessage(`Exportados ${billingExportConfig.rows.length} registro(s) de ${billingExportConfig.label}.`);
   };
 
   const kpis = useMemo(() => {
     if (!overview) return [];
     return [
       { label: 'Visitas (24h)', value: formatNumber(overview.kpis.visitsLast24) },
-      { label: 'Sesiones Ãºnicas (24h)', value: formatNumber(overview.kpis.uniqueSessionsLast24) },
+      { label: 'Sesiones únicas (24h)', value: formatNumber(overview.kpis.uniqueSessionsLast24) },
       { label: 'Visitas (7d)', value: formatNumber(overview.kpis.visitsLast7) },
-      { label: 'Sesiones Ãºnicas (7d)', value: formatNumber(overview.kpis.uniqueSessionsLast7) },
+      { label: 'Sesiones únicas (7d)', value: formatNumber(overview.kpis.uniqueSessionsLast7) },
       { label: 'Usuarios totales', value: formatNumber(overview.kpis.totalUsers) },
       { label: 'Accesos habilitados', value: formatNumber(overview.kpis.accessGranted) },
       { label: 'Accesos pendientes', value: formatNumber(overview.kpis.pendingAccess) },
@@ -3562,12 +3577,12 @@ export default function AdminPage() {
       label: `${start.toLocaleDateString('es-AR')} - ${today.toLocaleDateString('es-AR')}`,
       shortLabel:
         billingRange === 'ytd'
-          ? 'AÃ±o actual'
+          ? 'Año actual'
           : billingRange === '7d'
-            ? 'Ãšltimos 7 dÃ­as'
+            ? 'Últimos 7 días'
             : billingRange === '30d'
-              ? 'Ãšltimos 30 dÃ­as'
-              : 'Ãšltimos 90 dÃ­as',
+              ? 'Últimos 30 días'
+              : 'Últimos 90 días',
       days,
     };
   }, [billingRange]);
@@ -3728,7 +3743,7 @@ export default function AdminPage() {
         key: 'subscriptions',
         label: 'Ingresos por suscripciones',
         value: formatCurrency(billingTimeline.subscriptionsCurrent),
-        helper: `${overview?.lists.recentSubscriptions.length || 0} suscripciÃ³n(es) recientes`,
+        helper: `${overview?.lists.recentSubscriptions.length || 0} suscripción(es) recientes`,
         delta: subscriptionsDelta,
       },
       {
@@ -3741,10 +3756,69 @@ export default function AdminPage() {
     ];
   }, [billingTimeline, billingWindow.shortLabel, overview?.lists.recentSubscriptions.length]);
 
+  const billingExportConfig = useMemo(() => {
+    if (!overview) {
+      return {
+        filename: 'export.csv',
+        label: 'exportación',
+        rows: [] as Array<Record<string, string | number>>,
+      };
+    }
+
+    if (billingExportType === 'subscriptions') {
+      return {
+        filename: 'suscripciones_recientes.csv',
+        label: 'suscripciones',
+        rows: overview.lists.recentSubscriptions.map((sub) => ({
+          usuario: getProfileLabel(sub.profile),
+          email: sub.profile?.email || '',
+          estado: sub.status || '',
+          plan: sub.plan?.name || '',
+          periodo_meses: sub.plan?.period_months || '',
+          precio: sub.plan?.price_ars || '',
+          creado: sub.created_at,
+          renueva: sub.current_period_end || '',
+        })),
+      };
+    }
+
+    if (billingExportType === 'payments') {
+      return {
+        filename: 'pagos_recientes.csv',
+        label: 'pagos',
+        rows: overview.lists.recentPayments.map((payment) => ({
+          usuario: getProfileLabel(payment.profile),
+          email: payment.profile?.email || '',
+          estado: payment.status || '',
+          monto: payment.amount || 0,
+          pagado: payment.paid_at || payment.created_at,
+        })),
+      };
+    }
+
+    return {
+      filename: 'ingresos_por_zona.csv',
+      label: 'zonas',
+      rows: overview.lists.incomeByZone.map((item) => ({
+        zona: item.zone,
+        total: item.total_amount,
+        presupuestos: item.quotes_amount,
+        suscripciones: item.subscriptions_amount,
+        presupuestos_cobrados: item.quotes_count,
+        pagos: item.payments_count,
+        usuarios: item.users_count,
+      })),
+    };
+  }, [billingExportType, overview]);
+
+  const trimmedSupportDraft = supportDraft.trim();
+  const canSendSupportMessage = Boolean(activeSupportUserId && trimmedSupportDraft && !supportSending && !supportLoading);
+  const canExportSupportConversation = Boolean(activeSupportUserId && supportMessages.length);
+
   const tabs = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'tecnicos', label: 'Técnicos' },
-    { key: 'facturacion', label: 'FacturaciÃ³n' },
+    { key: 'facturacion', label: 'Facturación' },
     { key: 'mano_obra', label: 'Mano de obra' },
     { key: 'solicitudes', label: 'Solicitudes' },
     { key: 'newsletter', label: 'Newsletter' },
@@ -4130,12 +4204,12 @@ export default function AdminPage() {
     }
     if (roadmapOpenCount > 0) {
       return {
-        label: 'En ejecuciÃ³n',
+        label: 'En ejecución',
         badgeClass: 'border border-sky-200 bg-sky-50 text-sky-700',
       };
     }
     return {
-      label: 'OperaciÃ³n estable',
+      label: 'Operación estable',
       badgeClass: 'border border-emerald-200 bg-emerald-50 text-emerald-700',
     };
   }, [roadmapOpenCount, roadmapTotals.blocked]);
@@ -4176,7 +4250,7 @@ export default function AdminPage() {
         const overdue = etaMs !== null && etaMs < todayMs;
         const dueSoon = etaMs !== null && etaMs >= todayMs && etaMs <= nextWeekMs;
 
-        // Prioriza bloqueados y tareas crÃ­ticas cercanas/vencidas para enfoque diario.
+        // Prioriza bloqueados y tareas críticas cercanas/vencidas para enfoque diario.
         let score = ROADMAP_PRIORITY_SCORE[item.priority] * 100 + ROADMAP_STATUS_URGENCY[item.status] * 80 + ageDays;
         if (overdue) score += 140;
         if (dueSoon) score += 45;
@@ -4427,7 +4501,7 @@ export default function AdminPage() {
           rule: 'blocked_stale',
           severity: 'critical',
           title: item.title,
-          detail: `Bloqueado hace ${staleDays} dÃ­a(s). Requiere destrabe inmediato.`,
+          detail: `Bloqueado hace ${staleDays} día(s). Requiere destrabe inmediato.`,
           actionLabel: 'Desbloquear',
           score: 600 + staleDays * 2,
         });
@@ -4440,7 +4514,7 @@ export default function AdminPage() {
           rule: 'high_overdue',
           severity: 'critical',
           title: item.title,
-          detail: `Prioridad alta con ETA vencida hace ${overdueDays} dÃ­a(s).`,
+          detail: `Prioridad alta con ETA vencida hace ${overdueDays} día(s).`,
           actionLabel: item.status === 'planned' ? 'Iniciar' : 'Resolver',
           score: 560 + overdueDays * 3,
         });
@@ -4453,7 +4527,7 @@ export default function AdminPage() {
           rule: 'stale_in_progress',
           severity: 'warning',
           title: item.title,
-          detail: `En progreso sin movimiento SLA (${staleDays} dÃ­a/s).`,
+          detail: `En progreso sin movimiento SLA (${staleDays} día/s).`,
           actionLabel: 'Extender ETA +3d',
           score: 360 + staleDays,
         });
@@ -4466,7 +4540,7 @@ export default function AdminPage() {
           rule: 'overdue_unassigned',
           severity: 'warning',
           title: item.title,
-          detail: `Vencida hace ${overdueDays} dÃ­a(s) y sin responsable asignado.`,
+          detail: `Vencida hace ${overdueDays} día(s) y sin responsable asignado.`,
           actionLabel: 'Asignarme',
           score: 340 + overdueDays * 2,
         });
@@ -4596,8 +4670,8 @@ export default function AdminPage() {
               </div>
               <h1 className="text-4xl font-black text-slate-900 md:text-5xl">Acceso administrativo</h1>
               <p className="text-base text-slate-600">
-                Ingresa con tu cuenta para ver mÃ©tricas, suscripciones y soporte.
-              </p>
+                Ingresa con tu cuenta para ver métricas, suscripciones y soporte.
+                    </p>
               <a
                 href="/"
                 className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
@@ -4608,7 +4682,7 @@ export default function AdminPage() {
 
             <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
               <div className="space-y-3">
-                <h2 className="text-2xl font-bold text-slate-900">Iniciar sesiÃ³n</h2>
+                <h2 className="text-2xl font-bold text-slate-900">Iniciar sesión</h2>
                 <p className="text-sm text-slate-600">Solo administradores autorizados.</p>
               </div>
 
@@ -4637,7 +4711,7 @@ export default function AdminPage() {
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   type="password"
-                  placeholder="ContraseÃ±a"
+                  placeholder="Contraseña"
                   className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                 />
               </div>
@@ -4678,7 +4752,7 @@ export default function AdminPage() {
               onClick={handleLogout}
               className="mt-6 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
             >
-              Cerrar sesiÃ³n
+              Cerrar sesión
             </button>
           </div>
         </div>
@@ -4742,7 +4816,7 @@ export default function AdminPage() {
                 onClick={handleLogout}
                 className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-[0_10px_22px_rgba(15,23,42,0.3)] transition hover:-translate-y-0.5 hover:bg-slate-800"
               >
-                Cerrar sesiÃ³n
+                Cerrar sesión
               </button>
             </div>
           </header>
@@ -4768,7 +4842,7 @@ export default function AdminPage() {
             <article className="rounded-2xl border border-slate-200/80 bg-white/88 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)] backdrop-blur">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Foco de trabajo</p>
               <p className="mt-1 text-base font-semibold text-slate-900">{activeTabLabel}</p>
-              <p className="mt-1 text-xs text-slate-500">Tab activo para ejecuciÃ³n operativa.</p>
+              <p className="mt-1 text-xs text-slate-500">Tab activa para ejecución operativa.</p>
             </article>
             <article className="rounded-2xl border border-slate-200/80 bg-white/88 px-4 py-3 shadow-[0_8px_22px_rgba(15,23,42,0.08)] backdrop-blur">
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pipeline roadmap</p>
@@ -4790,7 +4864,7 @@ export default function AdminPage() {
 
           {loadingOverview && (
             <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-500">
-              Cargando mÃ©tricas...
+              Cargando métricas...
             </div>
           )}
 
@@ -4804,7 +4878,7 @@ export default function AdminPage() {
                         <p className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Executive pulse</p>
                         <h3 className="mt-1 text-xl font-semibold text-white">Resumen operativo de plataforma</h3>
                         <p className="mt-1 text-sm text-slate-300">
-                          SeÃ±ales clave de uso, monetizaciÃ³n y soporte para gestionar operaciÃ³n diaria.
+                          Señales clave de uso, monetización y soporte para gestionar operación diaria.
                         </p>
 
                       </div>
@@ -4835,9 +4909,9 @@ export default function AdminPage() {
                     <div className={premiumPanelClass}>
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">Google Play (Android)</h3>
-                        <span className="text-xs text-slate-400">Ãšltimos 14 dÃ­as</span>
+                        <span className="text-xs text-slate-400">Últimos 14 días</span>
                       </div>
-                      {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando mÃ©tricas...</p>}
+                      {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando métricas...</p>}
                       {playError && (
                         <p className="mt-3 text-xs text-rose-500">
                           {playError}
@@ -4868,15 +4942,15 @@ export default function AdminPage() {
                             <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Crashes / ANR (7d)</p>
                               <p className="mt-2 text-xl font-semibold text-slate-900">
-                                {`${((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}% Â· ${((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%`}
+                                {`${((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}% · ${((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%`}
                               </p>
-                              <p className="mt-1 text-[11px] text-slate-500">Crash Â· ANR</p>
+                              <p className="mt-1 text-[11px] text-slate-500">Crash · ANR</p>
                             </div>
                           </div>
 
                           <div className="mt-4">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                              Instalaciones por dÃ­a
+                              Instalaciones por día
                             </p>
                             <div className="mt-3 grid gap-2">
                               {(playMetrics.installs?.series || []).slice(-14).map((row) => {
@@ -4914,7 +4988,7 @@ export default function AdminPage() {
 
                           {!!playMetrics.errors?.length && (
                             <p className="mt-3 text-[11px] text-amber-600">
-                              {playMetrics.errors.join(' â€¢ ')}
+                              {playMetrics.errors.join(' • ')}
                             </p>
                           )}
                         </>
@@ -4925,7 +4999,7 @@ export default function AdminPage() {
                       <div className="flex items-center justify-between">
                         <h3 className="text-lg font-semibold text-slate-900">Crashes y ANR</h3>
                         <span className="text-xs text-slate-400">
-                          {playMetrics?.crashes?.lastDate || playMetrics?.anr?.lastDate || 'Ãšltimos 14 dÃ­as'}
+                          {playMetrics?.crashes?.lastDate || playMetrics?.anr?.lastDate || 'Últimos 14 días'}
                         </span>
                       </div>
                       {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando...</p>}
@@ -4944,7 +5018,7 @@ export default function AdminPage() {
                             </span>
                           </div>
                           <div className="text-[11px] text-slate-400">
-                            Datos de Play Developer Reporting. Puede tardar algunas horas tras publicar una versiÃ³n.
+                            Datos de Play Developer Reporting. Puede tardar algunas horas tras publicar una versión.
                           </div>
                         </div>
                       )}
@@ -4959,11 +5033,11 @@ export default function AdminPage() {
                       <div className={premiumPanelClass}>
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-semibold text-slate-900">Mensajes recientes</h3>
-                      <span className="text-xs text-slate-400">Ãšltimos 10</span>
+                      <span className="text-xs text-slate-400">Últimos 10</span>
                     </div>
                     <div className="mt-4 space-y-3">
                       {overview.lists.supportMessages.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay mensajes todavÃ­a.</p>
+                        <p className="text-sm text-slate-500">No hay mensajes todavía.</p>
                       )}
                       {overview.lists.supportMessages.map((msg) => (
                         <div
@@ -4990,7 +5064,7 @@ export default function AdminPage() {
                   <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                      <span className="text-xs text-slate-400">Ãšltimos 12</span>
+                      <span className="text-xs text-slate-400">Últimos 12</span>
                     </div>
                     <div className="mt-4 space-y-3">
                       {overview.lists.pendingAccess.length === 0 && (
@@ -5009,11 +5083,11 @@ export default function AdminPage() {
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleGrantAccess(user.id)}
-                            disabled={grantingId === user.id}
+                            onClick={() => handleSetAccess(user.id, true)}
+                            disabled={accessUpdatingId === user.id}
                             className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                           >
-                            {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
+                            {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
                           </button>
                         </div>
                       ))}
@@ -5025,7 +5099,7 @@ export default function AdminPage() {
                   <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
-                      <span className="text-xs text-slate-400">Ãšltimas 10</span>
+                      <span className="text-xs text-slate-400">Últimas 10</span>
                     </div>
                     <div className="mt-4 space-y-3">
                       {overview.lists.recentSubscriptions.length === 0 && (
@@ -5065,7 +5139,7 @@ export default function AdminPage() {
                   <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
-                      <span className="text-xs text-slate-400">Ãšltimos 10</span>
+                      <span className="text-xs text-slate-400">Últimos 10</span>
                     </div>
                     <div className="mt-4 space-y-3">
                       {overview.lists.recentPayments.length === 0 && (
@@ -5099,12 +5173,12 @@ export default function AdminPage() {
 
                   <div className={premiumPanelClass}>
                     <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Pantallas con mÃ¡s tiempo</h3>
-                      <span className="text-xs text-slate-400">Ãšltimos 30 dÃ­as</span>
+                      <h3 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h3>
+                      <span className="text-xs text-slate-400">Últimos 30 días</span>
                     </div>
                     <div className="mt-4 space-y-3">
                       {overview.lists.topScreens.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay datos de navegaciÃ³n todavÃ­a.</p>
+                        <p className="text-sm text-slate-500">No hay datos de navegación todavía.</p>
                       )}
                       {overview.lists.topScreens.map((screen) => (
                         <div
@@ -5114,7 +5188,7 @@ export default function AdminPage() {
                           <div>
                             <p className="text-sm font-semibold text-slate-700">{screen.path}</p>
                             <p className="mt-1 text-[11px] text-slate-400">
-                              {screen.views} visita(s) â€¢ {screen.avg_seconds.toFixed(0)}s promedio
+                              {screen.views} visita(s) • {screen.avg_seconds.toFixed(0)}s promedio
                             </p>
                           </div>
                           <span className="text-sm font-semibold text-slate-700">
@@ -5189,7 +5263,7 @@ export default function AdminPage() {
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-slate-900">Nuevos usuarios</h3>
-                    <span className="text-xs text-slate-400">Ãšltimos 12</span>
+                    <span className="text-xs text-slate-400">Últimos 12</span>
                   </div>
                   <div className="mt-4 space-y-3">
                     {filteredRecentUsers.length === 0 && (
@@ -5229,7 +5303,7 @@ export default function AdminPage() {
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                    <span className="text-xs text-slate-400">Ãšltimos 12</span>
+                    <span className="text-xs text-slate-400">Últimos 12</span>
                   </div>
                   <div className="mt-4 space-y-3">
                     {filteredPendingAccess.length === 0 && (
@@ -5248,11 +5322,11 @@ export default function AdminPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => handleGrantAccess(user.id)}
-                          disabled={grantingId === user.id}
+                          onClick={() => handleSetAccess(user.id, true)}
+                          disabled={accessUpdatingId === user.id}
                           className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                         >
-                          {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
+                          {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
                         </button>
                       </div>
                     ))}
@@ -5301,18 +5375,20 @@ export default function AdminPage() {
                     <button
                       type="button"
                       onClick={handleBillingExport}
-                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                      disabled={!billingExportConfig.rows.length}
+                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                     >
                       Exportar
                     </button>
                   </div>
                 </div>
+                {billingMessage && <p className="mt-3 text-xs text-slate-500">{billingMessage}</p>}
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
                     Total periodo: {formatCurrency(billingTimeline.totalCurrent)}
                   </span>
                   <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 font-semibold text-sky-700">
-                    VariaciÃ³n: {billingKpiCards[0]?.delta.text || 'Sin variaciÃ³n'}
+                    Variación: {billingKpiCards[0]?.delta.text || 'Sin variación'}
                   </span>
                   <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">
                     Ticket promedio: {formatCurrency(billingTimeline.averageTicketCurrent)}
@@ -5347,9 +5423,9 @@ export default function AdminPage() {
               <section className={`mt-6 ${premiumPanelClass}`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">EvoluciÃ³n</p>
-                    <h3 className="text-lg font-semibold text-slate-900">FacturaciÃ³n del periodo</h3>
-                    <p className="text-xs text-slate-500">Pagos y suscripciones agregados por dÃ­a.</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Evolución</p>
+                    <h3 className="text-lg font-semibold text-slate-900">Facturación del periodo</h3>
+                    <p className="text-xs text-slate-500">Pagos y suscripciones agregados por día.</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs">
                     <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
@@ -5479,7 +5555,7 @@ export default function AdminPage() {
                       >
                         <p className="text-xs font-semibold text-slate-700">{point.label}</p>
                         <p className="mt-1 text-[11px] text-slate-500">
-                          {point.users} usuario(s) â€¢ {point.quotes} presup.
+                          {point.users} usuario(s) • {point.quotes} presup.
                         </p>
                       </div>
                     ))}
@@ -5496,7 +5572,7 @@ export default function AdminPage() {
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Detalle</p>
                     <h3 className="text-lg font-semibold text-slate-900">Ingresos por zona</h3>
-                    <p className="text-xs text-slate-500">Basado en ciudad o Ã¡rea de cobertura del perfil.</p>
+                    <p className="text-xs text-slate-500">Basado en ciudad o área de cobertura del perfil.</p>
                   </div>
                   <div className="mt-4 space-y-4">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
@@ -5530,7 +5606,7 @@ export default function AdminPage() {
                     </div>
 
                     {overview.lists.incomeByZone.length === 0 && (
-                      <p className="text-sm text-slate-500">No hay datos de zona todavÃ­a.</p>
+                      <p className="text-sm text-slate-500">No hay datos de zona todavía.</p>
                     )}
                     {overview.lists.incomeByZone.slice(0, 8).map((item) => (
                       <div
@@ -5540,7 +5616,7 @@ export default function AdminPage() {
                         <div>
                           <p className="text-sm font-semibold text-slate-700">{item.zone}</p>
                           <p className="mt-1 text-[11px] text-slate-400">
-                            {item.users_count} usuario(s) â€¢ {item.quotes_count} presupuestos â€¢{' '}
+                            {item.users_count} usuario(s) • {item.quotes_count} presupuestos •{' '}
                             {item.payments_count} pagos
                           </p>
                         </div>
@@ -5549,7 +5625,7 @@ export default function AdminPage() {
                             {formatCurrency(item.total_amount)}
                           </p>
                           <p className="mt-1 text-[11px] text-slate-400">
-                            Presupuestos {formatCurrency(item.quotes_amount)} Â· Suscripciones{' '}
+                            Presupuestos {formatCurrency(item.quotes_amount)} · Suscripciones{' '}
                             {formatCurrency(item.subscriptions_amount)}
                           </p>
                         </div>
@@ -5563,7 +5639,7 @@ export default function AdminPage() {
                 <div className={premiumPanelClass}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
-                    <span className="text-xs text-slate-400">Ãšltimas 10</span>
+                    <span className="text-xs text-slate-400">Últimas 10</span>
                   </div>
                   <div className="mt-4 space-y-3">
                     {overview.lists.recentSubscriptions.length === 0 && (
@@ -5601,7 +5677,7 @@ export default function AdminPage() {
                 <div className={premiumPanelClass}>
                   <div className="flex items-center justify-between">
                     <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
-                    <span className="text-xs text-slate-400">Ãšltimos 10</span>
+                    <span className="text-xs text-slate-400">Últimos 10</span>
                   </div>
                   <div className="mt-4 space-y-3">
                     {overview.lists.recentPayments.length === 0 && (
@@ -5639,10 +5715,10 @@ export default function AdminPage() {
             <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">CatÃ¡logo</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Catálogo</p>
                   <h3 className="text-lg font-semibold text-slate-900">Valores de mano de obra</h3>
                   <p className="text-sm text-slate-500">
-                    Activa/desactiva items y ajusta el precio sugerido (se usa en el panel de tÃ©cnicos).
+                    Activa/desactiva items y ajusta el precio sugerido (se usa en el panel de técnicos).
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -5772,7 +5848,7 @@ export default function AdminPage() {
                           </span>
                         </div>
                         <p className="mt-1 text-xs text-slate-500">
-                          {[item.category, source].filter(Boolean).join(' Â· ')}
+                          {[item.category, source].filter(Boolean).join(' · ')}
                         </p>
                         {item.technical_notes && (
                           <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-600">
@@ -5833,7 +5909,7 @@ export default function AdminPage() {
 
                             const parsed = Number(raw);
                             if (!Number.isFinite(parsed) || parsed < 0) {
-                              setLaborError('Precio invÃ¡lido. Usa un nÃºmero igual o mayor a 0.');
+                              setLaborError('Precio inválido. Usa un número igual o mayor a 0.');
                               return;
                             }
                             patchLaborItem(item.id, {
@@ -5920,7 +5996,7 @@ export default function AdminPage() {
                       >
                         {selectedFlowNode.target.type === 'admin'
                           ? 'Abrir en este panel'
-                          : 'Abrir pagina en nueva pestaÃ±a'}
+                          : 'Abrir página en nueva pestaña'}
                       </button>
                     </div>
                   </div>
@@ -5934,10 +6010,10 @@ export default function AdminPage() {
                 >
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-slate-700">
-                      Diagrama de flujo clÃ¡sico (estilo ingenierÃ­a de procesos)
+                      Diagrama de flujo clásico (estilo ingeniería de procesos)
                     </p>
                     <span className="text-[11px] text-slate-500">
-                      Inicio â†’ Proceso â†’ DecisiÃ³n â†’ Fin + ramas de retorno Â· arrastre activo en cualquier zoom
+                      Inicio → Proceso → Decisión → Fin + ramas de retorno · arrastre activo en cualquier zoom
                     </span>
                   </div>
 
@@ -6033,8 +6109,8 @@ export default function AdminPage() {
                       />
                       {flowLastSavedAt && (
                         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500">
-                          Ultima guardada: {formatDateTime(flowLastSavedAt)}
-                          {flowLastSavedBy ? ` Â· ${flowLastSavedBy}` : ''}
+                          Última guardada: {formatDateTime(flowLastSavedAt)}
+                          {flowLastSavedBy ? ` · ${flowLastSavedBy}` : ''}
                         </span>
                       )}
                     </div>
@@ -6144,7 +6220,7 @@ export default function AdminPage() {
                               fontWeight={600}
                               fill="#64748B"
                             >
-                              RamificaciÃ³n por perfil con convergencia operativa y control admin
+                              Ramificación por perfil con convergencia operativa y control admin
                             </text>
 
                             <g transform={`translate(${flowDiagramFrame.offsetX} ${flowDiagramFrame.offsetY})`}>
@@ -6202,7 +6278,7 @@ export default function AdminPage() {
                                     aria-label={`Paso ${code} - ${node.title}`}
                                   >
                                     <text x={x + 2} y={Math.max(18, y - 8)} fontSize={11} fontWeight={700} fill="#475569">
-                                      {code} â€¢ {FLOW_SHAPE_LABEL[node.shape]}
+                                      {code} • {FLOW_SHAPE_LABEL[node.shape]}
                                     </text>
                                     {node.shape === 'decision' ? (
                                       <polygon
@@ -6367,7 +6443,7 @@ export default function AdminPage() {
                 <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-sky-600">En progreso</p>
                   <p className="mt-1 text-2xl font-semibold text-sky-700">{roadmapReportTotals.inProgress}</p>
-                  <p className="text-xs text-sky-700">EjecuciÃ³n activa</p>
+                  <p className="text-xs text-sky-700">Ejecución activa</p>
                 </div>
                 <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-600">Resueltos</p>
@@ -6380,8 +6456,8 @@ export default function AdminPage() {
                 <div className={premiumMutedPanelClass}>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ventana de ejecuciÃ³n</p>
-                      <p className="text-sm font-semibold text-slate-900">PrÃ³ximos 7 dÃ­as</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ventana de ejecución</p>
+                      <p className="text-sm font-semibold text-slate-900">Próximos 7 días</p>
                     </div>
                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${roadmapExecutionSignal.badgeClass}`}>
                       {roadmapExecutionSignal.label}
@@ -6395,7 +6471,7 @@ export default function AdminPage() {
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Alertas SLA</p>
                       <div className="flex flex-wrap items-center gap-2 text-[11px] font-semibold">
                         <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-rose-700">
-                          CrÃ­ticas: {roadmapSlaSummary.critical}
+                          Críticas: {roadmapSlaSummary.critical}
                         </span>
                         <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-1 text-amber-700">
                           Advertencias: {roadmapSlaSummary.warning}
@@ -6406,7 +6482,7 @@ export default function AdminPage() {
                           disabled={roadmapSlaBatchApplying || roadmapSlaSummary.critical === 0}
                           className="rounded-full border border-rose-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                         >
-                          {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar crÃ­ticas'}
+                          {roadmapSlaBatchApplying ? 'Aplicando...' : 'Aplicar críticas'}
                         </button>
                         <button
                           type="button"
@@ -6432,7 +6508,7 @@ export default function AdminPage() {
                               roadmapSlaAlerts.map((alert) => {
                                 const item = roadmapUpdates.find((entry) => entry.id === alert.roadmapId);
                                 return {
-                                  severidad: alert.severity === 'critical' ? 'CrÃ­tica' : 'Advertencia',
+                                  severidad: alert.severity === 'critical' ? 'Crítica' : 'Advertencia',
                                   regla: alert.rule,
                                   titulo: alert.title,
                                   detalle: alert.detail,
@@ -6473,7 +6549,7 @@ export default function AdminPage() {
                                         : 'border border-amber-200 bg-amber-50 text-amber-700'
                                     }`}
                                   >
-                                    {alert.severity === 'critical' ? 'CrÃ­tica' : 'Advertencia'}
+                                    {alert.severity === 'critical' ? 'Crítica' : 'Advertencia'}
                                   </span>
                                   <p className="text-xs font-semibold text-slate-800">{alert.title}</p>
                                 </div>
@@ -6500,7 +6576,7 @@ export default function AdminPage() {
                       <p className="mt-1 text-lg font-semibold text-slate-900">{roadmapPlannedCount}</p>
                     </div>
                     <div className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2">
-                      <p className="text-[10px] uppercase tracking-[0.2em] text-sky-600">Vencen en 7 dÃ­as</p>
+                      <p className="text-[10px] uppercase tracking-[0.2em] text-sky-600">Vencen en 7 días</p>
                       <p className="mt-1 text-lg font-semibold text-sky-700">{roadmapDueSoonItems.length}</p>
                     </div>
                     <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2">
@@ -6516,7 +6592,7 @@ export default function AdminPage() {
                   <div className="mt-4 space-y-2">
                     {roadmapDueSoonItems.length === 0 && (
                       <p className="rounded-xl border border-slate-200 bg-white px-3 py-3 text-sm text-slate-500">
-                        No hay vencimientos en la prÃ³xima semana para los filtros activos.
+                        No hay vencimientos en la próxima semana para los filtros activos.
                       </p>
                     )}
                     {roadmapDueSoonItems.slice(0, 6).map((item) => (
@@ -6527,14 +6603,14 @@ export default function AdminPage() {
                         <div className="min-w-[180px] flex-1">
                           <p className="font-semibold text-slate-800">{item.title}</p>
                           <p className="mt-1 text-[11px] text-slate-500">
-                            {getRoadmapOwnerLabel(item.owner)} â€¢ {getRoadmapStatusLabel(item.status)} â€¢{' '}
+                            {getRoadmapOwnerLabel(item.owner)} • {getRoadmapStatusLabel(item.status)} •{' '}
                             {getRoadmapPriorityLabel(item.priority)}
                           </p>
                         </div>
                         <div className="text-right">
                           <p className="font-semibold text-slate-700">{formatShortDate(item.etaDate)}</p>
                           <p className="text-[11px] text-slate-500">
-                            {item.daysToEta === 0 ? 'Hoy' : `${item.daysToEta} dÃ­a(s)`}
+                            {item.daysToEta === 0 ? 'Hoy' : `${item.daysToEta} día(s)`}
                           </p>
                         </div>
                       </div>
@@ -6563,7 +6639,7 @@ export default function AdminPage() {
                             <div className="h-full rounded-full bg-slate-900" style={{ width: `${width}%` }} />
                           </div>
                           <p className="mt-2 text-[11px] text-slate-500">
-                            En progreso {owner.inProgress} â€¢ Bloqueados {owner.blocked} â€¢ Vencidos {owner.overdue}
+                            En progreso {owner.inProgress} • Bloqueados {owner.blocked} • Vencidos {owner.overdue}
                           </p>
                         </div>
                       );
@@ -6721,7 +6797,7 @@ export default function AdminPage() {
                           </div>
                           <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
                             <span>{item.owner || 'Sin owner'}</span>
-                            <span>{getRoadmapStatusLabel(item.status)} â€¢ {getRoadmapPriorityLabel(item.priority)}</span>
+                            <span>{getRoadmapStatusLabel(item.status)} • {getRoadmapPriorityLabel(item.priority)}</span>
                           </div>
                         </div>
                       );
@@ -6732,14 +6808,14 @@ export default function AdminPage() {
 
               <div className={`mt-6 ${premiumMutedPanelClass}`}>
                 <div className="flex items-center justify-between">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Heatmap prioridad x Ã¡rea</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Heatmap prioridad x área</p>
                   <span className="text-xs text-slate-500">Solo pendientes (sin done)</span>
                 </div>
                 <div className="mt-3 overflow-x-auto">
                   <table className="min-w-full border-separate border-spacing-2 text-xs">
                     <thead>
                       <tr>
-                        <th className="px-2 py-1 text-left font-semibold text-slate-500">Ãrea</th>
+                        <th className="px-2 py-1 text-left font-semibold text-slate-500">Área</th>
                         {ROADMAP_PRIORITY_OPTIONS.map((priorityOption) => (
                           <th key={priorityOption.value} className="px-2 py-1 text-left font-semibold text-slate-500">
                             {priorityOption.label}
@@ -6777,7 +6853,7 @@ export default function AdminPage() {
 
               <div className="mt-8 grid gap-6 xl:grid-cols-[360px,1fr]">
                 <div className={premiumMutedPanelClass}>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva actualizaciÃ³n</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva actualización</p>
                   <div className="mt-3 space-y-3">
                     <input
                       value={roadmapForm.title}
@@ -6788,7 +6864,7 @@ export default function AdminPage() {
                     <textarea
                       value={roadmapForm.description}
                       onChange={(event) => setRoadmapForm((prev) => ({ ...prev, description: event.target.value }))}
-                      placeholder="Detalle tÃ©cnico / criterio de aceptaciÃ³n..."
+                      placeholder="Detalle técnico / criterio de aceptación..."
                       rows={4}
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                     />
@@ -6899,7 +6975,7 @@ export default function AdminPage() {
                       disabled={roadmapSubmitting}
                       className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
-                      {roadmapSubmitting ? 'Guardando...' : 'Agregar actualizaciÃ³n'}
+                      {roadmapSubmitting ? 'Guardando...' : 'Agregar actualización'}
                     </button>
                   </div>
                 </div>
@@ -6910,7 +6986,7 @@ export default function AdminPage() {
                       <input
                         value={roadmapSearch}
                         onChange={(event) => setRoadmapSearch(event.target.value)}
-                        placeholder="Buscar por tÃ­tulo, descripciÃ³n o feedback..."
+                        placeholder="Buscar por título, descripción o feedback..."
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
                       />
                       <select
@@ -6932,7 +7008,7 @@ export default function AdminPage() {
                         onChange={(event) => setRoadmapAreaFilter(event.target.value as 'all' | RoadmapArea)}
                         className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
                       >
-                        <option value="all">Todas las Ã¡reas</option>
+                        <option value="all">Todas las áreas</option>
                         {ROADMAP_AREA_OPTIONS.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
@@ -7072,7 +7148,7 @@ export default function AdminPage() {
                             disabled={roadmapBulkUpdating}
                             className="rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-800 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                           >
-                            Limpiar selecciÃ³n
+                            Limpiar selección
                           </button>
                         </div>
                       </div>
@@ -7237,9 +7313,9 @@ export default function AdminPage() {
                                   </span>
                                 )}
                                 <p className="mt-1 text-[11px] text-slate-500">
-                                  {getRoadmapStatusLabel(item.status)} â€¢ {getRoadmapPriorityLabel(item.priority)} â€¢{' '}
+                                  {getRoadmapStatusLabel(item.status)} • {getRoadmapPriorityLabel(item.priority)} •{' '}
                                   {item.owner ? getRoadmapOwnerLabel(item.owner) : 'Sin owner'}
-                                  {item.overdue ? ' â€¢ ETA vencida' : item.dueSoon ? ' â€¢ ETA <= 7d' : ''}
+                                  {item.overdue ? ' • ETA vencida' : item.dueSoon ? ' • ETA <= 7d' : ''}
                                 </p>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
@@ -7342,18 +7418,18 @@ export default function AdminPage() {
                                 )}
                               </div>
                               <p className="mt-2 text-[11px] text-slate-400">
-                                Creado: {formatDateTime(item.created_at)} â€¢ Actualizado: {formatDateTime(item.updated_at)}
+                                Creado: {formatDateTime(item.created_at)} • Actualizado: {formatDateTime(item.updated_at)}
                               </p>
                               {(item.source_branch || item.source_commit) && (
                                 <p className="mt-1 text-[11px] text-slate-500">
                                   Push: {item.source_branch || 'sin-rama'}
-                                  {item.source_commit ? ` â€¢ ${item.source_commit.slice(0, 12)}` : ''}
+                                  {item.source_commit ? ` • ${item.source_commit.slice(0, 12)}` : ''}
                                 </p>
                               )}
                               {(item.owner || item.eta_date) && (
                                 <p className="mt-1 text-[11px] text-slate-500">
                                   {item.owner ? `Responsable: ${item.owner}` : 'Responsable sin asignar'}
-                                  {item.eta_date ? ` â€¢ ETA: ${formatShortDate(item.eta_date)}` : ''}
+                                  {item.eta_date ? ` • ETA: ${formatShortDate(item.eta_date)}` : ''}
                                 </p>
                               )}
                             </div>
@@ -7400,9 +7476,9 @@ export default function AdminPage() {
                                   const area = event.target.value as RoadmapArea;
                                   if (area === item.area) return;
                                   patchRoadmapUpdate(item.id, { area }, {
-                                    auditMessage: `Cambio manual: Ã¡rea ${getRoadmapAreaLabel(item.area)} -> ${getRoadmapAreaLabel(area)}.`,
+                                    auditMessage: `Cambio manual: área ${getRoadmapAreaLabel(item.area)} -> ${getRoadmapAreaLabel(area)}.`,
                                     auditSentiment: 'neutral',
-                                    successMessage: 'Ãrea actualizada.',
+                                    successMessage: 'Área actualizada.',
                                   });
                                 }}
                                 disabled={savingUpdate}
@@ -7553,7 +7629,7 @@ export default function AdminPage() {
                                       {getRoadmapSentimentLabel(feedback.sentiment)}
                                     </span>
                                     <span className="text-[10px] text-slate-400">
-                                      {feedback.created_by_label || 'Sistema'} â€¢ {formatDateTime(feedback.created_at)}
+                                      {feedback.created_by_label || 'Sistema'} • {formatDateTime(feedback.created_at)}
                                     </span>
                                   </div>
                                   <p className="mt-2 text-sm text-slate-700">{feedback.body}</p>
@@ -7612,13 +7688,13 @@ export default function AdminPage() {
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Soporte</p>
                   <h3 className="text-lg font-semibold text-slate-900">Mensajes de usuarios</h3>
-                  <p className="text-sm text-slate-500">Responde desde aquÃ­ al chat beta.</p>
+                  <p className="text-sm text-slate-500">Responde desde aquí al chat beta.</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <input
                     value={messageSearch}
                     onChange={(event) => setMessageSearch(event.target.value)}
-                    placeholder="Buscar conversaciÃ³n..."
+                    placeholder="Buscar conversación..."
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-xs"
                   />
                   <button
@@ -7645,9 +7721,10 @@ export default function AdminPage() {
                         }))
                       )
                     }
-                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
+                    disabled={!canExportSupportConversation}
+                    className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                   >
-                    Exportar conversaciÃ³n
+                    Exportar conversación
                   </button>
                 </div>
               </div>
@@ -7681,7 +7758,7 @@ export default function AdminPage() {
 
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs text-slate-500">
-                    ConversaciÃ³n con:{' '}
+                    Conversación con:{' '}
                     <span className="font-semibold text-slate-700">
                       {supportUsers.find((user) => user.userId === activeSupportUserId)?.label ||
                         'Selecciona un usuario'}
@@ -7690,7 +7767,7 @@ export default function AdminPage() {
                   <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
                     {supportLoading && <p className="text-sm text-slate-500">Cargando mensajes...</p>}
                     {!supportLoading && supportMessages.length === 0 && (
-                      <p className="text-sm text-slate-500">Aun no hay mensajes en esta conversaciÃ³n.</p>
+                      <p className="text-sm text-slate-500">Aún no hay mensajes en esta conversación.</p>
                     )}
                     {!supportLoading &&
                       supportMessages.map((msg) => {
@@ -7723,12 +7800,17 @@ export default function AdminPage() {
                     <button
                       type="button"
                       onClick={handleSendSupportMessage}
-                      disabled={supportSending || !activeSupportUserId}
+                      disabled={!canSendSupportMessage}
                       className="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
                       {supportSending ? 'Enviando...' : 'Responder'}
                     </button>
                   </div>
+
+                  {!activeSupportUserId && <p className="mt-3 text-xs text-slate-500">Selecciona una conversación para responder o exportar.</p>}
+                  {activeSupportUserId && !trimmedSupportDraft && !supportSending && (
+                    <p className="mt-3 text-xs text-slate-500">Escribe una respuesta antes de enviarla.</p>
+                  )}
 
                   {supportError && <p className="mt-3 text-xs text-rose-500">{supportError}</p>}
                 </div>
@@ -7739,8 +7821,8 @@ export default function AdminPage() {
             <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                  <p className="text-xs text-slate-400">Ãšltimos 12</p>
+                  <h3 className="text-lg font-semibold text-slate-900">Gestion de accesos</h3>
+                  <p className="text-xs text-slate-400">Ultimos 12 usuarios recientes y pendientes</p>
                 </div>
                 <input
                   value={userSearch}
@@ -7764,14 +7846,71 @@ export default function AdminPage() {
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleGrantAccess(user.id)}
-                      disabled={grantingId === user.id}
+                      onClick={() => handleSetAccess(user.id, true)}
+                      disabled={Boolean(accessUpdatingId) || !session?.access_token || !user.id}
                       className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
-                      {grantingId === user.id ? 'Habilitando...' : 'Habilitar acceso'}
+                      {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
                     </button>
                   </div>
                 ))}
+              </div>
+
+              <div className="mt-8">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-base font-semibold text-slate-900">Usuarios recientes</h4>
+                    <p className="text-xs text-slate-400">Control rapido para habilitar o revocar acceso</p>
+                  </div>
+                  <span className="text-xs text-slate-400">{filteredRecentUsers.length} resultado(s)</span>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {filteredRecentUsers.length === 0 && (
+                    <p className="text-sm text-slate-500">No hay usuarios recientes para mostrar.</p>
+                  )}
+                  {filteredRecentUsers.map((user) => {
+                    const hasAccess = user.profile?.access_granted === true;
+                    const busy = accessUpdatingId === user.id;
+
+                    return (
+                      <div
+                        key={user.id}
+                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
+                      >
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-semibold text-slate-800">
+                              {getProfileLabel(user.profile || { email: user.email })}
+                            </p>
+                            <span
+                              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                                hasAccess
+                                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : 'border border-amber-200 bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              {hasAccess ? 'Acceso habilitado' : 'Pendiente'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-500">{user.email || user.profile?.email || 'Sin email'}</p>
+                          <p className="mt-1 text-[11px] text-slate-400">Alta: {formatDateTime(user.created_at)}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleSetAccess(user.id, !hasAccess)}
+                          disabled={Boolean(accessUpdatingId) || !session?.access_token || !user.id || busy}
+                          className={`rounded-full px-3 py-1 text-[11px] font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-white ${
+                            hasAccess
+                              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
+                              : 'bg-slate-900 text-white hover:bg-slate-800'
+                          }`}
+                        >
+                          {busy ? 'Actualizando...' : hasAccess ? 'Revocar acceso' : 'Habilitar acceso'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </section>
           )}
@@ -7787,11 +7926,11 @@ export default function AdminPage() {
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Actividad</p>
                   <h3 className="text-lg font-semibold text-slate-900">Uso de la plataforma</h3>
-                  <p className="text-sm text-slate-500">Visitas, sesiones Ãºnicas y tiempo por pantalla.</p>
+                  <p className="text-sm text-slate-500">Visitas, sesiones únicas y tiempo por pantalla.</p>
                   {activityData?.range && (
                     <p className="mt-1 text-xs text-slate-400">
                       Periodo: {formatShortDate(activityData.range.start)} -{' '}
-                      {formatShortDate(activityData.range.end)} â€¢ Comparado con{' '}
+                      {formatShortDate(activityData.range.end)} • Comparado con{' '}
                       {activityData.previousRange
                         ? `${formatShortDate(activityData.previousRange.start)} - ${formatShortDate(
                             activityData.previousRange.end
@@ -7810,9 +7949,9 @@ export default function AdminPage() {
                     }}
                     className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
                   >
-                    <option value={7}>Ãšltimos 7 dÃ­as</option>
-                    <option value={30}>Ãšltimos 30 dÃ­as</option>
-                    <option value={90}>Ãšltimos 90 dÃ­as</option>
+                    <option value={7}>Últimos 7 días</option>
+                    <option value={30}>Últimos 30 días</option>
+                    <option value={90}>Últimos 90 días</option>
                   </select>
                   <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs">
                     <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Del</span>
@@ -7969,7 +8108,7 @@ export default function AdminPage() {
                       </p>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Sesiones Ãºnicas</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Sesiones únicas</p>
                       <p className="mt-2 text-2xl font-semibold text-slate-900">
                         {formatNumber(activityData.totals.uniqueSessions)}
                       </p>
@@ -7988,7 +8127,7 @@ export default function AdminPage() {
                       </p>
                     </div>
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios Ãºnicos</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios únicos</p>
                       <p className="mt-2 text-2xl font-semibold text-slate-900">
                         {formatNumber(activityData.totals.uniqueUsers)}
                       </p>
@@ -8087,7 +8226,7 @@ export default function AdminPage() {
                         <h4 className="text-lg font-semibold text-slate-900">Usuarios online</h4>
                         <span className="text-xs text-slate-400">
                           {presenceData
-                            ? `${presenceData.onlineCount} online (Ãºltimos ${presenceData.onlineWindowMinutes} min)`
+                            ? `${presenceData.onlineCount} online (últimos ${presenceData.onlineWindowMinutes} min)`
                             : 'Online'}
                         </span>
                       </div>
@@ -8127,12 +8266,12 @@ export default function AdminPage() {
 
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-lg font-semibold text-slate-900">Ãšltimas conexiones</h4>
+                        <h4 className="text-lg font-semibold text-slate-900">Últimas conexiones</h4>
                         <span className="text-xs text-slate-400">Top 12</span>
                       </div>
                       <div className="mt-4 space-y-3">
                         {presenceLoading && (
-                          <p className="text-sm text-slate-500">Cargando Ãºltimas conexiones...</p>
+                          <p className="text-sm text-slate-500">Cargando últimas conexiones...</p>
                         )}
                         {!presenceLoading && (!presenceData || presenceData.recentUsers.length === 0) && (
                           <p className="text-sm text-slate-500">No hay datos disponibles.</p>
@@ -8171,7 +8310,7 @@ export default function AdminPage() {
 
                   <div className="mt-8 grid gap-6 lg:grid-cols-2">
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Visitas por dÃ­a</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Visitas por día</p>
                       <div className="mt-4 flex h-32 items-end gap-1">
                         {activityData.series.map((item) => {
                           const maxViews = Math.max(1, ...activityData.series.map((s) => s.views));
@@ -8194,7 +8333,7 @@ export default function AdminPage() {
                     </div>
 
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tiempo por dÃ­a</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tiempo por día</p>
                       <div className="mt-4 flex h-32 items-end gap-1">
                         {activityData.series.map((item) => {
                           const maxMinutes = Math.max(1, ...activityData.series.map((s) => s.minutes));
@@ -8219,7 +8358,7 @@ export default function AdminPage() {
 
                   <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                     <div className="flex items-center justify-between">
-                      <h4 className="text-lg font-semibold text-slate-900">Pantallas con mÃ¡s tiempo</h4>
+                      <h4 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h4>
                       <span className="text-xs text-slate-400">Top 5</span>
                     </div>
                     <div className="mt-4 space-y-3">
@@ -8234,7 +8373,7 @@ export default function AdminPage() {
                           <div>
                             <p className="text-sm font-semibold text-slate-700">{screen.path}</p>
                             <p className="mt-1 text-[11px] text-slate-400">
-                              {screen.views} visita(s) â€¢ {screen.avg_seconds.toFixed(0)}s promedio
+                              {screen.views} visita(s) • {screen.avg_seconds.toFixed(0)}s promedio
                             </p>
                           </div>
                           <span className="text-sm font-semibold text-slate-700">
@@ -8248,7 +8387,7 @@ export default function AdminPage() {
                   <div className="mt-8 grid gap-6 lg:grid-cols-2">
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-lg font-semibold text-slate-900">Rutas con mÃ¡s visitas</h4>
+                        <h4 className="text-lg font-semibold text-slate-900">Rutas con más visitas</h4>
                         <span className="text-xs text-slate-400">Top 8</span>
                       </div>
                       <div className="mt-4 space-y-3">
@@ -8263,7 +8402,7 @@ export default function AdminPage() {
                             <div>
                               <p className="text-sm font-semibold text-slate-700">{route.path}</p>
                               <p className="mt-1 text-[11px] text-slate-400">
-                                {route.views} visita(s) â€¢ {route.avg_seconds.toFixed(0)}s promedio
+                                {route.views} visita(s) • {route.avg_seconds.toFixed(0)}s promedio
                               </p>
                             </div>
                             <div className="text-right">
@@ -8278,7 +8417,7 @@ export default function AdminPage() {
 
                     <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                       <div className="flex items-center justify-between">
-                        <h4 className="text-lg font-semibold text-slate-900">Usuarios mÃ¡s activos</h4>
+                        <h4 className="text-lg font-semibold text-slate-900">Usuarios más activos</h4>
                         <span className="text-xs text-slate-400">Top 8</span>
                       </div>
                       <div className="mt-4 space-y-3">
@@ -8293,11 +8432,11 @@ export default function AdminPage() {
                             <div>
                               <p className="text-sm font-semibold text-slate-700">{user.label}</p>
                               <p className="mt-1 text-[11px] text-slate-400">
-                                {user.views} visita(s) â€¢ {user.sessions} sesiÃ³n(es)
+                                {user.views} visita(s) • {user.sessions} sesión(es)
                               </p>
                               {user.last_seen && (
                                 <p className="mt-1 text-[10px] text-slate-400">
-                                  Ãšltima visita: {formatDateTime(user.last_seen)}
+                                  Última visita: {formatDateTime(user.last_seen)}
                                 </p>
                               )}
                             </div>

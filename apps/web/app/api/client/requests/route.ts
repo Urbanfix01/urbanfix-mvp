@@ -132,8 +132,6 @@ export async function POST(request: NextRequest) {
   const photoUrls = normalizeStringArray(body.photoUrls);
 
   const targetTechnicianId = toText(body.targetTechnicianId) || null;
-  const targetTechnicianName = toText(body.targetTechnicianName) || null;
-  const targetTechnicianPhone = toText(body.targetTechnicianPhone) || null;
 
   if (!title || !category || !address || !description) {
     return NextResponse.json(
@@ -144,6 +142,39 @@ export async function POST(request: NextRequest) {
 
   if (mode === 'direct' && !targetTechnicianId) {
     return NextResponse.json({ error: 'Selecciona un tecnico conocido para solicitud directa.' }, { status: 400 });
+  }
+
+  let targetTechnicianProfile:
+    | { id: string; full_name: string | null; business_name: string | null; phone: string | null; access_granted: boolean | null }
+    | null = null;
+  if (mode === 'direct') {
+    if (targetTechnicianId === user.id) {
+      return NextResponse.json({ error: 'No puedes asignarte la solicitud a ti mismo.' }, { status: 400 });
+    }
+
+    const { data: targetProfile, error: targetProfileError } = await supabase
+      .from('profiles')
+      .select('id, full_name, business_name, phone, access_granted')
+      .eq('id', targetTechnicianId)
+      .maybeSingle();
+
+    if (targetProfileError) {
+      return NextResponse.json(
+        {
+          error:
+            targetProfileError.message?.includes('profiles') || targetProfileError.message?.includes('relation')
+              ? 'Falta la migracion de profiles en Supabase.'
+              : targetProfileError.message || 'No se pudo validar el tecnico seleccionado.',
+        },
+        { status: 500 }
+      );
+    }
+
+    if (!targetProfile || targetProfile.access_granted !== true) {
+      return NextResponse.json({ error: 'El tecnico seleccionado ya no esta disponible para asignacion directa.' }, { status: 400 });
+    }
+
+    targetTechnicianProfile = targetProfile;
   }
 
   let locationLat = toFiniteNumber(body.locationLat);
@@ -174,8 +205,11 @@ export async function POST(request: NextRequest) {
     location_lng: locationLng,
     photo_urls: photoUrls,
     target_technician_id: mode === 'direct' ? targetTechnicianId : null,
-    target_technician_name: mode === 'direct' ? targetTechnicianName : null,
-    target_technician_phone: mode === 'direct' ? targetTechnicianPhone : null,
+    target_technician_name:
+      mode === 'direct'
+        ? toText(targetTechnicianProfile?.business_name || targetTechnicianProfile?.full_name) || 'Tecnico UrbanFix'
+        : null,
+    target_technician_phone: mode === 'direct' ? toText(targetTechnicianProfile?.phone) || null : null,
   };
 
   if (mode === 'direct') {

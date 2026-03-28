@@ -1182,6 +1182,7 @@ export default function TechniciansPage() {
   const [autoGoogleStarted, setAutoGoogleStarted] = useState(false);
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [sendingRecovery, setSendingRecovery] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [selectedAccessProfile, setSelectedAccessProfile] = useState<AccessProfile | null>(null);
@@ -3253,7 +3254,7 @@ export default function TechniciansPage() {
       });
       if (error) throw error;
       if (!data || !data.id) {
-        throw new Error('No se pudo actualizar el estado. Revisa permisos o polÃ­ticas de seguridad.');
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
       }
       setQuotes((prev) =>
         prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote))
@@ -3640,7 +3641,7 @@ export default function TechniciansPage() {
   };
 
   const handleDeleteQuote = async (quote: QuoteRow) => {
-    if (!confirm(`Â¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acciÃ³n no se puede deshacer.`)) {
+    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
       return;
     }
       try {
@@ -3969,7 +3970,7 @@ export default function TechniciansPage() {
     setAuthNotice('');
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contraseÃ±a.');
+      setAuthError('Ingresa tu correo para recuperar la contraseña.');
       return;
     }
     setSendingRecovery(true);
@@ -3977,9 +3978,9 @@ export default function TechniciansPage() {
       const redirectTo = `${window.location.origin}/tecnicos`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contraseÃ±a.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
     } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos enviar el correo de recuperaciÃ³n.');
+      setAuthError(error?.message || 'No pudimos enviar el correo de recuperación.');
     } finally {
       setSendingRecovery(false);
     }
@@ -3989,28 +3990,28 @@ export default function TechniciansPage() {
     setRecoveryError('');
     setRecoveryMessage('');
     if (!session?.user) {
-      setRecoveryError('La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.');
+      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
       return;
     }
     const nextPassword = recoveryPassword.trim();
     const confirmPassword = recoveryConfirm.trim();
     if (!nextPassword) {
-      setRecoveryError('Ingresa una nueva contraseÃ±a.');
+      setRecoveryError('Ingresa una nueva contraseña.');
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setRecoveryError('Las contraseÃ±as no coinciden.');
+      setRecoveryError('Las contraseñas no coinciden.');
       return;
     }
     setUpdatingRecovery(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: nextPassword });
       if (error) throw error;
-      setRecoveryMessage('Listo. Tu contraseÃ±a fue actualizada.');
+      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
       setRecoveryPassword('');
       setRecoveryConfirm('');
     } catch (error: any) {
-      setRecoveryError(error?.message || 'No pudimos actualizar la contraseÃ±a.');
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
     } finally {
       setUpdatingRecovery(false);
     }
@@ -4019,47 +4020,45 @@ export default function TechniciansPage() {
   const handleEmailAuth = async () => {
     setAuthError('');
     setAuthNotice('');
+    setAuthLoading(true);
     try {
       const safeEmail = email.trim().toLowerCase();
       if (!safeEmail || !password) {
-        setAuthError('Ingresa correo y contrasena.');
-        return;
+        throw new Error('Ingresa correo y contraseña.');
+      }
+      if (!safeEmail.includes('@')) {
+        throw new Error('Ingresa un correo válido.');
+      }
+      if (password.trim().length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres.');
       }
       if (authMode === 'register' && !quickRegisterMode && !fullName.trim()) {
-        setAuthError('Ingresa al menos tu nombre para crear la cuenta.');
-        return;
+        throw new Error('Ingresa al menos tu nombre para crear la cuenta.');
       }
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: safeEmail, password });
         if (error) throw error;
       } else {
-          const normalizedFullName = fullName.trim() || 'Tecnico UrbanFix';
-          const normalizedBusinessName = businessName.trim() || normalizedFullName;
-          const { data: signUpData, error } = await supabase.auth.signUp({
-            email: safeEmail,
-            password,
-            options: { data: { full_name: normalizedFullName, business_name: normalizedBusinessName } },
-          });
-          if (error) throw error;
-          if (signUpData?.user?.id) {
-            const { error: profileError } = await supabase.from('profiles').upsert({
-              id: signUpData.user.id,
-              full_name: normalizedFullName,
-              business_name: normalizedBusinessName,
-              email: safeEmail,
-            });
-            if (profileError) throw profileError;
-          }
-          setAuthNotice(
-            signUpData?.session
-              ? 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
-              : 'Cuenta creada. Revisa tu correo para confirmar y luego termina tu perfil operativo.'
-          );
-          setPassword('');
-        }
-      } catch (error: any) {
-        setAuthError(error?.message || 'No pudimos iniciar sesion.');
+        const normalizedFullName = fullName.trim() || 'Técnico UrbanFix';
+        const normalizedBusinessName = businessName.trim() || normalizedFullName;
+        const { data: signUpData, error } = await supabase.auth.signUp({
+          email: safeEmail,
+          password,
+          options: { data: { full_name: normalizedFullName, business_name: normalizedBusinessName } },
+        });
+        if (error) throw error;
+        setAuthNotice(
+          signUpData?.session
+            ? 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
+            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se preparará al iniciar sesión.'
+        );
+        setPassword('');
       }
+    } catch (error: any) {
+      setAuthError(error?.message || 'No pudimos iniciar sesión.');
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -4521,7 +4520,7 @@ export default function TechniciansPage() {
           <div className="max-w-lg rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl shadow-slate-200/60">
             <h1 className="text-2xl font-bold text-slate-900">Acceso administrativo</h1>
             <p className="mt-3 text-sm text-slate-600">
-              Tu cuenta estÃ¡ configurada como admin. Te llevamos al panel de control.
+              Tu cuenta está configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
@@ -4583,9 +4582,9 @@ export default function TechniciansPage() {
                     <p className="text-sm font-semibold text-slate-700">Panel tecnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseÃ±a</h1>
+                <h1 className="text-5xl font-black text-slate-900 md:text-6xl">Restablecer contraseña</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Define una nueva contraseÃ±a para volver a acceder a tu cuenta.
+                  Define una nueva contraseña para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
@@ -4598,13 +4597,13 @@ export default function TechniciansPage() {
 
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseÃ±a</h2>
-                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseÃ±a para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-slate-900">Nueva contraseña</h2>
+                  <p className="text-sm text-slate-600">Ingresa tu nueva contraseña para finalizar.</p>
                 </div>
 
                 {!session?.user && (
                   <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.
+                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
                   </div>
                 )}
 
@@ -4615,14 +4614,14 @@ export default function TechniciansPage() {
                         value={recoveryPassword}
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
-                        placeholder="Nueva contraseÃ±a"
+                        placeholder="Nueva contraseña"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
-                        placeholder="Repetir contraseÃ±a"
+                        placeholder="Repetir contraseña"
                         className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                     </div>
@@ -4637,7 +4636,7 @@ export default function TechniciansPage() {
                         disabled={updatingRecovery}
                         className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                       >
-                        {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseÃ±a'}
+                          {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
                       </button>
                     )}
 
@@ -4940,7 +4939,7 @@ export default function TechniciansPage() {
               <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
                 <div className="space-y-3">
                   <h2 className="text-2xl font-bold text-slate-900">Selecciona tu perfil</h2>
-                  <p className="text-sm text-slate-600">Esto define a quÃ© panel o vista te llevamos.</p>
+                  <p className="text-sm text-slate-600">Esto define a qué panel o vista te llevamos.</p>
                 </div>
                 <div className="mt-6 space-y-3">
                   <button
@@ -4996,7 +4995,7 @@ export default function TechniciansPage() {
 
                 {quickRegisterMode && (
                   <p className="mt-2 text-xs text-emerald-600">
-                    Acceso rapido activo. Completas tu perfil despues de entrar.
+                    Acceso rápido activo. Completas tu perfil después de entrar.
                   </p>
                 )}
 
@@ -5021,7 +5020,7 @@ export default function TechniciansPage() {
                         : 'text-slate-600 hover:bg-white hover:text-slate-900'
                     }`}
                   >
-                    Iniciar sesion
+                    Iniciar sesión
                   </button>
                   <button
                     type="button"
@@ -5059,7 +5058,7 @@ export default function TechniciansPage() {
 
                 {authMode === 'register' && quickRegisterMode && (
                   <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
-                    Alta rapida por correo habilitada. Nombre y negocio se completan luego en perfil.
+                    Alta rápida por correo habilitada. Nombre y negocio se completan luego en perfil.
                     <button
                       type="button"
                       onClick={() => setQuickRegisterMode(false)}
@@ -5081,7 +5080,7 @@ export default function TechniciansPage() {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     type="password"
-                    placeholder="Contrasena"
+                    placeholder="Contraseña"
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   />
                 </div>
@@ -5094,7 +5093,7 @@ export default function TechniciansPage() {
                       disabled={sendingRecovery}
                       className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 disabled:cursor-not-allowed disabled:text-slate-400"
                     >
-                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contraseÃ±a?'}
+                      {sendingRecovery ? 'Enviando correo...' : '¿Olvidaste tu contraseña?'}
                     </button>
                   </div>
                 )}
@@ -5104,7 +5103,7 @@ export default function TechniciansPage() {
 
                 <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Despues del registro
+                    Después del registro
                   </p>
                   <div className="mt-3 space-y-2">
                     {[
@@ -5125,9 +5124,16 @@ export default function TechniciansPage() {
                 <button
                   type="button"
                   onClick={handleEmailAuth}
-                  className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                  disabled={authLoading}
+                  className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                 >
-                  {authMode === 'login' ? 'Iniciar sesion' : quickRegisterMode ? 'Crear cuenta en 1 paso' : 'Crear cuenta'}
+                  {authLoading
+                    ? 'Procesando...'
+                    : authMode === 'login'
+                      ? 'Iniciar sesión'
+                      : quickRegisterMode
+                        ? 'Crear cuenta en 1 paso'
+                        : 'Crear cuenta'}
                 </button>
 
                 <button
@@ -5343,10 +5349,10 @@ export default function TechniciansPage() {
                             <h2 className="mt-1 text-2xl font-semibold text-slate-900">
                               Tu cuenta ya puede operar. Estos son los siguientes pasos.
                             </h2>
-                            <p className="mt-2 text-sm text-slate-600">
-                              {profileChecklistPending.length > 0
-                                ? `Te faltan ${profileChecklistPending.length} ajustes para dejar el panel mas solido y visible.`
-                                : 'La base ya esta armada. Ahora conviene cargar presupuesto y publicar presencia.'}
+                            <p className="mt-3 text-sm text-slate-600">
+                              {profileCompletionPercent < 100
+                                ? 'Completa tu perfil base para operar con menos fricción y dejar listo el ingreso al resto del flujo.'
+                                : 'La base ya está armada. Ahora conviene cargar presupuesto y publicar presencia.'}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -6513,7 +6519,7 @@ export default function TechniciansPage() {
                             </div>
                           </div>
                         <p className="mt-1 text-xs text-slate-500">
-                          {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
+                          {getQuoteAddress(quote) || 'Sin dirección'} ·{' '}
                           {new Date(quote.created_at).toLocaleDateString('es-AR')}
                         </p>
                         <p className="mt-3 text-sm font-semibold text-slate-900">
@@ -6595,7 +6601,7 @@ export default function TechniciansPage() {
                       onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')}
                       className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                     >
-                      Abrir en pestaÃ±a
+                      Abrir en pestaña
                     </button>
                   )}
                 </div>

@@ -46,6 +46,9 @@ const loadRequestMatch = async (client: any, requestId: string, matchId: string)
   return data as Record<string, any>;
 };
 
+const hasSubmittedQuote = (matchRow: Record<string, any>) => String(matchRow.quote_status || '').trim() === 'submitted';
+const isDirectQuoteMatch = (matchRow: Record<string, any>) => String(matchRow.response_type || '').trim() === 'direct_quote';
+
 const loadSelectedRequestMatch = async (client: any, requestId: string, row: Record<string, any>) => {
   const selectedMatchId = toText(row.selected_match_id);
   if (selectedMatchId) {
@@ -316,6 +319,9 @@ export async function PATCH(
       }
 
       const matchRow = await loadRequestMatch(supabase, requestId, matchId);
+      if (!hasSubmittedQuote(matchRow)) {
+        return NextResponse.json({ error: 'Solo puedes seleccionar respuestas enviadas por tecnicos.' }, { status: 400 });
+      }
       await updateRequest(supabase, requestId, user.id, {
         status: 'selected',
         selected_match_id: matchRow.id,
@@ -331,6 +337,9 @@ export async function PATCH(
       }
 
       const matchRow = await loadRequestMatch(supabase, requestId, matchId);
+      if (!hasSubmittedQuote(matchRow) || !isDirectQuoteMatch(matchRow)) {
+        return NextResponse.json({ error: 'Solo puedes aceptar cotizaciones enviadas por tecnicos.' }, { status: 400 });
+      }
       const linkedQuote = await resolveQuoteForMatch(supabase, requestId, matchRow);
       if (linkedQuote?.id) {
         await syncQuoteStatus(supabase, linkedQuote.id, 'approved');

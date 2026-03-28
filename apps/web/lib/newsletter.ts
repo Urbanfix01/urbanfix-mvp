@@ -18,10 +18,10 @@ export type NewsletterQuickLink = {
 
 export const NEWSLETTER_AUDIENCE_LABELS: Record<NewsletterAudience, string> = {
   opted_in_all: 'Solo suscriptos',
-  opted_in_tecnicos: 'Suscriptos tecnicos',
+  opted_in_tecnicos: 'Suscriptos técnicos',
   opted_in_clientes: 'Suscriptos clientes',
   base_all: 'Toda la base',
-  base_tecnicos: 'Base tecnicos',
+  base_tecnicos: 'Base técnicos',
   base_clientes: 'Base clientes',
 };
 
@@ -41,7 +41,7 @@ export const resolveNewsletterAudience = (
   if (normalized === 'tecnico') return 'tecnico';
   if (normalized === 'cliente') return 'cliente';
   if (accessGranted === true) return 'tecnico';
-  return 'desconocido';
+  return 'cliente';
 };
 
 export const buildNewsletterBodyText = (value: string | null | undefined) =>
@@ -227,11 +227,11 @@ export const buildNewsletterHtml = (params: {
                 <td class="newsletter-footer" style="padding:24px 32px 32px;">
                   <div class="newsletter-rule" style="height:1px;background:#5d3f77;margin-bottom:16px;"></div>
                   <p class="newsletter-muted" style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#d8c8e6;">
-                    Recibiste este correo por tu relaci&oacute;n con UrbanFix.
+                    Recibiste este correo por tu relación con UrbanFix.
                   </p>
                   <p class="newsletter-muted" style="margin:0;font-size:12px;line-height:1.6;color:#d8c8e6;">
                     Si no quieres seguir recibiendo novedades,
-                    <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#ffd6a6;text-decoration:underline;">darte de baja aqu&iacute;</a>.
+                    <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#ffd6a6;text-decoration:underline;">darte de baja aquí</a>.
                   </p>
                 </td>
               </tr>

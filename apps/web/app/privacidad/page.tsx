@@ -10,39 +10,39 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'Politica de privacidad | UrbanFix',
+  title: 'Política de privacidad | UrbanFix',
   description:
-    'Conoce como UrbanFix recopila, usa y protege tu informacion personal en la version vigente de su plataforma.',
+    'Conoce cómo UrbanFix recopila, usa y protege tu información personal en la versión vigente de su plataforma.',
   alternates: { canonical: '/privacidad' },
 };
 
 const privacySections = [
   {
-    title: 'Informacion que recopilamos',
+    title: 'Información que recopilamos',
     body: [
-      'Podemos solicitar nombre, correo electronico, telefono, direccion del servicio y los datos necesarios para crear solicitudes, presupuestos y seguimientos dentro de UrbanFix.',
-      'Tambien podemos registrar informacion operativa derivada del uso de la plataforma, como estado de solicitudes, interacciones con presupuestos y datos basicos de soporte.',
+      'Podemos solicitar nombre, correo electrónico, teléfono, dirección del servicio y los datos necesarios para crear solicitudes, presupuestos y seguimientos dentro de UrbanFix.',
+      'También podemos registrar información operativa derivada del uso de la plataforma, como estado de solicitudes, interacciones con presupuestos y datos básicos de soporte.',
     ],
   },
   {
-    title: 'Como usamos tus datos',
+    title: 'Cómo usamos tus datos',
     body: [
-      'Usamos la informacion para operar la plataforma, conectar clientes con tecnicos, generar presupuestos, resolver soporte y mejorar la experiencia del servicio.',
-      'No vendemos tu informacion personal ni la compartimos con terceros no autorizados fuera de los proveedores necesarios para el funcionamiento del producto.',
+      'Usamos la información para operar la plataforma, conectar clientes con técnicos, generar presupuestos, resolver soporte y mejorar la experiencia del servicio.',
+      'No vendemos tu información personal ni la compartimos con terceros no autorizados fuera de los proveedores necesarios para el funcionamiento del producto.',
     ],
   },
   {
     title: 'Proveedores y almacenamiento',
     body: [
-      'UrbanFix utiliza proveedores externos como Google y Supabase para autenticacion, almacenamiento y servicios asociados al funcionamiento de la plataforma.',
-      'Tus datos se usan con fines operativos y de seguridad, respetando las configuraciones vigentes de acceso y proteccion de la aplicacion.',
+      'UrbanFix utiliza proveedores externos como Google y Supabase para autenticación, almacenamiento y servicios asociados al funcionamiento de la plataforma.',
+      'Tus datos se usan con fines operativos y de seguridad, respetando las configuraciones vigentes de acceso y protección de la aplicación.',
     ],
   },
   {
-    title: 'Actualizacion, acceso y eliminacion',
+    title: 'Actualización, acceso y eliminación',
     body: [
-      'Puedes solicitar acceso, actualizacion o eliminacion de tus datos personales escribiendo a info@urbanfixar.com.',
-      'Si necesitas cerrar tu cuenta, tambien puedes seguir las instrucciones publicadas en la pagina de eliminacion de cuenta de UrbanFix.',
+      'Puedes solicitar acceso, actualización o eliminación de tus datos personales escribiendo a info@urbanfixar.com.',
+      'Si necesitas cerrar tu cuenta, también puedes seguir las instrucciones publicadas en la página de eliminación de cuenta de UrbanFix.',
     ],
   },
 ];
@@ -59,11 +59,11 @@ export default function PrivacyPage() {
 
             <div className="mt-3 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
               <div className="max-w-3xl">
-                <h1 className="text-3xl font-semibold text-white sm:text-4xl">Politica de privacidad</h1>
+                <h1 className="text-3xl font-semibold text-white sm:text-4xl">Política de privacidad</h1>
                 <p className="mt-4 text-sm leading-7 text-white/80 sm:text-base">
-                  Esta es la version vigente de la politica de privacidad de UrbanFix. Aqui explicamos
-                  que datos podemos recopilar, como los usamos y que canales tienes disponibles para
-                  actualizar o eliminar tu informacion.
+                  Esta es la versión vigente de la política de privacidad de UrbanFix. Aquí explicamos
+                  qué datos podemos recopilar, cómo los usamos y qué canales tienes disponibles para
+                  actualizar o eliminar tu información.
                 </p>
               </div>
 
@@ -72,22 +72,22 @@ export default function PrivacyPage() {
                   href="/politicas"
                   className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                 >
-                  Volver a politicas
+                  Volver a políticas
                 </Link>
                 <Link
                   href="/terminos"
                   className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
                 >
-                  Terminos
+                  Términos
                 </Link>
               </div>
             </div>
 
             <div className="mt-6 grid gap-4 md:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Actualizacion</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Actualización</p>
                 <p className="mt-2 text-lg font-semibold text-white">24/07/2024</p>
-                <p className="mt-2 text-sm text-white/70">Fecha de referencia publicada para esta politica.</p>
+                <p className="mt-2 text-sm text-white/70">Fecha de referencia publicada para esta política.</p>
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -110,7 +110,7 @@ export default function PrivacyPage() {
                   Eliminar cuenta
                 </Link>
                 <p className="mt-2 text-sm text-white/70">
-                  Instrucciones vigentes para solicitar cierre o eliminacion de datos.
+                  Instrucciones vigentes para solicitar cierre o eliminación de datos.
                 </p>
               </div>
             </div>
@@ -138,9 +138,9 @@ export default function PrivacyPage() {
               <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Tus derechos</p>
                 <div className="mt-4 space-y-3 text-sm leading-7 text-white/80">
-                  <p>Puedes pedir correccion, actualizacion o eliminacion de tus datos cuando corresponda.</p>
+                  <p>Puedes pedir corrección, actualización o eliminación de tus datos cuando corresponda.</p>
                   <p>
-                    Si quieres gestionar tu cuenta o ejercer un pedido sobre informacion personal, escribe a{' '}
+                    Si quieres gestionar tu cuenta o ejercer un pedido sobre información personal, escribe a{' '}
                     <a href="mailto:info@urbanfixar.com" className="font-semibold text-white underline">
                       info@urbanfixar.com
                     </a>
@@ -150,25 +150,25 @@ export default function PrivacyPage() {
               </section>
 
               <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Enlaces utiles</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Enlaces útiles</p>
                 <div className="mt-4 flex flex-col gap-3">
                   <Link
                     href="/politicas"
                     className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
                   >
-                    Centro de politicas
+                    Centro de políticas
                   </Link>
                   <Link
                     href="/terminos"
                     className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
                   >
-                    Terminos y condiciones
+                    Términos y condiciones
                   </Link>
                   <Link
                     href="/eliminar-cuenta"
                     className="rounded-2xl border border-white/15 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white/40 hover:text-white"
                   >
-                    Solicitar eliminacion de cuenta
+                    Solicitar eliminación de cuenta
                   </Link>
                 </div>
               </section>

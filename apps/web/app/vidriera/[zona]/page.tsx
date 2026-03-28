@@ -16,6 +16,11 @@ import {
   toFiniteCoordinate,
 } from '../../../lib/geo/argentina-zone-presets';
 import { buildTechnicianPath } from '../../../lib/seo/technician-profile';
+import {
+  PUBLISHED_TECHNICIANS_SELECT_FALLBACK,
+  PUBLISHED_TECHNICIANS_SELECT_RICH,
+  isMissingPublicProfileFieldError,
+} from '../../../lib/public-profile-select';
 import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix-data';
 
 const sora = Sora({
@@ -126,6 +131,31 @@ const getPublicSupabaseClient = () => {
   });
 };
 
+const fetchPublishedProfiles = async (supabase: NonNullable<ReturnType<typeof getPublicSupabaseClient>>) => {
+  let response = await supabase
+    .from('profiles')
+    .select(PUBLISHED_TECHNICIANS_SELECT_RICH)
+    .eq('access_granted', true)
+    .eq('profile_published', true)
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .limit(240);
+
+  if (response.error && isMissingPublicProfileFieldError(String(response.error.message || ''))) {
+    response = await supabase
+      .from('profiles')
+      .select(PUBLISHED_TECHNICIANS_SELECT_FALLBACK)
+      .eq('access_granted', true)
+      .eq('profile_published', true)
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(240);
+  }
+
+  return {
+    data: (Array.isArray(response.data) ? response.data : []) as unknown as PublishedProfileRow[],
+    error: response.error,
+  };
+};
+
 export default async function VidrieraZonaPage({ params }: { params: Promise<{ zona: string }> }) {
   const { zona } = await params;
   const city = ciudades[zona as CiudadKey];
@@ -150,17 +180,7 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
     );
   }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,address,city,coverage_area,service_lat,service_lng,specialties,created_at'
-    )
-    .eq('access_granted', true)
-    .eq('profile_published', true)
-    .order('created_at', { ascending: false, nullsFirst: false })
-    .limit(240);
-
-  const profiles = (data || []) as PublishedProfileRow[];
+  const { data: profiles, error } = await fetchPublishedProfiles(supabase);
   const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
   const filteredProfiles = safeProfiles.filter((profile) =>
     matchesArgentinaZoneQuery(zoneQuery, profile.city, profile.coverage_area, profile.address, profile.company_address)

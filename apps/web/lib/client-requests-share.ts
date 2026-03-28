@@ -40,7 +40,7 @@ const normalizeRequestZone = (value: string | null | undefined) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
 
-const formatModeLabel = (value: string) => (toText(value).toLowerCase() === 'direct' ? 'Asignacion directa' : 'Marketplace');
+const formatModeLabel = (value: string) => (toText(value).toLowerCase() === 'direct' ? 'Asignación directa' : 'Marketplace');
 
 const formatUrgencyLabel = (value: string) => {
   const normalized = toText(value).toLowerCase();
@@ -54,7 +54,7 @@ const formatStatusLabel = (value: string) => {
   if (normalized === 'matched') return 'Matcheada';
   if (normalized === 'quoted') return 'Cotizada';
   if (normalized === 'direct_sent') return 'Directa enviada';
-  if (normalized === 'selected') return 'Tecnico elegido';
+  if (normalized === 'selected') return 'Técnico elegido';
   if (normalized === 'scheduled') return 'Agendada';
   if (normalized === 'in_progress') return 'En curso';
   if (normalized === 'completed') return 'Completada';
@@ -80,7 +80,7 @@ export const buildAdminClientRequestWhatsappText = (request: AdminClientRequestR
     `Trabajo: ${request.title}`,
     `Rubro: ${request.category}`,
     `Zona: ${toText(request.city) || 'Sin ciudad'}`,
-    `Direccion: ${request.address}`,
+    `Dirección: ${request.address}`,
     `Urgencia: ${formatUrgencyLabel(request.urgency)}`,
     `Modo: ${formatModeLabel(request.mode)}`,
     `Estado: ${formatStatusLabel(request.status)}`,
@@ -91,7 +91,7 @@ export const buildAdminClientRequestWhatsappText = (request: AdminClientRequestR
   }
 
   if (toText(request.targetTechnicianName)) {
-    lines.push(`Tecnico objetivo: ${toText(request.targetTechnicianName)}`);
+    lines.push(`Técnico objetivo: ${toText(request.targetTechnicianName)}`);
   }
 
   lines.push('', 'Detalle:', request.description, '', `Ver ticket: ${ticketHref}`);
@@ -116,31 +116,31 @@ export const buildAdminClientRequestEmailText = (request: AdminClientRequestReco
     `Modo: ${formatModeLabel(request.mode)}`,
     `Estado actual: ${formatStatusLabel(request.status)}`,
     `Zona: ${toText(request.city) || 'Sin ciudad'}`,
-    `Direccion: ${request.address}`,
+    `Dirección: ${request.address}`,
   ];
 
   if (toText(request.preferredWindow)) {
     lines.push(`Franja sugerida: ${toText(request.preferredWindow)}`);
   }
 
-  lines.push('', 'Descripcion:', request.description, '');
+  lines.push('', 'Descripción:', request.description, '');
 
   if (toText(request.clientName) || toText(request.clientEmail) || toText(request.clientPhone)) {
     lines.push('Datos del cliente:');
     lines.push(`- Nombre: ${toText(request.clientName) || 'Cliente UrbanFix'}`);
     if (toText(request.clientEmail)) lines.push(`- Email: ${toText(request.clientEmail)}`);
-    if (toText(request.clientPhone)) lines.push(`- Telefono: ${toText(request.clientPhone)}`);
+    if (toText(request.clientPhone)) lines.push(`- Teléfono: ${toText(request.clientPhone)}`);
     lines.push('');
   }
 
   if (Number.isFinite(Number(request.matchesCount || 0))) {
-    lines.push(`Tecnicos matcheados: ${Number(request.matchesCount || 0)}`);
+    lines.push(`Técnicos matcheados: ${Number(request.matchesCount || 0)}`);
   }
   if (Number.isFinite(Number(request.submittedQuotesCount || 0))) {
     lines.push(`Cotizaciones recibidas: ${Number(request.submittedQuotesCount || 0)}`);
   }
 
-  lines.push('', `Ver ticket del trabajo: ${ticketHref}`, `Explorar tecnicos de la zona: ${buildAdminClientRequestZoneHref(request)}`);
+  lines.push('', `Ver ticket del trabajo: ${ticketHref}`, `Explorar técnicos de la zona: ${buildAdminClientRequestZoneHref(request)}`);
   return lines.join('\n').trim();
 };
 
@@ -171,7 +171,7 @@ export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestReco
           <td style="padding:24px 28px;">
             <div style="margin:0 0 18px;padding:16px 18px;border-radius:18px;background:#f8fafc;border:1px solid #e2e8f0;">
               <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#475569;">Datos de la solicitud</p>
-              <p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Direccion:</strong> ${escapeHtml(request.address)}</p>
+              <p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Dirección:</strong> ${escapeHtml(request.address)}</p>
               <p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Modo:</strong> ${escapeHtml(formatModeLabel(request.mode))}</p>
               <p style="margin:0;font-size:14px;line-height:1.6;"><strong>Estado:</strong> ${escapeHtml(formatStatusLabel(request.status))}</p>
             </div>
@@ -183,7 +183,7 @@ export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestReco
                     <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#9a3412;">Cliente</p>
                     <p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Nombre:</strong> ${escapeHtml(toText(request.clientName) || 'Cliente UrbanFix')}</p>
                     ${toText(request.clientEmail) ? `<p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Email:</strong> ${escapeHtml(toText(request.clientEmail))}</p>` : ''}
-                    ${toText(request.clientPhone) ? `<p style="margin:0;font-size:14px;line-height:1.6;"><strong>Telefono:</strong> ${escapeHtml(toText(request.clientPhone))}</p>` : ''}
+                    ${toText(request.clientPhone) ? `<p style="margin:0;font-size:14px;line-height:1.6;"><strong>Teléfono:</strong> ${escapeHtml(toText(request.clientPhone))}</p>` : ''}
                   </div>`
                 : ''
             }
@@ -197,7 +197,7 @@ export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestReco
               </tr>
             </table>
             <p style="margin:16px 0 0;font-size:13px;line-height:1.6;color:#475569;">
-              Zona y cobertura: <a href="${escapeHtml(zoneHref)}" style="color:#7c3aed;text-decoration:underline;">explorar tecnicos de la zona</a>.
+              Zona y cobertura: <a href="${escapeHtml(zoneHref)}" style="color:#7c3aed;text-decoration:underline;">explorar técnicos de la zona</a>.
             </p>
           </td>
         </tr>

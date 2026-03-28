@@ -23,33 +23,33 @@ const sora = Sora({
 export const metadata: Metadata = {
   title: 'Servicios UrbanFix',
   description:
-    'Conoce todo lo que ofrece UrbanFix: panel tecnico, presupuestos por link, base de rubros, portal cliente, vidriera publica, mapa de tecnicos y control administrativo.',
+    'Conoce todo lo que ofrece UrbanFix: panel técnico, presupuestos por link, base de rubros, portal cliente, vidriera pública, mapa de técnicos y control administrativo.',
   alternates: { canonical: '/urbanfix' },
 };
 
 const heroMetrics = [
   {
-    label: 'Operacion tecnica',
+    label: 'Operación técnica',
     value: 'Presupuestos, rubros y seguimiento',
   },
   {
     label: 'Experiencia cliente',
-    value: 'Link publico, decision y feedback',
+    value: 'Link público, decisión y feedback',
   },
   {
     label: 'Crecimiento comercial',
-    value: 'Perfil publico, rubros SEO y mapa',
+    value: 'Perfil público, rubros SEO y mapa',
   },
 ];
 
 const modules = [
   {
-    title: 'Panel tecnico',
+    title: 'Panel técnico',
     description:
-      'UrbanFix centraliza la operacion del tecnico o del equipo en un mismo flujo, desde el ingreso hasta el presupuesto final.',
+      'UrbanFix centraliza la operación del técnico o del equipo en un mismo flujo, desde el ingreso hasta el presupuesto final.',
     bullets: [
-      'Carga cliente, direccion, rubro, mano de obra y materiales en una sola pantalla.',
-      'Ordena items con observaciones tecnicas, cantidades, precios y reglas comerciales.',
+      'Carga cliente, dirección, rubro, mano de obra y materiales en una sola pantalla.',
+      'Ordena items con observaciones técnicas, cantidades, precios y reglas comerciales.',
       'Mantiene el trabajo operativo sin depender de planillas sueltas o mensajes dispersos.',
     ],
     icon: Wrench,
@@ -59,8 +59,8 @@ const modules = [
     description:
       'Cada propuesta puede salir como experiencia digital lista para enviar, revisar y responder.',
     bullets: [
-      'Comparte el presupuesto por link publico o por WhatsApp.',
-      'Genera una presentacion mas clara para el cliente y un PDF descargable.',
+      'Comparte el presupuesto por link público o por WhatsApp.',
+      'Genera una presentación más clara para el cliente y un PDF descargable.',
       'Permite sostener una estructura prolija aun cuando el trabajo tenga muchos items.',
     ],
     icon: FileCheck2,
@@ -68,32 +68,32 @@ const modules = [
   {
     title: 'Base de rubros y mano de obra',
     description:
-      'La plataforma trabaja con una base viva de rubros, variantes tecnicas, precios y referencias para presupuestar con criterio.',
+      'La plataforma trabaja con una base viva de rubros, variantes técnicas, precios y referencias para presupuestar con criterio.',
     bullets: [
-      'Gestiona catalogo de mano de obra con observaciones tecnicas, medidas, rangos o potencia.',
-      'Diferencia variantes reales de un mismo trabajo cuando cambia capacidad, diametro o condicion.',
-      'Conecta la base tecnica con precios visibles y paginas publicas por rubro.',
+      'Gestiona catálogo de mano de obra con observaciones técnicas, medidas, rangos o potencia.',
+      'Diferencia variantes reales de un mismo trabajo cuando cambia capacidad, diámetro o condición.',
+      'Conecta la base técnica con precios visibles y páginas públicas por rubro.',
     ],
     icon: ClipboardList,
   },
   {
     title: 'Portal cliente',
     description:
-      'UrbanFix no se queda solo del lado interno: tambien abre una experiencia clara para quien pide el trabajo.',
+      'UrbanFix no se queda solo del lado interno: también abre una experiencia clara para quien pide el trabajo.',
     bullets: [
       'El cliente puede ingresar, publicar solicitudes y revisar propuestas.',
-      'La decision de aprobar o rechazar queda dentro del mismo flujo operativo.',
-      'Reduce ruido en la comunicacion y deja un recorrido mas legible para ambas partes.',
+      'La decisión de aprobar o rechazar queda dentro del mismo flujo operativo.',
+      'Reduce ruido en la comunicación y deja un recorrido más legible para ambas partes.',
     ],
     icon: Users,
   },
   {
-    title: 'Vidriera publica y mapa',
+    title: 'Vidriera pública y mapa',
     description:
-      'La plataforma tambien funciona como frente comercial para mostrar tecnicos disponibles y cobertura.',
+      'La plataforma también funciona como frente comercial para mostrar técnicos disponibles y cobertura.',
     bullets: [
-      'Perfiles publicos con likes, rubros, zona y datos de contacto.',
-      'Mapa interactivo de tecnicos disponibles con punto exacto o zona estimada.',
+      'Perfiles públicos con likes, rubros, zona y datos de contacto.',
+      'Mapa interactivo de técnicos disponibles con punto exacto o zona estimada.',
       'Acceso libre para navegar la oferta sin login y descubrir cobertura real.',
     ],
     icon: MapPinned,
@@ -101,11 +101,11 @@ const modules = [
   {
     title: 'Control administrativo',
     description:
-      'UrbanFix agrega una capa de lectura y seguimiento para la operacion completa.',
+      'UrbanFix agrega una capa de lectura y seguimiento para la operación completa.',
     bullets: [
       'Panel admin con indicadores, monitoreo general y lectura de actividad.',
       'Roadmap, feedback y soporte dentro del mismo ecosistema.',
-      'Una base mas ordenada para decidir mejoras y sostener despliegues sin perder trazabilidad.',
+      'Una base más ordenada para decidir mejoras y sostener despliegues sin perder trazabilidad.',
     ],
     icon: BarChart3,
   },
@@ -116,32 +116,32 @@ const audiences = [
     eyebrow: 'Para tecnicos',
     title: 'Ordena cotizacion, operacion y presentacion',
     description:
-      'Ideal para quienes necesitan dejar atras el presupuesto improvisado y pasar a una estructura mas profesional.',
+      'Ideal para quienes necesitan dejar atrás el presupuesto improvisado y pasar a una estructura más profesional.',
     points: [
-      'Presupuestar con una base tecnica mas clara.',
+      'Presupuestar con una base técnica más clara.',
       'Enviar propuestas mejor presentadas.',
-      'Tener un perfil publico para captar trabajo.',
+      'Tener un perfil público para captar trabajo.',
     ],
   },
   {
     eyebrow: 'Para empresas y equipos',
     title: 'Coordina mas de un actor en el mismo sistema',
     description:
-      'UrbanFix sirve para operar una estructura con tecnicos, clientes, administracion y seguimiento centralizado.',
+      'UrbanFix sirve para operar una estructura con técnicos, clientes, administración y seguimiento centralizado.',
     points: [
       'Unifica criterios de rubros y mano de obra.',
       'Mejora la trazabilidad de pedidos y respuestas.',
-      'Conecta operacion, visibilidad publica y control.',
+      'Conecta operación, visibilidad pública y control.',
     ],
   },
   {
     eyebrow: 'Para clientes',
     title: 'Entiende mejor que se ofrece y como responder',
     description:
-      'La plataforma busca hacer mas legible la propuesta tecnica para quien recibe el trabajo.',
+      'La plataforma busca hacer más legible la propuesta técnica para quien recibe el trabajo.',
     points: [
       'Revisar solicitudes y presupuestos en una interfaz simple.',
-      'Tomar decision con menos friccion.',
+      'Tomar decisión con menos fricción.',
       'Dejar feedback y cerrar mejor la experiencia.',
     ],
   },
@@ -151,12 +151,12 @@ const flow = [
   {
     step: '01',
     title: 'Ingreso y carga',
-    description: 'Tecnico, empresa o cliente ingresan al flujo correcto y cargan el pedido o la propuesta.',
+    description: 'Técnico, empresa o cliente ingresan al flujo correcto y cargan el pedido o la propuesta.',
   },
   {
     step: '02',
     title: 'Estructura tecnica',
-    description: 'Se arma el presupuesto con rubros, mano de obra, materiales, cantidades y notas tecnicas.',
+    description: 'Se arma el presupuesto con rubros, mano de obra, materiales, cantidades y notas técnicas.',
   },
   {
     step: '03',
@@ -166,7 +166,7 @@ const flow = [
   {
     step: '04',
     title: 'Visibilidad y continuidad',
-    description: 'El sistema suma perfil publico, rubros indexables, mapa, soporte y lectura administrativa.',
+    description: 'El sistema suma perfil público, rubros indexables, mapa, soporte y lectura administrativa.',
   },
 ];
 
@@ -182,14 +182,14 @@ const routeCards = [
     description: 'Ingreso para publicar pedidos y revisar propuestas desde la experiencia cliente.',
   },
   {
-    title: 'Tecnicos disponibles',
+    title: 'Técnicos disponibles',
     href: '/vidriera',
-    description: 'Frente publico con perfiles visibles, cobertura y mapa interactivo de disponibilidad.',
+    description: 'Frente público con perfiles visibles, cobertura y mapa interactivo de disponibilidad.',
   },
   {
     title: 'Rubros y precios',
     href: '/rubros',
-    description: 'Paginas publicas con base real de rubros, mano de obra y referencias activas.',
+    description: 'Páginas públicas con base real de rubros, mano de obra y referencias activas.',
   },
 ];
 
@@ -222,12 +222,12 @@ export default function UrbanFixPage() {
                     Plataforma UrbanFix
                   </p>
                   <h1 className="mt-5 text-4xl font-semibold leading-tight text-white sm:text-5xl">
-                    Todo lo que ofrece UrbanFix para presupuestar, operar y crecer con una estructura mas clara.
+                    Todo lo que ofrece UrbanFix para presupuestar, operar y crecer con una estructura más clara.
                   </h1>
                   <p className="mt-5 max-w-2xl text-sm leading-7 text-white/78 sm:text-base">
-                    UrbanFix combina panel tecnico, base de rubros, experiencia cliente, presencia publica y control
-                    administrativo en un mismo sistema. No es solo una pantalla de cotizacion: es una capa operativa y
-                    comercial para ordenar como se trabaja y como se muestra el servicio.
+                    UrbanFix combina panel técnico, base de rubros, experiencia cliente, presencia pública y control
+                    administrativo en un mismo sistema. No es solo una pantalla de cotización: es una capa operativa y
+                    comercial para ordenar cómo se trabaja y cómo se muestra el servicio.
                   </p>
 
                   <div className="mt-7 flex flex-wrap gap-3">
@@ -255,7 +255,7 @@ export default function UrbanFixPage() {
                 <div className="rounded-[28px] border border-white/10 bg-[linear-gradient(145deg,rgba(255,143,31,0.16),rgba(255,143,31,0.06))] p-5">
                   <p className="text-[11px] uppercase tracking-[0.22em] text-[#ffd6a6]">En una sola plataforma</p>
                   <p className="mt-2 text-sm leading-7 text-white/82">
-                    Tecnicos, empresas, clientes, perfiles publicos, mapas, rubros, presupuesto compartible y soporte
+                    Técnicos, empresas, clientes, perfiles públicos, mapas, rubros, presupuesto compartible y soporte
                     operativo conviven dentro del mismo ecosistema.
                   </p>
                 </div>
@@ -276,19 +276,19 @@ export default function UrbanFixPage() {
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[1.08fr_0.92fr]">
               <article className="rounded-[32px] border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Que resuelve UrbanFix</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Qué resuelve UrbanFix</p>
                 <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
                   Una estructura para trabajar mejor y para mostrar mejor lo que haces.
                 </h2>
                 <div className="mt-5 space-y-4 text-sm leading-7 text-white/78 sm:text-base">
                   <p>
-                    UrbanFix ordena el trabajo tecnico desde adentro, pero tambien mejora como ese trabajo se presenta
-                    hacia afuera. La plataforma conecta operacion, presupuesto, visibilidad y lectura administrativa.
+                    UrbanFix ordena el trabajo técnico desde adentro, pero también mejora cómo ese trabajo se presenta
+                    hacia afuera. La plataforma conecta operación, presupuesto, visibilidad y lectura administrativa.
                   </p>
                   <p>
-                    Eso permite pasar de una logica fragmentada a un sistema mas consistente: base tecnica de rubros,
-                    presupuestos por link, respuesta del cliente, feedback, perfil publico, rubros indexables y mapa de
-                    tecnicos disponibles.
+                    Eso permite pasar de una lógica fragmentada a un sistema más consistente: base técnica de rubros,
+                    presupuestos por link, respuesta del cliente, feedback, perfil público, rubros indexables y mapa de
+                    técnicos disponibles.
                   </p>
                 </div>
               </article>
@@ -297,11 +297,11 @@ export default function UrbanFixPage() {
                 <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Capas del producto</p>
                 <div className="mt-5 grid gap-3">
                   {[
-                    'Operacion tecnica con presupuesto estructurado.',
+                    'Operación técnica con presupuesto estructurado.',
                     'Experiencia cliente para revisar y responder.',
-                    'Vidriera publica con perfiles y cobertura.',
-                    'Mapa interactivo de tecnicos disponibles.',
-                    'Paginas de rubros y precios publicos.',
+                    'Vidriera pública con perfiles y cobertura.',
+                    'Mapa interactivo de técnicos disponibles.',
+                    'Páginas de rubros y precios públicos.',
                     'Lectura administrativa, soporte y roadmap.',
                   ].map((item) => (
                     <div
@@ -318,9 +318,9 @@ export default function UrbanFixPage() {
 
             <section className="mt-6 rounded-[32px] border border-white/15 bg-white/[0.03] p-6 sm:p-8">
               <div className="max-w-3xl">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Modulos principales</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Módulos principales</p>
                 <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-                  Todo lo que hoy puede hacer UrbanFix dentro y fuera de la operacion.
+                  Todo lo que hoy puede hacer UrbanFix dentro y fuera de la operación.
                 </h2>
               </div>
 
@@ -382,9 +382,9 @@ export default function UrbanFixPage() {
 
             <section className="mt-6 grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
               <article className="rounded-[32px] border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Como fluye</p>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Cómo fluye</p>
                 <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-                  Un recorrido mas continuo entre operacion, cliente y presencia publica.
+                  Un recorrido más continuo entre operación, cliente y presencia pública.
                 </h2>
                 <div className="mt-6 space-y-4">
                   {flow.map((item) => (
@@ -406,7 +406,7 @@ export default function UrbanFixPage() {
               <aside className="rounded-[32px] border border-white/15 bg-[linear-gradient(145deg,rgba(255,143,31,0.1),rgba(123,97,255,0.08))] p-6 sm:p-8">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffd6a6]">Experiencias ya online</p>
                 <h2 className="mt-3 text-2xl font-semibold text-white sm:text-3xl">
-                  UrbanFix no es una promesa abstracta. Ya vive en varias capas publicas y operativas.
+                  UrbanFix no es una promesa abstracta. Ya vive en varias capas públicas y operativas.
                 </h2>
 
                 <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -424,8 +424,8 @@ export default function UrbanFixPage() {
 
                 <div className="mt-6 rounded-[24px] border border-white/12 bg-white/[0.04] p-5">
                   <p className="text-sm leading-7 text-white/82">
-                    El valor de UrbanFix aparece cuando todas estas capas trabajan juntas: base tecnica, presupuesto,
-                    cliente, perfil publico, mapa, rubros, administracion y soporte dentro del mismo sistema.
+                    El valor de UrbanFix aparece cuando todas estas capas trabajan juntas: base técnica, presupuesto,
+                    cliente, perfil público, mapa, rubros, administración y soporte dentro del mismo sistema.
                   </p>
                 </div>
               </aside>
@@ -439,8 +439,8 @@ export default function UrbanFixPage() {
                     Si quieres usar UrbanFix para operar mejor o presentarte mejor, este es el punto de entrada.
                   </h2>
                   <p className="mt-4 text-sm leading-7 text-white/78">
-                    Puedes entrar a la plataforma, revisar la experiencia publica o hablar con UrbanFix para ver como
-                    encaja en tu operacion tecnica, comercial o de servicio.
+                    Puedes entrar a la plataforma, revisar la experiencia pública o hablar con UrbanFix para ver cómo
+                    encaja en tu operación técnica, comercial o de servicio.
                   </p>
                 </div>
 

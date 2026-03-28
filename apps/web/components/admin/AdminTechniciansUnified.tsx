@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../../lib/supabase/supabase';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../public/PublicTechniciansMap';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
@@ -27,6 +27,29 @@ type TechnicianProfile = {
 type EditFormData = Partial<TechnicianProfile>;
 type ViewMode = 'list' | 'map';
 
+const toText = (value: unknown) => String(value || '').trim();
+
+const normalizeEmail = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized && normalized.includes('@') ? normalized : '';
+};
+
+const hasWorkZoneConfigured = (profile: Pick<TechnicianProfile, 'city' | 'address' | 'coverage_area'> | EditFormData) =>
+  Boolean(toText(profile.city) || toText(profile.address) || toText(profile.coverage_area));
+
+const buildEditableSnapshot = (profile: EditFormData | TechnicianProfile | null) => ({
+  full_name: toText(profile?.full_name),
+  business_name: toText(profile?.business_name),
+  email: normalizeEmail(profile?.email),
+  phone: toText(profile?.phone),
+  city: toText(profile?.city),
+  address: toText(profile?.address),
+  coverage_area: toText(profile?.coverage_area),
+  specialties: toText(profile?.specialties),
+  access_granted: profile?.access_granted === true,
+  profile_published: profile?.profile_published === true,
+});
+
 export default function AdminTechniciansUnified() {
   const [allProfiles, setAllProfiles] = useState<TechnicianProfile[]>([]);
   const [filteredProfiles, setFilteredProfiles] = useState<TechnicianProfile[]>([]);
@@ -40,12 +63,59 @@ export default function AdminTechniciansUnified() {
   const [filterCity, setFilterCity] = useState('all');
   const [viewMode, setViewMode] = useState<ViewMode>('list');
 
+  const selectedSnapshot = useMemo(() => buildEditableSnapshot(selectedProfile), [selectedProfile]);
+  const draftSnapshot = useMemo(() => buildEditableSnapshot(formData), [formData]);
+  const isDirty = useMemo(() => {
+    if (!selectedProfile) return false;
+    return JSON.stringify(selectedSnapshot) !== JSON.stringify(draftSnapshot);
+  }, [draftSnapshot, selectedProfile, selectedSnapshot]);
+  const formValidationError = useMemo(() => {
+    if (!selectedProfile) return '';
+    if (!draftSnapshot.full_name && !draftSnapshot.business_name) {
+      return 'Completa nombre o negocio antes de guardar.';
+    }
+    if (toText(formData.email) && !draftSnapshot.email) {
+      return 'El email cargado no es válido.';
+    }
+    if (draftSnapshot.profile_published && !draftSnapshot.access_granted) {
+      return 'Para publicar el perfil, primero habilita el acceso.';
+    }
+    if (draftSnapshot.profile_published && !hasWorkZoneConfigured(formData)) {
+      return 'Para publicar el perfil, completa ciudad, dirección o cobertura.';
+    }
+    return '';
+  }, [draftSnapshot, formData, selectedProfile]);
+
+  const closeEditor = () => {
+    setSelectedProfile(null);
+    setFormData({});
+    setMessage('');
+  };
+
   useEffect(() => {
     loadAllProfiles();
   }, []);
 
+  useEffect(() => {
+    if (!selectedProfile) return;
+
+    const refreshedProfile = allProfiles.find((profile) => profile.id === selectedProfile.id);
+    if (!refreshedProfile) {
+      closeEditor();
+      return;
+    }
+
+    if (refreshedProfile !== selectedProfile) {
+      setSelectedProfile(refreshedProfile);
+      if (!isDirty) {
+        setFormData(refreshedProfile);
+      }
+    }
+  }, [allProfiles, isDirty, selectedProfile]);
+
   const loadAllProfiles = async () => {
     setIsLoading(true);
+    setMessage('');
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -53,11 +123,9 @@ export default function AdminTechniciansUnified() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Supabase Error:', error);
         throw error;
       }
-      
-      console.log('Profiles loaded:', data?.length || 0);
+
       const profiles = (data || []) as TechnicianProfile[];
       setAllProfiles(profiles);
       applyFilters(profiles, searchQuery, filterStatus, filterCity);
@@ -124,6 +192,7 @@ export default function AdminTechniciansUnified() {
     try {
       const { data, error } = await supabase.from('profiles').select('*').eq('id', profileId).single();
       if (error) throw error;
+      setMessage('');
       setSelectedProfile(data as TechnicianProfile);
       setFormData(data as TechnicianProfile);
     } catch (err) {
@@ -134,6 +203,14 @@ export default function AdminTechniciansUnified() {
 
   const handleSave = async () => {
     if (!selectedProfile) return;
+    if (!isDirty) {
+      setMessage('⚠️ No hay cambios pendientes para guardar.');
+      return;
+    }
+    if (formValidationError) {
+      setMessage(`⚠️ ${formValidationError}`);
+      return;
+    }
     setIsSaving(true);
     try {
       const { error } = await supabase.from('profiles').update(formData).eq('id', selectedProfile.id);
@@ -160,8 +237,8 @@ export default function AdminTechniciansUnified() {
     )
     .map((p) => ({
       id: p.id,
-      name: p.business_name || p.full_name || 'Tecnico',
-      profileHref: buildTechnicianPath(p.id, p.business_name || p.full_name || 'Tecnico UrbanFix'),
+      name: p.business_name || p.full_name || 'Técnico',
+      profileHref: buildTechnicianPath(p.id, p.business_name || p.full_name || 'Técnico UrbanFix'),
       whatsappHref: p.phone ? `https://wa.me/54${p.phone.replace(/\D/g, '')}` : '#',
       city: p.city || 'UrbanFix',
       coverageArea: p.coverage_area || '',
@@ -398,7 +475,7 @@ export default function AdminTechniciansUnified() {
               ✏️ Editando: {formData.business_name || formData.full_name}
             </h3>
             <button
-              onClick={() => setSelectedProfile(null)}
+              onClick={closeEditor}
               className="text-slate-500 hover:text-slate-900 text-2xl font-bold"
             >
               ✕
@@ -508,18 +585,23 @@ export default function AdminTechniciansUnified() {
           <div className="flex gap-3 pt-4 border-t border-slate-200">
             <button
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !isDirty || Boolean(formValidationError)}
               className="flex-1 rounded-lg bg-slate-900 py-3 font-semibold text-white hover:bg-slate-800 disabled:opacity-50 transition"
             >
               {isSaving ? '⏳ Guardando...' : '💾 Guardar cambios'}
             </button>
             <button
-              onClick={() => setSelectedProfile(null)}
+              onClick={closeEditor}
               className="px-6 py-3 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-100 font-semibold transition"
             >
               ✕ Cerrar
             </button>
           </div>
+
+          {formValidationError && <p className="text-xs font-medium text-amber-700">{formValidationError}</p>}
+          {!formValidationError && !isDirty && (
+            <p className="text-xs font-medium text-slate-500">No hay cambios pendientes en este perfil.</p>
+          )}
         </div>
       )}
     </div>

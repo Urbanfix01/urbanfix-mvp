@@ -7,6 +7,11 @@ import PublicTopNav from '../../../components/PublicTopNav';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
 import { buildTechnicianPath, extractProfileId, isUuid } from '../../../lib/seo/technician-profile';
 import {
+  PUBLIC_PROFILE_SELECT_FALLBACK,
+  PUBLIC_PROFILE_SELECT_RICH,
+  isMissingPublicProfileFieldError,
+} from '../../../lib/public-profile-select';
+import {
   ARGENTINA_TIMEZONE,
   formatWorkingHoursLabel,
   isNowWithinWorkingHours,
@@ -150,29 +155,41 @@ const toOptionalAbsoluteUrl = (value: string | null | undefined) => {
 const buildTechnicianUrl = (profileId: string, displayName: string) =>
   `${SITE_ORIGIN}${buildTechnicianPath(profileId, displayName)}`;
 
-const getPublicProfileById = async (profileId: string) => {
-  if (!isUuid(profileId)) {
-    return { data: null as PublicTechnicianProfile | null, error: 'Invalid profile id' };
-  }
+const fetchPublicProfile = async (profileId: string) => {
   const supabase = getSupabase();
   if (!supabase) {
     return { data: null as PublicTechnicianProfile | null, error: 'Missing server config' };
   }
 
-  const { data, error } = await supabase
+  let response = await supabase
     .from('profiles')
-    .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,specialties,created_at'
-    )
+    .select(PUBLIC_PROFILE_SELECT_RICH)
     .eq('id', profileId)
     .eq('access_granted', true)
     .eq('profile_published', true)
     .maybeSingle();
 
+  if (response.error && isMissingPublicProfileFieldError(String(response.error.message || ''))) {
+    response = await supabase
+      .from('profiles')
+      .select(PUBLIC_PROFILE_SELECT_FALLBACK)
+      .eq('id', profileId)
+      .eq('access_granted', true)
+      .eq('profile_published', true)
+      .maybeSingle();
+  }
+
   return {
-    data: (data || null) as PublicTechnicianProfile | null,
-    error: error?.message || '',
+    data: (response.data || null) as PublicTechnicianProfile | null,
+    error: response.error?.message || '',
   };
+};
+
+const getPublicProfileById = async (profileId: string) => {
+  if (!isUuid(profileId)) {
+    return { data: null as PublicTechnicianProfile | null, error: 'Invalid profile id' };
+  }
+  return fetchPublicProfile(profileId);
 };
 
 const getSupabase = () => {
@@ -196,8 +213,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
   if (!profileId || !isUuid(profileId)) {
     return {
-      title: 'Perfil tecnico | UrbanFix',
-      description: 'Perfil tecnico publico en UrbanFix.',
+      title: 'Perfil técnico | UrbanFix',
+      description: 'Perfil técnico público en UrbanFix.',
       robots: { index: false, follow: true },
     };
   }
@@ -205,8 +222,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const { data: profile } = await getPublicProfileById(profileId);
   if (!profile || !profile.access_granted || !profile.profile_published) {
     return {
-      title: 'Perfil tecnico | UrbanFix',
-      description: 'Perfil tecnico publico en UrbanFix.',
+      title: 'Perfil técnico | UrbanFix',
+      description: 'Perfil técnico público en UrbanFix.',
       robots: { index: false, follow: true },
     };
   }
@@ -277,15 +294,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     );
   }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,city,coverage_area,specialties,created_at'
-    )
-    .eq('id', profileId)
-    .eq('access_granted', true)
-    .eq('profile_published', true)
-    .maybeSingle();
+  const { data, error } = await fetchPublicProfile(profileId);
 
   if (error) {
     return (
@@ -295,7 +304,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
           <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <section className="rounded-3xl border border-rose-300/35 bg-rose-500/10 p-8 text-center">
               <h1 className="text-2xl font-semibold text-white">No pudimos abrir el perfil</h1>
-              <p className="mt-2 text-sm text-rose-100">{error.message || 'Error inesperado.'}</p>
+              <p className="mt-2 text-sm text-rose-100">{error || 'Error inesperado.'}</p>
               <Link
                 href="/vidriera"
                 className="mt-5 inline-flex rounded-full border border-rose-300/45 px-4 py-2 text-xs font-semibold text-rose-100 transition hover:border-rose-200 hover:text-white"
@@ -314,7 +323,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     notFound();
   }
 
-  const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
+  const displayName = profile.business_name || profile.full_name || 'Técnico UrbanFix';
   const displayInitial = displayName.slice(0, 1).toUpperCase();
   const specialties = parseDelimitedValues(profile.specialties).slice(0, 12);
   const recommendations = splitTextLines(profile.client_recommendations).slice(0, 5);
@@ -340,7 +349,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const whatsappLink = buildWhatsappLink(profile.phone);
   const presentationText =
     String(profile.references_summary || '').trim() ||
-    'Perfil publico de UrbanFix. Este profesional aun no cargo una presentacion detallada.';
+    'Perfil público de UrbanFix. Este profesional aún no cargó una presentación detallada.';
   const heroSummary =
     presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
   const profileCode = profile.id.slice(0, 8).toUpperCase();
@@ -374,25 +383,25 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     {
       label: 'Reputacion',
       value: ratingLabel,
-      detail: hasRating ? 'Puntaje promedio visible al publico' : 'Aun sin calificacion publica registrada',
+      detail: hasRating ? 'Puntaje promedio visible al público' : 'Aún sin calificación pública registrada',
       accent: 'from-[#ffb45c]/18 to-[#ff8f1f]/6',
     },
     {
-      label: 'Resenas',
+      label: 'Reseñas',
       value: reviewsCount.toString(),
-      detail: hasReviews ? 'Opiniones visibles de clientes' : 'Aun no hay resenas publicas',
+      detail: hasReviews ? 'Opiniones visibles de clientes' : 'Aún no hay reseñas públicas',
       accent: 'from-white/[0.10] to-white/[0.03]',
     },
     {
       label: 'Trabajos',
       value: completedJobsLabel,
-      detail: hasCompletedJobs ? 'Trabajos completados informados en el perfil' : 'Este perfil todavia no informa trabajos completados',
+      detail: hasCompletedJobs ? 'Trabajos completados informados en el perfil' : 'Este perfil todavía no informa trabajos completados',
       accent: 'from-[#8b5cf6]/16 to-[#3b1b62]/10',
     },
     {
       label: 'Me gusta',
       value: likesCount.toString(),
-      detail: likesCount > 0 ? 'Interacciones publicas registradas' : 'Aun no hay me gusta registrados',
+      detail: likesCount > 0 ? 'Interacciones públicas registradas' : 'Aún no hay me gusta registrados',
       accent: 'from-[#f97316]/16 to-[#431407]/10',
     },
   ];
@@ -410,7 +419,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     {
       label: 'Canales publicos',
       value: socialLinks.length > 0 ? `${socialLinks.length} canal(es) activos` : 'Sin canales sociales publicados',
-      note: whatsappLink ? 'Tiene WhatsApp visible para contacto rapido.' : 'No hay un canal directo publicado por el momento.',
+      note: whatsappLink ? 'Tiene WhatsApp visible para contacto rápido.' : 'No hay un canal directo publicado por el momento.',
     },
   ];
   const personJsonLd = {
@@ -418,7 +427,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     '@type': 'Person',
     name: displayName,
     url: canonicalUrl,
-    jobTitle: 'Tecnico',
+    jobTitle: 'Técnico',
     address: profile.city
       ? {
           '@type': 'PostalAddress',
@@ -486,7 +495,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
 
                       <div className="flex flex-wrap gap-2 text-xs">
                         <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 font-semibold text-white/90">
-                          Codigo publico: {profileCode}
+                          Código público: {profileCode}
                         </span>
                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${availabilityToneClass}`}>
                           {availabilityLabel}
@@ -506,7 +515,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   <div className="space-y-3">
                     <p className="max-w-3xl text-base leading-relaxed text-white/88 sm:text-[1.05rem]">{heroSummary}</p>
                     <p className="max-w-3xl text-sm leading-7 text-white/66">
-                      Perfil publico de UrbanFix con datos de contacto, zona de trabajo y especialidades declaradas por el profesional.
+                      Perfil público de UrbanFix con datos de contacto, zona de trabajo y especialidades declaradas por el profesional.
                     </p>
                   </div>
 
@@ -530,7 +539,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
 
                 <aside className="ufx-tech-card ufx-tech-card--accent flex flex-col gap-4 p-5 sm:p-6">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffd6a6]">Contacto rapido</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffd6a6]">Contacto rápido</p>
                     <h2 className="mt-2 text-2xl font-semibold text-white">Listo para coordinar</h2>
                     <p className="mt-2 text-sm leading-6 text-white/72">
                       Canal directo para consultar disponibilidad, pedir presupuesto o iniciar una visita.
@@ -557,7 +566,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   </div>
 
                   <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">URL publica</p>
+                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">URL pública</p>
                     <p className="mt-3 break-all text-sm leading-6 text-white/84">{canonicalUrl}</p>
                   </div>
 

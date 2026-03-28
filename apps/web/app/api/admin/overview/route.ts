@@ -49,7 +49,6 @@ export async function GET(request: NextRequest) {
       recentMessagesRes,
       recentSubsRes,
       recentPaymentsRes,
-      pendingAccessRes,
       analyticsViewsRes,
       analyticsViewsLast1Res,
       analyticsDurationsRes,
@@ -90,11 +89,6 @@ export async function GET(request: NextRequest) {
         .order('created_at', { ascending: false })
         .limit(10),
       supabase
-        .from('profiles')
-        .select('id, full_name, business_name, email, access_granted')
-        .eq('access_granted', false)
-        .limit(12),
-      supabase
         .from('analytics_events')
         .select('session_id')
         .eq('event_type', 'page_view')
@@ -128,7 +122,6 @@ export async function GET(request: NextRequest) {
       recentMessagesRes.error ||
       recentSubsRes.error ||
       recentPaymentsRes.error ||
-      pendingAccessRes.error ||
       analyticsViewsRes.error ||
       analyticsViewsLast1Res.error ||
       analyticsDurationsRes.error
@@ -144,7 +137,6 @@ export async function GET(request: NextRequest) {
         recentMessagesRes.error ||
         recentSubsRes.error ||
         recentPaymentsRes.error ||
-        pendingAccessRes.error ||
         analyticsViewsRes.error ||
         analyticsViewsLast1Res.error ||
         analyticsDurationsRes.error
@@ -240,7 +232,6 @@ export async function GET(request: NextRequest) {
       supportMessages: recentMessagesRes.data || [],
       recentSubscriptions: recentSubsRes.data || [],
       recentPayments: recentPaymentsRes.data || [],
-      pendingAccess: pendingAccessRes.data || [],
       recentUsers: usersRes.data?.users || [],
     };
 
@@ -254,9 +245,6 @@ export async function GET(request: NextRequest) {
     });
     listsRaw.recentPayments.forEach((item) => {
       if (item.user_id) userIds.add(item.user_id);
-    });
-    listsRaw.pendingAccess.forEach((item) => {
-      if (item.id) userIds.add(item.id);
     });
     listsRaw.recentUsers.forEach((user) => {
       if (user?.id) userIds.add(user.id);
@@ -381,6 +369,18 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.total_amount - a.total_amount)
       .slice(0, 12);
 
+    const pendingAccess = listsRaw.recentUsers
+      .filter((user: any) => profiles[user.id]?.access_granted !== true)
+      .slice(0, 12)
+      .map((user: any) => ({
+        id: user.id,
+        email: user.email || profiles[user.id]?.email || null,
+        full_name: profiles[user.id]?.full_name || null,
+        business_name: profiles[user.id]?.business_name || null,
+        access_granted: profiles[user.id]?.access_granted ?? null,
+        profile: profiles[user.id] || null,
+      }));
+
     return NextResponse.json({
       kpis: {
         totalUsers: totalUsersRes.count || 0,
@@ -414,10 +414,7 @@ export async function GET(request: NextRequest) {
           ...item,
           profile: profiles[item.user_id] || null,
         })),
-        pendingAccess: listsRaw.pendingAccess.map((item) => ({
-          ...item,
-          profile: profiles[item.id] || null,
-        })),
+        pendingAccess,
         recentUsers: listsRaw.recentUsers.map((user) => ({
           id: user.id,
           email: user.email,

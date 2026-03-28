@@ -62,6 +62,33 @@ const formatDateTime = (value?: string | null) => {
 
 const toText = (value: unknown) => String(value || '').trim();
 
+const normalizeEmail = (value: unknown) => {
+  const normalized = String(value || '').trim().toLowerCase();
+  return normalized.includes('@') ? normalized : '';
+};
+
+const parseEmailTargets = (value: unknown) => {
+  const rawItems = String(value || '')
+    .split(/[\n,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  const validEmails = rawItems.map((item) => normalizeEmail(item)).filter(Boolean);
+  return {
+    rawItems,
+    validEmails: Array.from(new Set(validEmails)),
+  };
+};
+
+const getEmailTargetsError = (value: unknown) => {
+  const normalized = toText(value);
+  if (!normalized) return 'Carga al menos un email destino.';
+  const { rawItems, validEmails } = parseEmailTargets(value);
+  if (validEmails.length === 0) return 'Ingresa al menos un email valido.';
+  if (validEmails.length !== rawItems.length) return 'Revisa los emails destino. Hay valores invalidos.';
+  return '';
+};
+
 const statusLabel = (value: string) => {
   const normalized = toText(value).toLowerCase();
   if (normalized === 'matched') return 'Matcheada';
@@ -105,6 +132,16 @@ const buildEditDraft = (request: AdminClientRequestItem): RequestEditDraft => ({
   targetTechnicianName: toText(request.targetTechnicianName),
   targetTechnicianPhone: toText(request.targetTechnicianPhone),
 });
+
+const getDraftValidationError = (draft: RequestEditDraft) => {
+  if (!toText(draft.title)) return 'Completa el titulo antes de guardar.';
+  if (!toText(draft.category)) return 'Completa el rubro antes de guardar.';
+  if (!toText(draft.address)) return 'Completa la direccion antes de guardar.';
+  if (!toText(draft.description) || toText(draft.description).length < 12) {
+    return 'La descripcion debe tener al menos 12 caracteres.';
+  }
+  return '';
+};
 
 export default function AdminClientRequestsPanel({ accessToken, active }: Props) {
   const [requests, setRequests] = useState<AdminClientRequestItem[]>([]);
@@ -232,6 +269,11 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
 
   const saveRequest = async (request: AdminClientRequestItem) => {
     const draft = draftsById[request.id] || buildEditDraft(request);
+    const draftError = getDraftValidationError(draft);
+    if (draftError) {
+      setFeedbackById((current) => ({ ...current, [request.id]: draftError }));
+      return;
+    }
     setSavingId(request.id);
     setFeedbackById((current) => ({ ...current, [request.id]: '' }));
     try {
@@ -301,11 +343,16 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
   };
 
   const sendEmail = async (request: AdminClientRequestItem) => {
-    const toEmail = toText(emailTargets[request.id]);
-    if (!toEmail) {
-      setFeedbackById((current) => ({ ...current, [request.id]: 'Carga al menos un email destino.' }));
+    const emailError = getEmailTargetsError(emailTargets[request.id]);
+    if (!resendConfigured) {
+      setFeedbackById((current) => ({ ...current, [request.id]: 'Configura Resend antes de enviar mails desde admin.' }));
       return;
     }
+    if (emailError) {
+      setFeedbackById((current) => ({ ...current, [request.id]: emailError }));
+      return;
+    }
+    const toEmail = parseEmailTargets(emailTargets[request.id]).validEmails.join(', ');
 
     setSendingId(request.id);
     setFeedbackById((current) => ({ ...current, [request.id]: '' }));
@@ -353,6 +400,9 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
               {requests.length} solicitudes
+            </span>
+            <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+              Mostrando {filteredRequests.length}
             </span>
             <button
               type="button"
@@ -404,6 +454,11 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
             const isEditing = editingId === request.id;
             const isSaving = savingId === request.id;
             const isDeleting = deletingId === request.id;
+            const isSending = sendingId === request.id;
+            const rowBusy = isSaving || isDeleting || isSending;
+            const draftError = getDraftValidationError(draft);
+            const emailTargetsError = getEmailTargetsError(emailTargets[request.id]);
+            const canSendEmail = resendConfigured && !emailTargetsError;
 
             return (
               <article key={request.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -451,6 +506,7 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                   <button
                     type="button"
                     onClick={() => cancelEditing(request)}
+                    disabled={rowBusy}
                     className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                   >
                     Cancelar edicion
@@ -459,6 +515,7 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                   <button
                     type="button"
                     onClick={() => startEditing(request)}
+                    disabled={rowBusy}
                     className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                   >
                     Editar solicitud
@@ -467,7 +524,7 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                 <button
                   type="button"
                   onClick={() => deleteRequest(request)}
-                  disabled={isDeleting}
+                  disabled={rowBusy}
                   className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isDeleting ? 'Eliminando...' : 'Eliminar solicitud'}
@@ -538,14 +595,17 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                       placeholder="cliente@dominio.com o varios separados por coma"
                       className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                     />
+                    {emailTargets[request.id] && emailTargetsError && (
+                      <p className="text-xs text-amber-700">{emailTargetsError}</p>
+                    )}
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => sendEmail(request)}
-                        disabled={!resendConfigured || sendingId === request.id}
+                        disabled={!canSendEmail || rowBusy}
                         className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                       >
-                        {sendingId === request.id ? 'Enviando...' : 'Enviar mail'}
+                        {isSending ? 'Enviando...' : 'Enviar mail'}
                       </button>
                       <button
                         type="button"
@@ -555,6 +615,7 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                             [request.id]: toText(request.clientEmail),
                           }))
                         }
+                        disabled={rowBusy}
                         className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                       >
                         Usar email del cliente
@@ -657,7 +718,7 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                     <button
                       type="button"
                       onClick={() => saveRequest(request)}
-                      disabled={isSaving}
+                      disabled={rowBusy || Boolean(draftError)}
                       className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                     >
                       {isSaving ? 'Guardando...' : 'Guardar cambios'}
@@ -665,11 +726,13 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                     <button
                       type="button"
                       onClick={() => cancelEditing(request)}
+                      disabled={rowBusy}
                       className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                     >
                       Cancelar
                     </button>
                   </div>
+                  {draftError && <p className="mt-3 text-xs text-amber-700">{draftError}</p>}
                 </div>
               )}
               </article>

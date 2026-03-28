@@ -44,11 +44,11 @@ export default function DownloadAppPage() {
                     Acceso a la app UrbanFix
                   </p>
                   <h1 className="mt-4 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
-                    Descarga la app y entra a la operacion desde el primer minuto.
+                    Descarga la app y entra a la operación desde el primer minuto.
                   </h1>
                   <p className="mt-4 max-w-3xl text-sm leading-7 text-white/80 sm:text-base">
                     UrbanFix ya tiene acceso Android disponible para prueba y una experiencia web completa para operar
-                    mientras iOS termina su proceso de revision. Aqui concentramos el acceso movil y la alternativa web
+                    mientras iOS termina su proceso de revisión. Aquí concentramos el acceso móvil y la alternativa web
                     en una sola vista.
                   </p>
 
@@ -84,9 +84,9 @@ export default function DownloadAppPage() {
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06]">
                         <ShieldCheck className="h-4.5 w-4.5 text-[#ffb35e]" />
                       </div>
-                      <p className="mt-4 text-base font-semibold text-white">iOS en revision</p>
+                      <p className="mt-4 text-base font-semibold text-white">iOS en revisión</p>
                       <p className="mt-2 text-sm leading-6 text-white/76">
-                        El build iOS esta en proceso de validacion. Mientras tanto, la operacion sigue disponible en
+                        El build iOS está en proceso de validación. Mientras tanto, la operación sigue disponible en
                         web.
                       </p>
                     </article>
@@ -96,7 +96,7 @@ export default function DownloadAppPage() {
                       </div>
                       <p className="mt-4 text-base font-semibold text-white">Alternativa inmediata</p>
                       <p className="mt-2 text-sm leading-6 text-white/76">
-                        La plataforma web permite cotizar, operar y gestionar perfiles sin esperar la descarga movil.
+                        La plataforma web permite cotizar, operar y gestionar perfiles sin esperar la descarga móvil.
                       </p>
                     </article>
                   </div>
@@ -104,7 +104,7 @@ export default function DownloadAppPage() {
 
                 <aside className="rounded-[28px] border border-[#ff8f1f]/22 bg-[linear-gradient(135deg,rgba(255,143,31,0.12),rgba(32,5,53,0.88))] p-5 shadow-[0_24px_70px_-42px_rgba(0,0,0,0.95)] sm:p-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ffd6a6]">
-                    Como empezar
+                    Cómo empezar
                   </p>
                   <ol className="mt-4 space-y-3">
                     {steps.map((step, index) => (
@@ -118,9 +118,9 @@ export default function DownloadAppPage() {
                   </ol>
 
                   <div className="mt-5 rounded-[22px] border border-white/12 bg-white/[0.04] p-4">
-                    <p className="text-sm font-semibold text-white">Necesitas ayuda para habilitar el acceso?</p>
+                    <p className="text-sm font-semibold text-white">¿Necesitas ayuda para habilitar el acceso?</p>
                     <p className="mt-2 text-sm leading-6 text-white/72">
-                      Si tu cuenta todavia no ve la prueba o prefieres una activacion guiada, te lo resolvemos por
+                      Si tu cuenta todavía no ve la prueba o prefieres una activación guiada, te lo resolvemos por
                       contacto.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">

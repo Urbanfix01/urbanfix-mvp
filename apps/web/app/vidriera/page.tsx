@@ -13,6 +13,11 @@ import {
 } from '../../lib/geo/argentina-zone-presets';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import {
+  PUBLISHED_TECHNICIANS_SELECT_FALLBACK,
+  PUBLISHED_TECHNICIANS_SELECT_RICH,
+  isMissingPublicProfileFieldError,
+} from '../../lib/public-profile-select';
+import {
   DEFAULT_MATCH_RADIUS_KM,
 } from '../api/_shared/marketplace';
 import { ciudades } from '../../lib/seo/urbanfix-data';
@@ -23,8 +28,8 @@ const sora = Sora({
 });
 
 export const metadata: Metadata = {
-  title: 'Vidriera de Tecnicos | UrbanFix',
-  description: 'Explora tecnicos publicados, rubros y cobertura para solicitar tu trabajo.',
+  title: 'Vidriera de Técnicos | UrbanFix',
+  description: 'Explora técnicos publicados, rubros y cobertura para solicitar tu trabajo.',
   alternates: {
     canonical: '/vidriera',
   },
@@ -127,6 +132,34 @@ const getPublicSupabaseClient = () => {
   });
 };
 
+const fetchPublishedProfiles = async (supabase: NonNullable<ReturnType<typeof getPublicSupabaseClient>>) => {
+  let response = await supabase
+    .from('profiles')
+    .select(PUBLISHED_TECHNICIANS_SELECT_RICH)
+    .eq('access_granted', true)
+    .eq('profile_published', true)
+    .order('created_at', { ascending: false, nullsFirst: false })
+    .limit(240);
+
+  let usedFallback = false;
+  if (response.error && isMissingPublicProfileFieldError(String(response.error.message || ''))) {
+    usedFallback = true;
+    response = await supabase
+      .from('profiles')
+      .select(PUBLISHED_TECHNICIANS_SELECT_FALLBACK)
+      .eq('access_granted', true)
+      .eq('profile_published', true)
+      .order('created_at', { ascending: false, nullsFirst: false })
+      .limit(240);
+  }
+
+  return {
+    data: (Array.isArray(response.data) ? response.data : []) as unknown as PublishedProfileRow[],
+    error: response.error,
+    usedFallback,
+  };
+};
+
 export const dynamic = 'force-dynamic';
 
 export default async function VidrieraPage({ searchParams }: VidrieraPageProps) {
@@ -155,17 +188,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
     );
   }
 
-  const { data, error } = await supabase
-    .from('profiles')
-    .select(
-      'id,access_granted,profile_published,full_name,business_name,phone,address,city,coverage_area,service_lat,service_lng,specialties,created_at'
-    )
-    .eq('access_granted', true)
-    .eq('profile_published', true)
-    .order('created_at', { ascending: false, nullsFirst: false })
-    .limit(240);
-
-  const profiles = (data || []) as PublishedProfileRow[];
+  const { data: profiles, error, usedFallback } = await fetchPublishedProfiles(supabase);
   const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
   const filteredProfiles = zonaQueryNormalized
     ? safeProfiles.filter((profile) =>
@@ -178,16 +201,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
         )
       )
     : safeProfiles;
-  const migrationMissing =
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('profile_published') ||
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('facebook_url') ||
-    String(error?.message || '')
-      .toLowerCase()
-      .includes('instagram_url');
+  const migrationMissing = usedFallback && !error;
   const whatsappEnabledCount = safeProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = Array.from(
     new Set([
@@ -209,7 +223,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
       const lng = exactLng ?? fallbackCoords?.lng ?? null;
       if (lat === null || lng === null) return null;
 
-      const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
+      const displayName = profile.business_name || profile.full_name || 'Técnico UrbanFix';
       const specialties = parseDelimitedValues(profile.specialties).slice(0, 6);
       const hasExactLocation = exactLat !== null && exactLng !== null;
 
@@ -253,7 +267,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
           {error && (
             <div className="mx-auto mb-4 w-full max-w-[1500px] rounded-2xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
               {migrationMissing
-                ? 'Falta migracion de perfil publico/redes en perfiles (profile_published, facebook_url, instagram_url).'
+                ? 'Falta migración de perfil público/redes en perfiles (profile_published, facebook_url, instagram_url).'
                 : 'No pudimos cargar la vidriera en este momento.'}
             </div>
           )}
@@ -262,17 +276,17 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
             <PublicTechniciansMap
               points={mapPoints}
               preferUserLocation={!zonaQueryNormalized}
-              eyebrow="Tecnicos disponibles"
-              title="Mapa full screen para explorar tecnicos por zona"
-              description="Busca barrios, ciudades o provincias, mueve el mapa y abre fichas flotantes sin salir del contexto. La vidriera ahora prioriza cobertura, seleccion rapida y acceso directo al perfil publico."
+              eyebrow="Técnicos disponibles"
+              title="Mapa full screen para explorar técnicos por zona"
+              description="Busca barrios, ciudades o provincias, mueve el mapa y abre fichas flotantes sin salir del contexto. La vidriera ahora prioriza cobertura, selección rápida y acceso directo al perfil público."
               searchConfig={{
                 actionHref: '/vidriera',
                 clearHref: '/vidriera',
                 query: zonaQuery,
                 options: zonaOptions,
                 resultLabel: zonaQuery
-                  ? `Mostrando ${filteredProfiles.length} tecnico(s) para la zona "${zonaQuery}".`
-                  : `Mostrando ${filteredProfiles.length} tecnico(s) en toda la vidriera.`,
+                  ? `Mostrando ${filteredProfiles.length} técnico(s) para la zona "${zonaQuery}".`
+                  : `Mostrando ${filteredProfiles.length} técnico(s) en toda la vidriera.`,
                 listAnchorId: 'vidriera-listado',
                 listLabel: 'Ver listado',
                 placeholder: 'Ingresa ciudades, provincias o barrios',
@@ -307,7 +321,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                     <p className="text-base font-semibold text-white">Tecnicos en {zone.name}</p>
                     <p className="mt-1 text-xs uppercase tracking-[0.12em] text-[#ffbf7a]">{zone.region}</p>
                     <p className="mt-2 text-sm leading-6 text-white/72">
-                      Pagina estable para cobertura, perfiles publicados y mapa de tecnicos en {zone.name}.
+                      Página estable para cobertura, perfiles publicados y mapa de técnicos en {zone.name}.
                     </p>
                   </Link>
                 ))}
@@ -318,12 +332,12 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
               <p className="text-lg font-semibold text-white">
-                {zonaQuery ? 'No encontramos tecnicos para esa zona.' : 'Aun no hay tecnicos disponibles.'}
+                {zonaQuery ? 'No encontramos técnicos para esa zona.' : 'Aún no hay técnicos disponibles.'}
               </p>
               <p className="mt-2 text-sm text-white/70">
                 {zonaQuery
                   ? 'Prueba otra ciudad o zona, o limpia el buscador para ver toda la vidriera.'
-                  : 'Para aparecer, deben confirmar publicacion y cargar direccion o zona de trabajo.'}
+                  : 'Para aparecer, deben confirmar publicación y cargar dirección o zona de trabajo.'}
               </p>
             </section>
           ) : (
@@ -331,17 +345,17 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Listado completo</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-[2rem]">Tecnicos visibles en vidriera</h2>
+                  <h2 className="mt-2 text-2xl font-semibold text-white sm:text-[2rem]">Técnicos visibles en vidriera</h2>
                   <p className="mt-2 max-w-3xl text-sm text-white/72">
-                    Si prefieres comparar uno debajo del otro, aqui tienes el listado expandido con likes, rubros y acceso al perfil.
+                    Si prefieres comparar uno debajo del otro, aquí tienes el listado expandido con likes, rubros y acceso al perfil.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                    Tecnicos confirmados: {safeProfiles.length}
+                    Técnicos confirmados: {safeProfiles.length}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                    Con ubicacion en mapa: {mapPoints.length}
+                    Con ubicación en mapa: {mapPoints.length}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
                     Con WhatsApp: {whatsappEnabledCount}
@@ -351,7 +365,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {filteredProfiles.map((profile) => {
-                const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
+                const displayName = profile.business_name || profile.full_name || 'Técnico UrbanFix';
                 const specialties = parseDelimitedValues(profile.specialties).slice(0, 5);
                 const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
                 const whatsappLink = buildWhatsappLink(profile.phone);
@@ -367,9 +381,9 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                     <div className="flex items-start gap-4">
                       <div className="h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/20 bg-white/[0.06]">
                         {profile.avatar_url ? (
-                          <img src={profile.avatar_url} alt="Foto tecnico" className="h-full w-full object-cover" />
+                          <img src={profile.avatar_url} alt="Foto técnica" className="h-full w-full object-cover" />
                         ) : profile.company_logo_url ? (
-                          <img src={profile.company_logo_url} alt="Logo tecnico" className="h-full w-full object-contain p-1.5" />
+                          <img src={profile.company_logo_url} alt="Logo técnico" className="h-full w-full object-contain p-1.5" />
                         ) : (
                           <div className="flex h-full w-full items-center justify-center text-lg font-bold text-white/80">
                             {displayName.slice(0, 1).toUpperCase()}
@@ -390,7 +404,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                             Perfil: {profileCode}
                           </span>
                           <span className="rounded-full border border-white/15 bg-white/[0.06] px-2.5 py-1 text-white/90">
-                            {hasExactLocation ? 'Ubicacion verificada' : 'Zona estimada'}
+                            {hasExactLocation ? 'Ubicación verificada' : 'Zona estimada'}
                           </span>
                         </div>
                       </div>

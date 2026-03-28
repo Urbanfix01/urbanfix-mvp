@@ -22,6 +22,10 @@ type RequestProfileRow = {
   phone?: string | null;
 };
 
+type AuthUserFallback = {
+  email?: string | null;
+};
+
 const toText = (value: unknown) => String(value || '').trim();
 
 const normalizeUrgency = (value: unknown) => {
@@ -90,10 +94,14 @@ const sendEmail = async (params: { to: string[]; subject: string; html: string; 
 const buildRequestRecord = (
   row: any,
   profilesMap: Map<string, RequestProfileRow>,
+  authUsersMap: Map<string, AuthUserFallback>,
   matchesStatsMap: Map<string, { total: number; submitted: number }>
 ): AdminClientRequestRecord => {
   const profile = profilesMap.get(String(row.client_id || ''));
+  const authUser = authUsersMap.get(String(row.client_id || ''));
   const matchStats = matchesStatsMap.get(String(row.id || ''));
+  const fallbackEmail = normalizeNewsletterEmail(authUser?.email);
+  const fallbackName = fallbackEmail || 'Cliente UrbanFix';
 
   return {
     id: String(row.id || ''),
@@ -108,8 +116,8 @@ const buildRequestRecord = (
     preferredWindow: toText(row.preferred_window) || null,
     createdAt: String(row.created_at || ''),
     updatedAt: String(row.updated_at || row.created_at || ''),
-    clientName: toText(profile?.business_name || profile?.full_name) || 'Cliente UrbanFix',
-    clientEmail: normalizeNewsletterEmail(profile?.email),
+    clientName: toText(profile?.business_name || profile?.full_name) || fallbackName,
+    clientEmail: normalizeNewsletterEmail(profile?.email) || fallbackEmail,
     clientPhone: toText(profile?.phone) || null,
     targetTechnicianName: toText(row.target_technician_name) || null,
     targetTechnicianPhone: toText(row.target_technician_phone) || null,
@@ -148,6 +156,20 @@ const loadClientRequests = async () => {
     (profileRows || []).forEach((row: any) => profilesMap.set(String(row.id), row as RequestProfileRow));
   }
 
+  const authUsersMap = new Map<string, AuthUserFallback>();
+  if (clientIds.length) {
+    const { data: authUsersData, error: authUsersError } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (!authUsersError) {
+      (authUsersData?.users || []).forEach((user: any) => {
+        const userId = toText(user?.id);
+        if (!userId || !clientIds.includes(userId)) return;
+        authUsersMap.set(userId, {
+          email: normalizeNewsletterEmail(user?.email),
+        });
+      });
+    }
+  }
+
   const matchesStatsMap = new Map<string, { total: number; submitted: number }>();
   if (requestIds.length) {
     const { data: matchRows, error: matchesError } = await supabase
@@ -169,7 +191,7 @@ const loadClientRequests = async () => {
     });
   }
 
-  return (requestRows || []).map((row: any) => buildRequestRecord(row, profilesMap, matchesStatsMap));
+  return (requestRows || []).map((row: any) => buildRequestRecord(row, profilesMap, authUsersMap, matchesStatsMap));
 };
 
 const parseDestinationEmails = (value: unknown) => {

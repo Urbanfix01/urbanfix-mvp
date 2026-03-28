@@ -168,7 +168,7 @@ export default function ClientRequestsHub() {
     }
     if (params.get('quick') === '1') {
       setAuthMode('register');
-      setAuthNotice('Modo rapido activo: puedes continuar con Google.');
+      setAuthNotice('Modo rápido activo: puedes continuar con Google.');
     }
     if (intent === CREATE_REQUEST_INTENT) {
       setCreateRequestIntent(true);
@@ -282,11 +282,11 @@ export default function ClientRequestsHub() {
         },
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'No se pudieron cargar tecnicos por zona.');
+      if (!response.ok) throw new Error(payload?.error || 'No se pudieron cargar técnicos por zona.');
       const normalized = Array.isArray(payload?.technicians)
         ? (payload.technicians as any[]).map((row) => ({
             id: String(row?.id || ''),
-            name: String(row?.name || 'Tecnico UrbanFix'),
+            name: String(row?.name || 'Técnico UrbanFix'),
             phone: String(row?.phone || '').trim(),
             specialty: String(row?.specialty || 'General'),
             city: String(row?.city || ''),
@@ -304,7 +304,7 @@ export default function ClientRequestsHub() {
       setNearbyTechnicians([]);
       setNearbyCenterLabel('');
       setNearbyWarning('');
-      setNearbyError(error?.message || 'No se pudieron cargar tecnicos por zona.');
+      setNearbyError(error?.message || 'No se pudieron cargar técnicos por zona.');
     } finally {
       setNearbyLoading(false);
     }
@@ -348,7 +348,13 @@ export default function ClientRequestsHub() {
     try {
       const safeEmail = email.trim().toLowerCase();
       if (!safeEmail || !password) {
-        throw new Error('Ingresa email y contrasena.');
+        throw new Error('Ingresa email y contraseña.');
+      }
+      if (!safeEmail.includes('@')) {
+        throw new Error('Ingresa un email válido.');
+      }
+      if (password.trim().length < 6) {
+        throw new Error('La contraseña debe tener al menos 6 caracteres.');
       }
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
@@ -368,23 +374,15 @@ export default function ClientRequestsHub() {
           },
         });
         if (error) throw error;
-        if (signUpData?.user?.id) {
-          const { error: profileError } = await supabase.from('profiles').upsert({
-            id: signUpData.user.id,
-            email: safeEmail,
-            full_name: safeFullName,
-          });
-          if (profileError) throw profileError;
-        }
         setAuthNotice(
           signUpData?.session
             ? 'Cuenta creada. Ya puedes completar tu perfil y publicar tu primera solicitud.'
-            : 'Cuenta creada. Si tu proveedor lo pide, confirma desde tu correo y luego completa tu perfil.'
+            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se completará al iniciar sesión.'
         );
         setPassword('');
       }
     } catch (error: any) {
-      setAuthError(error?.message || 'No se pudo iniciar sesion.');
+      setAuthError(error?.message || 'No se pudo iniciar sesión.');
     } finally {
       setAuthLoading(false);
     }
@@ -401,7 +399,7 @@ export default function ClientRequestsHub() {
       const city = clientProfileForm.city.trim();
       const address = clientProfileForm.address.trim();
       if (!fullName || !phone || !city) {
-        throw new Error('Completa nombre, telefono y ciudad para guardar tu perfil.');
+        throw new Error('Completa nombre, teléfono y ciudad para guardar tu perfil.');
       }
 
       const payload = {
@@ -436,7 +434,7 @@ export default function ClientRequestsHub() {
         throw new Error('Completa tu perfil de cliente antes de publicar una solicitud.');
       }
       if (!form.title.trim() || !form.category.trim() || !form.address.trim() || !form.description.trim()) {
-        throw new Error('Completa titulo, categoria, direccion y descripcion.');
+        throw new Error('Completa título, categoría, dirección y descripción.');
       }
       const response = await fetch('/api/client/requests', {
         method: 'POST',
@@ -457,8 +455,8 @@ export default function ClientRequestsHub() {
       const warning = String(payload?.warning || '').trim();
       setRequestNotice(
         matchesCount > 0
-          ? `Solicitud publicada. Encontramos ${matchesCount} tecnico(s) cercano(s).`
-          : 'Solicitud publicada. Aun no hay tecnicos cercanos disponibles.'
+          ? `Solicitud publicada. Encontramos ${matchesCount} técnico(s) cercano(s).`
+          : 'Solicitud publicada. Aún no hay técnicos cercanos disponibles.'
       );
       setRequestGeoNotice(warning);
       setForm((prev) => ({
@@ -490,20 +488,20 @@ export default function ClientRequestsHub() {
       {
         key: 'profile',
         title: 'Completa tu perfil',
-        description: 'Nombre, telefono y ciudad para activar la operativa.',
+        description: 'Nombre, teléfono y ciudad para activar la operativa.',
         done: isClientProfileComplete,
         href: '#perfil-cliente',
       },
       {
         key: 'request',
         title: 'Publica tu primera solicitud',
-        description: 'Carga trabajo, direccion, urgencia y modo de atencion.',
+        description: 'Carga trabajo, dirección, urgencia y modo de atención.',
         done: requests.length > 0,
         href: '#nueva-solicitud-cliente',
       },
       {
         key: 'nearby',
-        title: 'Revisa tecnicos cercanos',
+        title: 'Revisa técnicos cercanos',
         description: 'Valida cobertura, disponibilidad y distancia antes de decidir.',
         done: nearbyTechnicians.length > 0,
         href: '#tecnicos-cercanos',
@@ -543,7 +541,7 @@ export default function ClientRequestsHub() {
     if (!isClientProfileComplete) {
       if (profileIntentHandledRef.current) return;
       profileIntentHandledRef.current = true;
-      setClientProfileNotice((current) => current || 'Completa tu perfil para desbloquear la publicacion de la solicitud.');
+      setClientProfileNotice((current) => current || 'Completa tu perfil para desbloquear la publicación de la solicitud.');
       window.setTimeout(() => {
         document.getElementById('perfil-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 180);
@@ -552,7 +550,7 @@ export default function ClientRequestsHub() {
 
     if (requestIntentHandledRef.current) return;
     requestIntentHandledRef.current = true;
-    setRequestNotice((current) => current || 'Tu cuenta ya esta lista. Carga los datos y publica tu solicitud.');
+    setRequestNotice((current) => current || 'Tu cuenta ya está lista. Carga los datos y publica tu solicitud.');
     window.setTimeout(() => {
       document.getElementById('nueva-solicitud-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       requestTitleInputRef.current?.focus();
@@ -574,7 +572,7 @@ export default function ClientRequestsHub() {
   const handleUseCurrentLocation = () => {
     if (typeof window === 'undefined') return;
     if (!navigator.geolocation) {
-      setRequestError('Tu navegador no soporta geolocalizacion.');
+      setRequestError('Tu navegador no soporta geolocalización.');
       return;
     }
 
@@ -585,17 +583,17 @@ export default function ClientRequestsHub() {
       (position) => {
         setLocationLat(Number(position.coords.latitude.toFixed(6)));
         setLocationLng(Number(position.coords.longitude.toFixed(6)));
-        setRequestGeoNotice('Ubicacion capturada. Esta solicitud se sincronizara con tecnicos cercanos en mapa.');
+        setRequestGeoNotice('Ubicación capturada. Esta solicitud se sincronizará con técnicos cercanos en mapa.');
         setLocatingRequestGeo(false);
       },
       (error) => {
         const code = Number(error?.code || 0);
         if (code === 1) {
-          setRequestError('Permite acceso a ubicacion para sincronizar por cercania.');
+          setRequestError('Permite acceso a ubicación para sincronizar por cercanía.');
         } else if (code === 3) {
-          setRequestError('No pudimos obtener tu ubicacion a tiempo. Intenta de nuevo.');
+          setRequestError('No pudimos obtener tu ubicación a tiempo. Intenta de nuevo.');
         } else {
-          setRequestError('No pudimos obtener tu ubicacion. Seguimos con direccion + ciudad.');
+          setRequestError('No pudimos obtener tu ubicación. Seguimos con dirección + ciudad.');
         }
         setLocatingRequestGeo(false);
       },
@@ -626,15 +624,15 @@ export default function ClientRequestsHub() {
               {createRequestIntent ? 'Crear solicitud' : 'UrbanFix clientes'}
             </p>
             <h1 className="mt-4 text-4xl font-black text-slate-900">
-              {createRequestIntent ? 'Crea tu cuenta y publica tu solicitud' : 'Publica tu solicitud y recibe tecnicos cercanos'}
+              {createRequestIntent ? 'Crea tu cuenta y publica tu solicitud' : 'Publica tu solicitud y recibe técnicos cercanos'}
             </h1>
             <p className="mt-4 text-sm leading-relaxed text-slate-600">
               {createRequestIntent
-                ? 'Entras, completas tu perfil y publicas el trabajo para que UrbanFix busque tecnicos cercanos segun tu zona.'
-                : 'Este panel te permite crear solicitudes de trabajo para que UrbanFix busque tecnicos en un radio de 20 km segun tu ubicacion y urgencia.'}
+                ? 'Entras, completas tu perfil y publicas el trabajo para que UrbanFix busque técnicos cercanos según tu zona.'
+                : 'Este panel te permite crear solicitudes de trabajo para que UrbanFix busque técnicos en un radio de 20 km según tu ubicación y urgencia.'}
             </p>
             <ul className="mt-6 space-y-2 text-sm text-slate-600">
-              <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Publicacion en segundos</li>
+              <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Publicación en segundos</li>
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Matching por distancia</li>
               <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Solicitud directa opcional</li>
             </ul>
@@ -646,11 +644,11 @@ export default function ClientRequestsHub() {
                 },
                 {
                   title: '2. Completa tu perfil',
-                  description: 'Con nombre, telefono y ciudad se activa mejor el matching por zona.',
+                  description: 'Con nombre, teléfono y ciudad se activa mejor el matching por zona.',
                 },
                 {
                   title: '3. Publica y compara',
-                  description: 'UrbanFix te muestra tecnicos cercanos y deja trazable cada solicitud.',
+                  description: 'UrbanFix te muestra técnicos cercanos y deja trazable cada solicitud.',
                 },
               ].map((item) => (
                 <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
@@ -663,7 +661,7 @@ export default function ClientRequestsHub() {
               href="/vidriera"
               className="mt-5 inline-flex rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
             >
-              Ver vidriera de tecnicos
+              Ver vidriera de técnicos
             </Link>
           </section>
 
@@ -724,7 +722,7 @@ export default function ClientRequestsHub() {
             </div>
 
             <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-600">Contrasena</label>
+              <label className="text-xs font-semibold text-slate-600">Contraseña</label>
               <input
                 type="password"
                 value={password}
@@ -793,7 +791,7 @@ export default function ClientRequestsHub() {
                 onClick={() => supabase.auth.signOut()}
                 className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
               >
-                Cerrar sesion
+                Cerrar sesión
               </button>
             </div>
           </div>
@@ -806,12 +804,12 @@ export default function ClientRequestsHub() {
               <h2 className="mt-1 text-xl font-semibold text-slate-900">
                 {isClientProfileComplete
                   ? requests.length > 0
-                    ? 'Tu cuenta ya esta operando con una base mucho mas clara.'
-                    : 'Tu cuenta ya esta lista. Solo falta publicar tu primera solicitud.'
-                  : 'Tu registro ya quedo hecho. Ahora completa el perfil para desbloquear la operativa.'}
+                    ? 'Tu cuenta ya está operando con una base mucho más clara.'
+                    : 'Tu cuenta ya está lista. Solo falta publicar tu primera solicitud.'
+                  : 'Tu registro ya quedó hecho. Ahora completa el perfil para desbloquear la operativa.'}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
-                UrbanFix te lleva por una secuencia simple: perfil, solicitud y lectura de tecnicos cercanos.
+                UrbanFix te lleva por una secuencia simple: perfil, solicitud y lectura de técnicos cercanos.
               </p>
             </div>
             <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
@@ -853,7 +851,7 @@ export default function ClientRequestsHub() {
               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil cliente</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-900">Completa tu perfil para operar</h2>
               <p className="mt-1 text-sm text-slate-600">
-                Este perfil es obligatorio para publicar solicitudes y coordinar con tecnicos.
+                Este perfil es obligatorio para publicar solicitudes y coordinar con técnicos.
               </p>
             </div>
             <span
@@ -879,7 +877,7 @@ export default function ClientRequestsHub() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-slate-600">Telefono</label>
+                  <label className="text-xs font-semibold text-slate-600">Teléfono</label>
                   <input
                     value={clientProfileForm.phone}
                     onChange={(event) => setClientProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
@@ -897,7 +895,7 @@ export default function ClientRequestsHub() {
               </div>
 
               <div className="mt-3">
-                <label className="text-xs font-semibold text-slate-600">Direccion base (opcional)</label>
+                <label className="text-xs font-semibold text-slate-600">Dirección base (opcional)</label>
                 <input
                   value={clientProfileForm.address}
                   onChange={(event) => setClientProfileForm((prev) => ({ ...prev, address: event.target.value }))}
@@ -928,7 +926,7 @@ export default function ClientRequestsHub() {
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="text-xs font-semibold text-slate-600">Titulo</label>
+                <label className="text-xs font-semibold text-slate-600">Título</label>
                 <input
                   ref={requestTitleInputRef}
                   value={form.title}
@@ -937,7 +935,7 @@ export default function ClientRequestsHub() {
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600">Categoria</label>
+                <label className="text-xs font-semibold text-slate-600">Categoría</label>
                 <input
                   value={form.category}
                   onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
@@ -948,7 +946,7 @@ export default function ClientRequestsHub() {
             </div>
 
             <div className="mt-3">
-              <label className="text-xs font-semibold text-slate-600">Direccion</label>
+                <label className="text-xs font-semibold text-slate-600">Dirección</label>
               <input
                 value={form.address}
                 onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
@@ -999,10 +997,10 @@ export default function ClientRequestsHub() {
                   className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:opacity-60"
                 >
                   {locatingRequestGeo
-                    ? 'Detectando ubicacion...'
+                    ? 'Detectando ubicación...'
                     : locationLat !== null && locationLng !== null
-                      ? 'Actualizar ubicacion'
-                      : 'Usar mi ubicacion'}
+                      ? 'Actualizar ubicación'
+                      : 'Usar mi ubicación'}
                 </button>
                 <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
                   Radio (km)
@@ -1029,14 +1027,14 @@ export default function ClientRequestsHub() {
                 </p>
               ) : (
                 <p className="mt-2 text-[11px] text-slate-500">
-                  Si no activas geo, UrbanFix intentara ubicar por direccion + ciudad.
+                  Si no activas geo, UrbanFix intentará ubicar por dirección + ciudad.
                 </p>
               )}
               {requestGeoNotice && <p className="mt-1 text-[11px] text-slate-600">{requestGeoNotice}</p>}
             </div>
 
             <div className="mt-3">
-              <label className="text-xs font-semibold text-slate-600">Descripcion</label>
+              <label className="text-xs font-semibold text-slate-600">Descripción</label>
               <textarea
                 rows={4}
                 value={form.description}
@@ -1057,7 +1055,7 @@ export default function ClientRequestsHub() {
                       : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
                   }`}
                 >
-                  Cotizacion multiple
+                  Cotización múltiple
                 </button>
                 <button
                   type="button"
@@ -1068,14 +1066,14 @@ export default function ClientRequestsHub() {
                       : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
                   }`}
                 >
-                  Asignacion directa
+                  Asignación directa
                 </button>
               </div>
 
               {form.mode === 'direct' && (
                 <div className="mt-3 space-y-3">
                   <div className="flex items-center justify-between gap-2">
-                    <label className="text-xs font-semibold text-slate-600">Selecciona tecnico por zona</label>
+                    <label className="text-xs font-semibold text-slate-600">Selecciona técnico por zona</label>
                     <button
                       type="button"
                       onClick={() => loadNearbyTechnicians(form.radiusKm)}
@@ -1099,7 +1097,7 @@ export default function ClientRequestsHub() {
                     }}
                     className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                   >
-                    <option value="">Seleccionar tecnico cercano</option>
+                    <option value="">Seleccionar técnico cercano</option>
                     {nearbyTechnicians.map((tech) => (
                       <option key={tech.id} value={tech.id}>
                         {tech.name} | {tech.city || 'Zona sin ciudad'} | {tech.distanceKm.toFixed(1)} km
@@ -1120,7 +1118,7 @@ export default function ClientRequestsHub() {
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-500">
-                      Elige un tecnico de la zona para enviar la solicitud directa.
+                      Elige un técnico de la zona para enviar la solicitud directa.
                     </p>
                   )}
 
@@ -1151,7 +1149,7 @@ export default function ClientRequestsHub() {
             <article id="tecnicos-cercanos" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tecnicos por zona</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Técnicos por zona</p>
                   <h2 className="text-xl font-semibold text-slate-900">Disponibles cerca de tu obra</h2>
                 </div>
                 <button
@@ -1164,16 +1162,16 @@ export default function ClientRequestsHub() {
                 </button>
               </div>
               {nearbyCenterLabel && (
-                <p className="mt-2 text-xs text-slate-500">Centro de busqueda: {nearbyCenterLabel}</p>
+                <p className="mt-2 text-xs text-slate-500">Centro de búsqueda: {nearbyCenterLabel}</p>
               )}
               {nearbyError && <p className="mt-2 text-xs text-rose-600">{nearbyError}</p>}
               {nearbyWarning && <p className="mt-2 text-xs text-amber-700">{nearbyWarning}</p>}
 
               {nearbyLoading ? (
-                <p className="mt-4 text-sm text-slate-500">Buscando tecnicos por zona...</p>
+                <p className="mt-4 text-sm text-slate-500">Buscando técnicos por zona...</p>
               ) : nearbyTechnicians.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Sin tecnicos cercanos visibles con el radio actual.
+                  Sin técnicos cercanos visibles con el radio actual.
                 </div>
               ) : (
                 <div className="mt-4 space-y-2">
@@ -1208,7 +1206,7 @@ export default function ClientRequestsHub() {
                 <p className="mt-4 text-sm text-slate-500">Cargando solicitudes...</p>
               ) : requests.length === 0 ? (
                 <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                  Aun no publicaste solicitudes.
+                  Aún no publicaste solicitudes.
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">

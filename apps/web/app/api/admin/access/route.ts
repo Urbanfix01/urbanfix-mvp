@@ -28,11 +28,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
   }
 
+  const accessGranted = typeof body?.accessGranted === 'boolean' ? body.accessGranted : true;
+
   const { error } = await supabase.from('profiles').upsert(
     {
       id: targetUserId,
-      access_granted: true,
-      access_granted_at: new Date().toISOString(),
+      access_granted: accessGranted,
+      access_granted_at: accessGranted ? new Date().toISOString() : null,
     },
     { onConflict: 'id' }
   );
@@ -41,5 +43,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, accessGranted });
 }

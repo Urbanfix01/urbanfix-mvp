@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select(
-      'id, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name'
+      'id, access_granted, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name'
     )
     .eq('id', user.id)
     .maybeSingle();
@@ -61,6 +61,9 @@ export async function GET(request: NextRequest) {
   }
   if (!profile) {
     return NextResponse.json({ error: 'Perfil tecnico no encontrado.' }, { status: 404 });
+  }
+  if (profile.access_granted !== true) {
+    return NextResponse.json({ error: 'Tu acceso tecnico todavia no esta habilitado.' }, { status: 403 });
   }
 
   let technicianLat = toFiniteNumber(profile.service_lat);

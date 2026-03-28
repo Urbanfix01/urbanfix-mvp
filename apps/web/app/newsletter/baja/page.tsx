@@ -41,14 +41,14 @@ export default async function NewsletterUnsubscribePage({ searchParams }: PagePr
   const userId = String(Array.isArray(resolved.user) ? resolved.user[0] : resolved.user || '').trim();
 
   let title = 'No pudimos procesar la baja';
-  let description = 'El enlace no es valido o ya no se puede verificar.';
+  let description = 'El enlace no es válido o ya no se puede verificar.';
   let toneClass = 'border-rose-300/35 bg-rose-500/10 text-rose-100';
 
   if (!supabase) {
-    title = 'Falta configuracion del servidor';
-    description = 'No se pudo conectar la gestion de newsletter en este momento.';
+    title = 'Falta configuración del servidor';
+    description = 'No se pudo conectar la gestión de newsletter en este momento.';
   } else if (!email || !token || !verifyNewsletterUnsubscribeToken(email, token, userId || null)) {
-    title = 'Enlace de baja invalido';
+    title = 'Enlace de baja inválido';
     description = 'Pide un correo nuevo de UrbanFix y vuelve a intentarlo desde ese enlace.';
   } else {
     const payload = {
@@ -64,18 +64,18 @@ export default async function NewsletterUnsubscribePage({ searchParams }: PagePr
 
     if (error) {
       if (isMissingColumnError(error, 'newsletter_opt_in') || isMissingColumnError(error, 'newsletter_unsubscribed_at')) {
-        title = 'Falta la migracion de newsletter';
-        description = 'La app todavia no tiene aplicadas las columnas de baja del newsletter.';
+        title = 'Falta la migración de newsletter';
+        description = 'La app todavía no tiene aplicadas las columnas de baja del newsletter.';
       } else {
         title = 'No pudimos registrar la baja';
-        description = error.message || 'Intentalo nuevamente en unos minutos.';
+        description = error.message || 'Inténtalo nuevamente en unos minutos.';
       }
     } else if (!data?.length) {
       title = 'No encontramos ese suscriptor';
       description = 'Es posible que la cuenta ya no tenga perfil cargado o que el correo no coincida.';
     } else {
       title = 'Baja confirmada';
-      description = 'Tu correo ya no recibira newsletters de UrbanFix hasta que vuelvas a suscribirte.';
+      description = 'Tu correo ya no recibirá newsletters de UrbanFix hasta que vuelvas a suscribirte.';
       toneClass = 'border-emerald-300/35 bg-emerald-500/10 text-emerald-100';
     }
   }
