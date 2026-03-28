@@ -1173,6 +1173,7 @@ const markPostLoginVideoAsSeen = (userId: string) => {
 export default function TechniciansPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -1238,6 +1239,7 @@ export default function TechniciansPage() {
   const [offerErrorByRequestId, setOfferErrorByRequestId] = useState<Record<string, string>>({});
 
   const [profile, setProfile] = useState<any>(null);
+  const [profileLoadError, setProfileLoadError] = useState('');
   const [technicianLocationResult, setTechnicianLocationResult] = useState<{
     lat: number;
     lng: number;
@@ -1530,10 +1532,12 @@ export default function TechniciansPage() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      setLoadingProfile(Boolean(session?.user));
       setLoadingSession(false);
     });
     const { data } = supabase.auth.onAuthStateChange((event: AuthChangeEvent, nextSession: Session | null) => {
       setSession(nextSession);
+      setLoadingProfile(Boolean(nextSession?.user));
       if (POST_LOGIN_VIDEO_ENABLED && event === 'SIGNED_IN' && nextSession?.user) {
         setPostLoginVideoPending(true);
       }
@@ -1587,6 +1591,11 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (!session?.user) {
+      setLoadingProfile(false);
+      setProfile(null);
+      setProfileLoadError('');
+      setTechnicianLocationResult(null);
+      setProfileHydrated(false);
       setIsBetaAdmin(false);
       setAdminGateStatus('idle');
       return;
@@ -1617,31 +1626,58 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (!session?.user) {
+      setLoadingProfile(false);
       return;
     }
     const load = async () => {
+      setLoadingProfile(true);
+      setProfileHydrated(false);
+      setProfileLoadError('');
+
+      const fallback = {
+        id: session.user.id,
+        email: session.user.email || null,
+        full_name: session.user.user_metadata?.full_name || '',
+        business_name: session.user.user_metadata?.business_name || '',
+      };
+
       const { data: profileData, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .maybeSingle();
 
       let resolvedProfile = profileData || null;
-      if (error || !profileData) {
-        const fallback = {
-          id: session.user.id,
-          email: session.user.email || null,
-          full_name: session.user.user_metadata?.full_name || '',
-          business_name: session.user.user_metadata?.business_name || '',
-        };
-        const { data: createdProfile } = await supabase.from('profiles').upsert(fallback).select().single();
+      if (error) {
+        setProfile(null);
+        setProfileLoadError(error.message || 'No pudimos cargar tu perfil técnico.');
+        setLoadingProfile(false);
+        return;
+      }
+
+      if (!profileData) {
+        const { data: createdProfile, error: createProfileError } = await supabase
+          .from('profiles')
+          .upsert(fallback)
+          .select()
+          .single();
+
+        if (createProfileError) {
+          setProfile(null);
+          setProfileLoadError(createProfileError.message || 'No pudimos preparar tu perfil inicial.');
+          setLoadingProfile(false);
+          return;
+        }
+
         resolvedProfile = createdProfile || fallback;
       }
 
       setProfile(resolvedProfile);
+      setProfileLoadError('');
       await fetchQuotes(session.user.id);
       await fetchNotifications(session.user.id);
       await fetchMasterItems();
+      setLoadingProfile(false);
     };
     load();
   }, [session?.user?.id]);
@@ -1703,6 +1739,7 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (!session?.user?.id) {
+      setLoadingProfile(false);
       setProfileHydrated(false);
       setAutoSaveBootstrapped(false);
       setAutoSaveState('idle');
@@ -3937,6 +3974,20 @@ export default function TechniciansPage() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
+    setLoadingProfile(false);
+    setProfile(null);
+    setProfileLoadError('');
+    setProfileHydrated(false);
+    setSelectedAccessProfile(null);
+    setQuickRegisterMode(false);
+    setAutoGoogleStarted(false);
+    setAuthMode('login');
+    setAuthError('');
+    setAuthNotice('');
+    setEmail('');
+    setPassword('');
+    setFullName('');
+    setBusinessName('');
     resetForm();
   };
 
@@ -4490,7 +4541,7 @@ export default function TechniciansPage() {
     );
   }
 
-  if (session?.user && adminGateStatus === 'checking') {
+  if (session?.user && (adminGateStatus === 'checking' || loadingProfile)) {
     return (
       <>
         <AuthHashHandler />
@@ -4501,7 +4552,43 @@ export default function TechniciansPage() {
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
           <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
-            Validando acceso...
+            {adminGateStatus === 'checking' ? 'Validando acceso...' : 'Cargando perfil...'}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (session?.user && profileLoadError) {
+    return (
+      <>
+        <AuthHashHandler />
+        {sessionMediaOverlays}
+        <div
+          style={activeThemeStyles}
+          data-ui-theme={uiTheme}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
+        >
+          <div className="max-w-lg rounded-3xl border border-rose-200 bg-white p-8 shadow-xl shadow-slate-200/60">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Perfil técnico</p>
+            <h1 className="mt-2 text-2xl font-bold text-slate-900">No pudimos abrir tu perfil</h1>
+            <p className="mt-3 text-sm text-slate-600">{profileLoadError}</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+              >
+                Reintentar
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+              >
+                Cerrar sesión
+              </button>
+            </div>
           </div>
         </div>
       </>
@@ -4659,7 +4746,7 @@ export default function TechniciansPage() {
     );
   }
 
-  if (session?.user && profile && profileRequiredMissing.length > 0) {
+  if (session?.user && profileHydrated && profile && profileRequiredMissing.length > 0) {
     return (
       <>
         <AuthHashHandler />
@@ -4690,24 +4777,24 @@ export default function TechniciansPage() {
                 </div>
                 <h1 className="text-4xl font-black text-slate-900 sm:text-5xl">Configura tu perfil</h1>
                 <p className="text-base text-slate-600 md:text-lg">
-                  Antes de crear presupuestos necesitamos tus datos basicos. Esto se muestra en el link publico y en el
+                  Antes de crear presupuestos necesitamos tus datos básicos. Esto se muestra en el link público y en el
                   PDF que recibe tu cliente.
                 </p>
 
                 <div className="rounded-3xl border border-slate-200 bg-white/85 p-6 shadow-xl shadow-slate-200/60">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por que te lo pedimos</p>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por qué te lo pedimos</p>
                   <ul className="mt-4 space-y-3 text-sm text-slate-600">
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Tu cliente identifica rapido tu negocio y confia mas en el presupuesto.
+                      Tu cliente identifica rápido tu negocio y confía más en el presupuesto.
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Evitas preguntas repetidas (telefono, direccion, horarios) y aceleras la aprobacion.
+                      Evitas preguntas repetidas (teléfono, dirección, horarios) y aceleras la aprobación.
                     </li>
                     <li className="flex gap-3">
                       <span className="mt-2 h-2 w-2 rounded-full bg-slate-900" />
-                      Tu marca (logo + foto) hace que el documento se vea profesional y memorizable.
+                      Tu marca (logo + foto) hace que el documento se vea profesional y memorable.
                     </li>
                   </ul>
                 </div>
@@ -4715,7 +4802,7 @@ export default function TechniciansPage() {
                 <div className="rounded-3xl border border-slate-200 bg-white/70 p-6 shadow-sm">
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejo de marca</p>
                   <p className="mt-3 text-sm text-slate-600">
-                    Logo recomendado: fondo transparente o claro, alto contraste y version horizontal si es posible.
+                    Logo recomendado: fondo transparente o claro, alto contraste y versión horizontal si es posible.
                     Foto recomendada: rostro visible, luz natural y fondo simple.
                   </p>
                 </div>
@@ -4797,7 +4884,7 @@ export default function TechniciansPage() {
 
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <label className="text-xs font-semibold text-slate-600">Telefono / WhatsApp</label>
+                      <label className="text-xs font-semibold text-slate-600">Teléfono / WhatsApp</label>
                       <input
                         value={profileForm.phone}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
@@ -4816,7 +4903,7 @@ export default function TechniciansPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-slate-600">Direccion base</label>
+                    <label className="text-xs font-semibold text-slate-600">Dirección base</label>
                     <input
                       value={profileForm.address}
                       onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
