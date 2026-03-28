@@ -16,6 +16,66 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
+const PROFILE_SELECT_CANDIDATES = [
+  'id, access_granted, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name',
+  'id, access_granted, city, address, service_lat, service_lng, working_hours, full_name, business_name',
+  'id, access_granted, city, address, full_name, business_name',
+];
+
+const REQUESTS_SELECT_CANDIDATES = [
+  'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km, photo_urls',
+  'id, title, category, address, city, description, urgency, preferred_window, status, mode, created_at, location_lat, location_lng',
+  'id, title, category, address, city, description, urgency, status, created_at',
+];
+
+const OWN_MATCHES_SELECT_CANDIDATES = [
+  'request_id, quote_status, quote_id, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at',
+  'request_id, quote_status, quote_id, price_ars, eta_hours, updated_at',
+  'request_id, quote_status, updated_at',
+];
+
+const isSchemaDriftError = (message: string) => {
+  const normalized = String(message || '').toLowerCase();
+  return (
+    normalized.includes('column') ||
+    normalized.includes('schema cache') ||
+    normalized.includes('relation') ||
+    normalized.includes('service_radius_km') ||
+    normalized.includes('company_address') ||
+    normalized.includes('location_lat') ||
+    normalized.includes('location_lng') ||
+    normalized.includes('radius_km') ||
+    normalized.includes('photo_urls') ||
+    normalized.includes('target_technician_id') ||
+    normalized.includes('response_type') ||
+    normalized.includes('response_message') ||
+    normalized.includes('visit_eta_hours') ||
+    normalized.includes('price_ars') ||
+    normalized.includes('eta_hours')
+  );
+};
+
+const selectWithFallback = async (
+  selectCandidates: string[],
+  buildQuery: (selectClause: string) => Promise<{ data: any; error: any }>
+) => {
+  let lastResult: { data: any; error: any } = { data: null, error: null };
+
+  for (const selectClause of selectCandidates) {
+    const result = await buildQuery(selectClause);
+    if (!result.error) {
+      return { ...result, usedFallback: selectClause !== selectCandidates[0] };
+    }
+
+    lastResult = result;
+    if (!isSchemaDriftError(String(result.error?.message || ''))) {
+      return { ...result, usedFallback: false };
+    }
+  }
+
+  return { ...lastResult, usedFallback: true };
+};
+
 const getAuthUser = async (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace('Bearer ', '').trim();
@@ -48,13 +108,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select(
-      'id, access_granted, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name'
-    )
-    .eq('id', user.id)
-    .maybeSingle();
+  const { data: profile, error: profileError } = await selectWithFallback(PROFILE_SELECT_CANDIDATES, async (selectClause) =>
+    await supabase.from('profiles').select(selectClause).eq('id', user.id).maybeSingle()
+  );
 
   if (profileError) {
     return NextResponse.json({ error: profileError.message || 'No se pudo cargar tu perfil tecnico.' }, { status: 500 });
@@ -102,14 +158,14 @@ export async function GET(request: NextRequest) {
   }
 
   const radiusKm = normalizeRadius(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM);
-  const { data: requestsData, error: requestsError } = await supabase
-    .from('client_requests')
-    .select(
-      'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km, photo_urls'
-    )
-    .in('status', ['published', 'matched', 'quoted', 'direct_sent'])
-    .order('created_at', { ascending: false })
-    .limit(180);
+  const { data: requestsData, error: requestsError } = await selectWithFallback(REQUESTS_SELECT_CANDIDATES, async (selectClause) =>
+    await supabase
+      .from('client_requests')
+      .select(selectClause)
+      .in('status', ['published', 'matched', 'quoted', 'direct_sent'])
+      .order('created_at', { ascending: false })
+      .limit(180)
+  );
 
   if (requestsError) {
     return NextResponse.json(
@@ -123,20 +179,24 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const requestRows = Array.isArray(requestsData) ? (requestsData as any[]) : [];
   const normalizedRows: any[] = [];
   let skippedByDirectAssignment = 0;
   let skippedByMissingGeo = 0;
   let skippedByDistance = 0;
   let geocodedCount = 0;
-  const requestIds = (requestsData || []).map((row) => String(row.id || '').trim()).filter(Boolean);
+  const requestIds = requestRows.map((row: any) => String(row.id || '').trim()).filter(Boolean);
   const ownMatchesByRequestId = new Map<string, any>();
   if (requestIds.length > 0) {
-    const { data: ownMatchRows } = await supabase
-      .from('client_request_matches')
-      .select('request_id, quote_status, quote_id, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at')
-      .eq('technician_id', user.id)
-      .in('request_id', requestIds);
-    (ownMatchRows || []).forEach((row: any) => {
+    const { data: ownMatchRows } = await selectWithFallback(OWN_MATCHES_SELECT_CANDIDATES, async (selectClause) =>
+      await supabase
+        .from('client_request_matches')
+        .select(selectClause)
+        .eq('technician_id', user.id)
+        .in('request_id', requestIds)
+    );
+    const matchRows = Array.isArray(ownMatchRows) ? (ownMatchRows as any[]) : [];
+    matchRows.forEach((row: any) => {
       const requestId = String(row?.request_id || '').trim();
       if (requestId) ownMatchesByRequestId.set(requestId, row);
     });
@@ -146,7 +206,7 @@ export async function GET(request: NextRequest) {
   const profileHours = parseWorkingHoursConfig(profile.working_hours || '');
   const withinWorkingHours = isNowWithinWorkingHours(profileHours, now, ARGENTINA_TIMEZONE);
 
-  for (const row of requestsData || []) {
+  for (const row of requestRows) {
     if (row.mode === 'direct' && row.target_technician_id && row.target_technician_id !== user.id) {
       skippedByDirectAssignment += 1;
       continue;
@@ -221,7 +281,7 @@ export async function GET(request: NextRequest) {
     return String(b.created_at || '').localeCompare(String(a.created_at || ''));
   });
 
-  const totalLoaded = (requestsData || []).length;
+  const totalLoaded = requestRows.length;
   let warning = '';
   if (normalizedRows.length === 0) {
     if (totalLoaded === 0) {

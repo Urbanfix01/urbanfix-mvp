@@ -14,6 +14,8 @@ export interface LocationPickerResult {
 interface Props {
   value: LocationPickerResult | null;
   onChange: (result: LocationPickerResult | null) => void;
+  query?: string;
+  onQueryChange?: (query: string) => void;
   label?: string;
   description?: string;
   required?: boolean;
@@ -72,6 +74,8 @@ const geocodeAddress = async (query: string): Promise<LocationPickerResult[]> =>
 export default function TechnicianLocationPicker({
   value,
   onChange,
+  query,
+  onQueryChange,
   label = 'Ubicación de trabajo',
   description: descriptionProp,
   required = true,
@@ -98,15 +102,21 @@ export default function TechnicianLocationPicker({
 
   // Initialize input from value
   useEffect(() => {
-    if (value) {
-      setInput(value.displayName);
+    const nextInput = value?.displayName ?? query ?? '';
+    setInput((current) => (current === nextInput ? current : nextInput));
+    if (!nextInput.trim()) {
+      setSuggestions([]);
     }
-  }, [value]);
+  }, [query, value?.displayName]);
 
   // Search addresses
   const handleSearch = async (query: string) => {
     setInput(query);
+    onQueryChange?.(query);
     setSuggestions([]);
+    if (value && query.trim() !== value.displayName.trim()) {
+      onChange(null);
+    }
     if (!query.trim()) return;
 
     setLoading(true);
@@ -126,6 +136,7 @@ export default function TechnicianLocationPicker({
   const handleSelectSuggestion = (result: LocationPickerResult) => {
     onChange(result);
     setInput(result.displayName);
+    onQueryChange?.(result.displayName);
     setSuggestions([]);
   };
 
@@ -133,6 +144,7 @@ export default function TechnicianLocationPicker({
   const handleClear = () => {
     onChange(null);
     setInput('');
+    onQueryChange?.('');
     setSuggestions([]);
     setShowMap(false);
     setMapError('');

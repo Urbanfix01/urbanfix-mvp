@@ -30,7 +30,7 @@ import {
   normalizeTechnicalNotesText,
 } from '../../lib/master-items';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
-import TechnicianLocationPicker from '../../components/TechnicianLocationPicker';
+import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import { parseTechnicianLocation } from '../../lib/technician-location';
 import type {
   AccessProfile,
@@ -1270,13 +1270,7 @@ export default function TechniciansPage() {
 
   const [profile, setProfile] = useState<any>(null);
   const [profileLoadError, setProfileLoadError] = useState('');
-  const [technicianLocationResult, setTechnicianLocationResult] = useState<{
-    lat: number;
-    lng: number;
-    displayName: string;
-    isValid: boolean;
-    precision: 'exact' | 'approx';
-  } | null>(null);
+  const [technicianLocationResult, setTechnicianLocationResult] = useState<LocationPickerResult | null>(null);
   const [quotes, setQuotes] = useState<QuoteRow[]>([]);
   const [activeQuoteId, setActiveQuoteId] = useState<string | null>(null);
   const [clientName, setClientName] = useState('');
@@ -1797,17 +1791,59 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
-    if (!session?.user || (activeTab !== 'lobby' && activeTab !== 'operativo')) return;
+    const hasNearbyContext =
+      Boolean(technicianLocationResult?.isValid) ||
+      Boolean(String(profile?.company_address || profile?.address || '').trim()) ||
+      Boolean(String(profile?.city || '').trim());
+    if (
+      !session?.user ||
+      !profileHydrated ||
+      profile?.access_granted !== true ||
+      !hasNearbyContext ||
+      (activeTab !== 'lobby' && activeTab !== 'operativo')
+    )
+      return;
     fetchNearbyRequests();
-  }, [activeTab, session?.access_token, session?.user?.id]);
+  }, [
+    activeTab,
+    profile?.access_granted,
+    profile?.address,
+    profile?.city,
+    profile?.company_address,
+    profileHydrated,
+    session?.access_token,
+    session?.user?.id,
+    technicianLocationResult?.isValid,
+  ]);
 
   useEffect(() => {
-    if (!session?.user || (activeTab !== 'lobby' && activeTab !== 'operativo')) return;
+    const hasNearbyContext =
+      Boolean(technicianLocationResult?.isValid) ||
+      Boolean(String(profile?.company_address || profile?.address || '').trim()) ||
+      Boolean(String(profile?.city || '').trim());
+    if (
+      !session?.user ||
+      !profileHydrated ||
+      profile?.access_granted !== true ||
+      !hasNearbyContext ||
+      (activeTab !== 'lobby' && activeTab !== 'operativo')
+    )
+      return;
     const timer = window.setInterval(() => {
       fetchNearbyRequests();
     }, 30000);
     return () => window.clearInterval(timer);
-  }, [activeTab, session?.access_token, session?.user?.id]);
+  }, [
+    activeTab,
+    profile?.access_granted,
+    profile?.address,
+    profile?.city,
+    profile?.company_address,
+    profileHydrated,
+    session?.access_token,
+    session?.user?.id,
+    technicianLocationResult?.isValid,
+  ]);
 
   useEffect(() => {
     if (!(profile?.company_logo_url || (profile?.logo_shape && profile?.avatar_url))) return;
@@ -1869,7 +1905,16 @@ export default function TechniciansPage() {
   };
 
   const fetchNearbyRequests = async () => {
-    if (!session?.access_token) return;
+    const hasNearbyContext =
+      Boolean(technicianLocationResult?.isValid) ||
+      Boolean(String(profile?.company_address || profile?.address || '').trim()) ||
+      Boolean(String(profile?.city || '').trim());
+    if (!session?.access_token || !profileHydrated || profile?.access_granted !== true || !hasNearbyContext) {
+      setNearbyRequests([]);
+      setNearbyRequestsError('');
+      setNearbyRequestsWarning('');
+      return;
+    }
     setLoadingNearbyRequests(true);
     setNearbyRequestsError('');
     setNearbyRequestsWarning('');
@@ -2599,6 +2644,21 @@ export default function TechniciansPage() {
 
   const handleRemoveItem = (id: string) => {
     setItems((prev) => prev.filter((item) => item.id !== id));
+  };
+
+  const handleTechnicianAddressQueryChange = (address: string) => {
+    setProfileForm((prev) => ({ ...prev, address }));
+  };
+
+  const handleTechnicianLocationChange = (result: LocationPickerResult | null) => {
+    setTechnicianLocationResult(result);
+    setProfileForm((prev) => ({
+      ...prev,
+      address:
+        result && result.displayName !== 'Ubicación seleccionada en mapa' ? result.displayName : prev.address,
+      locationPickerResult: result,
+    }));
+    setProfilePersistTick((prev) => prev + 1);
   };
 
   const handleGeocodeSearch = async () => {
@@ -4949,12 +5009,14 @@ export default function TechniciansPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Dirección base</label>
-                    <input
-                      value={profileForm.address}
-                      onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
-                      placeholder="Calle y ciudad"
-                      className={authInputClass}
+                    <TechnicianLocationPicker
+                      value={technicianLocationResult}
+                      query={profileForm.address}
+                      onQueryChange={handleTechnicianAddressQueryChange}
+                      onChange={handleTechnicianLocationChange}
+                      label="Dirección base"
+                      description="Busca tu dirección, elige una sugerencia o abre el mapa para ajustar el punto exacto arrastrando el marcador."
+                      required={false}
                     />
                   </div>
 
@@ -7873,28 +7935,14 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura y horarios</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Direccion base</label>
-                      <input
-                        value={profileForm.address}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, address: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad</label>
-                      <input
-                        value={profileForm.city}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-
-                      <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="mt-3">
                         <TechnicianLocationPicker
                           value={technicianLocationResult}
-                          onChange={(result) => {
-                            setTechnicianLocationResult(result);
-                            setProfilePersistTick((prev) => prev + 1);
-                          }}
-                          label="Tu ubicación de trabajo"
-                          description="Selecciona donde trabajas. Esto es importante: aparecerás en el mapa de la vidriera."
+                          query={profileForm.address}
+                          onQueryChange={handleTechnicianAddressQueryChange}
+                          onChange={handleTechnicianLocationChange}
+                          label="Direccion base"
+                          description="Busca la dirección de tu base, selecciona una sugerencia y ajusta el punto exacto en el mapa si hace falta."
                           required={profileForm.profilePublished}
                           error={
                             profileForm.profilePublished && !technicianLocationResult?.isValid
@@ -7903,6 +7951,12 @@ export default function TechniciansPage() {
                           }
                         />
                       </div>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad</label>
+                      <input
+                        value={profileForm.city}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                      />
 
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Zona de cobertura</label>
                       <div className="mt-2 rounded-2xl border border-slate-200 bg-white px-4 py-3">
