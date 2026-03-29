@@ -10,9 +10,6 @@ const navLinks = [
   { label: 'Valores Mano de Obra', href: '/rubros' },
   { label: 'Ciudades', href: '/ciudades' },
   { label: 'Tecnicos disponibles', href: '/vidriera' },
-  { label: 'Soporte', href: '/soporte' },
-  { label: 'Politicas', href: '/politicas' },
-  { label: 'Contacto', href: '/contacto' },
 ];
 
 const createRequestHref = '/cliente?mode=register&quick=1&intent=create-request';

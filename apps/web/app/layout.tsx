@@ -6,6 +6,7 @@ import AnalyticsTracker from "../components/AnalyticsTracker";
 import AuthHashHandler from "../components/AuthHashHandler";
 import AuthSessionBridge from "../components/AuthSessionBridge";
 import PageTransition from "../components/PageTransition";
+import PublicFooter from "../components/PublicFooter";
 
 const inter = Inter({ subsets: ["latin"] });
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfix.com.ar").replace(/\/+$/, "");
@@ -57,6 +58,7 @@ export default function RootLayout({
         <AuthSessionBridge />
         <AnalyticsTracker />
         <PageTransition>{children}</PageTransition>
+        <PublicFooter />
       </body>
     </html>
   );
