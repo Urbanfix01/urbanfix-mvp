@@ -12,9 +12,7 @@ import {
   Home,
   ImagePlus,
   MessageCircle,
-  Moon,
   Search,
-  Sun,
   Tag,
   User,
   X,
@@ -63,7 +61,8 @@ const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
-const UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
+const UI_THEME = 'light';
+const LEGACY_UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
@@ -555,16 +554,6 @@ const themeStyles = {
   '--ui-ink': '#0F172A',
   '--ui-muted': '#64748B',
   '--ui-accent': '#111827',
-  '--ui-accent-soft': '#F5B942',
-} as React.CSSProperties;
-
-const darkThemeStyles = {
-  '--ui-bg': '#0B1220',
-  '--ui-card': '#0F172A',
-  '--ui-border': '#334155',
-  '--ui-ink': '#E2E8F0',
-  '--ui-muted': '#94A3B8',
-  '--ui-accent': '#1F2937',
   '--ui-accent-soft': '#F5B942',
 } as React.CSSProperties;
 
@@ -1396,7 +1385,7 @@ export default function TechniciansPage() {
   const [navSearch, setNavSearch] = useState('');
   const [isNavCollapsed, setIsNavCollapsed] = useState(false);
   const [isNavHovered, setIsNavHovered] = useState(false);
-  const [uiTheme, setUiTheme] = useState<'light' | 'dark'>('light');
+  const uiTheme = UI_THEME;
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
   const lastSavedItemsCountRef = useRef(0);
@@ -1427,8 +1416,7 @@ export default function TechniciansPage() {
   const [scheduleMessage, setScheduleMessage] = useState('');
   const [agendaSearch, setAgendaSearch] = useState('');
   const [agendaFilter, setAgendaFilter] = useState<'all' | 'pending' | 'scheduled'>('all');
-  const activeThemeStyles = uiTheme === 'dark' ? darkThemeStyles : themeStyles;
-  const toggleUiTheme = () => setUiTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  const activeThemeStyles = themeStyles;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1502,20 +1490,9 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem(UI_THEME_STORAGE_KEY);
-    if (stored === 'dark' || stored === 'light') {
-      setUiTheme(stored);
-      return;
-    }
-    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)')?.matches;
-    setUiTheme(prefersDark ? 'dark' : 'light');
+    window.localStorage.removeItem(LEGACY_UI_THEME_STORAGE_KEY);
+    document.documentElement.style.colorScheme = UI_THEME;
   }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(UI_THEME_STORAGE_KEY, uiTheme);
-    document.documentElement.style.colorScheme = uiTheme;
-  }, [uiTheme]);
 
   const setAccessProfileInUrl = (profile: AccessProfile | null) => {
     if (typeof window === 'undefined') return;
@@ -5763,26 +5740,7 @@ export default function TechniciansPage() {
             </nav>
 
             <div className="mt-auto border-t border-[color:var(--ui-border)]/80 px-4 py-4">
-              <button
-                type="button"
-                title={!isNavExpanded ? (uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro') : undefined}
-                onClick={toggleUiTheme}
-                className={`flex w-full items-center rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-xs font-semibold text-[color:var(--ui-muted)] transition hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)] ${
-                  isNavExpanded ? 'gap-3' : 'justify-center'
-                }`}
-              >
-                {uiTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-                {isNavExpanded && (
-                  <span className="flex-1 text-left">{uiTheme === 'dark' ? 'Modo claro' : 'Modo oscuro'}</span>
-                )}
-                {isNavExpanded && (
-                  <span className="rounded-full bg-[color:var(--ui-accent)]/10 px-2 py-0.5 text-[10px] font-semibold text-[color:var(--ui-muted)]">
-                    {uiTheme === 'dark' ? 'Oscuro' : 'Claro'}
-                  </span>
-                )}
-              </button>
-
-              <div className={`mt-3 flex items-center gap-3 ${isNavExpanded ? '' : 'justify-center'}`}>
+              <div className={`flex items-center gap-3 ${isNavExpanded ? '' : 'justify-center'}`}>
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] text-xs font-semibold text-[color:var(--ui-muted)]">
                   {(profile?.business_name || 'U')[0]}
                 </div>
