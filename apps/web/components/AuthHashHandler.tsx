@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { POST_AUTH_REDIRECT_KEY } from '../lib/auth/post-auth';
 import { supabase } from '../lib/supabase/supabase';
-
-const POST_AUTH_REDIRECT_KEY = 'urbanfix_post_auth_redirect';
 
 const getOAuthTokensFromHash = () => {
   if (typeof window === 'undefined') return null;

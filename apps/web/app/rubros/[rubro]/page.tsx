@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
+import { requireRegisteredUser } from '../../../lib/auth/require-registered-user';
 import { ciudades, ciudadSlugs } from '../../../lib/seo/urbanfix-data';
 import { getRubroTwemojiByName } from '../../../lib/seo/rubro-icons';
 import { formatArs, formatDateAr, getCatalogRubroPriceReferences } from '../../../lib/seo/rubro-prices';
@@ -17,11 +18,7 @@ const sora = Sora({
 });
 
 export const revalidate = 300;
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return rubroCatalogRouteSlugs.map((slug) => ({ rubro: slug }));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -50,6 +47,8 @@ export default async function RubroPage({ params }: { params: Promise<{ rubro: s
   if (slug !== incomingSlug) {
     permanentRedirect(`/rubros/${slug}`);
   }
+
+  await requireRegisteredUser(`/rubros/${slug}`);
 
   const rubro = getCatalogRubroBySlug(slug);
   if (!rubro) return notFound();

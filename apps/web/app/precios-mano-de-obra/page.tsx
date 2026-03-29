@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
+import { requireRegisteredUser } from '../../lib/auth/require-registered-user';
 import { rubroCatalog } from '../../lib/seo/rubro-catalog';
 import { ciudades, guias } from '../../lib/seo/urbanfix-data';
 
@@ -162,9 +163,11 @@ export const metadata: Metadata = {
   },
 };
 
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
 
-export default function PreciosManoDeObraPage() {
+export default async function PreciosManoDeObraPage() {
+  await requireRegisteredUser('/precios-mano-de-obra');
   return (
     <div className={sora.className}>
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">

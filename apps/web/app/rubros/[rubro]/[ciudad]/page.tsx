@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../../components/PublicTopNav';
+import { requireRegisteredUser } from '../../../../lib/auth/require-registered-user';
 import {
   ciudades,
   ciudadSlugs,
@@ -21,11 +22,7 @@ const sora = Sora({
 });
 
 export const revalidate = 300;
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return rubroCatalogRouteSlugs.flatMap((rubro) => ciudadSlugs.map((ciudad) => ({ rubro, ciudad })));
-}
+export const dynamic = 'force-dynamic';
 
 export async function generateMetadata({
   params,
@@ -57,6 +54,8 @@ export default async function RubroCiudadPage({
   if (rubro !== incomingRubro) {
     permanentRedirect(`/rubros/${rubro}/${ciudad}`);
   }
+
+  await requireRegisteredUser(`/rubros/${rubro}/${ciudad}`);
 
   const ciudadKey = ciudad as CiudadKey;
   const rubroData = getCatalogRubroBySlug(rubro);

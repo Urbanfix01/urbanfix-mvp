@@ -2,7 +2,6 @@ import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
 import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
-import { rubroCatalogSlugs } from "../lib/seo/rubro-catalog";
 
 export const dynamic = "force-dynamic";
 
@@ -62,12 +61,6 @@ const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Site
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.urbanfix.com.ar").replace(/\/+$/, "");
   const technicianEntries = await getTechnicianEntries(baseUrl);
-  const rubrosEntries: MetadataRoute.Sitemap = rubroCatalogSlugs.map((slug) => ({
-    url: `${baseUrl}/rubros/${slug}`,
-    lastModified: new Date(),
-    changeFrequency: "monthly",
-    priority: 0.6,
-  }));
   const ciudadesEntries: MetadataRoute.Sitemap = ciudadSlugs.map((slug) => ({
     url: `${baseUrl}/ciudades/${slug}`,
     lastModified: new Date(),
@@ -80,20 +73,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "weekly",
     priority: 0.7,
   }));
-  const manoDeObraCiudadEntries: MetadataRoute.Sitemap = ciudadSlugs.map((slug) => ({
-    url: `${baseUrl}/precios-mano-de-obra/${slug}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly",
-    priority: 0.7,
-  }));
-  const rubroCiudadEntries: MetadataRoute.Sitemap = rubroCatalogSlugs.flatMap((rubro) =>
-    ciudadSlugs.map((ciudad) => ({
-      url: `${baseUrl}/rubros/${rubro}/${ciudad}`,
-      lastModified: new Date(),
-      changeFrequency: "monthly",
-      priority: 0.5,
-    }))
-  );
   const guiasEntries: MetadataRoute.Sitemap = guiaSlugs.map((slug) => ({
     url: `${baseUrl}/guias-precios/${slug}`,
     lastModified: new Date(),
@@ -108,21 +87,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "weekly",
       priority: 1,
     },
-    {
-      url: `${baseUrl}/precios-mano-de-obra`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.8,
-    },
-    ...manoDeObraCiudadEntries,
-    {
-      url: `${baseUrl}/rubros`,
-      lastModified: new Date(),
-      changeFrequency: "weekly",
-      priority: 0.7,
-    },
-    ...rubrosEntries,
-    ...rubroCiudadEntries,
     {
       url: `${baseUrl}/ciudades`,
       lastModified: new Date(),

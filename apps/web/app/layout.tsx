@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import AnalyticsTracker from "../components/AnalyticsTracker";
 import AuthHashHandler from "../components/AuthHashHandler";
+import AuthSessionBridge from "../components/AuthSessionBridge";
 import PageTransition from "../components/PageTransition";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -53,6 +54,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={inter.className}>
         <AuthHashHandler />
+        <AuthSessionBridge />
         <AnalyticsTracker />
         <PageTransition>{children}</PageTransition>
       </body>

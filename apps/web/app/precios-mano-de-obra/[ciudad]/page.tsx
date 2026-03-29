@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
+import { requireRegisteredUser } from '../../../lib/auth/require-registered-user';
 import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix-data';
 import { formatDateAr, getCatalogRubrosOverview } from '../../../lib/seo/rubro-prices';
 
@@ -11,12 +12,8 @@ const sora = Sora({
   weight: ['400', '500', '600', '700', '800'],
 });
 
-export const dynamicParams = false;
+export const dynamic = 'force-dynamic';
 export const revalidate = 300;
-
-export function generateStaticParams() {
-  return ciudadSlugs.map((ciudad) => ({ ciudad }));
-}
 
 export async function generateMetadata({
   params,
@@ -55,6 +52,7 @@ export default async function PreciosManoDeObraCiudadPage({
   params: Promise<{ ciudad: string }>;
 }) {
   const { ciudad } = await params;
+  await requireRegisteredUser(`/precios-mano-de-obra/${ciudad}`);
   const cityKey = ciudad as CiudadKey;
   const city = ciudades[cityKey];
   if (!city) return notFound();

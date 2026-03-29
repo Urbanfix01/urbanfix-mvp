@@ -23,6 +23,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import { POST_AUTH_REDIRECT_KEY, sanitizeNextPath } from '../../lib/auth/post-auth';
 import {
   buildMasterItemChoiceLabel,
   canonicalizeMasterItemUnit,
@@ -1430,6 +1431,10 @@ export default function TechniciansPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    const nextPath = sanitizeNextPath(params.get('next'));
+    if (nextPath) {
+      window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, nextPath);
+    }
     const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
     if (incomingProfile === 'cliente') {
       const nextParams = new URLSearchParams();
@@ -1464,6 +1469,15 @@ export default function TechniciansPage() {
       setAuthNotice('');
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !session?.user) return;
+    const params = new URLSearchParams(window.location.search);
+    const nextPath = sanitizeNextPath(params.get('next'));
+    if (!nextPath) return;
+    window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    window.location.replace(nextPath);
+  }, [session?.user?.id]);
 
   useEffect(() => {
     if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted || !selectedAccessProfile)

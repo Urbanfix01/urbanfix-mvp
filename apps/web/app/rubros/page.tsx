@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
+import { requireRegisteredUser } from '../../lib/auth/require-registered-user';
 import { getRubroTwemojiByName } from '../../lib/seo/rubro-icons';
 import { formatDateAr, getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
 
@@ -9,6 +10,7 @@ const sora = Sora({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Rubros y MANO DE OBRA | UrbanFix Argentina',
   description:
@@ -19,6 +21,7 @@ export const metadata: Metadata = {
 export const revalidate = 300;
 
 export default async function RubrosPage() {
+  await requireRegisteredUser('/rubros');
   const rubrosList = await getCatalogRubrosOverview();
 
   return (
