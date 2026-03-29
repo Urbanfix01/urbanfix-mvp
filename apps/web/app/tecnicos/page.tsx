@@ -5173,8 +5173,8 @@ export default function TechniciansPage() {
                     )}
                   </div>
 
-                  <div className="space-y-4 px-5 py-5 sm:px-6">
-                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="space-y-3 px-5 py-4 sm:px-6">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                       <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-[color:var(--ui-card)] bg-[color:var(--ui-bg)] shadow-sm">
                         {profileForm.avatarUrl ? (
                           <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
@@ -5193,29 +5193,30 @@ export default function TechniciansPage() {
                       </div>
                     </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-4">
-                        <div className="flex min-h-24 items-center justify-center">
-                          <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                            {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
-                            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                          </label>
+                    <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--ui-border)]/70 pt-3">
+                      <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                        {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                      </label>
+                      <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
+                        {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
+                        <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                      </label>
+                      {profileForm.companyLogoUrl ? (
+                        <div className="ml-auto hidden h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--ui-border)] bg-white sm:flex">
+                          <img
+                            src={profileForm.companyLogoUrl}
+                            alt="Logo"
+                            onLoad={handleLogoLoaded}
+                            className="h-full w-full object-contain p-1"
+                          />
                         </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-4">
-                        <div className="flex min-h-24 items-center justify-center">
-                          <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
-                            {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
-                            <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                          </label>
-                        </div>
-                      </div>
+                      ) : null}
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 space-y-4">
+                <div className="mt-4 space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre y apellido</label>
@@ -8078,8 +8079,8 @@ export default function TechniciansPage() {
                             )}
                           </div>
 
-                          <div className="space-y-4 px-6 py-5">
-                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                          <div className="space-y-3 px-6 py-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                               <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
                                 {profileForm.avatarUrl ? (
                                   <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
@@ -8098,41 +8099,29 @@ export default function TechniciansPage() {
                               </div>
                             </div>
 
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                <div className="flex min-h-24 items-center justify-center">
-                                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                                    <ImagePlus className="h-4 w-4" />
-                                    {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
-                                    <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                                  </label>
-                                </div>
-                              </div>
-
-                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                <div className="flex min-h-24 items-center justify-center">
-                                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                                    <ImagePlus className="h-4 w-4" />
-                                    {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
-                                    <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                                  </label>
-                                </div>
-                                <div className="mt-3 flex flex-wrap items-center gap-2">
-                                  <select
-                                    value={profileForm.logoShape}
-                                    onChange={(event) =>
-                                      setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))
-                                    }
-                                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                                  >
-                                    <option value="auto">Auto</option>
-                                    <option value="round">Redondo</option>
-                                    <option value="square">Cuadrado</option>
-                                    <option value="rect">Rectangular</option>
-                                  </select>
-                                  <span className="text-[11px] font-semibold text-slate-400">Forma del logo</span>
-                                </div>
-                              </div>
+                            <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                                <ImagePlus className="h-4 w-4" />
+                                {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+                                <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                              </label>
+                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                                <ImagePlus className="h-4 w-4" />
+                                {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
+                                <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                              </label>
+                              <select
+                                value={profileForm.logoShape}
+                                onChange={(event) =>
+                                  setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))
+                                }
+                                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                              >
+                                <option value="auto">Logo: auto</option>
+                                <option value="round">Logo: redondo</option>
+                                <option value="square">Logo: cuadrado</option>
+                                <option value="rect">Logo: rectangular</option>
+                              </select>
                             </div>
                           </div>
                         </div>
