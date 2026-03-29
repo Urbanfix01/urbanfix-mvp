@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DEFAULT_COUNTRY_NAME, getCountryCode, getCountryConfig, isCoordinateWithinCountry } from '../../../../lib/location-catalog';
 
+const GEOCODE_CACHE_TTL_MS = 45_000;
+
+type GeocodeApiPayload = {
+  results: Array<{ display_name: string; lat: number; lon: number; precision: 'exact' | 'approx' }>;
+  error: string;
+  rateLimited?: boolean;
+};
+
+const geocodeResponseCache = new Map<string, { expiresAt: number; payload: GeocodeApiPayload }>();
+
 const normalizeSearchText = (value: string) =>
   String(value || '')
     .toLowerCase()
@@ -33,6 +43,57 @@ type NominatimRow = {
     state_district?: string;
     state?: string;
     postcode?: string;
+  };
+};
+
+const buildGeocodeCacheKey = (
+  query: string,
+  cityHint: string,
+  provinceHint: string,
+  countryHint: string,
+  limit: number
+) => JSON.stringify({ query: normalizeSearchText(query), cityHint, provinceHint, countryHint, limit });
+
+const dedupeNominatimRows = (rows: NominatimRow[]) => {
+  const seen = new Set<string>();
+
+  return rows.filter((row) => {
+    const displayName = String(row.display_name || '').trim().toLowerCase();
+    const lat = Number(row.lat);
+    const lon = Number(row.lon);
+    const key = `${displayName}|${Number.isFinite(lat) ? lat.toFixed(6) : 'nan'}|${Number.isFinite(lon) ? lon.toFixed(6) : 'nan'}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const collectNominatimRows = async (variants: string[], limit: number, countryCode: string) => {
+  const rows: NominatimRow[] = [];
+  let error = '';
+  let rateLimited = false;
+
+  for (const variant of variants) {
+    const result = await fetchNominatimRows(variant, limit, countryCode);
+    if (result.rows.length > 0) {
+      rows.push(...result.rows);
+    }
+    if (!error && result.error) {
+      error = result.error;
+    }
+    if (result.rateLimited) {
+      rateLimited = true;
+      break;
+    }
+    if (dedupeNominatimRows(rows).length >= limit) {
+      break;
+    }
+  }
+
+  return {
+    rows: dedupeNominatimRows(rows),
+    error,
+    rateLimited,
   };
 };
 
@@ -240,20 +301,32 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
+  const cacheKey = buildGeocodeCacheKey(query, cityHint, provinceHint, countryHint, limit);
+  const cached = geocodeResponseCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return NextResponse.json(cached.payload);
+  }
+
   try {
     const upstreamLimit = Math.max(limit, 8);
-    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(0, cityHint ? 6 : provinceHint ? 4 : 4);
+    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(0, cityHint ? 4 : provinceHint ? 3 : 2);
     const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint, countryHint).slice(
       0,
-      cityHint ? 3 : provinceHint ? 1 : 2
+      cityHint ? 1 : provinceHint ? 1 : 0
     );
-    const settled = await Promise.all(
-      variants.map((variant) => fetchNominatimRows(variant, upstreamLimit, countryCode)).concat(
-        fallbackVariants.map((variant) => fetchNominatimRows(variant, Math.max(6, limit), countryCode))
-      )
-    );
-    const firstError = settled.find((item) => item.error)?.error || '';
-    const rows = settled.flatMap((item) => item.rows);
+    const primaryResult = await collectNominatimRows(variants, upstreamLimit, countryCode);
+    let firstError = primaryResult.error;
+    let rateLimited = primaryResult.rateLimited;
+    let rows = primaryResult.rows;
+
+    if (!rateLimited && rows.length < limit && fallbackVariants.length > 0) {
+      const fallbackResult = await collectNominatimRows(fallbackVariants, Math.max(6, limit), countryCode);
+      rows = dedupeNominatimRows([...rows, ...fallbackResult.rows]);
+      if (!firstError) {
+        firstError = fallbackResult.error;
+      }
+      rateLimited = fallbackResult.rateLimited;
+    }
 
     const normalizedQuery = normalizeSearchText(query);
     const normalizedCityHint = normalizeSearchText(cityHint);
@@ -330,7 +403,18 @@ export async function GET(request: NextRequest) {
         precision: (item as any).precision,
       }));
 
-    return NextResponse.json({ results, error: results.length === 0 ? firstError : '' });
+    const payload: GeocodeApiPayload = {
+      results,
+      error: results.length === 0 ? firstError : '',
+      rateLimited,
+    };
+
+    geocodeResponseCache.set(cacheKey, {
+      expiresAt: Date.now() + GEOCODE_CACHE_TTL_MS,
+      payload,
+    });
+
+    return NextResponse.json(payload);
   } catch {
     return NextResponse.json({ results: [], error: 'No pudimos buscar direcciones en este momento.' });
   }

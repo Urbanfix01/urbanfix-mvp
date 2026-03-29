@@ -28,12 +28,29 @@ interface Props {
   error?: string;
 }
 
+type GeocodeSearchResponse = {
+  results: LocationPickerResult[];
+  error?: string;
+  rateLimited?: boolean;
+};
+
+const SEARCH_CACHE_TTL_MS = 45_000;
+const SEARCH_RATE_LIMIT_COOLDOWN_MS = 7_000;
+
+const buildSearchCacheKey = (query: string, countryHint?: string, cityHint?: string, provinceHint?: string) =>
+  JSON.stringify({
+    query: query.trim().toLowerCase(),
+    countryHint: String(countryHint || '').trim().toLowerCase(),
+    cityHint: String(cityHint || '').trim().toLowerCase(),
+    provinceHint: String(provinceHint || '').trim().toLowerCase(),
+  });
+
 const geocodeAddress = async (
   query: string,
   countryHint?: string,
   cityHint?: string,
   provinceHint?: string
-): Promise<{ results: LocationPickerResult[]; error?: string }> => {
+): Promise<GeocodeSearchResponse> => {
   const trimmed = query.trim();
   if (trimmed.length < 3) return { results: [] };
 
@@ -54,6 +71,7 @@ const geocodeAddress = async (
     const payload = (await response.json()) as {
       results?: Array<{ display_name: string; lat: number; lon: number; precision?: 'exact' | 'approx' }>;
       error?: string;
+      rateLimited?: boolean;
     };
     const data = Array.isArray(payload.results) ? payload.results : [];
     const results = data
@@ -65,7 +83,7 @@ const geocodeAddress = async (
         precision: item.precision === 'exact' ? 'exact' : 'approx',
       }))
       .filter((item) => item.isValid);
-    return { results, error: payload.error };
+    return { results, error: payload.error, rateLimited: Boolean(payload.rateLimited) };
   } catch {
     return { results: [], error: 'No pudimos buscar direcciones en este momento.' };
   }
@@ -99,6 +117,8 @@ export default function TechnicianLocationPicker({
   const coverageCircleRef = useRef<any | null>(null);
   const isMountedRef = useRef(true);
   const searchRequestIdRef = useRef(0);
+  const searchCacheRef = useRef(new Map<string, { expiresAt: number; payload: GeocodeSearchResponse }>());
+  const rateLimitedUntilRef = useRef(0);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -126,18 +146,45 @@ export default function TechnicianLocationPicker({
       return;
     }
 
+    const now = Date.now();
+    if (rateLimitedUntilRef.current > now) {
+      setSuggestions([]);
+      setLoading(false);
+      setSearchError('Demasiadas busquedas seguidas. Espera unos segundos e intenta nuevamente.');
+      return;
+    }
+
+    const cacheKey = buildSearchCacheKey(trimmed, countryHint, cityHint, provinceHint);
+    const cached = searchCacheRef.current.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      setSuggestions(cached.payload.results);
+      setSearchError(cached.payload.error || '');
+      setLoading(false);
+      return;
+    }
+
     const requestId = searchRequestIdRef.current + 1;
     searchRequestIdRef.current = requestId;
     setLoading(true);
     setSearchError('');
 
     const timer = window.setTimeout(async () => {
-      const { results, error: nextError } = await geocodeAddress(trimmed, countryHint, cityHint, provinceHint);
+      const response = await geocodeAddress(trimmed, countryHint, cityHint, provinceHint);
       if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
-      setSuggestions(results);
-      setSearchError(nextError || '');
+
+      if (response.rateLimited) {
+        rateLimitedUntilRef.current = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
+      }
+
+      searchCacheRef.current.set(cacheKey, {
+        expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+        payload: response,
+      });
+
+      setSuggestions(response.results);
+      setSearchError(response.error || '');
       setLoading(false);
-    }, 650);
+    }, 900);
 
     return () => {
       window.clearTimeout(timer);
