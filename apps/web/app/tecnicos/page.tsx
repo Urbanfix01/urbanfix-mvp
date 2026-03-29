@@ -5677,52 +5677,57 @@ export default function TechniciansPage() {
           <aside
             onMouseEnter={() => setIsNavHovered(true)}
             onMouseLeave={() => setIsNavHovered(false)}
-            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,243,236,0.96))] shadow-[0_24px_64px_-36px_rgba(42,3,56,0.35)] backdrop-blur transition-all lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] ${
-              isNavExpanded ? 'w-72' : 'w-20'
+            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,246,239,0.98)_55%,rgba(247,239,248,0.96)_100%)] shadow-[0_28px_80px_-42px_rgba(42,3,56,0.38)] backdrop-blur transition-all lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] ${
+              isNavExpanded ? 'w-[295px]' : 'w-[92px]'
             }`}
           >
-            <div className="flex items-center justify-between px-4 py-4">
-              <div className="flex items-center gap-3">
-                <div
-                  style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                  className={`flex h-11 w-auto min-w-11 max-w-[88px] items-center justify-center ring-1 ring-[color:var(--ui-border)] shadow-lg shadow-[rgba(42,3,56,0.12)] overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                    brandLogoUrl ? 'bg-white' : 'bg-[color:var(--ui-brand)]'
-                  }`}
-                >
-                  {brandLogoUrl ? (
-                    <img
-                      src={brandLogoUrl}
-                      alt="Logo de empresa"
-                      onLoad={handleLogoLoaded}
-                      className={`h-full w-full ${logoPresentation.img}`}
-                    />
-                  ) : (
-                    <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
-                  )}
-                </div>
-                {isNavExpanded && (
-                  <div>
-                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-400">UrbanFix</p>
-                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
-                      {profile?.business_name || 'Panel tecnico'}
-                    </p>
+            <div className={`px-3 ${isNavExpanded ? 'pt-4' : 'pt-3'}`}>
+              <div className={`rounded-[28px] border border-[#4e2361]/18 bg-[linear-gradient(135deg,rgba(42,3,56,0.97),rgba(74,18,96,0.94))] shadow-[0_28px_44px_-28px_rgba(42,3,56,0.9)] ${isNavExpanded ? 'px-4 py-4' : 'px-3 py-3'}`}>
+                <div className={`flex ${isNavExpanded ? 'items-start justify-between gap-3' : 'flex-col items-center gap-3'}`}>
+                  <div className={`flex ${isNavExpanded ? 'items-center gap-3' : 'flex-col items-center gap-2 text-center'}`}>
+                    <div
+                      style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                      className={`flex h-12 w-auto min-w-12 max-w-[92px] items-center justify-center overflow-hidden rounded-[20px] ring-1 ring-white/15 shadow-lg shadow-black/30 ${logoPresentation.frame} ${logoPresentation.padding} ${
+                        brandLogoUrl ? 'bg-white' : 'bg-white/12'
+                      }`}
+                    >
+                      {brandLogoUrl ? (
+                        <img
+                          src={brandLogoUrl}
+                          alt="Logo de empresa"
+                          onLoad={handleLogoLoaded}
+                          className={`h-full w-full ${logoPresentation.img}`}
+                        />
+                      ) : (
+                        <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
+                      )}
+                    </div>
+                    {isNavExpanded && (
+                      <div className="min-w-0">
+                        <p className="text-[10px] uppercase tracking-[0.34em] text-white/45">UrbanFix</p>
+                        <p className="mt-1 truncate text-sm font-semibold text-white">
+                          {profile?.business_name || 'Panel tecnico'}
+                        </p>
+                        <p className="truncate text-[11px] text-white/58">Operacion y seguimiento</p>
+                      </div>
+                    )}
                   </div>
-                )}
+                  <button
+                    type="button"
+                    onClick={() => setIsNavCollapsed((prev) => !prev)}
+                    aria-label={isNavCollapsed ? 'Abrir menu lateral' : 'Cerrar menu lateral'}
+                    title={isNavCollapsed ? 'Abrir menu' : 'Cerrar menu'}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/12 bg-white/10 text-white transition hover:border-[#ffb45e]/55 hover:bg-white/16"
+                  >
+                    <NavToggleIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={() => setIsNavCollapsed((prev) => !prev)}
-                aria-label={isNavCollapsed ? 'Abrir menu lateral' : 'Cerrar menu lateral'}
-                title={isNavCollapsed ? 'Abrir menu' : 'Cerrar menu'}
-                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-brand-soft)] text-[color:var(--ui-brand)] transition hover:border-[color:var(--ui-brand-warm)] hover:bg-white hover:text-[color:var(--ui-brand)]"
-              >
-                <NavToggleIcon className="h-4 w-4" />
-              </button>
             </div>
 
             {isNavExpanded && (
-              <div className="px-4">
-                <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-white px-3 py-2 text-xs text-[color:var(--ui-muted)] shadow-sm transition focus-within:border-[color:var(--ui-brand-warm)] focus-within:ring-2 focus-within:ring-[color:var(--ui-brand-soft)]">
+              <div className="px-3 pt-4">
+                <div className="flex items-center gap-2 rounded-[22px] border border-white/90 bg-white/88 px-3 py-2.5 text-xs text-[color:var(--ui-muted)] shadow-[0_12px_24px_-18px_rgba(42,3,56,0.45)] transition focus-within:border-[color:var(--ui-brand-warm)] focus-within:ring-2 focus-within:ring-[color:var(--ui-brand-soft)]">
                   <Search className="h-4 w-4 text-[color:var(--ui-brand)]/70" />
                   <input
                     value={navSearch}
@@ -5735,10 +5740,11 @@ export default function TechniciansPage() {
             )}
 
             {isNavExpanded && (
-              <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.3em] text-[color:var(--ui-muted)]">Menu</p>
+              <p className="px-5 pt-4 text-[11px] uppercase tracking-[0.3em] text-[color:var(--ui-muted)]/85">Menu</p>
             )}
 
-            <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-0 pb-3">
+            <nav className={`mt-3 flex-1 overflow-y-auto ${isNavExpanded ? 'px-3 pb-4' : 'px-2 pb-4'}`}>
+              <div className={`rounded-[28px] border border-white/80 bg-white/72 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_18px_40px_-34px_rgba(42,3,56,0.45)] ${isNavExpanded ? 'space-y-1.5 p-2.5' : 'space-y-2 p-2'}`}>
               {filteredNavItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = activeNavKey === item.key;
@@ -5751,33 +5757,43 @@ export default function TechniciansPage() {
                       setActiveTab(item.key);
                       if (item.key === 'presupuestos') setQuoteFilter('all');
                     }}
-                    className={`group flex w-full items-center rounded-2xl py-2 text-sm font-semibold transition ${
-                      isNavExpanded ? 'gap-3 px-6' : 'justify-center px-0'
+                    className={`group relative flex w-full items-center text-sm font-semibold transition ${
+                      isNavExpanded ? 'gap-3 rounded-[22px] px-3 py-3' : 'mx-auto h-12 w-12 justify-center rounded-[18px]'
                     } ${
                       isActive
-                        ? 'bg-[color:var(--ui-brand)] text-white shadow-[0_18px_32px_-20px_rgba(42,3,56,0.9)]'
-                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-brand-soft)] hover:text-[color:var(--ui-brand)]'
+                        ? 'bg-[linear-gradient(135deg,rgba(42,3,56,1),rgba(74,18,96,0.98))] text-white shadow-[0_22px_34px_-22px_rgba(42,3,56,0.96)]'
+                        : 'text-slate-500 hover:bg-[#f7effb] hover:text-[color:var(--ui-brand)]'
                     }`}
                   >
-                    <Icon
-                      className={`h-4 w-4 ${
-                        isActive ? 'text-white' : 'text-[color:var(--ui-muted)] group-hover:text-[color:var(--ui-brand)]'
+                    <span
+                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
+                        isActive
+                          ? 'bg-white/12 text-white'
+                          : 'bg-[color:var(--ui-brand-soft)] text-[color:var(--ui-brand)] group-hover:bg-white'
                       }`}
-                    />
+                    >
+                      <Icon className="h-4 w-4" />
+                    </span>
                     {isNavExpanded && <span className="flex-1 text-left">{item.label}</span>}
                     {isNavExpanded && item.key === 'notificaciones' && unreadNotifications > 0 && (
-                      <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      <span className="rounded-full bg-[#ff8f1f] px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                        {unreadNotifications}
+                      </span>
+                    )}
+                    {!isNavExpanded && item.key === 'notificaciones' && unreadNotifications > 0 && (
+                      <span className="absolute right-0 top-0 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#ff8f1f] px-1 text-[9px] font-bold text-white shadow-sm">
                         {unreadNotifications}
                       </span>
                     )}
                   </button>
                 );
               })}
+              </div>
             </nav>
 
-            <div className="mt-auto border-t border-[color:var(--ui-border)]/80 px-4 py-4 bg-white/40">
-              <div className={`flex items-center gap-3 ${isNavExpanded ? '' : 'justify-center'}`}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-white text-xs font-semibold text-[color:var(--ui-brand)] shadow-sm">
+            <div className={`mt-auto border-t border-white/70 ${isNavExpanded ? 'px-3 py-4' : 'px-2 py-4'} bg-white/30`}>
+              <div className={`rounded-[24px] border border-white/80 bg-white/76 shadow-[0_18px_36px_-28px_rgba(42,3,56,0.4)] ${isNavExpanded ? 'flex items-center gap-3 px-3 py-3' : 'flex justify-center px-2 py-3'}`}>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-white text-xs font-semibold text-[color:var(--ui-brand)] shadow-sm">
                   {(profile?.business_name || 'U')[0]}
                 </div>
                 {isNavExpanded && (
@@ -5795,7 +5811,7 @@ export default function TechniciansPage() {
           </aside>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/70 p-2 shadow-sm backdrop-blur lg:hidden">
+            <div className="mb-4 rounded-[28px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(247,239,248,0.88))] p-2.5 shadow-[0_24px_44px_-34px_rgba(42,3,56,0.45)] backdrop-blur lg:hidden">
               <div className="flex items-center gap-2 overflow-x-auto">
                 {navItems.map((item) => {
                   const isActive = activeNavKey === item.key;
@@ -5809,8 +5825,8 @@ export default function TechniciansPage() {
                       }}
                       className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
                         isActive
-                          ? 'bg-[color:var(--ui-brand)] text-white shadow-[0_18px_32px_-20px_rgba(42,3,56,0.9)]'
-                          : 'bg-white text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-brand-soft)] hover:text-[color:var(--ui-brand)]'
+                          ? 'bg-[linear-gradient(135deg,rgba(42,3,56,1),rgba(74,18,96,0.98))] text-white shadow-[0_18px_32px_-20px_rgba(42,3,56,0.9)]'
+                          : 'bg-white/92 text-slate-600 hover:bg-[#f7effb] hover:text-[color:var(--ui-brand)]'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
