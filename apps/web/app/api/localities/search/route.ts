@@ -43,6 +43,16 @@ const buildLocalityLabel = (row: GeoRefLocalityRow) => {
   return parts.filter(Boolean).join(', ');
 };
 
+const dedupeLocalityResults = (rows: Array<{ name: string; label: string }>) => {
+  const seen = new Set<string>();
+  return rows.filter((row) => {
+    const key = normalizeText(row.name);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const fetchArgentinaLocalities = async (province: string, query: string, limit: number) => {
   const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(
     province
@@ -71,15 +81,10 @@ const fetchArgentinaLocalities = async (province: string, query: string, limit: 
 
     const payload = (await response.json()) as { localidades?: GeoRefLocalityRow[] };
     const rows = Array.isArray(payload.localidades) ? payload.localidades : [];
-    const seen = new Set<string>();
-
     const results = rows
       .map((row) => {
         const name = String(row.nombre || '').trim();
         if (!name) return null;
-        const key = normalizeText(name);
-        if (seen.has(key)) return null;
-        seen.add(key);
         return {
           name,
           label: buildLocalityLabel(row),
@@ -87,7 +92,7 @@ const fetchArgentinaLocalities = async (province: string, query: string, limit: 
       })
       .filter(Boolean) as Array<{ name: string; label: string }>;
 
-    return { results, error: '' };
+    return { results: dedupeLocalityResults(results), error: '' };
   } catch {
     clearTimeout(timeoutId);
     return {
@@ -129,17 +134,12 @@ const fetchGlobalLocalities = async (country: string, province: string, query: s
 
     const payload = (await response.json()) as NominatimLocalityRow[];
     const rows = Array.isArray(payload) ? payload : [];
-    const seen = new Set<string>();
-
     const results = rows
       .map((row) => {
         const name = String(
           row.address?.city || row.address?.town || row.address?.village || row.address?.municipality || ''
         ).trim();
         if (!name) return null;
-        const key = normalizeText(name);
-        if (seen.has(key)) return null;
-        seen.add(key);
         const county = String(row.address?.county || '').trim();
         const state = String(row.address?.state || '').trim();
         return {
@@ -149,7 +149,7 @@ const fetchGlobalLocalities = async (country: string, province: string, query: s
       })
       .filter(Boolean) as Array<{ name: string; label: string }>;
 
-    return { results, error: '' };
+    return { results: dedupeLocalityResults(results), error: '' };
   } catch {
     clearTimeout(timeoutId);
     return {
@@ -171,10 +171,20 @@ export async function GET(request: NextRequest) {
   }
 
   const normalizedCountry = getCountryConfig(country).name;
-  const { results, error } =
-    normalizedCountry === 'Argentina'
-      ? await fetchArgentinaLocalities(province, query, limit)
-      : await fetchGlobalLocalities(normalizedCountry, province, query, limit);
+  if (normalizedCountry === 'Argentina') {
+    const georefResult = await fetchArgentinaLocalities(province, query, limit);
+    if (georefResult.results.length > 0) {
+      return NextResponse.json(georefResult);
+    }
+
+    const nominatimFallback = await fetchGlobalLocalities(normalizedCountry, province, query, limit);
+    const mergedResults = dedupeLocalityResults([...georefResult.results, ...nominatimFallback.results]).slice(0, limit);
+    const error = mergedResults.length > 0 ? '' : georefResult.error || nominatimFallback.error;
+
+    return NextResponse.json({ results: mergedResults, error });
+  }
+
+  const { results, error } = await fetchGlobalLocalities(normalizedCountry, province, query, limit);
 
   return NextResponse.json({ results, error });
 }
