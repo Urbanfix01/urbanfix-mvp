@@ -5192,6 +5192,7 @@ export default function TechniciansPage() {
                       query={profileForm.address}
                       onQueryChange={handleTechnicianAddressQueryChange}
                       onChange={handleTechnicianLocationChange}
+                      coverageRadiusKm={technicianRadiusKm}
                       countryHint={profileForm.country}
                       cityHint={profileForm.city}
                       provinceHint={profileForm.province}
@@ -8166,6 +8167,7 @@ export default function TechniciansPage() {
                           query={profileForm.address}
                           onQueryChange={handleTechnicianAddressQueryChange}
                           onChange={handleTechnicianLocationChange}
+                          coverageRadiusKm={technicianRadiusKm}
                           countryHint={profileForm.country}
                           cityHint={profileForm.city}
                           provinceHint={profileForm.province}

@@ -17,6 +17,7 @@ interface Props {
   onChange: (result: LocationPickerResult | null) => void;
   query?: string;
   onQueryChange?: (query: string) => void;
+  coverageRadiusKm?: number;
   countryHint?: string;
   cityHint?: string;
   provinceHint?: string;
@@ -75,6 +76,7 @@ export default function TechnicianLocationPicker({
   onChange,
   query,
   onQueryChange,
+  coverageRadiusKm = 20,
   countryHint = DEFAULT_COUNTRY_NAME,
   cityHint,
   provinceHint,
@@ -94,6 +96,7 @@ export default function TechnicianLocationPicker({
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
   const mapRef = useRef<any | null>(null);
   const markerRef = useRef<any | null>(null);
+  const coverageCircleRef = useRef<any | null>(null);
   const isMountedRef = useRef(true);
   const searchRequestIdRef = useRef(0);
 
@@ -190,6 +193,7 @@ export default function TechnicianLocationPicker({
 
         // Initial center: Buenos Aires
         const center = value || { lat: -34.6037, lng: -58.3816 };
+        const coverageRadiusMeters = Math.max(1, coverageRadiusKm) * 1000;
 
         const map = L.map(mapHostRef.current, {
           center: [center.lat, center.lng],
@@ -206,18 +210,45 @@ export default function TechnicianLocationPicker({
         mapRef.current = map;
         setMapError('');
 
+        const syncCoverageCircle = (lat: number, lng: number) => {
+          if (coverageCircleRef.current) {
+            coverageCircleRef.current.setLatLng([lat, lng]);
+            coverageCircleRef.current.setRadius(coverageRadiusMeters);
+            return coverageCircleRef.current;
+          }
+
+          coverageCircleRef.current = L.circle([lat, lng], {
+            radius: coverageRadiusMeters,
+            color: '#2563eb',
+            weight: 2,
+            opacity: 0.8,
+            fillColor: '#60a5fa',
+            fillOpacity: 0.16,
+            interactive: false,
+          }).addTo(map);
+
+          return coverageCircleRef.current;
+        };
+
+        const fitCoverageBounds = (lat: number, lng: number) => {
+          const circle = syncCoverageCircle(lat, lng);
+          map.fitBounds(circle.getBounds(), { padding: [24, 24] });
+        };
+
         // Add marker if location exists
         if (value) {
           markerRef.current = L.marker([value.lat, value.lng], {
             draggable: true,
             title: 'Tu ubicación de trabajo',
           }).addTo(map);
+          fitCoverageBounds(value.lat, value.lng);
 
           markerRef.current.on('dragend', () => {
             const newLat = markerRef.current.getLatLng().lat;
             const newLng = markerRef.current.getLatLng().lng;
 
             if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
+              syncCoverageCircle(newLat, newLng);
               onChange({
                 lat: newLat,
                 lng: newLng,
@@ -254,6 +285,7 @@ export default function TechnicianLocationPicker({
               const newLng = markerRef.current.getLatLng().lng;
 
               if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
+                syncCoverageCircle(newLat, newLng);
                 onChange({
                   lat: newLat,
                   lng: newLng,
@@ -267,6 +299,8 @@ export default function TechnicianLocationPicker({
               }
             });
           }
+
+          fitCoverageBounds(lat, lng);
 
           onChange({
             lat,
@@ -293,13 +327,16 @@ export default function TechnicianLocationPicker({
         mapRef.current.remove();
         mapRef.current = null;
       }
+      coverageCircleRef.current = null;
+      markerRef.current = null;
     };
-  }, [countryHint, showMap, value, input, onChange]);
+  }, [countryHint, coverageRadiusKm, showMap, value, input, onChange]);
 
   const description = descriptionProp || 'Ingresa la dirección completa o selecciona en el mapa para que los clientes te encuentren.';
   const statusText = value?.isValid 
     ? `${value.displayName} (${value.precision === 'exact' ? 'ubicación exacta' : 'zona estimada'})`
     : null;
+  const coverageText = `Los clientes te van a ver dentro de un radio aproximado de ${coverageRadiusKm} km desde este punto.`;
 
   return (
     <div className="space-y-2">
@@ -401,6 +438,7 @@ export default function TechnicianLocationPicker({
               ref={mapHostRef}
               className="h-[300px] w-full rounded bg-slate-100"
             />
+            <p className="text-xs text-slate-500">El círculo azul muestra la zona aproximada donde se publicará tu perfil.</p>
           </div>
         )}
       </div>
@@ -409,6 +447,7 @@ export default function TechnicianLocationPicker({
       {statusText && (
         <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
           ✓ {statusText}
+          <div className="mt-1 text-xs text-green-700">{coverageText}</div>
         </div>
       )}
 
