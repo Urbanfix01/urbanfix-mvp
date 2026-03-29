@@ -5151,20 +5151,12 @@ export default function TechniciansPage() {
 
               <div className={authSurfaceClass}>
                 <div className="overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/78">
-                  <div className="relative flex h-40 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                  <div className="relative h-44 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
                     {profileForm.bannerUrl ? (
-                      <img
-                        src={profileForm.bannerUrl}
-                        alt="Banner"
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <p className="text-sm font-semibold text-white">Banner del perfil</p>
-                        <p className="mt-1 text-xs text-white/70">Se usa como portada. Recomendado: 1200x675 (16:9)</p>
-                      </div>
-                    )}
-                    <div className="absolute inset-x-3 top-3 flex justify-between gap-2">
+                      <img src={profileForm.bannerUrl} alt="Banner" className="h-full w-full object-cover" />
+                    ) : null}
+                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.18)_0%,rgba(2,6,23,0.48)_100%)]" />
+                    <div className="absolute inset-x-4 top-4 flex flex-wrap items-center justify-between gap-2">
                       <span className="rounded-full bg-black/35 px-3 py-2 text-[11px] font-semibold text-white/90">
                         Portada del perfil publico
                       </span>
@@ -5173,14 +5165,17 @@ export default function TechniciansPage() {
                         <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
                       </label>
                     </div>
-                    <div className="absolute inset-x-4 bottom-3 rounded-2xl bg-black/35 px-3 py-2 text-[11px] text-white/85 backdrop-blur-sm">
-                      Aqui va la imagen horizontal grande. La foto de perfil se carga en el circulo de abajo.
-                    </div>
+                    {!profileForm.bannerUrl && (
+                      <div className="absolute inset-x-6 bottom-5 text-center sm:text-left">
+                        <p className="text-lg font-semibold text-white">Banner del perfil</p>
+                        <p className="mt-1 text-sm text-white/75">Portada horizontal para tu perfil publico. Recomendado: 1200x675.</p>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="relative flex flex-wrap items-end gap-4 px-6 pb-6 pt-0">
-                    <div className="-mt-8 flex items-end gap-4">
-                      <div className="relative h-20 w-20 overflow-hidden rounded-full border-4 border-[color:var(--ui-card)] bg-[color:var(--ui-bg)] shadow-sm">
+                  <div className="space-y-4 px-5 py-5 sm:px-6">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-[color:var(--ui-card)] bg-[color:var(--ui-bg)] shadow-sm">
                         {profileForm.avatarUrl ? (
                           <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
                         ) : (
@@ -5188,66 +5183,69 @@ export default function TechniciansPage() {
                             {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
                           </div>
                         )}
-                        <label className="absolute bottom-1 right-1 inline-flex cursor-pointer items-center justify-center rounded-full bg-slate-900 p-2 text-white shadow-sm transition hover:bg-slate-800">
-                          {uploadingAvatar ? (
-                            <span className="text-[10px] font-semibold">...</span>
-                          ) : (
-                            <User className="h-3.5 w-3.5" />
-                          )}
-                          <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                        </label>
                       </div>
 
-                      <div className="pb-1">
-                        <p className="text-base font-semibold text-[color:var(--ui-ink)]">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-base font-semibold text-[color:var(--ui-ink)]">
                           {profileForm.businessName || 'Tu negocio'}
                         </p>
-                        <p className="text-sm text-[color:var(--ui-muted)]">{profileForm.fullName || 'Tu nombre'}</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
-                            <User className="h-3.5 w-3.5" />
-                            Foto de perfil
-                          </span>
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
-                            Se muestra en el circulo
-                          </span>
-                        </div>
+                        <p className="truncate text-sm text-[color:var(--ui-muted)]">{profileForm.fullName || 'Tu nombre'}</p>
+                        <p className="mt-2 text-xs text-[color:var(--ui-muted)]">
+                          Portada, foto de perfil y logo de empresa se editan por separado para que cada pieza tenga un uso claro.
+                        </p>
                       </div>
                     </div>
 
-                    <div className="w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-[color:var(--ui-ink)]">Logo o imagen de empresa</p>
-                          <p className="mt-1 text-[11px] text-[color:var(--ui-muted)]">
-                            Se usa en presupuestos, PDF y como respaldo si el banner no existe.
-                          </p>
-                        </div>
-                        <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
-                          {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
-                          <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                        </label>
-                      </div>
-                      <div className="mt-3 flex items-center gap-3">
-                        <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-white">
-                          {profileForm.companyLogoUrl ? (
-                            <img
-                              src={profileForm.companyLogoUrl}
-                              alt="Logo"
-                              onLoad={handleLogoLoaded}
-                              className="h-full w-full object-contain p-1"
-                            />
-                          ) : (
-                            <span className="text-[10px] font-semibold text-[color:var(--ui-muted)]">Sin logo</span>
-                          )}
-                        </div>
-                        <div className="text-[11px] text-[color:var(--ui-muted)]">
-                          Recomendado: fondo claro o transparente, buen contraste y lectura rapida.
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-[color:var(--ui-ink)]">Foto de perfil</p>
+                            <p className="mt-1 text-[11px] text-[color:var(--ui-muted)]">
+                              Se muestra en el circulo del perfil y en la identidad principal.
+                            </p>
+                          </div>
+                          <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                            {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+                            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                          </label>
                         </div>
                       </div>
+
+                      <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-[color:var(--ui-ink)]">Logo o imagen de empresa</p>
+                            <p className="mt-1 text-[11px] text-[color:var(--ui-muted)]">
+                              Se usa en presupuestos, PDF y como respaldo si no hay banner cargado.
+                            </p>
+                          </div>
+                          <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
+                            {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
+                            <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                          </label>
+                        </div>
+                        <div className="mt-3 flex items-center gap-3">
+                          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-white">
+                            {profileForm.companyLogoUrl ? (
+                              <img
+                                src={profileForm.companyLogoUrl}
+                                alt="Logo"
+                                onLoad={handleLogoLoaded}
+                                className="h-full w-full object-contain p-1"
+                              />
+                            ) : (
+                              <span className="text-[10px] font-semibold text-[color:var(--ui-muted)]">Sin logo</span>
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1 text-[11px] text-[color:var(--ui-muted)]">
+                            Recomendado: fondo claro o transparente, buen contraste y lectura rapida.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
 
                 <div className="mt-6 space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
@@ -8089,19 +8087,11 @@ export default function TechniciansPage() {
 
                       <div className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
                         <div className="rounded-3xl border border-slate-200 bg-slate-50 overflow-hidden">
-                          <div className="relative flex h-44 items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                          <div className="relative h-44 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
                             {profileForm.bannerUrl ? (
-                              <img
-                                src={profileForm.bannerUrl}
-                                alt="Banner"
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <div className="text-center">
-                                <p className="text-sm font-semibold text-white">Banner del perfil</p>
-                                <p className="mt-1 text-xs text-white/70">Imagen horizontal para la portada del perfil</p>
-                              </div>
-                            )}
+                              <img src={profileForm.bannerUrl} alt="Banner" className="h-full w-full object-cover" />
+                            ) : null}
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.16)_0%,rgba(2,6,23,0.48)_100%)]" />
                             <div className="absolute inset-x-3 top-3 flex justify-between gap-2">
                               <span className="rounded-full bg-black/35 px-3 py-1.5 text-[11px] font-semibold text-white/90">
                                 Portada publica
@@ -8112,14 +8102,17 @@ export default function TechniciansPage() {
                                 <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
                               </label>
                             </div>
-                            <div className="absolute inset-x-4 bottom-3 rounded-2xl bg-black/35 px-3 py-2 text-[11px] text-white/85 backdrop-blur-sm">
-                              Esta imagen grande es el banner. La foto personal se carga en el circulo inferior.
-                            </div>
+                            {!profileForm.bannerUrl && (
+                              <div className="absolute inset-x-6 bottom-5 text-center sm:text-left">
+                                <p className="text-lg font-semibold text-white">Banner del perfil</p>
+                                <p className="mt-1 text-sm text-white/75">Imagen horizontal para la portada del perfil publico.</p>
+                              </div>
+                            )}
                           </div>
 
-                          <div className="relative -mt-10 flex flex-wrap items-end justify-between gap-4 px-6 pb-6">
-                            <div className="flex items-end gap-4">
-                              <div className="relative h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
+                          <div className="space-y-4 px-6 py-5">
+                            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-full border-4 border-white bg-slate-100 shadow-sm">
                                 {profileForm.avatarUrl ? (
                                   <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
                                 ) : (
@@ -8127,66 +8120,79 @@ export default function TechniciansPage() {
                                     {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
                                   </div>
                                 )}
-                                <label className="absolute bottom-1 right-1 inline-flex cursor-pointer items-center justify-center rounded-full bg-slate-900 p-2 text-white shadow-sm transition hover:bg-slate-800">
-                                  <ImagePlus className="h-3.5 w-3.5" />
-                                  <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                                </label>
                               </div>
 
-                              <div className="pb-1">
-                                <p className="text-base font-semibold text-slate-900">
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-base font-semibold text-slate-900">
                                   {profileForm.businessName || 'Tu negocio'}
                                 </p>
-                                <p className="text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
-                                <div className="mt-2 flex flex-wrap gap-2">
-                                  <span className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
-                                    <User className="h-3.5 w-3.5" />
-                                    Foto de perfil
-                                  </span>
-                                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
-                                    Se muestra en el circulo
-                                  </span>
-                                </div>
+                                <p className="truncate text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
+                                <p className="mt-2 text-xs text-slate-500">
+                                  Cada imagen se usa en un lugar distinto: portada, identidad personal y logo comercial.
+                                </p>
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
-                              <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                                <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                  {profileForm.companyLogoUrl ? (
-                                    <img
-                                      src={profileForm.companyLogoUrl}
-                                      alt="Logo"
-                                      onLoad={handleLogoLoaded}
-                                      className="h-full w-full object-contain p-1"
-                                    />
-                                  ) : (
-                                    <FileText className="h-4 w-4 text-slate-400" />
-                                  )}
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-slate-900">Foto de perfil</p>
+                                    <p className="mt-1 text-[11px] text-slate-500">Se muestra en el circulo del perfil y en la identidad principal.</p>
+                                  </div>
+                                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                                    <ImagePlus className="h-4 w-4" />
+                                    {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
+                                    <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                                  </label>
                                 </div>
-                                <div className="min-w-0">
-                                  <p className="text-xs font-semibold text-slate-900">Logo o imagen de empresa</p>
-                                  <p className="text-[11px] text-slate-500">Se usa en PDF y presupuestos.</p>
-                                </div>
-                                <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                                  <ImagePlus className="h-4 w-4" />
-                                  {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
-                                  <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                                </label>
                               </div>
-                              <select
-                                value={profileForm.logoShape}
-                                onChange={(event) =>
-                                  setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))
-                                }
-                                className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                              >
-                                <option value="auto">Auto</option>
-                                <option value="round">Redondo</option>
-                                <option value="square">Cuadrado</option>
-                                <option value="rect">Rectangular</option>
-                              </select>
-                              <span className="text-[11px] font-semibold text-slate-400">Forma del logo</span>
+
+                              <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-semibold text-slate-900">Logo o imagen de empresa</p>
+                                    <p className="mt-1 text-[11px] text-slate-500">Se usa en PDF, presupuestos y como respaldo si no hay banner.</p>
+                                  </div>
+                                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
+                                    <ImagePlus className="h-4 w-4" />
+                                    {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
+                                    <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                                  </label>
+                                </div>
+                                <div className="mt-3 flex items-center gap-3">
+                                  <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+                                    {profileForm.companyLogoUrl ? (
+                                      <img
+                                        src={profileForm.companyLogoUrl}
+                                        alt="Logo"
+                                        onLoad={handleLogoLoaded}
+                                        className="h-full w-full object-contain p-1"
+                                      />
+                                    ) : (
+                                      <FileText className="h-4 w-4 text-slate-400" />
+                                    )}
+                                  </div>
+                                  <div className="min-w-0 flex-1 text-[11px] text-slate-500">
+                                    Recomendado: fondo claro o transparente, buen contraste y lectura rapida.
+                                  </div>
+                                </div>
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  <select
+                                    value={profileForm.logoShape}
+                                    onChange={(event) =>
+                                      setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))
+                                    }
+                                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
+                                  >
+                                    <option value="auto">Auto</option>
+                                    <option value="round">Redondo</option>
+                                    <option value="square">Cuadrado</option>
+                                    <option value="rect">Rectangular</option>
+                                  </select>
+                                  <span className="text-[11px] font-semibold text-slate-400">Forma del logo</span>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -8230,7 +8236,16 @@ export default function TechniciansPage() {
 
                           <div className="rounded-2xl border border-slate-200 bg-white p-4">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">URLs (opcional)</p>
-                            <label className="mt-3 block text-xs font-semibold text-slate-600">URL logo/banner</label>
+                            <label className="mt-3 block text-xs font-semibold text-slate-600">URL banner</label>
+                            <input
+                              value={profileForm.bannerUrl}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, bannerUrl: event.target.value }))
+                              }
+                              placeholder="https://..."
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                            />
+                            <label className="mt-4 block text-xs font-semibold text-slate-600">URL logo</label>
                             <input
                               value={profileForm.companyLogoUrl}
                               onChange={(event) =>
@@ -8239,7 +8254,7 @@ export default function TechniciansPage() {
                               placeholder="https://..."
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                             />
-                            <label className="mt-4 block text-xs font-semibold text-slate-600">URL foto</label>
+                            <label className="mt-4 block text-xs font-semibold text-slate-600">URL foto de perfil</label>
                             <input
                               value={profileForm.avatarUrl}
                               onChange={(event) => setProfileForm((prev) => ({ ...prev, avatarUrl: event.target.value }))}
