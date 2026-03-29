@@ -27,6 +27,9 @@ type TechnicianProfile = {
   service_lng: number | null;
   service_radius_km: number | null;
   service_location_precision: string | null;
+  admin_review_status: string | null;
+  admin_review_reason: string | null;
+  admin_review_marked_at: string | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -99,6 +102,20 @@ type LegacyBulkResponse = {
   }>;
 };
 
+type ReviewBulkResponse = {
+  ok: boolean;
+  updatedCount: number;
+  updatedIds: string[];
+  updatedProfiles: Array<{
+    id: string;
+    email: string | null;
+    fullName: string | null;
+    businessName: string | null;
+    city: string | null;
+    reason: string;
+  }>;
+};
+
 const toText = (value: unknown) => String(value || '').trim();
 
 const normalizeEmail = (value: unknown) => {
@@ -113,6 +130,27 @@ const hasLegacyValidAccessCandidate = (profile: TechnicianProfile) =>
   Boolean(toText(profile.business_name)) &&
   Boolean(toText(profile.phone)) &&
   Boolean(toText(profile.city));
+
+const hasProfileSignal = (profile: TechnicianProfile) =>
+  Boolean(normalizeEmail(profile.email) || toText(profile.full_name) || toText(profile.business_name) || toText(profile.phone) || toText(profile.city));
+
+const buildIncompleteSignature = (profile: TechnicianProfile) =>
+  [
+    normalizeEmail(profile.email),
+    toText(profile.full_name).toLowerCase(),
+    toText(profile.business_name).toLowerCase(),
+    toText(profile.phone),
+    toText(profile.city).toLowerCase(),
+  ].join('|');
+
+const getIncompleteFieldLabels = (profile: TechnicianProfile) => {
+  const missing: string[] = [];
+  if (!normalizeEmail(profile.email)) missing.push('email');
+  if (!toText(profile.business_name)) missing.push('negocio');
+  if (!toText(profile.phone)) missing.push('teléfono');
+  if (!toText(profile.city)) missing.push('ciudad');
+  return missing;
+};
 
 const hasWorkZoneConfigured = (
   profile: Pick<TechnicianProfile, 'city' | 'address' | 'company_address' | 'coverage_area'> | EditFormData
@@ -153,6 +191,7 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
   const [isSaving, setIsSaving] = useState(false);
   const [quickActionLoading, setQuickActionLoading] = useState<QuickActionType>(null);
   const [legacyBulkLoading, setLegacyBulkLoading] = useState(false);
+  const [reviewBulkLoading, setReviewBulkLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'registered' | 'unregistered'>('all');
@@ -185,6 +224,36 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     return '';
   }, [draftSnapshot, formData, selectedProfile]);
   const legacyValidProfiles = useMemo(() => allProfiles.filter(hasLegacyValidAccessCandidate), [allProfiles]);
+  const incompleteDuplicateCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    allProfiles.forEach((profile) => {
+      if (normalizeEmail(profile.email)) return;
+      const signature = buildIncompleteSignature(profile);
+      if (!signature.replace(/\|/g, '')) return;
+      counts.set(signature, (counts.get(signature) || 0) + 1);
+    });
+    return counts;
+  }, [allProfiles]);
+  const reviewCandidates = useMemo(
+    () =>
+      allProfiles.filter((profile) => {
+        if (profile.access_granted === true) return false;
+        if (hasLegacyValidAccessCandidate(profile)) return false;
+        if (String(profile.admin_review_status || '').toLowerCase() === 'pending') return false;
+        if (!hasProfileSignal(profile)) return false;
+
+        const missingFields = getIncompleteFieldLabels(profile);
+        if (missingFields.length === 0) return false;
+
+        const signature = buildIncompleteSignature(profile);
+        if (!normalizeEmail(profile.email) && signature.replace(/\|/g, '') && (incompleteDuplicateCounts.get(signature) || 0) > 1) {
+          return false;
+        }
+
+        return true;
+      }),
+    [allProfiles, incompleteDuplicateCounts]
+  );
 
   const closeEditor = () => {
     setSelectedProfile(null);
@@ -502,6 +571,45 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     }
   };
 
+  const handleMarkIncompleteForReview = async () => {
+    if (!accessToken || reviewBulkLoading || reviewCandidates.length === 0) return;
+
+    setReviewBulkLoading(true);
+    setMessage('');
+    try {
+      const response = await fetch('/api/admin/access/review', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const payload = (await response.json().catch(() => null)) as (ReviewBulkResponse & { error?: string }) | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudieron marcar perfiles incompletos para revisión.');
+      }
+
+      const updatedIds = payload?.updatedIds || [];
+      if (updatedIds.length === 0) {
+        setMessage('ℹ️ No hay perfiles incompletos pendientes de revisión.');
+        return;
+      }
+
+      setMessage(`✅ Se marcaron ${updatedIds.length} perfil(es) incompletos para revisión.`);
+      await loadAllProfiles();
+
+      if (selectedProfile && updatedIds.includes(selectedProfile.id)) {
+        await loadFullProfile(selectedProfile.id);
+        await loadVisibility(selectedProfile.id);
+      }
+    } catch (err) {
+      console.error('Error marcando perfiles incompletos para revisión:', err);
+      setMessage(`❌ ${err instanceof Error ? err.message : 'No se pudieron marcar perfiles incompletos para revisión.'}`);
+    } finally {
+      setReviewBulkLoading(false);
+    }
+  };
+
   const cities = Array.from(new Set(allProfiles.map((p) => p.city).filter(Boolean))).sort() as string[];
 
   // Convertir perfiles a puntos de mapa
@@ -652,6 +760,59 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
           </div>
         </div>
 
+        <div className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Revisión manual</p>
+              <h3 className="mt-1 text-lg font-bold text-slate-900">Marcar incompletos para revisión</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Toma perfiles sin acceso que todavía no conviene habilitar, excluyendo duplicados obvios y candidatos del backfill legacy.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleMarkIncompleteForReview}
+              disabled={!accessToken || reviewBulkLoading || reviewCandidates.length === 0}
+              className="rounded-xl bg-amber-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {reviewBulkLoading ? 'Procesando...' : `Marcar ${reviewCandidates.length} perfil(es)`}
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
+            <div className="rounded-xl border border-amber-100 bg-amber-50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-700">Pendientes</p>
+              <p className="mt-2 text-3xl font-bold text-amber-900">{reviewCandidates.length}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              {reviewCandidates.length === 0 ? (
+                <p>No hay perfiles incompletos pendientes de revisión manual.</p>
+              ) : (
+                <div className="space-y-2">
+                  {reviewCandidates.slice(0, 4).map((profile) => (
+                    <div key={profile.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div>
+                        <p className="font-semibold text-slate-900">{profile.business_name || profile.full_name || 'Sin nombre'}</p>
+                        <p className="text-xs text-slate-500">Faltan: {getIncompleteFieldLabels(profile).join(', ') || 'sin detalle'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadFullProfile(profile.id)}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Abrir
+                      </button>
+                    </div>
+                  ))}
+                  {reviewCandidates.length > 4 && (
+                    <p className="text-xs text-slate-500">Y {reviewCandidates.length - 4} perfil(es) más.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
         <div className="flex gap-3 flex-wrap items-center justify-between">
           <div className="flex gap-3 flex-wrap flex-1">
             <input
@@ -762,6 +923,11 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
                       {isProfilePublishedEffective(profile.profile_published) && (
                         <span className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap bg-blue-100 text-blue-800">
                           📢 Publicado
+                        </span>
+                      )}
+                      {String(profile.admin_review_status || '').toLowerCase() === 'pending' && (
+                        <span className="px-2 py-1 rounded text-xs font-semibold whitespace-nowrap bg-amber-100 text-amber-800">
+                          Revisar
                         </span>
                       )}
                     </div>
@@ -901,6 +1067,25 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
                         ? 'Procesando...'
                         : 'Ocultar perfil'}
                     </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-amber-200 bg-white p-4 shadow-sm md:col-span-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Revisión admin</p>
+                      <p className="mt-2 text-lg font-bold text-slate-900">
+                        {String(formData.admin_review_status || selectedProfile.admin_review_status || '').toLowerCase() === 'pending'
+                          ? 'Pendiente de revisión'
+                          : 'Sin marca activa'}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        {formData.admin_review_reason || selectedProfile.admin_review_reason || 'Este perfil no tiene observaciones de revisión pendientes.'}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                      {formatDateTime(formData.admin_review_marked_at || selectedProfile.admin_review_marked_at)}
+                    </span>
                   </div>
                 </div>
               </div>
