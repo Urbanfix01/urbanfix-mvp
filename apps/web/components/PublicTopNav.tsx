@@ -5,7 +5,7 @@ import { useState } from 'react';
 const navLinks = [
   { label: 'Inicio', href: '/' },
   { label: 'Servicios', href: '/urbanfix' },
-  { label: 'Rubros', href: '/rubros' },
+  { label: 'Valores Mano de Obra', href: '/rubros' },
   { label: 'Ciudades', href: '/ciudades' },
   { label: 'Tecnicos disponibles', href: '/vidriera' },
   { label: 'Soporte', href: '/soporte' },
@@ -86,7 +86,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
                 : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
             }`}
           >
-            Registrarme
+            Iniciar sesión
           </a>
 
           <button
@@ -150,7 +150,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
                   : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
               }`}
             >
-              Registrarme
+              Iniciar sesión
             </a>
           </nav>
         </div>
