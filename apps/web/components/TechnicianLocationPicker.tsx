@@ -217,6 +217,7 @@ export default function TechnicianLocationPicker({
         setMapError('');
 
         const syncCoverageCircle = (lat: number, lng: number) => {
+          if (cancelled || mapRef.current !== map) return null;
           if (coverageCircleRef.current) {
             coverageCircleRef.current.setLatLng([lat, lng]);
             coverageCircleRef.current.setRadius(coverageRadiusMeters);
@@ -238,20 +239,23 @@ export default function TechnicianLocationPicker({
 
         const fitCoverageBounds = (lat: number, lng: number) => {
           const circle = syncCoverageCircle(lat, lng);
+          if (!circle || cancelled || mapRef.current !== map) return;
           map.fitBounds(circle.getBounds(), { padding: [24, 24] });
         };
 
         // Add marker if location exists
         if (value) {
-          markerRef.current = L.marker([value.lat, value.lng], {
+          const initialMarker = L.marker([value.lat, value.lng], {
             draggable: true,
             title: 'Tu ubicación de trabajo',
           }).addTo(map);
+          markerRef.current = initialMarker;
           fitCoverageBounds(value.lat, value.lng);
 
-          markerRef.current.on('dragend', () => {
-            const newLat = markerRef.current.getLatLng().lat;
-            const newLng = markerRef.current.getLatLng().lng;
+          initialMarker.on('dragend', () => {
+            if (cancelled || mapRef.current !== map) return;
+            const newLat = initialMarker.getLatLng().lat;
+            const newLng = initialMarker.getLatLng().lng;
 
             if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
               syncCoverageCircle(newLat, newLng);
@@ -264,13 +268,14 @@ export default function TechnicianLocationPicker({
               });
             } else {
               setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
-              markerRef.current.setLatLng([value.lat, value.lng]);
+              initialMarker.setLatLng([value.lat, value.lng]);
             }
           });
         }
 
         // Click to place marker
         map.on('click', (e: any) => {
+          if (cancelled || mapRef.current !== map) return;
           const { lat, lng } = e.latlng;
 
           if (!isCoordinateWithinCountry(lat, lng, countryHint)) {
@@ -281,14 +286,16 @@ export default function TechnicianLocationPicker({
           if (markerRef.current) {
             markerRef.current.setLatLng([lat, lng]);
           } else {
-            markerRef.current = L.marker([lat, lng], {
+            const placedMarker = L.marker([lat, lng], {
               draggable: true,
               title: 'Tu ubicación de trabajo',
             }).addTo(map);
+            markerRef.current = placedMarker;
 
-            markerRef.current.on('dragend', () => {
-              const newLat = markerRef.current.getLatLng().lat;
-              const newLng = markerRef.current.getLatLng().lng;
+            placedMarker.on('dragend', () => {
+              if (cancelled || mapRef.current !== map) return;
+              const newLat = placedMarker.getLatLng().lat;
+              const newLng = placedMarker.getLatLng().lng;
 
               if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
                 syncCoverageCircle(newLat, newLng);
@@ -301,7 +308,7 @@ export default function TechnicianLocationPicker({
                 });
               } else {
                 setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
-                markerRef.current.setLatLng([lat, lng]);
+                placedMarker.setLatLng([lat, lng]);
               }
             });
           }

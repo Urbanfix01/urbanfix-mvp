@@ -1393,6 +1393,7 @@ export default function TechniciansPage() {
   const [autoSaveMessage, setAutoSaveMessage] = useState('');
   const [profilePersistTick, setProfilePersistTick] = useState(0);
   const lastPersistedProfileSignatureRef = useRef('');
+  const lastAttemptedProfileSignatureRef = useRef('');
   const profilePersistInFlightRef = useRef(false);
   const autoSaveTimerRef = useRef<number | null>(null);
   const autoSaveMessageTimerRef = useRef<number | null>(null);
@@ -1864,12 +1865,14 @@ export default function TechniciansPage() {
       setAutoSaveState('idle');
       setAutoSaveMessage('');
       lastPersistedProfileSignatureRef.current = '';
+      lastAttemptedProfileSignatureRef.current = '';
       return;
     }
     setAutoSaveBootstrapped(false);
     setAutoSaveState('idle');
     setAutoSaveMessage('');
     lastPersistedProfileSignatureRef.current = '';
+    lastAttemptedProfileSignatureRef.current = '';
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -3527,6 +3530,7 @@ export default function TechniciansPage() {
     if (!session?.user?.id) return false;
     if (profilePersistInFlightRef.current) return false;
     profilePersistInFlightRef.current = true;
+    lastAttemptedProfileSignatureRef.current = autoSaveSignature;
 
     if (!silent) {
       setProfileSaving(true);
@@ -3636,9 +3640,10 @@ export default function TechniciansPage() {
 
       const upsertProfileWithSchemaFallback = async (initialPayload: Record<string, any>) => {
         const attemptPayload: Record<string, any> = { ...initialPayload };
+        const maxAttempts = Math.max(1, Object.keys(attemptPayload).length + 1);
 
-        for (let attempt = 0; attempt < 12; attempt += 1) {
-          const result = await supabase.from('profiles').upsert(attemptPayload).select().single();
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await supabase.from('profiles').upsert(attemptPayload).select().maybeSingle();
           if (!result.error) return result;
 
           const message = String(result.error.message || '').toLowerCase();
@@ -3653,14 +3658,17 @@ export default function TechniciansPage() {
           });
         }
 
-        return supabase.from('profiles').upsert({ id: session.user.id }).select().single();
+        return supabase.from('profiles').upsert({ id: session.user.id }).select().maybeSingle();
       };
 
       let { data, error } = await upsertProfileWithSchemaFallback(payloadWithGeo as Record<string, any>);
       if (error) throw error;
 
-      setProfile(data);
+      if (data) {
+        setProfile(data);
+      }
       lastPersistedProfileSignatureRef.current = autoSaveSignature;
+      lastAttemptedProfileSignatureRef.current = autoSaveSignature;
       setAutoSaveState('saved');
       if (autoSaveMessageTimerRef.current !== null) {
         window.clearTimeout(autoSaveMessageTimerRef.current);
@@ -4710,12 +4718,14 @@ export default function TechniciansPage() {
     }
     if (profilePersistInFlightRef.current) return;
     if (autoSaveSignature === lastPersistedProfileSignatureRef.current) return;
+    if (autoSaveSignature === lastAttemptedProfileSignatureRef.current) return;
 
     if (autoSaveTimerRef.current !== null) {
       window.clearTimeout(autoSaveTimerRef.current);
     }
 
     autoSaveTimerRef.current = window.setTimeout(() => {
+      lastAttemptedProfileSignatureRef.current = autoSaveSignature;
       persistProfile({ silent: true, refreshNearby: false });
     }, 900);
 
