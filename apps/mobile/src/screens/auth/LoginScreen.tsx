@@ -1086,10 +1086,13 @@ export default function AuthScreen() {
 
               {isRegister && !isClientAudience && (
                 <View style={[styles.sectionCard, useCompactRegister && styles.sectionCardCompact]}>
-                  <Text style={styles.sectionLabel}>Imagenes del perfil</Text>
-                  <Text style={styles.sectionHint}>
-                    Opcional por ahora. Puedes cargar tu foto, una imagen de la empresa y el banner que se mostrara en tu perfil publico.
-                  </Text>
+                  <View style={styles.sectionHeaderRow}>
+                    <Text style={styles.sectionLabel}>Imagenes del perfil</Text>
+                    <View style={styles.sectionMetaPill}>
+                      <Text style={styles.sectionMetaPillText}>Opcional</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.sectionHint}>Puedes cargarlo ahora o terminarlo despues desde Mi Perfil.</Text>
 
                   <TouchableOpacity
                     style={[styles.registerBannerPicker, useCompactRegister && styles.registerBannerPickerCompact]}
@@ -1105,7 +1108,6 @@ export default function AuthScreen() {
                       <View style={styles.registerBannerPlaceholder}>
                         <Ionicons name="image-outline" size={30} color="rgba(248,250,252,0.52)" />
                         <Text style={styles.registerBannerTitle}>Subir banner</Text>
-                        <Text style={styles.registerBannerText}>Se vera en la cabecera de tu perfil.</Text>
                       </View>
                     )}
                     {pickingMedia !== 'banner' && (
@@ -1150,9 +1152,6 @@ export default function AuthScreen() {
 
                           <View style={styles.registerMediaCardCopy}>
                             <Text style={styles.registerMediaCardTitle}>{getRegistrationMediaTitle(kind)}</Text>
-                            <Text style={styles.registerMediaCardText}>
-                              {kind === 'avatar' ? 'Tu foto o imagen principal.' : 'Logo o foto de tu empresa.'}
-                            </Text>
                           </View>
                         </TouchableOpacity>
                       );
@@ -2031,6 +2030,27 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     textTransform: 'uppercase',
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  sectionMetaPill: {
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: 'rgba(251,99,64,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,99,64,0.18)',
+  },
+  sectionMetaPillText: {
+    color: '#FFB49E',
+    fontFamily: FONTS.subtitle,
+    fontSize: 10,
+    letterSpacing: 0.4,
+    textTransform: 'uppercase',
+  },
   sectionHint: {
     marginTop: -4,
     color: '#7F8792',
@@ -2039,7 +2059,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   registerBannerPicker: {
-    minHeight: 152,
+    minHeight: 132,
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
@@ -2048,7 +2068,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   registerBannerPickerCompact: {
-    minHeight: 126,
+    minHeight: 112,
     borderRadius: 14,
   },
   registerBannerImage: {
@@ -2058,21 +2078,14 @@ const styles = StyleSheet.create({
   registerBannerPlaceholder: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    gap: 6,
     paddingHorizontal: 18,
-    paddingVertical: 24,
+    paddingVertical: 18,
   },
   registerBannerTitle: {
     color: '#F8FAFC',
     fontFamily: FONTS.subtitle,
     fontSize: 14,
-  },
-  registerBannerText: {
-    color: '#94A3B8',
-    fontFamily: FONTS.body,
-    fontSize: 12,
-    lineHeight: 18,
-    textAlign: 'center',
   },
   registerMediaEditBadge: {
     position: 'absolute',
@@ -2093,15 +2106,15 @@ const styles = StyleSheet.create({
   },
   registerMediaCard: {
     flex: 1,
-    gap: 10,
-    padding: 12,
+    gap: 8,
+    padding: 10,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.08)',
     backgroundColor: '#0D0E10',
   },
   registerMediaPreview: {
-    height: 108,
+    height: 88,
     borderRadius: 14,
     overflow: 'hidden',
     alignItems: 'center',
@@ -2119,18 +2132,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   registerMediaCardCopy: {
-    gap: 4,
+    gap: 2,
+    alignItems: 'center',
   },
   registerMediaCardTitle: {
     color: '#F8FAFC',
     fontFamily: FONTS.subtitle,
-    fontSize: 13,
-  },
-  registerMediaCardText: {
-    color: '#94A3B8',
-    fontFamily: FONTS.body,
-    fontSize: 11,
-    lineHeight: 16,
+    fontSize: 12,
   },
   input: {
     backgroundColor: '#0D0E10',
