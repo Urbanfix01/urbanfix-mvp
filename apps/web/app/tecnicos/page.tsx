@@ -5190,21 +5190,12 @@ export default function TechniciansPage() {
                           {profileForm.businessName || 'Tu negocio'}
                         </p>
                         <p className="truncate text-sm text-[color:var(--ui-muted)]">{profileForm.fullName || 'Tu nombre'}</p>
-                        <p className="mt-2 text-xs text-[color:var(--ui-muted)]">
-                          Cada imagen cumple una funcion distinta.
-                        </p>
                       </div>
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-[color:var(--ui-ink)]">Foto de perfil</p>
-                            <p className="mt-1 text-[11px] text-[color:var(--ui-muted)]">
-                              Se ve en tu perfil.
-                            </p>
-                          </div>
+                        <div className="flex min-h-24 items-center justify-center">
                           <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
                             {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
                             <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
@@ -5213,34 +5204,11 @@ export default function TechniciansPage() {
                       </div>
 
                       <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)]/60 p-4">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-semibold text-[color:var(--ui-ink)]">Logo o imagen de empresa</p>
-                            <p className="mt-1 text-[11px] text-[color:var(--ui-muted)]">
-                              Se usa en presupuestos y PDF.
-                            </p>
-                          </div>
+                        <div className="flex min-h-24 items-center justify-center">
                           <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
                             {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
                             <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
                           </label>
-                        </div>
-                        <div className="mt-3 flex items-center gap-3">
-                          <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-white">
-                            {profileForm.companyLogoUrl ? (
-                              <img
-                                src={profileForm.companyLogoUrl}
-                                alt="Logo"
-                                onLoad={handleLogoLoaded}
-                                className="h-full w-full object-contain p-1"
-                              />
-                            ) : (
-                              <span className="text-[10px] font-semibold text-[color:var(--ui-muted)]">Sin logo</span>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1 text-[11px] text-[color:var(--ui-muted)]">
-                            Fondo claro o transparente.
-                          </div>
                         </div>
                       </div>
                     </div>
@@ -8127,19 +8095,12 @@ export default function TechniciansPage() {
                                   {profileForm.businessName || 'Tu negocio'}
                                 </p>
                                 <p className="truncate text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
-                                <p className="mt-2 text-xs text-slate-500">
-                                  Cada imagen cumple una funcion distinta.
-                                </p>
                               </div>
                             </div>
 
                             <div className="grid gap-3 sm:grid-cols-2">
                               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-slate-900">Foto de perfil</p>
-                                    <p className="mt-1 text-[11px] text-slate-500">Se ve en tu perfil.</p>
-                                  </div>
+                                <div className="flex min-h-24 items-center justify-center">
                                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
                                     <ImagePlus className="h-4 w-4" />
                                     {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
@@ -8149,33 +8110,12 @@ export default function TechniciansPage() {
                               </div>
 
                               <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div className="min-w-0">
-                                    <p className="text-xs font-semibold text-slate-900">Logo o imagen de empresa</p>
-                                    <p className="mt-1 text-[11px] text-slate-500">Se usa en presupuestos y PDF.</p>
-                                  </div>
+                                <div className="flex min-h-24 items-center justify-center">
                                   <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
                                     <ImagePlus className="h-4 w-4" />
                                     {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
                                     <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
                                   </label>
-                                </div>
-                                <div className="mt-3 flex items-center gap-3">
-                                  <div className="flex h-11 w-11 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                                    {profileForm.companyLogoUrl ? (
-                                      <img
-                                        src={profileForm.companyLogoUrl}
-                                        alt="Logo"
-                                        onLoad={handleLogoLoaded}
-                                        className="h-full w-full object-contain p-1"
-                                      />
-                                    ) : (
-                                      <FileText className="h-4 w-4 text-slate-400" />
-                                    )}
-                                  </div>
-                                  <div className="min-w-0 flex-1 text-[11px] text-slate-500">
-                                    Fondo claro o transparente.
-                                  </div>
                                 </div>
                                 <div className="mt-3 flex flex-wrap items-center gap-2">
                                   <select
