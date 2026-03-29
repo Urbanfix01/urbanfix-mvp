@@ -12,6 +12,8 @@ import {
   Home,
   ImagePlus,
   MessageCircle,
+  PanelLeftClose,
+  PanelLeftOpen,
   Search,
   Tag,
   User,
@@ -555,6 +557,9 @@ const themeStyles = {
   '--ui-muted': '#64748B',
   '--ui-accent': '#111827',
   '--ui-accent-soft': '#F5B942',
+  '--ui-brand': '#2A0338',
+  '--ui-brand-soft': '#F4ECF8',
+  '--ui-brand-warm': '#FF8F1F',
 } as React.CSSProperties;
 
 const authSurfaceClass =
@@ -1571,6 +1576,7 @@ export default function TechniciansPage() {
   ];
 
   const isNavExpanded = !isNavCollapsed || isNavHovered;
+  const NavToggleIcon = isNavCollapsed ? PanelLeftOpen : PanelLeftClose;
 
   const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
   const filteredNavItems = useMemo(() => {
@@ -5650,7 +5656,7 @@ export default function TechniciansPage() {
           <aside
             onMouseEnter={() => setIsNavHovered(true)}
             onMouseLeave={() => setIsNavHovered(false)}
-            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] ${
+            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[linear-gradient(180deg,rgba(255,255,255,0.97),rgba(248,243,236,0.96))] shadow-[0_24px_64px_-36px_rgba(42,3,56,0.35)] backdrop-blur transition-all lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] ${
               isNavExpanded ? 'w-72' : 'w-20'
             }`}
           >
@@ -5658,8 +5664,8 @@ export default function TechniciansPage() {
               <div className="flex items-center gap-3">
                 <div
                   style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                  className={`flex h-11 w-auto min-w-11 max-w-[88px] items-center justify-center ring-1 ring-slate-200 shadow-lg shadow-slate-200/30 overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
-                    brandLogoUrl ? 'bg-white' : 'bg-slate-900'
+                  className={`flex h-11 w-auto min-w-11 max-w-[88px] items-center justify-center ring-1 ring-[color:var(--ui-border)] shadow-lg shadow-[rgba(42,3,56,0.12)] overflow-hidden ${logoPresentation.frame} ${logoPresentation.padding} ${
+                    brandLogoUrl ? 'bg-white' : 'bg-[color:var(--ui-brand)]'
                   }`}
                 >
                   {brandLogoUrl ? (
@@ -5682,12 +5688,21 @@ export default function TechniciansPage() {
                   </div>
                 )}
               </div>
+              <button
+                type="button"
+                onClick={() => setIsNavCollapsed((prev) => !prev)}
+                aria-label={isNavCollapsed ? 'Abrir menu lateral' : 'Cerrar menu lateral'}
+                title={isNavCollapsed ? 'Abrir menu' : 'Cerrar menu'}
+                className="flex h-10 w-10 items-center justify-center rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-brand-soft)] text-[color:var(--ui-brand)] transition hover:border-[color:var(--ui-brand-warm)] hover:bg-white hover:text-[color:var(--ui-brand)]"
+              >
+                <NavToggleIcon className="h-4 w-4" />
+              </button>
             </div>
 
             {isNavExpanded && (
               <div className="px-4">
-                <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-xs text-[color:var(--ui-muted)]">
-                  <Search className="h-4 w-4" />
+                <div className="flex items-center gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-white px-3 py-2 text-xs text-[color:var(--ui-muted)] shadow-sm transition focus-within:border-[color:var(--ui-brand-warm)] focus-within:ring-2 focus-within:ring-[color:var(--ui-brand-soft)]">
+                  <Search className="h-4 w-4 text-[color:var(--ui-brand)]/70" />
                   <input
                     value={navSearch}
                     onChange={(event) => setNavSearch(event.target.value)}
@@ -5699,7 +5714,7 @@ export default function TechniciansPage() {
             )}
 
             {isNavExpanded && (
-              <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.3em] text-slate-400">Menu</p>
+              <p className="px-4 pt-4 text-[11px] uppercase tracking-[0.3em] text-[color:var(--ui-muted)]">Menu</p>
             )}
 
             <nav className="mt-3 flex-1 space-y-1 overflow-y-auto px-0 pb-3">
@@ -5719,13 +5734,13 @@ export default function TechniciansPage() {
                       isNavExpanded ? 'gap-3 px-6' : 'justify-center px-0'
                     } ${
                       isActive
-                        ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
-                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
+                        ? 'bg-[color:var(--ui-brand)] text-white shadow-[0_18px_32px_-20px_rgba(42,3,56,0.9)]'
+                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-brand-soft)] hover:text-[color:var(--ui-brand)]'
                     }`}
                   >
                     <Icon
                       className={`h-4 w-4 ${
-                        isActive ? 'text-white' : 'text-[color:var(--ui-muted)] group-hover:text-[color:var(--ui-ink)]'
+                        isActive ? 'text-white' : 'text-[color:var(--ui-muted)] group-hover:text-[color:var(--ui-brand)]'
                       }`}
                     />
                     {isNavExpanded && <span className="flex-1 text-left">{item.label}</span>}
@@ -5739,9 +5754,9 @@ export default function TechniciansPage() {
               })}
             </nav>
 
-            <div className="mt-auto border-t border-[color:var(--ui-border)]/80 px-4 py-4">
+            <div className="mt-auto border-t border-[color:var(--ui-border)]/80 px-4 py-4 bg-white/40">
               <div className={`flex items-center gap-3 ${isNavExpanded ? '' : 'justify-center'}`}>
-                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] text-xs font-semibold text-[color:var(--ui-muted)]">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--ui-border)] bg-white text-xs font-semibold text-[color:var(--ui-brand)] shadow-sm">
                   {(profile?.business_name || 'U')[0]}
                 </div>
                 {isNavExpanded && (
@@ -5773,8 +5788,8 @@ export default function TechniciansPage() {
                       }}
                       className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
                         isActive
-                          ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
-                          : 'bg-[color:var(--ui-card)] text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-accent)]/10 hover:text-[color:var(--ui-ink)]'
+                          ? 'bg-[color:var(--ui-brand)] text-white shadow-[0_18px_32px_-20px_rgba(42,3,56,0.9)]'
+                          : 'bg-white text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-brand-soft)] hover:text-[color:var(--ui-brand)]'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
