@@ -23,6 +23,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import PublicTopNav from '../../components/PublicTopNav';
 import { POST_AUTH_REDIRECT_KEY, PRICE_ACCESS_INTENT, sanitizeNextPath } from '../../lib/auth/post-auth';
 import {
   buildMasterItemChoiceLabel,
@@ -4855,6 +4856,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -4872,6 +4874,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
@@ -4890,6 +4893,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
@@ -4926,6 +4930,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -4952,6 +4957,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -5077,6 +5083,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         {sessionMediaOverlays}
         <div
           style={activeThemeStyles}
@@ -5347,6 +5354,7 @@ export default function TechniciansPage() {
     return (
       <>
         <AuthHashHandler />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -5655,6 +5663,7 @@ export default function TechniciansPage() {
       className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
+      <PublicTopNav activeHref="/tecnicos" sticky />
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
@@ -5664,7 +5673,7 @@ export default function TechniciansPage() {
           <aside
             onMouseEnter={() => setIsNavHovered(true)}
             onMouseLeave={() => setIsNavHovered(false)}
-            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-8 lg:h-[calc(100vh-4rem)] ${
+            className={`hidden lg:flex flex-col self-start overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/90 shadow-lg shadow-slate-200/50 backdrop-blur transition-all lg:sticky lg:top-24 lg:h-[calc(100vh-8rem)] ${
               isNavExpanded ? 'w-72' : 'w-20'
             }`}
           >

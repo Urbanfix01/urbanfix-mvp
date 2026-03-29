@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import Link from 'next/link';
+import PublicTopNav from '../../components/PublicTopNav';
 
 type ClientRequestRow = {
   id: string;
@@ -607,9 +608,12 @@ export default function ClientRequestsHub() {
 
   if (loadingSession) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm">
-          Cargando acceso de cliente...
+      <div className="min-h-screen bg-slate-100">
+        <PublicTopNav activeHref="/cliente" sticky />
+        <div className="flex items-center justify-center px-6 py-10 md:px-10">
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-4 text-sm text-slate-600 shadow-sm">
+            Cargando acceso de cliente...
+          </div>
         </div>
       </div>
     );
@@ -617,8 +621,10 @@ export default function ClientRequestsHub() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-slate-100 p-6 md:p-10">
-        <div className="mx-auto grid w-full max-w-6xl gap-6 md:grid-cols-[1.05fr_0.95fr]">
+      <div className="min-h-screen bg-slate-100">
+        <PublicTopNav activeHref="/cliente" sticky />
+        <div className="p-6 md:p-10">
+          <div className="mx-auto grid w-full max-w-6xl gap-6 md:grid-cols-[1.05fr_0.95fr]">
           <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <p className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white">
               {createRequestIntent ? 'Crear solicitud' : 'UrbanFix clientes'}
@@ -751,14 +757,17 @@ export default function ClientRequestsHub() {
             {authError && <p className="mt-3 text-xs text-rose-600">{authError}</p>}
             {authNotice && <p className="mt-3 text-xs text-emerald-600">{authNotice}</p>}
           </section>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6 md:p-10">
-      <div className="mx-auto w-full max-w-6xl space-y-6">
+    <div className="min-h-screen bg-slate-100">
+      <PublicTopNav activeHref="/cliente" sticky />
+      <div className="p-6 md:p-10">
+        <div className="mx-auto w-full max-w-6xl space-y-6">
         <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -1247,6 +1256,7 @@ export default function ClientRequestsHub() {
             </article>
           </div>
         </section>
+        </div>
       </div>
     </div>
   );
