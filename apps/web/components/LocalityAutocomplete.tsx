@@ -30,6 +30,68 @@ const normalizeText = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const tokenizeText = (value: string) => normalizeText(value).split(' ').filter(Boolean);
+
+const isSingleEditAway = (source: string, target: string) => {
+  if (!source || !target) return false;
+  const lengthDiff = Math.abs(source.length - target.length);
+  if (lengthDiff > 1) return false;
+  if (source === target) return true;
+
+  let sourceIndex = 0;
+  let targetIndex = 0;
+  let mismatches = 0;
+
+  while (sourceIndex < source.length && targetIndex < target.length) {
+    if (source[sourceIndex] === target[targetIndex]) {
+      sourceIndex += 1;
+      targetIndex += 1;
+      continue;
+    }
+
+    mismatches += 1;
+    if (mismatches > 1) return false;
+
+    if (source.length > target.length) {
+      sourceIndex += 1;
+    } else if (source.length < target.length) {
+      targetIndex += 1;
+    } else {
+      sourceIndex += 1;
+      targetIndex += 1;
+    }
+  }
+
+  if (sourceIndex < source.length || targetIndex < target.length) {
+    mismatches += 1;
+  }
+
+  return mismatches <= 1;
+};
+
+const isStrongPredictiveMatch = (typedValue: string, option: LocalityOption) => {
+  const normalizedTypedValue = normalizeText(typedValue);
+  if (normalizedTypedValue.length < 5) return false;
+
+  const normalizedName = normalizeText(option.name);
+  const typedTokens = tokenizeText(typedValue);
+  const nameTokens = tokenizeText(option.name);
+
+  if (normalizedName.includes(normalizedTypedValue)) {
+    return true;
+  }
+
+  return typedTokens.every((typedToken) =>
+    nameTokens.some(
+      (nameToken) =>
+        nameToken === typedToken ||
+        nameToken.startsWith(typedToken) ||
+        nameToken.includes(typedToken) ||
+        (typedToken.length >= 5 && isSingleEditAway(nameToken, typedToken))
+    )
+  );
+};
+
 const searchLocalities = async (
   country: string,
   province: string,
@@ -162,6 +224,11 @@ export default function LocalityAutocomplete({
       return;
     }
 
+    if (suggestions.length === 1 && isStrongPredictiveMatch(input, suggestions[0])) {
+      selectOption(suggestions[0]);
+      return;
+    }
+
     setInput(value || '');
     onChange(value || '');
   };
@@ -234,7 +301,7 @@ export default function LocalityAutocomplete({
         <p className={baseHelperClassName}>Selecciona pais y provincia para habilitar la busqueda de localidades.</p>
       )}
       {country.trim() && province.trim() && !value && !loading && (
-        <p className={baseHelperClassName}>Elige una localidad sugerida para guardar un nombre estandarizado.</p>
+        <p className={baseHelperClassName}>Elige una localidad sugerida para guardar un nombre estandarizado. Si la primera coincide claramente, Enter la toma.</p>
       )}
       {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
 
