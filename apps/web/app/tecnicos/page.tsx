@@ -4520,8 +4520,11 @@ export default function TechniciansPage() {
     [canSaveRequiredProfile, profileForm.profilePublished, quotes.length, selectedSpecialties.length]
   );
   const lobbySetupCompleted = useMemo(() => lobbySetupSteps.filter((item) => item.done).length, [lobbySetupSteps]);
-  const shouldShowLobbyOnboarding =
-    profileCompletionPercent < 100 || quotes.length === 0 || !profileForm.profilePublished;
+  const lobbySetupPercent = useMemo(() => {
+    if (!lobbySetupSteps.length) return 0;
+    return Math.round((lobbySetupCompleted / lobbySetupSteps.length) * 100);
+  }, [lobbySetupCompleted, lobbySetupSteps]);
+  const shouldShowLobbyOnboarding = lobbySetupPercent < 100;
 
   const handleSpecialtyToggle = (specialty: string) => {
     setProfileForm((prev) => ({
@@ -5842,15 +5845,17 @@ export default function TechniciansPage() {
                               Tu cuenta ya puede operar. Estos son los siguientes pasos.
                             </h2>
                             <p className="mt-3 text-sm text-slate-600">
-                              {profileCompletionPercent < 100
+                              {lobbySetupPercent < 100
                                 ? 'Completa tu perfil base para operar con menos fricción y dejar listo el ingreso al resto del flujo.'
                                 : 'La base ya está armada. Ahora conviene cargar presupuesto y publicar presencia.'}
                             </p>
                           </div>
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Progreso</p>
-                            <p className="mt-2 text-2xl font-semibold text-slate-900">{profileCompletionPercent}%</p>
-                            <p className="text-xs text-slate-500">{lobbySetupCompleted}/3 hitos operativos listos</p>
+                            <p className="mt-2 text-2xl font-semibold text-slate-900">{lobbySetupPercent}%</p>
+                            <p className="text-xs text-slate-500">
+                              {lobbySetupCompleted}/{lobbySetupSteps.length} hitos operativos listos
+                            </p>
                           </div>
                         </div>
 
