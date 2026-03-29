@@ -509,58 +509,6 @@ type DashboardMapPoint = {
   createdAt: string;
 };
 
-const addressHasStreetNumber = (value: string) => /(^|\D)\d{1,5}(\D|$)/.test(String(value || '').trim());
-
-const geocodeAddressFirstResult = async ({
-  query,
-  country = DEFAULT_COUNTRY_NAME,
-  city = '',
-  province = '',
-  limit = 3,
-  preferExact = false,
-}: {
-  query: string;
-  country?: string;
-  city?: string;
-  province?: string;
-  limit?: number;
-  preferExact?: boolean;
-}) => {
-  const trimmed = query.trim();
-  if (!trimmed) return null;
-  const params = new URLSearchParams({
-    query: trimmed,
-    limit: String(Math.max(1, Math.min(5, Math.round(limit || 1)))),
-    country,
-  });
-  if (city.trim()) {
-    params.set('city', city.trim());
-  }
-  if (province.trim()) {
-    params.set('province', province.trim());
-  }
-  const response = await fetch(`/api/geocode/search?${params.toString()}`, { cache: 'no-store' });
-  if (!response.ok) return null;
-  const payload = (await response.json()) as {
-    results?: Array<{ display_name: string; lat: number; lon: number; precision?: 'exact' | 'approx' }>;
-  };
-  const rows = Array.isArray(payload.results) ? payload.results : [];
-  const first =
-    (preferExact || addressHasStreetNumber(trimmed)
-      ? rows.find((row) => row.precision === 'exact')
-      : null) || rows[0];
-  if (!first) return null;
-  const lat = Number(first.lat);
-  const lon = Number(first.lon);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
-  return {
-    display_name: first.display_name,
-    lat,
-    lon,
-    precision: first.precision === 'exact' ? 'exact' : 'approx',
-  };
-};
-
 const urgencyBadgeClass = (urgency: string) => {
   const normalized = urgency.toLowerCase();
   if (normalized === 'alta') return 'bg-rose-100 text-rose-700';
@@ -3630,43 +3578,20 @@ export default function TechniciansPage() {
       const existingPublishedAt = String(profile?.profile_published_at || '').trim();
       const profilePublishedAt = effectiveProfilePublished ? existingPublishedAt || new Date().toISOString() : null;
       
-      // Use technician location if available, otherwise fall back to geocoding
+      // Use only the exact point confirmed in the picker/map.
       let serviceLat: number | null = null;
       let serviceLng: number | null = null;
       let serviceLocationName: string | null = null;
-      let serviceLocationPrecision: string = 'approx';
-      let wasGeocodedFromAddress = false;
+      let serviceLocationPrecision: string = 'exact';
       const typedAddress = String(profileForm.address || '').trim();
-      const typedAddressHasStreetNumber = addressHasStreetNumber(typedAddress);
       
-      if (technicianLocationResult?.isValid) {
+      if (technicianLocationResult?.isValid && technicianLocationResult.precision === 'exact') {
         serviceLat = technicianLocationResult.lat;
         serviceLng = technicianLocationResult.lng;
         serviceLocationName = technicianLocationResult.displayName;
         serviceLocationPrecision = technicianLocationResult.precision;
-        if (typedAddressHasStreetNumber && technicianLocationResult.precision !== 'exact') {
-          throw new Error('No pudimos confirmar la altura exacta. Elige una sugerencia exacta o ajusta el punto en el mapa.');
-        }
       } else {
-        // Fall back to geocoding if no location picker result
-        const geocoded = await geocodeAddressFirstResult({
-          query: typedAddress,
-          country: profileForm.country,
-          city: profileForm.city,
-          province: profileForm.province,
-          limit: typedAddressHasStreetNumber ? 3 : 1,
-          preferExact: typedAddressHasStreetNumber,
-        });
-        const currentServiceLat = Number(profile?.service_lat);
-        const currentServiceLng = Number(profile?.service_lng);
-        serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
-        serviceLng = geocoded?.lon ?? (Number.isFinite(currentServiceLng) ? currentServiceLng : null);
-        serviceLocationName = geocoded?.display_name || null;
-        serviceLocationPrecision = geocoded?.precision || 'approx';
-        wasGeocodedFromAddress = Boolean(geocoded);
-        if (typedAddressHasStreetNumber && (!geocoded || geocoded.precision !== 'exact')) {
-          throw new Error('No pudimos confirmar la altura exacta. Elige una sugerencia exacta o ajusta el punto en el mapa.');
-        }
+        throw new Error('Elige y confirma en el mapa el punto exacto donde quieres aparecer.');
       }
       
       if (effectiveProfilePublished && !serviceLat && !serviceLng) {
@@ -3764,13 +3689,7 @@ export default function TechniciansPage() {
       }
 
       if (!silent) {
-        if (technicianLocationResult?.isValid) {
-          setProfileMessage('Perfil actualizado con tu ubicación del mapa.');
-        } else if (wasGeocodedFromAddress) {
-          setProfileMessage('Perfil actualizado con geolocalizacion.');
-        } else {
-          setProfileMessage('Perfil actualizado.');
-        }
+        setProfileMessage('Perfil actualizado con tu punto en el mapa.');
       } else {
         setAutoSaveMessage('Guardado automatico.');
         autoSaveMessageTimerRef.current = window.setTimeout(() => {
@@ -4478,28 +4397,30 @@ export default function TechniciansPage() {
     const full = String(profile?.full_name || '').trim();
     const business = String(profile?.business_name || '').trim();
     const phone = String(profile?.phone || '').trim();
-    const address = String(profileForm.address || technicianLocationResult?.displayName || '').trim();
+    const hasExactMapPoint = Boolean(technicianLocationResult?.isValid && technicianLocationResult?.precision === 'exact');
     if (!full) missing.push('Nombre y apellido');
     if (!business) missing.push('Nombre del negocio');
     if (!phone) missing.push('Telefono / WhatsApp');
-    if (!address) missing.push('Direccion base');
+    if (!hasExactMapPoint) missing.push('Ubicacion en el mapa');
     return missing;
-  }, [profile?.business_name, profile?.full_name, profile?.phone, profileForm.address, technicianLocationResult?.displayName]);
+  }, [profile?.business_name, profile?.full_name, profile?.phone, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
 
   const hasResolvedBaseAddress = useMemo(() => {
-    const typedAddress = String(profileForm.address || '').trim();
-    if (typedAddress) return true;
-
     const locationLabel = String(technicianLocationResult?.displayName || '').trim();
-    return Boolean(locationLabel && locationLabel !== GENERIC_MAP_LOCATION_LABEL && technicianLocationResult?.isValid);
-  }, [profileForm.address, technicianLocationResult?.displayName, technicianLocationResult?.isValid]);
+    return Boolean(
+      locationLabel &&
+        locationLabel !== GENERIC_MAP_LOCATION_LABEL &&
+        technicianLocationResult?.isValid &&
+        technicianLocationResult?.precision === 'exact'
+    );
+  }, [technicianLocationResult?.displayName, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
 
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
     if (!profileForm.fullName.trim()) missing.push('Nombre y apellido');
     if (!profileForm.businessName.trim()) missing.push('Nombre del negocio');
     if (!profileForm.phone.trim()) missing.push('Telefono / WhatsApp');
-    if (!hasResolvedBaseAddress) missing.push('Direccion base');
+    if (!hasResolvedBaseAddress) missing.push('Ubicacion en el mapa');
     return missing;
   }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, profileForm.phone]);
 
@@ -4508,7 +4429,7 @@ export default function TechniciansPage() {
     Boolean(profileForm.businessName.trim()) &&
     Boolean(profileForm.phone.trim()) &&
     hasResolvedBaseAddress;
-  const hasWorkZoneForShowcase = hasResolvedBaseAddress || Boolean(profileForm.city.trim());
+  const hasWorkZoneForShowcase = hasResolvedBaseAddress;
 
   const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
   const selectedSpecialtiesSet = useMemo(
@@ -5360,7 +5281,7 @@ export default function TechniciansPage() {
                       cityHint={profileForm.city}
                       provinceHint={profileForm.province}
                       label="Dirección base"
-                      description="Completa primero tu ciudad o localidad, luego busca la dirección con altura para obtener coordenadas más precisas y ajustar el punto exacto en el mapa si hace falta."
+                      description="Completa primero tu ciudad o localidad, busca la dirección con altura y confirma el punto exacto en el mapa."
                       required={false}
                     />
                   </div>
@@ -8342,11 +8263,11 @@ export default function TechniciansPage() {
                           cityHint={profileForm.city}
                           provinceHint={profileForm.province}
                           label="Direccion base"
-                          description="Completa primero tu ciudad o localidad, luego busca la dirección con altura para conseguir coordenadas más precisas y ajustar el punto en el mapa si hace falta."
+                          description="Completa primero tu ciudad o localidad, busca la dirección con altura y confirma el punto exacto en el mapa."
                           required={profileForm.profilePublished}
                           error={
-                            profileForm.profilePublished && !technicianLocationResult?.isValid
-                              ? 'Completa tu ubicación para publicar en la vidriera'
+                            profileForm.profilePublished && !hasResolvedBaseAddress
+                              ? 'Confirma tu punto exacto en el mapa para publicar en la vidriera'
                               : undefined
                           }
                         />

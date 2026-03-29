@@ -206,6 +206,7 @@ export default function TechnicianLocationPicker({
     onQueryChange?.(result.displayName);
     setSuggestions([]);
     setSearchError('');
+    setShowMap(true);
   };
 
   // Clear location
@@ -392,11 +393,17 @@ export default function TechnicianLocationPicker({
     };
   }, [countryHint, coverageRadiusKm, showMap, value, input, onChange]);
 
-  const description = descriptionProp || 'Ingresa la dirección completa o selecciona en el mapa para que los clientes te encuentren.';
-  const statusText = value?.isValid 
-    ? `${value.displayName} (${value.precision === 'exact' ? 'ubicación exacta' : 'zona estimada'})`
+  const description =
+    descriptionProp || 'Busca la dirección y confirma el punto exacto en el mapa para definir dónde apareces.';
+  const needsMapConfirmation = Boolean(value?.isValid && value.precision !== 'exact');
+  const statusText = value?.isValid
+    ? needsMapConfirmation
+      ? 'Confirma el punto en el mapa para guardar.'
+      : value.displayName
     : null;
-  const coverageText = `Los clientes te van a ver dentro de un radio aproximado de ${coverageRadiusKm} km desde este punto.`;
+  const coverageText = needsMapConfirmation
+    ? 'Haz clic o arrastra el pin para fijar tu punto exacto.'
+    : `Este punto define dónde apareces en el mapa y tu cobertura de ${coverageRadiusKm} km.`;
 
   return (
     <div className="space-y-2">
@@ -498,16 +505,20 @@ export default function TechnicianLocationPicker({
               ref={mapHostRef}
               className="h-[300px] w-full rounded bg-slate-100"
             />
-            <p className="text-xs text-slate-500">El círculo azul muestra la zona aproximada donde se publicará tu perfil.</p>
+            <p className="text-xs text-slate-500">El círculo azul muestra la cobertura desde el punto que elijas en el mapa.</p>
           </div>
         )}
       </div>
 
       {/* Estado actual */}
       {statusText && (
-        <div className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-800">
-          ✓ {statusText}
-          <div className="mt-1 text-xs text-green-700">{coverageText}</div>
+        <div
+          className={`rounded-lg px-3 py-2 text-sm ${
+            needsMapConfirmation ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'
+          }`}
+        >
+          {needsMapConfirmation ? '!' : '✓'} {statusText}
+          <div className={`mt-1 text-xs ${needsMapConfirmation ? 'text-amber-700' : 'text-green-700'}`}>{coverageText}</div>
         </div>
       )}
 
