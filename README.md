@@ -44,6 +44,21 @@ npm run mobile:android
 npm run mobile:typecheck
 ```
 
+Para demo rapido:
+
+```bash
+npm run mobile:demo:android
+npm run mobile:demo:ios
+npm run mobile:demo:ios:submit
+```
+
+El flujo recomendado de demo es:
+
+- Android: APK por link abierto.
+- iPhone: TestFlight con enlace publico.
+
+La guia operativa completa vive en `docs/mobile-demo-distribution.md`.
+
 La configuracion de Expo/EAS para iOS y Android vive en `apps/mobile`.
 
 ## Flujo de trabajo web

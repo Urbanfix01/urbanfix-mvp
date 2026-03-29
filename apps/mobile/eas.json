@@ -12,6 +12,12 @@
         "ascAppId": "6758969211"
       }
     },
+    "demo": {
+      "extends": "production",
+      "ios": {
+        "ascAppId": "6758969211"
+      }
+    },
     "closed": {
       "extends": "production",
       "android": {
@@ -37,6 +43,19 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal"
+    },
+    "demo-android": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "demo-ios": {
+      "extends": "production",
+      "autoIncrement": true,
+      "ios": {
+        "simulator": false
+      }
     },
     "preview": {
       "android": {
