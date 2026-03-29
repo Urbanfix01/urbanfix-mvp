@@ -111,6 +111,24 @@ const normalizeRadiusKm = (value: unknown, fallback = 20) => {
   return Math.min(100, Math.max(1, Math.round(parsed)));
 };
 
+const clientPanelSurfaceClass =
+  'rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(249,244,237,0.98)_58%,rgba(246,238,248,0.96)_100%)] shadow-[0_28px_80px_-40px_rgba(42,3,56,0.34)]';
+
+const clientPanelCardClass =
+  'rounded-[30px] border border-white/80 bg-white/84 p-6 shadow-[0_24px_56px_-42px_rgba(42,3,56,0.34)] backdrop-blur';
+
+const clientPanelMutedCardClass =
+  'rounded-[24px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(247,239,248,0.9),rgba(255,255,255,0.86))] p-4';
+
+const clientPanelInputClass =
+  'mt-2 w-full rounded-2xl border border-[#ddd7ea] bg-white/92 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-2 focus:ring-[#f8e4cb]';
+
+const clientPanelPrimaryButtonClass =
+  'rounded-full bg-[linear-gradient(135deg,#2a0338,#4a1260)] px-4 py-2 text-xs font-semibold text-white shadow-[0_18px_32px_-22px_rgba(42,3,56,0.95)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55';
+
+const clientPanelSecondaryButtonClass =
+  'rounded-full border border-[#d8cfdf] bg-white/88 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-[#ff8f1f]/60 hover:text-[#2a0338]';
+
 export default function ClientRequestsHub() {
   const requestTitleInputRef = useRef<HTMLInputElement | null>(null);
   const profileIntentHandledRef = useRef(false);
@@ -764,41 +782,44 @@ export default function ClientRequestsHub() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
+    <div className="min-h-screen bg-[#f5f4f0]">
       <PublicTopNav activeHref="/cliente" sticky />
-      <div className="p-6 md:p-10">
-        <div className="mx-auto w-full max-w-6xl space-y-6">
-        <header className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="relative overflow-hidden p-6 md:p-10">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(42,3,56,0.08),_transparent_40%),radial-gradient(circle_at_right,_rgba(255,143,31,0.12),_transparent_28%)]" />
+        <div className="pointer-events-none absolute -left-10 bottom-10 h-40 w-40 rounded-full bg-sky-200/30 blur-3xl" />
+        <div className="pointer-events-none absolute -right-10 top-16 h-52 w-52 rounded-full bg-[#f5b942]/20 blur-3xl" />
+        <div className="relative mx-auto w-full max-w-6xl space-y-6">
+        <header className={`${clientPanelSurfaceClass} p-6`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Panel cliente</p>
-              <h1 className="text-2xl font-semibold text-slate-900">Solicitudes de trabajo</h1>
+              <p className="text-[11px] uppercase tracking-[0.26em] text-[#7a6786]">Panel cliente</p>
+              <h1 className="mt-1 text-2xl font-semibold text-slate-900">Solicitudes de trabajo</h1>
               <p className="mt-1 text-sm text-slate-600">{session.user.email}</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+              <span className="rounded-full border border-[#e6ddea] bg-white/86 px-3 py-1 text-xs font-semibold text-slate-700">
                 Total: {requestsByStatus.total}
               </span>
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                 Matcheadas: {requestsByStatus.matched}
               </span>
               <Link
                 href="/vidriera"
-                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                className={clientPanelSecondaryButtonClass}
               >
                 Ver vidriera
               </Link>
               <button
                 type="button"
                 onClick={handleRefreshWorkspace}
-                className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                className={clientPanelSecondaryButtonClass}
               >
                 Actualizar
               </button>
               <button
                 type="button"
                 onClick={() => supabase.auth.signOut()}
-                className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                className={clientPanelPrimaryButtonClass}
               >
                 Cerrar sesión
               </button>
@@ -806,10 +827,10 @@ export default function ClientRequestsHub() {
           </div>
         </header>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section className={clientPanelSurfaceClass + ' p-6'}>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="max-w-3xl">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Primeros pasos</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Primeros pasos</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-900">
                 {isClientProfileComplete
                   ? requests.length > 0
@@ -821,8 +842,8 @@ export default function ClientRequestsHub() {
                 UrbanFix te lleva por una secuencia simple: perfil, solicitud y lectura de técnicos cercanos.
               </p>
             </div>
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Progreso</p>
+            <div className="rounded-[24px] border border-[#e7dff0] bg-white/82 px-4 py-3 shadow-sm">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Progreso</p>
               <p className="mt-2 text-2xl font-semibold text-slate-900">{clientSetupCompleted}/3</p>
               <p className="text-xs text-slate-500">Hitos iniciales completados</p>
             </div>
@@ -833,7 +854,7 @@ export default function ClientRequestsHub() {
               <a
                 key={step.key}
                 href={step.href}
-                className="rounded-2xl border border-slate-200 bg-slate-50 p-4 transition hover:border-slate-300 hover:bg-white"
+                className="rounded-[24px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(247,239,248,0.86),rgba(255,255,255,0.92))] p-4 transition hover:border-[#d7cadf] hover:bg-white"
               >
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-sm font-semibold text-slate-900">{step.title}</p>
@@ -846,7 +867,7 @@ export default function ClientRequestsHub() {
                   </span>
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
-                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a6786]">
                   Ir a esta seccion
                 </p>
               </a>
@@ -854,10 +875,10 @@ export default function ClientRequestsHub() {
           </div>
         </section>
 
-        <section id="perfil-cliente" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <section id="perfil-cliente" className={clientPanelCardClass}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil cliente</p>
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Perfil cliente</p>
               <h2 className="mt-1 text-xl font-semibold text-slate-900">Completa tu perfil para operar</h2>
               <p className="mt-1 text-sm text-slate-600">
                 Este perfil es obligatorio para publicar solicitudes y coordinar con técnicos.
@@ -882,7 +903,7 @@ export default function ClientRequestsHub() {
                   <input
                     value={clientProfileForm.fullName}
                     onChange={(event) => setClientProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    className={clientPanelInputClass}
                   />
                 </div>
                 <div>
@@ -890,7 +911,7 @@ export default function ClientRequestsHub() {
                   <input
                     value={clientProfileForm.phone}
                     onChange={(event) => setClientProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    className={clientPanelInputClass}
                   />
                 </div>
                 <div>
@@ -898,7 +919,7 @@ export default function ClientRequestsHub() {
                   <input
                     value={clientProfileForm.city}
                     onChange={(event) => setClientProfileForm((prev) => ({ ...prev, city: event.target.value }))}
-                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    className={clientPanelInputClass}
                   />
                 </div>
               </div>
@@ -908,7 +929,7 @@ export default function ClientRequestsHub() {
                 <input
                   value={clientProfileForm.address}
                   onChange={(event) => setClientProfileForm((prev) => ({ ...prev, address: event.target.value }))}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  className={clientPanelInputClass}
                 />
               </div>
 
@@ -917,7 +938,7 @@ export default function ClientRequestsHub() {
                   type="button"
                   onClick={handleSaveClientProfile}
                   disabled={savingClientProfile}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                  className={clientPanelPrimaryButtonClass}
                 >
                   {savingClientProfile ? 'Guardando...' : 'Guardar perfil'}
                 </button>
@@ -929,8 +950,8 @@ export default function ClientRequestsHub() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-          <article id="nueva-solicitud-cliente" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Nueva solicitud</p>
+          <article id="nueva-solicitud-cliente" className={clientPanelCardClass}>
+            <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Nueva solicitud</p>
             <h2 className="mt-1 text-xl font-semibold text-slate-900">Publicar trabajo</h2>
 
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -940,7 +961,7 @@ export default function ClientRequestsHub() {
                   ref={requestTitleInputRef}
                   value={form.title}
                   onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  className={clientPanelInputClass}
                 />
               </div>
               <div>
@@ -949,7 +970,7 @@ export default function ClientRequestsHub() {
                   value={form.category}
                   onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
                   placeholder="Ej: Electricidad"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  className={clientPanelInputClass}
                 />
               </div>
             </div>
@@ -959,7 +980,7 @@ export default function ClientRequestsHub() {
               <input
                 value={form.address}
                 onChange={(event) => setForm((prev) => ({ ...prev, address: event.target.value }))}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                className={clientPanelInputClass}
               />
             </div>
 
@@ -969,7 +990,7 @@ export default function ClientRequestsHub() {
                 <input
                   value={form.city}
                   onChange={(event) => setForm((prev) => ({ ...prev, city: event.target.value }))}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  className={clientPanelInputClass}
                 />
               </div>
               <div>
@@ -979,7 +1000,7 @@ export default function ClientRequestsHub() {
                   onChange={(event) =>
                     setForm((prev) => ({ ...prev, urgency: event.target.value as CreateRequestForm['urgency'] }))
                   }
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+                  className={clientPanelInputClass + ' font-semibold'}
                 >
                   <option value="baja">Baja</option>
                   <option value="media">Media</option>
@@ -992,18 +1013,18 @@ export default function ClientRequestsHub() {
                   value={form.preferredWindow}
                   onChange={(event) => setForm((prev) => ({ ...prev, preferredWindow: event.target.value }))}
                   placeholder="Ej: 14:00 - 18:00"
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                  className={clientPanelInputClass}
                 />
               </div>
             </div>
 
-            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className={clientPanelMutedCardClass + ' mt-3'}>
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={handleUseCurrentLocation}
                   disabled={locatingRequestGeo || savingRequest}
-                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:opacity-60"
+                  className={clientPanelSecondaryButtonClass + ' px-3 py-1.5 text-[11px] disabled:opacity-60'}
                 >
                   {locatingRequestGeo
                     ? 'Detectando ubicación...'
@@ -1026,7 +1047,7 @@ export default function ClientRequestsHub() {
                         radiusKm: Math.min(100, Math.max(1, Math.round(value))),
                       }));
                     }}
-                    className="w-20 rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700"
+                    className="w-20 rounded-xl border border-[#ddd7ea] bg-white px-2 py-1 text-xs text-slate-700 outline-none"
                   />
                 </label>
               </div>
@@ -1048,11 +1069,11 @@ export default function ClientRequestsHub() {
                 rows={4}
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                className={clientPanelInputClass}
               />
             </div>
 
-            <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className={clientPanelMutedCardClass + ' mt-3'}>
               <p className="text-xs font-semibold text-slate-700">Modo de solicitud</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
@@ -1060,8 +1081,8 @@ export default function ClientRequestsHub() {
                   onClick={() => setForm((prev) => ({ ...prev, mode: 'marketplace' }))}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     form.mode === 'marketplace'
-                      ? 'bg-slate-900 text-white'
-                      : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                      ? 'bg-[linear-gradient(135deg,#2a0338,#4a1260)] text-white shadow-[0_18px_32px_-22px_rgba(42,3,56,0.95)]'
+                      : 'border border-[#d8cfdf] bg-white text-slate-700 hover:border-[#ff8f1f]/60 hover:text-[#2a0338]'
                   }`}
                 >
                   Cotización múltiple
@@ -1071,8 +1092,8 @@ export default function ClientRequestsHub() {
                   onClick={() => setForm((prev) => ({ ...prev, mode: 'direct' }))}
                   className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
                     form.mode === 'direct'
-                      ? 'bg-slate-900 text-white'
-                      : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
+                      ? 'bg-[linear-gradient(135deg,#2a0338,#4a1260)] text-white shadow-[0_18px_32px_-22px_rgba(42,3,56,0.95)]'
+                      : 'border border-[#d8cfdf] bg-white text-slate-700 hover:border-[#ff8f1f]/60 hover:text-[#2a0338]'
                   }`}
                 >
                   Asignación directa
@@ -1087,7 +1108,7 @@ export default function ClientRequestsHub() {
                       type="button"
                       onClick={() => loadNearbyTechnicians(form.radiusKm)}
                       disabled={nearbyLoading}
-                      className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-60"
+                      className={clientPanelSecondaryButtonClass + ' px-3 py-1 text-[11px] disabled:opacity-60'}
                     >
                       {nearbyLoading ? 'Actualizando...' : 'Actualizar zona'}
                     </button>
@@ -1104,7 +1125,7 @@ export default function ClientRequestsHub() {
                         targetTechnicianPhone: selected?.phone || '',
                       }));
                     }}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                    className={clientPanelInputClass.replace('mt-2 ', '')}
                   >
                     <option value="">Seleccionar técnico cercano</option>
                     {nearbyTechnicians.map((tech) => (
@@ -1115,7 +1136,7 @@ export default function ClientRequestsHub() {
                   </select>
 
                   {selectedNearbyTechnician ? (
-                    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                    <div className="rounded-2xl border border-[#e5dcec] bg-white p-3 shadow-sm">
                       <p className="text-xs font-semibold text-slate-800">{selectedNearbyTechnician.name}</p>
                       <p className="mt-1 text-[11px] text-slate-600">
                         {selectedNearbyTechnician.specialty} | {selectedNearbyTechnician.city || 'Zona no informada'}
@@ -1141,7 +1162,7 @@ export default function ClientRequestsHub() {
               type="button"
               onClick={handlePublishRequest}
               disabled={savingRequest || !isClientProfileComplete}
-              className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              className={`${clientPanelPrimaryButtonClass} mt-5 w-full rounded-2xl py-3 text-sm`}
             >
               {savingRequest
                 ? 'Publicando...'
@@ -1155,17 +1176,17 @@ export default function ClientRequestsHub() {
           </article>
 
           <div className="space-y-6">
-            <article id="tecnicos-cercanos" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <article id="tecnicos-cercanos" className={clientPanelCardClass}>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Técnicos por zona</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Técnicos por zona</p>
                   <h2 className="text-xl font-semibold text-slate-900">Disponibles cerca de tu obra</h2>
                 </div>
                 <button
                   type="button"
                   onClick={() => loadNearbyTechnicians(form.radiusKm)}
                   disabled={nearbyLoading}
-                  className="rounded-full border border-slate-300 px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 disabled:opacity-60"
+                  className={clientPanelSecondaryButtonClass + ' px-3 py-1.5 text-[11px] disabled:opacity-60'}
                 >
                   {nearbyLoading ? 'Actualizando...' : 'Actualizar'}
                 </button>
@@ -1179,13 +1200,13 @@ export default function ClientRequestsHub() {
               {nearbyLoading ? (
                 <p className="mt-4 text-sm text-slate-500">Buscando técnicos por zona...</p>
               ) : nearbyTechnicians.length === 0 ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                <div className="mt-4 rounded-2xl border border-dashed border-[#ddd2e5] bg-[#faf5fc] p-4 text-sm text-slate-500">
                   Sin técnicos cercanos visibles con el radio actual.
                 </div>
               ) : (
                 <div className="mt-4 space-y-2">
                   {nearbyTechnicians.slice(0, 8).map((tech) => (
-                    <div key={tech.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div key={tech.id} className="rounded-2xl border border-[#e7dff0] bg-[linear-gradient(180deg,rgba(247,239,248,0.84),rgba(255,255,255,0.94))] px-3 py-3">
                       <p className="text-xs font-semibold text-slate-900">{tech.name}</p>
                       <p className="mt-0.5 text-[11px] text-slate-600">
                         {tech.specialty} | {tech.city || 'Zona sin ciudad'} | {tech.distanceKm.toFixed(1)} km
@@ -1200,13 +1221,13 @@ export default function ClientRequestsHub() {
               )}
             </article>
 
-            <article className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <article className={clientPanelCardClass}>
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Tus solicitudes</p>
+                  <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Tus solicitudes</p>
                   <h2 className="text-xl font-semibold text-slate-900">Historial reciente</h2>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                <span className="rounded-full border border-[#e6ddea] bg-white/88 px-3 py-1 text-xs font-semibold text-slate-700">
                   {requests.length}
                 </span>
               </div>
@@ -1214,13 +1235,13 @@ export default function ClientRequestsHub() {
               {loadingRequests ? (
                 <p className="mt-4 text-sm text-slate-500">Cargando solicitudes...</p>
               ) : requests.length === 0 ? (
-                <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                <div className="mt-4 rounded-2xl border border-dashed border-[#ddd2e5] bg-[#faf5fc] p-4 text-sm text-slate-500">
                   Aún no publicaste solicitudes.
                 </div>
               ) : (
                 <div className="mt-4 space-y-3">
                   {requests.map((item) => (
-                    <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <div key={item.id} className="rounded-2xl border border-[#e7dff0] bg-[linear-gradient(180deg,rgba(247,239,248,0.84),rgba(255,255,255,0.94))] p-4">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div>
                           <p className="text-sm font-semibold text-slate-900">{item.title}</p>
