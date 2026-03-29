@@ -159,6 +159,7 @@ export type ClientTechnicianProfile = {
   coverage_area: string | null;
   company_logo_url: string | null;
   avatar_url: string | null;
+  banner_url: string | null;
   working_hours_label: string;
   public_reviews_count: number;
   completed_jobs_total: number;

@@ -30,6 +30,7 @@ interface Profile {
   business_name: string | null;
   company_logo_url: string | null;
   avatar_url: string | null;
+  banner_url?: string | null;
   profile_published?: boolean | null;
   profile_published_at?: string | null;
   email?: string | null;
@@ -289,7 +290,7 @@ export default function ProfileScreen({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [uploadingImage, setUploadingImage] = useState<'logo' | 'avatar' | null>(null);
+  const [uploadingImage, setUploadingImage] = useState<'logo' | 'avatar' | 'banner' | null>(null);
   const [uploadingWorkPhoto, setUploadingWorkPhoto] = useState(false);
   const [isEditing, setIsEditing] = useState(requiredCompletion);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -391,13 +392,13 @@ export default function ProfileScreen({
   }, []);
 
   // --- 2. LÓGICA DE SUBIDA DE IMÁGENES ---
-  const handleImagePick = async (type: 'logo' | 'avatar') => {
+  const handleImagePick = async (type: 'logo' | 'avatar' | 'banner') => {
     try {
       if (!isEditing) return;
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
-        aspect: type === 'logo' ? [16, 9] : [1, 1],
+        aspect: type === 'avatar' ? [1, 1] : type === 'logo' ? [4, 3] : [16, 9],
         quality: 0.7,
       });
 
@@ -413,7 +414,7 @@ export default function ProfileScreen({
 
       if (!publicUrl) throw new Error("No se pudo obtener la URL pública");
 
-      const column = type === 'logo' ? 'company_logo_url' : 'avatar_url';
+      const column = type === 'avatar' ? 'avatar_url' : type === 'logo' ? 'company_logo_url' : 'banner_url';
       
       const { error: dbError } = await supabase
         .from('profiles')
@@ -766,21 +767,23 @@ export default function ProfileScreen({
           {/* Banner */}
           <TouchableOpacity 
             style={styles.brandBanner} 
-            onPress={() => handleImagePick('logo')}
+            onPress={() => handleImagePick('banner')}
             disabled={!isEditing || uploadingImage !== null}
             activeOpacity={0.9}
           >
-            {uploadingImage === 'logo' ? (
+            {uploadingImage === 'banner' ? (
                <ActivityIndicator color={COLORS.primary} size="large" />
+            ) : isValidUrl(profile?.banner_url) ? (
+              <Image source={{ uri: profile?.banner_url! }} style={styles.bannerImage} resizeMode="cover" />
             ) : isValidUrl(profile?.company_logo_url) ? (
-              <Image source={{ uri: profile?.company_logo_url! }} style={styles.bannerImage} resizeMode="contain" />
+              <Image source={{ uri: profile?.company_logo_url! }} style={styles.bannerImage} resizeMode="cover" />
             ) : (
               <View style={styles.bannerPlaceholder}>
-                <Ionicons name="business" size={40} color="rgba(0,0,0,0.1)" />
-                <Text style={styles.placeholderText}>Toca para subir Logo</Text>
+                <Ionicons name="image-outline" size={40} color="rgba(0,0,0,0.1)" />
+                <Text style={styles.placeholderText}>Toca para subir Banner</Text>
               </View>
             )}
-            {isEditing && uploadingImage !== 'logo' && (
+            {isEditing && uploadingImage !== 'banner' && (
                 <View style={styles.editIconBanner}><Ionicons name="pencil" size={12} color="#FFF" /></View>
             )}
           </TouchableOpacity>
@@ -814,6 +817,47 @@ export default function ProfileScreen({
                 <Ionicons name="checkmark-circle" size={14} color="#FFF" />
                 <Text style={styles.verifiedText}>Técnico Verificado</Text>
               </View>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => handleImagePick('logo')}
+                disabled={!isEditing || uploadingImage !== null}
+                style={{
+                  marginTop: 12,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 10,
+                  alignSelf: 'flex-start',
+                  paddingRight: 10,
+                }}
+              >
+                <View
+                  style={{
+                    width: 54,
+                    height: 54,
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.14)',
+                    backgroundColor: 'rgba(255,255,255,0.08)',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {uploadingImage === 'logo' ? (
+                    <ActivityIndicator color={COLORS.primary} />
+                  ) : isValidUrl(profile?.company_logo_url) ? (
+                    <Image source={{ uri: profile?.company_logo_url! }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                  ) : (
+                    <Ionicons name="business-outline" size={22} color="#FFFFFF" />
+                  )}
+                </View>
+                <View style={{ gap: 2 }}>
+                  <Text style={{ color: '#FFFFFF', fontFamily: FONTS.subtitle, fontSize: 12 }}>Imagen de empresa</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.68)', fontFamily: FONTS.body, fontSize: 11 }}>
+                    Logo o foto de tu negocio
+                  </Text>
+                </View>
+              </TouchableOpacity>
             </View>
           </View>
         </View>

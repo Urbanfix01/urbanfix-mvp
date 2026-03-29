@@ -68,7 +68,7 @@ export default function TechnicianPublicProfileScreen() {
     const { data: profileData } = await supabase
       .from('profiles')
       .select(
-        'id, full_name, business_name, phone, city, specialties, company_address, coverage_area, company_logo_url, avatar_url, public_rating, public_reviews_count, completed_jobs_total, references_summary, client_recommendations, achievement_badges, instagram_profile_url, facebook_profile_url, instagram_post_url, facebook_post_url, work_photo_urls'
+        'id, full_name, business_name, phone, city, specialties, company_address, coverage_area, company_logo_url, avatar_url, banner_url, public_rating, public_reviews_count, completed_jobs_total, references_summary, client_recommendations, achievement_badges, instagram_profile_url, facebook_profile_url, instagram_post_url, facebook_post_url, work_photo_urls'
       )
       .eq('id', user.id)
       .maybeSingle();
@@ -92,6 +92,7 @@ export default function TechnicianPublicProfileScreen() {
             coverage_area: String((profileData as any).coverage_area || '').trim() || null,
             company_logo_url: String((profileData as any).company_logo_url || '').trim() || null,
             avatar_url: String((profileData as any).avatar_url || '').trim() || null,
+            banner_url: String((profileData as any).banner_url || '').trim() || null,
             rating: Number.isFinite(Number((profileData as any).public_rating))
               ? Number((profileData as any).public_rating)
               : null,

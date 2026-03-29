@@ -133,6 +133,7 @@ const createFallbackTechnician = (
     coverage_area: fallback.coverage_area || null,
     company_logo_url: fallback.company_logo_url || null,
     avatar_url: fallback.avatar_url || null,
+    banner_url: fallback.banner_url || null,
     working_hours_label: fallback.working_hours_label || 'Horario no informado',
     public_reviews_count: Math.max(0, Number(fallback.public_reviews_count || 0)),
     completed_jobs_total: Math.max(0, Number(fallback.completed_jobs_total || 0)),
@@ -175,6 +176,7 @@ const mergeTechnicianWithFallback = (
     coverage_area: fallbackTechnician.coverage_area ?? remote.coverage_area,
     company_logo_url: fallbackTechnician.company_logo_url ?? remote.company_logo_url,
     avatar_url: fallbackTechnician.avatar_url ?? remote.avatar_url,
+    banner_url: fallbackTechnician.banner_url ?? remote.banner_url,
     working_hours_label: fallbackTechnician.working_hours_label || remote.working_hours_label,
     rating:
       fallbackTechnician.rating !== null && fallbackTechnician.rating !== undefined
@@ -478,6 +480,11 @@ export default function PublicTechnicianProfileView({
     technician?.full_name && technician.full_name.trim() !== companyName.trim() ? technician.full_name.trim() : '';
   const locality = technician?.city || 'Argentina';
   const coverage = getCoverageLabel(technician);
+  const heroBannerUrl = isValidUrl(technician?.banner_url)
+    ? technician?.banner_url
+    : isValidUrl(technician?.company_logo_url)
+      ? technician?.company_logo_url
+      : null;
   const heroLogoUrl = isValidUrl(technician?.company_logo_url) ? technician?.company_logo_url : null;
   const avatarUrl = isValidUrl(technician?.avatar_url)
     ? technician?.avatar_url
@@ -622,6 +629,9 @@ export default function PublicTechnicianProfileView({
             <>
               <View style={styles.heroCard}>
                 <View style={styles.heroCover}>
+                  {heroBannerUrl ? (
+                    <Image source={{ uri: heroBannerUrl }} style={StyleSheet.absoluteFillObject} resizeMode="cover" />
+                  ) : null}
                   <View style={styles.heroGlowBlue} />
                   <View style={styles.heroGlowOrange} />
                   <Text style={styles.heroEyebrow}>{heroEyebrow}</Text>

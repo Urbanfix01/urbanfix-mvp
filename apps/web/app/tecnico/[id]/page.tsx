@@ -38,6 +38,7 @@ type PublicTechnicianProfile = {
   specialties: string | null;
   avatar_url?: string | null;
   company_logo_url?: string | null;
+  banner_url?: string | null;
   facebook_url?: string | null;
   instagram_url?: string | null;
   public_rating?: number | null;
@@ -361,7 +362,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     permanentRedirect(canonicalPath);
   }
   const avatarImageUrl = toOptionalAbsoluteUrl(profile.avatar_url || profile.company_logo_url);
-  const companyBannerUrl = toOptionalAbsoluteUrl(profile.company_logo_url || profile.avatar_url);
+  const companyBannerUrl = toOptionalAbsoluteUrl(profile.banner_url || profile.company_logo_url || profile.avatar_url);
   const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const socialLinks = [
     { label: 'Facebook', href: profile.facebook_url },

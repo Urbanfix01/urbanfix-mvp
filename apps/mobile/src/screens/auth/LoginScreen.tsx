@@ -13,15 +13,18 @@ import {
   Image,
   useWindowDimensions,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import * as AppleAuthentication from 'expo-apple-authentication';
+import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
 
 import { supabase } from '../../lib/supabase';
+import { uploadImageToSupabase } from '../../services/StorageService';
 import { getWebApiUrl } from '../../utils/config';
 import { setStoredAudience } from '../../utils/audience';
 import { COLORS, FONTS, SPACING } from '../../utils/theme';
@@ -35,6 +38,47 @@ const logo = require('../../../assets/icon.png');
 type Audience = 'tecnico' | 'cliente';
 type FieldName = 'fullName' | 'businessName' | 'clientPhone' | 'email' | 'password';
 type PickerMode = 'province' | 'city' | null;
+type RegistrationMediaKind = 'avatar' | 'logo' | 'banner';
+type RegistrationMediaState = Record<RegistrationMediaKind, string | null>;
+
+const PENDING_TECHNICIAN_MEDIA_KEY = 'urbanfix.mobile.pendingTechnicianMedia';
+const EMPTY_REGISTRATION_MEDIA: RegistrationMediaState = {
+  avatar: null,
+  logo: null,
+  banner: null,
+};
+
+const cloneRegistrationMedia = (): RegistrationMediaState => ({ ...EMPTY_REGISTRATION_MEDIA });
+
+const getRegistrationMediaAspect = (kind: RegistrationMediaKind): [number, number] => {
+  if (kind === 'avatar') return [1, 1];
+  if (kind === 'logo') return [4, 3];
+  return [16, 9];
+};
+
+const getRegistrationMediaColumn = (kind: RegistrationMediaKind) => {
+  if (kind === 'avatar') return 'avatar_url';
+  if (kind === 'logo') return 'company_logo_url';
+  return 'banner_url';
+};
+
+const normalizeRegistrationMediaState = (value: unknown): RegistrationMediaState => {
+  const source = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
+  return {
+    avatar: typeof source.avatar === 'string' && source.avatar.trim() ? source.avatar.trim() : null,
+    logo: typeof source.logo === 'string' && source.logo.trim() ? source.logo.trim() : null,
+    banner: typeof source.banner === 'string' && source.banner.trim() ? source.banner.trim() : null,
+  };
+};
+
+const hasRegistrationMedia = (media: RegistrationMediaState) =>
+  Boolean(media.avatar || media.logo || media.banner);
+
+const getRegistrationMediaTitle = (kind: RegistrationMediaKind) => {
+  if (kind === 'avatar') return 'Foto de perfil';
+  if (kind === 'logo') return 'Imagen de empresa';
+  return 'Banner del perfil';
+};
 
 export default function AuthScreen() {
   const [audience, setAudience] = useState<Audience>('tecnico');
@@ -54,6 +98,8 @@ export default function AuthScreen() {
   const [pickerMode, setPickerMode] = useState<PickerMode>(null);
   const [provinceLoading, setProvinceLoading] = useState(false);
   const [cityLoading, setCityLoading] = useState(false);
+  const [registerMedia, setRegisterMedia] = useState<RegistrationMediaState>(cloneRegistrationMedia());
+  const [pickingMedia, setPickingMedia] = useState<RegistrationMediaKind | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [recovering, setRecovering] = useState(false);
@@ -86,6 +132,8 @@ export default function AuthScreen() {
     setClientCity('');
     setCityOptions([]);
     setPickerMode(null);
+    setRegisterMedia(cloneRegistrationMedia());
+    setPickingMedia(null);
   };
 
   const ensureProvinceOptions = async () => {
@@ -119,18 +167,142 @@ export default function AuthScreen() {
     ensureProvinceOptions();
   }, [hasSelectedAudience, isRegister]);
 
+  const clearPendingTechnicianMedia = async () => {
+    try {
+      await AsyncStorage.removeItem(PENDING_TECHNICIAN_MEDIA_KEY);
+    } catch {
+      // Non-blocking cleanup.
+    }
+  };
+
+  const persistPendingTechnicianMedia = async (safeEmail: string, nextMedia: RegistrationMediaState) => {
+    if (!safeEmail || !hasRegistrationMedia(nextMedia)) return;
+
+    try {
+      await AsyncStorage.setItem(
+        PENDING_TECHNICIAN_MEDIA_KEY,
+        JSON.stringify({
+          email: safeEmail.toLowerCase(),
+          media: nextMedia,
+          savedAt: new Date().toISOString(),
+        })
+      );
+    } catch {
+      // Non-blocking storage helper.
+    }
+  };
+
+  const getPendingTechnicianMedia = async (safeEmail?: string) => {
+    try {
+      const raw = await AsyncStorage.getItem(PENDING_TECHNICIAN_MEDIA_KEY);
+      if (!raw) return cloneRegistrationMedia();
+
+      const parsed = JSON.parse(raw) as { email?: string; media?: unknown };
+      const storedEmail = String(parsed?.email || '').trim().toLowerCase();
+      const requestedEmail = String(safeEmail || '').trim().toLowerCase();
+
+      if (storedEmail && requestedEmail && storedEmail !== requestedEmail) {
+        return cloneRegistrationMedia();
+      }
+
+      return normalizeRegistrationMediaState(parsed?.media);
+    } catch {
+      return cloneRegistrationMedia();
+    }
+  };
+
+  const handleRegisterMediaPick = async (kind: RegistrationMediaKind) => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: getRegistrationMediaAspect(kind),
+        quality: 0.72,
+      });
+
+      if (result.canceled) return;
+
+      setPickingMedia(kind);
+      const localUri = result.assets[0]?.uri || null;
+      if (!localUri) throw new Error('No pudimos leer la imagen seleccionada.');
+
+      const nextMedia = {
+        ...registerMedia,
+        [kind]: localUri,
+      } satisfies RegistrationMediaState;
+
+      setRegisterMedia(nextMedia);
+
+      const safeEmail = email.trim().toLowerCase();
+      if (safeEmail) {
+        await persistPendingTechnicianMedia(safeEmail, nextMedia);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error?.message || 'No pudimos abrir tu galeria.');
+    } finally {
+      setPickingMedia(null);
+    }
+  };
+
+  const uploadPendingTechnicianMedia = async (safeEmail?: string) => {
+    try {
+      const mergedMedia = {
+        ...(await getPendingTechnicianMedia(safeEmail)),
+        ...normalizeRegistrationMediaState(registerMedia),
+      } satisfies RegistrationMediaState;
+
+      if (!hasRegistrationMedia(mergedMedia)) return;
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user?.id) return;
+
+      const updates: Record<string, unknown> = {
+        id: user.id,
+        updated_at: new Date().toISOString(),
+      };
+
+      for (const kind of ['avatar', 'logo', 'banner'] as RegistrationMediaKind[]) {
+        const localUri = mergedMedia[kind];
+        if (!localUri) continue;
+        const publicUrl = await uploadImageToSupabase(localUri, user.id, `${kind}.png`);
+        if (publicUrl) {
+          updates[getRegistrationMediaColumn(kind)] = publicUrl;
+        }
+      }
+
+      if (Object.keys(updates).length > 2) {
+        const { error } = await supabase.from('profiles').upsert(updates);
+        if (error) throw error;
+      }
+
+      await clearPendingTechnicianMedia();
+      setRegisterMedia(cloneRegistrationMedia());
+    } catch (error: any) {
+      Alert.alert(
+        'Imagenes pendientes',
+        error?.message || 'No pudimos subir tus imagenes ahora. Puedes cargarlas luego desde Mi Perfil.'
+      );
+    }
+  };
+
   const handleAudienceChoice = (nextAudience: Audience) => {
     setAudience(nextAudience);
     setIsLogin(true);
     setShowRegisterHint(false);
     clearRegisterFields();
     setHasSelectedAudience(true);
+    void clearPendingTechnicianMedia();
   };
 
   const handleBackToAudienceChoice = () => {
     setHasSelectedAudience(false);
     setIsLogin(true);
     setShowRegisterHint(false);
+    clearRegisterFields();
+    void clearPendingTechnicianMedia();
   };
 
   const handleOpenProvincePicker = async () => {
@@ -319,6 +491,9 @@ export default function AuthScreen() {
             throw exchangeError;
           }
           await hydrateSocialProfile({ nextAudience: audience });
+          if (audience === 'tecnico') {
+            await uploadPendingTechnicianMedia();
+          }
           return;
         }
 
@@ -331,6 +506,9 @@ export default function AuthScreen() {
             throw sessionError;
           }
           await hydrateSocialProfile({ nextAudience: audience });
+          if (audience === 'tecnico') {
+            await uploadPendingTechnicianMedia();
+          }
           return;
         }
 
@@ -385,6 +563,10 @@ export default function AuthScreen() {
         emailValue: credential.email || null,
         fullNameValue: buildAppleDisplayName(credential),
       });
+
+      if (audience === 'tecnico') {
+        await uploadPendingTechnicianMedia(credential.email || undefined);
+      }
     } catch (error: any) {
       if (error?.code === 'ERR_REQUEST_CANCELED') {
         return;
@@ -483,6 +665,7 @@ export default function AuthScreen() {
         if (error) {
           throw error;
         }
+        await uploadPendingTechnicianMedia(safeEmail);
       } else {
         if (!fullName.trim() || !clientPhone.trim() || !province.trim() || !clientCity.trim() || !businessName.trim()) {
           Alert.alert('Faltan datos', 'Completa nombre, telefono, provincia, ciudad y nombre del negocio.');
@@ -511,9 +694,18 @@ export default function AuthScreen() {
 
         if (data.session) {
           await upsertProfileIfPossible(safeEmail);
+          await uploadPendingTechnicianMedia(safeEmail);
           Alert.alert('Registro exitoso', 'Tu perfil tecnico fue creado.');
         } else {
-          Alert.alert('Revisa tu correo', 'Te enviamos un email para confirmar tu perfil tecnico.');
+          if (hasRegistrationMedia(registerMedia)) {
+            await persistPendingTechnicianMedia(safeEmail, registerMedia);
+          }
+          Alert.alert(
+            'Revisa tu correo',
+            hasRegistrationMedia(registerMedia)
+              ? 'Te enviamos un email para confirmar tu perfil tecnico. Tus imagenes quedaron preparadas y se subiran cuando ingreses por primera vez.'
+              : 'Te enviamos un email para confirmar tu perfil tecnico.'
+          );
         }
       }
     } catch (error: any) {
@@ -889,6 +1081,83 @@ export default function AuthScreen() {
                       onSubmitEditing={() => emailRef.current?.focus()}
                     />
                   )}
+                </View>
+              )}
+
+              {isRegister && !isClientAudience && (
+                <View style={[styles.sectionCard, useCompactRegister && styles.sectionCardCompact]}>
+                  <Text style={styles.sectionLabel}>Imagenes del perfil</Text>
+                  <Text style={styles.sectionHint}>
+                    Opcional por ahora. Puedes cargar tu foto, una imagen de la empresa y el banner que se mostrara en tu perfil publico.
+                  </Text>
+
+                  <TouchableOpacity
+                    style={[styles.registerBannerPicker, useCompactRegister && styles.registerBannerPickerCompact]}
+                    activeOpacity={0.9}
+                    onPress={() => handleRegisterMediaPick('banner')}
+                    disabled={pickingMedia !== null}
+                  >
+                    {pickingMedia === 'banner' ? (
+                      <ActivityIndicator color={COLORS.primary} />
+                    ) : registerMedia.banner ? (
+                      <Image source={{ uri: registerMedia.banner }} style={styles.registerBannerImage} resizeMode="cover" />
+                    ) : (
+                      <View style={styles.registerBannerPlaceholder}>
+                        <Ionicons name="image-outline" size={30} color="rgba(248,250,252,0.52)" />
+                        <Text style={styles.registerBannerTitle}>Subir banner</Text>
+                        <Text style={styles.registerBannerText}>Se vera en la cabecera de tu perfil.</Text>
+                      </View>
+                    )}
+                    {pickingMedia !== 'banner' && (
+                      <View style={styles.registerMediaEditBadge}>
+                        <Ionicons name="camera-outline" size={13} color="#FFF" />
+                      </View>
+                    )}
+                  </TouchableOpacity>
+
+                  <View style={styles.registerMediaRow}>
+                    {(['avatar', 'logo'] as RegistrationMediaKind[]).map((kind) => {
+                      const imageUri = registerMedia[kind];
+                      const isUploading = pickingMedia === kind;
+
+                      return (
+                        <TouchableOpacity
+                          key={kind}
+                          style={styles.registerMediaCard}
+                          activeOpacity={0.9}
+                          onPress={() => handleRegisterMediaPick(kind)}
+                          disabled={pickingMedia !== null}
+                        >
+                          <View style={styles.registerMediaPreview}>
+                            {isUploading ? (
+                              <ActivityIndicator color={COLORS.primary} />
+                            ) : imageUri ? (
+                              <Image
+                                source={{ uri: imageUri }}
+                                style={styles.registerMediaPreviewImage}
+                                resizeMode={kind === 'logo' ? 'cover' : 'cover'}
+                              />
+                            ) : (
+                              <View style={styles.registerMediaPlaceholder}>
+                                <Ionicons
+                                  name={kind === 'avatar' ? 'person-circle-outline' : 'business-outline'}
+                                  size={28}
+                                  color="rgba(248,250,252,0.52)"
+                                />
+                              </View>
+                            )}
+                          </View>
+
+                          <View style={styles.registerMediaCardCopy}>
+                            <Text style={styles.registerMediaCardTitle}>{getRegistrationMediaTitle(kind)}</Text>
+                            <Text style={styles.registerMediaCardText}>
+                              {kind === 'avatar' ? 'Tu foto o imagen principal.' : 'Logo o foto de tu empresa.'}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
               )}
 
@@ -1768,6 +2037,100 @@ const styles = StyleSheet.create({
     fontFamily: FONTS.body,
     fontSize: 12,
     lineHeight: 18,
+  },
+  registerBannerPicker: {
+    minHeight: 152,
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#0D0E10',
+    justifyContent: 'center',
+  },
+  registerBannerPickerCompact: {
+    minHeight: 126,
+    borderRadius: 14,
+  },
+  registerBannerImage: {
+    width: '100%',
+    height: '100%',
+  },
+  registerBannerPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 24,
+  },
+  registerBannerTitle: {
+    color: '#F8FAFC',
+    fontFamily: FONTS.subtitle,
+    fontSize: 14,
+  },
+  registerBannerText: {
+    color: '#94A3B8',
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    lineHeight: 18,
+    textAlign: 'center',
+  },
+  registerMediaEditBadge: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(15,23,42,0.88)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  registerMediaRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  registerMediaCard: {
+    flex: 1,
+    gap: 10,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#0D0E10',
+  },
+  registerMediaPreview: {
+    height: 108,
+    borderRadius: 14,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#16181C',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+  },
+  registerMediaPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  registerMediaPlaceholder: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  registerMediaCardCopy: {
+    gap: 4,
+  },
+  registerMediaCardTitle: {
+    color: '#F8FAFC',
+    fontFamily: FONTS.subtitle,
+    fontSize: 13,
+  },
+  registerMediaCardText: {
+    color: '#94A3B8',
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    lineHeight: 16,
   },
   input: {
     backgroundColor: '#0D0E10',
