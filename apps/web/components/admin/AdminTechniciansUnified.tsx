@@ -86,12 +86,33 @@ type EditFormData = Partial<TechnicianProfile>;
 type ViewMode = 'list' | 'map';
 type QuickActionType = 'access' | 'publish' | null;
 
+type LegacyBulkResponse = {
+  ok: boolean;
+  updatedCount: number;
+  updatedIds: string[];
+  updatedProfiles: Array<{
+    id: string;
+    email: string | null;
+    fullName: string | null;
+    businessName: string | null;
+    city: string | null;
+  }>;
+};
+
 const toText = (value: unknown) => String(value || '').trim();
 
 const normalizeEmail = (value: unknown) => {
   const normalized = String(value || '').trim().toLowerCase();
   return normalized && normalized.includes('@') ? normalized : '';
 };
+
+const hasLegacyValidAccessCandidate = (profile: TechnicianProfile) =>
+  profile.access_granted !== true &&
+  profile.profile_published === true &&
+  Boolean(normalizeEmail(profile.email)) &&
+  Boolean(toText(profile.business_name)) &&
+  Boolean(toText(profile.phone)) &&
+  Boolean(toText(profile.city));
 
 const hasWorkZoneConfigured = (
   profile: Pick<TechnicianProfile, 'city' | 'address' | 'company_address' | 'coverage_area'> | EditFormData
@@ -131,6 +152,7 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [quickActionLoading, setQuickActionLoading] = useState<QuickActionType>(null);
+  const [legacyBulkLoading, setLegacyBulkLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'registered' | 'unregistered'>('all');
@@ -162,6 +184,7 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     }
     return '';
   }, [draftSnapshot, formData, selectedProfile]);
+  const legacyValidProfiles = useMemo(() => allProfiles.filter(hasLegacyValidAccessCandidate), [allProfiles]);
 
   const closeEditor = () => {
     setSelectedProfile(null);
@@ -440,6 +463,45 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     }
   };
 
+  const handleEnableLegacyProfiles = async () => {
+    if (!accessToken || legacyBulkLoading || legacyValidProfiles.length === 0) return;
+
+    setLegacyBulkLoading(true);
+    setMessage('');
+    try {
+      const response = await fetch('/api/admin/access/legacy', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      const payload = (await response.json().catch(() => null)) as (LegacyBulkResponse & { error?: string }) | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudieron habilitar perfiles legacy válidos.');
+      }
+
+      const updatedIds = payload?.updatedIds || [];
+      if (updatedIds.length === 0) {
+        setMessage('ℹ️ No hay perfiles legacy válidos pendientes de habilitación.');
+        return;
+      }
+
+      setMessage(`✅ Se habilitaron ${updatedIds.length} perfiles legacy válidos.`);
+      await loadAllProfiles();
+
+      if (selectedProfile && updatedIds.includes(selectedProfile.id)) {
+        await loadFullProfile(selectedProfile.id);
+        await loadVisibility(selectedProfile.id);
+      }
+    } catch (err) {
+      console.error('Error habilitando perfiles legacy:', err);
+      setMessage(`❌ ${err instanceof Error ? err.message : 'No se pudieron habilitar perfiles legacy válidos.'}`);
+    } finally {
+      setLegacyBulkLoading(false);
+    }
+  };
+
   const cities = Array.from(new Set(allProfiles.map((p) => p.city).filter(Boolean))).sort() as string[];
 
   // Convertir perfiles a puntos de mapa
@@ -535,6 +597,59 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
           >
             ✗ No Registrados ({stats.unregistered})
           </button>
+        </div>
+
+        <div className="rounded-2xl border border-violet-200 bg-white p-4 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-700">Backfill legacy</p>
+              <h3 className="mt-1 text-lg font-bold text-slate-900">Habilitar perfiles legacy válidos</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Toma solo perfiles publicados, sin acceso, con email, negocio, teléfono y ciudad completos.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleEnableLegacyProfiles}
+              disabled={!accessToken || legacyBulkLoading || legacyValidProfiles.length === 0}
+              className="rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {legacyBulkLoading ? 'Procesando...' : `Habilitar ${legacyValidProfiles.length} perfil(es)`}
+            </button>
+          </div>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
+            <div className="rounded-xl border border-violet-100 bg-violet-50 p-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-violet-700">Candidatos</p>
+              <p className="mt-2 text-3xl font-bold text-violet-900">{legacyValidProfiles.length}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              {legacyValidProfiles.length === 0 ? (
+                <p>No hay perfiles legacy válidos pendientes.</p>
+              ) : (
+                <div className="space-y-2">
+                  {legacyValidProfiles.slice(0, 4).map((profile) => (
+                    <div key={profile.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
+                      <div>
+                        <p className="font-semibold text-slate-900">{profile.business_name || profile.full_name || 'Sin nombre'}</p>
+                        <p className="text-xs text-slate-500">{profile.email || 'Sin email'} · {profile.city || 'Sin ciudad'}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadFullProfile(profile.id)}
+                        className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Abrir
+                      </button>
+                    </div>
+                  ))}
+                  {legacyValidProfiles.length > 4 && (
+                    <p className="text-xs text-slate-500">Y {legacyValidProfiles.length - 4} perfil(es) más.</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-3 flex-wrap items-center justify-between">
