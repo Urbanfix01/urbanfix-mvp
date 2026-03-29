@@ -184,6 +184,12 @@ export default function TechnicianLocationPicker({
         if (cancelled || !mapHostRef.current) return;
 
         leafletRef.current = L;
+        delete (L.Icon.Default.prototype as { _getIconUrl?: unknown })._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: '/leaflet/marker-icon-2x.png',
+          iconUrl: '/leaflet/marker-icon.png',
+          shadowUrl: '/leaflet/marker-shadow.png',
+        });
 
         // Remove existing map
         if (mapRef.current) {
