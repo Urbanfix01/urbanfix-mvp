@@ -509,17 +509,46 @@ type DashboardMapPoint = {
   createdAt: string;
 };
 
-const geocodeAddressFirstResult = async (query: string, country = DEFAULT_COUNTRY_NAME) => {
+const addressHasStreetNumber = (value: string) => /(^|\D)\d{1,5}(\D|$)/.test(String(value || '').trim());
+
+const geocodeAddressFirstResult = async ({
+  query,
+  country = DEFAULT_COUNTRY_NAME,
+  city = '',
+  province = '',
+  limit = 3,
+  preferExact = false,
+}: {
+  query: string;
+  country?: string;
+  city?: string;
+  province?: string;
+  limit?: number;
+  preferExact?: boolean;
+}) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
-  const params = new URLSearchParams({ query: trimmed, limit: '1', country });
+  const params = new URLSearchParams({
+    query: trimmed,
+    limit: String(Math.max(1, Math.min(5, Math.round(limit || 1)))),
+    country,
+  });
+  if (city.trim()) {
+    params.set('city', city.trim());
+  }
+  if (province.trim()) {
+    params.set('province', province.trim());
+  }
   const response = await fetch(`/api/geocode/search?${params.toString()}`, { cache: 'no-store' });
   if (!response.ok) return null;
   const payload = (await response.json()) as {
-    results?: Array<{ display_name: string; lat: number; lon: number }>;
+    results?: Array<{ display_name: string; lat: number; lon: number; precision?: 'exact' | 'approx' }>;
   };
   const rows = Array.isArray(payload.results) ? payload.results : [];
-  const first = rows[0];
+  const first =
+    (preferExact || addressHasStreetNumber(trimmed)
+      ? rows.find((row) => row.precision === 'exact')
+      : null) || rows[0];
   if (!first) return null;
   const lat = Number(first.lat);
   const lon = Number(first.lon);
@@ -528,6 +557,7 @@ const geocodeAddressFirstResult = async (query: string, country = DEFAULT_COUNTR
     display_name: first.display_name,
     lat,
     lon,
+    precision: first.precision === 'exact' ? 'exact' : 'approx',
   };
 };
 
@@ -3607,25 +3637,36 @@ export default function TechniciansPage() {
       let serviceLocationPrecision: string = 'approx';
       let wasGeocodedFromAddress = false;
       const typedAddress = String(profileForm.address || '').trim();
+      const typedAddressHasStreetNumber = addressHasStreetNumber(typedAddress);
       
       if (technicianLocationResult?.isValid) {
         serviceLat = technicianLocationResult.lat;
         serviceLng = technicianLocationResult.lng;
         serviceLocationName = technicianLocationResult.displayName;
         serviceLocationPrecision = technicianLocationResult.precision;
+        if (typedAddressHasStreetNumber && technicianLocationResult.precision !== 'exact') {
+          throw new Error('No pudimos confirmar la altura exacta. Elige una sugerencia exacta o ajusta el punto en el mapa.');
+        }
       } else {
         // Fall back to geocoding if no location picker result
-        const geocodeQuery = [profileForm.address, profileForm.city, profileForm.province, profileForm.country]
-          .filter(Boolean)
-          .join(', ');
-        const geocoded = await geocodeAddressFirstResult(geocodeQuery, profileForm.country);
+        const geocoded = await geocodeAddressFirstResult({
+          query: typedAddress,
+          country: profileForm.country,
+          city: profileForm.city,
+          province: profileForm.province,
+          limit: typedAddressHasStreetNumber ? 3 : 1,
+          preferExact: typedAddressHasStreetNumber,
+        });
         const currentServiceLat = Number(profile?.service_lat);
         const currentServiceLng = Number(profile?.service_lng);
         serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
         serviceLng = geocoded?.lon ?? (Number.isFinite(currentServiceLng) ? currentServiceLng : null);
         serviceLocationName = geocoded?.display_name || null;
-        serviceLocationPrecision = 'approx';
+        serviceLocationPrecision = geocoded?.precision || 'approx';
         wasGeocodedFromAddress = Boolean(geocoded);
+        if (typedAddressHasStreetNumber && (!geocoded || geocoded.precision !== 'exact')) {
+          throw new Error('No pudimos confirmar la altura exacta. Elige una sugerencia exacta o ajusta el punto en el mapa.');
+        }
       }
       
       if (effectiveProfilePublished && !serviceLat && !serviceLng) {
