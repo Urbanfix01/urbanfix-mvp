@@ -1,10 +1,12 @@
 {
   "files.associations": {
-    "**/apps/web/lib/supabase/migrations/*.sql": "plaintext",
-    "**/supabase/migrations/*.sql": "plaintext",
+    "**/apps/web/lib/supabase/migrations/*.sql": "sql",
+    "**/supabase/migrations/*.sql": "sql",
     "**/node_modules/**/*.sql": "plaintext"
   },
   "mssql.intelliSense.enableErrorChecking": false,
   "mssql.intelliSense.enableIntelliSense": false,
-  "mssql.intelliSense.enableSuggestions": false
+  "mssql.intelliSense.enableSuggestions": false,
+  "sqlfluff.dialect": "postgres",
+  "sqlfluff.linter.run": "onSave"
 }
