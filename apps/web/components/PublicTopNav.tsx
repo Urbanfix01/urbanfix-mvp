@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+import { supabase } from '../lib/supabase/supabase';
 
 const navLinks = [
   { label: 'Inicio', href: '/' },
@@ -20,14 +22,108 @@ type PublicTopNavProps = {
   sticky?: boolean;
 };
 
+type AuthNavProfile = {
+  full_name?: string | null;
+  business_name?: string | null;
+  company_logo_url?: string | null;
+  avatar_url?: string | null;
+};
+
 const platformButtonClass =
   'inline-flex rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] transition';
 
 export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [profile, setProfile] = useState<AuthNavProfile | null>(null);
   const isCreateRequestActive = activeHref === '/cliente';
   const isDownloadActive = activeHref === '/descargar-app';
   const isPlatformActive = activeHref === '/tecnicos';
+  const isAccountAreaActive = activeHref === '/tecnicos' || activeHref === '/cliente';
+  const panelHref = activeHref === '/cliente' ? '/cliente' : '/tecnicos';
+  const profileName =
+    profile?.business_name?.trim() ||
+    profile?.full_name?.trim() ||
+    'Mi cuenta';
+  const profileLogoUrl = profile?.company_logo_url?.trim() || profile?.avatar_url?.trim() || '';
+  const profileInitial = profileName.charAt(0).toUpperCase() || 'U';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProfile = async (userId: string) => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name,business_name,company_logo_url,avatar_url')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (!cancelled) {
+        setProfile((data as AuthNavProfile | null) || null);
+      }
+    };
+
+    const applySession = async (nextSession: any) => {
+      const user = nextSession?.user || null;
+      setIsAuthenticated(Boolean(user));
+
+      if (!user) {
+        if (!cancelled) {
+          setProfile(null);
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setProfile({
+          full_name: user.user_metadata?.full_name || null,
+          business_name: user.user_metadata?.business_name || null,
+          company_logo_url: null,
+          avatar_url: null,
+        });
+      }
+
+      await loadProfile(user.id);
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      void applySession(data.session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void applySession(nextSession);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const accountChip = (
+    <a
+      href={panelHref}
+      onClick={() => setMenuOpen(false)}
+      className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 transition ${
+        isAccountAreaActive
+          ? 'border-white bg-white text-[#2a0338]'
+          : 'border-white/70 bg-white/10 text-white hover:bg-white hover:text-[#2a0338]'
+      }`}
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/90 text-[0.8rem] font-extrabold text-[#2a0338]">
+        {profileLogoUrl ? (
+          <img src={profileLogoUrl} alt={profileName} className="h-full w-full object-cover" />
+        ) : (
+          profileInitial
+        )}
+      </span>
+      <span className="min-w-0 max-w-[180px] truncate text-sm font-bold">
+        {profileName}
+      </span>
+    </a>
+  );
 
   return (
     <header
@@ -78,16 +174,20 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
             Descargar app
           </a>
 
-          <a
-            href="/tecnicos"
-            className={`hidden ${platformButtonClass} xl:inline-flex ${
-              isPlatformActive
-                ? 'border-white bg-white text-[#2a0338]'
-                : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
-            }`}
-          >
-            Iniciar sesión
-          </a>
+          {isAuthenticated ? (
+            <div className="hidden xl:block">{accountChip}</div>
+          ) : (
+            <a
+              href="/tecnicos"
+              className={`hidden ${platformButtonClass} xl:inline-flex ${
+                isPlatformActive
+                  ? 'border-white bg-white text-[#2a0338]'
+                  : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+              }`}
+            >
+              Iniciar sesión
+            </a>
+          )}
 
           <button
             type="button"
@@ -107,6 +207,9 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
       {menuOpen && (
         <div className="border-t border-white/10 bg-[#2a0338] px-3 py-3 xl:hidden">
           <nav className="flex flex-col gap-2">
+            {isAuthenticated && (
+              <div className="mb-2">{accountChip}</div>
+            )}
             {navLinks.map((link) => (
               <a
                 key={link.label}
@@ -141,17 +244,19 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
             >
               Descargar app
             </a>
-            <a
-              href="/tecnicos"
-              onClick={() => setMenuOpen(false)}
-              className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
-                isPlatformActive
-                  ? 'border-white bg-white text-[#2a0338]'
-                  : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
-              }`}
-            >
-              Iniciar sesión
-            </a>
+            {!isAuthenticated && (
+              <a
+                href="/tecnicos"
+                onClick={() => setMenuOpen(false)}
+                className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
+                  isPlatformActive
+                    ? 'border-white bg-white text-[#2a0338]'
+                    : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+                }`}
+              >
+                Iniciar sesión
+              </a>
+            )}
           </nav>
         </div>
       )}
