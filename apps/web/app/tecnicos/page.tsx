@@ -1737,6 +1737,9 @@ export default function TechniciansPage() {
         email: session.user.email || null,
         full_name: session.user.user_metadata?.full_name || '',
         business_name: session.user.user_metadata?.business_name || '',
+        access_granted: true,
+        profile_published: true,
+        profile_published_at: new Date().toISOString(),
       };
 
       const { data: profileData, error } = await supabase
@@ -1768,6 +1771,27 @@ export default function TechniciansPage() {
         }
 
         resolvedProfile = createdProfile || fallback;
+      } else if (profileData.access_granted !== true) {
+        const { data: healedProfile, error: healProfileError } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: session.user.id,
+              access_granted: true,
+            },
+            { onConflict: 'id' }
+          )
+          .select()
+          .single();
+
+        if (healProfileError) {
+          setProfile(null);
+          setProfileLoadError(healProfileError.message || 'No pudimos habilitar tu perfil técnico.');
+          setLoadingProfile(false);
+          return;
+        }
+
+        resolvedProfile = healedProfile || profileData;
       }
 
       setProfile(resolvedProfile);
@@ -3613,6 +3637,7 @@ export default function TechniciansPage() {
 
       const basePayload = {
         id: session.user.id,
+        access_granted: true,
         full_name: profileForm.fullName,
         business_name: profileForm.businessName,
         email: profileForm.email || session.user.email,

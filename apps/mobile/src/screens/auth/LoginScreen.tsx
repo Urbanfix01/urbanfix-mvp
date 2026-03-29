@@ -391,14 +391,22 @@ export default function AuthScreen() {
     const userId = data?.session?.user?.id;
     if (!userId) return;
 
-    await supabase.from('profiles').upsert({
+    const basePayload: Record<string, unknown> = {
       id: userId,
       email: safeEmail || null,
       full_name: fullName.trim(),
       phone: clientPhone.trim() || null,
       city: clientCity.trim() || null,
       business_name: isClientAudience ? null : businessName.trim() || null,
-    });
+    };
+
+    if (!isClientAudience) {
+      basePayload.access_granted = true;
+      basePayload.profile_published = true;
+      basePayload.profile_published_at = new Date().toISOString();
+    }
+
+    await supabase.from('profiles').upsert(basePayload);
   };
 
   const handleAuth = async () => {

@@ -25,10 +25,13 @@ const fallbackExpoVersion = String(require('../../../app.json')?.expo?.version |
 // Ahora permitimos '| null' en los campos opcionales para evitar el error de TypeScript
 interface Profile {
   id: string;
+  access_granted?: boolean | null;
   full_name: string | null;
   business_name: string | null;
   company_logo_url: string | null;
   avatar_url: string | null;
+  profile_published?: boolean | null;
+  profile_published_at?: string | null;
   email?: string | null;
   phone?: string | null;
   company_address?: string | null;
@@ -512,6 +515,12 @@ export default function ProfileScreen({
       if (requiredCompletion && (!businessName.trim() || !phone.trim())) {
         throw new Error('Completa telefono y nombre comercial para continuar.');
       }
+      if (requiredCompletion && !address.trim()) {
+        throw new Error('Completa tu base operativa para continuar.');
+      }
+      if (requiredCompletion && !hasPreciseOperationalBase) {
+        throw new Error('Selecciona una direccion sugerida para guardar coordenadas exactas de tu base operativa.');
+      }
       const workingHoursError = validateWorkingHoursConfig(workingHours);
       if (workingHoursError) throw new Error(workingHoursError);
       const normalizedInstagramProfileUrl = normalizeSocialUrl(
@@ -544,6 +553,12 @@ export default function ProfileScreen({
       const updates = {
         id: user.id,
         email: user.email || null,
+        access_granted: true,
+        profile_published: profile?.profile_published === false ? false : true,
+        profile_published_at:
+          profile?.profile_published === false
+            ? profile?.profile_published_at || null
+            : profile?.profile_published_at || new Date().toISOString(),
         full_name: fullName,
         business_name: businessName,
         phone: phone,
@@ -740,8 +755,8 @@ export default function ProfileScreen({
           <View style={styles.requiredCard}>
             <Ionicons name="shield-checkmark-outline" size={18} color="#C2410C" />
             <View style={styles.requiredCopy}>
-              <Text style={styles.requiredTitle}>Completa tus datos operativos para habilitar el acceso.</Text>
-              <Text style={styles.requiredText}>Necesitamos telefono y nombre comercial. Tu nombre puede editarse despues.</Text>
+              <Text style={styles.requiredTitle}>Completa tu ficha operativa para habilitar el acceso.</Text>
+              <Text style={styles.requiredText}>Necesitamos telefono, nombre comercial y una base operativa exacta para activar matching por zona y mapa operativo.</Text>
             </View>
           </View>
         )}

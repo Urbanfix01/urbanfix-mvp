@@ -8460,7 +8460,7 @@ export default function AdminPage() {
 
           {activeTab === 'tecnicos' && (
             <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
-              <AdminTechniciansUnified />
+              <AdminTechniciansUnified accessToken={session?.access_token || null} />
             </section>
           )}
 

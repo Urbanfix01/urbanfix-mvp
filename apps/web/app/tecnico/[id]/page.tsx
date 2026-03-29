@@ -155,6 +155,8 @@ const toOptionalAbsoluteUrl = (value: string | null | undefined) => {
 const buildTechnicianUrl = (profileId: string, displayName: string) =>
   `${SITE_ORIGIN}${buildTechnicianPath(profileId, displayName)}`;
 
+const isProfilePublished = (value: boolean | null | undefined) => value !== false;
+
 const fetchPublicProfile = async (profileId: string) => {
   const supabase = getSupabase();
   if (!supabase) {
@@ -166,7 +168,7 @@ const fetchPublicProfile = async (profileId: string) => {
     .select(PUBLIC_PROFILE_SELECT_RICH)
     .eq('id', profileId)
     .eq('access_granted', true)
-    .eq('profile_published', true)
+    .or('profile_published.is.null,profile_published.eq.true')
     .maybeSingle();
 
   if (response.error && isMissingPublicProfileFieldError(String(response.error.message || ''))) {
@@ -175,7 +177,7 @@ const fetchPublicProfile = async (profileId: string) => {
       .select(PUBLIC_PROFILE_SELECT_FALLBACK)
       .eq('id', profileId)
       .eq('access_granted', true)
-      .eq('profile_published', true)
+      .or('profile_published.is.null,profile_published.eq.true')
       .maybeSingle();
   }
 
@@ -220,7 +222,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 
   const { data: profile } = await getPublicProfileById(profileId);
-  if (!profile || !profile.access_granted || !profile.profile_published) {
+  if (!profile || !profile.access_granted || !isProfilePublished(profile.profile_published)) {
     return {
       title: 'Perfil técnico | UrbanFix',
       description: 'Perfil técnico público en UrbanFix.',
@@ -319,7 +321,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   }
 
   const profile = (data || null) as PublicTechnicianProfile | null;
-  if (!profile || !profile.access_granted || !profile.profile_published) {
+  if (!profile || !profile.access_granted || !isProfilePublished(profile.profile_published)) {
     notFound();
   }
 

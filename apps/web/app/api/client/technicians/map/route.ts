@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     .from('profiles')
     .select(selectFields)
     .eq('access_granted', true)
-    .eq('profile_published', true)
+    .or('profile_published.is.null,profile_published.eq.true')
     .neq('id', user.id)
     .limit(500);
 

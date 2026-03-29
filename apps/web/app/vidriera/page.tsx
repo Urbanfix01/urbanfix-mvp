@@ -132,12 +132,14 @@ const getPublicSupabaseClient = () => {
   });
 };
 
+const isProfilePublished = (value: boolean | null | undefined) => value !== false;
+
 const fetchPublishedProfiles = async (supabase: NonNullable<ReturnType<typeof getPublicSupabaseClient>>) => {
   let response = await supabase
     .from('profiles')
     .select(PUBLISHED_TECHNICIANS_SELECT_RICH)
     .eq('access_granted', true)
-    .eq('profile_published', true)
+    .or('profile_published.is.null,profile_published.eq.true')
     .order('created_at', { ascending: false, nullsFirst: false })
     .limit(240);
 
@@ -148,7 +150,7 @@ const fetchPublishedProfiles = async (supabase: NonNullable<ReturnType<typeof ge
       .from('profiles')
       .select(PUBLISHED_TECHNICIANS_SELECT_FALLBACK)
       .eq('access_granted', true)
-      .eq('profile_published', true)
+      .or('profile_published.is.null,profile_published.eq.true')
       .order('created_at', { ascending: false, nullsFirst: false })
       .limit(240);
   }
@@ -189,7 +191,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   }
 
   const { data: profiles, error, usedFallback } = await fetchPublishedProfiles(supabase);
-  const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
+  const safeProfiles = profiles.filter((row) => row.access_granted && isProfilePublished(row.profile_published) && hasWorkZoneConfigured(row));
   const filteredProfiles = zonaQueryNormalized
     ? safeProfiles.filter((profile) =>
         matchesArgentinaZoneQuery(

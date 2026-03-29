@@ -82,9 +82,25 @@ type ProfileGatePayload = {
   phone?: unknown;
   city?: unknown;
   business_name?: unknown;
+  company_address?: unknown;
+  location_lat?: unknown;
+  location_lng?: unknown;
+  service_lat?: unknown;
+  service_lng?: unknown;
 };
 
 const hasRequiredValue = (value: unknown) => String(value || '').trim().length > 0;
+const ZERO_COORDINATE_EPSILON = 0.000001;
+
+const hasPreciseCoordinates = (lat: unknown, lng: unknown) => {
+  const parsedLat = Number(lat);
+  const parsedLng = Number(lng);
+  return (
+    Number.isFinite(parsedLat) &&
+    Number.isFinite(parsedLng) &&
+    !(Math.abs(parsedLat) <= ZERO_COORDINATE_EPSILON && Math.abs(parsedLng) <= ZERO_COORDINATE_EPSILON)
+  );
+};
 
 const resolveProfileField = (profileValue: unknown, metadataValue: unknown) =>
   hasRequiredValue(profileValue) ? profileValue : metadataValue;
@@ -95,7 +111,9 @@ const isClientProfileComplete = (profile: ProfileGatePayload | null, metadata: R
 
 const isTechProfileComplete = (profile: ProfileGatePayload | null, metadata: Record<string, unknown>) =>
   hasRequiredValue(resolveProfileField(profile?.phone, metadata.phone)) &&
-  hasRequiredValue(resolveProfileField(profile?.business_name, metadata.business_name));
+  hasRequiredValue(resolveProfileField(profile?.business_name, metadata.business_name)) &&
+  hasRequiredValue(profile?.company_address) &&
+  hasPreciseCoordinates(profile?.service_lat ?? profile?.location_lat, profile?.service_lng ?? profile?.location_lng);
 
 const withTabSwipe = (Component: React.ComponentType<any>) => {
   const Wrapped = (props: any) => (
@@ -311,25 +329,44 @@ export default function RootNavigator() {
     if (!session?.user) return;
 
     const metadata = ((session.user as any)?.user_metadata || {}) as Record<string, unknown>;
-    const profileSeed: Record<string, unknown> = {
-      id: session.user.id,
-      email: session.user.email || null,
+    const metadataAudience = normalizeAudience(metadata.app_audience);
+
+    const seedProfileFromMetadata = async () => {
+      const profileSeed: Record<string, unknown> = {
+        id: session.user.id,
+        email: session.user.email || null,
+      };
+
+      if (hasRequiredValue(metadata.full_name)) {
+        profileSeed.full_name = String(metadata.full_name).trim();
+      }
+      if (hasRequiredValue(metadata.phone)) {
+        profileSeed.phone = String(metadata.phone).trim();
+      }
+      if (hasRequiredValue(metadata.city)) {
+        profileSeed.city = String(metadata.city).trim();
+      }
+      if (hasRequiredValue(metadata.business_name)) {
+        profileSeed.business_name = String(metadata.business_name).trim();
+      }
+
+      if (metadataAudience === 'tecnico') {
+        const { data: currentProfile } = await supabase
+          .from('profiles')
+          .select('access_granted, profile_published')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        profileSeed.access_granted = true;
+        if ((currentProfile as any)?.profile_published !== false) {
+          profileSeed.profile_published = true;
+        }
+      }
+
+      await supabase.from('profiles').upsert(profileSeed);
     };
 
-    if (hasRequiredValue(metadata.full_name)) {
-      profileSeed.full_name = String(metadata.full_name).trim();
-    }
-    if (hasRequiredValue(metadata.phone)) {
-      profileSeed.phone = String(metadata.phone).trim();
-    }
-    if (hasRequiredValue(metadata.city)) {
-      profileSeed.city = String(metadata.city).trim();
-    }
-    if (hasRequiredValue(metadata.business_name)) {
-      profileSeed.business_name = String(metadata.business_name).trim();
-    }
-
-    supabase.from('profiles').upsert(profileSeed).then();
+    void seedProfileFromMetadata();
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -346,7 +383,7 @@ export default function RootNavigator() {
       try {
         const { data: profile, error } = await supabase
           .from('profiles')
-          .select('full_name, phone, city, business_name')
+          .select('full_name, phone, city, business_name, company_address, location_lat, location_lng, service_lat, service_lng')
           .eq('id', session.user.id)
           .maybeSingle();
 
