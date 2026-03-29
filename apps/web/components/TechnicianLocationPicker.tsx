@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { HelpCircle, MapPin, X } from 'lucide-react';
+import { DEFAULT_COUNTRY_NAME, isCoordinateWithinCountry } from '../lib/location-catalog';
 
 export interface LocationPickerResult {
   lat: number;
@@ -16,6 +17,7 @@ interface Props {
   onChange: (result: LocationPickerResult | null) => void;
   query?: string;
   onQueryChange?: (query: string) => void;
+  countryHint?: string;
   cityHint?: string;
   provinceHint?: string;
   label?: string;
@@ -25,24 +27,9 @@ interface Props {
   error?: string;
 }
 
-const ARGENTINA_BOUNDS = {
-  minLat: -55.5,
-  maxLat: -21.78,
-  minLng: -73.56,
-  maxLng: -53.64,
-};
-
-const isArgentinaCoordinate = (lat: number, lng: number): boolean => {
-  return (
-    lat >= ARGENTINA_BOUNDS.minLat &&
-    lat <= ARGENTINA_BOUNDS.maxLat &&
-    lng >= ARGENTINA_BOUNDS.minLng &&
-    lng <= ARGENTINA_BOUNDS.maxLng
-  );
-};
-
 const geocodeAddress = async (
   query: string,
+  countryHint?: string,
   cityHint?: string,
   provinceHint?: string
 ): Promise<{ results: LocationPickerResult[]; error?: string }> => {
@@ -51,6 +38,9 @@ const geocodeAddress = async (
 
   try {
     const params = new URLSearchParams({ query: trimmed, limit: '12' });
+    if (countryHint?.trim()) {
+      params.set('country', countryHint.trim());
+    }
     if (cityHint?.trim()) {
       params.set('city', cityHint.trim());
     }
@@ -70,7 +60,7 @@ const geocodeAddress = async (
         lat: Number(item.lat),
         lng: Number(item.lon),
         displayName: item.display_name,
-        isValid: isArgentinaCoordinate(Number(item.lat), Number(item.lon)),
+        isValid: isCoordinateWithinCountry(Number(item.lat), Number(item.lon), countryHint || DEFAULT_COUNTRY_NAME),
         precision: item.precision === 'exact' ? 'exact' : 'approx',
       }))
       .filter((item) => item.isValid);
@@ -85,6 +75,7 @@ export default function TechnicianLocationPicker({
   onChange,
   query,
   onQueryChange,
+  countryHint = DEFAULT_COUNTRY_NAME,
   cityHint,
   provinceHint,
   label = 'Ubicación de trabajo',
@@ -138,7 +129,7 @@ export default function TechnicianLocationPicker({
     setSearchError('');
 
     const timer = window.setTimeout(async () => {
-      const { results, error: nextError } = await geocodeAddress(trimmed, cityHint, provinceHint);
+      const { results, error: nextError } = await geocodeAddress(trimmed, countryHint, cityHint, provinceHint);
       if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
       setSuggestions(results);
       setSearchError(nextError || '');
@@ -148,7 +139,7 @@ export default function TechnicianLocationPicker({
     return () => {
       window.clearTimeout(timer);
     };
-  }, [cityHint, input, provinceHint]);
+  }, [cityHint, countryHint, input, provinceHint]);
 
   const handleSearch = (query: string) => {
     setInput(query);
@@ -226,7 +217,7 @@ export default function TechnicianLocationPicker({
             const newLat = markerRef.current.getLatLng().lat;
             const newLng = markerRef.current.getLatLng().lng;
 
-            if (isArgentinaCoordinate(newLat, newLng)) {
+            if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
               onChange({
                 lat: newLat,
                 lng: newLng,
@@ -235,7 +226,7 @@ export default function TechnicianLocationPicker({
                 precision: 'exact',
               });
             } else {
-              setMapError('La ubicación debe estar dentro de Argentina.');
+              setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
               markerRef.current.setLatLng([value.lat, value.lng]);
             }
           });
@@ -245,8 +236,8 @@ export default function TechnicianLocationPicker({
         map.on('click', (e: any) => {
           const { lat, lng } = e.latlng;
 
-          if (!isArgentinaCoordinate(lat, lng)) {
-            setMapError('La ubicación debe estar dentro de Argentina.');
+          if (!isCoordinateWithinCountry(lat, lng, countryHint)) {
+            setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
             return;
           }
 
@@ -262,7 +253,7 @@ export default function TechnicianLocationPicker({
               const newLat = markerRef.current.getLatLng().lat;
               const newLng = markerRef.current.getLatLng().lng;
 
-              if (isArgentinaCoordinate(newLat, newLng)) {
+              if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
                 onChange({
                   lat: newLat,
                   lng: newLng,
@@ -271,7 +262,7 @@ export default function TechnicianLocationPicker({
                   precision: 'exact',
                 });
               } else {
-                setMapError('La ubicación debe estar dentro de Argentina.');
+                setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
                 markerRef.current.setLatLng([lat, lng]);
               }
             });
@@ -303,7 +294,7 @@ export default function TechnicianLocationPicker({
         mapRef.current = null;
       }
     };
-  }, [showMap, value, input, onChange]);
+  }, [countryHint, showMap, value, input, onChange]);
 
   const description = descriptionProp || 'Ingresa la dirección completa o selecciona en el mapa para que los clientes te encuentren.';
   const statusText = value?.isValid 

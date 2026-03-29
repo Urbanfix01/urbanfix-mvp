@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import {
-  ARGENTINA_TIMEZONE,
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
   geocodeFirstResult,
   haversineKm,
   isNowWithinWorkingHours,
   parseWorkingHoursConfig,
+  resolveWorkingHoursTimeZone,
   toFiniteNumber,
 } from '../../../_shared/marketplace';
+import {
+  DEFAULT_COUNTRY_NAME,
+  inferCountryFromCandidates,
+  isCoordinateWithinCountry,
+  isCoordinateWithinSupportedCountries,
+} from '../../../../../lib/location-catalog';
 
 const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17,8 +23,9 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
 
 const PROFILE_SELECT_CANDIDATES = [
+  'id, access_granted, country, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name',
   'id, access_granted, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name',
-  'id, access_granted, city, address, service_lat, service_lng, working_hours, full_name, business_name',
+  'id, access_granted, country, city, address, service_lat, service_lng, working_hours, full_name, business_name',
   'id, access_granted, city, address, full_name, business_name',
 ];
 
@@ -98,10 +105,6 @@ const normalizeRadius = (value: unknown) => {
   return Math.min(100, Math.max(1, Math.round(parsed)));
 };
 
-const isArgentinaCoordinate = (lat: number, lng: number) => {
-  return lat >= -55.5 && lat <= -21.78 && lng >= -73.56 && lng <= -53.64;
-};
-
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
@@ -126,20 +129,26 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Tu acceso tecnico todavia no esta habilitado.' }, { status: 403 });
   }
 
+  const profileCountry = inferCountryFromCandidates(
+    profile.country,
+    profile.company_address,
+    profile.address,
+    profile.city,
+    profile.service_location_name
+  );
+
   let technicianLat = toFiniteNumber(profile.service_lat);
   let technicianLng = toFiniteNumber(profile.service_lng);
-  if (
-    technicianLat !== null &&
-    technicianLng !== null &&
-    !isArgentinaCoordinate(technicianLat, technicianLng)
-  ) {
+  if (technicianLat !== null && technicianLng !== null && !isCoordinateWithinCountry(technicianLat, technicianLng, profileCountry)) {
     technicianLat = null;
     technicianLng = null;
   }
   const profileGeoMissing = technicianLat === null || technicianLng === null;
   if (profileGeoMissing) {
-    const geocodeQuery = [profile.company_address || profile.address || '', profile.city || ''].filter(Boolean).join(', ');
-    const geocode = await geocodeFirstResult(geocodeQuery);
+    const geocodeQuery = [profile.company_address || profile.address || '', profile.city || '', profile.country || profileCountry]
+      .filter(Boolean)
+      .join(', ');
+    const geocode = await geocodeFirstResult(geocodeQuery, profileCountry);
     if (geocode) {
       technicianLat = geocode.lat;
       technicianLng = geocode.lng;
@@ -158,11 +167,12 @@ export async function GET(request: NextRequest) {
 
   if (technicianLat === null || technicianLng === null) {
     const workingHours = parseWorkingHoursConfig(profile.working_hours || '');
+    const timeZone = resolveWorkingHoursTimeZone(profile.country, profile.company_address, profile.address);
     return NextResponse.json({
       requests: [],
       technician: {
         radius_km: normalizeRadius(profile.service_radius_km),
-        within_working_hours: isNowWithinWorkingHours(workingHours),
+        within_working_hours: isNowWithinWorkingHours(workingHours, new Date(), timeZone),
         working_hours_label: formatWorkingHoursLabel(workingHours),
       },
       warning: 'Completa direccion base y ciudad para activar el matching por radio.',
@@ -216,7 +226,11 @@ export async function GET(request: NextRequest) {
 
   const now = new Date();
   const profileHours = parseWorkingHoursConfig(profile.working_hours || '');
-  const withinWorkingHours = isNowWithinWorkingHours(profileHours, now, ARGENTINA_TIMEZONE);
+  const withinWorkingHours = isNowWithinWorkingHours(
+    profileHours,
+    now,
+    resolveWorkingHoursTimeZone(profile.country, profile.company_address, profile.address)
+  );
 
   for (const row of requestRows) {
     if (row.mode === 'direct' && row.target_technician_id && row.target_technician_id !== user.id) {
@@ -226,13 +240,14 @@ export async function GET(request: NextRequest) {
 
     let requestLat = toFiniteNumber(row.location_lat);
     let requestLng = toFiniteNumber(row.location_lng);
-    if (requestLat !== null && requestLng !== null && !isArgentinaCoordinate(requestLat, requestLng)) {
+    if (requestLat !== null && requestLng !== null && !isCoordinateWithinSupportedCountries(requestLat, requestLng)) {
       requestLat = null;
       requestLng = null;
     }
     if (requestLat === null || requestLng === null) {
-      const geocodeQuery = [row.address || '', row.city || ''].filter(Boolean).join(', ');
-      const geocode = await geocodeFirstResult(geocodeQuery);
+      const requestCountry = inferCountryFromCandidates(row.country, row.address, row.city, profile.country, profileCountry);
+      const geocodeQuery = [row.address || '', row.city || '', requestCountry].filter(Boolean).join(', ');
+      const geocode = await geocodeFirstResult(geocodeQuery, requestCountry || DEFAULT_COUNTRY_NAME);
       if (geocode) {
         geocodedCount += 1;
         requestLat = geocode.lat;

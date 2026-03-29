@@ -29,7 +29,18 @@ import {
   compactTechnicalNotesText,
   normalizeTechnicalNotesText,
 } from '../../lib/master-items';
+import {
+  COUNTRY_NAMES,
+  DEFAULT_COUNTRY_NAME,
+  extractProvinceHintForCountry,
+  getCountryConfig,
+  getProvinceLabel,
+  getProvinceOptions,
+  inferCountryFromCandidates,
+  isKnownProvinceName,
+} from '../../lib/location-catalog';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
+import LocalityAutocomplete from '../../components/LocalityAutocomplete';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import { parseTechnicianLocation } from '../../lib/technician-location';
 import type {
@@ -83,60 +94,6 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
   sundayTo: '13:00',
 };
 
-const ARGENTINA_PROVINCES = [
-  'Buenos Aires',
-  'Ciudad Autonoma de Buenos Aires',
-  'Catamarca',
-  'Chaco',
-  'Chubut',
-  'Cordoba',
-  'Corrientes',
-  'Entre Rios',
-  'Formosa',
-  'Jujuy',
-  'La Pampa',
-  'La Rioja',
-  'Mendoza',
-  'Misiones',
-  'Neuquen',
-  'Rio Negro',
-  'Salta',
-  'San Juan',
-  'San Luis',
-  'Santa Cruz',
-  'Santa Fe',
-  'Santiago del Estero',
-  'Tierra del Fuego',
-  'Tucuman',
-];
-
-const PROVINCE_ALIASES: Record<string, string[]> = {
-  'Buenos Aires': ['provincia de buenos aires', 'buenos aires'],
-  'Ciudad Autonoma de Buenos Aires': ['ciudad autonoma de buenos aires', 'capital federal', 'caba'],
-  Catamarca: ['catamarca'],
-  Chaco: ['chaco'],
-  Chubut: ['chubut'],
-  Cordoba: ['cordoba'],
-  Corrientes: ['corrientes'],
-  'Entre Rios': ['entre rios'],
-  Formosa: ['formosa'],
-  Jujuy: ['jujuy'],
-  'La Pampa': ['la pampa'],
-  'La Rioja': ['la rioja'],
-  Mendoza: ['mendoza'],
-  Misiones: ['misiones'],
-  Neuquen: ['neuquen'],
-  'Rio Negro': ['rio negro'],
-  Salta: ['salta'],
-  'San Juan': ['san juan'],
-  'San Luis': ['san luis'],
-  'Santa Cruz': ['santa cruz'],
-  'Santa Fe': ['santa fe'],
-  'Santiago del Estero': ['santiago del estero'],
-  'Tierra del Fuego': ['tierra del fuego'],
-  Tucuman: ['tucuman'],
-};
-
 const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
   const match = String(value || '')
     .trim()
@@ -157,14 +114,7 @@ const normalizeTextForParsing = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '');
 
 const extractProvinceHint = (...candidates: Array<string | null | undefined>) => {
-  const normalizedCandidates = candidates.map((value) => normalizeTextForParsing(String(value || '')));
-  for (const province of ARGENTINA_PROVINCES) {
-    const aliases = PROVINCE_ALIASES[province] || [normalizeTextForParsing(province)];
-    if (normalizedCandidates.some((candidate) => aliases.some((alias) => candidate.includes(alias)))) {
-      return province;
-    }
-  }
-  return '';
+  return extractProvinceHintForCountry(DEFAULT_COUNTRY_NAME, ...candidates);
 };
 
 const LOCALITY_CONTAINER_PREFIXES = ['partido de ', 'departamento de ', 'comuna ', 'provincia de '];
@@ -175,7 +125,7 @@ const isLocalityCandidate = (value: string) => {
   const trimmed = String(value || '').trim();
   const normalized = normalizeTextForParsing(trimmed);
   if (!trimmed || !normalized || normalized === 'argentina') return false;
-  if (extractProvinceHint(trimmed)) return false;
+  if (isKnownProvinceName(trimmed)) return false;
   if (LOCALITY_CONTAINER_PREFIXES.some((prefix) => normalized.startsWith(prefix))) return false;
   if (isLikelyPostalSegment(normalized)) return false;
   return true;
@@ -558,15 +508,16 @@ type DashboardMapPoint = {
   createdAt: string;
 };
 
-const geocodeAddressFirstResult = async (query: string) => {
+const geocodeAddressFirstResult = async (query: string, country = DEFAULT_COUNTRY_NAME) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(
-    trimmed
-  )}&addressdetails=1&email=info@urbanfixar.com`;
-  const response = await fetch(url, { cache: 'no-store' });
+  const params = new URLSearchParams({ query: trimmed, limit: '1', country });
+  const response = await fetch(`/api/geocode/search?${params.toString()}`, { cache: 'no-store' });
   if (!response.ok) return null;
-  const rows = (await response.json()) as Array<{ display_name: string; lat: string; lon: string }>;
+  const payload = (await response.json()) as {
+    results?: Array<{ display_name: string; lat: number; lon: number }>;
+  };
+  const rows = Array.isArray(payload.results) ? payload.results : [];
   const first = rows[0];
   if (!first) return null;
   const lat = Number(first.lat);
@@ -1398,6 +1349,7 @@ export default function TechniciansPage() {
     businessName: '',
     email: '',
     phone: '',
+    country: DEFAULT_COUNTRY_NAME,
     address: '',
     city: '',
     province: '',
@@ -1483,6 +1435,8 @@ export default function TechniciansPage() {
   const [quoteFilter, setQuoteFilter] = useState<'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid'>(
     'all'
   );
+  const provinceOptions = useMemo(() => getProvinceOptions(profileForm.country), [profileForm.country]);
+  const provinceFieldLabel = useMemo(() => getProvinceLabel(profileForm.country), [profileForm.country]);
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
   const [scheduleSavingId, setScheduleSavingId] = useState<string | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState('');
@@ -1833,7 +1787,14 @@ export default function TechniciansPage() {
     const parsedCertifications = parseCertificationFilesTag(profile.certifications || '');
     const rawBankValue = String(profile.bank_alias || '').trim();
     const detectedBankType: 'alias' | 'cbu' = normalizeCbu(rawBankValue).length === 22 ? 'cbu' : 'alias';
-    const provinceHint = extractProvinceHint(
+    const countryHint = inferCountryFromCandidates(
+      profile.country,
+      profile.service_location_name,
+      profile.company_address,
+      profile.address
+    );
+    const provinceHint = extractProvinceHintForCountry(
+      countryHint,
       profile.service_location_name,
       profile.company_address,
       profile.address,
@@ -1857,6 +1818,7 @@ export default function TechniciansPage() {
       businessName: profile.business_name || '',
       email: profile.email || session?.user?.email || '',
       phone: profile.phone || '',
+      country: countryHint,
       address: profile.company_address || profile.address || '',
       city: localityHint || profile.city || '',
       province: provinceHint,
@@ -2783,12 +2745,35 @@ export default function TechniciansPage() {
     setProfileForm((prev) => ({ ...prev, address }));
   };
 
+  const handleCountryChange = (country: string) => {
+    const normalizedCountry = getCountryConfig(country).name;
+    setTechnicianLocationResult(null);
+    setProfileForm((prev) => ({
+      ...prev,
+      country: normalizedCountry,
+      province: '',
+      city: '',
+      address: '',
+      locationPickerResult: null,
+    }));
+  };
+
+  const handleProvinceChange = (province: string) => {
+    setProfileForm((prev) => ({
+      ...prev,
+      province,
+      city: prev.province === province ? prev.city : '',
+    }));
+  };
+
   const handleTechnicianLocationChange = (result: LocationPickerResult | null) => {
-    const provinceHint = result ? extractProvinceHint(result.displayName) : '';
+    const countryHint = result ? inferCountryFromCandidates(result.displayName, profileForm.country) : profileForm.country;
+    const provinceHint = result ? extractProvinceHintForCountry(countryHint, result.displayName) : '';
     const localityHint = result ? extractLocalityHint(result.displayName) : '';
     setTechnicianLocationResult(result);
     setProfileForm((prev) => ({
       ...prev,
+      country: countryHint || prev.country,
       address:
         result && result.displayName !== 'Ubicación seleccionada en mapa' ? result.displayName : prev.address,
       city: localityHint || prev.city,
@@ -3594,8 +3579,10 @@ export default function TechniciansPage() {
         serviceLocationPrecision = technicianLocationResult.precision;
       } else {
         // Fall back to geocoding if no location picker result
-        const geocodeQuery = [profileForm.address, profileForm.city].filter(Boolean).join(', ');
-        const geocoded = await geocodeAddressFirstResult(geocodeQuery);
+        const geocodeQuery = [profileForm.address, profileForm.city, profileForm.province, profileForm.country]
+          .filter(Boolean)
+          .join(', ');
+        const geocoded = await geocodeAddressFirstResult(geocodeQuery, profileForm.country);
         const currentServiceLat = Number(profile?.service_lat);
         const currentServiceLng = Number(profile?.service_lng);
         serviceLat = geocoded?.lat ?? (Number.isFinite(currentServiceLat) ? currentServiceLat : null);
@@ -3615,6 +3602,7 @@ export default function TechniciansPage() {
         business_name: profileForm.businessName,
         email: profileForm.email || session.user.email,
         phone: profileForm.phone,
+        country: profileForm.country,
         company_address: profileForm.address,
         address: profileForm.address,
         city: profileForm.city,
@@ -4636,6 +4624,7 @@ export default function TechniciansPage() {
         businessName: profileForm.businessName.trim(),
         email: profileForm.email.trim(),
         phone: profileForm.phone.trim(),
+        country: profileForm.country.trim(),
         address: profileForm.address.trim(),
         city: profileForm.city.trim(),
         coverageArea: coverageAreaLabel,
@@ -4679,6 +4668,7 @@ export default function TechniciansPage() {
       profileForm.businessName,
       profileForm.certifications,
       profileForm.city,
+      profileForm.country,
       profileForm.companyLogoUrl,
       profileForm.defaultCurrency,
       profileForm.defaultDiscount,
@@ -5150,19 +5140,27 @@ export default function TechniciansPage() {
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Pais</label>
-                        <input value="Argentina" disabled className={`${authInputClass} cursor-not-allowed opacity-80`} />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Provincia</label>
                         <select
-                          value={profileForm.province}
-                          onChange={(event) =>
-                            setProfileForm((prev) => ({ ...prev, province: event.target.value }))
-                          }
+                          value={profileForm.country}
+                          onChange={(event) => handleCountryChange(event.target.value)}
                           className={authInputClass}
                         >
-                          <option value="">Seleccionar provincia</option>
-                          {ARGENTINA_PROVINCES.map((province) => (
+                          {COUNTRY_NAMES.map((country) => (
+                            <option key={country} value={country}>
+                              {country}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-[color:var(--ui-muted)]">{provinceFieldLabel}</label>
+                        <select
+                          value={profileForm.province}
+                          onChange={(event) => handleProvinceChange(event.target.value)}
+                          className={authInputClass}
+                        >
+                          <option value="">Seleccionar {provinceFieldLabel.toLowerCase()}</option>
+                          {provinceOptions.map((province) => (
                             <option key={province} value={province}>
                               {province}
                             </option>
@@ -5174,11 +5172,17 @@ export default function TechniciansPage() {
 
                   <div>
                     <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Ciudad / localidad</label>
-                    <input
+                    <LocalityAutocomplete
+                      country={profileForm.country}
+                      province={profileForm.province}
                       value={profileForm.city}
-                      onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                      onChange={(city) => setProfileForm((prev) => ({ ...prev, city }))}
                       placeholder="Ej: Ingeniero Adolfo Sourdeaux"
-                      className={authInputClass}
+                      inputClassName={authInputClass}
+                      helperClassName="mt-2 text-[11px] text-[color:var(--ui-muted)]"
+                      panelClassName="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] shadow-xl"
+                      itemClassName="w-full border-b border-[color:var(--ui-border)]/60 px-4 py-3 text-left text-sm text-[color:var(--ui-ink)] transition hover:bg-[color:var(--ui-accent-soft)]/10"
+                      emptyClassName="px-4 py-3 text-sm text-[color:var(--ui-muted)]"
                     />
                   </div>
 
@@ -5188,6 +5192,7 @@ export default function TechniciansPage() {
                       query={profileForm.address}
                       onQueryChange={handleTechnicianAddressQueryChange}
                       onChange={handleTechnicianLocationChange}
+                      countryHint={profileForm.country}
                       cityHint={profileForm.city}
                       provinceHint={profileForm.province}
                       label="Dirección base"
@@ -8114,23 +8119,27 @@ export default function TechniciansPage() {
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600">Pais</label>
-                          <input
-                            value="Argentina"
-                            disabled
-                            className="mt-2 w-full cursor-not-allowed rounded-2xl border border-slate-200 bg-slate-100 px-4 py-3 text-sm text-slate-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-slate-600">Provincia</label>
                           <select
-                            value={profileForm.province}
-                            onChange={(event) =>
-                              setProfileForm((prev) => ({ ...prev, province: event.target.value }))
-                            }
+                            value={profileForm.country}
+                            onChange={(event) => handleCountryChange(event.target.value)}
                             className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                           >
-                            <option value="">Seleccionar provincia</option>
-                            {ARGENTINA_PROVINCES.map((province) => (
+                            {COUNTRY_NAMES.map((country) => (
+                              <option key={country} value={country}>
+                                {country}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600">{provinceFieldLabel}</label>
+                          <select
+                            value={profileForm.province}
+                            onChange={(event) => handleProvinceChange(event.target.value)}
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                          >
+                            <option value="">Seleccionar {provinceFieldLabel.toLowerCase()}</option>
+                            {provinceOptions.map((province) => (
                               <option key={province} value={province}>
                                 {province}
                               </option>
@@ -8139,11 +8148,17 @@ export default function TechniciansPage() {
                         </div>
                       </div>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad / localidad</label>
-                      <input
+                      <LocalityAutocomplete
+                        country={profileForm.country}
+                        province={profileForm.province}
                         value={profileForm.city}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, city: event.target.value }))}
+                        onChange={(city) => setProfileForm((prev) => ({ ...prev, city }))}
                         placeholder="Ej: Ingeniero Adolfo Sourdeaux"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        inputClassName="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        helperClassName="mt-2 text-xs text-slate-500"
+                        panelClassName="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl"
+                        itemClassName="w-full border-b border-slate-100 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
+                        emptyClassName="px-4 py-3 text-sm text-slate-500"
                       />
                       <div className="mt-3">
                         <TechnicianLocationPicker
@@ -8151,6 +8166,7 @@ export default function TechniciansPage() {
                           query={profileForm.address}
                           onQueryChange={handleTechnicianAddressQueryChange}
                           onChange={handleTechnicianLocationChange}
+                          countryHint={profileForm.country}
                           cityHint={profileForm.city}
                           provinceHint={profileForm.province}
                           label="Direccion base"

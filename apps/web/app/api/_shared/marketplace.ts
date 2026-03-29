@@ -1,4 +1,11 @@
-﻿export const DEFAULT_MATCH_RADIUS_KM = 20;
+﻿import {
+  DEFAULT_COUNTRY_NAME,
+  getCountryCode,
+  getCountryTimeZone,
+  inferCountryFromCandidates,
+} from '../../../lib/location-catalog';
+
+export const DEFAULT_MATCH_RADIUS_KM = 20;
 export const ARGENTINA_TIMEZONE = 'America/Argentina/Buenos_Aires';
 
 export type WorkingHoursConfig = {
@@ -167,13 +174,17 @@ export const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: numb
   return earthRadiusKm * c;
 };
 
-export const geocodeFirstResult = async (query: string) => {
+export const geocodeFirstResult = async (query: string, country = DEFAULT_COUNTRY_NAME) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfixar.com`;
+  const countryName = inferCountryFromCandidates(country);
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=${encodeURIComponent(
+    getCountryCode(countryName)
+  )}&q=${encodeURIComponent(trimmed)}&addressdetails=1&email=info@urbanfixar.com`;
   const response = await fetch(url, {
     headers: {
       'User-Agent': 'UrbanFix/1.0 (info@urbanfixar.com)',
+      'Accept-Language': 'es-AR,es;q=0.9,en;q=0.6',
     },
     cache: 'no-store',
   });
@@ -204,4 +215,7 @@ export const toFiniteNumber = (value: unknown) => {
   if (!Number.isFinite(parsed)) return null;
   return parsed;
 };
+
+export const resolveWorkingHoursTimeZone = (...candidates: Array<string | null | undefined>) =>
+  getCountryTimeZone(inferCountryFromCandidates(...candidates));
 

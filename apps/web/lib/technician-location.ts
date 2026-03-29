@@ -2,6 +2,12 @@
  * Funciones auxiliares para manejo de ubicación de técnicos
  */
 
+import {
+  DEFAULT_COUNTRY_NAME,
+  inferCountryFromCandidates,
+  isCoordinateWithinCountry,
+} from './location-catalog';
+
 export interface TechnicianLocation {
   serviceLat: number | null;
   serviceLng: number | null;
@@ -47,12 +53,18 @@ export const parseTechnicianLocation = (profile: any): {
 } | null => {
   const lat = Number(profile?.service_lat);
   const lng = Number(profile?.service_lng);
+  const country = inferCountryFromCandidates(
+    profile?.country,
+    profile?.service_location_name,
+    profile?.company_address,
+    profile?.address
+  );
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
     return null;
   }
 
-  if (!isValidArgentinaCoordinate(lat, lng)) {
+  if (!isValidCountryCoordinate(lat, lng, country)) {
     return null;
   }
 
@@ -66,28 +78,18 @@ export const parseTechnicianLocation = (profile: any): {
 };
 
 /**
- * Valida que la ubicación esté dentro de Argentina
+ * Valida que la ubicación esté dentro del país soportado
  */
-export const isValidArgentinaCoordinate = (lat: number, lng: number): boolean => {
-  const ARGENTINA_BOUNDS = {
-    minLat: -55.5,
-    maxLat: -21.78,
-    minLng: -73.56,
-    maxLng: -53.64,
-  };
-
-  return (
-    lat >= ARGENTINA_BOUNDS.minLat &&
-    lat <= ARGENTINA_BOUNDS.maxLat &&
-    lng >= ARGENTINA_BOUNDS.minLng &&
-    lng <= ARGENTINA_BOUNDS.maxLng
-  );
-};
+export const isValidCountryCoordinate = (
+  lat: number,
+  lng: number,
+  countryName: string = DEFAULT_COUNTRY_NAME
+): boolean => isCoordinateWithinCountry(lat, lng, countryName);
 
 /**
  * Geocodifica una dirección a coordenadas
  */
-export const geocodeAddressToCoordinates = async (query: string) => {
+export const geocodeAddressToCoordinates = async (query: string, countryName: string = DEFAULT_COUNTRY_NAME) => {
   const trimmed = query.trim();
   if (!trimmed) return null;
 
@@ -115,7 +117,7 @@ export const geocodeAddressToCoordinates = async (query: string) => {
       return null;
     }
 
-    if (!isValidArgentinaCoordinate(lat, lng)) {
+    if (!isValidCountryCoordinate(lat, lng, countryName)) {
       return null;
     }
 

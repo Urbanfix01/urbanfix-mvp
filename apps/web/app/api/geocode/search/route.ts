@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const ARGENTINA_BOUNDS = {
-  minLat: -55.5,
-  maxLat: -21.78,
-  minLng: -73.56,
-  maxLng: -53.64,
-};
+import { DEFAULT_COUNTRY_NAME, getCountryCode, getCountryConfig, isCoordinateWithinCountry } from '../../../../lib/location-catalog';
 
 const normalizeSearchText = (value: string) =>
   String(value || '')
@@ -14,15 +8,6 @@ const normalizeSearchText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
-
-const isArgentinaCoordinate = (lat: number, lng: number) => {
-  return (
-    lat >= ARGENTINA_BOUNDS.minLat &&
-    lat <= ARGENTINA_BOUNDS.maxLat &&
-    lng >= ARGENTINA_BOUNDS.minLng &&
-    lng <= ARGENTINA_BOUNDS.maxLng
-  );
-};
 
 type NominatimRow = {
   display_name?: string;
@@ -86,10 +71,11 @@ const getLocalityLabels = (row: NominatimRow) =>
     .map((item) => String(item || '').trim())
     .filter(Boolean);
 
-const buildQueryVariants = (query: string, cityHint = '', provinceHint = '') => {
+const buildQueryVariants = (query: string, cityHint = '', provinceHint = '', countryHint = DEFAULT_COUNTRY_NAME) => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
   const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
+  const normalizedCountryHint = String(countryHint || '').trim().replace(/\s+/g, ' ');
   const localityAliases = buildLocationAliases(normalizedCityHint).slice(0, 3);
   const variants = [compact];
   const tokens = compact.split(' ').filter(Boolean);
@@ -99,66 +85,67 @@ const buildQueryVariants = (query: string, cityHint = '', provinceHint = '') => 
 
   if (numberToken && streetPart) {
     variants.push(`${numberToken} ${streetPart}`);
-    variants.push(`${streetPart} ${numberToken}, Argentina`);
-    variants.push(`${numberToken} ${streetPart}, Argentina`);
+    variants.push(`${streetPart} ${numberToken}, ${normalizedCountryHint}`);
+    variants.push(`${numberToken} ${streetPart}, ${normalizedCountryHint}`);
   }
 
   if (streetPart) {
-    variants.push(`${streetPart}, Argentina`);
+    variants.push(`${streetPart}, ${normalizedCountryHint}`);
   }
 
   if (normalizedProvinceHint) {
-    variants.push(`${compact}, ${normalizedProvinceHint}, Argentina`);
+    variants.push(`${compact}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     if (numberToken && streetPart) {
-      variants.push(`${streetPart} ${numberToken}, ${normalizedProvinceHint}, Argentina`);
-      variants.push(`${numberToken} ${streetPart}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${streetPart} ${numberToken}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
+      variants.push(`${numberToken} ${streetPart}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
     if (streetPart) {
-      variants.push(`${streetPart}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${streetPart}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
   }
 
   if (normalizedCityHint) {
-    variants.push(`${compact}, ${normalizedCityHint}, Argentina`);
+    variants.push(`${compact}, ${normalizedCityHint}, ${normalizedCountryHint}`);
     if (normalizedProvinceHint) {
-      variants.push(`${compact}, ${normalizedCityHint}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${compact}, ${normalizedCityHint}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
     if (numberToken && streetPart) {
-      variants.push(`${streetPart} ${numberToken}, ${normalizedCityHint}, Argentina`);
+      variants.push(`${streetPart} ${numberToken}, ${normalizedCityHint}, ${normalizedCountryHint}`);
     }
     if (streetPart) {
-      variants.push(`${streetPart}, ${normalizedCityHint}, Argentina`);
+      variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedCountryHint}`);
     }
   }
 
   localityAliases.forEach((locality) => {
-    variants.push(`${compact}, ${locality}, Argentina`);
+    variants.push(`${compact}, ${locality}, ${normalizedCountryHint}`);
     if (normalizedProvinceHint) {
-      variants.push(`${compact}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${compact}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
     if (numberToken && streetPart) {
-      variants.push(`${streetPart} ${numberToken}, ${locality}, Argentina`);
+      variants.push(`${streetPart} ${numberToken}, ${locality}, ${normalizedCountryHint}`);
       if (normalizedProvinceHint) {
-        variants.push(`${streetPart} ${numberToken}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+        variants.push(`${streetPart} ${numberToken}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
       }
     }
     if (streetPart) {
-      variants.push(`${streetPart}, ${locality}, Argentina`);
+      variants.push(`${streetPart}, ${locality}, ${normalizedCountryHint}`);
       if (normalizedProvinceHint) {
-        variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+        variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
       }
     }
   });
 
-  variants.push(`${compact}, Argentina`);
+  variants.push(`${compact}, ${normalizedCountryHint}`);
 
   return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
 };
 
-const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint = '') => {
+const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint = '', countryHint = DEFAULT_COUNTRY_NAME) => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
   const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
+  const normalizedCountryHint = String(countryHint || '').trim().replace(/\s+/g, ' ');
   const localityAliases = buildLocationAliases(normalizedCityHint).slice(0, 3);
   const tokens = compact.split(' ').filter(Boolean);
   const streetTokens = tokens.filter((token) => !/\d/.test(token));
@@ -168,28 +155,28 @@ const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint 
 
   const variants = [] as string[];
   if (normalizedProvinceHint) {
-    variants.push(`${streetPart}, ${normalizedProvinceHint}, Argentina`);
+    variants.push(`${streetPart}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
   }
   if (normalizedCityHint) {
     variants.push(`${streetPart}, ${normalizedCityHint}`);
-    variants.push(`${streetPart}, ${normalizedCityHint}, Argentina`);
+    variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedCountryHint}`);
     if (normalizedProvinceHint) {
-      variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
   }
   localityAliases.forEach((locality) => {
-    variants.push(`${streetPart}, ${locality}, Argentina`);
+    variants.push(`${streetPart}, ${locality}, ${normalizedCountryHint}`);
     if (normalizedProvinceHint) {
-      variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, Argentina`);
+      variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
   });
-  variants.push(streetPart, `${streetPart}, Argentina`);
+  variants.push(streetPart, `${streetPart}, ${normalizedCountryHint}`);
 
   return Array.from(new Set(variants.map((item) => item.trim()).filter(Boolean)));
 };
 
-const fetchNominatimRows = async (query: string, limit: number) => {
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&dedupe=0&countrycodes=ar&q=${encodeURIComponent(
+const fetchNominatimRows = async (query: string, limit: number, countryCode: string) => {
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&dedupe=0&countrycodes=${encodeURIComponent(countryCode)}&q=${encodeURIComponent(
     query
   )}&addressdetails=1&email=info@urbanfixar.com`;
 
@@ -244,6 +231,8 @@ export async function GET(request: NextRequest) {
   const query = String(request.nextUrl.searchParams.get('query') || '').trim();
   const cityHint = String(request.nextUrl.searchParams.get('city') || '').trim();
   const provinceHint = String(request.nextUrl.searchParams.get('province') || '').trim();
+  const countryHint = getCountryConfig(String(request.nextUrl.searchParams.get('country') || '').trim() || DEFAULT_COUNTRY_NAME).name;
+  const countryCode = getCountryCode(countryHint);
   const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 5);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(12, Math.round(requestedLimit))) : 8;
 
@@ -253,14 +242,14 @@ export async function GET(request: NextRequest) {
 
   try {
     const upstreamLimit = Math.max(limit, 8);
-    const variants = buildQueryVariants(query, cityHint, provinceHint).slice(0, cityHint ? 6 : provinceHint ? 4 : 4);
-    const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint).slice(
+    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(0, cityHint ? 6 : provinceHint ? 4 : 4);
+    const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint, countryHint).slice(
       0,
       cityHint ? 3 : provinceHint ? 1 : 2
     );
     const settled = await Promise.all(
-      variants.map((variant) => fetchNominatimRows(variant, upstreamLimit)).concat(
-        fallbackVariants.map((variant) => fetchNominatimRows(variant, Math.max(6, limit)))
+      variants.map((variant) => fetchNominatimRows(variant, upstreamLimit, countryCode)).concat(
+        fallbackVariants.map((variant) => fetchNominatimRows(variant, Math.max(6, limit), countryCode))
       )
     );
     const firstError = settled.find((item) => item.error)?.error || '';
@@ -279,7 +268,7 @@ export async function GET(request: NextRequest) {
       .map((item) => {
         const lat = Number(item.lat);
         const lng = Number(item.lon);
-        if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isArgentinaCoordinate(lat, lng)) {
+        if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isCoordinateWithinCountry(lat, lng, countryHint)) {
           return null;
         }
         const displayName = String(item.display_name || '').trim();
