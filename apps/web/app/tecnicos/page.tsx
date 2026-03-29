@@ -23,7 +23,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
-import { POST_AUTH_REDIRECT_KEY, sanitizeNextPath } from '../../lib/auth/post-auth';
+import { POST_AUTH_REDIRECT_KEY, PRICE_ACCESS_INTENT, sanitizeNextPath } from '../../lib/auth/post-auth';
 import {
   buildMasterItemChoiceLabel,
   canonicalizeMasterItemUnit,
@@ -1251,6 +1251,7 @@ export default function TechniciansPage() {
   const [businessName, setBusinessName] = useState('');
   const [quickRegisterMode, setQuickRegisterMode] = useState(false);
   const [autoGoogleStarted, setAutoGoogleStarted] = useState(false);
+  const [entryPrompt, setEntryPrompt] = useState('');
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
@@ -1432,8 +1433,17 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const nextPath = sanitizeNextPath(params.get('next'));
+    const intent = params.get('intent');
     if (nextPath) {
       window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, nextPath);
+    }
+    if (intent === PRICE_ACCESS_INTENT) {
+      setEntryPrompt('Para ver los precios de mano de obra actualizados, inicia sesión o crea tu cuenta.');
+      setSelectedAccessProfile('tecnico');
+      setAuthMode('login');
+      setQuickRegisterMode(false);
+    } else {
+      setEntryPrompt('');
     }
     const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
     if (incomingProfile === 'cliente') {
@@ -5455,6 +5465,13 @@ export default function TechniciansPage() {
                       : 'Accede con Google o con tu correo.'}
                   </p>
                 </div>
+
+                {entryPrompt && (
+                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                    <p className="font-semibold">Acceso a precios actualizado</p>
+                    <p className="mt-1 leading-6">{entryPrompt}</p>
+                  </div>
+                )}
 
                 <button
                   type="button"
