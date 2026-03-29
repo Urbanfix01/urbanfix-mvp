@@ -244,6 +244,11 @@ export default function AuthScreen() {
     const profilePayload: Record<string, unknown> = { id: user.id };
     if (resolvedEmail) profilePayload.email = resolvedEmail;
     if (resolvedFullName) profilePayload.full_name = resolvedFullName;
+    if (nextAudience === 'tecnico') {
+      profilePayload.access_granted = true;
+      profilePayload.profile_published = true;
+      profilePayload.profile_published_at = new Date().toISOString();
+    }
 
     const metadataPayload: Record<string, unknown> = { app_audience: nextAudience };
     if (resolvedFullName) metadataPayload.full_name = resolvedFullName;
@@ -313,6 +318,7 @@ export default function AuthScreen() {
           if (exchangeError) {
             throw exchangeError;
           }
+          await hydrateSocialProfile({ nextAudience: audience });
           return;
         }
 
@@ -324,6 +330,7 @@ export default function AuthScreen() {
           if (sessionError) {
             throw sessionError;
           }
+          await hydrateSocialProfile({ nextAudience: audience });
           return;
         }
 
