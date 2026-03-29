@@ -5245,9 +5245,9 @@ export default function TechniciansPage() {
                           Recomendado: fondo claro o transparente, buen contraste y lectura rapida.
                         </div>
                       </div>
-                    </label>
                   </div>
                 </div>
+              </div>
 
                 <div className="mt-6 space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
