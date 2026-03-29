@@ -16,6 +16,7 @@ export interface LocationData {
   lat: number;
   lng: number;
   placeId: string;
+  precision?: 'exact' | 'approx';
   city?: string;
   province?: string;
   source?: 'google' | 'osm' | 'manual';
@@ -26,6 +27,7 @@ interface Prediction {
   place_id: string;
   lat?: number;
   lng?: number;
+  precision?: 'exact' | 'approx';
   city?: string;
   province?: string;
   source?: 'google' | 'osm';
@@ -101,6 +103,21 @@ const resolveGoogleAddressPart = (components: any[] | undefined, type: string) =
   return String(row?.long_name || '').trim();
 };
 
+const resolveGooglePrecision = (components: any[] | undefined): 'exact' | 'approx' => {
+  const hasStreetNumber = Boolean(resolveGoogleAddressPart(components, 'street_number'));
+  const hasRoute = Boolean(resolveGoogleAddressPart(components, 'route'));
+  return hasStreetNumber && hasRoute ? 'exact' : 'approx';
+};
+
+const resolveOsmPrecision = (
+  address?: Record<string, string | undefined>,
+  description = ''
+): 'exact' | 'approx' => {
+  const hasHouseNumber = Boolean(String(address?.house_number || '').trim()) || /\b\d{1,6}\b/.test(description);
+  const hasRoad = Boolean(pickFirstAddressValue(address, ['road', 'pedestrian', 'footway', 'street']));
+  return hasHouseNumber && hasRoad ? 'exact' : 'approx';
+};
+
 const normalizeSearchValue = (value: string) =>
   String(value || '')
     .trim()
@@ -169,7 +186,7 @@ export const LocationAutocomplete = ({
     placeId = '',
     lat = 0,
     lng = 0,
-    meta: Partial<Pick<LocationData, 'city' | 'province' | 'source'>> = {}
+    meta: Partial<Pick<LocationData, 'city' | 'province' | 'source' | 'precision'>> = {}
   ) => {
     const safeAddress = address.trim();
     if (!safeAddress) return;
@@ -179,6 +196,7 @@ export const LocationAutocomplete = ({
       lat,
       lng,
       placeId,
+      precision: meta.precision === 'exact' ? 'exact' : 'approx',
       city: meta.city,
       province: meta.province,
       source: meta.source,
@@ -209,6 +227,7 @@ export const LocationAutocomplete = ({
       lat: hasCoords ? lat : 0,
       lng: hasCoords ? lng : 0,
       placeId: String(first.place_id || ''),
+      precision: resolveOsmPrecision(first.address, String(first.display_name || trimmed)),
       city: resolveOsmCity(first.address),
       province: resolveOsmProvince(first.address),
       hasCoords,
@@ -242,6 +261,7 @@ export const LocationAutocomplete = ({
       lat: hasCoords ? lat : 0,
       lng: hasCoords ? lng : 0,
       placeId: String(first?.place_id || ''),
+      precision: resolveGooglePrecision(first?.address_components),
       city,
       province,
       hasCoords,
@@ -260,6 +280,7 @@ export const LocationAutocomplete = ({
           commitAddress(googleResolved.address, googleResolved.placeId, googleResolved.lat, googleResolved.lng, {
             city: googleResolved.city,
             province: googleResolved.province,
+            precision: googleResolved.precision,
             source: 'google',
           });
           return;
@@ -272,6 +293,7 @@ export const LocationAutocomplete = ({
         commitAddress(osmResolved.address, osmResolved.placeId, osmResolved.lat, osmResolved.lng, {
           city: osmResolved.city,
           province: osmResolved.province,
+          precision: osmResolved.precision,
           source: 'osm',
         });
         return;
@@ -280,7 +302,7 @@ export const LocationAutocomplete = ({
       // fallback below
     }
 
-    commitAddress(typedAddress, '', 0, 0, { source: 'manual' });
+    commitAddress(typedAddress, '', 0, 0, { precision: 'approx', source: 'manual' });
   };
 
   useEffect(() => {
@@ -366,6 +388,7 @@ export const LocationAutocomplete = ({
               place_id: String(row.place_id || Math.random().toString(36).slice(2)),
               lat: hasCoords ? lat : undefined,
               lng: hasCoords ? lng : undefined,
+              precision: resolveOsmPrecision(row.address, String(row.display_name || '')),
               city: resolveOsmCity(row.address),
               province: resolveOsmProvince(row.address),
               source: 'osm' as const,
@@ -408,6 +431,7 @@ export const LocationAutocomplete = ({
         {
           city: prediction.city,
           province: prediction.province,
+          precision: prediction.precision,
           source: 'osm',
         }
       );
@@ -421,13 +445,14 @@ export const LocationAutocomplete = ({
           commitAddress(resolved.address, resolved.placeId || prediction.place_id, resolved.lat, resolved.lng, {
             city: resolved.city,
             province: resolved.province,
+            precision: resolved.precision,
             source: 'osm',
           });
         } else {
-          commitAddress(fallbackAddress, prediction.place_id, 0, 0, { source: 'manual' });
+          commitAddress(fallbackAddress, prediction.place_id, 0, 0, { precision: 'approx', source: 'manual' });
         }
       } catch {
-        commitAddress(fallbackAddress, prediction.place_id, 0, 0, { source: 'manual' });
+        commitAddress(fallbackAddress, prediction.place_id, 0, 0, { precision: 'approx', source: 'manual' });
       }
       return;
     }
@@ -449,6 +474,7 @@ export const LocationAutocomplete = ({
         resolveGoogleAddressPart(json?.result?.address_components, 'administrative_area_level_2');
       const province = resolveGoogleAddressPart(json?.result?.address_components, 'administrative_area_level_1');
       const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+      const precision = resolveGooglePrecision(json?.result?.address_components);
 
       setQuery(resolvedAddress);
       sessionTokenRef.current = null;
@@ -457,17 +483,19 @@ export const LocationAutocomplete = ({
         commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id, lat, lng, {
           city,
           province,
+          precision,
           source: 'google',
         });
       } else {
         commitAddress(resolvedAddress, json?.result?.place_id || prediction.place_id, 0, 0, {
           city,
           province,
+          precision: 'approx',
           source: 'manual',
         });
       }
     } catch {
-      commitAddress(fallbackAddress, prediction.place_id, 0, 0, { source: 'manual' });
+      commitAddress(fallbackAddress, prediction.place_id, 0, 0, { precision: 'approx', source: 'manual' });
     } finally {
       setIsLoading(false);
     }
@@ -513,6 +541,7 @@ export const LocationAutocomplete = ({
                 commitAddress(resolvedAddress, place?.place_id || '', hasCoords ? lat : 0, hasCoords ? lng : 0, {
                   city,
                   province,
+                  precision: resolveGooglePrecision(place?.address_components),
                   source: hasCoords ? 'google' : 'manual',
                 });
               }}

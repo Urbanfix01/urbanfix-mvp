@@ -17,7 +17,9 @@ import { deleteCurrentAccount } from '../../services/accountDeletion';
 import { setStoredAudience } from '../../utils/audience';
 
 // --- COMPONENTES DE MAPAS ---
-import { LocationAutocomplete } from '../../components/molecules/LocationAutocomplete';
+import TechnicianLocationPicker, {
+  type TechnicianLocationPickerResult,
+} from '../../components/molecules/TechnicianLocationPicker';
 
 const fallbackExpoVersion = String(require('../../../app.json')?.expo?.version || '').trim();
 
@@ -42,6 +44,8 @@ interface Profile {
   location_lng?: number | null;
   service_lat?: number | null;
   service_lng?: number | null;
+  service_location_name?: string | null;
+  service_location_precision?: 'exact' | 'approx' | null;
   city?: string | null;
   service_city?: string | null;
   service_province?: string | null;
@@ -309,18 +313,23 @@ export default function ProfileScreen({
   const [workPhotoUrls, setWorkPhotoUrls] = useState<string[]>([]);
   const [defaultDiscount, setDefaultDiscount] = useState('');
   const [location, setLocation] = useState({ lat: 0, lng: 0 });
+  const [technicianLocationResult, setTechnicianLocationResult] = useState<TechnicianLocationPickerResult | null>(null);
   const [serviceCity, setServiceCity] = useState('');
   const [serviceProvince, setServiceProvince] = useState('');
   const [locationResolving, setLocationResolving] = useState(false);
   const [lastConfirmedAddress, setLastConfirmedAddress] = useState('');
   const [workingHours, setWorkingHours] = useState<WorkingHoursConfig>({ ...DEFAULT_WORKING_HOURS_CONFIG });
-  const hasPreciseOperationalBase = useMemo(() => hasValidCoordinates(location.lat, location.lng), [location.lat, location.lng]);
+  const hasPreciseOperationalBase = useMemo(
+    () => Boolean(technicianLocationResult?.isValid && technicianLocationResult.precision === 'exact'),
+    [technicianLocationResult]
+  );
   const baseReadiness = useMemo(() => {
     if (locationResolving) return 'Validando';
     if (hasPreciseOperationalBase) return 'Exacta';
+    if (technicianLocationResult?.isValid) return 'Confirmar';
     if (address.trim()) return 'Revisar';
     return 'Pendiente';
-  }, [address, hasPreciseOperationalBase, locationResolving]);
+  }, [address, hasPreciseOperationalBase, locationResolving, technicianLocationResult]);
 
   useEffect(() => {
     if (requiredCompletion) {
@@ -351,9 +360,9 @@ export default function ProfileScreen({
       setFullName(userProfile.full_name || '');
       setBusinessName(userProfile.business_name || '');
       setPhone(userProfile.phone || '');
-      const nextAddress = userProfile.company_address || '';
+      const nextAddress = userProfile.company_address || userProfile.service_location_name || '';
       setAddress(nextAddress);
-      setLastConfirmedAddress(nextAddress);
+      setLastConfirmedAddress(String(userProfile.service_location_name || nextAddress).trim());
       setInstagramProfileUrl(userProfile.instagram_profile_url || '');
       setFacebookProfileUrl(userProfile.facebook_profile_url || '');
       setInstagramPostUrl(userProfile.instagram_post_url || '');
@@ -368,8 +377,18 @@ export default function ProfileScreen({
       const resolvedLng = Number(userProfile.service_lng ?? userProfile.location_lng ?? 0);
       if (hasValidCoordinates(resolvedLat, resolvedLng)) {
         setLocation({ lat: resolvedLat, lng: resolvedLng });
+        setTechnicianLocationResult({
+          lat: resolvedLat,
+          lng: resolvedLng,
+          displayName: String(userProfile.service_location_name || nextAddress).trim() || nextAddress,
+          isValid: true,
+          precision: userProfile.service_location_precision === 'approx' ? 'approx' : 'exact',
+          city: userProfile.service_city || userProfile.city || extractCityFromAddress(nextAddress),
+          province: userProfile.service_province || '',
+        });
       } else {
         setLocation({ lat: 0, lng: 0 });
+        setTechnicianLocationResult(null);
       }
 
     } catch (error) {
@@ -480,6 +499,7 @@ export default function ProfileScreen({
 
     if (!safeValue.trim()) {
       setLocation({ lat: 0, lng: 0 });
+      setTechnicianLocationResult(null);
       setLastConfirmedAddress('');
       setServiceCity('');
       setServiceProvince('');
@@ -488,21 +508,29 @@ export default function ProfileScreen({
 
     if (safeValue.trim().toLowerCase() !== lastConfirmedAddress.trim().toLowerCase()) {
       setLocation({ lat: 0, lng: 0 });
+      setTechnicianLocationResult(null);
       setServiceCity('');
       setServiceProvince('');
     }
   };
 
-  const handleLocationSelect = (data: { address: string; lat: number; lng: number; city?: string; province?: string }) => {
-    console.log("📍 Base operativa seleccionada:", data);
-    const safeAddress = String(data.address || '').trim();
-    const safeCity = String(data.city || '').trim();
-    const safeProvince = String(data.province || '').trim();
+  const handleTechnicianLocationChange = (result: TechnicianLocationPickerResult | null) => {
+    if (!result) {
+      setTechnicianLocationResult(null);
+      setLocation({ lat: 0, lng: 0 });
+      return;
+    }
+
+    const safeAddress = String(result.displayName || '').trim();
+    const safeCity = String(result.city || '').trim();
+    const safeProvince = String(result.province || '').trim();
+
     setAddress(safeAddress);
     setLastConfirmedAddress(safeAddress);
+    setTechnicianLocationResult(result);
     setLocation({
-      lat: Number.isFinite(data.lat) ? data.lat : 0,
-      lng: Number.isFinite(data.lng) ? data.lng : 0,
+      lat: Number.isFinite(result.lat) ? result.lat : 0,
+      lng: Number.isFinite(result.lng) ? result.lng : 0,
     });
     setServiceCity(safeCity || extractCityFromAddress(safeAddress));
     setServiceProvince(safeProvince);
@@ -519,8 +547,8 @@ export default function ProfileScreen({
       if (requiredCompletion && !address.trim()) {
         throw new Error('Completa tu base operativa para continuar.');
       }
-      if (requiredCompletion && !hasPreciseOperationalBase) {
-        throw new Error('Selecciona una direccion sugerida para guardar coordenadas exactas de tu base operativa.');
+      if (!technicianLocationResult?.isValid || technicianLocationResult.precision !== 'exact') {
+        throw new Error('Elige y confirma en el mapa el punto exacto donde quieres aparecer.');
       }
       const workingHoursError = validateWorkingHoursConfig(workingHours);
       if (workingHoursError) throw new Error(workingHoursError);
@@ -545,11 +573,12 @@ export default function ProfileScreen({
         'Publicacion de Facebook'
       );
 
-      const safeAddress = String(address || '').trim();
-      const safeServiceCity = String(serviceCity || '').trim() || extractCityFromAddress(safeAddress);
-      const safeServiceProvince = String(serviceProvince || '').trim();
-      const preciseLat = hasValidCoordinates(location.lat, location.lng) ? Number(location.lat.toFixed(6)) : null;
-      const preciseLng = hasValidCoordinates(location.lat, location.lng) ? Number(location.lng.toFixed(6)) : null;
+      const safeAddress = String(technicianLocationResult.displayName || address || '').trim();
+      const safeServiceCity =
+        String(technicianLocationResult.city || serviceCity || '').trim() || extractCityFromAddress(safeAddress);
+      const safeServiceProvince = String(technicianLocationResult.province || serviceProvince || '').trim();
+      const preciseLat = Number(technicianLocationResult.lat.toFixed(6));
+      const preciseLng = Number(technicianLocationResult.lng.toFixed(6));
 
       const updates = {
         id: user.id,
@@ -567,6 +596,8 @@ export default function ProfileScreen({
         company_address: safeAddress,
         service_city: safeServiceCity || null,
         service_province: safeServiceProvince || null,
+        service_location_name: safeAddress,
+        service_location_precision: 'exact' as const,
         instagram_profile_url: normalizedInstagramProfileUrl,
         facebook_profile_url: normalizedFacebookProfileUrl,
         instagram_post_url: normalizedInstagramPostUrl,
@@ -591,7 +622,7 @@ export default function ProfileScreen({
       setIsEditing(false);
       onProfileUpdated?.();
 
-      const msg = "Perfil actualizado correctamente";
+      const msg = 'Perfil actualizado con tu punto en el mapa.';
       isWeb ? alert(msg) : Alert.alert("Éxito", msg);
 
     } catch (error: any) {
@@ -695,7 +726,7 @@ export default function ProfileScreen({
       setPhone(profile.phone || '');
       const safeAddress = profile.company_address || '';
       setAddress(safeAddress);
-      setLastConfirmedAddress(safeAddress);
+      setLastConfirmedAddress(String(profile.service_location_name || safeAddress).trim());
       setInstagramProfileUrl(profile.instagram_profile_url || '');
       setFacebookProfileUrl(profile.facebook_profile_url || '');
       setInstagramPostUrl(profile.instagram_post_url || '');
@@ -714,8 +745,18 @@ export default function ProfileScreen({
       const resolvedLng = Number(profile.service_lng ?? profile.location_lng ?? 0);
       if (hasValidCoordinates(resolvedLat, resolvedLng)) {
         setLocation({ lat: resolvedLat, lng: resolvedLng });
+        setTechnicianLocationResult({
+          lat: resolvedLat,
+          lng: resolvedLng,
+          displayName: String(profile.service_location_name || safeAddress).trim() || safeAddress,
+          isValid: true,
+          precision: profile.service_location_precision === 'approx' ? 'approx' : 'exact',
+          city: profile.service_city || profile.city || extractCityFromAddress(safeAddress),
+          province: profile.service_province || '',
+        });
       } else {
         setLocation({ lat: 0, lng: 0 });
+        setTechnicianLocationResult(null);
       }
     }
     setIsEditing(false);
@@ -757,7 +798,7 @@ export default function ProfileScreen({
             <Ionicons name="shield-checkmark-outline" size={18} color="#C2410C" />
             <View style={styles.requiredCopy}>
               <Text style={styles.requiredTitle}>Completa tu ficha operativa para habilitar el acceso.</Text>
-              <Text style={styles.requiredText}>Necesitamos telefono, nombre comercial y una base operativa exacta para activar matching por zona y mapa operativo.</Text>
+              <Text style={styles.requiredText}>Necesitamos telefono, nombre comercial y el punto exacto en el mapa para activar matching por zona y mapa operativo.</Text>
             </View>
           </View>
         )}
@@ -923,12 +964,13 @@ export default function ProfileScreen({
                 <Text style={styles.inputLabel}>BASE OPERATIVA</Text>
                 <View style={styles.operationalBaseFieldWrap}>
                     {isEditing ? (
-                        <LocationAutocomplete 
-                            initialValue={address}
-                            onLocationSelect={handleLocationSelect}
-                            onQueryChange={handleLocationQueryChange}
-                            onLoadingChange={setLocationResolving}
-                            placeholder="Calle, altura, localidad y provincia"
+                    <TechnicianLocationPicker
+                      value={technicianLocationResult}
+                      onChange={handleTechnicianLocationChange}
+                      query={address}
+                      onQueryChange={handleLocationQueryChange}
+                      onLoadingChange={setLocationResolving}
+                      placeholder="Calle, altura, localidad y provincia"
                         />
                     ) : (
                         <View style={styles.readonlyField}>
@@ -979,10 +1021,12 @@ export default function ProfileScreen({
                   </View>
                   <Text style={[styles.operationalBaseStatusText, hasPreciseOperationalBase && styles.operationalBaseStatusTextOk]}>
                     {locationResolving
-                      ? 'Validando coordenadas exactas para que el matching use tu base real.'
+                      ? 'Validando coordenadas para abrir tu punto en el mapa.'
                       : hasPreciseOperationalBase
-                        ? 'Base confirmada con coordenadas listas para mapa operativo y matching por radio.'
-                        : 'Escribe una direccion exacta y selecciona una sugerencia para guardar coordenadas precisas.'}
+                        ? 'Punto confirmado y listo para mapa operativo y matching por radio.'
+                        : technicianLocationResult?.isValid
+                          ? 'Confirma el punto en el mapa para guardar dónde apareces.'
+                          : 'Busca la direccion y confirma el punto exacto en el mapa para definir dónde apareces.'}
                   </Text>
                   <View style={styles.operationalBaseMetaGrid}>
                     <View style={styles.operationalBaseMetaItem}>
@@ -996,13 +1040,13 @@ export default function ProfileScreen({
                     <View style={styles.operationalBaseMetaItem}>
                       <Text style={styles.operationalBaseMetaLabel}>Latitud</Text>
                       <Text style={styles.operationalBaseMetaValue}>
-                        {hasPreciseOperationalBase ? location.lat.toFixed(6) : 'Pendiente'}
+                        {technicianLocationResult?.isValid ? location.lat.toFixed(6) : 'Pendiente'}
                       </Text>
                     </View>
                     <View style={styles.operationalBaseMetaItem}>
                       <Text style={styles.operationalBaseMetaLabel}>Longitud</Text>
                       <Text style={styles.operationalBaseMetaValue}>
-                        {hasPreciseOperationalBase ? location.lng.toFixed(6) : 'Pendiente'}
+                        {technicianLocationResult?.isValid ? location.lng.toFixed(6) : 'Pendiente'}
                       </Text>
                     </View>
                   </View>
