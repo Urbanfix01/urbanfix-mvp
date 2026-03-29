@@ -48,6 +48,8 @@ create policy "Users insert own profiles"
   with check (auth.uid() = id);
 
 -- RPC publico para visualizar un presupuesto por link (sin exponer listados)
+drop function if exists public.get_public_quote_bundle(uuid);
+
 create or replace function public.get_public_quote_bundle(quote_id uuid)
 returns jsonb
 language plpgsql

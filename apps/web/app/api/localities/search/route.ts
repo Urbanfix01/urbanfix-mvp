@@ -8,6 +8,11 @@ type GeoRefLocalityRow = {
   provincia?: { nombre?: string };
 };
 
+type GeoRefDistrictRow = {
+  nombre?: string;
+  provincia?: { nombre?: string };
+};
+
 type NominatimLocalityRow = {
   display_name?: string;
   address?: {
@@ -85,11 +90,19 @@ const buildPredictiveQueryVariants = (query: string) => {
     variants.push(trimmedQuery.slice(0, -2));
   }
 
-  return Array.from(new Set(variants.map((value) => value.trim()).filter((value) => value.length >= 2))).slice(0, 4);
+  if (trimmedQuery.length >= 10) {
+    variants.push(trimmedQuery.slice(0, -3));
+  }
+
+  if (tokens.length === 1 && trimmedQuery.length >= 6) {
+    variants.push(trimmedQuery.slice(0, Math.max(4, Math.ceil(trimmedQuery.length * 0.7))));
+  }
+
+  return Array.from(new Set(variants.map((value) => value.trim()).filter((value) => value.length >= 2))).slice(0, 6);
 };
 
 const scoreLocalityResult = (
-  row: { name: string; label: string },
+  row: { name: string; label: string; kind?: 'locality' | 'municipality' | 'department' },
   query: string,
   province: string
 ) => {
@@ -106,8 +119,13 @@ const scoreLocalityResult = (
   if (normalizedName === normalizedQuery) score += 1400;
   if (normalizedLabel === normalizedQuery) score += 1200;
   if (normalizedName.startsWith(normalizedQuery)) score += 1000;
+  if (normalizedLabel.startsWith(normalizedQuery)) score += 700;
   if (normalizedName.includes(normalizedQuery)) score += 850;
   if (normalizedLabel.includes(normalizedQuery)) score += 500;
+
+  if (row.kind === 'locality') score += 50;
+  if (row.kind === 'municipality') score += 30;
+  if (row.kind === 'department') score += 20;
 
   let matchedTokens = 0;
   for (const queryToken of queryTokens) {
@@ -151,7 +169,7 @@ const scoreLocalityResult = (
 };
 
 const rankLocalityResults = (
-  rows: Array<{ name: string; label: string }>,
+  rows: Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }>,
   query: string,
   province: string,
   limit: number
@@ -198,17 +216,27 @@ const buildLocalityLabel = (row: GeoRefLocalityRow) => {
 const dedupeLocalityResults = (rows: Array<{ name: string; label: string }>) => {
   const seen = new Set<string>();
   return rows.filter((row) => {
-    const key = normalizeText(row.name);
+    const key = `${normalizeText(row.name)}|${normalizeText(row.label)}`;
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
   });
 };
 
+const buildArgentinaDistrictLabel = (name: string, province: string, kind: 'municipality' | 'department') => {
+  if (kind === 'municipality') {
+    const prefix = normalizeText(province) === 'buenos aires' ? 'Partido de' : 'Municipio de';
+    return `${prefix} ${name}, ${province}`;
+  }
+
+  return `Departamento de ${name}, ${province}`;
+};
+
 const fetchArgentinaLocalities = async (province: string, query: string, limit: number) => {
+  const upstreamLimit = Math.max(limit * 4, 24);
   const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(
     province
-  )}&nombre=${encodeURIComponent(query)}&max=${limit}&campos=nombre,departamento,municipio,provincia`;
+  )}&nombre=${encodeURIComponent(query)}&max=${upstreamLimit}&campos=nombre,departamento,municipio,provincia`;
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -240,9 +268,10 @@ const fetchArgentinaLocalities = async (province: string, query: string, limit: 
         return {
           name,
           label: buildLocalityLabel(row),
+          kind: 'locality' as const,
         };
       })
-      .filter(Boolean) as Array<{ name: string; label: string }>;
+      .filter(Boolean) as Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }>;
 
     return { results: dedupeLocalityResults(results), error: '' };
   } catch {
@@ -254,9 +283,77 @@ const fetchArgentinaLocalities = async (province: string, query: string, limit: 
   }
 };
 
+const fetchArgentinaDistricts = async (province: string, query: string, limit: number) => {
+  const upstreamLimit = Math.max(limit * 2, 12);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const municipalityUrl = `https://apis.datos.gob.ar/georef/api/municipios?provincia=${encodeURIComponent(
+    province
+  )}&nombre=${encodeURIComponent(query)}&max=${upstreamLimit}&campos=nombre,provincia`;
+  const departmentUrl = `https://apis.datos.gob.ar/georef/api/departamentos?provincia=${encodeURIComponent(
+    province
+  )}&nombre=${encodeURIComponent(query)}&max=${upstreamLimit}&campos=nombre,provincia`;
+
+  try {
+    const [municipalityResponse, departmentResponse] = await Promise.all([
+      fetch(municipalityUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }),
+      fetch(departmentUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }),
+    ]);
+
+    clearTimeout(timeoutId);
+
+    const municipalityRows = municipalityResponse.ok
+      ? ((((await municipalityResponse.json()) as { municipios?: GeoRefDistrictRow[] }).municipios || []).map((row) => {
+          const name = String(row.nombre || '').trim();
+          const provinceName = String(row.provincia?.nombre || province).trim() || province;
+          if (!name) return null;
+          return {
+            name,
+            label: buildArgentinaDistrictLabel(name, provinceName, 'municipality'),
+            kind: 'municipality' as const,
+          };
+        }).filter(Boolean) as Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }>)
+      : [];
+
+    const departmentRows = departmentResponse.ok
+      ? ((((await departmentResponse.json()) as { departamentos?: GeoRefDistrictRow[] }).departamentos || []).map((row) => {
+          const name = String(row.nombre || '').trim();
+          const provinceName = String(row.provincia?.nombre || province).trim() || province;
+          if (!name) return null;
+          return {
+            name,
+            label: buildArgentinaDistrictLabel(name, provinceName, 'department'),
+            kind: 'department' as const,
+          };
+        }).filter(Boolean) as Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }>)
+      : [];
+
+    const districtLookupFailed = !municipalityResponse.ok && !departmentResponse.ok;
+
+    return {
+      results: dedupeLocalityResults([...municipalityRows, ...departmentRows]),
+      error: districtLookupFailed ? 'No pudimos consultar los distritos en este momento.' : '',
+    };
+  } catch {
+    clearTimeout(timeoutId);
+    return {
+      results: [] as Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }>,
+      error: 'La búsqueda de distritos tardó demasiado. Intenta nuevamente.',
+    };
+  }
+};
+
 const fetchPredictiveArgentinaLocalities = async (province: string, query: string, limit: number) => {
   const variants = buildPredictiveQueryVariants(query);
-  const collectedResults: Array<{ name: string; label: string }> = [];
+  const collectedResults: Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }> = [];
   let lastError = '';
 
   for (const variant of variants) {
@@ -339,8 +436,8 @@ export async function GET(request: NextRequest) {
   const country = String(request.nextUrl.searchParams.get('country') || '').trim();
   const province = String(request.nextUrl.searchParams.get('province') || '').trim();
   const query = String(request.nextUrl.searchParams.get('query') || '').trim();
-  const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 8);
-  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(12, Math.round(requestedLimit))) : 8;
+  const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 12);
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(18, Math.round(requestedLimit))) : 12;
 
   if (!country || !province || query.length < 2) {
     return NextResponse.json({ results: [] });
@@ -348,19 +445,29 @@ export async function GET(request: NextRequest) {
 
   const normalizedCountry = getCountryConfig(country).name;
   if (normalizedCountry === 'Argentina') {
-    const georefResult = await fetchPredictiveArgentinaLocalities(province, query, limit);
-    if (georefResult.results.length > 0) {
-      return NextResponse.json(georefResult);
-    }
-
-    const nominatimFallback = await fetchGlobalLocalities(normalizedCountry, province, query, limit);
-    const mergedResults = rankLocalityResults(
-      [...georefResult.results, ...nominatimFallback.results],
+    const [georefResult, districtResult] = await Promise.all([
+      fetchPredictiveArgentinaLocalities(province, query, limit),
+      fetchArgentinaDistricts(province, query, limit),
+    ]);
+    const mergedGeorefResults = rankLocalityResults(
+      [...georefResult.results, ...districtResult.results],
       query,
       province,
       limit
     );
-    const error = mergedResults.length > 0 ? '' : georefResult.error || nominatimFallback.error;
+
+    if (mergedGeorefResults.length > 0) {
+      return NextResponse.json({ results: mergedGeorefResults, error: '' });
+    }
+
+    const nominatimFallback = await fetchGlobalLocalities(normalizedCountry, province, query, limit);
+    const mergedResults = rankLocalityResults(
+      [...georefResult.results, ...districtResult.results, ...nominatimFallback.results],
+      query,
+      province,
+      limit
+    );
+    const error = mergedResults.length > 0 ? '' : georefResult.error || districtResult.error || nominatimFallback.error;
 
     return NextResponse.json({ results: mergedResults, error });
   }

@@ -118,6 +118,7 @@ const extractProvinceHint = (...candidates: Array<string | null | undefined>) =>
 };
 
 const LOCALITY_CONTAINER_PREFIXES = ['partido de ', 'departamento de ', 'comuna ', 'provincia de '];
+const GENERIC_MAP_LOCATION_LABEL = 'Ubicación seleccionada en mapa';
 
 const isLikelyPostalSegment = (value: string) => /^[a-z]{0,3}\d{4,}[a-z0-9-]*$/i.test(value.replace(/\s+/g, ''));
 
@@ -2773,12 +2774,15 @@ export default function TechniciansPage() {
     const countryHint = result ? inferCountryFromCandidates(result.displayName, profileForm.country) : profileForm.country;
     const provinceHint = result ? extractProvinceHintForCountry(countryHint, result.displayName) : '';
     const localityHint = result ? extractLocalityHint(result.displayName) : '';
+    const normalizedLocationLabel = String(result?.displayName || '').trim();
     setTechnicianLocationResult(result);
     setProfileForm((prev) => ({
       ...prev,
       country: countryHint || prev.country,
       address:
-        result && result.displayName !== 'Ubicación seleccionada en mapa' ? result.displayName : prev.address,
+        result && normalizedLocationLabel && normalizedLocationLabel !== GENERIC_MAP_LOCATION_LABEL
+          ? normalizedLocationLabel
+          : prev.address,
       city: localityHint || prev.city,
       province: provinceHint || prev.province,
       locationPickerResult: result,
@@ -3575,6 +3579,7 @@ export default function TechniciansPage() {
       let serviceLocationName: string | null = null;
       let serviceLocationPrecision: string = 'approx';
       let wasGeocodedFromAddress = false;
+      const typedAddress = String(profileForm.address || '').trim();
       
       if (technicianLocationResult?.isValid) {
         serviceLat = technicianLocationResult.lat;
@@ -3600,6 +3605,12 @@ export default function TechniciansPage() {
         throw new Error('Completa tu ubicación en el mapa para publicar en la vidriera.');
       }
 
+      const normalizedServiceLocationName = String(serviceLocationName || '').trim();
+      const effectiveAddress =
+        normalizedServiceLocationName && normalizedServiceLocationName !== GENERIC_MAP_LOCATION_LABEL
+          ? normalizedServiceLocationName
+          : typedAddress;
+
       const basePayload = {
         id: session.user.id,
         full_name: profileForm.fullName,
@@ -3607,9 +3618,11 @@ export default function TechniciansPage() {
         email: profileForm.email || session.user.email,
         phone: profileForm.phone,
         country: profileForm.country,
-        company_address: profileForm.address,
-        address: profileForm.address,
+        company_address: effectiveAddress,
+        address: effectiveAddress,
         city: profileForm.city,
+        service_city: profileForm.city || null,
+        service_province: profileForm.province || null,
         coverage_area: coverageAreaLabel,
         working_hours: serializedWorkingHours,
         specialties: profileForm.specialties,
@@ -3638,27 +3651,32 @@ export default function TechniciansPage() {
         service_radius_km: COVERAGE_RADIUS_KM,
       };
 
+      const extractMissingProfileColumn = (error: { code?: string; message?: string } | null | undefined) => {
+        const message = String(error?.message || '');
+        const code = String(error?.code || '');
+        if (!message) return '';
+        if (code !== 'PGRST204' && !message.toLowerCase().includes("column of 'profiles'")) return '';
+        const match = message.match(/Could not find the '([^']+)' column of 'profiles'/i);
+        return match?.[1] || '';
+      };
+
       const upsertProfileWithSchemaFallback = async (initialPayload: Record<string, any>) => {
         const attemptPayload: Record<string, any> = { ...initialPayload };
         const maxAttempts = Math.max(1, Object.keys(attemptPayload).length + 1);
 
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          const result = await supabase.from('profiles').upsert(attemptPayload).select().maybeSingle();
+          const result = await supabase.from('profiles').upsert(attemptPayload, { onConflict: 'id' }).select().maybeSingle();
           if (!result.error) return result;
 
-          const message = String(result.error.message || '').toLowerCase();
-          const removableKeys = Object.keys(attemptPayload).filter((key) => message.includes(key.toLowerCase()));
-
-          if (removableKeys.length === 0) {
+          const missingColumn = extractMissingProfileColumn(result.error);
+          if (!missingColumn || !Object.prototype.hasOwnProperty.call(attemptPayload, missingColumn)) {
             return result;
           }
 
-          removableKeys.forEach((key) => {
-            delete attemptPayload[key];
-          });
+          delete attemptPayload[missingColumn];
         }
 
-        return supabase.from('profiles').upsert({ id: session.user.id }).select().maybeSingle();
+        return supabase.from('profiles').upsert({ id: session.user.id }, { onConflict: 'id' }).select().maybeSingle();
       };
 
       let { data, error } = await upsertProfileWithSchemaFallback(payloadWithGeo as Record<string, any>);
@@ -4349,29 +4367,37 @@ export default function TechniciansPage() {
     const full = String(profile?.full_name || '').trim();
     const business = String(profile?.business_name || '').trim();
     const phone = String(profile?.phone || '').trim();
-    const address = String(profile?.company_address || profile?.address || '').trim();
+    const address = String(profileForm.address || technicianLocationResult?.displayName || '').trim();
     if (!full) missing.push('Nombre y apellido');
     if (!business) missing.push('Nombre del negocio');
     if (!phone) missing.push('Telefono / WhatsApp');
     if (!address) missing.push('Direccion base');
     return missing;
-  }, [profile?.address, profile?.business_name, profile?.company_address, profile?.full_name, profile?.phone]);
+  }, [profile?.business_name, profile?.full_name, profile?.phone, profileForm.address, technicianLocationResult?.displayName]);
+
+  const hasResolvedBaseAddress = useMemo(() => {
+    const typedAddress = String(profileForm.address || '').trim();
+    if (typedAddress) return true;
+
+    const locationLabel = String(technicianLocationResult?.displayName || '').trim();
+    return Boolean(locationLabel && locationLabel !== GENERIC_MAP_LOCATION_LABEL && technicianLocationResult?.isValid);
+  }, [profileForm.address, technicianLocationResult?.displayName, technicianLocationResult?.isValid]);
 
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
     if (!profileForm.fullName.trim()) missing.push('Nombre y apellido');
     if (!profileForm.businessName.trim()) missing.push('Nombre del negocio');
     if (!profileForm.phone.trim()) missing.push('Telefono / WhatsApp');
-    if (!profileForm.address.trim()) missing.push('Direccion base');
+    if (!hasResolvedBaseAddress) missing.push('Direccion base');
     return missing;
-  }, [profileForm.address, profileForm.businessName, profileForm.fullName, profileForm.phone]);
+  }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, profileForm.phone]);
 
   const canSaveRequiredProfile =
     Boolean(profileForm.fullName.trim()) &&
     Boolean(profileForm.businessName.trim()) &&
     Boolean(profileForm.phone.trim()) &&
-    Boolean(profileForm.address.trim());
-  const hasWorkZoneForShowcase = Boolean(profileForm.address.trim()) || Boolean(profileForm.city.trim());
+    hasResolvedBaseAddress;
+  const hasWorkZoneForShowcase = hasResolvedBaseAddress || Boolean(profileForm.city.trim());
 
   const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
   const selectedSpecialtiesSet = useMemo(

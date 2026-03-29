@@ -107,7 +107,7 @@ const searchLocalities = async (
       country: trimmedCountry,
       province: trimmedProvince,
       query: trimmedQuery,
-      limit: '8',
+      limit: '12',
     });
     const response = await fetch(`/api/localities/search?${params.toString()}`, {
       cache: 'no-store',
@@ -301,7 +301,7 @@ export default function LocalityAutocomplete({
         <p className={baseHelperClassName}>Selecciona pais y provincia para habilitar la busqueda de localidades.</p>
       )}
       {country.trim() && province.trim() && !value && !loading && (
-        <p className={baseHelperClassName}>Elige una localidad sugerida para guardar un nombre estandarizado. Si la primera coincide claramente, Enter la toma.</p>
+        <p className={baseHelperClassName}>Elige una localidad o distrito sugerido para guardar un nombre estandarizado. Si la primera coincide claramente, Enter la toma.</p>
       )}
       {error && <p className="mt-2 text-xs text-rose-500">{error}</p>}
 
