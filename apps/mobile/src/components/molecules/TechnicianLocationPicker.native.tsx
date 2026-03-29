@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MapView, { Circle, Marker, MapPressEvent, MarkerDragStartEndEvent, Region } from 'react-native-maps';
 import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
@@ -80,6 +80,7 @@ export default function TechnicianLocationPicker({
   disabled = false,
 }: Props) {
   const [showMap, setShowMap] = useState(Boolean(value?.isValid));
+  const [isMapModalVisible, setIsMapModalVisible] = useState(false);
   const [mapError, setMapError] = useState('');
   const [mapReady, setMapReady] = useState(false);
 
@@ -97,6 +98,12 @@ export default function TechnicianLocationPicker({
       setShowMap(true);
     }
   }, [value?.isValid, value?.lat, value?.lng]);
+
+  useEffect(() => {
+    if (!isMapModalVisible) {
+      setMapReady(false);
+    }
+  }, [isMapModalVisible]);
 
   const region = useMemo(() => {
     if (value?.isValid && hasValidCoordinates(value.lat, value.lng)) {
@@ -123,6 +130,7 @@ export default function TechnicianLocationPicker({
       province: value?.province,
     });
     setMapError('');
+    setIsMapModalVisible(false);
   };
 
   const handleAutocompleteSelect = (data: LocationData) => {
@@ -143,6 +151,7 @@ export default function TechnicianLocationPicker({
     onQueryChange?.(safeAddress);
     setShowMap(true);
     setMapError('');
+    setIsMapModalVisible(true);
   };
 
   const handleMapPress = (event: MapPressEvent) => {
@@ -179,51 +188,50 @@ export default function TechnicianLocationPicker({
           <Text style={styles.mapHint}>
             {value?.precision === 'exact'
               ? `Este punto define dónde apareces en el mapa y tu cobertura de ${coverageRadiusKm} km.`
-              : 'Toca o arrastra el pin para fijar el punto exacto donde quieres aparecer.'}
+              : 'Abre el mapa y toca o arrastra el pin para fijar el punto exacto donde quieres aparecer.'}
           </Text>
 
-          {canRenderMap ? (
-            <View style={styles.mapWrap}>
-              {!mapReady ? (
-                <View style={styles.mapLoadingOverlay}>
-                  <ActivityIndicator color="#2563EB" />
-                </View>
-              ) : null}
-              <MapView
-                style={styles.map}
-                initialRegion={region}
-                region={region}
-                onPress={handleMapPress}
-                onMapReady={() => setMapReady(true)}
-                scrollEnabled
-                rotateEnabled={false}
-                pitchEnabled={false}
-              >
-                {value?.isValid && hasValidCoordinates(value.lat, value.lng) ? (
-                  <>
-                    <Marker
-                      coordinate={{ latitude: value.lat, longitude: value.lng }}
-                      draggable={!disabled}
-                      onDragEnd={handleMarkerDragEnd}
-                      title="Base operativa"
-                      description={value.displayName}
-                    />
-                    <Circle
-                      center={{ latitude: value.lat, longitude: value.lng }}
-                      radius={Math.max(1, coverageRadiusKm) * 1000}
-                      strokeColor="rgba(37,99,235,0.75)"
-                      fillColor="rgba(96,165,250,0.18)"
-                    />
-                  </>
-                ) : null}
-              </MapView>
+          <TouchableOpacity
+            style={[styles.openMapButton, !canRenderMap && styles.openMapButtonDisabled]}
+            onPress={() => setIsMapModalVisible(true)}
+            disabled={!canRenderMap}
+            activeOpacity={0.9}
+          >
+            <View style={styles.openMapButtonCopy}>
+              <Ionicons name="expand-outline" size={18} color={canRenderMap ? '#FFFFFF' : '#94A3B8'} />
+              <View style={styles.openMapButtonTextWrap}>
+                <Text style={[styles.openMapButtonTitle, !canRenderMap && styles.openMapButtonTitleDisabled]}>
+                  {value?.precision === 'exact' ? 'Volver a abrir mapa' : 'Abrir mapa en ventana'}
+                </Text>
+                <Text style={[styles.openMapButtonSubtitle, !canRenderMap && styles.openMapButtonSubtitleDisabled]}>
+                  {value?.precision === 'exact'
+                    ? 'Puedes mover el pin si quieres ajustar el punto.'
+                    : 'Se abrirá una ventana para confirmar tu ubicación exacta.'}
+                </Text>
+              </View>
             </View>
-          ) : (
+            <Ionicons name="chevron-forward" size={18} color={canRenderMap ? '#FFFFFF' : '#94A3B8'} />
+          </TouchableOpacity>
+
+          {value?.isValid && hasValidCoordinates(value.lat, value.lng) ? (
+            <View style={styles.coordinatePreview}>
+              <View style={styles.coordinatePreviewItem}>
+                <Text style={styles.coordinatePreviewLabel}>Lat</Text>
+                <Text style={styles.coordinatePreviewValue}>{value.lat.toFixed(6)}</Text>
+              </View>
+              <View style={styles.coordinatePreviewItem}>
+                <Text style={styles.coordinatePreviewLabel}>Lng</Text>
+                <Text style={styles.coordinatePreviewValue}>{value.lng.toFixed(6)}</Text>
+              </View>
+            </View>
+          ) : null}
+
+          {!canRenderMap ? (
             <View style={styles.mapUnavailableCard}>
               <Ionicons name="warning-outline" size={16} color="#92400E" />
               <Text style={styles.mapUnavailableText}>No pudimos abrir el mapa en este dispositivo.</Text>
             </View>
-          )}
+          ) : null}
 
           {mapError ? (
             <View style={styles.mapErrorCard}>
@@ -233,6 +241,77 @@ export default function TechnicianLocationPicker({
           ) : null}
         </View>
       ) : null}
+
+      <Modal
+        visible={isMapModalVisible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setIsMapModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalHeader}>
+            <View style={styles.modalTitleWrap}>
+              <Text style={styles.modalTitle}>Confirma tu punto exacto</Text>
+              <Text style={styles.modalSubtitle}>Toca el mapa o arrastra el pin para ajustar dónde apareces.</Text>
+            </View>
+            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setIsMapModalVisible(false)}>
+              <Text style={styles.modalCloseText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalBody}>
+            {canRenderMap ? (
+              <View style={styles.modalMapWrap}>
+                {!mapReady ? (
+                  <View style={styles.mapLoadingOverlay}>
+                    <ActivityIndicator color="#2563EB" />
+                  </View>
+                ) : null}
+                <MapView
+                  style={styles.map}
+                  initialRegion={region}
+                  region={region}
+                  onPress={handleMapPress}
+                  onMapReady={() => setMapReady(true)}
+                  scrollEnabled
+                  rotateEnabled={false}
+                  pitchEnabled={false}
+                >
+                  {value?.isValid && hasValidCoordinates(value.lat, value.lng) ? (
+                    <>
+                      <Marker
+                        coordinate={{ latitude: value.lat, longitude: value.lng }}
+                        draggable={!disabled}
+                        onDragEnd={handleMarkerDragEnd}
+                        title="Base operativa"
+                        description={value.displayName}
+                      />
+                      <Circle
+                        center={{ latitude: value.lat, longitude: value.lng }}
+                        radius={Math.max(1, coverageRadiusKm) * 1000}
+                        strokeColor="rgba(37,99,235,0.75)"
+                        fillColor="rgba(96,165,250,0.18)"
+                      />
+                    </>
+                  ) : null}
+                </MapView>
+              </View>
+            ) : (
+              <View style={styles.mapUnavailableCard}>
+                <Ionicons name="warning-outline" size={16} color="#92400E" />
+                <Text style={styles.mapUnavailableText}>No pudimos abrir el mapa en este dispositivo.</Text>
+              </View>
+            )}
+
+            {mapError ? (
+              <View style={styles.mapErrorCard}>
+                <Ionicons name="alert-circle-outline" size={15} color="#B91C1C" />
+                <Text style={styles.mapErrorText}>{mapError}</Text>
+              </View>
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -280,12 +359,119 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     color: '#1E3A8A',
   },
-  mapWrap: {
-    height: 220,
+  openMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    backgroundColor: '#2563EB',
+  },
+  openMapButtonDisabled: {
+    backgroundColor: '#E2E8F0',
+  },
+  openMapButtonCopy: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  openMapButtonTextWrap: {
+    flex: 1,
+    gap: 2,
+  },
+  openMapButtonTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  openMapButtonTitleDisabled: {
+    color: '#475569',
+  },
+  openMapButtonSubtitle: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: 'rgba(255,255,255,0.82)',
+  },
+  openMapButtonSubtitleDisabled: {
+    color: '#64748B',
+  },
+  coordinatePreview: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  coordinatePreviewItem: {
+    flex: 1,
+    borderRadius: 14,
+    backgroundColor: '#DBEAFE',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 4,
+  },
+  coordinatePreviewLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#1D4ED8',
+    textTransform: 'uppercase',
+  },
+  coordinatePreviewValue: {
+    fontSize: 12,
+    color: '#0F172A',
+  },
+  modalContainer: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+    paddingTop: 18,
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+  },
+  modalTitleWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#F8FAFC',
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#CBD5E1',
+  },
+  modalCloseButton: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  modalCloseText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#F8FAFC',
+  },
+  modalBody: {
+    flex: 1,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+    gap: 12,
+  },
+  modalMapWrap: {
+    flex: 1,
     borderRadius: 16,
     overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderWidth: 1.5,
+    borderColor: 'rgba(191,219,254,0.35)',
     backgroundColor: '#E0F2FE',
   },
   map: {
