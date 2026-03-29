@@ -65,6 +65,7 @@ const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
 const UI_THEME = 'light';
 const LEGACY_UI_THEME_STORAGE_KEY = 'urbanfix_ui_theme';
+const SIDEBAR_COLLAPSED_STORAGE_KEY = 'urbanfix_technician_sidebar_collapsed';
 const ACCESS_VIDEO_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const POST_LOGIN_VIDEO_URL = (process.env.NEXT_PUBLIC_POST_LOGIN_VIDEO_URL || '/videos/video-inicio-app.mp4').trim();
 const ACCESS_VIDEO_POSTER_URL = (process.env.NEXT_PUBLIC_ACCESS_VIDEO_POSTER_URL || '/playstore/feature-graphic.png').trim();
@@ -1498,6 +1499,23 @@ export default function TechniciansPage() {
     window.localStorage.removeItem(LEGACY_UI_THEME_STORAGE_KEY);
     document.documentElement.style.colorScheme = UI_THEME;
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedValue = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
+    if (storedValue === '1') {
+      setIsNavCollapsed(true);
+      return;
+    }
+    if (storedValue === '0') {
+      setIsNavCollapsed(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(SIDEBAR_COLLAPSED_STORAGE_KEY, isNavCollapsed ? '1' : '0');
+  }, [isNavCollapsed]);
 
   const setAccessProfileInUrl = (profile: AccessProfile | null) => {
     if (typeof window === 'undefined') return;
