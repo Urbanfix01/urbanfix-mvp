@@ -124,7 +124,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
 
   return (
     <header
-      className={`${sticky ? 'sticky top-0 z-20' : ''} overflow-x-clip border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm`}
+      className={`${sticky ? 'sticky top-0 z-50' : ''} overflow-x-clip border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm`}
     >
       <div className="flex w-full items-center justify-between gap-2 px-2 py-2 sm:px-6">
         <a href="/" className="flex min-w-0 items-center gap-2">

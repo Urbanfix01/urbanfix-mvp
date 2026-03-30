@@ -5634,6 +5634,7 @@ export default function TechniciansPage() {
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
       <div className="relative overflow-hidden">
+        <div className="absolute left-0 top-0 bottom-0 hidden w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
@@ -5643,7 +5644,7 @@ export default function TechniciansPage() {
             <aside
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
-              className={`fixed left-0 top-[57px] z-30 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
+              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
                 isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
               }`}
             >
@@ -5669,14 +5670,14 @@ export default function TechniciansPage() {
                           } ${
                             isActive
                               ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
-                              : 'text-white/88 hover:bg-white/10 hover:text-white'
+                              : 'text-white hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           <span
                             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
                               isActive
                                 ? 'bg-white/16 text-white'
-                                : 'bg-white/8 text-white/88 group-hover:bg-white/14 group-hover:text-white'
+                                : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
                             }`}
                           >
                             <Icon className="h-[18px] w-[18px]" />
