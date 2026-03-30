@@ -5638,34 +5638,17 @@ export default function TechniciansPage() {
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
-          {isDesktopNavExpanded && <div className="pointer-events-none fixed inset-0 z-20 hidden bg-slate-950/20 backdrop-blur-[1px] lg:block" />}
-          <div className="relative hidden w-[78px] shrink-0 lg:block">
+        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6 lg:pl-[106px]">
+          <div className="hidden w-[78px] shrink-0 lg:block">
             <aside
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
-              className={`sticky top-24 z-30 flex h-[calc(100vh-8rem)] overflow-hidden rounded-[28px] border border-white/6 bg-[linear-gradient(180deg,#06111a_0%,#071521_52%,#08121b_100%)] shadow-[0_28px_90px_-34px_rgba(2,12,27,0.88)] ring-1 ring-black/20 transition-[width,box-shadow] duration-300 ${
-                isDesktopNavExpanded ? 'w-[252px]' : 'w-[78px]'
+              className={`fixed left-0 top-[57px] z-30 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-[#2d1240]/30 bg-[linear-gradient(180deg,#190726_0%,#220a34_54%,#180723_100%)] transition-[width] duration-300 lg:flex ${
+                isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
               }`}
             >
               <div className="flex w-full flex-col">
-                <div className={`border-b border-white/8 ${isDesktopNavExpanded ? 'px-4 py-4' : 'px-3 py-4'}`}>
-                  <div className={`flex items-center ${isDesktopNavExpanded ? 'gap-3' : 'justify-center'}`}>
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[linear-gradient(180deg,#ff9c1a,#ff7e06)] shadow-[0_16px_30px_-18px_rgba(255,140,26,0.95)]">
-                      <img src="/icon.png" alt="UrbanFix" className="h-6 w-6" />
-                    </div>
-                    {isDesktopNavExpanded && (
-                      <div className="min-w-0">
-                        <p className="truncate text-lg font-black tracking-tight text-white">URBANFIX</p>
-                        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-white/38">
-                          Panel tecnico
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-4' : 'px-2 py-4'}`}>
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-6' : 'px-2 py-6'}`}>
                   <div className="flex flex-col gap-2">
                     {navItems.map((item) => {
                       const Icon = item.icon;
@@ -5681,19 +5664,19 @@ export default function TechniciansPage() {
                           }}
                           className={`group relative flex items-center transition ${
                             isDesktopNavExpanded
-                              ? 'w-full gap-3 rounded-[18px] px-3 py-3.5 text-left'
+                              ? 'w-full gap-3 rounded-r-[18px] rounded-l-none px-4 py-3.5 text-left'
                               : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
                           } ${
                             isActive
-                              ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_22px_34px_-20px_rgba(255,132,0,0.9)]'
-                              : 'text-white/60 hover:bg-white/8 hover:text-white'
+                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]'
+                              : 'text-white/62 hover:bg-white/7 hover:text-white'
                           }`}
                         >
                           <span
                             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
                               isActive
                                 ? 'bg-white/16 text-white'
-                                : 'bg-white/6 text-white/78 group-hover:bg-white/10 group-hover:text-white'
+                                : 'bg-white/6 text-white/76 group-hover:bg-white/10 group-hover:text-white'
                             }`}
                           >
                             <Icon className="h-[18px] w-[18px]" />
@@ -5720,7 +5703,7 @@ export default function TechniciansPage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#06111a,#08121b)] p-2.5 shadow-[0_24px_44px_-34px_rgba(2,12,27,0.7)] backdrop-blur lg:hidden">
+            <div className="mb-4 rounded-[28px] border border-[#2d1240]/20 bg-[linear-gradient(180deg,#190726,#220a34)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
               <div className="flex items-center gap-2 overflow-x-auto">
                 {navItems.map((item) => {
                   const isActive = activeNavKey === item.key;
@@ -5735,7 +5718,7 @@ export default function TechniciansPage() {
                       className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
                         isActive
                           ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
-                          : 'bg-white/8 text-white/76 hover:bg-white/12 hover:text-white'
+                          : 'bg-white/8 text-white/78 hover:bg-white/12 hover:text-white'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
