@@ -8817,45 +8817,6 @@ export default function TechniciansPage() {
           </div>
         </div>
         {sessionMediaOverlays}
-        {session && (
-          <footer className="fixed inset-x-0 bottom-0 z-[95] border-t border-slate-200 bg-white/95 shadow-[0_-8px_24px_rgba(15,23,42,0.14)] backdrop-blur">
-            <div className="mx-auto flex w-full max-w-none flex-wrap items-center justify-between gap-3 px-4 py-3 text-xs text-slate-500 md:px-6 supports-[padding:max(0px)]:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-semibold text-slate-800">UrbanFix</span> (c) {new Date().getFullYear()}{' '}
-                UrbanFix
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={startNewQuote}
-                  className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                >
-                  Nuevo presupuesto
-                </button>
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                >
-                  Cerrar sesion
-                </button>
-              </div>
-              <div className="flex items-center gap-4 text-xs">
-                <a
-                  href="https://wa.me/5491170084556"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-slate-600 transition hover:text-slate-900"
-                >
-                  Soporte
-                </a>
-                <a href="/terminos" className="font-semibold text-slate-600 transition hover:text-slate-900">
-                  Terminos y condiciones
-                </a>
-              </div>
-            </div>
-          </footer>
-        )}
       </div>
     </div>
   );
