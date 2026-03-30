@@ -196,17 +196,15 @@ export default function QuotePage() {
   }, [quote?.client_request_id, quote?.status]);
 
   const fetchQuoteBundle = async (quoteId: string) => {
-    const attempt = async (params: Record<string, string>) => {
-      const { data, error } = await supabase.rpc('get_public_quote_bundle', params);
-      if (error) throw error;
-      return data as any;
-    };
-    let bundle: any;
-    try {
-      bundle = await attempt({ p_quote_id: quoteId });
-    } catch (error) {
-      bundle = await attempt({ quote_id: quoteId });
+    const response = await fetch(`/api/public/quotes/${encodeURIComponent(quoteId)}`, {
+      method: 'GET',
+      cache: 'no-store',
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(String(payload?.error || 'No pudimos cargar el presupuesto.'));
     }
+    const bundle = payload as any;
     setQuote(bundle?.quote || null);
     setProfile(bundle?.profile || null);
     setItems(Array.isArray(bundle?.items) ? bundle.items : []);
