@@ -1385,6 +1385,7 @@ export default function TechniciansPage() {
   const [loadingMasterItems, setLoadingMasterItems] = useState(false);
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
+  const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const uiTheme = UI_THEME;
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
@@ -5638,50 +5639,88 @@ export default function TechniciansPage() {
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
         <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6">
-          <aside className="hidden w-[248px] self-start lg:sticky lg:top-24 lg:flex lg:h-[calc(100vh-8rem)]">
-            <nav className="flex w-full overflow-y-auto rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,246,239,0.98)_55%,rgba(247,239,248,0.96)_100%)] p-3 shadow-[0_28px_80px_-42px_rgba(42,3,56,0.38)] backdrop-blur">
-              <div className="flex w-full flex-col gap-1.5 rounded-[28px] border border-white/80 bg-white/72 p-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.92),0_18px_40px_-34px_rgba(42,3,56,0.45)]">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeNavKey === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveTab(item.key);
-                      if (item.key === 'presupuestos') setQuoteFilter('all');
-                    }}
-                    className={`group relative flex w-full items-center gap-3 rounded-[22px] px-3 py-3 text-sm font-semibold transition ${
-                      isActive
-                        ? 'bg-[linear-gradient(135deg,rgba(42,3,56,1),rgba(74,18,96,0.98))] text-white shadow-[0_22px_34px_-22px_rgba(42,3,56,0.96)]'
-                        : 'text-slate-500 hover:bg-[#f7effb] hover:text-[color:var(--ui-brand)]'
-                    }`}
-                  >
-                    <span
-                      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
-                        isActive
-                          ? 'bg-white/12 text-white'
-                          : 'bg-[color:var(--ui-brand-soft)] text-[color:var(--ui-brand)] group-hover:bg-white'
-                      }`}
-                    >
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                      <span className="rounded-full bg-[#ff8f1f] px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
-                        {unreadNotifications}
-                      </span>
+          {isDesktopNavExpanded && <div className="pointer-events-none fixed inset-0 z-20 hidden bg-slate-950/20 backdrop-blur-[1px] lg:block" />}
+          <div className="relative hidden w-[78px] shrink-0 lg:block">
+            <aside
+              onMouseEnter={() => setIsDesktopNavExpanded(true)}
+              onMouseLeave={() => setIsDesktopNavExpanded(false)}
+              className={`sticky top-24 z-30 flex h-[calc(100vh-8rem)] overflow-hidden rounded-[28px] border border-white/6 bg-[linear-gradient(180deg,#06111a_0%,#071521_52%,#08121b_100%)] shadow-[0_28px_90px_-34px_rgba(2,12,27,0.88)] ring-1 ring-black/20 transition-[width,box-shadow] duration-300 ${
+                isDesktopNavExpanded ? 'w-[252px]' : 'w-[78px]'
+              }`}
+            >
+              <div className="flex w-full flex-col">
+                <div className={`border-b border-white/8 ${isDesktopNavExpanded ? 'px-4 py-4' : 'px-3 py-4'}`}>
+                  <div className={`flex items-center ${isDesktopNavExpanded ? 'gap-3' : 'justify-center'}`}>
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[18px] bg-[linear-gradient(180deg,#ff9c1a,#ff7e06)] shadow-[0_16px_30px_-18px_rgba(255,140,26,0.95)]">
+                      <img src="/icon.png" alt="UrbanFix" className="h-6 w-6" />
+                    </div>
+                    {isDesktopNavExpanded && (
+                      <div className="min-w-0">
+                        <p className="truncate text-lg font-black tracking-tight text-white">URBANFIX</p>
+                        <p className="truncate text-[11px] font-semibold uppercase tracking-[0.18em] text-white/38">
+                          Panel tecnico
+                        </p>
+                      </div>
                     )}
-                  </button>
-                );
-              })}
+                  </div>
+                </div>
+
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-4' : 'px-2 py-4'}`}>
+                  <div className="flex flex-col gap-2">
+                    {navItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeNavKey === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          title={!isDesktopNavExpanded ? item.label : undefined}
+                          onClick={() => {
+                            setActiveTab(item.key);
+                            if (item.key === 'presupuestos') setQuoteFilter('all');
+                          }}
+                          className={`group relative flex items-center transition ${
+                            isDesktopNavExpanded
+                              ? 'w-full gap-3 rounded-[18px] px-3 py-3.5 text-left'
+                              : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                          } ${
+                            isActive
+                              ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_22px_34px_-20px_rgba(255,132,0,0.9)]'
+                              : 'text-white/60 hover:bg-white/8 hover:text-white'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
+                              isActive
+                                ? 'bg-white/16 text-white'
+                                : 'bg-white/6 text-white/78 group-hover:bg-white/10 group-hover:text-white'
+                            }`}
+                          >
+                            <Icon className="h-[18px] w-[18px]" />
+                          </span>
+                          {isDesktopNavExpanded && (
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.label}</span>
+                          )}
+                          {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                            <span
+                              className={`rounded-full bg-[#ef4444] text-[10px] font-bold text-white shadow-sm ${
+                                isDesktopNavExpanded ? 'px-2 py-0.5' : 'absolute right-0 top-0 min-w-4 px-1 py-[1px]'
+                              }`}
+                            >
+                              {unreadNotifications}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </nav>
               </div>
-            </nav>
-          </aside>
+            </aside>
+          </div>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 rounded-[28px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.9),rgba(247,239,248,0.88))] p-2.5 shadow-[0_24px_44px_-34px_rgba(42,3,56,0.45)] backdrop-blur lg:hidden">
+            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#06111a,#08121b)] p-2.5 shadow-[0_24px_44px_-34px_rgba(2,12,27,0.7)] backdrop-blur lg:hidden">
               <div className="flex items-center gap-2 overflow-x-auto">
                 {navItems.map((item) => {
                   const isActive = activeNavKey === item.key;
@@ -5695,14 +5734,14 @@ export default function TechniciansPage() {
                       }}
                       className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
                         isActive
-                          ? 'bg-[linear-gradient(135deg,rgba(42,3,56,1),rgba(74,18,96,0.98))] text-white shadow-[0_18px_32px_-20px_rgba(42,3,56,0.9)]'
-                          : 'bg-white/92 text-slate-600 hover:bg-[#f7effb] hover:text-[color:var(--ui-brand)]'
+                          ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
+                          : 'bg-white/8 text-white/76 hover:bg-white/12 hover:text-white'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
                         {item.label}
                         {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                          <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
                             {unreadNotifications}
                           </span>
                         )}
@@ -5710,7 +5749,7 @@ export default function TechniciansPage() {
                     </button>
                   );
                 })}
-                <span className="ml-auto hidden shrink-0 rounded-full bg-[color:var(--ui-card)] px-3 py-1 text-[10px] font-semibold text-[color:var(--ui-muted)] sm:inline-flex">
+                <span className="ml-auto hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-[10px] font-semibold text-white/58 sm:inline-flex">
                   {quotes.length} activos
                 </span>
               </div>

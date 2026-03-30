@@ -21,13 +21,7 @@ export default function QuotePage() {
   const [items, setItems] = useState<any[]>([]);
   const [attachments, setAttachments] = useState<any[]>([]);
   const [profile, setProfile] = useState<any>(null);
-  const [addressInput, setAddressInput] = useState('');
-  const [addressSaving, setAddressSaving] = useState(false);
   const [accepting, setAccepting] = useState(false);
-  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
-  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
-  const [revisionMode, setRevisionMode] = useState(false);
-  const [requestingRevision, setRequestingRevision] = useState(false);
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSubmitting, setFeedbackSubmitting] = useState(false);
@@ -98,37 +92,6 @@ export default function QuotePage() {
 
     return () => { supabase.removeChannel(channel); };
   }, [params.id]);
-
-  useEffect(() => {
-    setSelectedItemIds((prev) => {
-      const next = new Set<string>();
-      items.forEach((item) => {
-        const id = item?.id?.toString();
-        if (id && prev.has(id)) {
-          next.add(id);
-        }
-      });
-      return next;
-    });
-    setRevisionNotes((prev) => {
-      const next: Record<string, string> = {};
-      items.forEach((item) => {
-        const id = item?.id?.toString();
-        if (id && prev[id]) {
-          next[id] = prev[id];
-        }
-      });
-      return next;
-    });
-  }, [items]);
-
-  useEffect(() => {
-    const status = String(quote?.status || '').trim().toLowerCase();
-    const isClosed = ['completed', 'completado', 'finalizado', 'finalizados', 'paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(status);
-    if (isClosed) {
-      setRevisionMode(false);
-    }
-  }, [quote?.status]);
 
   useEffect(() => {
     const loadFeedback = async () => {
@@ -209,7 +172,6 @@ export default function QuotePage() {
     setProfile(bundle?.profile || null);
     setItems(Array.isArray(bundle?.items) ? bundle.items : []);
     setAttachments(Array.isArray(bundle?.attachments) ? bundle.attachments : []);
-    setAddressInput(bundle?.quote?.client_address || '');
   };
 
   const fetchQuoteData = async (quoteId: string) => {
@@ -240,94 +202,6 @@ export default function QuotePage() {
       alert(err?.message || 'No se pudo confirmar el presupuesto. Intenta nuevamente.');
     } finally {
       setAccepting(false);
-    }
-  };
-
-  // --- UTILIDAD MAPA ---
-  const getGoogleMapsLink = (address: string, lat?: number, lng?: number) => {
-    if (lat && lng) {
-      return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-    }
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || '')}`;
-  };
-
-  // --- CONFIRMAR direccion ---
-  const handleConfirmAddress = async () => {
-    const cleanAddress = addressInput.trim();
-    if (!cleanAddress) {
-      alert('Ingresa una direccion valida.');
-      return;
-    }
-    try {
-      setAddressSaving(true);
-      const { error } = await supabase
-        .from('quotes')
-        .update({ client_address: cleanAddress })
-        .eq('id', quote.id);
-
-      if (error) throw error;
-
-      setQuote((prev: any) => (prev ? { ...prev, client_address: cleanAddress } : prev));
-      alert('Direccion confirmada.');
-    } catch (err) {
-      console.error('Error confirmando direccion:', err);
-      alert('No se pudo actualizar la direccion. Intenta nuevamente.');
-    } finally {
-      setAddressSaving(false);
-    }
-  };
-
-  const handleRequestRevision = async () => {
-    if (!quote?.id) return;
-    if (selectedItems.length === 0) {
-      alert('Selecciona los items que deseas revisar.');
-      return;
-    }
-    const missingNote = selectedItems.find((item) => !getItemNote(item).trim());
-    if (missingNote) {
-      alert('Agrega una breve descripcion para cada item seleccionado.');
-      return;
-    }
-    if (!confirm('¿Enviar solicitud de revision al tecnico?')) return;
-    try {
-      setRequestingRevision(true);
-      const itemsPayload = selectedItems.map((item) => ({
-        id: item.id,
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: item.unit_price,
-        total: Number(item.quantity) * Number(item.unit_price),
-        type: normalizeItemType(item),
-        note: getItemNote(item).trim(),
-      }));
-      const { error } = await supabase.rpc('request_quote_revision', {
-        quote_id: quote.id,
-        items: itemsPayload,
-      });
-      if (error) throw error;
-      setSelectedItemIds(new Set());
-      setRevisionNotes({});
-      setRevisionMode(false);
-      alert('Solicitud enviada.');
-    } catch (err) {
-      console.error('Error solicitando revision:', err);
-      alert((err as any)?.message || 'No se pudo enviar la solicitud. Intenta nuevamente.');
-    } finally {
-      setRequestingRevision(false);
-    }
-  };
-
-  const handleToggleRevisionMode = () => {
-    if (revisionMode) {
-      setRevisionMode(false);
-      setSelectedItemIds(new Set());
-      setRevisionNotes({});
-      return;
-    }
-    setRevisionMode(true);
-    if (typeof window !== 'undefined') {
-      const el = document.getElementById('items-section');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -422,88 +296,12 @@ export default function QuotePage() {
     }
   };
 
-  const getItemTypeBadge = (item: any) => {
-    const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
-    if (raw === 'material' || raw === 'consumable') {
-      return { label: 'Material', className: 'bg-amber-100 text-amber-800 border-amber-200' };
-    }
-    if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') {
-      return { label: 'Mano de obra', className: 'bg-sky-100 text-sky-800 border-sky-200' };
-    }
-    return null;
-  };
-
   const normalizeItemType = (item: any) => {
     const raw = (item?.metadata?.type || item?.type || item?.metadata?.category || '').toString().toLowerCase();
     if (raw === 'material' || raw === 'consumable') return 'material';
     if (raw === 'labor' || raw === 'mano_de_obra' || raw === 'mano de obra') return 'labor';
     return 'labor';
   };
-
-  const getItemTechnicalObservation = (item: any) =>
-    String(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || '').trim();
-
-  const getItemId = (item: any) => (item?.id ? item.id.toString() : '');
-
-  const isItemSelected = (item: any) => {
-    const id = getItemId(item);
-    return id ? selectedItemIds.has(id) : false;
-  };
-
-  const toggleItemSelection = (item: any) => {
-    const id = getItemId(item);
-    if (!id) return;
-    setSelectedItemIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) {
-        next.delete(id);
-      } else {
-        next.add(id);
-      }
-      return next;
-    });
-  };
-
-  const getItemNote = (item: any) => {
-    const id = getItemId(item);
-    return id ? revisionNotes[id] || '' : '';
-  };
-
-  const setItemNote = (item: any, value: string) => {
-    const id = getItemId(item);
-    if (!id) return;
-    setRevisionNotes((prev) => ({ ...prev, [id]: value }));
-  };
-
-  const getGroupTotal = (groupItems: any[]) =>
-    groupItems.reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
-
-  const isImageAttachment = (attachment: any) => {
-    if (attachment?.file_type && attachment.file_type.startsWith('image/')) return true;
-    return /\.(png|jpe?g|gif|webp|bmp)$/i.test(attachment?.file_url || '');
-  };
-
-  const groupedItems = useMemo(() => {
-    const laborItems: any[] = [];
-    const materialItems: any[] = [];
-    items.forEach((item) => {
-      const type = normalizeItemType(item);
-      if (type === 'material') {
-        materialItems.push(item);
-      } else {
-        laborItems.push(item);
-      }
-    });
-    return [
-      { key: 'labor', label: 'Mano de obra', items: laborItems },
-      { key: 'material', label: 'Materiales', items: materialItems },
-    ];
-  }, [items]);
-
-  const selectedItems = useMemo(
-    () => items.filter((item) => isItemSelected(item)),
-    [items, selectedItemIds]
-  );
 
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
@@ -593,7 +391,6 @@ export default function QuotePage() {
     ? new Date(createdAt.getTime() + validityDays * 24 * 60 * 60 * 1000)
     : null;
   const isAccepted = isApproved || isCompleted || isPaid;
-  const canRequestRevision = !isClosedForEditing;
   const canCollectFeedback = false;
   const isExpired = Boolean(expiresAt && Date.now() > expiresAt.getTime() && !isAccepted && !isRejected);
   const statusLabel = isExpired
@@ -625,20 +422,6 @@ export default function QuotePage() {
         : isPresented
           ? 'bg-blue-500 text-white'
           : 'bg-amber-500 text-black/60';
-  const roadmapSteps = [
-    { key: 'draft', label: 'Computo' },
-    { key: 'sent', label: 'Enviado' },
-    { key: 'approved', label: 'Aprobado' },
-    { key: 'completed', label: 'Finalizado' },
-    { key: 'paid', label: 'Cobrado' },
-  ];
-  const roadmapIndex = (() => {
-    if (isPaid) return 4;
-    if (isCompleted) return 3;
-    if (isApproved) return 2;
-    if (isPresented) return 1;
-    return 0;
-  })();
   const businessLabel = profile?.business_name || profile?.full_name || 'UrbanFix';
   const technicianLabel = profile?.full_name || profile?.business_name || 'Tecnico UrbanFix';
   const quoteReference = `#${String(quote?.id || '').slice(0, 8).toUpperCase()}`;
@@ -667,9 +450,7 @@ export default function QuotePage() {
         ? 'Trabajo listo para cerrar'
         : isAccepted
           ? 'Presupuesto ya aprobado'
-          : revisionMode
-            ? 'Modo revision activo'
-            : 'Listo para tomar una decision';
+          : 'Listo para tomar una decision';
   const actionDescription = isRejected
     ? 'El cliente decidio no avanzar con esta propuesta. El detalle permanece disponible como respaldo.'
     : isExpired
@@ -677,10 +458,8 @@ export default function QuotePage() {
       : canCollectFeedback
         ? 'Cuando el trabajo queda finalizado o cobrado, la edicion se bloquea y el cliente puede dejar una calificacion con estrellas.'
         : isAccepted
-          ? 'La contratacion ya fue confirmada. Si hace falta ajustar un item puntual, todavia se puede pedir revision.'
-          : revisionMode
-            ? 'Marca solo los items que quieras revisar y agrega una nota breve para enviarle una correccion al tecnico.'
-            : 'Revisa el detalle, descarga el PDF si queres archivarlo y elegi entre aprobar la propuesta o pedir una revision.';
+          ? 'La contratacion ya fue confirmada y el presupuesto queda disponible como respaldo.'
+          : 'Descarga el PDF si queres archivarlo y, cuando estes listo, confirma la propuesta.';
 
   // --- ICONOS SVG ---
   const Icons = {
@@ -841,388 +620,6 @@ export default function QuotePage() {
           </div>
         </div>
 
-        {/* INFO CLIENTE & FECHA */}
-        <div className="border-b border-slate-200 bg-[#f7f5ef] px-5 py-5 sm:px-8 sm:py-8 md:px-10">
-          <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-5 sm:p-6 shadow-sm shadow-slate-900/5">
-            <div className="flex items-center justify-between">
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Resumen ejecutivo</p>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{items.length} items</p>
-            </div>
-            <div className="mt-4 grid gap-3 text-xs sm:grid-cols-2 xl:grid-cols-5">
-              <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Mano de obra</p>
-                <p className="mt-1 font-mono font-semibold text-slate-900">
-                  ${laborSubtotal.toLocaleString('es-AR')}
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Materiales</p>
-                <p className="mt-1 font-mono font-semibold text-slate-900">
-                  ${materialSubtotal.toLocaleString('es-AR')}
-                </p>
-              </div>
-              <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
-                <p className="text-[10px] uppercase tracking-wider text-slate-400">Subtotal</p>
-                <p className="mt-1 font-mono font-semibold text-slate-900">
-                  ${subtotal.toLocaleString('es-AR')}
-                </p>
-              </div>
-              {discountAmount > 0 && (
-                <div className="rounded-[22px] border border-rose-200 bg-rose-50 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-wider text-rose-400">
-                    Descuento ({discountPercent.toFixed(0)}%)
-                  </p>
-                  <p className="mt-1 font-mono font-semibold text-rose-700">
-                    - ${discountAmount.toLocaleString('es-AR')}
-                  </p>
-                </div>
-              )}
-              {tax > 0 && (
-                <div className="rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-wider text-slate-400">
-                    IVA ({(taxRate * 100).toFixed(0)}%)
-                  </p>
-                  <p className="mt-1 font-mono font-semibold text-slate-900">+ ${tax.toLocaleString('es-AR')}</p>
-                </div>
-              )}
-              <div className="rounded-[22px] bg-slate-900 px-4 py-3 text-white">
-                <p className="text-[10px] uppercase tracking-wider text-white/70">Total</p>
-                <p className="mt-1 font-mono text-base font-bold">${total.toLocaleString('es-AR')}</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-6 rounded-[28px] border border-slate-200 bg-white p-5 sm:p-6 shadow-sm shadow-slate-900/5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Roadmap</p>
-              <span
-                className={`rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                  isRejected ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'
-                }`}
-              >
-                {isRejected ? 'Rechazado' : roadmapSteps[roadmapIndex]?.label || 'Borrador'}
-              </span>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              {roadmapSteps.map((step, index) => {
-                const isActive = index === roadmapIndex;
-                const isDone = index < roadmapIndex || (isCompleted && index === roadmapSteps.length - 1);
-                return (
-                  <div
-                    key={step.key}
-                    className={`rounded-[22px] border px-4 py-4 text-sm font-semibold uppercase tracking-wide ${
-                      isDone
-                        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                        : isActive
-                          ? 'border-slate-300 bg-slate-100 text-slate-700'
-                          : 'border-slate-200 bg-white text-slate-400'
-                    }`}
-                  >
-                    {step.label}
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-5 rounded-[24px] border border-slate-200 bg-[#faf8f3] px-5 py-4">
-              <p className="text-sm font-semibold text-slate-900">{actionTitle}</p>
-              <p className="mt-2 text-sm leading-7 text-slate-600">{actionDescription}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="rounded-[28px] border border-slate-200 bg-white p-5 sm:p-6 space-y-3 shadow-sm shadow-slate-900/5">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-[0.24em] flex items-center gap-2"><Icons.MapPin /> Lugar del trabajo</p>
-              <div>
-                  <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight mb-2">{quote.client_name || 'Cliente Final'}</h2>
-                  {/* direccion CLIENTE CLICKEABLE CON MAPA */}
-                  <div className="space-y-2">
-                    {quote.client_address ? (
-                        <a 
-                          href={getGoogleMapsLink(quote.client_address, quote.location_lat, quote.location_lng)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-slate-600 text-sm sm:text-base leading-relaxed max-w-md hover:text-blue-600 hover:underline flex items-start gap-1 group transition-colors"
-                        >
-                           {quote.client_address}
-                           <span className="opacity-0 group-hover:opacity-100 transition-opacity"><Icons.ExternalLink /></span>
-                        </a>
-                    ) : (
-                        <p className="text-slate-400 italic">direccion no especificada</p>
-                    )}
-                    {!isClosedForEditing ? (
-                      <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-                        <input
-                          value={addressInput}
-                          onChange={(e) => setAddressInput(e.target.value)}
-                          placeholder="Confirma o corrige la direccion"
-                          className="w-full sm:max-w-md rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-slate-300 focus:border-slate-400 transition"
-                        />
-                        <button
-                          onClick={handleConfirmAddress}
-                          disabled={addressSaving || !addressInput.trim()}
-                          className={`w-full sm:w-auto px-4 py-3 rounded-2xl text-sm font-semibold transition flex items-center justify-center gap-2 ${
-                            addressSaving || !addressInput.trim()
-                              ? 'bg-slate-200 text-slate-500 cursor-not-allowed'
-                              : 'bg-slate-900 text-white hover:bg-slate-800 active:scale-[0.99]'
-                          }`}
-                        >
-                          {addressSaving ? 'Guardando...' : 'Confirmar direccion'}
-                        </button>
-                      </div>
-                    ) : (
-                      <p className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-500">
-                        La direccion queda bloqueada porque el trabajo ya esta finalizado o cobrado.
-                      </p>
-                    )}
-                  </div>
-              </div>
-            </div>
-            <div className="rounded-[28px] border border-slate-200 bg-white p-5 sm:p-6 text-left space-y-4 shadow-sm shadow-slate-900/5">
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2 md:justify-end"><Icons.Calendar /> Emisión</p>
-              <div>
-                  <p className="text-slate-900 font-bold text-xl">{new Date(quote.created_at).toLocaleDateString('es-AR')}</p>
-                  <p className="text-sm font-medium text-slate-500 mt-1.5">Válido por 15 días</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* TABLA DE ÍTEMS */}
-        <div id="items-section" className="bg-white px-5 py-6 sm:px-8 sm:py-8 md:px-10 md:py-10 min-h-[350px]">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Detalle tecnico</p>
-              <h3 className="text-xl sm:text-2xl font-black tracking-tight text-slate-900">Items del presupuesto</h3>
-            </div>
-            <div className="flex flex-wrap items-center gap-3 text-[11px] sm:text-xs font-semibold text-slate-500">
-              <span>{items.length} items</span>
-              {revisionMode && <span>{selectedItemIds.size} seleccionados</span>}
-              {revisionMode && (
-                <button
-                  type="button"
-                  onClick={handleRequestRevision}
-                  disabled={selectedItemIds.size === 0 || requestingRevision}
-                  className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-wide transition ${
-                    selectedItemIds.size === 0 || requestingRevision
-                      ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      : 'bg-slate-900 text-white hover:bg-slate-800'
-                  }`}
-                >
-                  {requestingRevision ? 'Enviando...' : 'Enviar revision'}
-                </button>
-              )}
-            </div>
-          </div>
-          {revisionMode && (
-            <p className="mb-4 text-xs text-slate-500">
-              Selecciona los items que deseas revisar y escribe una breve descripcion para cada uno.
-            </p>
-          )}
-          <div className="hidden overflow-hidden rounded-[28px] border border-slate-200 md:block">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/80 border-b border-slate-200">
-                  {revisionMode && (
-                    <th className="py-5 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider w-[7%] text-center">Revisar</th>
-                  )}
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider w-[43%]">Descripción</th>
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-center w-[16%]">Cant.</th>
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-[17%]">Unitario</th>
-                  <th className="py-5 px-6 text-xs font-bold text-slate-500 uppercase tracking-wider text-right w-[17%]">Total</th>
-                </tr>
-              </thead>
-              <tbody className="text-sm divide-y divide-slate-100">
-                {groupedItems.map((group) =>
-                  group.items.length > 0 ? (
-                    <React.Fragment key={group.key}>
-                      <tr className="bg-slate-50/80">
-                        <td colSpan={revisionMode ? 5 : 4} className="py-3 px-6 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                          <div className="flex items-center justify-between">
-                            <span>{group.label}</span>
-                            <span className="text-[10px] font-semibold text-slate-400">
-                              {group.items.length} items · ${getGroupTotal(group.items).toLocaleString('es-AR')}
-                            </span>
-                          </div>
-                        </td>
-                      </tr>
-                      {group.items.map((item: any, index: number) => {
-                        const typeBadge = getItemTypeBadge(item);
-                        const rowKey = item.id || `${group.key}-${index}`;
-                        return (
-                          <tr key={rowKey} className="group hover:bg-slate-50/60 transition-colors">
-                            {revisionMode && (
-                              <td className="py-6 px-3 text-center">
-                                <input
-                                  type="checkbox"
-                                  checked={isItemSelected(item)}
-                                  onChange={() => toggleItemSelection(item)}
-                                  disabled={!getItemId(item)}
-                                  className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
-                                  aria-label="Seleccionar item para revision"
-                                />
-                              </td>
-                            )}
-                            <td className="py-6 px-6 font-semibold text-slate-700">
-                              <div className="flex flex-col gap-2">
-                                <span>{item.description}</span>
-                                {typeBadge && (
-                                  <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
-                                    {typeBadge.label}
-                                  </span>
-                                )}
-                                {getItemTechnicalObservation(item) && (
-                                  <p className="max-w-2xl whitespace-pre-wrap text-xs font-medium leading-5 text-slate-500">
-                                    <span className="font-semibold text-slate-600">Especificacion tecnica:</span>{' '}
-                                    {getItemTechnicalObservation(item)}
-                                  </p>
-                                )}
-                                {revisionMode && isItemSelected(item) && (
-                                  <textarea
-                                    value={getItemNote(item)}
-                                    onChange={(event) => setItemNote(item, event.target.value)}
-                                    placeholder="Describe la revision de este item..."
-                                    rows={2}
-                                    className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                                  />
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-6 px-6 text-center text-slate-600 font-mono">{item.quantity}</td>
-                            <td className="py-6 px-6 text-right text-slate-600 font-mono tabular-nums">${item.unit_price?.toLocaleString('es-AR')}</td>
-                            <td className="py-6 px-6 text-right font-bold text-slate-900 font-mono tabular-nums bg-slate-50/30">${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}</td>
-                          </tr>
-                        );
-                      })}
-                    </React.Fragment>
-                  ) : null
-                )}
-              </tbody>
-            </table>
-          </div>
-          <div className="md:hidden space-y-6">
-            {groupedItems.map((group) =>
-              group.items.length > 0 ? (
-                <div key={group.key} className="space-y-3">
-                  <div className="flex items-center justify-between rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-[11px] font-bold uppercase tracking-[0.2em] text-slate-500">
-                    <span>{group.label}</span>
-                    <span className="text-[10px] font-semibold text-slate-400">
-                      {group.items.length} items · ${getGroupTotal(group.items).toLocaleString('es-AR')}
-                    </span>
-                  </div>
-                  {group.items.map((item: any, index: number) => {
-                    const typeBadge = getItemTypeBadge(item);
-                    const rowKey = item.id || `${group.key}-${index}`;
-                    return (
-                      <div key={rowKey} className="rounded-3xl border border-slate-200/80 bg-slate-50/70 p-5 shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex flex-col gap-2">
-                            <p className="text-base font-semibold text-slate-800">{item.description}</p>
-                            {typeBadge && (
-                              <span className={`inline-flex w-fit items-center rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide ${typeBadge.className}`}>
-                                {typeBadge.label}
-                              </span>
-                            )}
-                            {getItemTechnicalObservation(item) && (
-                              <p className="max-w-2xl whitespace-pre-wrap text-xs font-medium leading-5 text-slate-500">
-                                <span className="font-semibold text-slate-600">Especificacion tecnica:</span>{' '}
-                                {getItemTechnicalObservation(item)}
-                              </p>
-                            )}
-                          </div>
-                          {revisionMode && (
-                            <button
-                              type="button"
-                              onClick={() => toggleItemSelection(item)}
-                              disabled={!getItemId(item)}
-                              className={`shrink-0 rounded-full border px-3 py-1 text-[10px] font-semibold uppercase tracking-wide transition ${
-                                isItemSelected(item)
-                                  ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                                  : 'border-slate-200 bg-white text-slate-600'
-                              } ${!getItemId(item) ? 'cursor-not-allowed opacity-60' : 'hover:border-slate-300'}`}
-                            >
-                              {isItemSelected(item) ? 'Seleccionado' : 'Revisar'}
-                            </button>
-                          )}
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-slate-400">Cant.</p>
-                            <p className="mt-1 font-mono text-slate-700">{item.quantity}</p>
-                          </div>
-                          <div>
-                            <p className="text-[10px] uppercase tracking-wider text-slate-400">Unitario</p>
-                            <p className="mt-1 font-mono text-slate-700">
-                              ${item.unit_price?.toLocaleString('es-AR')}
-                            </p>
-                          </div>
-                          <div className="col-span-2 flex items-center justify-between rounded-xl bg-white px-3 py-2">
-                            <p className="text-[10px] uppercase tracking-wider text-slate-400">Total</p>
-                            <p className="font-mono text-sm font-semibold text-slate-900">
-                              ${(item.quantity * item.unit_price)?.toLocaleString('es-AR')}
-                            </p>
-                          </div>
-                        </div>
-                        {revisionMode && isItemSelected(item) && (
-                          <textarea
-                            value={getItemNote(item)}
-                            onChange={(event) => setItemNote(item, event.target.value)}
-                            placeholder="Describe la revision de este item..."
-                            rows={2}
-                            className="mt-3 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-300"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null
-            )}
-          </div>
-          {attachments.length > 0 && (
-            <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50/60 p-6 sm:p-8">
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Adjuntos</p>
-                  <h3 className="text-lg font-bold text-slate-900">Archivos del trabajo</h3>
-                </div>
-                <span className="text-xs font-semibold text-slate-500">{attachments.length} archivos</span>
-              </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {attachments.map((file: any) => (
-                  <a
-                    key={file.id || file.file_url}
-                    href={file.file_url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="group overflow-hidden rounded-2xl border border-slate-200 bg-white transition hover:border-slate-300"
-                  >
-                    <div className="aspect-video bg-slate-100">
-                      {isImageAttachment(file) ? (
-                        <img
-                          src={file.file_url}
-                          alt={file.file_name || 'Archivo adjunto'}
-                          className="h-full w-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="flex h-full items-center justify-center text-xs font-semibold text-slate-400">
-                          Archivo adjunto
-                        </div>
-                      )}
-                    </div>
-                    <div className="px-4 py-3 text-xs font-semibold text-slate-700">
-                      {file.file_name || 'Archivo adjunto'}
-                    </div>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
-          <div className="mt-8 rounded-[24px] border border-slate-200 bg-[#faf8f3] px-5 py-4 text-sm leading-7 text-slate-600">
-            El detalle tecnico queda separado del resumen economico para que la lectura sea mas clara: arriba se entiende la propuesta, aca abajo se valida cada item.
-          </div>
-        </div>
-
         {/* FOOTER & ACCIONES */}
         <div className="border-t border-slate-200 bg-[#efe7da] px-5 py-6 sm:px-8 sm:py-8 md:px-10">
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
@@ -1380,19 +777,6 @@ export default function QuotePage() {
                     >
                       {feedbackOpen ? 'Cancelar calificacion' : feedbackSaved ? 'Editar calificacion' : 'Calificar trabajo'}
                     </button>
-                  ) : canRequestRevision ? (
-                    <button
-                      type="button"
-                      onClick={handleToggleRevisionMode}
-                      disabled={requestingRevision}
-                      className={`w-full rounded-xl border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${
-                        revisionMode
-                          ? 'border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200'
-                          : 'border-slate-900 bg-slate-900 text-white hover:bg-slate-800'
-                      } ${requestingRevision ? 'cursor-not-allowed opacity-60' : ''}`}
-                    >
-                      {revisionMode ? 'Cancelar revision' : 'Solicitar revision'}
-                    </button>
                   ) : null}
                 </div>
              </div>
@@ -1494,19 +878,6 @@ export default function QuotePage() {
                       </div>
                     ) : null}
                   </>
-                ) : canRequestRevision ? (
-                  <button
-                    type="button"
-                    onClick={handleToggleRevisionMode}
-                    disabled={requestingRevision}
-                    className={`w-full rounded-xl border px-4 py-2 text-xs font-semibold uppercase tracking-widest transition ${
-                      revisionMode
-                        ? 'border-slate-300 bg-slate-100 text-slate-700'
-                        : 'border-slate-900 bg-slate-900 text-white'
-                    } ${requestingRevision ? 'cursor-not-allowed opacity-60' : ''}`}
-                  >
-                    {revisionMode ? 'Cancelar revision' : 'Solicitar revision'}
-                  </button>
                 ) : null}
               </div>
             </div>
