@@ -5643,7 +5643,7 @@ export default function TechniciansPage() {
             <aside
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
-              className={`fixed left-0 top-[57px] z-30 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-[#2d1240]/30 bg-[linear-gradient(180deg,#190726_0%,#220a34_54%,#180723_100%)] transition-[width] duration-300 lg:flex ${
+              className={`fixed left-0 top-[57px] z-30 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
                 isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
               }`}
             >
@@ -5668,15 +5668,15 @@ export default function TechniciansPage() {
                               : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
                           } ${
                             isActive
-                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.18)]'
-                              : 'text-white/62 hover:bg-white/7 hover:text-white'
+                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
+                              : 'text-white/88 hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           <span
                             className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
                               isActive
                                 ? 'bg-white/16 text-white'
-                                : 'bg-white/6 text-white/76 group-hover:bg-white/10 group-hover:text-white'
+                                : 'bg-white/8 text-white/88 group-hover:bg-white/14 group-hover:text-white'
                             }`}
                           >
                             <Icon className="h-[18px] w-[18px]" />
@@ -5703,7 +5703,7 @@ export default function TechniciansPage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 rounded-[28px] border border-[#2d1240]/20 bg-[linear-gradient(180deg,#190726,#220a34)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
+            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
               <div className="flex items-center gap-2 overflow-x-auto">
                 {navItems.map((item) => {
                   const isActive = activeNavKey === item.key;
@@ -5718,7 +5718,7 @@ export default function TechniciansPage() {
                       className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
                         isActive
                           ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
-                          : 'bg-white/8 text-white/78 hover:bg-white/12 hover:text-white'
+                          : 'bg-white/10 text-white/90 hover:bg-white/14 hover:text-white'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
