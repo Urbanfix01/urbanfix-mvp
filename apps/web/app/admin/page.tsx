@@ -4077,6 +4077,113 @@ export default function AdminPage() {
     ];
   }, [billingTimeline, billingWindow.shortLabel, overview?.lists.recentSubscriptions.length]);
 
+  const billingPrimaryCards = useMemo(() => {
+    if (!overview) return [];
+
+    return [
+      {
+        key: 'total',
+        label: `Caja del periodo (${billingWindow.shortLabel})`,
+        value: formatCurrency(billingTimeline.totalCurrent),
+        helper: `${formatCurrency(billingTimeline.paymentsCurrent)} pagos + ${formatCurrency(
+          billingTimeline.subscriptionsCurrent
+        )} suscripciones`,
+        deltaText: billingKpiCards[0]?.delta.text || 'Sin cambios',
+        deltaTone: billingKpiCards[0]?.delta.tone || 'text-[#6c6177]',
+        icon: CreditCard,
+        cardClass: 'border-[#dbeafe] bg-[#f4f9ff] text-[#180f24]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        key: 'payments',
+        label: 'Cobros confirmados',
+        value: formatCurrency(billingTimeline.paymentsCurrent),
+        helper: `${formatNumber(billingTimeline.paymentsCountCurrent)} pago(s) impactando caja en la ventana`,
+        deltaText: billingKpiCards[1]?.delta.text || 'Sin cambios',
+        deltaTone: billingKpiCards[1]?.delta.tone || 'text-[#6c6177]',
+        icon: FileCheck2,
+        cardClass: 'border-[#d9f0e6] bg-[#f1fbf6] text-[#180f24]',
+        iconClass: 'bg-[#dcfce7] text-[#15803d]',
+      },
+      {
+        key: 'subscriptions',
+        label: 'Altas de plan',
+        value: formatCurrency(billingTimeline.subscriptionsCurrent),
+        helper: `${formatNumber(overview.lists.recentSubscriptions.length)} suscripción(es) recientes cargadas`,
+        deltaText: billingKpiCards[2]?.delta.text || 'Sin cambios',
+        deltaTone: billingKpiCards[2]?.delta.tone || 'text-[#6c6177]',
+        icon: Sparkles,
+        cardClass: 'border-[#eadff0] bg-white/96 text-[#180f24]',
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+      {
+        key: 'ticket',
+        label: 'Ticket promedio',
+        value: formatCurrency(billingTimeline.averageTicketCurrent),
+        helper: billingTimeline.paymentsCountCurrent
+          ? `Promedio sobre ${formatNumber(billingTimeline.paymentsCountCurrent)} pago(s) confirmados`
+          : 'Sin pagos suficientes en el periodo',
+        deltaText: billingKpiCards[3]?.delta.text || 'Sin cambios',
+        deltaTone: billingKpiCards[3]?.delta.tone || 'text-[#6c6177]',
+        icon: BarChart3,
+        cardClass: 'border-[#fde1c4] bg-[#fff8ef] text-[#180f24]',
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+    ];
+  }, [billingKpiCards, billingTimeline, billingWindow.shortLabel, overview]);
+
+  const billingInsightPanels = useMemo(() => {
+    if (!overview) return [];
+
+    const topZone = billingTimeline.topZones[0];
+    const bestDay = [...billingTimeline.series].sort((a, b) => b.total - a.total)[0] || null;
+    const movementDays = billingTimeline.series.filter((item) => item.total > 0).length;
+    const paymentsShare = billingTimeline.totalCurrent
+      ? Math.round((billingTimeline.paymentsCurrent / billingTimeline.totalCurrent) * 100)
+      : 0;
+    const subscriptionsShare = billingTimeline.totalCurrent
+      ? Math.round((billingTimeline.subscriptionsCurrent / billingTimeline.totalCurrent) * 100)
+      : 0;
+
+    return [
+      {
+        title: 'Mezcla de ingresos',
+        value: `${paymentsShare}% pagos · ${subscriptionsShare}% suscripciones`,
+        detail: 'Lectura rápida de cuánto depende la caja actual del cobro puntual frente a la recurrencia.',
+        footnote: `${formatCurrency(billingTimeline.paymentsCurrent)} vs ${formatCurrency(
+          billingTimeline.subscriptionsCurrent
+        )}`,
+        icon: Activity,
+        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        title: 'Zona con más caja',
+        value: topZone?.zone || 'Sin zona dominante',
+        detail: topZone
+          ? `${formatCurrency(topZone.total_amount)} facturados en la zona que más empuja el periodo.`
+          : 'Todavía no hay una zona líder para esta ventana.',
+        footnote: topZone
+          ? `${formatNumber(topZone.payments_count)} pagos · ${formatNumber(topZone.users_count)} usuarios`
+          : 'Esperando datos suficientes para priorizar territorio.',
+        icon: ClipboardList,
+        tone: 'border-[#eadff0] bg-white text-[#432451]',
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+      {
+        title: 'Ritmo del periodo',
+        value: bestDay ? `${formatCurrency(bestDay.total)} en ${bestDay.date}` : 'Sin movimiento relevante',
+        detail: bestDay
+          ? 'El mejor día sirve como referencia para medir si el ritmo actual se está enfriando o sosteniendo.'
+          : 'No hay volumen suficiente para detectar un pico de caja.',
+        footnote: `${formatNumber(movementDays)} día(s) con movimiento en ${billingWindow.shortLabel}`,
+        icon: BarChart3,
+        tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+    ];
+  }, [billingTimeline, billingWindow.shortLabel, overview]);
+
   const billingExportConfig = useMemo(() => {
     if (!overview) {
       return {
@@ -4131,6 +4238,112 @@ export default function AdminPage() {
       })),
     };
   }, [billingExportType, overview]);
+
+  const billingActionRows = useMemo(() => {
+    if (!overview) return [];
+
+    const latestPayment = overview.lists.recentPayments[0] || null;
+    const latestSubscription = overview.lists.recentSubscriptions[0] || null;
+    const topZone = billingTimeline.topZones[0] || null;
+
+    return [
+      {
+        label: 'Revisar cobros',
+        value: formatCurrency(billingTimeline.paymentsCurrent),
+        detail: latestPayment
+          ? `${getProfileLabel(latestPayment.profile)} pagó ${formatCurrency(latestPayment.amount)} el ${formatDateTime(
+              latestPayment.paid_at || latestPayment.created_at
+            )}`
+          : 'No hay pagos recientes que conciliar en esta ventana.',
+        tone: billingTimeline.paymentsCurrent > 0 ? 'text-emerald-700' : 'text-[#6c6177]',
+        cta: 'Preparar pagos',
+        exportType: 'payments' as BillingExportType,
+        prepareMessage: 'Fuente lista para exportar: pagos.',
+      },
+      {
+        label: 'Seguir altas de plan',
+        value: formatCurrency(billingTimeline.subscriptionsCurrent),
+        detail: latestSubscription
+          ? `${getProfileLabel(latestSubscription.profile)} activó ${latestSubscription.plan?.name || 'un plan'} el ${formatDateTime(
+              latestSubscription.created_at
+            )}`
+          : 'No hay altas nuevas de plan en el periodo actual.',
+        tone: billingTimeline.subscriptionsCurrent > 0 ? 'text-[#5b3a6e]' : 'text-[#6c6177]',
+        cta: 'Preparar suscripciones',
+        exportType: 'subscriptions' as BillingExportType,
+        prepareMessage: 'Fuente lista para exportar: suscripciones.',
+      },
+      {
+        label: 'Empujar zona rentable',
+        value: topZone?.zone || 'Sin zona líder',
+        detail: topZone
+          ? `${formatCurrency(topZone.total_amount)} acumulados en ${topZone.zone}. Conviene seguir esta zona en pagos y cobertura.`
+          : 'Todavía no hay concentración territorial clara para priorizar.',
+        tone: topZone ? 'text-sky-700' : 'text-[#6c6177]',
+        cta: 'Preparar zonas',
+        exportType: 'zones' as BillingExportType,
+        prepareMessage: 'Fuente lista para exportar: zonas.',
+      },
+      {
+        label: 'Export listo',
+        value: `${formatNumber(billingExportConfig.rows.length)} registro(s)`,
+        detail: `Fuente activa: ${billingExportConfig.label}. Puedes descargarla sin recalcular la vista.`,
+        tone: billingExportConfig.rows.length > 0 ? 'text-[#6c6177]' : 'text-slate-400',
+        cta: 'Usar fuente actual',
+        exportType: billingExportType,
+        prepareMessage: `Fuente lista para exportar: ${billingExportConfig.label}.`,
+      },
+    ];
+  }, [billingExportConfig.label, billingExportConfig.rows.length, billingExportType, billingTimeline, overview]);
+
+  const billingSystemCards = useMemo(() => {
+    if (!overview) return [];
+
+    const topZone = billingTimeline.topZones[0] || null;
+    const bestDay = [...billingTimeline.series].sort((a, b) => b.total - a.total)[0] || null;
+    const latestPayment = overview.lists.recentPayments[0] || null;
+    const latestSubscription = overview.lists.recentSubscriptions[0] || null;
+    const activeZones = overview.lists.incomeByZone.filter((item) => Number(item.total_amount || 0) > 0).length;
+
+    return [
+      {
+        label: 'Mejor día',
+        value: bestDay ? formatCurrency(bestDay.total) : 'Sin pico',
+        helper: bestDay ? bestDay.date : 'Sin jornadas con movimiento fuerte',
+        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
+        icon: BarChart3,
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        label: 'Zonas con ingresos',
+        value: formatNumber(activeZones),
+        helper: topZone ? `${topZone.zone} lidera el periodo actual` : 'Sin zonas con caja todavía',
+        tone: 'border-[#eadff0] bg-white text-[#432451]',
+        icon: ClipboardList,
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+      {
+        label: 'Último cobro',
+        value: latestPayment ? formatCurrency(latestPayment.amount) : 'Sin pagos',
+        helper: latestPayment
+          ? `${getProfileLabel(latestPayment.profile)} · ${formatDateTime(latestPayment.paid_at || latestPayment.created_at)}`
+          : 'No hay cobros recientes cargados',
+        tone: 'border-[#d9f0e6] bg-[#f1fbf6] text-[#166534]',
+        icon: FileCheck2,
+        iconClass: 'bg-[#dcfce7] text-[#15803d]',
+      },
+      {
+        label: 'Última alta',
+        value: latestSubscription?.plan?.name || 'Sin altas',
+        helper: latestSubscription
+          ? `${getProfileLabel(latestSubscription.profile)} · ${formatDateTime(latestSubscription.created_at)}`
+          : 'No hay suscripciones nuevas registradas',
+        tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
+        icon: Sparkles,
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+    ];
+  }, [billingTimeline, overview]);
 
   const trimmedSupportDraft = supportDraft.trim();
   const canSendSupportMessage = Boolean(activeSupportUserId && trimmedSupportDraft && !supportSending && !supportLoading);
@@ -5913,11 +6126,11 @@ export default function AdminPage() {
               <div className="mt-6 rounded-[30px] border border-slate-200/80 bg-[linear-gradient(130deg,rgba(248,250,252,0.96)_0%,rgba(240,249,255,0.9)_52%,rgba(255,255,255,0.94)_100%)] p-5 shadow-[0_16px_40px_rgba(15,23,42,0.1)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Control deck</p>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Caja y recurrencia</p>
                     <p className="mt-1 text-sm font-semibold text-slate-800">
-                      Ingresos calculados desde {formatDateTime(overview.kpis.revenueSince)}
+                      Facturación operativa desde {formatDateTime(overview.kpis.revenueSince)}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500">Periodo activo: {billingWindow.label}</p>
+                    <p className="mt-1 text-xs text-slate-500">Ventana activa: {billingWindow.label}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="flex items-center gap-1 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
@@ -5958,39 +6171,145 @@ export default function AdminPage() {
                 {billingMessage && <p className="mt-3 text-xs text-slate-500">{billingMessage}</p>}
                 <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
-                    Total periodo: {formatCurrency(billingTimeline.totalCurrent)}
+                    Caja: {formatCurrency(billingTimeline.totalCurrent)}
                   </span>
                   <span className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 font-semibold text-sky-700">
                     Variación: {billingKpiCards[0]?.delta.text || 'Sin variación'}
                   </span>
                   <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 font-semibold text-amber-700">
-                    Ticket promedio: {formatCurrency(billingTimeline.averageTicketCurrent)}
+                    Fuente actual: {billingExportConfig.label}
+                  </span>
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
+                    Top zona: {billingTimeline.topZones[0]?.zone || 'Sin zona líder'}
                   </span>
                 </div>
               </div>
 
-              <section className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                {billingKpiCards.map((card, index) => (
-                  <div
-                    key={card.key}
-                    className={`rounded-[28px] border p-5 shadow-[0_10px_28px_rgba(15,23,42,0.1)] ${
-                      index === 0
-                        ? 'border-slate-300 bg-gradient-to-r from-slate-900 to-slate-800 text-white md:col-span-2 lg:col-span-2'
-                        : 'border-slate-200/80 bg-white/95'
-                    }`}
-                  >
-                    <p className={`text-[11px] uppercase tracking-[0.2em] ${index === 0 ? 'text-slate-300' : 'text-slate-400'}`}>
-                      {card.label}
-                    </p>
-                    <p className={`mt-3 text-2xl font-semibold ${index === 0 ? 'text-white' : 'text-slate-900'}`}>
-                      {card.value}
-                    </p>
-                    <p className={`mt-2 text-xs font-semibold ${index === 0 ? 'text-emerald-300' : card.delta.tone}`}>
-                      {card.delta.text}
-                    </p>
-                    <p className={`mt-1 text-[11px] ${index === 0 ? 'text-slate-300' : 'text-slate-500'}`}>{card.helper}</p>
+              <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
+                <div className={premiumSurfaceClass}>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="max-w-2xl">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Facturación overview</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">Dónde está entrando la caja</h3>
+                      <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
+                        La vista abre con cobros, recurrencia, ticket y foco territorial para que en segundos sepas qué revisar, qué exportar y qué zona empujar.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
+                        {billingWindow.shortLabel}
+                      </span>
+                      <span className="rounded-full border border-[#dbeafe] bg-[#f6faff] px-3 py-1.5 font-semibold text-[#1d4ed8]">
+                        Total {formatCurrency(billingTimeline.totalCurrent)}
+                      </span>
+                      <span className="rounded-full border border-[#fde1c4] bg-[#fff8ef] px-3 py-1.5 font-semibold text-[#c2410c]">
+                        Ticket {formatCurrency(billingTimeline.averageTicketCurrent)}
+                      </span>
+                    </div>
                   </div>
-                ))}
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {billingPrimaryCards.map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <article
+                          key={card.key}
+                          className={`rounded-[26px] border p-4 shadow-[0_14px_28px_rgba(31,10,46,0.08)] ${card.cardClass}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{card.label}</p>
+                              <p className="mt-3 text-2xl font-semibold text-[#180f24]">{card.value}</p>
+                            </div>
+                            <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                              <Icon className="h-5 w-5" />
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs leading-6 text-[#6c6177]">{card.helper}</p>
+                          <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                    {billingInsightPanels.map((panel) => {
+                      const Icon = panel.icon;
+                      return (
+                        <article key={panel.title} className={`rounded-[26px] border p-5 shadow-[0_12px_26px_rgba(31,10,46,0.07)] ${panel.tone}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
+                              <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
+                            </div>
+                            <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
+                              <Icon className="h-5 w-5" />
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
+                          <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Bandeja financiera</p>
+                      <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Qué conviene mover ahora</h3>
+                      <p className="mt-2 text-sm leading-7 text-[#6c6177]">
+                        Acciones rápidas para preparar exportes, seguir cobros recientes y priorizar zonas o altas de plan.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                      {billingExportConfig.rows.length} filas listas
+                    </span>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {billingActionRows.map((row) => (
+                      <div key={row.label} className="rounded-[22px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
+                        <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
+                        <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBillingExportType(row.exportType);
+                              setBillingMessage(row.prepareMessage);
+                            }}
+                            className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
+                          >
+                            {row.cta}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </aside>
+              </section>
+
+              <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {billingSystemCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
+                          <p className="mt-3 text-2xl font-semibold">{card.value}</p>
+                        </div>
+                        <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
+                    </article>
+                  );
+                })}
               </section>
 
               <section className={`mt-6 ${premiumPanelClass}`}>
