@@ -3524,6 +3524,8 @@ export default function AdminPage() {
         ),
         deltaTone: getDashboardDeltaTone(overview.kpis.totalUsers - resolvedSummaryBaseline.totalUsers),
         icon: Users,
+        cardClass: 'border-[#eadff0] bg-white/96 text-[#180f24]',
+        iconClass: 'bg-[#f3e8ff] text-[#5b21b6]',
       },
       {
         key: 'subs',
@@ -3536,6 +3538,8 @@ export default function AdminPage() {
         ),
         deltaTone: getDashboardDeltaTone(overview.kpis.activeSubscribers - resolvedSummaryBaseline.activeSubscribers),
         icon: Sparkles,
+        cardClass: 'border-[#fde1c4] bg-[#fff8ef] text-[#180f24]',
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
       },
       {
         key: 'revenue',
@@ -3548,6 +3552,8 @@ export default function AdminPage() {
         ),
         deltaTone: getDashboardDeltaTone(overview.kpis.revenueTotal - resolvedSummaryBaseline.revenueTotal),
         icon: CreditCard,
+        cardClass: 'border-[#dbeafe] bg-[#f4f9ff] text-[#180f24]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
       },
       {
         key: 'traffic',
@@ -3560,6 +3566,8 @@ export default function AdminPage() {
         ),
         deltaTone: getDashboardDeltaTone(overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24),
         icon: Activity,
+        cardClass: 'border-[#d9f0e6] bg-[#f1fbf6] text-[#180f24]',
+        iconClass: 'bg-[#dcfce7] text-[#15803d]',
       },
     ];
   }, [overview, resolvedSummaryBaseline]);
@@ -3578,6 +3586,8 @@ export default function AdminPage() {
         value: formatNumber(roadmapOpenItems),
         helper: `${formatNumber(roadmapBlockedCount)} bloqueados · ${formatNumber(roadmapInProgressCount)} en progreso`,
         tone: roadmapBlockedCount > 0 ? 'border-rose-200 bg-rose-50/80 text-rose-700' : 'border-[#eadff0] bg-white/80 text-[#432451]',
+        icon: GitBranch,
+        iconClass: roadmapBlockedCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-[#efe6f5] text-[#5b3a6e]',
       },
       {
         label: 'Soporte',
@@ -3587,21 +3597,72 @@ export default function AdminPage() {
           overview.kpis.supportMessagesLast7 > 0
             ? 'border-amber-200 bg-amber-50/90 text-amber-700'
             : 'border-[#eadff0] bg-white/80 text-[#432451]',
+        icon: MessageSquareMore,
+        iconClass:
+          overview.kpis.supportMessagesLast7 > 0
+            ? 'bg-amber-100 text-amber-700'
+            : 'bg-[#efe6f5] text-[#5b3a6e]',
       },
       {
         label: 'Presupuestos',
         value: formatNumber(overview.kpis.totalQuotes),
         helper: `${formatNumber(overview.kpis.paidQuotesCount)} cobrados`,
         tone: 'border-[#eadff0] bg-white/80 text-[#432451]',
+        icon: ClipboardList,
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
       },
       {
         label: 'Live ahora',
         value: formatNumber(presenceData?.onlineCount || 0),
         helper: `${formatNumber(overview.kpis.visitsLast7)} visitas en 7d`,
         tone: 'border-[#f2d7b6] bg-[#fff4e4] text-[#a8651a]',
+        icon: Activity,
+        iconClass: 'bg-[#ffe7c2] text-[#c2410c]',
       },
     ];
   }, [overview, presenceData?.onlineCount, roadmapUpdates, supportUsers.length]);
+
+  const summaryInsightPanels = useMemo(() => {
+    if (!overview) return [];
+
+    const accessRatio = overview.kpis.totalUsers
+      ? `${Math.round((overview.kpis.accessGranted / overview.kpis.totalUsers) * 100)}% con acceso`
+      : 'Sin base de usuarios';
+    const quoteConversion = overview.kpis.totalQuotes
+      ? `${Math.round((overview.kpis.paidQuotesCount / overview.kpis.totalQuotes) * 100)}% cobrados`
+      : 'Sin presupuestos cobrados';
+    const trafficWindow = `${formatNumber(overview.kpis.visitsLast7)} visitas · ${formatNumber(overview.kpis.uniqueSessionsLast7)} sesiones`;
+
+    return [
+      {
+        title: 'Adquisición',
+        value: trafficWindow,
+        detail: 'Lectura de tráfico reciente para saber si el embudo sigue vivo.',
+        footnote: `24h: ${formatNumber(overview.kpis.visitsLast24)} visitas`,
+        icon: BarChart3,
+        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        title: 'Monetización',
+        value: `${formatCurrency(overview.kpis.paidQuotesTotal)} + ${formatCurrency(overview.kpis.revenueTotal)}`,
+        detail: 'Presupuestos cobrados e ingreso recurrente en una sola vista.',
+        footnote: `${quoteConversion} · MRR ${formatCurrency(overview.kpis.mrr)}`,
+        icon: CreditCard,
+        tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+      {
+        title: 'Acceso y soporte',
+        value: `${formatNumber(overview.kpis.pendingAccess)} pendientes · ${formatNumber(overview.kpis.supportMessagesLast7)} mensajes`,
+        detail: 'Estado de habilitaciones y presión operativa de soporte.',
+        footnote: `${accessRatio} · ${formatNumber(supportUsers.length)} conversaciones activas`,
+        icon: ShieldCheck,
+        tone: 'border-[#eadff0] bg-white text-[#432451]',
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+    ];
+  }, [overview, supportUsers.length]);
 
   const summaryMonitoringRows = useMemo(() => {
     if (!overview || !resolvedSummaryBaseline) return [];
@@ -5138,20 +5199,41 @@ export default function AdminPage() {
           </div>
 
           <div className="grid gap-3 md:grid-cols-3">
-            <article className="rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(34,6,47,0.96)_0%,rgba(42,3,56,0.94)_100%)] px-4 py-4 shadow-[0_18px_38px_rgba(27,10,41,0.18)] backdrop-blur">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">Foco de trabajo</p>
-              <p className="mt-1 text-base font-semibold text-white">{activeTabLabel}</p>
-              <p className="mt-1 text-xs text-white/64">Tab activa para ejecución operativa.</p>
+            <article className="rounded-[28px] border border-[#2e0b40] bg-[linear-gradient(135deg,#21052f_0%,#341047_100%)] px-5 py-4 shadow-[0_18px_38px_rgba(27,10,41,0.18)] backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">Foco de trabajo</p>
+                  <p className="mt-2 text-base font-semibold text-white">{activeTabLabel}</p>
+                  <p className="mt-1 text-xs text-white/64">Vista principal para seguimiento operativo.</p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white">
+                  <BarChart3 className="h-5 w-5" />
+                </span>
+              </div>
             </article>
-            <article className="rounded-[28px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.96)_0%,rgba(249,242,248,0.96)_100%)] px-4 py-4 shadow-[0_14px_30px_rgba(31,10,46,0.08)] backdrop-blur">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pipeline roadmap</p>
-              <p className="mt-1 text-base font-semibold text-slate-900">{roadmapOpenCount} pendientes</p>
-              <p className="mt-1 text-xs text-slate-500">{roadmapTotals.blocked} bloqueados listos para destrabar.</p>
+            <article className="rounded-[28px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(249,242,248,0.96)_100%)] px-5 py-4 shadow-[0_14px_30px_rgba(31,10,46,0.08)] backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pipeline roadmap</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">{roadmapOpenCount} pendientes</p>
+                  <p className="mt-1 text-xs text-slate-500">{roadmapTotals.blocked} bloqueados listos para destrabar.</p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
+                  <GitBranch className="h-5 w-5" />
+                </span>
+              </div>
             </article>
-            <article className="rounded-[28px] border border-[#f2d7b6] bg-[linear-gradient(180deg,rgba(255,248,238,0.98)_0%,rgba(255,243,227,0.96)_100%)] px-4 py-4 shadow-[0_14px_30px_rgba(255,143,31,0.10)] backdrop-blur">
-              <p className="text-[11px] uppercase tracking-[0.2em] text-[#a8651a]">Monitoreo live</p>
-              <p className="mt-1 text-base font-semibold text-slate-900">{presenceData?.onlineCount || 0} usuarios online</p>
-              <p className="mt-1 text-xs text-slate-600">{supportUsers.length} conversaciones en soporte.</p>
+            <article className="rounded-[28px] border border-[#f2d7b6] bg-[linear-gradient(180deg,rgba(255,248,238,0.98)_0%,rgba(255,243,227,0.96)_100%)] px-5 py-4 shadow-[0_14px_30px_rgba(255,143,31,0.10)] backdrop-blur">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-[#a8651a]">Monitoreo live</p>
+                  <p className="mt-2 text-base font-semibold text-slate-900">{presenceData?.onlineCount || 0} usuarios online</p>
+                  <p className="mt-1 text-xs text-slate-600">{supportUsers.length} conversaciones en soporte.</p>
+                </div>
+                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#ffe7c2] text-[#c2410c]">
+                  <Activity className="h-5 w-5" />
+                </span>
+              </div>
             </article>
           </div>
 
@@ -5172,25 +5254,25 @@ export default function AdminPage() {
               {activeTab === 'resumen' && (
                 <>
                   <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
-                    <div className="overflow-hidden rounded-[34px] border border-[#2e0b40] bg-[linear-gradient(135deg,#1f082c_0%,#2a0338_48%,#3c1352_100%)] p-6 shadow-[0_28px_64px_-34px_rgba(31,10,46,0.82)] sm:p-7">
+                    <div className={premiumSurfaceClass}>
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="max-w-2xl">
-                          <p className="text-[11px] uppercase tracking-[0.24em] text-white/48">Admin overview</p>
-                          <h3 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
-                            Resumen ejecutivo estilo dashboard
+                          <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Admin overview</p>
+                          <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">
+                            Dashboard ejecutivo limpio
                           </h3>
-                          <p className="mt-3 max-w-2xl text-sm leading-7 text-white/74">
-                            Priorizamos lectura rápida de usuarios, ingresos, soporte y operación. El contador del resumen se puede reiniciar sin tocar los datos reales.
+                          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
+                            Ordenamos el resumen para que puedas leer el estado comercial, operativo y de soporte en pocos segundos, sin bloques vacíos ni ruido visual.
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className={`rounded-full px-3 py-1.5 font-semibold ${adminExecutionPulse.badgeClass}`}>
+                          <span className={`rounded-full px-3 py-1.5 font-semibold shadow-sm ${adminExecutionPulse.badgeClass}`}>
                             {adminExecutionPulse.label}
                           </span>
-                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-semibold text-white/88">
+                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
                             MRR {formatCurrency(overview.kpis.mrr)}
                           </span>
-                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-semibold text-white/88">
+                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
                             ARR {formatCurrency(overview.kpis.arr)}
                           </span>
                         </div>
@@ -5202,26 +5284,47 @@ export default function AdminPage() {
                           return (
                             <article
                               key={card.key}
-                              className="rounded-[26px] border border-white/12 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur"
+                              className={`rounded-[26px] border p-4 shadow-[0_14px_28px_rgba(31,10,46,0.08)] ${card.cardClass}`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/48">{card.label}</p>
-                                  <p className="mt-3 text-2xl font-semibold text-white">{card.value}</p>
+                                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{card.label}</p>
+                                  <p className="mt-3 text-2xl font-semibold text-[#180f24]">{card.value}</p>
                                 </div>
-                                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_14px_28px_-18px_rgba(255,143,31,0.95)]">
+                                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
                                   <Icon className="h-5 w-5" />
                                 </span>
                               </div>
-                              <p className="mt-3 text-xs leading-6 text-white/72">{card.helper}</p>
+                              <p className="mt-3 text-xs leading-6 text-[#6c6177]">{card.helper}</p>
                               <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
+                            </article>
+                          );
+                        })}
+                      </div>
+
+                      <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                        {summaryInsightPanels.map((panel) => {
+                          const Icon = panel.icon;
+                          return (
+                            <article key={panel.title} className={`rounded-[26px] border p-5 shadow-[0_12px_26px_rgba(31,10,46,0.07)] ${panel.tone}`}>
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
+                                  <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
+                                </div>
+                                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
+                                  <Icon className="h-5 w-5" />
+                                </span>
+                              </div>
+                              <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
+                              <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
                             </article>
                           );
                         })}
                       </div>
                     </div>
 
-                    <aside className={premiumSurfaceClass}>
+                    <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Control del resumen</p>
@@ -5239,9 +5342,9 @@ export default function AdminPage() {
                         </button>
                       </div>
 
-                      <div className="mt-5 grid gap-3">
+                      <div className="mt-5 space-y-3">
                         {summaryMonitoringRows.map((row) => (
-                          <div key={row.label} className={premiumMutedPanelClass}>
+                          <div key={row.label} className="rounded-[22px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
                             <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
                             <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
                             <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
@@ -5252,13 +5355,23 @@ export default function AdminPage() {
                   </section>
 
                   <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {summarySystemCards.map((card) => (
-                      <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
-                        <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
-                        <p className="mt-3 text-2xl font-semibold">{card.value}</p>
-                        <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
-                      </article>
-                    ))}
+                    {summarySystemCards.map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
+                              <p className="mt-3 text-2xl font-semibold">{card.value}</p>
+                            </div>
+                            <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                              <Icon className="h-5 w-5" />
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
+                        </article>
+                      );
+                    })}
                   </section>
 
                   <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
