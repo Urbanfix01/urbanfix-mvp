@@ -328,6 +328,16 @@ type AdminOverview = {
   };
 };
 
+type SummaryBaseline = {
+  setAt: string;
+  totalUsers: number;
+  activeSubscribers: number;
+  revenueTotal: number;
+  supportMessagesLast7: number;
+  visitsLast24: number;
+  uniqueSessionsLast24: number;
+};
+
 const manrope = Manrope({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
@@ -357,6 +367,28 @@ const normalizeText = (value?: string | null) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+const buildSummaryBaseline = (overview: AdminOverview): SummaryBaseline => ({
+  setAt: new Date().toISOString(),
+  totalUsers: overview.kpis.totalUsers,
+  activeSubscribers: overview.kpis.activeSubscribers,
+  revenueTotal: overview.kpis.revenueTotal,
+  supportMessagesLast7: overview.kpis.supportMessagesLast7,
+  visitsLast24: overview.kpis.visitsLast24,
+  uniqueSessionsLast24: overview.kpis.uniqueSessionsLast24,
+});
+
+const getDashboardDeltaText = (delta: number, formatter: (value: number) => string) => {
+  if (delta === 0) return 'Sin cambios desde reset';
+  return `${delta > 0 ? '+' : '-'}${formatter(Math.abs(delta))} desde reset`;
+};
+
+const getDashboardDeltaTone = (delta: number, invert = false) => {
+  if (delta === 0) return 'text-[#6c6177]';
+  const positiveClass = invert ? 'text-rose-600' : 'text-emerald-600';
+  const negativeClass = invert ? 'text-emerald-600' : 'text-rose-600';
+  return delta > 0 ? positiveClass : negativeClass;
+};
 
 const getMasterItemChoiceValue = (item: Pick<MasterItemAdminRow, 'name' | 'technical_notes' | 'unit'>) =>
   buildMasterItemChoiceLabel(item);
@@ -1663,6 +1695,7 @@ export default function AdminPage() {
   const [accessUpdatingId, setAccessUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
+  const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
@@ -3471,24 +3504,133 @@ export default function AdminPage() {
     setBillingMessage(`Exportados ${billingExportConfig.rows.length} registro(s) de ${billingExportConfig.label}.`);
   };
 
-  const kpis = useMemo(() => {
-    if (!overview) return [];
+  const resolvedSummaryBaseline = useMemo(
+    () => (overview ? summaryBaseline || buildSummaryBaseline(overview) : null),
+    [overview, summaryBaseline]
+  );
+
+  const summaryPrimaryCards = useMemo(() => {
+    if (!overview || !resolvedSummaryBaseline) return [];
+
     return [
-      { label: 'Visitas (24h)', value: formatNumber(overview.kpis.visitsLast24) },
-      { label: 'Sesiones únicas (24h)', value: formatNumber(overview.kpis.uniqueSessionsLast24) },
-      { label: 'Visitas (7d)', value: formatNumber(overview.kpis.visitsLast7) },
-      { label: 'Sesiones únicas (7d)', value: formatNumber(overview.kpis.uniqueSessionsLast7) },
-      { label: 'Usuarios totales', value: formatNumber(overview.kpis.totalUsers) },
-      { label: 'Accesos habilitados', value: formatNumber(overview.kpis.accessGranted) },
-      { label: 'Accesos pendientes', value: formatNumber(overview.kpis.pendingAccess) },
-      { label: 'Suscriptores activos', value: formatNumber(overview.kpis.activeSubscribers) },
-      { label: 'Presupuestos totales', value: formatNumber(overview.kpis.totalQuotes) },
-      { label: 'Presupuestos cobrados', value: formatNumber(overview.kpis.paidQuotesCount) },
-      { label: 'Ingresos por presupuestos', value: formatCurrency(overview.kpis.paidQuotesTotal) },
-      { label: 'Ingresos por suscripciones (12m)', value: formatCurrency(overview.kpis.revenueTotal) },
-      { label: 'Mensajes soporte (7d)', value: formatNumber(overview.kpis.supportMessagesLast7) },
+      {
+        key: 'users',
+        label: 'Usuarios totales',
+        value: formatNumber(overview.kpis.totalUsers),
+        helper: `${formatNumber(overview.kpis.accessGranted)} habilitados · ${formatNumber(overview.kpis.pendingAccess)} pendientes`,
+        deltaText: getDashboardDeltaText(
+          overview.kpis.totalUsers - resolvedSummaryBaseline.totalUsers,
+          formatNumber
+        ),
+        deltaTone: getDashboardDeltaTone(overview.kpis.totalUsers - resolvedSummaryBaseline.totalUsers),
+        icon: Users,
+      },
+      {
+        key: 'subs',
+        label: 'Suscriptores activos',
+        value: formatNumber(overview.kpis.activeSubscribers),
+        helper: `MRR ${formatCurrency(overview.kpis.mrr)} · ARR ${formatCurrency(overview.kpis.arr)}`,
+        deltaText: getDashboardDeltaText(
+          overview.kpis.activeSubscribers - resolvedSummaryBaseline.activeSubscribers,
+          formatNumber
+        ),
+        deltaTone: getDashboardDeltaTone(overview.kpis.activeSubscribers - resolvedSummaryBaseline.activeSubscribers),
+        icon: Sparkles,
+      },
+      {
+        key: 'revenue',
+        label: 'Ingresos suscripciones 12m',
+        value: formatCurrency(overview.kpis.revenueTotal),
+        helper: `Presupuestos cobrados ${formatCurrency(overview.kpis.paidQuotesTotal)}`,
+        deltaText: getDashboardDeltaText(
+          overview.kpis.revenueTotal - resolvedSummaryBaseline.revenueTotal,
+          formatCurrency
+        ),
+        deltaTone: getDashboardDeltaTone(overview.kpis.revenueTotal - resolvedSummaryBaseline.revenueTotal),
+        icon: CreditCard,
+      },
+      {
+        key: 'traffic',
+        label: 'Pulso 24h',
+        value: formatNumber(overview.kpis.visitsLast24),
+        helper: `${formatNumber(overview.kpis.uniqueSessionsLast24)} sesiones unicas`,
+        deltaText: getDashboardDeltaText(
+          overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24,
+          formatNumber
+        ),
+        deltaTone: getDashboardDeltaTone(overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24),
+        icon: Activity,
+      },
     ];
-  }, [overview]);
+  }, [overview, resolvedSummaryBaseline]);
+
+  const summarySystemCards = useMemo(() => {
+    if (!overview) return [];
+
+    return [
+      {
+        label: 'Roadmap abierto',
+        value: formatNumber(roadmapOpenCount),
+        helper: `${formatNumber(roadmapTotals.blocked)} bloqueados · ${formatNumber(roadmapTotals.inProgress)} en progreso`,
+        tone: roadmapTotals.blocked > 0 ? 'border-rose-200 bg-rose-50/80 text-rose-700' : 'border-[#eadff0] bg-white/80 text-[#432451]',
+      },
+      {
+        label: 'Soporte',
+        value: formatNumber(overview.kpis.supportMessagesLast7),
+        helper: `${formatNumber(supportUsers.length)} conversaciones activas`,
+        tone:
+          overview.kpis.supportMessagesLast7 > 0
+            ? 'border-amber-200 bg-amber-50/90 text-amber-700'
+            : 'border-[#eadff0] bg-white/80 text-[#432451]',
+      },
+      {
+        label: 'Presupuestos',
+        value: formatNumber(overview.kpis.totalQuotes),
+        helper: `${formatNumber(overview.kpis.paidQuotesCount)} cobrados`,
+        tone: 'border-[#eadff0] bg-white/80 text-[#432451]',
+      },
+      {
+        label: 'Live ahora',
+        value: formatNumber(presenceData?.onlineCount || 0),
+        helper: `${formatNumber(overview.kpis.visitsLast7)} visitas en 7d`,
+        tone: 'border-[#f2d7b6] bg-[#fff4e4] text-[#a8651a]',
+      },
+    ];
+  }, [overview, presenceData?.onlineCount, roadmapOpenCount, roadmapTotals.blocked, roadmapTotals.inProgress, supportUsers.length]);
+
+  const summaryMonitoringRows = useMemo(() => {
+    if (!overview || !resolvedSummaryBaseline) return [];
+
+    const supportDelta = overview.kpis.supportMessagesLast7 - resolvedSummaryBaseline.supportMessagesLast7;
+    const sessionsDelta = overview.kpis.uniqueSessionsLast24 - resolvedSummaryBaseline.uniqueSessionsLast24;
+
+    return [
+      {
+        label: 'Mensajes soporte 7d',
+        value: formatNumber(overview.kpis.supportMessagesLast7),
+        detail: getDashboardDeltaText(supportDelta, formatNumber),
+        tone: getDashboardDeltaTone(supportDelta, true),
+      },
+      {
+        label: 'Sesiones únicas 24h',
+        value: formatNumber(overview.kpis.uniqueSessionsLast24),
+        detail: getDashboardDeltaText(sessionsDelta, formatNumber),
+        tone: getDashboardDeltaTone(sessionsDelta),
+      },
+      {
+        label: 'Ingresos presupuestos',
+        value: formatCurrency(overview.kpis.paidQuotesTotal),
+        detail: `${formatNumber(overview.kpis.paidQuotesCount)} presupuestos cobrados`,
+        tone: 'text-[#6c6177]',
+      },
+      {
+        label: 'Reset del resumen',
+        value: formatDateTime(resolvedSummaryBaseline.setAt),
+        detail: 'El contador del dashboard vuelve a base desde este punto.',
+        tone: 'text-[#6c6177]',
+      },
+    ];
+  }, [overview, resolvedSummaryBaseline]);
 
   const argentinaZoneHeatmap = useMemo(() => {
     if (!overview) {
@@ -4097,6 +4239,11 @@ export default function AdminPage() {
       return label.includes(query) || lastBody.includes(query);
     });
   }, [supportUsers, messageSearch]);
+
+  useEffect(() => {
+    if (!overview || summaryBaseline) return;
+    setSummaryBaseline(buildSummaryBaseline(overview));
+  }, [overview, summaryBaseline]);
 
   const laborSources = useMemo(() => {
     const values = new Set<string>();
@@ -5019,36 +5166,93 @@ export default function AdminPage() {
             <>
               {activeTab === 'resumen' && (
                 <>
-                  <section className="mt-6 rounded-[30px] border border-slate-200/80 bg-[linear-gradient(125deg,rgba(15,23,42,0.96)_0%,rgba(30,41,59,0.94)_54%,rgba(15,23,42,0.88)_100%)] p-5 shadow-[0_18px_44px_rgba(15,23,42,0.28)]">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-slate-300">Executive pulse</p>
-                        <h3 className="mt-1 text-xl font-semibold text-white">Resumen operativo de plataforma</h3>
-                        <p className="mt-1 text-sm text-slate-300">
-                          Señales clave de uso, monetización y soporte para gestionar operación diaria.
-                        </p>
-
+                  <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
+                    <div className="overflow-hidden rounded-[34px] border border-[#2e0b40] bg-[linear-gradient(135deg,#1f082c_0%,#2a0338_48%,#3c1352_100%)] p-6 shadow-[0_28px_64px_-34px_rgba(31,10,46,0.82)] sm:p-7">
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div className="max-w-2xl">
+                          <p className="text-[11px] uppercase tracking-[0.24em] text-white/48">Admin overview</p>
+                          <h3 className="mt-2 text-2xl font-semibold text-white sm:text-3xl">
+                            Resumen ejecutivo estilo dashboard
+                          </h3>
+                          <p className="mt-3 max-w-2xl text-sm leading-7 text-white/74">
+                            Priorizamos lectura rápida de usuarios, ingresos, soporte y operación. El contador del resumen se puede reiniciar sin tocar los datos reales.
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className={`rounded-full px-3 py-1.5 font-semibold ${adminExecutionPulse.badgeClass}`}>
+                            {adminExecutionPulse.label}
+                          </span>
+                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-semibold text-white/88">
+                            MRR {formatCurrency(overview.kpis.mrr)}
+                          </span>
+                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 font-semibold text-white/88">
+                            ARR {formatCurrency(overview.kpis.arr)}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="rounded-full border border-slate-500/60 bg-slate-700/45 px-3 py-1.5 font-semibold text-slate-100">
-                          Ingresos 12m: {formatCurrency(overview.kpis.revenueTotal)}
-                        </span>
-                        <span className="rounded-full border border-slate-500/60 bg-slate-700/45 px-3 py-1.5 font-semibold text-slate-100">
-                          MRR: {formatCurrency(overview.kpis.mrr)}
-                        </span>
-                        <span className="rounded-full border border-slate-500/60 bg-slate-700/45 px-3 py-1.5 font-semibold text-slate-100">
-                          ARR: {formatCurrency(overview.kpis.arr)}
-                        </span>
+
+                      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {summaryPrimaryCards.map((card) => {
+                          const Icon = card.icon;
+                          return (
+                            <article
+                              key={card.key}
+                              className="rounded-[26px] border border-white/12 bg-white/8 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur"
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/48">{card.label}</p>
+                                  <p className="mt-3 text-2xl font-semibold text-white">{card.value}</p>
+                                </div>
+                                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_14px_28px_-18px_rgba(255,143,31,0.95)]">
+                                  <Icon className="h-5 w-5" />
+                                </span>
+                              </div>
+                              <p className="mt-3 text-xs leading-6 text-white/72">{card.helper}</p>
+                              <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
+                            </article>
+                          );
+                        })}
                       </div>
                     </div>
+
+                    <aside className={premiumSurfaceClass}>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Control del resumen</p>
+                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Contador reiniciado</h3>
+                          <p className="mt-2 text-sm leading-7 text-[#6c6177]">
+                            El dashboard compara contra una base local. Puedes reiniciar el contador cuando quieras para volver a cero la observación del resumen.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
+                          className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-4 py-2 text-xs font-semibold text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.92)] transition hover:-translate-y-0.5 hover:brightness-105"
+                        >
+                          Reiniciar contador
+                        </button>
+                      </div>
+
+                      <div className="mt-5 grid gap-3">
+                        {summaryMonitoringRows.map((row) => (
+                          <div key={row.label} className={premiumMutedPanelClass}>
+                            <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
+                            <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
+                            <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </aside>
                   </section>
 
-                  <section className="mt-5 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {kpis.map((card) => (
-                      <div key={card.label} className={premiumPanelClass}>
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{card.label}</p>
-                        <p className="mt-3 text-2xl font-semibold text-slate-900">{card.value}</p>
-                      </div>
+                  <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {summarySystemCards.map((card) => (
+                      <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                        <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
+                        <p className="mt-3 text-2xl font-semibold">{card.value}</p>
+                        <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
+                      </article>
                     ))}
                   </section>
 
