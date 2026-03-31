@@ -3567,12 +3567,17 @@ export default function AdminPage() {
   const summarySystemCards = useMemo(() => {
     if (!overview) return [];
 
+    const roadmapBlockedCount = roadmapUpdates.filter((item) => item.status === 'blocked').length;
+    const roadmapInProgressCount = roadmapUpdates.filter((item) => item.status === 'in_progress').length;
+    const roadmapDoneCount = roadmapUpdates.filter((item) => item.status === 'done').length;
+    const roadmapOpenItems = Math.max(roadmapUpdates.length - roadmapDoneCount, 0);
+
     return [
       {
         label: 'Roadmap abierto',
-        value: formatNumber(roadmapOpenCount),
-        helper: `${formatNumber(roadmapTotals.blocked)} bloqueados · ${formatNumber(roadmapTotals.inProgress)} en progreso`,
-        tone: roadmapTotals.blocked > 0 ? 'border-rose-200 bg-rose-50/80 text-rose-700' : 'border-[#eadff0] bg-white/80 text-[#432451]',
+        value: formatNumber(roadmapOpenItems),
+        helper: `${formatNumber(roadmapBlockedCount)} bloqueados · ${formatNumber(roadmapInProgressCount)} en progreso`,
+        tone: roadmapBlockedCount > 0 ? 'border-rose-200 bg-rose-50/80 text-rose-700' : 'border-[#eadff0] bg-white/80 text-[#432451]',
       },
       {
         label: 'Soporte',
@@ -3596,7 +3601,7 @@ export default function AdminPage() {
         tone: 'border-[#f2d7b6] bg-[#fff4e4] text-[#a8651a]',
       },
     ];
-  }, [overview, presenceData?.onlineCount, roadmapOpenCount, roadmapTotals.blocked, roadmapTotals.inProgress, supportUsers.length]);
+  }, [overview, presenceData?.onlineCount, roadmapUpdates, supportUsers.length]);
 
   const summaryMonitoringRows = useMemo(() => {
     if (!overview || !resolvedSummaryBaseline) return [];
