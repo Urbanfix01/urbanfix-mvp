@@ -4292,131 +4292,15 @@ export default function AdminPage() {
   }, [roadmapReportItems]);
 
   const roadmapPendingQueue = useMemo(() => {
-        <PublicTopNav sticky />
     const todayMs = startOfDay(new Date()).getTime();
     const nextWeekMs = todayMs + DAY_MS * 7;
     return roadmapReportItems
       .filter((item) => item.status !== 'done')
-          <div className="absolute bottom-0 left-0 top-0 hidden w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
+      .map((item) => {
         const etaMs = toTimeMs(item.eta_date);
         const updatedMs = toTimeMs(item.updated_at) ?? toTimeMs(item.created_at) ?? Date.now();
-          <div className="relative z-10 mx-auto flex w-full max-w-none gap-6 px-4 pb-24 pt-8 sm:px-6 lg:pl-[106px]">
-            <div className="hidden w-[78px] shrink-0 lg:block">
-              <aside
-                onMouseEnter={() => setIsDesktopNavExpanded(true)}
-                onMouseLeave={() => setIsDesktopNavExpanded(false)}
-                className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
-                  isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
-                }`}
-              >
-                <div className="flex w-full flex-col">
-                  <div className={`${isDesktopNavExpanded ? 'px-4 pb-3 pt-5' : 'px-2 pb-3 pt-5'}`}>
-                    <div
-                      className={`flex items-center ${isDesktopNavExpanded ? 'gap-3 px-1' : 'justify-center'}`}
-                    >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff9c1a,#ff7b00)] shadow-[0_16px_34px_-18px_rgba(255,140,26,0.9)]">
-                        <ShieldCheck className="h-5 w-5 text-[#2a0338]" />
-                      </div>
-                      {isDesktopNavExpanded && (
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
-                            Plataforma
-                          </p>
-                          <p className="truncate text-sm font-semibold text-white">Admin UrbanFix</p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-3' : 'px-2 py-3'}`}>
-                    <div className="flex flex-col gap-2">
-                      {adminNavItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = activeTab === item.key;
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            title={!isDesktopNavExpanded ? item.label : undefined}
-                            onClick={() => setActiveTab(item.key)}
-                            className={`group relative flex items-center transition ${
-                              isDesktopNavExpanded
-                                ? 'w-full gap-3 rounded-r-[18px] rounded-l-none px-4 py-3.5 text-left'
-                                : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
-                            } ${
-                              isActive
-                                ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
-                                : 'text-white hover:bg-white/10 hover:text-white'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
-                                isActive
-                                  ? 'bg-white/16 text-white'
-                                  : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
-                              }`}
-                            >
-                              <Icon className="h-[18px] w-[18px]" />
-                            </span>
-                            {isDesktopNavExpanded && (
-                              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.label}</span>
-                            )}
-                            {item.badge > 0 && (
-                              <span
-                                className={`rounded-full bg-[#ef4444] text-[10px] font-bold text-white shadow-sm ${
-                                  isDesktopNavExpanded
-                                    ? 'px-2 py-0.5'
-                                    : 'absolute right-0 top-0 min-w-4 px-1 py-[1px]'
-                                }`}
-                              >
-                                {item.badge}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </nav>
-                </div>
-              </aside>
-            </div>
-
-            <div className="min-w-0 flex-1 lg:pr-4">
-            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
-              <div className="flex items-center gap-2 overflow-x-auto">
-                {adminNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeTab === item.key;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      onClick={() => setActiveTab(item.key)}
-                      className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
-                        isActive
-                          ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
-                          : 'bg-white/10 text-white/90 hover:bg-white/14 hover:text-white'
-                      }`}
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <Icon className="h-4 w-4" />
-                        {item.label}
-                        {item.badge > 0 && (
-                          <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
-                            {item.badge}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-                <span className="ml-auto hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-[10px] font-semibold text-white/58 sm:inline-flex">
-                  {adminNavItems.length} módulos
-                </span>
-              </div>
-            </div>
-
-            <header className="sticky top-[73px] z-40 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(34,6,47,0.97)_0%,rgba(42,3,56,0.96)_52%,rgba(29,8,41,0.96)_100%)] px-5 py-5 shadow-[0_24px_64px_rgba(27,10,41,0.34)] backdrop-blur-md sm:px-6">
+        const ageDays = Math.max(0, Math.round((Date.now() - updatedMs) / DAY_MS));
+        const overdue = etaMs !== null && etaMs < todayMs;
         const dueSoon = etaMs !== null && etaMs >= todayMs && etaMs <= nextWeekMs;
 
         // Prioriza bloqueados y tareas críticas cercanas/vencidas para enfoque diario.
@@ -4425,7 +4309,7 @@ export default function AdminPage() {
         if (dueSoon) score += 45;
 
         return {
-                  <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">UrbanFix admin control center</p>
+          ...item,
           score,
           ageDays,
           overdue,
@@ -4935,14 +4819,131 @@ export default function AdminPage() {
       className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
+      <PublicTopNav sticky />
       <div className="relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.14),_transparent_52%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.45)_0%,rgba(238,243,248,0.72)_55%,rgba(218,228,240,0.5)_100%)]" />
-        <div className="absolute -right-28 top-10 h-72 w-72 rounded-full bg-[#D6A63D]/15 blur-3xl" />
-        <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[#0284C7]/12 blur-3xl" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(42,3,56,0.16),_transparent_52%)]" />
+        <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(255,251,246,0.94)_0%,rgba(247,239,246,0.98)_52%,rgba(241,235,245,0.94)_100%)]" />
+        <div className="absolute -right-28 top-10 h-72 w-72 rounded-full bg-[#ff8f1f]/14 blur-3xl" />
+        <div className="absolute bottom-0 left-0 top-0 hidden w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
+        <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[#2a0338]/12 blur-3xl" />
 
-        <div className="relative z-10 mx-auto w-full max-w-[1320px] px-4 pb-24 pt-8 sm:px-6 lg:px-8">
-          <header className="sticky top-4 z-40 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(34,6,47,0.97)_0%,rgba(42,3,56,0.96)_52%,rgba(29,8,41,0.96)_100%)] px-5 py-5 shadow-[0_24px_64px_rgba(27,10,41,0.34)] backdrop-blur-md sm:px-6">
+        <div className="relative z-10 mx-auto flex w-full max-w-none gap-6 px-4 pb-24 pt-8 sm:px-6 lg:pl-[106px]">
+          <div className="hidden w-[78px] shrink-0 lg:block">
+            <aside
+              onMouseEnter={() => setIsDesktopNavExpanded(true)}
+              onMouseLeave={() => setIsDesktopNavExpanded(false)}
+              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
+                isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
+              }`}
+            >
+              <div className="flex w-full flex-col">
+                <div className={`${isDesktopNavExpanded ? 'px-4 pb-3 pt-5' : 'px-2 pb-3 pt-5'}`}>
+                  <div
+                    className={`flex items-center ${isDesktopNavExpanded ? 'gap-3 px-1' : 'justify-center'}`}
+                  >
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff9c1a,#ff7b00)] shadow-[0_16px_34px_-18px_rgba(255,140,26,0.9)]">
+                      <ShieldCheck className="h-5 w-5 text-[#2a0338]" />
+                    </div>
+                    {isDesktopNavExpanded && (
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
+                          Plataforma
+                        </p>
+                        <p className="truncate text-sm font-semibold text-white">Admin UrbanFix</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-3' : 'px-2 py-3'}`}>
+                  <div className="flex flex-col gap-2">
+                    {adminNavItems.map((item) => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.key;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          title={!isDesktopNavExpanded ? item.label : undefined}
+                          onClick={() => setActiveTab(item.key)}
+                          className={`group relative flex items-center transition ${
+                            isDesktopNavExpanded
+                              ? 'w-full gap-3 rounded-r-[18px] rounded-l-none px-4 py-3.5 text-left'
+                              : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                          } ${
+                            isActive
+                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
+                              : 'text-white hover:bg-white/10 hover:text-white'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
+                              isActive
+                                ? 'bg-white/16 text-white'
+                                : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
+                            }`}
+                          >
+                            <Icon className="h-[18px] w-[18px]" />
+                          </span>
+                          {isDesktopNavExpanded && (
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.label}</span>
+                          )}
+                          {item.badge > 0 && (
+                            <span
+                              className={`rounded-full bg-[#ef4444] text-[10px] font-bold text-white shadow-sm ${
+                                isDesktopNavExpanded
+                                  ? 'px-2 py-0.5'
+                                  : 'absolute right-0 top-0 min-w-4 px-1 py-[1px]'
+                              }`}
+                            >
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </nav>
+              </div>
+            </aside>
+          </div>
+
+          <div className="min-w-0 flex-1 lg:pr-4">
+          <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
+            <div className="flex items-center gap-2 overflow-x-auto">
+              {adminNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => setActiveTab(item.key)}
+                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                      isActive
+                        ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
+                        : 'bg-white/10 text-white/90 hover:bg-white/14 hover:text-white'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2">
+                      <Icon className="h-4 w-4" />
+                      {item.label}
+                      {item.badge > 0 && (
+                        <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
+                          {item.badge}
+                        </span>
+                      )}
+                    </span>
+                  </button>
+                );
+              })}
+              <span className="ml-auto hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-[10px] font-semibold text-white/58 sm:inline-flex">
+                {adminNavItems.length} módulos
+              </span>
+            </div>
+          </div>
+
+          <header className="sticky top-[73px] z-40 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(34,6,47,0.97)_0%,rgba(42,3,56,0.96)_52%,rgba(29,8,41,0.96)_100%)] px-5 py-5 shadow-[0_24px_64px_rgba(27,10,41,0.34)] backdrop-blur-md sm:px-6">
             <div className="pointer-events-none absolute -right-20 top-0 h-48 w-48 rounded-full bg-[#ff8f1f]/16 blur-3xl" />
             <div className="pointer-events-none absolute left-1/3 top-0 h-40 w-40 rounded-full bg-white/6 blur-3xl" />
             <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
@@ -4951,7 +4952,7 @@ export default function AdminPage() {
                 <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
               </div>
               <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">UrbanFix control center</p>
+                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">UrbanFix admin control center</p>
                 <p className="text-sm font-semibold text-white">Vista activa: {activeTabLabel}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-2">
                   <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
