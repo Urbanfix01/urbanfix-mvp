@@ -333,6 +333,7 @@ type SummaryBaseline = {
   totalUsers: number;
   activeSubscribers: number;
   revenueTotal: number;
+  paidQuotesTotal: number;
   supportMessagesLast7: number;
   visitsLast24: number;
   uniqueSessionsLast24: number;
@@ -373,6 +374,7 @@ const buildSummaryBaseline = (overview: AdminOverview): SummaryBaseline => ({
   totalUsers: overview.kpis.totalUsers,
   activeSubscribers: overview.kpis.activeSubscribers,
   revenueTotal: overview.kpis.revenueTotal,
+  paidQuotesTotal: overview.kpis.paidQuotesTotal,
   supportMessagesLast7: overview.kpis.supportMessagesLast7,
   visitsLast24: overview.kpis.visitsLast24,
   uniqueSessionsLast24: overview.kpis.uniqueSessionsLast24,
@@ -3512,65 +3514,85 @@ export default function AdminPage() {
   const summaryPrimaryCards = useMemo(() => {
     if (!overview || !resolvedSummaryBaseline) return [];
 
+    const pendingAccessLabels = overview.lists.pendingAccess
+      .slice(0, 2)
+      .map((user) => getProfileLabel(user.profile || user))
+      .filter(Boolean)
+      .join(' · ');
+    const latestSupportMessage = overview.lists.supportMessages[0];
+    const blockedRoadmapCount = roadmapUpdates.filter((item) => item.status === 'blocked').length;
+    const inProgressRoadmapCount = roadmapUpdates.filter((item) => item.status === 'in_progress').length;
+    const openRoadmapCount = roadmapUpdates.filter((item) => item.status !== 'done').length;
+
     return [
       {
-        key: 'users',
-        label: 'Usuarios totales',
-        value: formatNumber(overview.kpis.totalUsers),
-        helper: `${formatNumber(overview.kpis.accessGranted)} habilitados · ${formatNumber(overview.kpis.pendingAccess)} pendientes`,
-        deltaText: getDashboardDeltaText(
-          overview.kpis.totalUsers - resolvedSummaryBaseline.totalUsers,
-          formatNumber
-        ),
-        deltaTone: getDashboardDeltaTone(overview.kpis.totalUsers - resolvedSummaryBaseline.totalUsers),
-        icon: Users,
+        key: 'access',
+        label: 'Accesos pendientes',
+        value: formatNumber(overview.kpis.pendingAccess),
+        helper:
+          overview.kpis.pendingAccess > 0
+            ? `Pendientes: ${pendingAccessLabels || 'revisión manual'}`
+            : `${formatNumber(overview.kpis.accessGranted)} usuarios con acceso habilitado`,
+        deltaText: `${Math.round(
+          overview.kpis.totalUsers ? (overview.kpis.accessGranted / overview.kpis.totalUsers) * 100 : 0
+        )}% del padrón ya puede operar`,
+        deltaTone: 'text-[#6c6177]',
+        icon: ShieldCheck,
         cardClass: 'border-[#eadff0] bg-white/96 text-[#180f24]',
-        iconClass: 'bg-[#f3e8ff] text-[#5b21b6]',
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
       },
       {
-        key: 'subs',
-        label: 'Suscriptores activos',
-        value: formatNumber(overview.kpis.activeSubscribers),
-        helper: `MRR ${formatCurrency(overview.kpis.mrr)} · ARR ${formatCurrency(overview.kpis.arr)}`,
+        key: 'support',
+        label: 'Soporte activo',
+        value: formatNumber(supportUsers.length),
+        helper:
+          latestSupportMessage
+            ? `${getProfileLabel(latestSupportMessage.profile)}: ${latestSupportMessage.body.slice(0, 58)}${latestSupportMessage.body.length > 58 ? '…' : ''}`
+            : 'Sin conversaciones activas que requieran seguimiento',
         deltaText: getDashboardDeltaText(
-          overview.kpis.activeSubscribers - resolvedSummaryBaseline.activeSubscribers,
+          overview.kpis.supportMessagesLast7 - resolvedSummaryBaseline.supportMessagesLast7,
           formatNumber
         ),
-        deltaTone: getDashboardDeltaTone(overview.kpis.activeSubscribers - resolvedSummaryBaseline.activeSubscribers),
-        icon: Sparkles,
+        deltaTone: getDashboardDeltaTone(
+          overview.kpis.supportMessagesLast7 - resolvedSummaryBaseline.supportMessagesLast7,
+          true
+        ),
+        icon: MessageSquareMore,
         cardClass: 'border-[#fde1c4] bg-[#fff8ef] text-[#180f24]',
         iconClass: 'bg-[#ffedd5] text-[#c2410c]',
       },
       {
-        key: 'revenue',
-        label: 'Ingresos suscripciones 12m',
-        value: formatCurrency(overview.kpis.revenueTotal),
-        helper: `Presupuestos cobrados ${formatCurrency(overview.kpis.paidQuotesTotal)}`,
+        key: 'quotes',
+        label: 'Cobros presupuestos',
+        value: formatCurrency(overview.kpis.paidQuotesTotal),
+        helper: `${formatNumber(overview.kpis.paidQuotesCount)} cobrados · ${formatNumber(overview.kpis.totalQuotes)} emitidos`,
         deltaText: getDashboardDeltaText(
-          overview.kpis.revenueTotal - resolvedSummaryBaseline.revenueTotal,
+          overview.kpis.paidQuotesTotal - resolvedSummaryBaseline.paidQuotesTotal,
           formatCurrency
         ),
-        deltaTone: getDashboardDeltaTone(overview.kpis.revenueTotal - resolvedSummaryBaseline.revenueTotal),
+        deltaTone: getDashboardDeltaTone(overview.kpis.paidQuotesTotal - resolvedSummaryBaseline.paidQuotesTotal),
         icon: CreditCard,
         cardClass: 'border-[#dbeafe] bg-[#f4f9ff] text-[#180f24]',
         iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
       },
       {
-        key: 'traffic',
-        label: 'Pulso 24h',
-        value: formatNumber(overview.kpis.visitsLast24),
-        helper: `${formatNumber(overview.kpis.uniqueSessionsLast24)} sesiones unicas`,
-        deltaText: getDashboardDeltaText(
-          overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24,
-          formatNumber
-        ),
-        deltaTone: getDashboardDeltaTone(overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24),
-        icon: Activity,
+        key: 'roadmap',
+        label: 'Alertas roadmap',
+        value: formatNumber(blockedRoadmapCount || openRoadmapCount),
+        helper:
+          blockedRoadmapCount > 0
+            ? `${formatNumber(blockedRoadmapCount)} bloqueados listos para destrabar`
+            : openRoadmapCount > 0
+              ? `${formatNumber(openRoadmapCount)} items activos en roadmap`
+              : 'Sin alertas críticas en la ventana actual',
+        deltaText: `${formatNumber(inProgressRoadmapCount)} en progreso · ${formatNumber(openRoadmapCount)} abiertos`,
+        deltaTone: blockedRoadmapCount > 0 ? 'text-rose-600' : 'text-[#6c6177]',
+        icon: GitBranch,
         cardClass: 'border-[#d9f0e6] bg-[#f1fbf6] text-[#180f24]',
-        iconClass: 'bg-[#dcfce7] text-[#15803d]',
+        iconClass: blockedRoadmapCount > 0 ? 'bg-rose-100 text-rose-600' : 'bg-[#dcfce7] text-[#15803d]',
       },
     ];
-  }, [overview, resolvedSummaryBaseline]);
+  }, [overview, resolvedSummaryBaseline, roadmapUpdates, supportUsers.length]);
 
   const summarySystemCards = useMemo(() => {
     if (!overview) return [];
@@ -3631,72 +3653,127 @@ export default function AdminPage() {
     const quoteConversion = overview.kpis.totalQuotes
       ? `${Math.round((overview.kpis.paidQuotesCount / overview.kpis.totalQuotes) * 100)}% cobrados`
       : 'Sin presupuestos cobrados';
-    const trafficWindow = `${formatNumber(overview.kpis.visitsLast7)} visitas · ${formatNumber(overview.kpis.uniqueSessionsLast7)} sesiones`;
+    const topIncomeZone = [...overview.lists.incomeByZone].sort((a, b) => b.total_amount - a.total_amount)[0];
+    const topRegisteredZone = [...overview.lists.registeredUsersByZone].sort((a, b) => b.users_count - a.users_count)[0];
+    const topScreen = overview.lists.topScreens[0];
 
     return [
       {
-        title: 'Adquisición',
-        value: trafficWindow,
-        detail: 'Lectura de tráfico reciente para saber si el embudo sigue vivo.',
-        footnote: `24h: ${formatNumber(overview.kpis.visitsLast24)} visitas`,
-        icon: BarChart3,
-        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
-        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
-      },
-      {
-        title: 'Monetización',
-        value: `${formatCurrency(overview.kpis.paidQuotesTotal)} + ${formatCurrency(overview.kpis.revenueTotal)}`,
-        detail: 'Presupuestos cobrados e ingreso recurrente en una sola vista.',
-        footnote: `${quoteConversion} · MRR ${formatCurrency(overview.kpis.mrr)}`,
+        title: 'Conversión comercial',
+        value: quoteConversion,
+        detail: 'Qué parte de los presupuestos ya terminó cobrándose.',
+        footnote: `${formatNumber(overview.kpis.paidQuotesCount)} cobrados de ${formatNumber(overview.kpis.totalQuotes)}`,
         icon: CreditCard,
         tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
         iconClass: 'bg-[#ffedd5] text-[#c2410c]',
       },
       {
-        title: 'Acceso y soporte',
-        value: `${formatNumber(overview.kpis.pendingAccess)} pendientes · ${formatNumber(overview.kpis.supportMessagesLast7)} mensajes`,
-        detail: 'Estado de habilitaciones y presión operativa de soporte.',
-        footnote: `${accessRatio} · ${formatNumber(supportUsers.length)} conversaciones activas`,
-        icon: ShieldCheck,
+        title: 'Zona caliente',
+        value: topIncomeZone?.zone || topRegisteredZone?.zone || 'Sin zona líder',
+        detail: topIncomeZone
+          ? `${formatCurrency(topIncomeZone.total_amount)} acumulados en la zona con más ingreso.`
+          : topRegisteredZone
+            ? `${formatNumber(topRegisteredZone.users_count)} usuarios registrados en la zona más activa.`
+            : 'Aún no hay datos territoriales suficientes.',
+        footnote: topIncomeZone
+          ? `${formatNumber(topIncomeZone.payments_count)} pagos · ${formatNumber(topIncomeZone.quotes_count)} presupuestos`
+          : topRegisteredZone
+            ? `${accessRatio} en la base`
+            : 'Sin concentración clara todavía.',
+        icon: Sparkles,
         tone: 'border-[#eadff0] bg-white text-[#432451]',
         iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
       },
+      {
+        title: 'Navegación y cobertura',
+        value: topScreen?.path || 'Sin pantalla dominante',
+        detail: topScreen
+          ? `${formatNumber(topScreen.views)} visitas · ${topScreen.total_minutes.toFixed(1)} min acumulados en la pantalla más consumida.`
+          : 'Aún no hay datos sólidos de navegación reciente.',
+        footnote: `${accessRatio} · ${formatNumber(overview.kpis.visitsLast7)} visitas en 7 días`,
+        icon: BarChart3,
+        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
     ];
-  }, [overview, supportUsers.length]);
+  }, [overview]);
 
   const summaryMonitoringRows = useMemo(() => {
     if (!overview || !resolvedSummaryBaseline) return [];
 
-    const supportDelta = overview.kpis.supportMessagesLast7 - resolvedSummaryBaseline.supportMessagesLast7;
-    const sessionsDelta = overview.kpis.uniqueSessionsLast24 - resolvedSummaryBaseline.uniqueSessionsLast24;
+    const latestSupportMessage = overview.lists.supportMessages[0];
+    const nextBlockedRoadmap =
+      roadmapUpdates.find((item) => item.status === 'blocked') ||
+      roadmapUpdates.find((item) => item.status === 'in_progress') ||
+      roadmapUpdates.find((item) => item.status !== 'done') ||
+      null;
+    const blockedRoadmapCount = roadmapUpdates.filter((item) => item.status === 'blocked').length;
+    const openRoadmapCount = roadmapUpdates.filter((item) => item.status !== 'done').length;
+    const stableQueue: Array<{
+      label: string;
+      value: string;
+      detail: string;
+      tone: string;
+      cta: string;
+      tab: AdminTabKey | null;
+    }> = [];
 
-    return [
-      {
-        label: 'Mensajes soporte 7d',
-        value: formatNumber(overview.kpis.supportMessagesLast7),
-        detail: getDashboardDeltaText(supportDelta, formatNumber),
-        tone: getDashboardDeltaTone(supportDelta, true),
-      },
-      {
-        label: 'Sesiones únicas 24h',
-        value: formatNumber(overview.kpis.uniqueSessionsLast24),
-        detail: getDashboardDeltaText(sessionsDelta, formatNumber),
-        tone: getDashboardDeltaTone(sessionsDelta),
-      },
-      {
-        label: 'Ingresos presupuestos',
-        value: formatCurrency(overview.kpis.paidQuotesTotal),
-        detail: `${formatNumber(overview.kpis.paidQuotesCount)} presupuestos cobrados`,
+    if (overview.kpis.pendingAccess > 0) {
+      stableQueue.push({
+        label: 'Revisar accesos',
+        value: `${formatNumber(overview.kpis.pendingAccess)} pendientes`,
+        detail: overview.lists.pendingAccess
+          .slice(0, 2)
+          .map((user) => getProfileLabel(user.profile || user))
+          .filter(Boolean)
+          .join(' · ') || 'Hay usuarios esperando habilitación.',
         tone: 'text-[#6c6177]',
-      },
-      {
-        label: 'Reset del resumen',
-        value: formatDateTime(resolvedSummaryBaseline.setAt),
-        detail: 'El contador del dashboard vuelve a base desde este punto.',
-        tone: 'text-[#6c6177]',
-      },
-    ];
-  }, [overview, resolvedSummaryBaseline]);
+        cta: 'Abrir accesos',
+        tab: 'accesos' as AdminTabKey,
+      });
+    }
+
+    if (supportUsers.length > 0 || latestSupportMessage) {
+      stableQueue.push({
+        label: 'Responder soporte',
+        value: `${formatNumber(supportUsers.length)} conversaciones activas`,
+        detail: latestSupportMessage
+          ? `${getProfileLabel(latestSupportMessage.profile)} escribió ${formatDateTime(latestSupportMessage.created_at)}`
+          : 'Hay seguimiento abierto en soporte.',
+        tone: supportUsers.length > 0 ? 'text-amber-700' : 'text-[#6c6177]',
+        cta: 'Ir a mensajes',
+        tab: 'mensajes' as AdminTabKey,
+      });
+    }
+
+    if (nextBlockedRoadmap) {
+      stableQueue.push({
+        label: 'Destrabar roadmap',
+        value:
+          blockedRoadmapCount > 0
+            ? `${formatNumber(blockedRoadmapCount)} bloqueados · ${formatNumber(openRoadmapCount)} abiertos`
+            : `${formatNumber(openRoadmapCount)} tareas abiertas`,
+        detail: nextBlockedRoadmap.description || nextBlockedRoadmap.title,
+        tone: blockedRoadmapCount > 0 ? 'text-rose-600' : 'text-[#6c6177]',
+        cta: 'Abrir roadmap',
+        tab: 'roadmap' as AdminTabKey,
+      });
+    }
+
+    stableQueue.push({
+      label: 'Control del resumen',
+      value: `Base ${formatDateTime(resolvedSummaryBaseline.setAt)}`,
+      detail: getDashboardDeltaText(
+        overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24,
+        formatNumber
+      ),
+      tone: getDashboardDeltaTone(overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24),
+      cta: 'Reiniciar contador',
+      tab: null,
+    });
+
+    return stableQueue.slice(0, 4);
+  }, [overview, resolvedSummaryBaseline, roadmapUpdates, supportUsers.length]);
 
   const argentinaZoneHeatmap = useMemo(() => {
     if (!overview) {
@@ -3714,6 +3791,7 @@ export default function AdminPage() {
     overview.lists.registeredUsersByZone.forEach((item) => {
       const users = Number(item.users_count || 0);
       if (!users) return;
+
       totalUsers += users;
       const anchor = getAnchorByZone(item.zone);
       if (!anchor) {
@@ -5259,10 +5337,10 @@ export default function AdminPage() {
                         <div className="max-w-2xl">
                           <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Admin overview</p>
                           <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">
-                            Dashboard ejecutivo limpio
+                            Qué requiere atención hoy
                           </h3>
                           <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
-                            Ordenamos el resumen para que puedas leer el estado comercial, operativo y de soporte en pocos segundos, sin bloques vacíos ni ruido visual.
+                            El resumen prioriza accesos, soporte, cobros y bloqueos activos para que la primera lectura ya te diga dónde intervenir.
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -5273,8 +5351,15 @@ export default function AdminPage() {
                             MRR {formatCurrency(overview.kpis.mrr)}
                           </span>
                           <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
-                            ARR {formatCurrency(overview.kpis.arr)}
+                            7d {formatNumber(overview.kpis.visitsLast7)} visitas
                           </span>
+                          <button
+                            type="button"
+                            onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
+                            className="rounded-full border border-[#f2d7b6] bg-[#fff4e4] px-3 py-1.5 font-semibold text-[#a8651a] transition hover:border-[#ffbf73] hover:bg-[#fffaef]"
+                          >
+                            Reiniciar base
+                          </button>
                         </div>
                       </div>
 
@@ -5327,19 +5412,15 @@ export default function AdminPage() {
                     <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Control del resumen</p>
-                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Contador reiniciado</h3>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Bandeja inmediata</p>
+                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Tareas para mover ahora</h3>
                           <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                            El dashboard compara contra una base local. Puedes reiniciar el contador cuando quieras para volver a cero la observación del resumen.
+                            Atajos directos a las áreas que hoy tienen fricción o requieren decisión.
                           </p>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
-                          className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-4 py-2 text-xs font-semibold text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.92)] transition hover:-translate-y-0.5 hover:brightness-105"
-                        >
-                          Reiniciar contador
-                        </button>
+                        <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                          Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
+                        </span>
                       </div>
 
                       <div className="mt-5 space-y-3">
@@ -5348,6 +5429,29 @@ export default function AdminPage() {
                             <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
                             <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
                             <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
+                            <div className="mt-3 flex justify-end">
+                              {row.tab ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (row.tab) {
+                                      setActiveTab(row.tab);
+                                    }
+                                  }}
+                                  className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
+                                >
+                                  {row.cta}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
+                                  className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-3 py-1.5 text-[11px] font-semibold text-[#2a0338] transition hover:brightness-105"
+                                >
+                                  {row.cta}
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
