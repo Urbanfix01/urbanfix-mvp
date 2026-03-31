@@ -34,7 +34,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<AuthNavProfile | null>(null);
   const isCreateRequestActive = activeHref === '/cliente';
-  const isDownloadActive = activeHref === '/descargar-app';
+  const isDemoActive = activeHref === '/descargar-app';
   const isPlatformActive = activeHref === '/tecnicos';
   const isAccountAreaActive = activeHref === '/tecnicos' || activeHref === '/cliente';
   const panelHref = activeHref === '/cliente' ? '/cliente' : '/tecnicos';
@@ -163,12 +163,12 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
           <a
             href="/descargar-app"
             className={`hidden ${platformButtonClass} xl:inline-flex ${
-              isDownloadActive
+              isDemoActive
                 ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
                 : 'border-[#ff8f1f]/80 bg-[#ff8f1f] text-[#2a0338] hover:bg-[#ffad56]'
             }`}
           >
-            Descargar app
+            Solicitar demo
           </a>
 
           {isAuthenticated ? (
@@ -234,12 +234,12 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
               href="/descargar-app"
               onClick={() => setMenuOpen(false)}
               className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
-                isDownloadActive
+                isDemoActive
                   ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
                   : 'border-[#ff8f1f]/80 bg-[#ff8f1f] text-[#2a0338] hover:bg-[#ffad56]'
               }`}
             >
-              Descargar app
+              Solicitar demo
             </a>
             {!isAuthenticated && (
               <a

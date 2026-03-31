@@ -1,29 +1,28 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
-import { ArrowUpRight, Download, MonitorSmartphone, ShieldCheck, Smartphone } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, Download, MonitorSmartphone, ShieldCheck } from 'lucide-react';
 import PublicTopNav from '../../components/PublicTopNav';
+import DemoRequestForm from './DemoRequestForm';
 
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
 });
 
-const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
-
 export const metadata: Metadata = {
-  title: 'Descargar App | UrbanFix',
+  title: 'Solicitar Demo | UrbanFix',
   description:
-    'Descarga la app de UrbanFix, entra al acceso Android disponible y revisa el estado de iOS y la plataforma web.',
+    'Solicita una demo de UrbanFix, deja tus datos y te contactamos para habilitar la prueba de la app o la plataforma web.',
   alternates: {
     canonical: '/descargar-app',
   },
 };
 
 const steps = [
-  'Abre el acceso Android y acepta participar en la prueba.',
-  'Instala UrbanFix desde Google Play con la cuenta habilitada.',
-  'Si prefieres operar desde escritorio, entra a la plataforma web.',
+  'Nos dejas tus datos y el contexto de uso que quieres probar.',
+  'Revisamos si te conviene Android, web o un acompañamiento guiado.',
+  'Te enviamos el acceso correcto y los siguientes pasos para entrar en demo.',
 ];
 
 export default function DownloadAppPage() {
@@ -41,27 +40,24 @@ export default function DownloadAppPage() {
                 <div>
                   <p className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#ff8f1f]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ffd6a6]">
                     <Download className="h-3.5 w-3.5" />
-                    Acceso a la app UrbanFix
+                    Acceso a demo UrbanFix
                   </p>
                   <h1 className="mt-4 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
-                    Descarga la app y entra a la operación desde el primer minuto.
+                    Convierte la descarga en una solicitud de demo calificada.
                   </h1>
                   <p className="mt-4 max-w-3xl text-sm leading-7 text-white/80 sm:text-base">
-                    UrbanFix ya tiene acceso Android disponible para prueba y una experiencia web completa para operar
-                    mientras iOS termina su proceso de revisión. Aquí concentramos el acceso móvil y la alternativa web
-                    en una sola vista.
+                    En vez de mandar tráfico directo a una instalación en frío, esta puerta ahora captura a quienes de
+                    verdad quieren probar UrbanFix. Déjanos tus datos, entendemos tu operación y te enviamos el acceso
+                    correcto para demo, prueba asistida o plataforma web.
                   </p>
 
                   <div className="mt-6 flex flex-wrap gap-3">
-                    <a
-                      href={ACCESS_ANDROID_URL}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex items-center gap-2 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffad56]"
+                    <Link
+                      href="#solicitar-demo"
+                      className="rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffad56]"
                     >
-                      Descargar Android
-                      <ArrowUpRight className="h-4 w-4" />
-                    </a>
+                      Ir al formulario
+                    </Link>
                     <Link
                       href="/tecnicos"
                       className="rounded-full border border-white/35 px-5 py-2.5 text-sm font-semibold text-white/92 transition hover:border-white hover:text-white"
@@ -73,30 +69,29 @@ export default function DownloadAppPage() {
                   <div className="mt-6 grid gap-3 sm:grid-cols-3">
                     <article className="rounded-[24px] border border-white/12 bg-black/25 p-4 backdrop-blur-md">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06]">
-                        <Smartphone className="h-4.5 w-4.5 text-[#ffb35e]" />
+                        <ClipboardCheck className="h-4.5 w-4.5 text-[#ffb35e]" />
                       </div>
-                      <p className="mt-4 text-base font-semibold text-white">Android disponible</p>
+                      <p className="mt-4 text-base font-semibold text-white">Lead calificado</p>
                       <p className="mt-2 text-sm leading-6 text-white/76">
-                        Acceso de prueba activo desde Google Play para instalar la app hoy.
+                        Capturas email, contexto y necesidad antes de entregar acceso a la prueba.
                       </p>
                     </article>
                     <article className="rounded-[24px] border border-white/12 bg-black/25 p-4 backdrop-blur-md">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06]">
                         <ShieldCheck className="h-4.5 w-4.5 text-[#ffb35e]" />
                       </div>
-                      <p className="mt-4 text-base font-semibold text-white">iOS en revisión</p>
+                      <p className="mt-4 text-base font-semibold text-white">Acceso controlado</p>
                       <p className="mt-2 text-sm leading-6 text-white/76">
-                        El build iOS está en proceso de validación. Mientras tanto, la operación sigue disponible en
-                        web.
+                        Evitas compartir enlaces sin contexto y decides si enviar Android, web o demo guiada.
                       </p>
                     </article>
                     <article className="rounded-[24px] border border-white/12 bg-black/25 p-4 backdrop-blur-md">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl border border-white/12 bg-white/[0.06]">
                         <MonitorSmartphone className="h-4.5 w-4.5 text-[#ffb35e]" />
                       </div>
-                      <p className="mt-4 text-base font-semibold text-white">Alternativa inmediata</p>
+                      <p className="mt-4 text-base font-semibold text-white">Ruta de onboarding</p>
                       <p className="mt-2 text-sm leading-6 text-white/76">
-                        La plataforma web permite cotizar, operar y gestionar perfiles sin esperar la descarga móvil.
+                        El formulario te deja ordenar demos, priorizar casos serios y responder con el canal correcto.
                       </p>
                     </article>
                   </div>
@@ -104,7 +99,7 @@ export default function DownloadAppPage() {
 
                 <aside className="rounded-[28px] border border-[#ff8f1f]/22 bg-[linear-gradient(135deg,rgba(255,143,31,0.12),rgba(32,5,53,0.88))] p-5 shadow-[0_24px_70px_-42px_rgba(0,0,0,0.95)] sm:p-6">
                   <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-[#ffd6a6]">
-                    Cómo empezar
+                    Cómo funciona
                   </p>
                   <ol className="mt-4 space-y-3">
                     {steps.map((step, index) => (
@@ -118,10 +113,10 @@ export default function DownloadAppPage() {
                   </ol>
 
                   <div className="mt-5 rounded-[22px] border border-white/12 bg-white/[0.04] p-4">
-                    <p className="text-sm font-semibold text-white">¿Necesitas ayuda para habilitar el acceso?</p>
+                    <p className="text-sm font-semibold text-white">¿Necesitas una llamada antes de probar?</p>
                     <p className="mt-2 text-sm leading-6 text-white/72">
-                      Si tu cuenta todavía no ve la prueba o prefieres una activación guiada, te lo resolvemos por
-                      contacto.
+                      Si quieres una demo guiada o tienes dudas sobre cómo encaja UrbanFix en tu operación, también te
+                      contactamos por el canal que prefieras.
                     </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       <Link
@@ -140,6 +135,10 @@ export default function DownloadAppPage() {
                   </div>
                 </aside>
               </div>
+            </div>
+
+            <div id="solicitar-demo" className="mt-6">
+              <DemoRequestForm />
             </div>
           </div>
         </section>
