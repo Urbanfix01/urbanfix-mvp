@@ -8,6 +8,7 @@ const navLinks = [
   { label: 'Inicio', href: '/' },
   { label: 'Servicios', href: '/urbanfix' },
   { label: 'Valores Mano de Obra', href: '/rubros' },
+  { label: 'Gremios', href: '/gremios' },
   { label: 'Ciudades', href: '/ciudades' },
   { label: 'Tecnicos disponibles', href: '/vidriera' },
 ];

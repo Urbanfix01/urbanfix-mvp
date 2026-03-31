@@ -20,6 +20,11 @@ import {
 import {
   DEFAULT_MATCH_RADIUS_KM,
 } from '../api/_shared/marketplace';
+import {
+  getGremioBySlug,
+  profileMatchesGremioQuery,
+  profileMatchesSpecialtyQuery,
+} from '../../lib/seo/gremios-data';
 import { ciudades } from '../../lib/seo/urbanfix-data';
 
 const sora = Sora({
@@ -69,6 +74,8 @@ type PublishedProfileRow = {
 
 type VidrieraSearchParams = {
   zona?: string | string[] | undefined;
+  gremio?: string | string[] | undefined;
+  especialidad?: string | string[] | undefined;
 };
 
 type VidrieraPageProps = {
@@ -169,8 +176,27 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   const zonaQueryRaw = Array.isArray(resolvedSearchParams.zona)
     ? resolvedSearchParams.zona[0] || ''
     : resolvedSearchParams.zona || '';
+  const gremioQueryRaw = Array.isArray(resolvedSearchParams.gremio)
+    ? resolvedSearchParams.gremio[0] || ''
+    : resolvedSearchParams.gremio || '';
+  const specialtyQueryRaw = Array.isArray(resolvedSearchParams.especialidad)
+    ? resolvedSearchParams.especialidad[0] || ''
+    : resolvedSearchParams.especialidad || '';
   const zonaQuery = String(zonaQueryRaw || '').trim();
+  const gremioQuery = String(gremioQueryRaw || '').trim();
+  const specialtyQuery = String(specialtyQueryRaw || '').trim();
   const zonaQueryNormalized = normalizeSearchText(zonaQuery);
+  const activeGremio = gremioQuery ? getGremioBySlug(gremioQuery) : null;
+  const featuredGremios = [
+    'electricidad',
+    'instalaciones-sanitarias',
+    'climatizacion',
+    'pintura',
+    'techistas',
+    'aberturas-y-vidrieria',
+  ]
+    .map((slug) => getGremioBySlug(slug))
+    .filter((item): item is NonNullable<typeof item> => Boolean(item));
 
   const supabase = getPublicSupabaseClient();
 
@@ -192,7 +218,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
 
   const { data: profiles, error, usedFallback } = await fetchPublishedProfiles(supabase);
   const safeProfiles = profiles.filter((row) => row.access_granted && isProfilePublished(row.profile_published) && hasWorkZoneConfigured(row));
-  const filteredProfiles = zonaQueryNormalized
+  const zoneFilteredProfiles = zonaQueryNormalized
     ? safeProfiles.filter((profile) =>
         matchesArgentinaZoneQuery(
           zonaQuery,
@@ -203,8 +229,13 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
         )
       )
     : safeProfiles;
+  const filteredProfiles = zoneFilteredProfiles.filter((profile) => {
+    if (activeGremio && !profileMatchesGremioQuery(profile.specialties, activeGremio)) return false;
+    if (specialtyQuery && !profileMatchesSpecialtyQuery(profile.specialties, specialtyQuery)) return false;
+    return true;
+  });
   const migrationMissing = usedFallback && !error;
-  const whatsappEnabledCount = safeProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
+  const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = Array.from(
     new Set([
       ...safeProfiles
@@ -286,9 +317,14 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 clearHref: '/vidriera',
                 query: zonaQuery,
                 options: zonaOptions,
-                resultLabel: zonaQuery
-                  ? `Mostrando ${filteredProfiles.length} técnico(s) para la zona "${zonaQuery}".`
-                  : `Mostrando ${filteredProfiles.length} técnico(s) en toda la vidriera.`,
+                hiddenFields: [
+                  ...(activeGremio ? [{ name: 'gremio', value: activeGremio.slug }] : []),
+                  ...(specialtyQuery ? [{ name: 'especialidad', value: specialtyQuery }] : []),
+                ],
+                resultLabel:
+                  zonaQuery || activeGremio || specialtyQuery
+                    ? `Mostrando ${filteredProfiles.length} tecnico(s) para la busqueda actual.`
+                    : `Mostrando ${filteredProfiles.length} tecnico(s) en toda la vidriera.`,
                 listAnchorId: 'vidriera-listado',
                 listLabel: 'Ver listado',
                 placeholder: 'Ingresa ciudades, provincias o barrios',
@@ -331,14 +367,84 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
             </section>
           )}
 
+          <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Filtro real por gremio</p>
+                <h2 className="mt-2 text-2xl font-semibold text-white">Segmenta tecnicos por especialidad o rubro</h2>
+                <p className="mt-2 max-w-3xl text-sm text-white/72">
+                  Puedes combinar zona con gremio y, si quieres afinar mas, con una especialidad puntual dentro del mismo gremio.
+                </p>
+              </div>
+              {(activeGremio || specialtyQuery) && (
+                <Link
+                  href={zonaQuery ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}` : '/vidriera'}
+                  className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                >
+                  Limpiar filtro de gremio
+                </Link>
+              )}
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {featuredGremios.map((gremio) => (
+                <Link
+                  key={gremio.slug}
+                  href={
+                    zonaQuery
+                      ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}&gremio=${gremio.slug}`
+                      : `/vidriera/gremio/${gremio.slug}`
+                  }
+                  className={`rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                    activeGremio?.slug === gremio.slug
+                      ? 'border-[#ff8f1f] bg-[#ff8f1f] text-[#2a0338]'
+                      : 'border-white/20 bg-white/[0.04] text-white/85 hover:border-white/35 hover:text-white'
+                  }`}
+                >
+                  {gremio.title}
+                </Link>
+              ))}
+            </div>
+
+            {activeGremio ? (
+              <div className="mt-5 rounded-2xl border border-white/12 bg-black/20 p-4">
+                <p className="text-sm font-semibold text-white">Filtro activo: {activeGremio.title}</p>
+                <p className="mt-2 text-sm leading-6 text-white/72">
+                  Usa una especialidad puntual para achicar aun mas el listado visible.
+                </p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {activeGremio.specialties.map((item) => (
+                    <Link
+                      key={item}
+                      href={
+                        zonaQuery
+                          ? `/vidriera?zona=${encodeURIComponent(zonaQuery)}&gremio=${activeGremio.slug}&especialidad=${encodeURIComponent(item)}`
+                          : `/vidriera/gremio/${activeGremio.slug}?especialidad=${encodeURIComponent(item)}`
+                      }
+                      className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        specialtyQuery === item
+                          ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
+                          : 'border-white/20 bg-white/[0.04] text-white/82 hover:border-white/35 hover:text-white'
+                      }`}
+                    >
+                      {item}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
               <p className="text-lg font-semibold text-white">
-                {zonaQuery ? 'No encontramos técnicos para esa zona.' : 'Aún no hay técnicos disponibles.'}
+                {zonaQuery || activeGremio || specialtyQuery
+                  ? 'No encontramos tecnicos para la combinacion de filtros actual.'
+                  : 'Aun no hay tecnicos disponibles.'}
               </p>
               <p className="mt-2 text-sm text-white/70">
-                {zonaQuery
-                  ? 'Prueba otra ciudad o zona, o limpia el buscador para ver toda la vidriera.'
+                {zonaQuery || activeGremio || specialtyQuery
+                  ? 'Prueba otra ciudad, otro gremio o limpia los filtros para ver toda la vidriera.'
                   : 'Para aparecer, deben confirmar publicación y cargar dirección o zona de trabajo.'}
               </p>
             </section>
@@ -354,7 +460,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
-                    Técnicos confirmados: {safeProfiles.length}
+                    Tecnicos visibles: {filteredProfiles.length}
                   </span>
                   <span className="rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-xs font-semibold text-white/90">
                     Con ubicación en mapa: {mapPoints.length}

@@ -37,6 +37,7 @@ export type PublicTechniciansMapSearchConfig = {
   clearHref: string;
   query: string;
   options: string[];
+  hiddenFields?: Array<{ name: string; value: string }>;
   resultLabel: string;
   listAnchorId?: string;
   listLabel?: string;
@@ -477,6 +478,7 @@ export default function PublicTechniciansMap({
   }
 
   const listHref = searchConfig?.listAnchorId ? `#${searchConfig.listAnchorId}` : null;
+  const hasSearchFilters = Boolean(searchConfig?.query || searchConfig?.hiddenFields?.some((field) => field.value));
 
   return (
     <section className="mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]">
@@ -488,6 +490,10 @@ export default function PublicTechniciansMap({
               action={searchConfig.actionHref}
               className="grid gap-1.5 sm:gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
             >
+              {searchConfig.hiddenFields?.map((field) => (
+                <input key={`${field.name}-${field.value}`} type="hidden" name={field.name} value={field.value} />
+              ))}
+
               <div className="min-w-0 sm:col-span-1">
                 <input
                   id="vidriera-zona"
@@ -523,7 +529,7 @@ export default function PublicTechniciansMap({
                 {userLocation.status === 'requesting' ? 'Buscando...' : 'Ubicación'}
               </button>
 
-              {searchConfig.query ? (
+              {hasSearchFilters ? (
                 <Link
                   href={searchConfig.clearHref}
                   className="inline-flex h-10 sm:h-12 items-center justify-center rounded-[18px] sm:rounded-[20px] border border-white/18 bg-white/[0.04] px-3 sm:px-4 text-xs sm:text-sm font-semibold text-white/84 transition hover:border-white/38 hover:text-white lg:block"

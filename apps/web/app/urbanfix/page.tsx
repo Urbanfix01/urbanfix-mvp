@@ -182,6 +182,11 @@ const routeCards = [
     description: 'Ingreso para publicar pedidos y revisar propuestas desde la experiencia cliente.',
   },
   {
+    title: 'Ventana de gremios',
+    href: '/gremios',
+    description: 'Indice simple con gremios de construccion, instalaciones, mantenimiento y apoyo operativo.',
+  },
+  {
     title: 'Técnicos disponibles',
     href: '/vidriera',
     description: 'Frente público con perfiles visibles, cobertura y mapa interactivo de disponibilidad.',

@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { createClient } from "@supabase/supabase-js";
+import { gremioSlugs } from "../lib/seo/gremios-data";
 import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
 
@@ -73,11 +74,31 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: "weekly",
     priority: 0.7,
   }));
+  const vidrieraGremioEntries: MetadataRoute.Sitemap = gremioSlugs.map((slug) => ({
+    url: `${baseUrl}/vidriera/gremio/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "weekly",
+    priority: 0.72,
+  }));
+  const vidrieraZonaGremioEntries: MetadataRoute.Sitemap = ciudadSlugs.flatMap((zona) =>
+    gremioSlugs.map((gremio) => ({
+      url: `${baseUrl}/vidriera/${zona}/${gremio}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.68,
+    }))
+  );
   const guiasEntries: MetadataRoute.Sitemap = guiaSlugs.map((slug) => ({
     url: `${baseUrl}/guias-precios/${slug}`,
     lastModified: new Date(),
     changeFrequency: "monthly",
     priority: 0.6,
+  }));
+  const gremiosEntries: MetadataRoute.Sitemap = gremioSlugs.map((slug) => ({
+    url: `${baseUrl}/gremios/${slug}`,
+    lastModified: new Date(),
+    changeFrequency: "monthly",
+    priority: 0.65,
   }));
 
   return [
@@ -108,12 +129,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.7,
     },
     {
+      url: `${baseUrl}/gremios`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    ...gremiosEntries,
+    {
       url: `${baseUrl}/vidriera`,
       lastModified: new Date(),
       changeFrequency: "daily",
       priority: 0.8,
     },
+    ...vidrieraGremioEntries,
     ...vidrieraZonaEntries,
+    ...vidrieraZonaGremioEntries,
     ...technicianEntries,
     {
       url: `${baseUrl}/soporte`,

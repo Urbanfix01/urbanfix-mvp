@@ -161,6 +161,12 @@ export default function HomeScrollShowcase() {
                 Ver servicios
               </Link>
               <Link
+                href="/gremios"
+                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+              >
+                Ver gremios
+              </Link>
+              <Link
                 href="/tecnicos"
                 className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
               >

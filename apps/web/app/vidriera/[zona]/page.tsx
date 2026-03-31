@@ -21,7 +21,17 @@ import {
   PUBLISHED_TECHNICIANS_SELECT_RICH,
   isMissingPublicProfileFieldError,
 } from '../../../lib/public-profile-select';
+import {
+  getGremioBySlug,
+  profileMatchesGremioQuery,
+  profileMatchesSpecialtyQuery,
+} from '../../../lib/seo/gremios-data';
 import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix-data';
+
+type VidrieraZonaSearchParams = {
+  gremio?: string | string[] | undefined;
+  especialidad?: string | string[] | undefined;
+};
 
 const sora = Sora({
   subsets: ['latin'],
@@ -156,10 +166,27 @@ const fetchPublishedProfiles = async (supabase: NonNullable<ReturnType<typeof ge
   };
 };
 
-export default async function VidrieraZonaPage({ params }: { params: Promise<{ zona: string }> }) {
+export default async function VidrieraZonaPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ zona: string }>;
+  searchParams?: Promise<VidrieraZonaSearchParams>;
+}) {
   const { zona } = await params;
   const city = ciudades[zona as CiudadKey];
   if (!city) return notFound();
+
+  const resolvedSearchParams = (await searchParams) || {};
+  const gremioQueryRaw = Array.isArray(resolvedSearchParams?.gremio)
+    ? resolvedSearchParams.gremio[0] || ''
+    : resolvedSearchParams?.gremio || '';
+  const specialtyQueryRaw = Array.isArray(resolvedSearchParams?.especialidad)
+    ? resolvedSearchParams.especialidad[0] || ''
+    : resolvedSearchParams?.especialidad || '';
+  const gremioQuery = String(gremioQueryRaw || '').trim();
+  const specialtyQuery = String(specialtyQueryRaw || '').trim();
+  const activeGremio = gremioQuery ? getGremioBySlug(gremioQuery) : null;
 
   const supabase = getPublicSupabaseClient();
   const zoneQuery = city.zoneQuery;
@@ -182,9 +209,14 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
 
   const { data: profiles, error } = await fetchPublishedProfiles(supabase);
   const safeProfiles = profiles.filter((row) => row.access_granted && row.profile_published && hasWorkZoneConfigured(row));
-  const filteredProfiles = safeProfiles.filter((profile) =>
+  const zoneFilteredProfiles = safeProfiles.filter((profile) =>
     matchesArgentinaZoneQuery(zoneQuery, profile.city, profile.coverage_area, profile.address, profile.company_address)
   );
+  const filteredProfiles = zoneFilteredProfiles.filter((profile) => {
+    if (activeGremio && !profileMatchesGremioQuery(profile.specialties, activeGremio)) return false;
+    if (specialtyQuery && !profileMatchesSpecialtyQuery(profile.specialties, specialtyQuery)) return false;
+    return true;
+  });
   const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = getArgentinaZoneSearchOptions();
   const mapPoints = filteredProfiles
@@ -306,6 +338,10 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
                 clearHref: `/vidriera/${zona}`,
                 query: city.name,
                 options: zonaOptions,
+                hiddenFields: [
+                  ...(activeGremio ? [{ name: 'gremio', value: activeGremio.slug }] : []),
+                  ...(specialtyQuery ? [{ name: 'especialidad', value: specialtyQuery }] : []),
+                ],
                 resultLabel: `Mostrando ${filteredProfiles.length} tecnico(s) visibles en ${city.name}.`,
                 listAnchorId: 'vidriera-listado',
                 listLabel: 'Ver listado',
@@ -317,11 +353,46 @@ export default async function VidrieraZonaPage({ params }: { params: Promise<{ z
         </div>
 
         <div className="mx-auto w-full max-w-7xl px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+          {(activeGremio || specialtyQuery) && (
+            <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
+              <div className="flex flex-wrap items-end justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Filtro activo</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">Vidriera segmentada en {city.name}</h2>
+                </div>
+                <Link
+                  href={`/vidriera/${zona}`}
+                  className="rounded-full border border-white/30 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
+                >
+                  Limpiar segmentacion
+                </Link>
+              </div>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {activeGremio ? (
+                  <span className="rounded-full border border-[#ff8f1f] bg-[#ff8f1f] px-3 py-2 text-xs font-semibold text-[#2a0338]">
+                    {activeGremio.title}
+                  </span>
+                ) : null}
+                {specialtyQuery ? (
+                  <span className="rounded-full border border-[#ffbf73] bg-[#ffbf73] px-3 py-2 text-xs font-semibold text-[#2a0338]">
+                    {specialtyQuery}
+                  </span>
+                ) : null}
+              </div>
+            </section>
+          )}
+
           {filteredProfiles.length === 0 ? (
             <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-8 text-center">
-              <p className="text-lg font-semibold text-white">Aun no encontramos tecnicos visibles para {city.name}.</p>
+              <p className="text-lg font-semibold text-white">
+                {activeGremio || specialtyQuery
+                  ? `No encontramos tecnicos visibles para esta segmentacion en ${city.name}.`
+                  : `Aun no encontramos tecnicos visibles para ${city.name}.`}
+              </p>
               <p className="mt-2 text-sm text-white/70">
-                La zona ya quedo lista como ruta indexable. Cuando haya perfiles publicados, esta pagina los mostrara.
+                {activeGremio || specialtyQuery
+                  ? 'Prueba otra especialidad, otro gremio o vuelve a la vidriera general de la zona.'
+                  : 'La zona ya quedo lista como ruta indexable. Cuando haya perfiles publicados, esta pagina los mostrara.'}
               </p>
             </section>
           ) : (
