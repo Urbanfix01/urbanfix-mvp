@@ -5,6 +5,7 @@ import { Manrope } from 'next/font/google';
 import { supabase } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
 import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
+import AdminDemoRequestsPanel from '../../components/admin/AdminDemoRequestsPanel';
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import AdminTechniciansUnified from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
@@ -43,6 +44,7 @@ type AdminTabKey =
   | 'actividad'
   | 'mano_obra'
   | 'solicitudes'
+  | 'demos'
   | 'newsletter'
   | 'flujo';
 type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
@@ -3821,6 +3823,7 @@ export default function AdminPage() {
     { key: 'facturacion', label: 'Facturación' },
     { key: 'mano_obra', label: 'Mano de obra' },
     { key: 'solicitudes', label: 'Solicitudes' },
+    { key: 'demos', label: 'Demos' },
     { key: 'newsletter', label: 'Newsletter' },
     { key: 'flujo', label: 'Flujo App/Web' },
     { key: 'roadmap', label: 'Roadmap' },
@@ -7916,6 +7919,9 @@ export default function AdminPage() {
           )}
           {activeTab === 'solicitudes' && session?.access_token && (
             <AdminClientRequestsPanel accessToken={session.access_token} active={activeTab === 'solicitudes'} />
+          )}
+          {activeTab === 'demos' && session?.access_token && (
+            <AdminDemoRequestsPanel accessToken={session.access_token} active={activeTab === 'demos'} />
           )}
           {activeTab === 'newsletter' && session?.access_token && (
             <AdminNewsletterPanel accessToken={session.access_token} active={activeTab === 'newsletter'} />
