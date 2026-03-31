@@ -4943,29 +4943,20 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <header className="sticky top-[73px] z-40 overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(135deg,rgba(34,6,47,0.97)_0%,rgba(42,3,56,0.96)_52%,rgba(29,8,41,0.96)_100%)] px-5 py-5 shadow-[0_24px_64px_rgba(27,10,41,0.34)] backdrop-blur-md sm:px-6">
-            <div className="pointer-events-none absolute -right-20 top-0 h-48 w-48 rounded-full bg-[#ff8f1f]/16 blur-3xl" />
-            <div className="pointer-events-none absolute left-1/3 top-0 h-40 w-40 rounded-full bg-white/6 blur-3xl" />
-            <div className="relative z-10 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff9c1a,#ff7b00)] shadow-[0_16px_34px_-18px_rgba(255,140,26,0.9)]">
-                <img src="/icon.png" alt="UrbanFix logo" className="h-7 w-7" />
-              </div>
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-white/45">UrbanFix admin control center</p>
-                <p className="text-sm font-semibold text-white">Vista activa: {activeTabLabel}</p>
-                <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
-                    {adminExecutionPulse.label}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/80">
-                    Roadmap abierto: {roadmapOpenCount}
-                  </span>
-                  <span className="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/80">
-                    Online: {presenceData?.onlineCount || 0}
-                  </span>
-                </div>
-              </div>
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-1 pt-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full border border-[#e0d0e8] bg-white/70 px-3 py-1 text-[11px] font-semibold text-[#432451] shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
+                Vista activa: {activeTabLabel}
+              </span>
+              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
+                {adminExecutionPulse.label}
+              </span>
+              <span className="rounded-full border border-[#eadff0] bg-white/72 px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                Roadmap abierto: {roadmapOpenCount}
+              </span>
+              <span className="rounded-full border border-[#eadff0] bg-white/72 px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                Online: {presenceData?.onlineCount || 0}
+              </span>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button
@@ -4980,7 +4971,7 @@ export default function AdminPage() {
                     loadFlowLayout(session.access_token);
                   }
                 }}
-                className="rounded-full border border-white/14 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:-translate-y-0.5 hover:bg-white/16"
+                className="rounded-full border border-[#d6c5df] bg-white/75 px-4 py-2 text-xs font-semibold text-[#432451] transition hover:-translate-y-0.5 hover:border-[#bea7ca] hover:bg-white"
               >
                 Actualizar
               </button>
@@ -4992,10 +4983,9 @@ export default function AdminPage() {
                 Cerrar sesión
               </button>
             </div>
-            </div>
-          </header>
+          </div>
 
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
+          <div className="grid gap-3 md:grid-cols-3">
             <article className="rounded-[28px] border border-white/10 bg-[linear-gradient(135deg,rgba(34,6,47,0.96)_0%,rgba(42,3,56,0.94)_100%)] px-4 py-4 shadow-[0_18px_38px_rgba(27,10,41,0.18)] backdrop-blur">
               <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">Foco de trabajo</p>
               <p className="mt-1 text-base font-semibold text-white">{activeTabLabel}</p>
