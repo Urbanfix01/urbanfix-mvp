@@ -5193,6 +5193,202 @@ export default function AdminPage() {
     roadmapStaleInProgressCount,
   ]);
 
+  const roadmapPrimaryCards = useMemo(() => {
+    const firstCriticalAlert = roadmapSlaAlerts.find((alert) => alert.severity === 'critical') || roadmapSlaAlerts[0] || null;
+    const topOwner = roadmapOwnerOpenLoad[0] || null;
+    const nextDueItem = roadmapDueSoonItems[0] || null;
+
+    return [
+      {
+        key: 'blocked',
+        label: 'Bloqueos activos',
+        value: formatNumber(roadmapReportTotals.blocked),
+        helper:
+          firstCriticalAlert?.detail ||
+          (roadmapReportTotals.blocked > 0
+            ? 'Hay items bloqueados que necesitan destrabe hoy.'
+            : 'Sin bloqueos activos en los filtros actuales.'),
+        deltaText: `${formatNumber(roadmapSlaSummary.critical)} críticas · ${formatNumber(roadmapSlaSummary.warning)} advertencias`,
+        deltaTone: roadmapReportTotals.blocked > 0 || roadmapSlaSummary.critical > 0 ? 'text-rose-600' : 'text-[#6c6177]',
+        icon: GitBranch,
+        cardClass: 'border-[#fee2e2] bg-[#fff7f7] text-[#180f24]',
+        iconClass: 'bg-rose-100 text-rose-600',
+      },
+      {
+        key: 'overdue',
+        label: 'ETA vencida o crítica',
+        value: formatNumber(roadmapReportTotals.overdue),
+        helper: nextDueItem
+          ? `${nextDueItem.title} vence ${formatShortDate(nextDueItem.etaDate)}`
+          : 'Sin ETAs cercanas dentro de la próxima semana.',
+        deltaText: `${formatNumber(roadmapDueSoonItems.length)} tareas en ventana de 7 días`,
+        deltaTone: roadmapReportTotals.overdue > 0 ? 'text-amber-700' : 'text-[#6c6177]',
+        icon: Activity,
+        cardClass: 'border-[#fde1c4] bg-[#fff8ef] text-[#180f24]',
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+      {
+        key: 'stale',
+        label: 'En progreso sin avance',
+        value: formatNumber(roadmapStaleInProgressCount),
+        helper:
+          roadmapStaleInProgressCount > 0
+            ? 'Items en progreso sin movimiento reciente; conviene revisar owner y ETA.'
+            : 'La ejecución activa no muestra items envejecidos.',
+        deltaText: `${formatNumber(roadmapReportTotals.inProgress)} en progreso activo`,
+        deltaTone: roadmapStaleInProgressCount > 0 ? 'text-sky-700' : 'text-[#6c6177]',
+        icon: Workflow,
+        cardClass: 'border-[#dbeafe] bg-[#f4f9ff] text-[#180f24]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        key: 'owner',
+        label: 'Presión por responsable',
+        value: topOwner ? formatNumber(topOwner.open) : '0',
+        helper: topOwner
+          ? `${topOwner.owner} lidera la carga abierta con ${formatNumber(topOwner.blocked)} bloqueados.`
+          : 'No hay responsables con carga abierta en los filtros activos.',
+        deltaText: `${formatNumber(roadmapReportTotals.open)} items abiertos filtrados`,
+        deltaTone: topOwner && topOwner.blocked > 0 ? 'text-rose-600' : 'text-[#6c6177]',
+        icon: Users,
+        cardClass: 'border-[#eadff0] bg-white/96 text-[#180f24]',
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+    ];
+  }, [roadmapDueSoonItems, roadmapOwnerOpenLoad, roadmapReportTotals.blocked, roadmapReportTotals.inProgress, roadmapReportTotals.open, roadmapReportTotals.overdue, roadmapSlaAlerts, roadmapSlaSummary.critical, roadmapSlaSummary.warning, roadmapStaleInProgressCount]);
+
+  const roadmapInsightPanels = useMemo(() => {
+    const topOwner = roadmapOwnerOpenLoad[0] || null;
+    const nextDueItem = roadmapDueSoonItems[0] || null;
+    const firstCriticalAlert = roadmapSlaAlerts.find((alert) => alert.severity === 'critical') || roadmapSlaAlerts[0] || null;
+
+    return [
+      {
+        title: 'Salud SLA',
+        value: `${formatNumber(roadmapSlaSummary.critical)} críticas · ${formatNumber(roadmapSlaSummary.warning)} warning`,
+        detail: roadmapExecutionSignal.description,
+        footnote: firstCriticalAlert ? firstCriticalAlert.title : `Current ${formatNumber(roadmapCurrentCount)} · Avance ${roadmapReportTotals.completionRate}%`,
+        icon: Hammer,
+        tone: roadmapSlaSummary.critical > 0 ? 'border-[#fee2e2] bg-[#fff7f7] text-[#9f1239]' : 'border-[#eadff0] bg-white text-[#432451]',
+        iconClass: roadmapSlaSummary.critical > 0 ? 'bg-rose-100 text-rose-600' : 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+      {
+        title: 'Próximo frente',
+        value: nextDueItem ? nextDueItem.title : 'Sin vencimientos próximos',
+        detail: nextDueItem
+          ? `${getRoadmapOwnerLabel(nextDueItem.owner)} · ${getRoadmapStatusLabel(nextDueItem.status)} · ${getRoadmapPriorityLabel(nextDueItem.priority)}`
+          : 'No hay ETAs dentro de la próxima semana para la vista actual.',
+        footnote: nextDueItem
+          ? `${formatShortDate(nextDueItem.etaDate)} · ${nextDueItem.daysToEta === 0 ? 'vence hoy' : `${nextDueItem.daysToEta} día(s)`}`
+          : `${formatNumber(roadmapDueSoonItems.length)} en ventana de 7 días`,
+        icon: Activity,
+        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        title: 'Owner bajo presión',
+        value: topOwner?.owner || 'Sin owner dominante',
+        detail: topOwner
+          ? `${formatNumber(topOwner.open)} abiertos · ${formatNumber(topOwner.inProgress)} en progreso · ${formatNumber(topOwner.blocked)} bloqueados.`
+          : 'No hay carga abierta suficiente para detectar concentración por responsable.',
+        footnote: `${formatNumber(roadmapOwnerOpenLoad.length)} owner(s) con carga abierta`,
+        icon: Users,
+        tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+    ];
+  }, [roadmapCurrentCount, roadmapDueSoonItems, roadmapExecutionSignal.description, roadmapOwnerOpenLoad, roadmapReportTotals.completionRate, roadmapSlaAlerts, roadmapSlaSummary.critical, roadmapSlaSummary.warning]);
+
+  const roadmapActionRows = useMemo(() => {
+    const firstCriticalAlert = roadmapSlaAlerts.find((alert) => alert.severity === 'critical') || null;
+    const firstBlocked = roadmapReportItems.find((item) => item.status === 'blocked') || null;
+    const nextDueItem = roadmapDueSoonItems[0] || null;
+
+    return [
+      {
+        label: 'Resolver SLA crítico',
+        value: `${formatNumber(roadmapSlaSummary.critical)} crítica(s)`,
+        detail: firstCriticalAlert?.detail || 'No hay alertas críticas listas para aplicar.',
+        tone: roadmapSlaSummary.critical > 0 ? 'text-rose-600' : 'text-[#6c6177]',
+        cta: 'Aplicar críticas',
+        action: 'critical' as const,
+        disabled: roadmapSlaSummary.critical === 0 || roadmapSlaBatchApplying,
+      },
+      {
+        label: 'Abrir bloqueados',
+        value: `${formatNumber(roadmapReportTotals.blocked)} bloqueado(s)`,
+        detail: firstBlocked
+          ? `${firstBlocked.title} · ${getRoadmapOwnerLabel(firstBlocked.owner)} · ${getRoadmapPriorityLabel(firstBlocked.priority)}`
+          : 'No hay bloqueados en la vista actual.',
+        tone: roadmapReportTotals.blocked > 0 ? 'text-rose-600' : 'text-[#6c6177]',
+        cta: 'Filtrar bloqueados',
+        action: 'blocked' as const,
+        disabled: roadmapReportTotals.blocked === 0,
+      },
+      {
+        label: 'Ordenar próximos ETAs',
+        value: `${formatNumber(roadmapDueSoonItems.length)} en 7 días`,
+        detail: nextDueItem
+          ? `${nextDueItem.title} vence ${formatShortDate(nextDueItem.etaDate)}`
+          : 'No hay ETAs próximas para priorizar.',
+        tone: roadmapDueSoonItems.length > 0 ? 'text-amber-700' : 'text-[#6c6177]',
+        cta: 'Ordenar por ETA',
+        action: 'eta' as const,
+        disabled: roadmapDueSoonItems.length === 0,
+      },
+      {
+        label: 'Exportar diagnóstico',
+        value: `${formatNumber(roadmapSlaAlerts.length)} alerta(s)`,
+        detail: 'Descarga CSV con severidad, regla, owner, prioridad y ETA para seguimiento externo.',
+        tone: roadmapSlaAlerts.length > 0 ? 'text-[#6c6177]' : 'text-slate-400',
+        cta: 'Exportar SLA',
+        action: 'export' as const,
+        disabled: roadmapSlaAlerts.length === 0,
+      },
+    ];
+  }, [roadmapDueSoonItems, roadmapReportItems, roadmapReportTotals.blocked, roadmapSlaAlerts, roadmapSlaBatchApplying, roadmapSlaSummary.critical]);
+
+  const roadmapSystemCards = useMemo(() => {
+    const topOwner = roadmapOwnerOpenLoad[0] || null;
+
+    return [
+      {
+        label: 'Avance filtrado',
+        value: `${roadmapReportTotals.completionRate}%`,
+        helper: `${formatNumber(roadmapReportTotals.done)} done de ${formatNumber(roadmapReportTotals.total)} items`,
+        tone: 'border-[#d9f0e6] bg-[#f1fbf6] text-[#166534]',
+        icon: Activity,
+        iconClass: 'bg-[#dcfce7] text-[#15803d]',
+      },
+      {
+        label: 'Backlog abierto',
+        value: formatNumber(roadmapReportTotals.open),
+        helper: `${formatNumber(roadmapReportTotals.inProgress)} en progreso · ${formatNumber(roadmapReportTotals.blocked)} bloqueados`,
+        tone: 'border-[#eadff0] bg-white text-[#432451]',
+        icon: Workflow,
+        iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
+      },
+      {
+        label: 'Tickets current',
+        value: formatNumber(roadmapCurrentCount),
+        helper: `${formatNumber(roadmapPlannedCount)} planificados · ${formatNumber(roadmapReportTotals.done)} resueltos`,
+        tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
+        icon: FileCheck2,
+        iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
+      },
+      {
+        label: 'Owner más exigido',
+        value: topOwner?.owner || 'Sin owner',
+        helper: topOwner
+          ? `${formatNumber(topOwner.open)} abiertos · ${formatNumber(topOwner.overdue)} vencidos`
+          : 'Sin concentración de carga abierta',
+        tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
+        icon: Users,
+        iconClass: 'bg-[#ffedd5] text-[#c2410c]',
+      },
+    ];
+  }, [roadmapCurrentCount, roadmapOwnerOpenLoad, roadmapPlannedCount, roadmapReportTotals.blocked, roadmapReportTotals.completionRate, roadmapReportTotals.done, roadmapReportTotals.inProgress, roadmapReportTotals.open, roadmapReportTotals.total]);
+
   if (loadingSession) {
     return (
       <div style={themeStyles} className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)]`}>
@@ -7266,26 +7462,21 @@ export default function AdminPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Producto</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Roadmap de actualizaciones</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Qué destrabar en el roadmap</h3>
                   <p className="text-sm text-slate-500">
-                    Carga mejoras, estado y feedback interno para coordinar trabajo entre equipos.
+                    El tablero prioriza bloqueos, ETA, owners sobrecargados y acciones inmediatas para mover entrega.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">
-                    Total: {roadmapTotals.total}
+                  <span className={`rounded-full px-3 py-2 text-xs font-semibold ${roadmapExecutionSignal.badgeClass}`}>
+                    Ventana 7d: {roadmapExecutionSignal.label}
                   </span>
-                  <span className="rounded-full bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                    Resueltos: {roadmapTotals.done}
+                  <span className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+                    Filtrados: {roadmapReportTotals.total}
                   </span>
-                  <span className="rounded-full bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
-                    En curso: {roadmapTotals.inProgress}
+                  <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+                    Current: {roadmapCurrentCount}
                   </span>
-                  {roadmapTotals.blocked > 0 && (
-                    <span className="rounded-full bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
-                      Bloqueados: {roadmapTotals.blocked}
-                    </span>
-                  )}
                   <button
                     type="button"
                     onClick={() => loadRoadmap(session.access_token)}
@@ -7297,51 +7488,177 @@ export default function AdminPage() {
               </div>
 
               <p className="mt-3 text-xs text-slate-500">
-                Reportes calculados con filtros activos. Ideal para status semanal y seguimiento de bloqueos.
+                La lectura inicial ya te muestra dónde intervenir hoy. El detalle analítico y la edición fina siguen disponibles más abajo.
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
-                <span className={`rounded-full px-3 py-1.5 font-semibold ${roadmapExecutionSignal.badgeClass}`}>
-                  Ventana 7d: {roadmapExecutionSignal.label}
-                </span>
-                <span className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-700">
-                  Alertas SLA activas: {roadmapSlaAlerts.length}
-                </span>
-                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">
-                  Tickets current: {roadmapCurrentCount}
-                </span>
+
+              <div className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
+                <div className={premiumPanelClass}>
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div className="max-w-2xl">
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Roadmap overview</p>
+                      <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">Prioridades del sprint operativo</h3>
+                      <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
+                        La cabecera concentra bloqueos, vencimientos, saturación por owner y señales de SLA para que la coordinación empiece por lo urgente.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
+                        Abiertos {formatNumber(roadmapReportTotals.open)}
+                      </span>
+                      <span className="rounded-full border border-[#fee2e2] bg-[#fff7f7] px-3 py-1.5 font-semibold text-rose-700">
+                        SLA {formatNumber(roadmapSlaAlerts.length)}
+                      </span>
+                      <span className="rounded-full border border-[#dbeafe] bg-[#f6faff] px-3 py-1.5 font-semibold text-[#1d4ed8]">
+                        Avance {roadmapReportTotals.completionRate}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                    {roadmapPrimaryCards.map((card) => {
+                      const Icon = card.icon;
+                      return (
+                        <article
+                          key={card.key}
+                          className={`rounded-[26px] border p-4 shadow-[0_14px_28px_rgba(31,10,46,0.08)] ${card.cardClass}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{card.label}</p>
+                              <p className="mt-3 text-2xl font-semibold text-[#180f24]">{card.value}</p>
+                            </div>
+                            <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                              <Icon className="h-5 w-5" />
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs leading-6 text-[#6c6177]">{card.helper}</p>
+                          <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-5 grid gap-4 xl:grid-cols-3">
+                    {roadmapInsightPanels.map((panel) => {
+                      const Icon = panel.icon;
+                      return (
+                        <article key={panel.title} className={`rounded-[26px] border p-5 shadow-[0_12px_26px_rgba(31,10,46,0.07)] ${panel.tone}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
+                              <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
+                            </div>
+                            <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
+                              <Icon className="h-5 w-5" />
+                            </span>
+                          </div>
+                          <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
+                          <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
+                        </article>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Bandeja de producto</p>
+                      <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para mover entrega</h3>
+                      <p className="mt-2 text-sm leading-7 text-[#6c6177]">
+                        Atajos para aplicar SLA, abrir bloqueos, ordenar vencimientos y sacar un diagnóstico exportable.
+                      </p>
+                    </div>
+                    <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                      {formatNumber(roadmapOwnerOpenLoad.length)} owner(s) en carga
+                    </span>
+                  </div>
+
+                  <div className="mt-5 space-y-3">
+                    {roadmapActionRows.map((row) => (
+                      <div key={row.label} className="rounded-[22px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
+                        <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
+                        <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
+                        <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
+                        <div className="mt-3 flex justify-end">
+                          <button
+                            type="button"
+                            disabled={row.disabled}
+                            onClick={() => {
+                              if (row.action === 'critical') {
+                                void runRoadmapSlaBatchAction('critical');
+                                return;
+                              }
+                              if (row.action === 'blocked') {
+                                setRoadmapSearch('');
+                                setRoadmapStatusFilter('blocked');
+                                setRoadmapPendingOnly(true);
+                                setRoadmapSortMode('work_priority');
+                                return;
+                              }
+                              if (row.action === 'eta') {
+                                setRoadmapSearch('');
+                                setRoadmapStatusFilter('all');
+                                setRoadmapPendingOnly(true);
+                                setRoadmapSortMode('eta');
+                                return;
+                              }
+                              downloadCsv(
+                                'roadmap_sla_alertas.csv',
+                                roadmapSlaAlerts.map((alert) => {
+                                  const item = roadmapUpdates.find((entry) => entry.id === alert.roadmapId);
+                                  return {
+                                    severidad: alert.severity === 'critical' ? 'Crítica' : 'Advertencia',
+                                    regla: alert.rule,
+                                    titulo: alert.title,
+                                    detalle: alert.detail,
+                                    accion_sugerida: alert.actionLabel,
+                                    roadmap_id: alert.roadmapId,
+                                    estado_actual: item ? getRoadmapStatusLabel(item.status) : '',
+                                    prioridad: item ? getRoadmapPriorityLabel(item.priority) : '',
+                                    responsable: item ? getRoadmapOwnerLabel(item.owner) : '',
+                                    eta: item?.eta_date || '',
+                                  };
+                                })
+                              );
+                            }}
+                            className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc] disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            {row.cta}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </aside>
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                <div className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Avance</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{roadmapReportTotals.completionRate}%</p>
-                  <p className="text-xs text-slate-500">Done / Total filtrado</p>
+              <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {roadmapSystemCards.map((card) => {
+                  const Icon = card.icon;
+                  return (
+                    <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
+                          <p className="mt-3 text-2xl font-semibold">{card.value}</p>
+                        </div>
+                        <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                          <Icon className="h-5 w-5" />
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
+                    </article>
+                  );
+                })}
+              </section>
+
+              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Profundidad operativa</p>
+                  <p className="text-sm font-semibold text-slate-900">Diagnóstico, capacidad y tendencias del roadmap</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200/80 bg-white/95 px-4 py-3 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pendientes</p>
-                  <p className="mt-1 text-2xl font-semibold text-slate-900">{roadmapReportTotals.open}</p>
-                  <p className="text-xs text-slate-500">No resueltos</p>
-                </div>
-                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Bloqueados</p>
-                  <p className="mt-1 text-2xl font-semibold text-rose-700">{roadmapReportTotals.blocked}</p>
-                  <p className="text-xs text-rose-600">Necesitan destrabe</p>
-                </div>
-                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-amber-600">Vencidos</p>
-                  <p className="mt-1 text-2xl font-semibold text-amber-700">{roadmapReportTotals.overdue}</p>
-                  <p className="text-xs text-amber-700">ETA pasada</p>
-                </div>
-                <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-sky-600">En progreso</p>
-                  <p className="mt-1 text-2xl font-semibold text-sky-700">{roadmapReportTotals.inProgress}</p>
-                  <p className="text-xs text-sky-700">Ejecución activa</p>
-                </div>
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-emerald-600">Resueltos</p>
-                  <p className="mt-1 text-2xl font-semibold text-emerald-700">{roadmapReportTotals.done}</p>
-                  <p className="text-xs text-emerald-700">Cerrados</p>
-                </div>
+                <span className="text-xs text-slate-500">Herramientas de análisis y seguimiento fino</span>
               </div>
 
               <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
