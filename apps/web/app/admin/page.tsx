@@ -4771,11 +4771,28 @@ export default function AdminPage() {
   }, [roadmapOpenCount, roadmapTotals.blocked]);
 
   const premiumSurfaceClass =
-    'rounded-[30px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(250,244,250,0.95)_100%)] p-6 shadow-[0_20px_46px_rgba(31,10,46,0.12)] backdrop-blur-[3px]';
+    'rounded-[30px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(250,244,250,0.95)_100%)] p-5 shadow-[0_16px_34px_rgba(31,10,46,0.10)] backdrop-blur-[3px] lg:p-6';
   const premiumPanelClass =
-    'rounded-[28px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_14px_32px_rgba(31,10,46,0.09)]';
+    'rounded-[28px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-5 shadow-[0_12px_24px_rgba(31,10,46,0.08)] lg:p-6';
   const premiumMutedPanelClass =
-    'rounded-[24px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,252,248,0.98)_0%,rgba(248,242,249,0.94)_100%)] p-4 shadow-[0_10px_24px_rgba(31,10,46,0.06)]';
+    'rounded-[24px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,252,248,0.98)_0%,rgba(248,242,249,0.94)_100%)] p-4 shadow-[0_8px_18px_rgba(31,10,46,0.05)]';
+  const adminDashboardEyebrowClass = 'text-[11px] uppercase tracking-[0.22em] text-[#6c6177]';
+  const adminDashboardTitleClass = 'mt-2 text-[clamp(1.55rem,2.4vw,2.2rem)] font-semibold leading-[1.08] text-[#180f24]';
+  const adminDashboardDescriptionClass = 'mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]';
+  const adminDashboardChipClass =
+    'rounded-full border border-[#eadff0] bg-white/92 px-3 py-1.5 font-semibold text-[#432451] shadow-[0_8px_18px_rgba(31,10,46,0.05)]';
+  const adminDashboardActionChipClass =
+    'rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]';
+  const adminPrimaryCardBaseClass =
+    'rounded-[24px] border p-4 shadow-[0_12px_22px_rgba(31,10,46,0.07)]';
+  const adminInsightPanelBaseClass =
+    'rounded-[24px] border p-5 shadow-[0_10px_22px_rgba(31,10,46,0.06)]';
+  const adminActionPanelClass =
+    'rounded-[30px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-5 shadow-[0_16px_30px_rgba(31,10,46,0.09)] lg:p-6';
+  const adminActionRowClass =
+    'rounded-[20px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_8px_18px_rgba(31,10,46,0.05)]';
+  const adminSystemCardBaseClass =
+    'rounded-[24px] border p-5 shadow-[0_12px_24px_rgba(31,10,46,0.07)]';
 
   const roadmapReportItems = filteredRoadmapUpdates;
 
@@ -5744,22 +5761,22 @@ export default function AdminPage() {
                     <div className={premiumSurfaceClass}>
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="max-w-2xl">
-                          <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Admin overview</p>
-                          <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">
+                          <p className={adminDashboardEyebrowClass}>Admin overview</p>
+                          <h3 className={adminDashboardTitleClass}>
                             Qué requiere atención hoy
                           </h3>
-                          <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
+                          <p className={adminDashboardDescriptionClass}>
                             El resumen prioriza accesos, soporte, cobros y bloqueos activos para que la primera lectura ya te diga dónde intervenir.
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className={`rounded-full px-3 py-1.5 font-semibold shadow-sm ${adminExecutionPulse.badgeClass}`}>
+                          <span className={`rounded-full px-3 py-1.5 font-semibold shadow-[0_8px_18px_rgba(31,10,46,0.05)] ${adminExecutionPulse.badgeClass}`}>
                             {adminExecutionPulse.label}
                           </span>
-                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
+                          <span className={adminDashboardChipClass}>
                             MRR {formatCurrency(overview.kpis.mrr)}
                           </span>
-                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
+                          <span className={adminDashboardChipClass}>
                             7d {formatNumber(overview.kpis.visitsLast7)} visitas
                           </span>
                           <button
@@ -5778,7 +5795,7 @@ export default function AdminPage() {
                           return (
                             <article
                               key={card.key}
-                              className={`rounded-[26px] border p-4 shadow-[0_14px_28px_rgba(31,10,46,0.08)] ${card.cardClass}`}
+                              className={`${adminPrimaryCardBaseClass} ${card.cardClass}`}
                             >
                               <div className="flex items-start justify-between gap-3">
                                 <div>
@@ -5800,7 +5817,7 @@ export default function AdminPage() {
                         {summaryInsightPanels.map((panel) => {
                           const Icon = panel.icon;
                           return (
-                            <article key={panel.title} className={`rounded-[26px] border p-5 shadow-[0_12px_26px_rgba(31,10,46,0.07)] ${panel.tone}`}>
+                            <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
                               <div className="flex items-start justify-between gap-3">
                                 <div>
                                   <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
@@ -5818,23 +5835,23 @@ export default function AdminPage() {
                       </div>
                     </div>
 
-                    <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
+                    <aside className={adminActionPanelClass}>
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Bandeja inmediata</p>
+                          <p className={adminDashboardEyebrowClass}>Bandeja inmediata</p>
                           <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Tareas para mover ahora</h3>
                           <p className="mt-2 text-sm leading-7 text-[#6c6177]">
                             Atajos directos a las áreas que hoy tienen fricción o requieren decisión.
                           </p>
                         </div>
-                        <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                        <span className={adminDashboardActionChipClass}>
                           Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
                         </span>
                       </div>
 
                       <div className="mt-5 space-y-3">
                         {summaryMonitoringRows.map((row) => (
-                          <div key={row.label} className="rounded-[22px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
+                          <div key={row.label} className={adminActionRowClass}>
                             <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
                             <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
                             <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
@@ -5871,7 +5888,7 @@ export default function AdminPage() {
                     {summarySystemCards.map((card) => {
                       const Icon = card.icon;
                       return (
-                        <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                        <article key={card.label} className={`${adminSystemCardBaseClass} ${card.tone}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
@@ -6322,7 +6339,7 @@ export default function AdminPage() {
               <div className="mt-6 rounded-[30px] border border-slate-200/80 bg-[linear-gradient(130deg,rgba(248,250,252,0.96)_0%,rgba(240,249,255,0.9)_52%,rgba(255,255,255,0.94)_100%)] p-5 shadow-[0_16px_40px_rgba(15,23,42,0.1)]">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Caja y recurrencia</p>
+                    <p className={adminDashboardEyebrowClass}>Caja y recurrencia</p>
                     <p className="mt-1 text-sm font-semibold text-slate-800">
                       Facturación operativa desde {formatDateTime(overview.kpis.revenueSince)}
                     </p>
@@ -6385,20 +6402,20 @@ export default function AdminPage() {
                 <div className={premiumSurfaceClass}>
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="max-w-2xl">
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Facturación overview</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">Dónde está entrando la caja</h3>
-                      <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
+                      <p className={adminDashboardEyebrowClass}>Facturación overview</p>
+                      <h3 className={adminDashboardTitleClass}>Dónde está entrando la caja</h3>
+                      <p className={adminDashboardDescriptionClass}>
                         La vista abre con cobros, recurrencia, ticket y foco territorial para que en segundos sepas qué revisar, qué exportar y qué zona empujar.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
+                      <span className={adminDashboardChipClass}>
                         {billingWindow.shortLabel}
                       </span>
-                      <span className="rounded-full border border-[#dbeafe] bg-[#f6faff] px-3 py-1.5 font-semibold text-[#1d4ed8]">
+                      <span className="rounded-full border border-[#dbeafe] bg-[#f6faff] px-3 py-1.5 font-semibold text-[#1d4ed8] shadow-[0_8px_18px_rgba(31,10,46,0.05)]">
                         Total {formatCurrency(billingTimeline.totalCurrent)}
                       </span>
-                      <span className="rounded-full border border-[#fde1c4] bg-[#fff8ef] px-3 py-1.5 font-semibold text-[#c2410c]">
+                      <span className="rounded-full border border-[#fde1c4] bg-[#fff8ef] px-3 py-1.5 font-semibold text-[#c2410c] shadow-[0_8px_18px_rgba(31,10,46,0.05)]">
                         Ticket {formatCurrency(billingTimeline.averageTicketCurrent)}
                       </span>
                     </div>
@@ -6408,10 +6425,7 @@ export default function AdminPage() {
                     {billingPrimaryCards.map((card) => {
                       const Icon = card.icon;
                       return (
-                        <article
-                          key={card.key}
-                          className={`rounded-[26px] border p-4 shadow-[0_14px_28px_rgba(31,10,46,0.08)] ${card.cardClass}`}
-                        >
+                        <article key={card.key} className={`${adminPrimaryCardBaseClass} ${card.cardClass}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{card.label}</p>
@@ -6432,7 +6446,7 @@ export default function AdminPage() {
                     {billingInsightPanels.map((panel) => {
                       const Icon = panel.icon;
                       return (
-                        <article key={panel.title} className={`rounded-[26px] border p-5 shadow-[0_12px_26px_rgba(31,10,46,0.07)] ${panel.tone}`}>
+                        <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
@@ -6450,23 +6464,23 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
+                <aside className={adminActionPanelClass}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Bandeja financiera</p>
+                      <p className={adminDashboardEyebrowClass}>Bandeja financiera</p>
                       <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Qué conviene mover ahora</h3>
                       <p className="mt-2 text-sm leading-7 text-[#6c6177]">
                         Acciones rápidas para preparar exportes, seguir cobros recientes y priorizar zonas o altas de plan.
                       </p>
                     </div>
-                    <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                    <span className={adminDashboardActionChipClass}>
                       {billingExportConfig.rows.length} filas listas
                     </span>
                   </div>
 
                   <div className="mt-5 space-y-3">
                     {billingActionRows.map((row) => (
-                      <div key={row.label} className="rounded-[22px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
+                      <div key={row.label} className={adminActionRowClass}>
                         <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
                         <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
                         <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
@@ -6492,7 +6506,7 @@ export default function AdminPage() {
                 {billingSystemCards.map((card) => {
                   const Icon = card.icon;
                   return (
-                    <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                    <article key={card.label} className={`${adminSystemCardBaseClass} ${card.tone}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
@@ -7461,7 +7475,7 @@ export default function AdminPage() {
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Producto</p>
+                  <p className={adminDashboardEyebrowClass}>Producto</p>
                   <h3 className="text-lg font-semibold text-slate-900">Qué destrabar en el roadmap</h3>
                   <p className="text-sm text-slate-500">
                     El tablero prioriza bloqueos, ETA, owners sobrecargados y acciones inmediatas para mover entrega.
@@ -7495,20 +7509,20 @@ export default function AdminPage() {
                 <div className={premiumPanelClass}>
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="max-w-2xl">
-                      <p className="text-[11px] uppercase tracking-[0.24em] text-[#6c6177]">Roadmap overview</p>
-                      <h3 className="mt-2 text-2xl font-semibold text-[#180f24] sm:text-3xl">Prioridades del sprint operativo</h3>
-                      <p className="mt-3 max-w-2xl text-sm leading-7 text-[#6c6177]">
+                      <p className={adminDashboardEyebrowClass}>Roadmap overview</p>
+                      <h3 className={adminDashboardTitleClass}>Prioridades del sprint operativo</h3>
+                      <p className={adminDashboardDescriptionClass}>
                         La cabecera concentra bloqueos, vencimientos, saturación por owner y señales de SLA para que la coordinación empiece por lo urgente.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs">
-                      <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 font-semibold text-[#432451]">
+                      <span className={adminDashboardChipClass}>
                         Abiertos {formatNumber(roadmapReportTotals.open)}
                       </span>
-                      <span className="rounded-full border border-[#fee2e2] bg-[#fff7f7] px-3 py-1.5 font-semibold text-rose-700">
+                      <span className="rounded-full border border-[#fee2e2] bg-[#fff7f7] px-3 py-1.5 font-semibold text-rose-700 shadow-[0_8px_18px_rgba(31,10,46,0.05)]">
                         SLA {formatNumber(roadmapSlaAlerts.length)}
                       </span>
-                      <span className="rounded-full border border-[#dbeafe] bg-[#f6faff] px-3 py-1.5 font-semibold text-[#1d4ed8]">
+                      <span className="rounded-full border border-[#dbeafe] bg-[#f6faff] px-3 py-1.5 font-semibold text-[#1d4ed8] shadow-[0_8px_18px_rgba(31,10,46,0.05)]">
                         Avance {roadmapReportTotals.completionRate}%
                       </span>
                     </div>
@@ -7518,10 +7532,7 @@ export default function AdminPage() {
                     {roadmapPrimaryCards.map((card) => {
                       const Icon = card.icon;
                       return (
-                        <article
-                          key={card.key}
-                          className={`rounded-[26px] border p-4 shadow-[0_14px_28px_rgba(31,10,46,0.08)] ${card.cardClass}`}
-                        >
+                        <article key={card.key} className={`${adminPrimaryCardBaseClass} ${card.cardClass}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{card.label}</p>
@@ -7542,7 +7553,7 @@ export default function AdminPage() {
                     {roadmapInsightPanels.map((panel) => {
                       const Icon = panel.icon;
                       return (
-                        <article key={panel.title} className={`rounded-[26px] border p-5 shadow-[0_12px_26px_rgba(31,10,46,0.07)] ${panel.tone}`}>
+                        <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
                           <div className="flex items-start justify-between gap-3">
                             <div>
                               <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
@@ -7560,23 +7571,23 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <aside className="rounded-[32px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.98)_0%,rgba(248,241,248,0.96)_100%)] p-6 shadow-[0_18px_36px_rgba(31,10,46,0.10)]">
+                <aside className={adminActionPanelClass}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-[#6c6177]">Bandeja de producto</p>
+                      <p className={adminDashboardEyebrowClass}>Bandeja de producto</p>
                       <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para mover entrega</h3>
                       <p className="mt-2 text-sm leading-7 text-[#6c6177]">
                         Atajos para aplicar SLA, abrir bloqueos, ordenar vencimientos y sacar un diagnóstico exportable.
                       </p>
                     </div>
-                    <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                    <span className={adminDashboardActionChipClass}>
                       {formatNumber(roadmapOwnerOpenLoad.length)} owner(s) en carga
                     </span>
                   </div>
 
                   <div className="mt-5 space-y-3">
                     {roadmapActionRows.map((row) => (
-                      <div key={row.label} className="rounded-[22px] border border-[#eadff0] bg-white/92 px-4 py-4 shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
+                      <div key={row.label} className={adminActionRowClass}>
                         <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
                         <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
                         <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
@@ -7637,7 +7648,7 @@ export default function AdminPage() {
                 {roadmapSystemCards.map((card) => {
                   const Icon = card.icon;
                   return (
-                    <article key={card.label} className={`rounded-[28px] border p-5 shadow-[0_14px_30px_rgba(31,10,46,0.08)] ${card.tone}`}>
+                    <article key={card.label} className={`${adminSystemCardBaseClass} ${card.tone}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
