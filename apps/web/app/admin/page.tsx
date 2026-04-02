@@ -5549,7 +5549,7 @@ export default function AdminPage() {
             <aside
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
-              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
+              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] [height:calc(100dvh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
                 isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
               }`}
             >
@@ -5642,7 +5642,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-3 px-1 pt-1">
+          <div className="sticky top-[57px] z-30 mb-4 flex flex-wrap items-start justify-between gap-3 rounded-[24px] border border-white/70 bg-[rgba(250,244,249,0.88)] px-4 py-3 shadow-[0_18px_32px_rgba(31,10,46,0.08)] backdrop-blur">
             <div className="flex flex-wrap items-center gap-2">
               <span className="rounded-full border border-[#e0d0e8] bg-white/70 px-3 py-1 text-[11px] font-semibold text-[#432451] shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
                 Vista activa: {activeTabLabel}
