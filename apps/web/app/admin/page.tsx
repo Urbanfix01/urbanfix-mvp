@@ -5541,7 +5541,7 @@ export default function AdminPage() {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(42,3,56,0.16),_transparent_52%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(255,251,246,0.94)_0%,rgba(247,239,246,0.98)_52%,rgba(241,235,245,0.94)_100%)]" />
         <div className="absolute -right-28 top-10 h-72 w-72 rounded-full bg-[#ff8f1f]/14 blur-3xl" />
-        <div className="absolute bottom-0 left-0 top-0 hidden w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
+        <div className="fixed left-0 top-[57px] hidden h-[calc(100vh-57px)] [height:calc(100dvh-57px)] w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
         <div className="absolute -left-20 bottom-0 h-64 w-64 rounded-full bg-[#2a0338]/12 blur-3xl" />
 
         <div className="relative z-10 mx-auto flex w-full max-w-none gap-6 px-4 pb-24 pt-8 sm:px-6 lg:pl-[106px]">
