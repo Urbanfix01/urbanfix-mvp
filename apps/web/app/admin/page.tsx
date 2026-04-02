@@ -5585,7 +5585,7 @@ export default function AdminPage() {
                           onClick={() => setActiveTab(item.key)}
                           className={`group relative flex items-center transition ${
                             isDesktopNavExpanded
-                              ? 'w-full gap-3 rounded-r-[18px] rounded-l-none px-4 py-3.5 text-left'
+                              ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
                               : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
                           } ${
                             isActive
@@ -5594,13 +5594,13 @@ export default function AdminPage() {
                           }`}
                         >
                           <span
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl transition ${
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] transition ${
                               isActive
                                 ? 'bg-white/16 text-white'
                                 : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
                             }`}
                           >
-                            <Icon className="h-[18px] w-[18px]" />
+                            <Icon className="h-5 w-5" />
                           </span>
                           {isDesktopNavExpanded && (
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.label}</span>
