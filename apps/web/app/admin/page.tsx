@@ -5580,7 +5580,7 @@ export default function AdminPage() {
             >
               <div className="flex w-full flex-col">
                 <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 pb-2 pt-4' : 'px-2 pb-2 pt-4'}`}>
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1.5">
                     {adminNavItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activeTab === item.key;
@@ -5592,21 +5592,25 @@ export default function AdminPage() {
                           onClick={() => setActiveTab(item.key)}
                           className={`group relative flex items-center transition ${
                             isDesktopNavExpanded
-                              ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
-                              : 'mx-auto h-10 w-10 justify-center rounded-full'
+                              ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                              : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                           } ${
                             isActive
-                              ? 'bg-white/14 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]'
-                              : 'text-white/92 hover:bg-white/10 hover:text-white'
+                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
+                              : 'text-white hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           <span
-                            className="flex h-5 w-5 shrink-0 items-center justify-center text-current"
+                            className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] transition ${
+                              isActive
+                                ? 'bg-white/16 text-white'
+                                : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
+                            }`}
                           >
-                            <Icon className="h-5 w-5" />
+                            <Icon className="h-4 w-4" />
                           </span>
                           {isDesktopNavExpanded && (
-                            <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{item.label}</span>
+                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{item.label}</span>
                           )}
                           {item.badge > 0 && (
                             <span
@@ -5627,13 +5631,13 @@ export default function AdminPage() {
 
                 <div className={`${isDesktopNavExpanded ? 'px-3 pb-3 pt-2.5' : 'px-2 pb-3 pt-2.5'} border-t border-white/10`}>
                   {isDesktopNavExpanded && (
-                    <div className="mb-3 px-4">
-                      <p className="truncate text-[13px] font-medium text-white/92">{adminSidebarAccountLabel}</p>
-                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/56">Panel administrador</p>
+                    <div className="mb-2 rounded-[16px] border border-white/10 bg-white/5 px-2.5 py-2">
+                      <p className="truncate text-[13px] font-semibold text-white">{adminSidebarAccountLabel}</p>
+                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/45">Panel administrador</p>
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1.5">
                     {adminSidebarFooterActions.map((item) => {
                       const Icon = item.icon;
                       return (
@@ -5641,17 +5645,17 @@ export default function AdminPage() {
                           key={item.key}
                           href={item.href}
                           title={!isDesktopNavExpanded ? item.label : undefined}
-                          className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
+                          className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                             isDesktopNavExpanded
-                              ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
-                              : 'mx-auto h-10 w-10 justify-center rounded-full'
+                              ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                              : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                           }`}
                         >
-                          <span className="flex h-5 w-5 shrink-0 items-center justify-center text-current">
-                            <Icon className="h-5 w-5" />
+                          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                            <Icon className="h-4 w-4" />
                           </span>
                           {isDesktopNavExpanded && (
-                            <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{item.label}</span>
+                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{item.label}</span>
                           )}
                         </a>
                       );
@@ -5660,17 +5664,17 @@ export default function AdminPage() {
                       type="button"
                       title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                       onClick={handleLogout}
-                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
-                          : 'mx-auto h-10 w-10 justify-center rounded-full'
+                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-[#ff9c1a] transition group-hover:brightness-105">
-                        <LogOut className="h-5 w-5" />
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                        <LogOut className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Cerrar sesión</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesión</span>
                       )}
                     </button>
                   </div>

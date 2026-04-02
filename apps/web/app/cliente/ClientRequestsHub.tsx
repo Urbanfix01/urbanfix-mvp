@@ -820,44 +820,44 @@ export default function ClientRequestsHub() {
               <div className="flex h-full w-full flex-col justify-end">
                 <div className={`${isDesktopNavExpanded ? 'px-3 pb-3 pt-2.5' : 'px-2 pb-3 pt-2.5'} border-t border-white/10`}>
                   {isDesktopNavExpanded && (
-                    <div className="mb-3 px-4">
-                      <p className="truncate text-[13px] font-medium text-white/92">{clientSidebarAccountLabel}</p>
-                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/56">Cuenta cliente</p>
+                    <div className="mb-2 rounded-[16px] border border-white/10 bg-white/5 px-2.5 py-2">
+                      <p className="truncate text-[13px] font-semibold text-white">{clientSidebarAccountLabel}</p>
+                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/45">Cuenta cliente</p>
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-0.5">
+                  <div className="flex flex-col gap-1.5">
                     <button
                       type="button"
                       title={!isDesktopNavExpanded ? 'Perfil' : undefined}
                       onClick={() => openClientProfileSection(false)}
-                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
-                          : 'mx-auto h-10 w-10 justify-center rounded-full'
+                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-current">
-                        <User className="h-5 w-5" />
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <User className="h-4 w-4" />
                       </span>
-                      {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Perfil</span>}
+                      {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Perfil</span>}
                     </button>
 
                     <button
                       type="button"
                       title={!isDesktopNavExpanded ? 'Configuración' : undefined}
                       onClick={() => openClientProfileSection(true)}
-                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
-                          : 'mx-auto h-10 w-10 justify-center rounded-full'
+                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-current">
-                        <Settings className="h-5 w-5" />
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <Settings className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Configuración</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Configuración</span>
                       )}
                     </button>
 
@@ -865,17 +865,17 @@ export default function ClientRequestsHub() {
                       type="button"
                       title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                       onClick={handleLogout}
-                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
-                          : 'mx-auto h-10 w-10 justify-center rounded-full'
+                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-[#ff9c1a] transition group-hover:brightness-105">
-                        <LogOut className="h-5 w-5" />
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                        <LogOut className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Cerrar sesión</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesión</span>
                       )}
                     </button>
                   </div>
