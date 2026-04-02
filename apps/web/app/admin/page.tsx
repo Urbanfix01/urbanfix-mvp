@@ -10,6 +10,7 @@ import {
   FileCheck2,
   GitBranch,
   Hammer,
+  LogOut,
   Mail,
   MessageSquareMore,
   Settings,
@@ -4763,7 +4764,7 @@ export default function AdminPage() {
       {
         key: 'configuracion',
         label: 'Configuración',
-        href: '/tecnicos',
+        href: '/tecnicos?tab=perfil',
         icon: Settings,
       },
     ],
@@ -5659,6 +5660,23 @@ export default function AdminPage() {
                         </a>
                       );
                     })}
+                    <button
+                      type="button"
+                      title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
+                      onClick={handleLogout}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                        <LogOut className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">Cerrar sesión</span>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -5731,13 +5749,6 @@ export default function AdminPage() {
                 className="rounded-full border border-[#d6c5df] bg-white/75 px-4 py-2 text-xs font-semibold text-[#432451] transition hover:-translate-y-0.5 hover:border-[#bea7ca] hover:bg-white"
               >
                 Actualizar
-              </button>
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-4 py-2 text-xs font-semibold text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition hover:-translate-y-0.5 hover:brightness-105"
-              >
-                Cerrar sesión
               </button>
             </div>
           </div>

@@ -95,6 +95,34 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
   sundayTo: '13:00',
 };
 
+const isTechnicianDashboardTab = (
+  value: string
+): value is
+  | 'lobby'
+  | 'operativo'
+  | 'nuevo'
+  | 'presupuestos'
+  | 'visualizador'
+  | 'soporte'
+  | 'agenda'
+  | 'perfil'
+  | 'precios'
+  | 'historial'
+  | 'notificaciones' =>
+  [
+    'lobby',
+    'operativo',
+    'nuevo',
+    'presupuestos',
+    'visualizador',
+    'soporte',
+    'agenda',
+    'perfil',
+    'precios',
+    'historial',
+    'notificaciones',
+  ].includes(value);
+
 const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
   const match = String(value || '')
     .trim()
@@ -1467,6 +1495,10 @@ export default function TechniciansPage() {
       setRecoveryMode(true);
       setAuthError('');
       setAuthNotice('');
+    }
+    const incomingTab = (params.get('tab') || params.get('view') || '').toLowerCase();
+    if (isTechnicianDashboardTab(incomingTab)) {
+      setActiveTab(incomingTab);
     }
   }, []);
 
