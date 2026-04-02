@@ -11,8 +11,10 @@ import {
   FileText,
   Home,
   ImagePlus,
+  LogOut,
   MessageCircle,
   Search,
+  Settings,
   Tag,
   User,
   X,
@@ -1602,6 +1604,8 @@ export default function TechniciansPage() {
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
   ];
+  const technicianSidebarAccountLabel =
+    profile?.business_name || profile?.full_name || session?.user?.email || 'Tu cuenta';
 
   const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
   const activeSupportLabel = useMemo(() => {
@@ -5731,6 +5735,68 @@ export default function TechniciansPage() {
                     })}
                   </div>
                 </nav>
+
+                <div className={`${isDesktopNavExpanded ? 'px-3 pb-4 pt-3' : 'px-2 pb-4 pt-3'} border-t border-white/10`}>
+                  {isDesktopNavExpanded && (
+                    <div className="mb-3 rounded-[18px] border border-white/10 bg-white/5 px-3 py-2.5">
+                      <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/45">Cuenta técnica</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <a
+                      href={session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil'}
+                      title={!isDesktopNavExpanded ? 'Perfil' : undefined}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <User className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-sm font-semibold">Perfil</span>}
+                    </a>
+
+                    <button
+                      type="button"
+                      title={!isDesktopNavExpanded ? 'Configuración' : undefined}
+                      onClick={() => setActiveTab('perfil')}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <Settings className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">Configuración</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
+                      onClick={handleLogout}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                        <LogOut className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">Cerrar sesión</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
               </div>
             </aside>
           </div>

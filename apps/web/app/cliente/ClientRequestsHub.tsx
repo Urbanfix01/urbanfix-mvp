@@ -131,6 +131,7 @@ const clientPanelSecondaryButtonClass =
 
 export default function ClientRequestsHub() {
   const requestTitleInputRef = useRef<HTMLInputElement | null>(null);
+  const clientProfileNameInputRef = useRef<HTMLInputElement | null>(null);
   const profileIntentHandledRef = useRef(false);
   const requestIntentHandledRef = useRef(false);
   const [session, setSession] = useState<Session | null>(null);
@@ -208,6 +209,20 @@ export default function ClientRequestsHub() {
     setCreateRequestIntent(false);
     profileIntentHandledRef.current = false;
     requestIntentHandledRef.current = false;
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  const openClientProfileSection = (focusField = false) => {
+    if (typeof window === 'undefined') return;
+    document.getElementById('perfil-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (focusField) {
+      window.setTimeout(() => {
+        clientProfileNameInputRef.current?.focus();
+      }, 220);
+    }
   };
 
   const fetchRequests = async () => {
@@ -803,6 +818,20 @@ export default function ClientRequestsHub() {
               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                 Matcheadas: {requestsByStatus.matched}
               </span>
+              <button
+                type="button"
+                onClick={() => openClientProfileSection(false)}
+                className={clientPanelSecondaryButtonClass}
+              >
+                Perfil
+              </button>
+              <button
+                type="button"
+                onClick={() => openClientProfileSection(true)}
+                className={clientPanelSecondaryButtonClass}
+              >
+                Configuración
+              </button>
               <Link
                 href="/vidriera"
                 className={clientPanelSecondaryButtonClass}
@@ -818,7 +847,7 @@ export default function ClientRequestsHub() {
               </button>
               <button
                 type="button"
-                onClick={() => supabase.auth.signOut()}
+                onClick={handleLogout}
                 className={clientPanelPrimaryButtonClass}
               >
                 Cerrar sesión
@@ -901,6 +930,7 @@ export default function ClientRequestsHub() {
                 <div className="lg:col-span-2">
                   <label className="text-xs font-semibold text-slate-600">Nombre y apellido</label>
                   <input
+                    ref={clientProfileNameInputRef}
                     value={clientProfileForm.fullName}
                     onChange={(event) => setClientProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
                     className={clientPanelInputClass}
