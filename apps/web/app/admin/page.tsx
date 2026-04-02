@@ -12,8 +12,10 @@ import {
   Hammer,
   Mail,
   MessageSquareMore,
+  Settings,
   ShieldCheck,
   Sparkles,
+  User,
   Users,
   Workflow,
   Wrench,
@@ -4750,6 +4752,28 @@ export default function AdminPage() {
       })),
     [tabs, roadmapOpenCount, supportUsers.length, filteredPendingAccess.length]
   );
+  const adminSidebarFooterActions = useMemo(
+    () => [
+      {
+        key: 'perfil',
+        label: 'Perfil',
+        href: session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos',
+        icon: User,
+      },
+      {
+        key: 'configuracion',
+        label: 'Configuración',
+        href: '/tecnicos',
+        icon: Settings,
+      },
+    ],
+    [session?.user?.id]
+  );
+  const adminSidebarAccountLabel = useMemo(() => {
+    const rawEmail = String(session?.user?.email || '').trim();
+    if (!rawEmail) return 'Admin UrbanFix';
+    return rawEmail;
+  }, [session?.user?.email]);
 
   const adminExecutionPulse = useMemo(() => {
     if (roadmapTotals.blocked > 0) {
@@ -5603,6 +5627,40 @@ export default function AdminPage() {
                     })}
                   </div>
                 </nav>
+
+                <div className={`${isDesktopNavExpanded ? 'px-3 pb-4 pt-3' : 'px-2 pb-4 pt-3'} border-t border-white/10`}>
+                  {isDesktopNavExpanded && (
+                    <div className="mb-3 rounded-[18px] border border-white/10 bg-white/5 px-3 py-2.5">
+                      <p className="truncate text-sm font-semibold text-white">{adminSidebarAccountLabel}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/45">Panel administrador</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    {adminSidebarFooterActions.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <a
+                          key={item.key}
+                          href={item.href}
+                          title={!isDesktopNavExpanded ? item.label : undefined}
+                          className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                            isDesktopNavExpanded
+                              ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                              : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                          }`}
+                        >
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                            <Icon className="h-5 w-5" />
+                          </span>
+                          {isDesktopNavExpanded && (
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.label}</span>
+                          )}
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
             </aside>
           </div>
