@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import Link from 'next/link';
+import { LogOut, Settings, User } from 'lucide-react';
 import PublicTopNav from '../../components/PublicTopNav';
 
 type ClientRequestRow = {
@@ -165,6 +166,7 @@ export default function ClientRequestsHub() {
   const [nearbyError, setNearbyError] = useState('');
   const [nearbyWarning, setNearbyWarning] = useState('');
   const [nearbyCenterLabel, setNearbyCenterLabel] = useState('');
+  const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -224,6 +226,8 @@ export default function ClientRequestsHub() {
       }, 220);
     }
   };
+
+  const clientSidebarAccountLabel = clientProfileForm.fullName.trim() || session?.user?.email || 'Tu cuenta';
 
   const fetchRequests = async () => {
     if (!session?.access_token) return;
@@ -803,7 +807,85 @@ export default function ClientRequestsHub() {
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(42,3,56,0.08),_transparent_40%),radial-gradient(circle_at_right,_rgba(255,143,31,0.12),_transparent_28%)]" />
         <div className="pointer-events-none absolute -left-10 bottom-10 h-40 w-40 rounded-full bg-sky-200/30 blur-3xl" />
         <div className="pointer-events-none absolute -right-10 top-16 h-52 w-52 rounded-full bg-[#f5b942]/20 blur-3xl" />
-        <div className="relative mx-auto w-full max-w-6xl space-y-6">
+        <div className="pointer-events-none fixed left-0 top-[57px] hidden h-[calc(100vh-57px)] [height:calc(100dvh-57px)] w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
+        <div className="relative z-10 mx-auto flex w-full max-w-none gap-6 lg:pl-[106px]">
+          <div className="hidden w-[78px] shrink-0 lg:block">
+            <aside
+              onMouseEnter={() => setIsDesktopNavExpanded(true)}
+              onMouseLeave={() => setIsDesktopNavExpanded(false)}
+              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] [height:calc(100dvh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
+                isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
+              }`}
+            >
+              <div className="flex h-full w-full flex-col justify-end">
+                <div className={`${isDesktopNavExpanded ? 'px-3 pb-4 pt-3' : 'px-2 pb-4 pt-3'} border-t border-white/10`}>
+                  {isDesktopNavExpanded && (
+                    <div className="mb-3 rounded-[18px] border border-white/10 bg-white/5 px-3 py-2.5">
+                      <p className="truncate text-sm font-semibold text-white">{clientSidebarAccountLabel}</p>
+                      <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-white/45">Cuenta cliente</p>
+                    </div>
+                  )}
+
+                  <div className="flex flex-col gap-2">
+                    <button
+                      type="button"
+                      title={!isDesktopNavExpanded ? 'Perfil' : undefined}
+                      onClick={() => openClientProfileSection(false)}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <User className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-sm font-semibold">Perfil</span>}
+                    </button>
+
+                    <button
+                      type="button"
+                      title={!isDesktopNavExpanded ? 'Configuración' : undefined}
+                      onClick={() => openClientProfileSection(true)}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <Settings className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">Configuración</span>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
+                      onClick={handleLogout}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-12 w-full gap-3 rounded-r-[18px] rounded-l-none px-4 text-left'
+                          : 'mx-auto h-12 w-12 justify-center rounded-[16px]'
+                      }`}
+                    >
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[16px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                        <LogOut className="h-5 w-5" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold">Cerrar sesión</span>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <div className="mx-auto w-full max-w-6xl space-y-6">
         <header className={`${clientPanelSurfaceClass} p-6`}>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -821,14 +903,14 @@ export default function ClientRequestsHub() {
               <button
                 type="button"
                 onClick={() => openClientProfileSection(false)}
-                className={clientPanelSecondaryButtonClass}
+                className={clientPanelSecondaryButtonClass + ' lg:hidden'}
               >
                 Perfil
               </button>
               <button
                 type="button"
                 onClick={() => openClientProfileSection(true)}
-                className={clientPanelSecondaryButtonClass}
+                className={clientPanelSecondaryButtonClass + ' lg:hidden'}
               >
                 Configuración
               </button>
@@ -848,7 +930,7 @@ export default function ClientRequestsHub() {
               <button
                 type="button"
                 onClick={handleLogout}
-                className={clientPanelPrimaryButtonClass}
+                className={clientPanelPrimaryButtonClass + ' lg:hidden'}
               >
                 Cerrar sesión
               </button>
@@ -1307,6 +1389,8 @@ export default function ClientRequestsHub() {
             </article>
           </div>
         </section>
+            </div>
+          </div>
         </div>
       </div>
     </div>
