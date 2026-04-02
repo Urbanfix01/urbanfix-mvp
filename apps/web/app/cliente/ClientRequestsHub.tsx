@@ -822,7 +822,7 @@ export default function ClientRequestsHub() {
                   {isDesktopNavExpanded && (
                     <div className="mb-3 px-4">
                       <p className="truncate text-[13px] font-medium text-white/92">{clientSidebarAccountLabel}</p>
-                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/38">Cuenta cliente</p>
+                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/56">Cuenta cliente</p>
                     </div>
                   )}
 

@@ -5705,8 +5705,8 @@ export default function TechniciansPage() {
                               : 'mx-auto h-10 w-10 justify-center rounded-full'
                           } ${
                             isActive
-                              ? 'bg-white/12 text-[#ffb14d] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
-                              : 'text-white/72 hover:bg-white/8 hover:text-white'
+                              ? 'bg-white/14 text-white shadow-[inset_0_0_0_1px_rgba(255,255,255,0.1)]'
+                              : 'text-white/92 hover:bg-white/10 hover:text-white'
                           }`}
                         >
                           <span
@@ -5736,7 +5736,7 @@ export default function TechniciansPage() {
                   {isDesktopNavExpanded && (
                     <div className="mb-3 px-4">
                       <p className="truncate text-[13px] font-medium text-white/92">{technicianSidebarAccountLabel}</p>
-                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/38">Cuenta técnica</p>
+                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/56">Cuenta técnica</p>
                     </div>
                   )}
 
