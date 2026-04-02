@@ -5554,25 +5554,7 @@ export default function AdminPage() {
               }`}
             >
               <div className="flex w-full flex-col">
-                <div className={`${isDesktopNavExpanded ? 'px-4 pb-3 pt-5' : 'px-2 pb-3 pt-5'}`}>
-                  <div
-                    className={`flex items-center ${isDesktopNavExpanded ? 'gap-3 px-1' : 'justify-center'}`}
-                  >
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[linear-gradient(180deg,#ff9c1a,#ff7b00)] shadow-[0_16px_34px_-18px_rgba(255,140,26,0.9)]">
-                      <ShieldCheck className="h-5 w-5 text-[#2a0338]" />
-                    </div>
-                    {isDesktopNavExpanded && (
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/45">
-                          Plataforma
-                        </p>
-                        <p className="truncate text-sm font-semibold text-white">Admin UrbanFix</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-3' : 'px-2 py-3'}`}>
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 pb-3 pt-5' : 'px-2 pb-3 pt-5'}`}>
                   <div className="flex flex-col gap-2">
                     {adminNavItems.map((item) => {
                       const Icon = item.icon;
