@@ -1606,7 +1606,7 @@ const buildRoadmapTicketShareText = (
     '[TICKET ROADMAP URBANFIX]',
     `ID: ${item.id}`,
     `Titulo: ${item.title}`,
-    `Current: ${item.is_current ? 'si' : 'no'}`,
+    `Vigente: ${item.is_current ? 'sí' : 'no'}`,
     `Estado: ${getRoadmapStatusLabel(item.status)}`,
     `Prioridad: ${getRoadmapPriorityLabel(item.priority)}`,
     `Area: ${getRoadmapAreaLabel(item.area)}`,
@@ -3728,7 +3728,7 @@ export default function AdminPage() {
           .filter(Boolean)
           .join(' · ') || 'Hay usuarios esperando habilitación.',
         tone: 'text-[#6c6177]',
-        cta: 'Abrir accesos',
+        cta: 'Ir a accesos',
         tab: 'accesos' as AdminTabKey,
       });
     }
@@ -3741,7 +3741,7 @@ export default function AdminPage() {
           ? `${getProfileLabel(latestSupportMessage.profile)} escribió ${formatDateTime(latestSupportMessage.created_at)}`
           : 'Hay seguimiento abierto en soporte.',
         tone: supportUsers.length > 0 ? 'text-amber-700' : 'text-[#6c6177]',
-        cta: 'Ir a mensajes',
+        cta: 'Ir a soporte',
         tab: 'mensajes' as AdminTabKey,
       });
     }
@@ -3755,20 +3755,20 @@ export default function AdminPage() {
             : `${formatNumber(openRoadmapCount)} tareas abiertas`,
         detail: nextBlockedRoadmap.description || nextBlockedRoadmap.title,
         tone: blockedRoadmapCount > 0 ? 'text-rose-600' : 'text-[#6c6177]',
-        cta: 'Abrir roadmap',
+        cta: 'Ir a roadmap',
         tab: 'roadmap' as AdminTabKey,
       });
     }
 
     stableQueue.push({
-      label: 'Control del resumen',
+      label: 'Base del resumen',
       value: `Base ${formatDateTime(resolvedSummaryBaseline.setAt)}`,
       detail: getDashboardDeltaText(
         overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24,
         formatNumber
       ),
       tone: getDashboardDeltaTone(overview.kpis.visitsLast24 - resolvedSummaryBaseline.visitsLast24),
-      cta: 'Reiniciar contador',
+      cta: 'Reiniciar base',
       tab: null,
     });
 
@@ -4256,9 +4256,9 @@ export default function AdminPage() {
             )}`
           : 'No hay pagos recientes que conciliar en esta ventana.',
         tone: billingTimeline.paymentsCurrent > 0 ? 'text-emerald-700' : 'text-[#6c6177]',
-        cta: 'Preparar pagos',
+        cta: 'Usar exporte de pagos',
         exportType: 'payments' as BillingExportType,
-        prepareMessage: 'Fuente lista para exportar: pagos.',
+        prepareMessage: 'Exporte preparado: pagos.',
       },
       {
         label: 'Seguir altas de plan',
@@ -4269,9 +4269,9 @@ export default function AdminPage() {
             )}`
           : 'No hay altas nuevas de plan en el periodo actual.',
         tone: billingTimeline.subscriptionsCurrent > 0 ? 'text-[#5b3a6e]' : 'text-[#6c6177]',
-        cta: 'Preparar suscripciones',
+        cta: 'Usar exporte de suscripciones',
         exportType: 'subscriptions' as BillingExportType,
-        prepareMessage: 'Fuente lista para exportar: suscripciones.',
+        prepareMessage: 'Exporte preparado: suscripciones.',
       },
       {
         label: 'Empujar zona rentable',
@@ -4280,18 +4280,18 @@ export default function AdminPage() {
           ? `${formatCurrency(topZone.total_amount)} acumulados en ${topZone.zone}. Conviene seguir esta zona en pagos y cobertura.`
           : 'Todavía no hay concentración territorial clara para priorizar.',
         tone: topZone ? 'text-sky-700' : 'text-[#6c6177]',
-        cta: 'Preparar zonas',
+        cta: 'Usar exporte de zonas',
         exportType: 'zones' as BillingExportType,
-        prepareMessage: 'Fuente lista para exportar: zonas.',
+        prepareMessage: 'Exporte preparado: zonas.',
       },
       {
-        label: 'Export listo',
+        label: 'Exporte activo',
         value: `${formatNumber(billingExportConfig.rows.length)} registro(s)`,
         detail: `Fuente activa: ${billingExportConfig.label}. Puedes descargarla sin recalcular la vista.`,
         tone: billingExportConfig.rows.length > 0 ? 'text-[#6c6177]' : 'text-slate-400',
-        cta: 'Usar fuente actual',
+        cta: 'Usar exporte activo',
         exportType: billingExportType,
-        prepareMessage: `Fuente lista para exportar: ${billingExportConfig.label}.`,
+        prepareMessage: `Exporte preparado: ${billingExportConfig.label}.`,
       },
     ];
   }, [billingExportConfig.label, billingExportConfig.rows.length, billingExportType, billingTimeline, overview]);
@@ -5250,7 +5250,7 @@ export default function AdminPage() {
         value: formatNumber(roadmapStaleInProgressCount),
         helper:
           roadmapStaleInProgressCount > 0
-            ? 'Items en progreso sin movimiento reciente; conviene revisar owner y ETA.'
+            ? 'Items en progreso sin movimiento reciente; conviene revisar responsable y ETA.'
             : 'La ejecución activa no muestra items envejecidos.',
         deltaText: `${formatNumber(roadmapReportTotals.inProgress)} en progreso activo`,
         deltaTone: roadmapStaleInProgressCount > 0 ? 'text-sky-700' : 'text-[#6c6177]',
@@ -5303,12 +5303,12 @@ export default function AdminPage() {
         iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
       },
       {
-        title: 'Owner bajo presión',
-        value: topOwner?.owner || 'Sin owner dominante',
+        title: 'Responsable bajo presión',
+        value: topOwner?.owner || 'Sin responsable dominante',
         detail: topOwner
           ? `${formatNumber(topOwner.open)} abiertos · ${formatNumber(topOwner.inProgress)} en progreso · ${formatNumber(topOwner.blocked)} bloqueados.`
           : 'No hay carga abierta suficiente para detectar concentración por responsable.',
-        footnote: `${formatNumber(roadmapOwnerOpenLoad.length)} owner(s) con carga abierta`,
+        footnote: `${formatNumber(roadmapOwnerOpenLoad.length)} responsable(s) con carga abierta`,
         icon: Users,
         tone: 'border-[#fde1c4] bg-[#fff8ef] text-[#9a3412]',
         iconClass: 'bg-[#ffedd5] text-[#c2410c]',
@@ -5327,7 +5327,7 @@ export default function AdminPage() {
         value: `${formatNumber(roadmapSlaSummary.critical)} crítica(s)`,
         detail: firstCriticalAlert?.detail || 'No hay alertas críticas listas para aplicar.',
         tone: roadmapSlaSummary.critical > 0 ? 'text-rose-600' : 'text-[#6c6177]',
-        cta: 'Aplicar críticas',
+        cta: 'Aplicar SLA crítico',
         action: 'critical' as const,
         disabled: roadmapSlaSummary.critical === 0 || roadmapSlaBatchApplying,
       },
@@ -5338,7 +5338,7 @@ export default function AdminPage() {
           ? `${firstBlocked.title} · ${getRoadmapOwnerLabel(firstBlocked.owner)} · ${getRoadmapPriorityLabel(firstBlocked.priority)}`
           : 'No hay bloqueados en la vista actual.',
         tone: roadmapReportTotals.blocked > 0 ? 'text-rose-600' : 'text-[#6c6177]',
-        cta: 'Filtrar bloqueados',
+        cta: 'Ver bloqueados',
         action: 'blocked' as const,
         disabled: roadmapReportTotals.blocked === 0,
       },
@@ -5349,7 +5349,7 @@ export default function AdminPage() {
           ? `${nextDueItem.title} vence ${formatShortDate(nextDueItem.etaDate)}`
           : 'No hay ETAs próximas para priorizar.',
         tone: roadmapDueSoonItems.length > 0 ? 'text-amber-700' : 'text-[#6c6177]',
-        cta: 'Ordenar por ETA',
+        cta: 'Priorizar por ETA',
         action: 'eta' as const,
         disabled: roadmapDueSoonItems.length === 0,
       },
@@ -5386,7 +5386,7 @@ export default function AdminPage() {
         iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
       },
       {
-        label: 'Tickets current',
+        label: 'Items vigentes',
         value: formatNumber(roadmapCurrentCount),
         helper: `${formatNumber(roadmapPlannedCount)} planificados · ${formatNumber(roadmapReportTotals.done)} resueltos`,
         tone: 'border-[#dbeafe] bg-[#f6faff] text-[#1e3a8a]',
@@ -5394,8 +5394,8 @@ export default function AdminPage() {
         iconClass: 'bg-[#dbeafe] text-[#1d4ed8]',
       },
       {
-        label: 'Owner más exigido',
-        value: topOwner?.owner || 'Sin owner',
+        label: 'Responsable con más carga',
+        value: topOwner?.owner || 'Sin responsable',
         helper: topOwner
           ? `${formatNumber(topOwner.open)} abiertos · ${formatNumber(topOwner.overdue)} vencidos`
           : 'Sin concentración de carga abierta',
@@ -5761,7 +5761,7 @@ export default function AdminPage() {
                     <div className={premiumSurfaceClass}>
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div className="max-w-2xl">
-                          <p className={adminDashboardEyebrowClass}>Admin overview</p>
+                          <p className={adminDashboardEyebrowClass}>Resumen operativo</p>
                           <h3 className={adminDashboardTitleClass}>
                             Qué requiere atención hoy
                           </h3>
@@ -5838,10 +5838,10 @@ export default function AdminPage() {
                     <aside className={adminActionPanelClass}>
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <p className={adminDashboardEyebrowClass}>Bandeja inmediata</p>
-                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Tareas para mover ahora</h3>
+                          <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
+                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para hoy</h3>
                           <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                            Atajos directos a las áreas que hoy tienen fricción o requieren decisión.
+                            Atajos directos a las áreas que hoy tienen fricción o necesitan una decisión.
                           </p>
                         </div>
                         <span className={adminDashboardActionChipClass}>
@@ -6402,7 +6402,7 @@ export default function AdminPage() {
                 <div className={premiumSurfaceClass}>
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="max-w-2xl">
-                      <p className={adminDashboardEyebrowClass}>Facturación overview</p>
+                      <p className={adminDashboardEyebrowClass}>Facturación operativa</p>
                       <h3 className={adminDashboardTitleClass}>Dónde está entrando la caja</h3>
                       <p className={adminDashboardDescriptionClass}>
                         La vista abre con cobros, recurrencia, ticket y foco territorial para que en segundos sepas qué revisar, qué exportar y qué zona empujar.
@@ -6467,8 +6467,8 @@ export default function AdminPage() {
                 <aside className={adminActionPanelClass}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className={adminDashboardEyebrowClass}>Bandeja financiera</p>
-                      <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Qué conviene mover ahora</h3>
+                      <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
+                      <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para hoy</h3>
                       <p className="mt-2 text-sm leading-7 text-[#6c6177]">
                         Acciones rápidas para preparar exportes, seguir cobros recientes y priorizar zonas o altas de plan.
                       </p>
@@ -7156,7 +7156,7 @@ export default function AdminPage() {
                           {flowLayoutDirty ? 'Cambios sin guardar' : 'Layout sincronizado'}
                         </span>
                         <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-600">
-                          Current: {flowCurrentSource === 'remote' ? 'remoto' : flowCurrentSource === 'local' ? 'local' : 'base'}
+                          Revisión activa: {flowCurrentSource === 'remote' ? 'remota' : flowCurrentSource === 'local' ? 'local' : 'base'}
                         </span>
                       </div>
 
@@ -7489,7 +7489,7 @@ export default function AdminPage() {
                     Filtrados: {roadmapReportTotals.total}
                   </span>
                   <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                    Current: {roadmapCurrentCount}
+                    Vigentes: {roadmapCurrentCount}
                   </span>
                   <button
                     type="button"
@@ -7509,10 +7509,10 @@ export default function AdminPage() {
                 <div className={premiumPanelClass}>
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div className="max-w-2xl">
-                      <p className={adminDashboardEyebrowClass}>Roadmap overview</p>
+                      <p className={adminDashboardEyebrowClass}>Roadmap operativo</p>
                       <h3 className={adminDashboardTitleClass}>Prioridades del sprint operativo</h3>
                       <p className={adminDashboardDescriptionClass}>
-                        La cabecera concentra bloqueos, vencimientos, saturación por owner y señales de SLA para que la coordinación empiece por lo urgente.
+                        La cabecera concentra bloqueos, vencimientos, saturación por responsable y señales de SLA para que la coordinación empiece por lo urgente.
                       </p>
                     </div>
                     <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -7574,14 +7574,14 @@ export default function AdminPage() {
                 <aside className={adminActionPanelClass}>
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className={adminDashboardEyebrowClass}>Bandeja de producto</p>
-                      <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para mover entrega</h3>
+                      <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
+                      <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para hoy</h3>
                       <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                        Atajos para aplicar SLA, abrir bloqueos, ordenar vencimientos y sacar un diagnóstico exportable.
+                        Atajos para aplicar SLA, abrir bloqueos, ordenar vencimientos y descargar un diagnóstico exportable.
                       </p>
                     </div>
                     <span className={adminDashboardActionChipClass}>
-                      {formatNumber(roadmapOwnerOpenLoad.length)} owner(s) en carga
+                      {formatNumber(roadmapOwnerOpenLoad.length)} responsable(s) con carga
                     </span>
                   </div>
 
