@@ -820,36 +820,36 @@ export default function ClientRequestsHub() {
               <div className="flex h-full w-full flex-col justify-end">
                 <div className={`${isDesktopNavExpanded ? 'px-3 pb-3 pt-2.5' : 'px-2 pb-3 pt-2.5'} border-t border-white/10`}>
                   {isDesktopNavExpanded && (
-                    <div className="mb-2 rounded-[16px] border border-white/10 bg-white/5 px-2.5 py-2">
-                      <p className="truncate text-[13px] font-semibold text-white">{clientSidebarAccountLabel}</p>
-                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/45">Cuenta cliente</p>
+                    <div className="mb-3 px-4">
+                      <p className="truncate text-[13px] font-medium text-white/92">{clientSidebarAccountLabel}</p>
+                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/38">Cuenta cliente</p>
                     </div>
                   )}
 
-                  <div className="flex flex-col gap-1.5">
+                  <div className="flex flex-col gap-0.5">
                     <button
                       type="button"
                       title={!isDesktopNavExpanded ? 'Perfil' : undefined}
                       onClick={() => openClientProfileSection(false)}
-                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-r-full rounded-l-[12px] px-4 text-left'
+                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
                           : 'mx-auto h-10 w-10 justify-center rounded-full'
                       }`}
                     >
                       <span className="flex h-5 w-5 shrink-0 items-center justify-center text-current">
                         <User className="h-5 w-5" />
                       </span>
-                      {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Perfil</span>}
+                      {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Perfil</span>}
                     </button>
 
                     <button
                       type="button"
                       title={!isDesktopNavExpanded ? 'Configuración' : undefined}
                       onClick={() => openClientProfileSection(true)}
-                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-r-full rounded-l-[12px] px-4 text-left'
+                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
                           : 'mx-auto h-10 w-10 justify-center rounded-full'
                       }`}
                     >
@@ -857,7 +857,7 @@ export default function ClientRequestsHub() {
                         <Settings className="h-5 w-5" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Configuración</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Configuración</span>
                       )}
                     </button>
 
@@ -865,9 +865,9 @@ export default function ClientRequestsHub() {
                       type="button"
                       title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                       onClick={handleLogout}
-                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                      className={`group relative flex items-center text-white transition hover:bg-white/8 hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-10 w-full gap-3 rounded-r-full rounded-l-[12px] px-4 text-left'
+                          ? 'h-10 w-full gap-3 rounded-full px-4 text-left'
                           : 'mx-auto h-10 w-10 justify-center rounded-full'
                       }`}
                     >
@@ -875,7 +875,7 @@ export default function ClientRequestsHub() {
                         <LogOut className="h-5 w-5" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesión</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">Cerrar sesión</span>
                       )}
                     </button>
                   </div>
