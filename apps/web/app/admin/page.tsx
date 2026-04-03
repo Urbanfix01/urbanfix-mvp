@@ -5808,450 +5808,410 @@ export default function AdminPage() {
             <>
               {activeTab === 'resumen' && (
                 <>
-                  <section className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
-                    <div className={premiumSurfaceClass}>
-                      <div className="flex flex-wrap items-start justify-between gap-4">
-                        <div className="max-w-2xl">
-                          <p className={adminDashboardEyebrowClass}>Resumen operativo</p>
-                          <h3 className={adminDashboardTitleClass}>
-                            Qué requiere atención hoy
-                          </h3>
-                          <p className={adminDashboardDescriptionClass}>
-                            El resumen prioriza accesos, soporte, cobros y bloqueos activos para que la primera lectura ya te diga dónde intervenir.
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          <span className={`rounded-full px-3 py-1.5 font-semibold shadow-[0_8px_18px_rgba(31,10,46,0.05)] ${adminExecutionPulse.badgeClass}`}>
-                            {adminExecutionPulse.label}
-                          </span>
-                          <span className={adminDashboardChipClass}>
-                            MRR {formatCurrency(overview.kpis.mrr)}
-                          </span>
-                          <span className={adminDashboardChipClass}>
-                            7d {formatNumber(overview.kpis.visitsLast7)} visitas
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
-                            className="rounded-full border border-[#f2d7b6] bg-[#fff4e4] px-3 py-1.5 font-semibold text-[#a8651a] transition hover:border-[#ffbf73] hover:bg-[#fffaef]"
-                          >
-                            Reiniciar base
-                          </button>
-                        </div>
-                      </div>
+                  <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
+                    <div className="space-y-6">
+                      <article className="relative overflow-hidden rounded-[34px] border border-[#2f0f42] bg-[linear-gradient(145deg,#1d062a_0%,#2c0b3c_48%,#4b1764_100%)] p-6 text-white shadow-[0_32px_80px_rgba(29,6,42,0.35)]">
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,175,72,0.22),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_30%)]" />
+                        <div className="relative z-10">
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="max-w-2xl">
+                              <p className="text-[11px] uppercase tracking-[0.24em] text-white/48">Control premium</p>
+                              <h3 className="mt-3 max-w-xl text-[clamp(1.9rem,3vw,2.65rem)] font-semibold leading-tight text-white">
+                                Centro de mando para leer el estado del negocio en una sola pasada
+                              </h3>
+                              <p className="mt-4 max-w-xl text-sm leading-7 text-white/72">
+                                Reordenamos la lectura para que los frentes críticos, la operación comercial y el pulso del producto convivan en una vista ejecutiva de tres columnas.
+                              </p>
+                            </div>
 
-                      <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        {summaryPrimaryCards.map((card) => {
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className={`rounded-full px-3 py-1.5 font-semibold shadow-[0_8px_18px_rgba(0,0,0,0.16)] ${adminExecutionPulse.badgeClass}`}>
+                                {adminExecutionPulse.label}
+                              </span>
+                              <span className="rounded-full border border-white/14 bg-white/8 px-3 py-1.5 font-semibold text-white/88 backdrop-blur">
+                                Vista {activeTabLabel}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
+                                className="rounded-full border border-[#ffcf97]/40 bg-[#fff4e4] px-3 py-1.5 font-semibold text-[#8d4c12] transition hover:border-[#ffbf73] hover:bg-[#fffaef]"
+                              >
+                                Reiniciar base
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">MRR activo</p>
+                              <p className="mt-3 text-2xl font-semibold text-white">{formatCurrency(overview.kpis.mrr)}</p>
+                              <p className="mt-2 text-xs text-white/64">Facturación recurrente en la lectura actual.</p>
+                            </div>
+                            <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Visitas 7d</p>
+                              <p className="mt-3 text-2xl font-semibold text-white">{formatNumber(overview.kpis.visitsLast7)}</p>
+                              <p className="mt-2 text-xs text-white/64">Movimiento reciente sobre la experiencia pública.</p>
+                            </div>
+                            <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Base actual</p>
+                              <p className="mt-3 text-base font-semibold text-white">{formatDateTime(resolvedSummaryBaseline?.setAt || null)}</p>
+                              <p className="mt-2 text-xs text-white/64">Punto de comparación para alertas y desvíos.</p>
+                            </div>
+                          </div>
+
+                          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                            {summaryPrimaryCards.map((card) => {
+                              const Icon = card.icon;
+                              return (
+                                <article
+                                  key={card.key}
+                                  className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/48">{card.label}</p>
+                                      <p className="mt-3 text-2xl font-semibold text-white">{card.value}</p>
+                                    </div>
+                                    <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                                      <Icon className="h-5 w-5" />
+                                    </span>
+                                  </div>
+                                  <p className="mt-3 text-xs leading-6 text-white/70">{card.helper}</p>
+                                  <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </article>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {summarySystemCards.map((card) => {
                           const Icon = card.icon;
                           return (
-                            <article
-                              key={card.key}
-                              className={`${adminPrimaryCardBaseClass} ${card.cardClass}`}
-                            >
+                            <article key={card.label} className={`${adminSystemCardBaseClass} ${card.tone}`}>
                               <div className="flex items-start justify-between gap-3">
                                 <div>
-                                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{card.label}</p>
-                                  <p className="mt-3 text-2xl font-semibold text-[#180f24]">{card.value}</p>
+                                  <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
+                                  <p className="mt-3 text-2xl font-semibold">{card.value}</p>
                                 </div>
-                                <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconClass}`}>
                                   <Icon className="h-5 w-5" />
                                 </span>
                               </div>
-                              <p className="mt-3 text-xs leading-6 text-[#6c6177]">{card.helper}</p>
-                              <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
-                            </article>
-                          );
-                        })}
-                      </div>
-
-                      <div className="mt-5 grid gap-4 xl:grid-cols-3">
-                        {summaryInsightPanels.map((panel) => {
-                          const Icon = panel.icon;
-                          return (
-                            <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
-                                  <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
-                                </div>
-                                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
-                                  <Icon className="h-5 w-5" />
-                                </span>
-                              </div>
-                              <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
-                              <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
+                              <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
                             </article>
                           );
                         })}
                       </div>
                     </div>
 
-                    <aside className={adminActionPanelClass}>
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div>
-                          <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
-                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Acciones para hoy</h3>
-                          <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                            Atajos directos a las áreas que hoy tienen fricción o necesitan una decisión.
-                          </p>
-                        </div>
-                        <span className={adminDashboardActionChipClass}>
-                          Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
-                        </span>
-                      </div>
-
-                      <div className="mt-5 space-y-3">
-                        {summaryMonitoringRows.map((row) => (
-                          <div key={row.label} className={adminActionRowClass}>
-                            <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
-                            <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
-                            <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
-                            <div className="mt-3 flex justify-end">
-                              {row.tab ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (row.tab) {
-                                      setActiveTab(row.tab);
-                                    }
-                                  }}
-                                  className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
-                                >
-                                  {row.cta}
-                                </button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
-                                  className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-3 py-1.5 text-[11px] font-semibold text-[#2a0338] transition hover:brightness-105"
-                                >
-                                  {row.cta}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </aside>
-                  </section>
-
-                  <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                    {summarySystemCards.map((card) => {
-                      const Icon = card.icon;
-                      return (
-                        <article key={card.label} className={`${adminSystemCardBaseClass} ${card.tone}`}>
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
-                              <p className="mt-3 text-2xl font-semibold">{card.value}</p>
-                            </div>
-                            <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconClass}`}>
-                              <Icon className="h-5 w-5" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
-                        </article>
-                      );
-                    })}
-                  </section>
-
-                  <section className="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                    <div className={premiumPanelClass}>
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-slate-900">Google Play (Android)</h3>
-                        <span className="text-xs text-slate-400">Últimos 14 días</span>
-                      </div>
-                      {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando métricas...</p>}
-                      {playError && (
-                        <p className="mt-3 text-xs text-rose-500">
-                          {playError}
-                        </p>
-                      )}
-                      {!playLoading && !playError && !playMetrics && (
-                        <p className="mt-3 text-sm text-slate-500">
-                          Configura GOOGLE_PLAY_SERVICE_ACCOUNT_B64 y GOOGLE_PLAY_PACKAGE_NAME para ver datos.
-                        </p>
-                      )}
-                      {!playLoading && !playError && playMetrics && (
-                        <>
-                          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Instalaciones</p>
-                              <p className="mt-2 text-2xl font-semibold text-slate-900">
-                                {formatNumber(playMetrics.installs?.totalUserInstalls || 0)}
-                              </p>
-                              <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
-                            </div>
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Desinstalaciones</p>
-                              <p className="mt-2 text-2xl font-semibold text-slate-900">
-                                {formatNumber(playMetrics.installs?.totalUserUninstalls || 0)}
-                              </p>
-                              <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
-                            </div>
-                            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Crashes / ANR (7d)</p>
-                              <p className="mt-2 text-xl font-semibold text-slate-900">
-                                {`${((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}% · ${((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%`}
-                              </p>
-                              <p className="mt-1 text-[11px] text-slate-500">Crash · ANR</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-4">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">
-                              Instalaciones por día
+                    <div className="space-y-6">
+                      <aside className={adminActionPanelClass}>
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
+                            <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Frentes prioritarios</h3>
+                            <p className="mt-2 text-sm leading-7 text-[#6c6177]">
+                              Decisiones, accesos y correcciones que hoy merecen movimiento inmediato.
                             </p>
-                            <div className="mt-3 grid gap-2">
-                              {(playMetrics.installs?.series || []).slice(-14).map((row) => {
+                          </div>
+                          <span className={adminDashboardActionChipClass}>
+                            Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
+                          </span>
+                        </div>
+
+                        <div className="mt-5 space-y-3">
+                          {summaryMonitoringRows.map((row) => (
+                            <div key={row.label} className={adminActionRowClass}>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
+                              <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
+                              <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
+                              <div className="mt-3 flex justify-end">
+                                {row.tab ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (row.tab) {
+                                        setActiveTab(row.tab);
+                                      }
+                                    }}
+                                    className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
+                                  >
+                                    {row.cta}
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
+                                    className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-3 py-1.5 text-[11px] font-semibold text-[#2a0338] transition hover:brightness-105"
+                                  >
+                                    {row.cta}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </aside>
+
+                      <div className={premiumPanelClass}>
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className={adminDashboardEyebrowClass}>Google Play</p>
+                            <h3 className="mt-2 text-lg font-semibold text-slate-900">Salud de Android</h3>
+                          </div>
+                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">Últimos 14 días</span>
+                        </div>
+
+                        {playLoading && <p className="mt-4 text-sm text-slate-500">Cargando métricas...</p>}
+                        {playError && <p className="mt-4 text-xs text-rose-500">{playError}</p>}
+                        {!playLoading && !playError && !playMetrics && (
+                          <p className="mt-4 text-sm text-slate-500">
+                            Configura GOOGLE_PLAY_SERVICE_ACCOUNT_B64 y GOOGLE_PLAY_PACKAGE_NAME para ver datos.
+                          </p>
+                        )}
+
+                        {!playLoading && !playError && playMetrics && (
+                          <>
+                            <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Instalaciones</p>
+                                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(playMetrics.installs?.totalUserInstalls || 0)}</p>
+                                <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
+                              </div>
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Desinstalaciones</p>
+                                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(playMetrics.installs?.totalUserUninstalls || 0)}</p>
+                                <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
+                              </div>
+                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Crashes / ANR</p>
+                                <p className="mt-2 text-lg font-semibold text-slate-900">
+                                  {`${((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}% · ${((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%`}
+                                </p>
+                                <p className="mt-1 text-[11px] text-slate-500">Tasa 7d</p>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 space-y-2">
+                              {(playMetrics.installs?.series || []).slice(-8).map((row) => {
                                 const installs = Number(row.dailyUserInstalls || 0);
                                 const uninstalls = Number(row.dailyUserUninstalls || 0);
                                 const max = Math.max(1, installs + uninstalls);
+
                                 return (
-                                  <div
-                                    key={row.date || `${installs}-${uninstalls}`}
-                                    className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2"
-                                  >
+                                  <div key={row.date || `${installs}-${uninstalls}`} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
                                     <div className="flex items-center justify-between text-[11px] text-slate-500">
                                       <span>{row.date || ''}</span>
-                                      <span className="text-slate-600">
-                                        {installs} / {uninstalls}
-                                      </span>
+                                      <span className="text-slate-600">{installs} / {uninstalls}</span>
                                     </div>
                                     <div className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-white">
-                                      <div
-                                        className="bg-emerald-500"
-                                        style={{ width: `${(installs / max) * 100}%` }}
-                                        title={`${installs} instalaciones`}
-                                      />
-                                      <div
-                                        className="bg-rose-400"
-                                        style={{ width: `${(uninstalls / max) * 100}%` }}
-                                        title={`${uninstalls} desinstalaciones`}
-                                      />
+                                      <div className="bg-emerald-500" style={{ width: `${(installs / max) * 100}%` }} title={`${installs} instalaciones`} />
+                                      <div className="bg-rose-400" style={{ width: `${(uninstalls / max) * 100}%` }} title={`${uninstalls} desinstalaciones`} />
                                     </div>
                                   </div>
                                 );
                               })}
                             </div>
-                          </div>
-
-                          {!!playMetrics.errors?.length && (
-                            <p className="mt-3 text-[11px] text-amber-600">
-                              {playMetrics.errors.join(' • ')}
-                            </p>
-                          )}
-                        </>
-                      )}
+                          </>
+                        )}
+                      </div>
                     </div>
 
-                    <div className={premiumPanelClass}>
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold text-slate-900">Crashes y ANR</h3>
-                        <span className="text-xs text-slate-400">
-                          {playMetrics?.crashes?.lastDate || playMetrics?.anr?.lastDate || 'Últimos 14 días'}
-                        </span>
-                      </div>
-                      {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando...</p>}
-                      {!playLoading && !playError && playMetrics && (
-                        <div className="mt-4 space-y-2 text-sm text-slate-600">
-                          <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                            <span>Crash rate 7d</span>
-                            <span className="font-semibold text-slate-900">
-                              {((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}%
-                            </span>
+                    <div className="space-y-6">
+                      <article className="rounded-[30px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)]">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className={adminDashboardEyebrowClass}>Radar ejecutivo</p>
+                            <h3 className="mt-2 text-lg font-semibold text-slate-900">Alertas y narrativa</h3>
                           </div>
-                          <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                            <span>ANR rate 7d</span>
-                            <span className="font-semibold text-slate-900">
-                              {((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%
-                            </span>
-                          </div>
-                          <div className="text-[11px] text-slate-400">
-                            Datos de Play Developer Reporting. Puede tardar algunas horas tras publicar una versión.
-                          </div>
+                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">3 focos</span>
                         </div>
-                      )}
-                      {!playLoading && playError && (
-                        <p className="mt-3 text-xs text-rose-500">{playError}</p>
-                      )}
+
+                        <div className="mt-4 space-y-3">
+                          {summaryInsightPanels.map((panel) => {
+                            const Icon = panel.icon;
+                            return (
+                              <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
+                                    <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
+                                  </div>
+                                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
+                                    <Icon className="h-5 w-5" />
+                                  </span>
+                                </div>
+                                <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
+                                <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </article>
+
+                      <div className={premiumPanelClass}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">Crashes y ANR</h3>
+                          <span className="text-xs text-slate-400">{playMetrics?.crashes?.lastDate || playMetrics?.anr?.lastDate || 'Últimos 14 días'}</span>
+                        </div>
+                        {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando...</p>}
+                        {!playLoading && !playError && playMetrics && (
+                          <div className="mt-4 space-y-2 text-sm text-slate-600">
+                            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                              <span>Crash rate 7d</span>
+                              <span className="font-semibold text-slate-900">{((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}%</span>
+                            </div>
+                            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                              <span>ANR rate 7d</span>
+                              <span className="font-semibold text-slate-900">{((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%</span>
+                            </div>
+                            <div className="text-[11px] text-slate-400">
+                              Datos de Play Developer Reporting. Puede tardar algunas horas tras publicar una versión.
+                            </div>
+                          </div>
+                        )}
+                        {!playLoading && playError && <p className="mt-3 text-xs text-rose-500">{playError}</p>}
+                      </div>
                     </div>
                   </section>
 
-                  <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+                  <section className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
                     <div className="space-y-6">
                       <div className={premiumPanelClass}>
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-semibold text-slate-900">Mensajes recientes</h3>
-                      <span className="text-xs text-slate-400">Últimos 10</span>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {overview.lists.supportMessages.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay mensajes todavía.</p>
-                      )}
-                      {overview.lists.supportMessages.map((msg) => (
-                        <div
-                          key={msg.id}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <span className="font-semibold text-slate-700">
-                              {getProfileLabel(msg.profile)}
-                            </span>
-                            <span className="text-slate-400">{formatDateTime(msg.created_at)}</span>
-                          </div>
-                          <p className="mt-2 text-sm text-slate-600">{msg.body}</p>
-                          {!!msg.image_urls?.length && (
-                            <p className="mt-2 text-xs text-slate-400">
-                              {msg.image_urls.length} adjunto(s)
-                            </p>
+                          <span className="text-xs text-slate-400">Últimos 10</span>
+                        </div>
+                        <div className="mt-4 space-y-3">
+                          {overview.lists.supportMessages.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay mensajes todavía.</p>
                           )}
+                          {overview.lists.supportMessages.map((msg) => (
+                            <div key={msg.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="font-semibold text-slate-700">{getProfileLabel(msg.profile)}</span>
+                                <span className="text-slate-400">{formatDateTime(msg.created_at)}</span>
+                              </div>
+                              <p className="mt-2 text-sm text-slate-600">{msg.body}</p>
+                              {!!msg.image_urls?.length && (
+                                <p className="mt-2 text-xs text-slate-400">{msg.image_urls.length} adjunto(s)</p>
+                              )}
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  </div>
 
-                  <div className={premiumPanelClass}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                      <span className="text-xs text-slate-400">Últimos 12</span>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {overview.lists.pendingAccess.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
-                      )}
-                      {overview.lists.pendingAccess.map((user) => (
-                        <div
-                          key={user.id}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                        >
-                          <div>
-                            <p className="text-sm font-semibold text-slate-800">
-                              {getProfileLabel(user.profile || user)}
-                            </p>
-                            <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => handleSetAccess(user.id, true)}
-                            disabled={accessUpdatingId === user.id}
-                            className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                          >
-                            {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
-                          </button>
+                    <div className="space-y-6">
+                      <div className={premiumPanelClass}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
+                          <span className="text-xs text-slate-400">Últimos 12</span>
                         </div>
-                      ))}
+                        <div className="mt-4 space-y-3">
+                          {overview.lists.pendingAccess.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
+                          )}
+                          {overview.lists.pendingAccess.map((user) => (
+                            <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-800">{getProfileLabel(user.profile || user)}</p>
+                                <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleSetAccess(user.id, true)}
+                                disabled={accessUpdatingId === user.id}
+                                className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                              >
+                                {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="space-y-6">
-                  <div className={premiumPanelClass}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
-                      <span className="text-xs text-slate-400">Últimas 10</span>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {overview.lists.recentSubscriptions.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay suscripciones nuevas.</p>
-                      )}
-                      {overview.lists.recentSubscriptions.map((sub) => (
-                        <div
-                          key={sub.id}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <span className="font-semibold text-slate-700">
-                              {getProfileLabel(sub.profile)}
-                            </span>
-                            <span className="text-slate-400">{formatDateTime(sub.created_at)}</span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
-                              {sub.status || 'sin estado'}
-                            </span>
-                            {sub.plan?.name && (
-                              <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
-                                {sub.plan.name}
-                              </span>
-                            )}
-                            {sub.current_period_end && (
-                              <span className="text-[10px] text-slate-400">
-                                Renueva: {formatDateTime(sub.current_period_end)}
-                              </span>
-                            )}
-                          </div>
+                    <div className="space-y-6">
+                      <div className={premiumPanelClass}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
+                          <span className="text-xs text-slate-400">Últimas 10</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                        <div className="mt-4 space-y-3">
+                          {overview.lists.recentSubscriptions.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay suscripciones nuevas.</p>
+                          )}
+                          {overview.lists.recentSubscriptions.map((sub) => (
+                            <div key={sub.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="font-semibold text-slate-700">{getProfileLabel(sub.profile)}</span>
+                                <span className="text-slate-400">{formatDateTime(sub.created_at)}</span>
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">{sub.status || 'sin estado'}</span>
+                                {sub.plan?.name && (
+                                  <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">{sub.plan.name}</span>
+                                )}
+                                {sub.current_period_end && (
+                                  <span className="text-[10px] text-slate-400">Renueva: {formatDateTime(sub.current_period_end)}</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
 
-                  <div className={premiumPanelClass}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
-                      <span className="text-xs text-slate-400">Últimos 10</span>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {overview.lists.recentPayments.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay pagos registrados.</p>
-                      )}
-                      {overview.lists.recentPayments.map((payment) => (
-                        <div
-                          key={payment.id}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                        >
-                          <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                            <span className="font-semibold text-slate-700">
-                              {getProfileLabel(payment.profile)}
-                            </span>
-                            <span className="text-slate-400">
-                              {formatDateTime(payment.paid_at || payment.created_at)}
-                            </span>
-                          </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                            <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">
-                              {payment.status || 'sin estado'}
-                            </span>
-                            <span className="text-[11px] font-semibold text-slate-700">
-                              {formatCurrency(payment.amount)}
-                            </span>
-                          </div>
+                      <div className={premiumPanelClass}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
+                          <span className="text-xs text-slate-400">Últimos 10</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                        <div className="mt-4 space-y-3">
+                          {overview.lists.recentPayments.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay pagos registrados.</p>
+                          )}
+                          {overview.lists.recentPayments.map((payment) => (
+                            <div key={payment.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                                <span className="font-semibold text-slate-700">{getProfileLabel(payment.profile)}</span>
+                                <span className="text-slate-400">{formatDateTime(payment.paid_at || payment.created_at)}</span>
+                              </div>
+                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">{payment.status || 'sin estado'}</span>
+                                <span className="text-[11px] font-semibold text-slate-700">{formatCurrency(payment.amount)}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
 
-                  <div className={premiumPanelClass}>
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h3>
-                      <span className="text-xs text-slate-400">Últimos 30 días</span>
-                    </div>
-                    <div className="mt-4 space-y-3">
-                      {overview.lists.topScreens.length === 0 && (
-                        <p className="text-sm text-slate-500">No hay datos de navegación todavía.</p>
-                      )}
-                      {overview.lists.topScreens.map((screen) => (
-                        <div
-                          key={screen.path}
-                          className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500"
-                        >
-                          <div>
-                            <p className="text-sm font-semibold text-slate-700">{screen.path}</p>
-                            <p className="mt-1 text-[11px] text-slate-400">
-                              {screen.views} visita(s) • {screen.avg_seconds.toFixed(0)}s promedio
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold text-slate-700">
-                            {screen.total_minutes.toFixed(1)} min
-                          </span>
+                      <div className={premiumPanelClass}>
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h3>
+                          <span className="text-xs text-slate-400">Últimos 30 días</span>
                         </div>
-                      ))}
+                        <div className="mt-4 space-y-3">
+                          {overview.lists.topScreens.length === 0 && (
+                            <p className="text-sm text-slate-500">No hay datos de navegación todavía.</p>
+                          )}
+                          {overview.lists.topScreens.map((screen) => (
+                            <div key={screen.path} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                              <div>
+                                <p className="text-sm font-semibold text-slate-700">{screen.path}</p>
+                                <p className="mt-1 text-[11px] text-slate-400">{screen.views} visita(s) • {screen.avg_seconds.toFixed(0)}s promedio</p>
+                              </div>
+                              <span className="text-sm font-semibold text-slate-700">{screen.total_minutes.toFixed(1)} min</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </section>
-            </>
-          )}
+                  </section>
+                </>
+              )}
           {activeTab === 'tecnicos' && (
             <>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
