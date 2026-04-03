@@ -5843,280 +5843,65 @@ export default function TechniciansPage() {
               <div className="space-y-6">
                 {activeTab === 'lobby' && (
                   <>
-                    <section className="grid gap-6 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
-                      <div className="space-y-6">
-                        <article className="relative overflow-hidden rounded-[34px] border border-[#1f2238] bg-[linear-gradient(145deg,#0f172a_0%,#1e293b_52%,#334155_100%)] p-6 text-white shadow-[0_28px_70px_rgba(15,23,42,0.34)]">
-                          <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(245,158,11,0.18),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_28%)]" />
-                          <div className="relative z-10">
-                            <div className="flex flex-wrap items-start justify-between gap-4">
-                              <div className="max-w-2xl">
-                                <p className="text-[11px] uppercase tracking-[0.24em] text-white/45">Panel técnico</p>
-                                <h2 className="mt-3 text-[clamp(1.8rem,3vw,2.55rem)] font-semibold leading-tight text-white">
-                                  Tu centro operativo para presupuesto, ejecución y presencia pública
-                                </h2>
-                                <p className="mt-4 text-sm leading-7 text-white/72">
-                                  {lobbySetupPercent < 100
-                                    ? 'Todavía hay hitos por completar. La idea es que esta vista te diga qué cerrar primero y qué ya está produciendo.'
-                                    : 'La base ya está lista. Ahora el foco pasa a conversión, seguimiento de presupuestos y ritmo de cobro.'}
-                                </p>
-                              </div>
-
-                              <div className="min-w-[220px] rounded-[24px] border border-white/12 bg-white/8 p-4 backdrop-blur">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Setup operativo</p>
-                                    <p className="mt-2 text-3xl font-semibold text-white">{lobbySetupPercent}%</p>
-                                  </div>
-                                  <span className="rounded-full bg-white/10 px-3 py-1 text-[11px] font-semibold text-white/80">
-                                    {lobbySetupCompleted}/{lobbySetupSteps.length} listos
-                                  </span>
-                                </div>
-                                <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/12">
-                                  <div className="h-full rounded-full bg-[linear-gradient(90deg,#f59e0b,#fbbf24)]" style={{ width: `${lobbySetupPercent}%` }} />
-                                </div>
-                                <p className="mt-3 text-xs leading-6 text-white/64">
-                                  {shouldShowLobbyOnboarding ? 'Tu cuenta está en fase de activación guiada.' : 'Modo operación habilitado con base lista para escalar.'}
-                                </p>
-                              </div>
+                    <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr_1fr]">
+                      <div className="xl:col-span-2 space-y-6">
+                        <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
+                          <div className="flex flex-wrap items-start justify-between gap-4">
+                            <div className="max-w-2xl">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Clientes</p>
+                              <h2 className="mt-2 text-[clamp(1.55rem,2.5vw,2.2rem)] font-semibold leading-tight text-slate-900">
+                                Tus clientes y presupuestos en movimiento
+                              </h2>
+                              <p className="mt-3 text-sm leading-7 text-slate-600">
+                                Esta es la parte central de tu operación: quién está esperando, qué cliente avanzó y qué presupuesto necesita una acción tuya.
+                              </p>
                             </div>
-
-                            <div className="mt-6 grid gap-3 lg:grid-cols-3">
-                              {lobbySetupSteps.map((step) => (
-                                <div key={step.key} className="rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-semibold text-white">{step.title}</p>
-                                    <span
-                                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
-                                        step.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
-                                      }`}
-                                    >
-                                      {step.done ? 'Listo' : 'Pendiente'}
-                                    </span>
-                                  </div>
-                                  <p className="mt-2 text-sm leading-6 text-white/68">{step.description}</p>
-
-                                  {step.key === 'profile' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => setActiveTab('perfil')}
-                                      className="mt-4 rounded-full border border-white/18 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/28 hover:bg-white/10"
-                                    >
-                                      Abrir perfil
-                                    </button>
-                                  )}
-
-                                  {step.key === 'quotes' && (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        setQuoteFilter('all');
-                                        setActiveTab('presupuestos');
-                                      }}
-                                      className="mt-4 rounded-full border border-white/18 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/28 hover:bg-white/10"
-                                    >
-                                      Ir a presupuestos
-                                    </button>
-                                  )}
-
-                                  {step.key === 'showcase' &&
-                                    (step.done && publicProfileUrl ? (
-                                      <a
-                                        href={publicProfileUrl}
-                                        target="_blank"
-                                        rel="noreferrer"
-                                        className="mt-4 inline-flex rounded-full border border-white/18 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/28 hover:bg-white/10"
-                                      >
-                                        Ver perfil publico
-                                      </a>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        onClick={() => setActiveTab('perfil')}
-                                        className="mt-4 rounded-full border border-white/18 px-4 py-2 text-xs font-semibold text-white transition hover:border-white/28 hover:bg-white/10"
-                                      >
-                                        Preparar vidriera
-                                      </button>
-                                    ))}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </article>
-
-                        <section className="grid gap-4 md:grid-cols-2">
-                          <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-5 shadow-[0_20px_45px_rgba(15,23,42,0.08)]">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Ritmo comercial</p>
-                                <h3 className="mt-2 text-lg font-semibold text-slate-900">Embudo de presupuestos</h3>
-                              </div>
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                                {quoteStats.total} activos
-                              </span>
-                            </div>
-
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                              <button
-                                type="button"
-                                onClick={() => handleShowQuotes('all')}
-                                className="rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Total</p>
-                                    <p className="mt-3 text-2xl font-semibold text-slate-900">{quoteStats.total}</p>
-                                  </div>
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                                    <FileText className="h-5 w-5" />
-                                  </span>
-                                </div>
-                                <p className="mt-2 text-xs text-slate-500">Activos en tu cuenta</p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleShowQuotes('pending')}
-                                className="rounded-[22px] border border-amber-200 bg-[linear-gradient(180deg,#fffaf0,#fff6e5)] p-4 text-left transition hover:border-amber-300"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-amber-500">Pendientes</p>
-                                    <p className="mt-3 text-2xl font-semibold text-amber-700">{quoteStats.pending}</p>
-                                  </div>
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
-                                    <Clock className="h-5 w-5" />
-                                  </span>
-                                </div>
-                                <p className="mt-2 text-xs text-amber-700/80">Esperando respuesta o cierre</p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleShowQuotes('approved')}
-                                className="rounded-[22px] border border-emerald-200 bg-[linear-gradient(180deg,#f4fdf8,#eefcf4)] p-4 text-left transition hover:border-emerald-300"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-500">Aprobados</p>
-                                    <p className="mt-3 text-2xl font-semibold text-emerald-700">{quoteStats.approved}</p>
-                                  </div>
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-100 text-emerald-700">
-                                    <Calendar className="h-5 w-5" />
-                                  </span>
-                                </div>
-                                <p className="mt-2 text-xs text-emerald-700/80">Listos para ejecutar</p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleShowQuotes('paid')}
-                                className="rounded-[22px] border border-sky-200 bg-[linear-gradient(180deg,#f3f9ff,#eef6ff)] p-4 text-left transition hover:border-sky-300"
-                              >
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] text-sky-500">Cobrados</p>
-                                    <p className="mt-3 text-2xl font-semibold text-sky-700">{quoteStats.paid}</p>
-                                  </div>
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-100 text-sky-700">
-                                    <CreditCard className="h-5 w-5" />
-                                  </span>
-                                </div>
-                                <p className="mt-2 text-xs text-sky-700/80">Pagos ya confirmados</p>
-                              </button>
+                            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Clientes activos</p>
+                              <p className="mt-2 text-3xl font-semibold text-slate-900">{quoteStats.total}</p>
+                              <p className="text-xs text-slate-500">Presupuestos hoy en tu cuenta</p>
                             </div>
                           </div>
 
-                          <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(247,248,250,0.96))] p-5 shadow-[0_20px_45px_rgba(15,23,42,0.08)]">
-                            <div className="flex items-center justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Acciones rápidas</p>
-                                <h3 className="mt-2 text-lg font-semibold text-slate-900">Mover el negocio hoy</h3>
+                          <div className="mt-5 space-y-3">
+                            {recentQuotes.length === 0 && (
+                              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                                Todavía no hay clientes con presupuestos cargados.
                               </div>
-                              <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                                Foco diario
-                              </span>
-                            </div>
-
-                            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                            )}
+                            {recentQuotes.map((quote) => (
                               <button
+                                key={quote.id}
                                 type="button"
-                                onClick={() => setActiveTab('nuevo')}
-                                className="rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                                onClick={() => loadQuote(quote)}
+                                className="flex w-full items-center justify-between gap-4 rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
                               >
-                                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                                  <FileText className="h-5 w-5" />
-                                </span>
-                                <p className="mt-4 text-sm font-semibold text-slate-900">Nuevo presupuesto</p>
-                                <p className="mt-2 text-xs leading-6 text-slate-500">Crear uno nuevo sin salir del panel.</p>
+                                <div className="min-w-0">
+                                  <p className="truncate text-base font-semibold text-slate-900">{quote.client_name || 'Cliente sin nombre'}</p>
+                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
+                                    {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                                  </p>
+                                </div>
+                                <div className="text-right">
+                                  <p className="text-sm font-semibold text-slate-900">${(quote.total_amount || 0).toLocaleString('es-AR')}</p>
+                                  <p className="mt-1 text-xs text-slate-500">Presupuesto cargado</p>
+                                </div>
                               </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab('operativo')}
-                                className="rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                              >
-                                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                                  <Home className="h-5 w-5" />
-                                </span>
-                                <p className="mt-4 text-sm font-semibold text-slate-900">Mapa operativo</p>
-                                <p className="mt-2 text-xs leading-6 text-slate-500">Ver zona, solicitudes y trabajos propios.</p>
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => setActiveTab('perfil')}
-                                className="rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                              >
-                                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                                  <User className="h-5 w-5" />
-                                </span>
-                                <p className="mt-4 text-sm font-semibold text-slate-900">Ajustar perfil</p>
-                                <p className="mt-2 text-xs leading-6 text-slate-500">Actualizar datos, vidriera y cobertura.</p>
-                              </button>
-
-                              {publicProfileUrl ? (
-                                <a
-                                  href={publicProfileUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                                >
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                                    <Eye className="h-5 w-5" />
-                                  </span>
-                                  <p className="mt-4 text-sm font-semibold text-slate-900">Ver vidriera pública</p>
-                                  <p className="mt-2 text-xs leading-6 text-slate-500">Chequea cómo te ve el cliente final.</p>
-                                </a>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveTab('perfil')}
-                                  className="rounded-[22px] border border-slate-200 bg-white p-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                                >
-                                  <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                                    <ImagePlus className="h-5 w-5" />
-                                  </span>
-                                  <p className="mt-4 text-sm font-semibold text-slate-900">Preparar vidriera</p>
-                                  <p className="mt-2 text-xs leading-6 text-slate-500">Subir material y activar presencia pública.</p>
-                                </button>
-                              )}
-                            </div>
+                            ))}
                           </div>
-                        </section>
-                      </div>
+                        </div>
 
-                      <div className="space-y-6">
-                        <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)]">
+                        <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Facturación estimada</p>
-                              <h3 className="mt-2 text-lg font-semibold text-slate-900">Caja, cobro y mano de obra</h3>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Facturación</p>
+                              <h3 className="mt-2 text-xl font-semibold text-slate-900">Caja, cobro y mano de obra</h3>
                             </div>
                             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">6 meses</span>
                           </div>
 
-                          <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-                            <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
+                          <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                            <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
                               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
                                 <span className="h-2 w-2 rounded-full bg-slate-900" />
                                 Total
@@ -6124,7 +5909,7 @@ export default function TechniciansPage() {
                               <p className="mt-3 text-xl font-semibold text-slate-900">${quoteStats.amount.toLocaleString('es-AR')}</p>
                               <p className="mt-1 text-xs text-slate-500">Presupuestos activos.</p>
                             </div>
-                            <div className="rounded-[22px] border border-amber-200 bg-[linear-gradient(180deg,#fffaf0,#fff6e5)] px-4 py-4 shadow-sm">
+                            <div className="rounded-[24px] border border-amber-200 bg-[linear-gradient(180deg,#fffaf0,#fff6e5)] px-4 py-4 shadow-sm">
                               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-amber-500">
                                 <span className="h-2 w-2 rounded-full bg-amber-500" />
                                 Cobrado
@@ -6132,7 +5917,7 @@ export default function TechniciansPage() {
                               <p className="mt-3 text-xl font-semibold text-amber-700">${quoteStats.paidAmount.toLocaleString('es-AR')}</p>
                               <p className="mt-1 text-xs text-amber-700/70">Monto cobrado.</p>
                             </div>
-                            <div className="rounded-[22px] border border-emerald-200 bg-[linear-gradient(180deg,#f4fdf8,#eefcf4)] px-4 py-4 shadow-sm">
+                            <div className="rounded-[24px] border border-emerald-200 bg-[linear-gradient(180deg,#f4fdf8,#eefcf4)] px-4 py-4 shadow-sm">
                               <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-emerald-500">
                                 <span className="h-2 w-2 rounded-full bg-emerald-500" />
                                 Mano de obra
@@ -6142,7 +5927,7 @@ export default function TechniciansPage() {
                             </div>
                           </div>
 
-                          <div className="mt-4 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                          <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Tendencia 6 meses</p>
                               <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
@@ -6162,7 +5947,7 @@ export default function TechniciansPage() {
                             </div>
                             <svg
                               viewBox={`0 0 ${financeChart.width} ${financeChart.height}`}
-                              className="mt-3 h-24 w-full"
+                              className="mt-3 h-28 w-full"
                               role="img"
                               aria-label="Grafico de presupuestos y mano de obra"
                             >
@@ -6181,49 +5966,156 @@ export default function TechniciansPage() {
                             </svg>
                             <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
                               {financeSeries.map((item) => (
-                                <span key={item.key} className="uppercase">
-                                  {item.label}
-                                </span>
+                                <span key={item.key} className="uppercase">{item.label}</span>
                               ))}
                             </div>
                           </div>
                         </div>
+                      </div>
 
-                        <div className="rounded-[30px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_20px_45px_rgba(15,23,42,0.08)]">
+                      <div className="space-y-6">
+                        <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
                           <div className="flex items-center justify-between gap-3">
                             <div>
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Últimos presupuestos</p>
-                              <h3 className="mt-2 text-lg font-semibold text-slate-900">Actividad reciente</h3>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Acciones</p>
+                              <h3 className="mt-2 text-xl font-semibold text-slate-900">Mover la operación</h3>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab('presupuestos')}
-                              className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                            >
-                              Ver todos
-                            </button>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">Foco</span>
                           </div>
 
-                          <div className="mt-4 space-y-3">
-                            {recentQuotes.length === 0 && (
-                              <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
-                                Todavía no hay presupuestos cargados.
-                              </div>
-                            )}
-                            {recentQuotes.map((quote) => (
-                              <button
-                                key={quote.id}
-                                type="button"
-                                onClick={() => loadQuote(quote)}
-                                className="flex w-full items-center justify-between rounded-[22px] border border-slate-200 bg-slate-50 px-4 py-3 text-left text-sm transition hover:border-slate-300 hover:bg-slate-100"
+                          <div className="mt-5 space-y-3">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('nuevo')}
+                              className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                                <FileText className="h-5 w-5" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold text-slate-900">Nuevo presupuesto</span>
+                                <span className="mt-1 block text-xs text-slate-500">Cargar uno nuevo sin salir del panel.</span>
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('operativo')}
+                              className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                                <Home className="h-5 w-5" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold text-slate-900">Mapa operativo</span>
+                                <span className="mt-1 block text-xs text-slate-500">Ver zona, trabajos y solicitudes cercanas.</span>
+                              </span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('perfil')}
+                              className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                                <User className="h-5 w-5" />
+                              </span>
+                              <span>
+                                <span className="block text-sm font-semibold text-slate-900">Ajustar perfil</span>
+                                <span className="mt-1 block text-xs text-slate-500">Actualizar datos, cobertura y presentación.</span>
+                              </span>
+                            </button>
+
+                            {publicProfileUrl ? (
+                              <a
+                                href={publicProfileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
                               >
-                                <div>
-                                  <p className="font-semibold text-slate-800">{quote.client_name || 'Presupuesto'}</p>
-                                  <p className="text-xs text-slate-500">{new Date(quote.created_at).toLocaleDateString('es-AR')}</p>
-                                </div>
-                                <span className="text-sm font-semibold text-slate-900">${(quote.total_amount || 0).toLocaleString('es-AR')}</span>
+                                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                                  <Eye className="h-5 w-5" />
+                                </span>
+                                <span>
+                                  <span className="block text-sm font-semibold text-slate-900">Ver vidriera pública</span>
+                                  <span className="mt-1 block text-xs text-slate-500">Chequea cómo te ve el cliente final.</span>
+                                </span>
+                              </a>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('perfil')}
+                                className="flex w-full items-center gap-3 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                              >
+                                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
+                                  <ImagePlus className="h-5 w-5" />
+                                </span>
+                                <span>
+                                  <span className="block text-sm font-semibold text-slate-900">Preparar vidriera</span>
+                                  <span className="mt-1 block text-xs text-slate-500">Subir material y activar presencia pública.</span>
+                                </span>
                               </button>
-                            ))}
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Ritmo</p>
+                              <h3 className="mt-2 text-xl font-semibold text-slate-900">Embudo comercial</h3>
+                            </div>
+                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">{quoteStats.total} activos</span>
+                          </div>
+
+                          <div className="mt-5 space-y-3">
+                            <button
+                              type="button"
+                              onClick={() => handleShowQuotes('all')}
+                              className="flex w-full items-center justify-between rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Total</p>
+                                <p className="mt-2 text-2xl font-semibold text-slate-900">{quoteStats.total}</p>
+                              </div>
+                              <p className="text-xs font-semibold text-slate-500">Ver</p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleShowQuotes('pending')}
+                              className="flex w-full items-center justify-between rounded-[24px] border border-amber-200 bg-[linear-gradient(180deg,#fffaf0,#fff6e5)] px-4 py-4 text-left transition hover:border-amber-300"
+                            >
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-amber-500">Pendientes</p>
+                                <p className="mt-2 text-2xl font-semibold text-amber-700">{quoteStats.pending}</p>
+                              </div>
+                              <p className="text-xs font-semibold text-amber-700/80">Responder</p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleShowQuotes('approved')}
+                              className="flex w-full items-center justify-between rounded-[24px] border border-emerald-200 bg-[linear-gradient(180deg,#f4fdf8,#eefcf4)] px-4 py-4 text-left transition hover:border-emerald-300"
+                            >
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-emerald-500">Aprobados</p>
+                                <p className="mt-2 text-2xl font-semibold text-emerald-700">{quoteStats.approved}</p>
+                              </div>
+                              <p className="text-xs font-semibold text-emerald-700/80">Ejecutar</p>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleShowQuotes('paid')}
+                              className="flex w-full items-center justify-between rounded-[24px] border border-sky-200 bg-[linear-gradient(180deg,#f3f9ff,#eef6ff)] px-4 py-4 text-left transition hover:border-sky-300"
+                            >
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-sky-500">Cobrados</p>
+                                <p className="mt-2 text-2xl font-semibold text-sky-700">{quoteStats.paid}</p>
+                              </div>
+                              <p className="text-xs font-semibold text-sky-700/80">Confirmados</p>
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -6613,29 +6505,6 @@ export default function TechniciansPage() {
                 </div>
                 )}
 
-                {activeTab === 'lobby' && (
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                  {navItems
-                    .filter((item) => item.key !== 'lobby' && item.key !== 'operativo')
-                    .map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          onClick={() => setActiveTab(item.key)}
-                          className="rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] px-5 py-5 text-left shadow-[0_18px_36px_rgba(15,23,42,0.06)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white"
-                        >
-                          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700">
-                            <Icon className="h-5 w-5" />
-                          </span>
-                          <p className="mt-4 text-xs uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
-                          <p className="mt-2 text-sm font-semibold text-slate-900">{item.hint}</p>
-                        </button>
-                      );
-                    })}
-                </div>
-                )}
               </div>
             )}
 
