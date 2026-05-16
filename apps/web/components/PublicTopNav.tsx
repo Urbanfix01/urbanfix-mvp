@@ -175,16 +175,28 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
           {isAuthenticated ? (
             <div className="hidden xl:block">{accountChip}</div>
           ) : (
-            <a
-              href="/tecnicos"
-              className={`hidden ${platformButtonClass} xl:inline-flex ${
-                isPlatformActive
-                  ? 'border-white bg-white text-[#2a0338]'
-                  : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
-              }`}
-            >
-              Iniciar sesión
-            </a>
+            <>
+              <a
+                href="/portal"
+                className={`hidden ${platformButtonClass} lg:inline-flex ${
+                  activeHref === '/portal'
+                    ? 'border-white bg-white text-[#2a0338]'
+                    : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+                }`}
+              >
+                Mis Paneles
+              </a>
+              <a
+                href="/tecnicos"
+                className={`hidden ${platformButtonClass} xl:inline-flex ${
+                  isPlatformActive
+                    ? 'border-white bg-white text-[#2a0338]'
+                    : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+                }`}
+              >
+                Iniciar sesión
+              </a>
+            </>
           )}
 
           <button
@@ -243,17 +255,30 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
               Solicitar demo
             </a>
             {!isAuthenticated && (
-              <a
-                href="/tecnicos"
-                onClick={() => setMenuOpen(false)}
-                className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
-                  isPlatformActive
-                    ? 'border-white bg-white text-[#2a0338]'
-                    : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
-                }`}
-              >
-                Iniciar sesión
-              </a>
+              <>
+                <a
+                  href="/portal"
+                  onClick={() => setMenuOpen(false)}
+                  className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
+                    activeHref === '/portal'
+                      ? 'border-white bg-white text-[#2a0338]'
+                      : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+                  }`}
+                >
+                  Mis Paneles
+                </a>
+                <a
+                  href="/tecnicos"
+                  onClick={() => setMenuOpen(false)}
+                  className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
+                    isPlatformActive
+                      ? 'border-white bg-white text-[#2a0338]'
+                      : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
+                  }`}
+                >
+                  Iniciar sesión
+                </a>
+              </>
             )}
           </nav>
         </div>
