@@ -3,7 +3,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
 import {
+  ArrowRight,
   Bell,
+  Building2,
   Calendar,
   Clock,
   CreditCard,
@@ -15,8 +17,11 @@ import {
   MessageCircle,
   Search,
   Settings,
+  ShieldCheck,
+  Sparkles,
   Tag,
   User,
+  Wrench,
   X,
   type LucideIcon,
 } from 'lucide-react';
@@ -619,6 +624,122 @@ const authSecondaryButtonBlockClass =
 
 const authOptionButtonClass =
   'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-left transition hover:border-[color:var(--ui-accent-soft)]';
+
+const AUTH_STAGE_LABELS = ['Elegir perfil', 'Ingresar', 'Operar'];
+
+const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
+  profile: AccessProfile;
+  title: string;
+  badge: string;
+  description: string;
+  note: string;
+  icon: LucideIcon;
+  iconShellClassName: string;
+  iconClassName: string;
+}> = [
+  {
+    profile: 'tecnico',
+    title: 'Técnico',
+    badge: 'Operativo',
+    description: 'Presupuestos, solicitudes cercanas, seguimiento de trabajos y perfil público desde un mismo panel.',
+    note: 'Ideal para operar y cotizar sin salir de la web.',
+    icon: Wrench,
+    iconShellClassName: 'border-[#ff8f1f]/25 bg-[#ff8f1f]/12',
+    iconClassName: 'text-[#ff8f1f]',
+  },
+  {
+    profile: 'empresa',
+    title: 'Empresa',
+    badge: 'Comercial',
+    description: 'Centraliza marca, responsables, presupuestos y flujo comercial en una única cuenta operativa.',
+    note: 'Pensado para equipos, marcas y gestión comercial.',
+    icon: Building2,
+    iconShellClassName: 'border-[#2a0338]/18 bg-[#2a0338]/8',
+    iconClassName: 'text-[#2a0338]',
+  },
+  {
+    profile: 'cliente',
+    title: 'Cliente',
+    badge: 'Solicitudes',
+    description: 'Publica pedidos, recibe cotizaciones y encuentra técnicos en el flujo específico para clientes.',
+    note: 'Te llevamos directo al portal cliente.',
+    icon: Home,
+    iconShellClassName: 'border-sky-200 bg-sky-50',
+    iconClassName: 'text-sky-700',
+  },
+];
+
+const AUTH_DEFAULT_HERO_CARDS = [
+  {
+    eyebrow: 'Acceso claro',
+    title: 'Un único punto de entrada',
+    body: 'Perfil, login y panel quedan ordenados para que cada usuario caiga en la experiencia correcta.',
+  },
+  {
+    eyebrow: 'Visual actual',
+    title: 'Mismo lenguaje que la home',
+    body: 'Fondos profundos, acentos cálidos y superficies más nítidas para que el acceso no se sienta legado.',
+  },
+];
+
+const AUTH_PROFILE_META = {
+  tecnico: {
+    panelLabel: 'Panel técnico',
+    heading: 'Ingresa a tu operación técnica con una entrada más clara.',
+    description:
+      'Accede a presupuestos, solicitudes cercanas, historial de trabajos y presencia pública sin pasar por una pantalla genérica.',
+    heroCards: [
+      {
+        eyebrow: 'Cotización',
+        title: 'Presupuestos listos para compartir',
+        body: 'Armá links y PDFs claros con identidad propia y seguimiento desde la web.',
+      },
+      {
+        eyebrow: 'Cobertura',
+        title: 'Solicitudes, agenda y vidriera',
+        body: 'Concentrá operación, disponibilidad y visibilidad pública desde un solo panel.',
+      },
+    ],
+    accessBullets: [
+      'Responder solicitudes y cotizar sin fricción.',
+      'Administrar precios, agenda, notificaciones y seguimiento.',
+      'Publicar tu perfil en vidriera y mapa cuando estés listo.',
+    ],
+    afterSteps: [
+      'Entrás al panel y completas tu perfil operativo.',
+      'Cargas rubros, zona de trabajo y tu primer presupuesto.',
+      'Si quieres, publicas tu perfil para aparecer en la vidriera y el mapa.',
+    ],
+  },
+  empresa: {
+    panelLabel: 'Panel empresa',
+    heading: 'Acceso para marcas y equipos que necesitan orden comercial.',
+    description:
+      'Entra a una vista enfocada en marca, responsables, presupuestos y seguimiento comercial con una estética alineada al sitio actual.',
+    heroCards: [
+      {
+        eyebrow: 'Control',
+        title: 'Gestión comercial centralizada',
+        body: 'Unifica responsables, presupuestos y estado de avance con una sola cuenta web.',
+      },
+      {
+        eyebrow: 'Marca',
+        title: 'Presentación más sólida',
+        body: 'Tus propuestas, datos comerciales y presencia pública quedan mejor alineados con la identidad de empresa.',
+      },
+    ],
+    accessBullets: [
+      'Centralizar presupuestos, responsables y seguimiento.',
+      'Mantener branding, datos comerciales y contacto en una sola capa.',
+      'Escalar la operación con un acceso menos improvisado.',
+    ],
+    afterSteps: [
+      'Ingresas al panel y validas tu información comercial.',
+      'Configuras marca, responsables, rubros y flujo de trabajo.',
+      'Publicas presencia y compartes presupuestos desde una base más sólida.',
+    ],
+  },
+} as const;
 
 const normalizeBaseUrl = (value: string) => value.replace(/\/+$/, '');
 
@@ -3350,20 +3471,10 @@ export default function TechniciansPage() {
     if (profile?.logo_shape && profile?.avatar_url) return profile.avatar_url as string;
     return '';
   }, [profile?.avatar_url, profile?.company_logo_url, profile?.logo_shape]);
-  const accessProfileCopy = useMemo(() => {
-    if (selectedAccessProfile === 'empresa') {
-      return {
-        panelLabel: 'Panel empresa',
-        heading: 'Acceso para empresas',
-        description:
-          'Centraliza presupuestos, responsables y seguimiento comercial desde la web en una sola cuenta.',
-      };
-    }
-    return {
-      panelLabel: 'Panel tecnico',
-      heading: 'Acceso para tecnicos',
-      description: 'Gestiona presupuestos, materiales y estados desde la web. Todo sincronizado con tu cuenta.',
-    };
+  const selectedAccessMeta = useMemo(() => {
+    if (selectedAccessProfile === 'empresa') return AUTH_PROFILE_META.empresa;
+    if (selectedAccessProfile === 'tecnico') return AUTH_PROFILE_META.tecnico;
+    return null;
   }, [selectedAccessProfile]);
   const agendaBaseDate = startOfDay(new Date());
   const agendaTodayKey = formatDateLocal(agendaBaseDate);
@@ -5363,299 +5474,411 @@ export default function TechniciansPage() {
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
-          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[#16031f] text-white`}
         >
           <div className="relative overflow-hidden">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl"
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
-          />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,143,31,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(82,35,122,0.26),_transparent_32%),linear-gradient(180deg,#16031f_0%,#21002f_52%,#14031c_100%)]"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-[#ff8f1f]/18 blur-3xl"
+            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -left-12 bottom-0 h-72 w-72 rounded-full bg-[#f5d8a4]/10 blur-3xl"
+            />
 
-          <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
-            <div className="space-y-6 text-center md:text-left">
-              <div className="flex items-center justify-center gap-3 md:justify-start">
+            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-7xl gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8">
+              <section className="relative overflow-hidden rounded-[34px] border border-white/12 bg-[linear-gradient(155deg,rgba(255,255,255,0.1),rgba(255,255,255,0.04))] p-6 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.95)] backdrop-blur-md sm:p-8 lg:p-10">
                 <div
-                  style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                  className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} ${
-                    brandLogoUrl ? 'bg-white' : 'bg-white'
-                  }`}
-                >
-                  {brandLogoUrl ? (
-                    <img
-                      src={brandLogoUrl}
-                      alt="Logo de empresa"
-                      onLoad={handleLogoLoaded}
-                      className={`h-full w-full ${logoPresentation.img}`}
-                    />
-                  ) : (
-                    <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
-                  )}
-                </div>
-                <div className="text-left">
-                  <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
-                  <p className="text-sm font-semibold text-[color:var(--ui-ink)]">
-                    {!selectedAccessProfile ? 'Acceso inicial' : accessProfileCopy.panelLabel}
-                  </p>
-                </div>
-              </div>
-              <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">
-                {!selectedAccessProfile ? 'Elige como quieres ingresar' : accessProfileCopy.heading}
-              </h1>
-              <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
-                {!selectedAccessProfile
-                  ? 'Antes de entrar, selecciona si eres tecnico, empresa o cliente para ir al flujo correcto.'
-                  : accessProfileCopy.description}
-              </p>
-              <div className="flex flex-wrap items-center justify-center gap-2 md:justify-start">
-                {selectedAccessProfile && (
-                  <button
-                    type="button"
-                    onClick={handleBackToProfileSelector}
-                    className={authSecondaryButtonClass}
-                  >
-                    Cambiar perfil
-                  </button>
-                )}
-                <a
-                  href="https://www.urbanfix.com.ar"
-                  className={authSecondaryButtonClass}
-                >
-                  Volver al inicio
-                </a>
-              </div>
-            </div>
-
-            {!selectedAccessProfile ? (
-              <div className={authSurfaceClass}>
-                <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Selecciona tu perfil</h2>
-                  <p className="text-sm text-[color:var(--ui-muted)]">Esto define a qué panel o vista te llevamos.</p>
-                </div>
-                <div className="mt-6 space-y-3">
-                  <button
-                    type="button"
-                    onClick={() => handleAccessProfileSelect('tecnico')}
-                    className={authOptionButtonClass}
-                  >
-                    <p className="text-sm font-bold text-[color:var(--ui-ink)]">Técnico</p>
-                    <p className="mt-1 text-xs text-[color:var(--ui-muted)]">Crear presupuestos y hacer seguimiento de obras.</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAccessProfileSelect('empresa')}
-                    className={authOptionButtonClass}
-                  >
-                    <p className="text-sm font-bold text-[color:var(--ui-ink)]">Empresa</p>
-                    <p className="mt-1 text-xs text-[color:var(--ui-muted)]">Gestión comercial, responsables y operación.</p>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleAccessProfileSelect('cliente')}
-                    className={authOptionButtonClass}
-                  >
-                    <p className="text-sm font-bold text-[color:var(--ui-ink)]">Cliente</p>
-                    <p className="mt-1 text-xs text-[color:var(--ui-muted)]">Quiero pedir y revisar una cotización de reparación.</p>
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className={authSurfaceClass}>
-                <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">
-                    {quickRegisterMode ? 'Registro en 2 segundos' : 'Ingresa a tu cuenta'}
-                  </h2>
-                  <p className="text-sm text-[color:var(--ui-muted)]">
-                    {quickRegisterMode
-                      ? 'Entra con Google o crea tu cuenta con correo en un paso.'
-                      : 'Accede con Google o con tu correo.'}
-                  </p>
-                </div>
-
-                {entryPrompt && (
-                  <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                    <p className="font-semibold">Acceso a precios actualizado</p>
-                    <p className="mt-1 leading-6">{entryPrompt}</p>
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(245,216,164,0.12),transparent_28%)]"
+                />
+                <div className="relative z-10">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/8 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ffe5c4]">
+                    <Sparkles className="h-3.5 w-3.5 text-[#ffb35e]" />
+                    Acceso plataforma
                   </div>
-                )}
 
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  className={`mt-6 flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
-                    quickRegisterMode
-                      ? 'bg-[color:var(--ui-accent)] text-white shadow-lg shadow-black/20 hover:opacity-95'
-                      : 'border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] text-[color:var(--ui-ink)] hover:border-[color:var(--ui-accent-soft)]'
-                  }`}
-                >
-                  {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
-                </button>
-
-                {quickRegisterMode && (
-                  <p className="mt-2 text-xs text-emerald-600">
-                    Acceso rápido activo. Completas tu perfil después de entrar.
-                  </p>
-                )}
-
-                <div className="my-5 flex items-center gap-3 text-xs text-[color:var(--ui-muted)]">
-                  <div className="h-px flex-1 bg-[color:var(--ui-border)]" />
-                  o
-                  <div className="h-px flex-1 bg-[color:var(--ui-border)]" />
-                </div>
-
-                <div className="mb-4 grid grid-cols-2 gap-2 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 p-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('login');
-                      setQuickRegisterMode(false);
-                      setAuthError('');
-                      setAuthNotice('');
-                    }}
-                    className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                      authMode === 'login'
-                        ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
-                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-card)] hover:text-[color:var(--ui-ink)]'
-                    }`}
-                  >
-                    Iniciar sesión
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAuthMode('register');
-                      setAuthError('');
-                      setAuthNotice('');
-                    }}
-                    className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                      authMode === 'register'
-                        ? 'bg-[color:var(--ui-accent)] text-white shadow-sm'
-                        : 'text-[color:var(--ui-muted)] hover:bg-[color:var(--ui-card)] hover:text-[color:var(--ui-ink)]'
-                    }`}
-                  >
-                    Crear cuenta
-                  </button>
-                </div>
-
-                {authMode === 'register' && !quickRegisterMode && (
-                  <div className="space-y-3">
-                    <input
-                      value={fullName}
-                      onChange={(event) => setFullName(event.target.value)}
-                      placeholder="Nombre completo"
-                      className={authInputClass.replace('mt-2 ', '')}
-                    />
-                    <input
-                      value={businessName}
-                      onChange={(event) => setBusinessName(event.target.value)}
-                      placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
-                      className={authInputClass.replace('mt-2 ', '')}
-                    />
-                  </div>
-                )}
-
-                {authMode === 'register' && quickRegisterMode && (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
-                    Alta rápida por correo habilitada. Nombre y negocio se completan luego en perfil.
-                    <button
-                      type="button"
-                      onClick={() => setQuickRegisterMode(false)}
-                      className="ml-2 font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
+                  <div className="mt-6 flex items-center gap-4">
+                    <div
+                      style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                      className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} bg-white`}
                     >
-                      Cargar datos ahora
-                    </button>
+                      {brandLogoUrl ? (
+                        <img
+                          src={brandLogoUrl}
+                          alt="Logo de empresa"
+                          onLoad={handleLogoLoaded}
+                          className={`h-full w-full ${logoPresentation.img}`}
+                        />
+                      ) : (
+                        <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/58">UrbanFix</p>
+                      <p className="mt-1 text-sm font-semibold text-white/88">
+                        {selectedAccessMeta ? selectedAccessMeta.panelLabel : 'Acceso ordenado por perfil'}
+                      </p>
+                    </div>
                   </div>
-                )}
 
-                <div className="mt-4 space-y-3">
-                  <input
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    placeholder="Correo"
-                    className={authInputClass.replace('mt-2 ', '')}
-                  />
-                  <input
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    type="password"
-                    placeholder="Contraseña"
-                    className={authInputClass.replace('mt-2 ', '')}
-                  />
-                </div>
-
-                {authMode === 'login' && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      type="button"
-                      onClick={handlePasswordRecovery}
-                      disabled={sendingRecovery}
-                      className="text-xs font-semibold text-[color:var(--ui-muted)] transition hover:text-[color:var(--ui-ink)] disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {sendingRecovery ? 'Enviando correo...' : '¿Olvidaste tu contraseña?'}
-                    </button>
+                  <div className="mt-8 flex flex-wrap gap-2">
+                    {AUTH_STAGE_LABELS.map((label, index) => {
+                      const isActive = !selectedAccessProfile ? index === 0 : index === 1;
+                      return (
+                        <div
+                          key={label}
+                          className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
+                            isActive
+                              ? 'border border-[#ffb35e]/35 bg-[#ff8f1f]/16 text-[#ffe3bf]'
+                              : 'border border-white/10 bg-white/6 text-white/55'
+                          }`}
+                        >
+                          {index + 1}. {label}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
 
-                {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
-                {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
-
-                <div className="mt-5 rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 p-4">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-muted)]">
-                    Después del registro
+                  <h1 className="mt-8 max-w-3xl text-4xl font-black leading-[1.02] text-white sm:text-5xl lg:text-6xl">
+                    {selectedAccessMeta ? selectedAccessMeta.heading : 'Ingresa a UrbanFix con una experiencia visual alineada al producto.'}
+                  </h1>
+                  <p className="mt-4 max-w-2xl text-sm leading-7 text-white/78 sm:text-base">
+                    {selectedAccessMeta
+                      ? selectedAccessMeta.description
+                      : 'Selecciona si eres tecnico, empresa o cliente y te llevamos al flujo correcto sin mezclar accesos, copy ni paneles.'}
                   </p>
-                  <div className="mt-3 space-y-2">
-                    {[
-                      'Entras al panel y completas tu perfil operativo.',
-                      'Cargas rubros, zona de trabajo y tu primer presupuesto.',
-                      'Si quieres, publicas tu perfil para salir en la vidriera y el mapa.',
-                    ].map((item) => (
+
+                  <div className="mt-8 grid gap-3 sm:grid-cols-2">
+                    {(selectedAccessMeta ? selectedAccessMeta.heroCards : AUTH_DEFAULT_HERO_CARDS).map((card) => (
+                      <article
+                        key={card.title}
+                        className="rounded-[24px] border border-white/10 bg-black/18 p-4 text-left backdrop-blur-sm"
+                      >
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#ffd6a6]">{card.eyebrow}</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{card.title}</p>
+                        <p className="mt-2 text-sm leading-6 text-white/72">{card.body}</p>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
+                    {(selectedAccessMeta
+                      ? selectedAccessMeta.accessBullets
+                      : [
+                          'Perfil, panel y autenticacion responden al rol correcto.',
+                          'La entrada deja de verse heredada frente a la home actual.',
+                          'Login, registro y cambio de perfil quedan mas claros.',
+                        ]).map((item) => (
                       <div
                         key={item}
-                        className="rounded-xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-xs leading-5 text-[color:var(--ui-muted)]"
+                        className="rounded-[22px] border border-white/10 bg-white/6 px-4 py-3 text-sm leading-6 text-white/74"
                       >
                         {item}
                       </div>
                     ))}
                   </div>
                 </div>
+              </section>
 
-                <button
-                  type="button"
-                  onClick={handleEmailAuth}
-                  disabled={authLoading}
-                  className={`mt-5 ${authPrimaryButtonClass}`}
-                >
-                  {authLoading
-                    ? 'Procesando...'
-                    : authMode === 'login'
-                      ? 'Iniciar sesión'
-                      : quickRegisterMode
-                        ? 'Crear cuenta en 1 paso'
-                        : 'Crear cuenta'}
-                </button>
+              <section className="rounded-[34px] border border-[#eadfce]/70 bg-[#fffdf9]/96 p-6 text-[#180f24] shadow-[0_36px_100px_-54px_rgba(0,0,0,0.86)] backdrop-blur sm:p-8">
+                {!selectedAccessProfile ? (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Paso 1</p>
+                        <h2 className="mt-3 text-3xl font-semibold text-slate-900">Selecciona tu perfil</h2>
+                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                          Cada perfil abre un flujo distinto. Elegimos primero el contexto y recien despues mostramos el acceso.
+                        </p>
+                      </div>
+                      <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#2a0338]" />
+                        Acceso guiado
+                      </div>
+                    </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setAuthMode(authMode === 'login' ? 'register' : 'login');
-                    setAuthError('');
-                    setAuthNotice('');
-                  }}
-                  className="mt-4 w-full text-sm text-[color:var(--ui-muted)] transition hover:text-[color:var(--ui-ink)]"
-                >
-                  {authMode === 'login' ? 'No tienes cuenta? Regístrate' : 'Ya tienes cuenta? Ingresa'}
-                </button>
-              </div>
-            )}
-          </main>
-        </div>
+                    <div className="mt-6 space-y-3">
+                      {AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
+                        const Icon = option.icon;
+                        return (
+                          <button
+                            key={option.profile}
+                            type="button"
+                            onClick={() => handleAccessProfileSelect(option.profile)}
+                            className="group relative w-full overflow-hidden rounded-[26px] border border-slate-200 bg-white p-5 text-left shadow-[0_18px_44px_-34px_rgba(15,23,42,0.48)] transition hover:-translate-y-0.5 hover:border-[#ffb35e]/45 hover:shadow-[0_22px_56px_-34px_rgba(42,3,56,0.42)]"
+                          >
+                            <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-gradient-to-b from-[#ff8f1f] via-[#ffb35e] to-[#2a0338]" />
+                            <div className="relative flex items-start gap-4">
+                              <div
+                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${option.iconShellClassName}`}
+                              >
+                                <Icon className={`h-5 w-5 ${option.iconClassName}`} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-lg font-semibold text-slate-900">{option.title}</p>
+                                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                                    {option.badge}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-sm leading-6 text-slate-600">{option.description}</p>
+                                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                                  {option.note}
+                                </p>
+                              </div>
+                              <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#2a0338]" />
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Que cambia con este acceso
+                      </p>
+                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                        {[
+                          'Menos friccion para entrar al panel correcto.',
+                          'Copy mas claro segun tecnico, empresa o cliente.',
+                          'Mejor consistencia visual con la home actual.',
+                        ].map((item) => (
+                          <div
+                            key={item}
+                            className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-600"
+                          >
+                            {item}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="inline-flex items-center gap-2 rounded-full border border-[#ffcf93]/60 bg-[#fff4e8] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8f4f08]">
+                          <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                          Paso 2
+                        </div>
+                        <h2 className="mt-4 text-3xl font-semibold text-slate-900">
+                          {quickRegisterMode ? 'Acceso rapido activado' : 'Entrar o crear tu cuenta'}
+                        </h2>
+                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                          {quickRegisterMode
+                            ? 'Usa Google o crea tu cuenta por correo en un paso. Terminas de cargar datos despues de entrar.'
+                            : (selectedAccessMeta?.description || '')}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={handleBackToProfileSelector}
+                          className={authSecondaryButtonClass}
+                        >
+                          Cambiar perfil
+                        </button>
+                        <a href="https://www.urbanfix.com.ar" className={authSecondaryButtonClass}>
+                          Volver al inicio
+                        </a>
+                      </div>
+                    </div>
+
+                    {entryPrompt && (
+                      <div className="mt-5 rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                        <p className="font-semibold">Acceso a precios actualizado</p>
+                        <p className="mt-1 leading-6">{entryPrompt}</p>
+                      </div>
+                    )}
+
+                    <div className="mt-6 grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
+                      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.38)]">
+                        <button
+                          type="button"
+                          onClick={handleGoogleLogin}
+                          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#2a0338] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_-24px_rgba(42,3,56,0.75)] transition hover:bg-[#3c0d4d]"
+                        >
+                          {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
+                        </button>
+
+                        {quickRegisterMode && (
+                          <p className="mt-3 text-xs font-semibold text-emerald-600">
+                            Acceso rapido activo. Completas tu perfil despues de entrar.
+                          </p>
+                        )}
+
+                        <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                          <div className="h-px flex-1 bg-slate-200" />
+                          o
+                          <div className="h-px flex-1 bg-slate-200" />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode('login');
+                              setQuickRegisterMode(false);
+                              setAuthError('');
+                              setAuthNotice('');
+                            }}
+                            className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                              authMode === 'login'
+                                ? 'bg-[#2a0338] text-white shadow-sm'
+                                : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                            }`}
+                          >
+                            Iniciar sesion
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAuthMode('register');
+                              setAuthError('');
+                              setAuthNotice('');
+                            }}
+                            className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                              authMode === 'register'
+                                ? 'bg-[#2a0338] text-white shadow-sm'
+                                : 'text-slate-500 hover:bg-white hover:text-slate-900'
+                            }`}
+                          >
+                            Crear cuenta
+                          </button>
+                        </div>
+
+                        {authMode === 'register' && !quickRegisterMode && (
+                          <div className="mt-4 space-y-3">
+                            <input
+                              value={fullName}
+                              onChange={(event) => setFullName(event.target.value)}
+                              placeholder="Nombre completo"
+                              className={authInputClass.replace('mt-2 ', '')}
+                            />
+                            <input
+                              value={businessName}
+                              onChange={(event) => setBusinessName(event.target.value)}
+                              placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
+                              className={authInputClass.replace('mt-2 ', '')}
+                            />
+                          </div>
+                        )}
+
+                        {authMode === 'register' && quickRegisterMode && (
+                          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
+                            Alta rapida por correo habilitada. Nombre y negocio se completan luego.
+                            <button
+                              type="button"
+                              onClick={() => setQuickRegisterMode(false)}
+                              className="ml-2 font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
+                            >
+                              Cargar datos ahora
+                            </button>
+                          </div>
+                        )}
+
+                        <div className="mt-4 space-y-3">
+                          <input
+                            value={email}
+                            onChange={(event) => setEmail(event.target.value)}
+                            placeholder="Correo"
+                            className={authInputClass.replace('mt-2 ', '')}
+                          />
+                          <input
+                            value={password}
+                            onChange={(event) => setPassword(event.target.value)}
+                            type="password"
+                            placeholder="Contrasena"
+                            className={authInputClass.replace('mt-2 ', '')}
+                          />
+                        </div>
+
+                        {authMode === 'login' && (
+                          <div className="mt-3 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={handlePasswordRecovery}
+                              disabled={sendingRecovery}
+                              className="text-xs font-semibold text-slate-500 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contrasena?'}
+                            </button>
+                          </div>
+                        )}
+
+                        {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
+                        {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+
+                        <button
+                          type="button"
+                          onClick={handleEmailAuth}
+                          disabled={authLoading}
+                          className="mt-5 w-full rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {authLoading
+                            ? 'Procesando...'
+                            : authMode === 'login'
+                              ? 'Iniciar sesion'
+                              : quickRegisterMode
+                                ? 'Crear cuenta en 1 paso'
+                                : 'Crear cuenta'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAuthMode(authMode === 'login' ? 'register' : 'login');
+                            setAuthError('');
+                            setAuthNotice('');
+                          }}
+                          className="mt-4 w-full text-sm text-slate-500 transition hover:text-slate-900"
+                        >
+                          {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
+                        </button>
+                      </div>
+
+                      <div className="space-y-4">
+                        <div className="rounded-[28px] border border-[#3a184a] bg-[linear-gradient(180deg,#2a0338_0%,#1d0628_100%)] p-5 text-white shadow-[0_24px_60px_-42px_rgba(18,2,24,0.92)]">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffd6a6]">
+                            Que se activa al entrar
+                          </p>
+                          <div className="mt-4 space-y-3">
+                            {selectedAccessMeta?.accessBullets.map((item) => (
+                              <div key={item} className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/6 px-3 py-3">
+                                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#ff8f1f]" />
+                                <p className="text-sm leading-6 text-white/78">{item}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            Despues del registro
+                          </p>
+                          <div className="mt-4 space-y-2">
+                            {selectedAccessMeta?.afterSteps.map((item) => (
+                              <div
+                                key={item}
+                                className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-600"
+                              >
+                                {item}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </section>
+            </main>
+          </div>
         </div>
       </>
     );
