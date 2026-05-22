@@ -18,7 +18,6 @@ import {
   Search,
   Settings,
   ShieldCheck,
-  Sparkles,
   Tag,
   User,
   Wrench,
@@ -625,8 +624,6 @@ const authSecondaryButtonBlockClass =
 const authOptionButtonClass =
   'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-left transition hover:border-[color:var(--ui-accent-soft)]';
 
-const AUTH_STAGE_LABELS = ['Elegir perfil', 'Ingresar', 'Operar'];
-
 const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
   profile: AccessProfile;
   title: string;
@@ -666,19 +663,6 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
     icon: Home,
     iconShellClassName: 'border-sky-200 bg-sky-50',
     iconClassName: 'text-sky-700',
-  },
-];
-
-const AUTH_DEFAULT_HERO_CARDS = [
-  {
-    eyebrow: 'Acceso claro',
-    title: 'Un único punto de entrada',
-    body: 'Perfil, login y panel quedan ordenados para que cada usuario caiga en la experiencia correcta.',
-  },
-  {
-    eyebrow: 'Visual actual',
-    title: 'Mismo lenguaje que la home',
-    body: 'Fondos profundos, acentos cálidos y superficies más nítidas para que el acceso no se sienta legado.',
   },
 ];
 
@@ -5490,102 +5474,37 @@ export default function TechniciansPage() {
               className="pointer-events-none absolute -left-12 bottom-0 h-72 w-72 rounded-full bg-[#f5d8a4]/10 blur-3xl"
             />
 
-            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-7xl gap-8 px-4 py-8 sm:px-6 sm:py-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8">
-              <section className="relative overflow-hidden rounded-[34px] border border-white/12 bg-[linear-gradient(155deg,rgba(255,255,255,0.1),rgba(255,255,255,0.04))] p-6 shadow-[0_40px_120px_-60px_rgba(0,0,0,0.95)] backdrop-blur-md sm:p-8 lg:p-10">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.22),transparent_34%),radial-gradient(circle_at_top_right,rgba(245,216,164,0.12),transparent_28%)]"
-                />
-                <div className="relative z-10">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/14 bg-white/8 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#ffe5c4]">
-                    <Sparkles className="h-3.5 w-3.5 text-[#ffb35e]" />
-                    Acceso plataforma
+            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+              <section className="w-full rounded-[34px] border border-[#eadfce]/70 bg-[#fffdf9]/96 p-6 text-[#180f24] shadow-[0_36px_100px_-54px_rgba(0,0,0,0.86)] backdrop-blur sm:p-8">
+                <div className="mb-6 flex items-center gap-4 border-b border-slate-200 pb-5">
+                  <div
+                    style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
+                    className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} bg-white`}
+                  >
+                    {brandLogoUrl ? (
+                      <img
+                        src={brandLogoUrl}
+                        alt="Logo de empresa"
+                        onLoad={handleLogoLoaded}
+                        className={`h-full w-full ${logoPresentation.img}`}
+                      />
+                    ) : (
+                      <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                    )}
                   </div>
-
-                  <div className="mt-6 flex items-center gap-4">
-                    <div
-                      style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                      className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} bg-white`}
-                    >
-                      {brandLogoUrl ? (
-                        <img
-                          src={brandLogoUrl}
-                          alt="Logo de empresa"
-                          onLoad={handleLogoLoaded}
-                          className={`h-full w-full ${logoPresentation.img}`}
-                        />
-                      ) : (
-                        <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/58">UrbanFix</p>
-                      <p className="mt-1 text-sm font-semibold text-white/88">
-                        {selectedAccessMeta ? selectedAccessMeta.panelLabel : 'Acceso ordenado por perfil'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-8 flex flex-wrap gap-2">
-                    {AUTH_STAGE_LABELS.map((label, index) => {
-                      const isActive = !selectedAccessProfile ? index === 0 : index === 1;
-                      return (
-                        <div
-                          key={label}
-                          className={`rounded-full px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] transition ${
-                            isActive
-                              ? 'border border-[#ffb35e]/35 bg-[#ff8f1f]/16 text-[#ffe3bf]'
-                              : 'border border-white/10 bg-white/6 text-white/55'
-                          }`}
-                        >
-                          {index + 1}. {label}
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  <h1 className="mt-8 max-w-3xl text-4xl font-black leading-[1.02] text-white sm:text-5xl lg:text-6xl">
-                    {selectedAccessMeta ? selectedAccessMeta.heading : 'Ingresa a UrbanFix con una experiencia visual alineada al producto.'}
-                  </h1>
-                  <p className="mt-4 max-w-2xl text-sm leading-7 text-white/78 sm:text-base">
-                    {selectedAccessMeta
-                      ? selectedAccessMeta.description
-                      : 'Selecciona si eres tecnico, empresa o cliente y te llevamos al flujo correcto sin mezclar accesos, copy ni paneles.'}
-                  </p>
-
-                  <div className="mt-8 grid gap-3 sm:grid-cols-2">
-                    {(selectedAccessMeta ? selectedAccessMeta.heroCards : AUTH_DEFAULT_HERO_CARDS).map((card) => (
-                      <article
-                        key={card.title}
-                        className="rounded-[24px] border border-white/10 bg-black/18 p-4 text-left backdrop-blur-sm"
-                      >
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#ffd6a6]">{card.eyebrow}</p>
-                        <p className="mt-2 text-lg font-semibold text-white">{card.title}</p>
-                        <p className="mt-2 text-sm leading-6 text-white/72">{card.body}</p>
-                      </article>
-                    ))}
-                  </div>
-
-                  <div className="mt-8 grid gap-3 sm:grid-cols-3">
-                    {(selectedAccessMeta
-                      ? selectedAccessMeta.accessBullets
-                      : [
-                          'Perfil, panel y autenticacion responden al rol correcto.',
-                          'La entrada deja de verse heredada frente a la home actual.',
-                          'Login, registro y cambio de perfil quedan mas claros.',
-                        ]).map((item) => (
-                      <div
-                        key={item}
-                        className="rounded-[22px] border border-white/10 bg-white/6 px-4 py-3 text-sm leading-6 text-white/74"
-                      >
-                        {item}
-                      </div>
-                    ))}
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">UrbanFix</p>
+                    <p className="mt-1 text-base font-semibold text-slate-900">
+                      {selectedAccessMeta ? selectedAccessMeta.panelLabel : 'Acceso a la plataforma'}
+                    </p>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {selectedAccessMeta
+                        ? 'Login y registro adaptados al lenguaje visual actual.'
+                        : 'Elige tu perfil para entrar al flujo correcto.'}
+                    </p>
                   </div>
                 </div>
-              </section>
 
-              <section className="rounded-[34px] border border-[#eadfce]/70 bg-[#fffdf9]/96 p-6 text-[#180f24] shadow-[0_36px_100px_-54px_rgba(0,0,0,0.86)] backdrop-blur sm:p-8">
                 {!selectedAccessProfile ? (
                   <>
                     <div className="flex flex-wrap items-start justify-between gap-3">
