@@ -130,8 +130,10 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
       <div className="flex w-full items-center justify-between gap-2 px-2 py-2 sm:px-6">
         <a href="/" className="flex min-w-0 items-center gap-2">
           <img src="/icon.png" alt="UrbanFix" className="h-8 w-8 shrink-0 rounded-lg sm:h-9 sm:w-9" />
-          <span className="whitespace-nowrap text-[1.22rem] font-extrabold tracking-tight leading-none text-white sm:text-[1.72rem]">
-            URBAN<span className="text-[#ff8f1f]">FIX</span>
+          <span className="ufx-brand-word whitespace-nowrap text-[1.22rem] font-extrabold tracking-tight leading-none sm:text-[1.72rem]">
+            <span className="ufx-brand-word-main">URBAN</span>
+            <span className="ufx-brand-word-accent">FIX</span>
+            <span aria-hidden="true" className="ufx-brand-word-sheen" />
           </span>
         </a>
 
