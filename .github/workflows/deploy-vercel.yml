@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
 
+env:
+  VERCEL_PROJECT_ID: prj_Zbqz7xpNasuOge49NtpVjLfVkBeA
+  VERCEL_ORG_ID: team_EcyP0zlgrTTH0IvVyOT6dQY4
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -30,9 +34,9 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-args: --prod
           working-directory: apps/web
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
+          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ env.VERCEL_PROJECT_ID }}
+          VERCEL_ORG_ID: ${{ env.VERCEL_ORG_ID }}
