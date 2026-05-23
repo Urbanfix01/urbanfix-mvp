@@ -33,7 +33,6 @@ jobs:
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-args: --prod
-          working-directory: apps/web
           vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
           vercel-org-id: ${{ env.VERCEL_ORG_ID }}
         env:
