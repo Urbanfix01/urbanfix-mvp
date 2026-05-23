@@ -27,6 +27,8 @@ type AuthNavProfile = {
   avatar_url?: string | null;
 };
 
+const accountAreaHrefs = new Set(['/portal', '/tecnicos', '/tecnico-panel', '/cliente']);
+
 const platformButtonClass =
   'inline-flex rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] transition';
 
@@ -36,9 +38,9 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
   const [profile, setProfile] = useState<AuthNavProfile | null>(null);
   const isCreateRequestActive = activeHref === '/cliente';
   const isDemoActive = activeHref === '/descargar-app';
-  const isPlatformActive = activeHref === '/tecnicos';
-  const isAccountAreaActive = activeHref === '/tecnicos' || activeHref === '/cliente';
-  const panelHref = activeHref === '/cliente' ? '/cliente' : '/tecnicos';
+  const isPlatformActive = activeHref === '/tecnicos' || activeHref === '/tecnico-panel';
+  const isAccountAreaActive = activeHref ? accountAreaHrefs.has(activeHref) : false;
+  const panelHref = activeHref && accountAreaHrefs.has(activeHref) ? activeHref : '/portal';
   const profileName =
     profile?.business_name?.trim() ||
     profile?.full_name?.trim() ||
