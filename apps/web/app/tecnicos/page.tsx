@@ -4807,10 +4807,6 @@ export default function TechniciansPage() {
       const status = normalizeStatusValue(quote.status);
       return paidStatuses.has(status) ? acc + toAmountValue(quote.total_amount) : acc;
     }, 0);
-    const nextPendingQuote =
-      quotes.find((quote) => pendingStatuses.has(normalizeStatusValue(quote.status))) || null;
-    const nextApprovedQuote =
-      quotes.find((quote) => approvedStatuses.has(normalizeStatusValue(quote.status))) || null;
     const nextAction =
       quoteStats.pending > 0
         ? 'Responder pendientes'
@@ -4827,16 +4823,10 @@ export default function TechniciansPage() {
           : profileCompletionPercent < 100
             ? `Tu perfil está al ${profileCompletionPercent}%`
             : 'No tenés bloqueos operativos';
-    const focusLabel =
-      nextPendingQuote?.client_name ||
-      nextApprovedQuote?.client_name ||
-      (profileCompletionPercent < 100 ? 'Perfil público' : 'Nueva oportunidad');
 
     return {
       actionHint,
-      focusLabel,
       monthPaidAmount,
-      monthQuotesCount: monthQuotes.length,
       nextAction,
       pendingLabel: quoteStats.pending === 1 ? 'pendiente' : 'pendientes',
     };
@@ -6226,115 +6216,70 @@ export default function TechniciansPage() {
                 {activeTab === 'lobby' && (
                   <>
                     <section className="overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,#fffdf9_0%,#ffffff_45%,#f6eff8_100%)] p-5 shadow-[0_30px_80px_-52px_rgba(42,3,56,0.35)] sm:p-6">
-                      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_430px] xl:items-stretch">
+                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                         <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce]/70 bg-white/55 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7a6786] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
-                              <span className="h-1.5 w-1.5 rounded-full bg-[#ff8f1f] shadow-[0_0_0_4px_rgba(255,143,31,0.10)]" />
-                              Estado actual
-                            </div>
-                            <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce]/70 bg-white/45 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8b7a91]">
-                              <Calendar className="h-3.5 w-3.5 text-[#ff8f1f]" />
-                              Hoy, {technicianTodayLabel}
-                            </div>
+                          <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce]/70 bg-white/60 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7a6786] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#ff8f1f] shadow-[0_0_0_4px_rgba(255,143,31,0.10)]" />
+                            Hoy, {technicianTodayLabel}
                           </div>
-                          <h1 className="mt-3 max-w-3xl text-[clamp(1.75rem,4vw,3.35rem)] font-semibold leading-[1.03] text-[#180f24]">
+                          <h1 className="mt-3 max-w-3xl text-[clamp(1.75rem,4vw,3.1rem)] font-semibold leading-[1.03] text-[#180f24]">
                             {technicianHomeName}
                           </h1>
                           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                            Tu operación resumida en una vista: pendientes, próximos movimientos y balance del mes.
+                            Un resumen simple de tu estado actual y lo próximo que conviene atender.
                           </p>
-
-                          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab('nuevo')}
-                              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_38px_-26px_rgba(255,143,31,0.88)] transition hover:bg-[#ffad56]"
-                            >
-                              <FileText className="h-4 w-4" />
-                              Nuevo presupuesto
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab('operativo')}
-                              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-[#e8dff0] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#ffcf93] hover:text-[#2a0338]"
-                            >
-                              <Search className="h-4 w-4" />
-                              Ver pendientes
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setActiveTab('perfil')}
-                              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-[#e8dff0] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#ffcf93] hover:text-[#2a0338]"
-                            >
-                              <User className="h-4 w-4" />
-                              Perfil público
-                            </button>
-                          </div>
                         </div>
 
-                        <div className="min-w-0 overflow-hidden rounded-[30px] border border-white/[0.15] bg-[linear-gradient(135deg,#2a0338_0%,#3d0b4d_58%,#27112f_100%)] p-4 text-white shadow-[0_28px_70px_-42px_rgba(42,3,56,0.76)] sm:p-5">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/50">
-                                Ventana técnica
-                              </p>
-                              <p className="mt-1 text-lg font-semibold leading-tight">Balance de hoy</p>
-                            </div>
-                            <span className="inline-flex shrink-0 items-center rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[11px] font-semibold text-white/75">
-                              {technicianMonthLabel}
-                            </span>
-                          </div>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('nuevo')}
+                          className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-5 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_38px_-26px_rgba(255,143,31,0.88)] transition hover:bg-[#ffad56] sm:w-auto"
+                        >
+                          <FileText className="h-4 w-4" />
+                          Nuevo presupuesto
+                        </button>
+                      </div>
 
-                          <div className="mt-4 rounded-[26px] border border-white/10 bg-white/[0.08] p-4">
-                            <div className="flex items-end justify-between gap-4">
-                              <div>
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffd09a]">
-                                  Pendientes ahora
-                                </p>
-                                <div className="mt-2 flex items-baseline gap-2">
-                                  <span className="text-5xl font-semibold leading-none text-white">{quoteStats.pending}</span>
-                                  <span className="text-sm font-semibold text-white/60">{technicianStatusWindow.pendingLabel}</span>
-                                </div>
-                              </div>
-                              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_18px_34px_-20px_rgba(255,143,31,0.9)]">
-                                <Clock className="h-6 w-6" />
-                              </div>
-                            </div>
-                            <div className="mt-4 rounded-2xl border border-white/10 bg-black/10 px-3 py-3">
-                              <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/40">Foco</p>
-                              <p className="mt-1 truncate text-sm font-semibold text-white">{technicianStatusWindow.focusLabel}</p>
-                              <p className="mt-1 text-xs leading-5 text-white/60">{technicianStatusWindow.actionHint}</p>
-                            </div>
+                      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        {[
+                          { label: 'Pendientes', value: quoteStats.pending, hint: technicianStatusWindow.pendingLabel },
+                          { label: 'Aprobados', value: quoteStats.approved, hint: 'listos' },
+                          { label: 'Balance mes', value: formatCurrency(technicianStatusWindow.monthPaidAmount), hint: technicianMonthLabel },
+                          { label: 'Perfil', value: `${profileCompletionPercent}%`, hint: profileForm.profilePublished ? 'visible' : 'por publicar' },
+                        ].map((item) => (
+                          <div key={item.label} className="rounded-[22px] border border-[#eadfce] bg-white/72 px-4 py-4">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                            <p className="mt-2 truncate text-2xl font-semibold text-[#180f24]">{item.value}</p>
+                            <p className="mt-1 truncate text-xs text-slate-500">{item.hint}</p>
                           </div>
+                        ))}
+                      </div>
 
-                          <div className="mt-3 grid grid-cols-3 gap-2">
-                            {[
-                              { label: 'Aprobados', value: quoteStats.approved },
-                              { label: 'Perfil', value: `${profileCompletionPercent}%` },
-                              { label: 'Mes', value: technicianStatusWindow.monthQuotesCount },
-                            ].map((item) => (
-                              <div key={item.label} className="rounded-[18px] border border-white/10 bg-white/[0.07] px-3 py-3">
-                                <p className="text-[9px] font-semibold uppercase tracking-[0.15em] text-white/40">{item.label}</p>
-                                <p className="mt-2 text-lg font-semibold text-white">{item.value}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="mt-3 rounded-[22px] border border-[#ffcf93]/20 bg-[#ff8f1f]/[0.12] px-4 py-3">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#ffd09a]">
-                                  Próximo paso
-                                </p>
-                                <p className="mt-1 truncate text-sm font-semibold text-white">{technicianStatusWindow.nextAction}</p>
-                              </div>
-                              <p className="shrink-0 text-sm font-semibold text-[#ffd09a]">
-                                {formatCurrency(technicianStatusWindow.monthPaidAmount)}
-                              </p>
-                            </div>
-                            <p className="mt-2 text-xs leading-5 text-white/55">Cobrado este mes en presupuestos marcados como pagados.</p>
-                          </div>
+                      <div className="mt-4 flex flex-col gap-3 rounded-[24px] border border-[#eadfce] bg-white/72 p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7a91]">
+                            Próximo paso
+                          </p>
+                          <p className="mt-1 text-sm font-semibold text-[#180f24]">{technicianStatusWindow.nextAction}</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500">{technicianStatusWindow.actionHint}</p>
+                        </div>
+                        <div className="grid shrink-0 gap-2 sm:grid-cols-2">
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('operativo')}
+                            className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-2xl border border-[#e8dff0] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#ffcf93] hover:text-[#2a0338]"
+                          >
+                            <Search className="h-4 w-4" />
+                            Ver pendientes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab('perfil')}
+                            className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-2xl border border-[#e8dff0] bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#ffcf93] hover:text-[#2a0338]"
+                          >
+                            <User className="h-4 w-4" />
+                            Perfil
+                          </button>
                         </div>
                       </div>
 
