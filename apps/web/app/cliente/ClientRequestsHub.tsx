@@ -4,7 +4,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LogOut, Mail, Settings, User, UserRound } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LogOut, Mail, Settings, ShieldCheck, User, UserRound } from 'lucide-react';
+import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 
 type ClientRequestRow = {
@@ -764,19 +765,17 @@ export default function ClientRequestsHub() {
                 </div>
               )}
 
-              <div className="rounded-[28px] border border-[#eadfce]/70 bg-[#fffdf9] p-5 text-[#180f24] shadow-[0_28px_76px_-50px_rgba(0,0,0,0.92)]">
+              <div className="rounded-[28px] border border-[#eadfce]/70 bg-[#fffdf9] p-4 text-[#180f24] shadow-[0_28px_76px_-50px_rgba(0,0,0,0.92)] sm:p-5">
                 <button
                   type="button"
                   onClick={handleGoogleAuth}
                   disabled={authLoading || googleAuthLoading}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-[15px] font-semibold text-slate-700 shadow-[0_14px_34px_-28px_rgba(15,23,42,0.46)] transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60 sm:text-sm"
                 >
                   {googleAuthLoading ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-[#2a0338]" />
+                    <Loader2 className="h-5 w-5 animate-spin text-[#2a0338] sm:h-4 sm:w-4" />
                   ) : (
-                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-black text-[#2a0338]">
-                      G
-                    </span>
+                    <GoogleMark className="h-5 w-5" />
                   )}
                   {googleAuthLoading ? 'Abriendo Google...' : 'Continuar con Google'}
                 </button>
@@ -787,7 +786,13 @@ export default function ClientRequestsHub() {
                   <div className="h-px flex-1 bg-slate-200" />
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                <div className="relative grid grid-cols-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                  <span
+                    aria-hidden="true"
+                    className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-xl bg-[#2a0338] shadow-sm transition-transform duration-300 ease-out ${
+                      authMode === 'register' ? 'translate-x-full' : 'translate-x-0'
+                    }`}
+                  />
                   <button
                     type="button"
                     onClick={() => {
@@ -796,9 +801,9 @@ export default function ClientRequestsHub() {
                       setAuthNotice('');
                       setShowAuthPassword(false);
                     }}
-                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    className={`relative z-10 min-h-10 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                       authMode === 'login'
-                        ? 'bg-[#2a0338] text-white shadow-sm'
+                        ? 'text-white'
                         : 'text-slate-600 hover:bg-white hover:text-slate-900'
                     }`}
                   >
@@ -812,9 +817,9 @@ export default function ClientRequestsHub() {
                       setAuthNotice('');
                       setShowAuthPassword(false);
                     }}
-                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                    className={`relative z-10 min-h-10 rounded-xl px-3 py-2 text-sm font-semibold transition ${
                       authMode === 'register'
-                        ? 'bg-[#2a0338] text-white shadow-sm'
+                        ? 'text-white'
                         : 'text-slate-600 hover:bg-white hover:text-slate-900'
                     }`}
                   >
@@ -831,7 +836,7 @@ export default function ClientRequestsHub() {
                         onChange={(event) => setFullName(event.target.value)}
                         placeholder="Nombre y apellido"
                         autoComplete="name"
-                        className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-base text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10] sm:text-sm"
                       />
                     </div>
                     <p className="text-[11px] leading-5 text-slate-500">
@@ -849,7 +854,7 @@ export default function ClientRequestsHub() {
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="Correo"
                       autoComplete="email"
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-base text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10] sm:text-sm"
                     />
                   </div>
                   <div className="relative">
@@ -860,7 +865,7 @@ export default function ClientRequestsHub() {
                       onChange={(event) => setPassword(event.target.value)}
                       placeholder="Contrasena"
                       autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
-                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-base text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10] sm:text-sm"
                     />
                     <button
                       type="button"
@@ -902,12 +907,16 @@ export default function ClientRequestsHub() {
                   type="button"
                   onClick={handleEmailAuth}
                   disabled={authLoading || googleAuthLoading}
-                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
                   {authLoading ? 'Procesando...' : authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
                   {!authLoading && <ArrowRight className="h-4 w-4" />}
                 </button>
+                <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400">
+                  <ShieldCheck className="h-3.5 w-3.5 text-[#c48635]" />
+                  Acceso seguro UrbanFix
+                </p>
               </div>
             </section>
           </main>
