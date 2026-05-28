@@ -6240,14 +6240,14 @@ export default function TechniciansPage() {
                         </button>
                       </div>
 
-                      <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
                         {[
                           { label: 'Pendientes', value: quoteStats.pending, hint: technicianStatusWindow.pendingLabel },
                           { label: 'Aprobados', value: quoteStats.approved, hint: 'listos' },
                           { label: 'Balance mes', value: formatCurrency(technicianStatusWindow.monthPaidAmount), hint: technicianMonthLabel },
                           { label: 'Perfil', value: `${profileCompletionPercent}%`, hint: profileForm.profilePublished ? 'visible' : 'por publicar' },
                         ].map((item) => (
-                          <div key={item.label} className="rounded-[22px] border border-[#eadfce] bg-white/72 px-4 py-4">
+                          <div key={item.label} className="rounded-[22px] border border-[#eadfce] bg-white/72 px-3 py-4 sm:px-4">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
                             <p className="mt-2 truncate text-2xl font-semibold text-[#180f24]">{item.value}</p>
                             <p className="mt-1 truncate text-xs text-slate-500">{item.hint}</p>
