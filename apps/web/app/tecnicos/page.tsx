@@ -4718,6 +4718,20 @@ export default function TechniciansPage() {
     return Math.round((lobbySetupCompleted / lobbySetupSteps.length) * 100);
   }, [lobbySetupCompleted, lobbySetupSteps]);
   const shouldShowLobbyOnboarding = lobbySetupPercent < 100;
+  const lobbyPrimarySetupStep = useMemo(
+    () => lobbySetupSteps.find((item) => !item.done) || lobbySetupSteps[0] || null,
+    [lobbySetupSteps]
+  );
+  const technicianHomeName = useMemo(() => {
+    const rawName =
+      profileForm.businessName ||
+      profile?.business_name ||
+      profileForm.fullName ||
+      profile?.full_name ||
+      session?.user?.email ||
+      'Panel técnico';
+    return rawName.trim();
+  }, [profile?.business_name, profile?.full_name, profileForm.businessName, profileForm.fullName, session?.user?.email]);
 
   const handleSpecialtyToggle = (specialty: string) => {
     setProfileForm((prev) => ({
@@ -6013,6 +6027,93 @@ export default function TechniciansPage() {
               <div className="space-y-6">
                 {activeTab === 'lobby' && (
                   <>
+                    <section className="overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,#fffdf9_0%,#ffffff_45%,#f6eff8_100%)] p-5 shadow-[0_30px_80px_-52px_rgba(42,3,56,0.35)] sm:p-6">
+                      <div className="flex flex-col gap-5 xl:flex-row xl:items-stretch xl:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce] bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a6786]">
+                            <Wrench className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                            Inicio operativo
+                          </div>
+                          <h1 className="mt-4 max-w-3xl text-[clamp(1.8rem,4vw,3.4rem)] font-semibold leading-[1.03] text-[#180f24]">
+                            {technicianHomeName}
+                          </h1>
+                          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                            Tu centro de control para cotizar, seguir clientes y mantener visible tu presencia profesional.
+                          </p>
+
+                          <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('nuevo')}
+                              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_38px_-26px_rgba(255,143,31,0.88)] transition hover:bg-[#ffad56]"
+                            >
+                              <FileText className="h-4 w-4" />
+                              Nuevo presupuesto
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('operativo')}
+                              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-[#e8dff0] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#ffcf93] hover:text-[#2a0338]"
+                            >
+                              <Search className="h-4 w-4" />
+                              Solicitudes cercanas
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab('perfil')}
+                              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-2xl border border-[#e8dff0] bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-[#ffcf93] hover:text-[#2a0338]"
+                            >
+                              <User className="h-4 w-4" />
+                              Perfil público
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="grid min-w-0 gap-3 sm:grid-cols-3 xl:w-[440px] xl:grid-cols-1">
+                          {[
+                            { label: 'Pendientes', value: quoteStats.pending, hint: 'Por responder', tone: 'text-amber-700 bg-amber-50 border-amber-200' },
+                            { label: 'Aprobados', value: quoteStats.approved, hint: 'Listos para ejecutar', tone: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
+                            { label: 'Perfil', value: `${profileCompletionPercent}%`, hint: profileForm.profilePublished ? 'Visible' : 'Por publicar', tone: 'text-[#2a0338] bg-[#f7eff8] border-[#eadfce]' },
+                          ].map((item) => (
+                            <div key={item.label} className={`rounded-[24px] border px-4 py-4 ${item.tone}`}>
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] opacity-70">{item.label}</p>
+                              <p className="mt-2 text-2xl font-semibold">{item.value}</p>
+                              <p className="mt-1 text-xs opacity-75">{item.hint}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mt-5 rounded-[26px] border border-[#eadfce] bg-white/78 p-4">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                              Configuración inicial
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-slate-900">
+                              {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
+                                ? lobbyPrimarySetupStep.title
+                                : 'Tu panel ya está listo para operar'}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-slate-500">
+                              {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
+                                ? lobbyPrimarySetupStep.description
+                                : 'Puedes seguir optimizando presupuestos, agenda y presencia pública.'}
+                            </p>
+                          </div>
+                          <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#eadfce] bg-[#fffdf9] px-3 py-1.5 text-xs font-semibold text-[#2a0338]">
+                            {lobbySetupCompleted}/{lobbySetupSteps.length} completo
+                          </span>
+                        </div>
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                          <div
+                            className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#ffd09a,#2a0338)] transition-[width] duration-500"
+                            style={{ width: `${lobbySetupPercent}%` }}
+                          />
+                        </div>
+                      </div>
+                    </section>
+
                     <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr_1fr]">
                       <div className="xl:col-span-2 space-y-6">
                         <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
