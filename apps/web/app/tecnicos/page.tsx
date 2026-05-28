@@ -21,6 +21,7 @@ import {
   LogOut,
   Mail,
   MessageCircle,
+  MoreHorizontal,
   Search,
   Settings,
   ShieldCheck,
@@ -1584,6 +1585,7 @@ export default function TechniciansPage() {
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
+  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
   const uiTheme = UI_THEME;
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
@@ -1816,6 +1818,7 @@ export default function TechniciansPage() {
   const mobileSecondaryNavItems = navItems.filter(
     (item) => !mobilePrimaryNavItems.some((primaryItem) => primaryItem.key === item.key)
   );
+  const isMobileSecondaryActive = mobileSecondaryNavItems.some((item) => item.key === activeNavKey);
   const activeSupportLabel = useMemo(() => {
     if (isBetaAdmin) {
       return (
@@ -6040,54 +6043,68 @@ export default function TechniciansPage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-3 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
-              <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                <div className="min-w-0">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/[0.42]">Más herramientas</p>
-                  <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
-                </div>
-                <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[10px] font-semibold text-[#ffcf93]">
-                  {quotes.length} activos
-                </span>
-              </div>
-              <div className="ufx-scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
-                {mobileSecondaryNavItems.map((item) => {
-                  const isActive = activeNavKey === item.key;
-                  const Icon = item.icon;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => {
-                        setActiveTab(item.key);
-                        if (item.key === 'presupuestos') setQuoteFilter('all');
-                      }}
-                      className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:text-sm ${
-                        isActive
-                          ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
-                          : 'bg-white/10 text-white/90 hover:bg-white/[0.14] hover:text-white'
-                      }`}
-                    >
-                      <span className="inline-flex items-center gap-2">
-                        <Icon className="h-3.5 w-3.5" />
-                        {item.label}
-                        {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                          <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
-                            {unreadNotifications}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
             <nav
               aria-label="Navegación principal móvil"
               className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[28px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(34,6,47,0.96),rgba(42,3,56,0.96))] p-2 shadow-[0_26px_70px_-34px_rgba(0,0,0,0.92),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur lg:hidden"
             >
+              {isMobileToolsOpen && (
+                <div className="absolute inset-x-0 bottom-[calc(100%+0.75rem)] rounded-[26px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(42,3,56,0.98),rgba(28,3,38,0.98))] p-3 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.10)]">
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/[0.42]">Más herramientas</p>
+                      <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
+                    </div>
+                    <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[10px] font-semibold text-[#ffcf93]">
+                      {quotes.length} activos
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {mobileSecondaryNavItems.map((item) => {
+                      const isActive = activeNavKey === item.key;
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.key}
+                          type="button"
+                          aria-pressed={isActive}
+                          onClick={() => {
+                            setActiveTab(item.key);
+                            setIsMobileToolsOpen(false);
+                            if (item.key === 'presupuestos') setQuoteFilter('all');
+                          }}
+                          className={`flex min-h-11 items-center gap-2 rounded-[18px] px-3 text-left text-xs font-semibold transition ${
+                            isActive
+                              ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.95)]'
+                              : 'bg-white/[0.08] text-white/[0.88] hover:bg-white/[0.14] hover:text-white'
+                          }`}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                            <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
+                              {unreadNotifications}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <button
+                type="button"
+                aria-expanded={isMobileToolsOpen}
+                aria-label="Abrir más herramientas"
+                onClick={() => setIsMobileToolsOpen((prev) => !prev)}
+                className={`absolute -top-4 right-4 inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[11px] font-semibold shadow-[0_18px_34px_-24px_rgba(0,0,0,0.9)] transition ${
+                  isMobileToolsOpen || isMobileSecondaryActive
+                    ? 'border-[#ffcf93]/70 bg-[#ff8f1f] text-[#2a0338]'
+                    : 'border-white/[0.14] bg-[#2a0338] text-white hover:bg-[#360946]'
+                }`}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+                Más
+              </button>
               <div className="grid grid-cols-5 gap-1">
                 {mobilePrimaryNavItems.map((item) => {
                   const Icon = item.icon;
@@ -6107,6 +6124,7 @@ export default function TechniciansPage() {
                       aria-pressed={isActive}
                       onClick={() => {
                         setActiveTab(item.key);
+                        setIsMobileToolsOpen(false);
                         if (item.key === 'presupuestos') setQuoteFilter('all');
                       }}
                       className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 text-[10px] font-semibold transition ${
