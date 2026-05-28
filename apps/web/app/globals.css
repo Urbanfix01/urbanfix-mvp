@@ -486,6 +486,14 @@ header .header-view-option {
     display: none;
   }
 
+  .ufx-scrollbar-none {
+    scrollbar-width: none;
+  }
+
+  .ufx-scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+
   .home-secondary-nav .header-view-option {
     flex: 0 0 auto;
     border: 1px solid #e2e8f0;

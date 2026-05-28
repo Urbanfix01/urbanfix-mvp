@@ -6050,7 +6050,7 @@ export default function TechniciansPage() {
                   {quotes.length} activos
                 </span>
               </div>
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              <div className="ufx-scrollbar-none flex items-center gap-2 overflow-x-auto pb-1">
                 {mobileSecondaryNavItems.map((item) => {
                   const isActive = activeNavKey === item.key;
                   const Icon = item.icon;
