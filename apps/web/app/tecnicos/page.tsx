@@ -3258,7 +3258,201 @@ export default function TechniciansPage() {
       ...totals,
     };
   }, [quotes]);
-  const recentQuotes = useMemo(() => quotes.slice(0, 3), [quotes]);
+  const clientHistory = useMemo(() => {
+    const grouped = new Map<
+      string,
+      {
+        key: string;
+        name: string;
+        quotes: QuoteRow[];
+        totalAmount: number;
+        paidAmount: number;
+        firstDateMs: number;
+        lastDateMs: number;
+        pendingCount: number;
+        approvedCount: number;
+        paidCount: number;
+        locationCount: number;
+      }
+    >();
+
+    quotes.forEach((quote) => {
+      const name = (quote.client_name || 'Cliente sin nombre').trim() || 'Cliente sin nombre';
+      const key = normalizeText(name) || quote.id;
+      const createdMs = new Date(quote.created_at).getTime();
+      const createdTime = Number.isFinite(createdMs) ? createdMs : 0;
+      const amount = toAmountValue(quote.total_amount);
+      const status = normalizeStatusValue(quote.status);
+      const current =
+        grouped.get(key) ||
+        ({
+          key,
+          name,
+          quotes: [],
+          totalAmount: 0,
+          paidAmount: 0,
+          firstDateMs: createdTime,
+          lastDateMs: createdTime,
+          pendingCount: 0,
+          approvedCount: 0,
+          paidCount: 0,
+          locationCount: 0,
+        } satisfies {
+          key: string;
+          name: string;
+          quotes: QuoteRow[];
+          totalAmount: number;
+          paidAmount: number;
+          firstDateMs: number;
+          lastDateMs: number;
+          pendingCount: number;
+          approvedCount: number;
+          paidCount: number;
+          locationCount: number;
+        });
+
+      current.quotes.push(quote);
+      current.totalAmount += amount;
+      if (paidStatuses.has(status)) current.paidAmount += amount;
+      if (pendingStatuses.has(status)) current.pendingCount += 1;
+      if (approvedStatuses.has(status)) current.approvedCount += 1;
+      if (paidStatuses.has(status)) current.paidCount += 1;
+      if (toFiniteCoordinate(quote.location_lat) !== null && toFiniteCoordinate(quote.location_lng) !== null) {
+        current.locationCount += 1;
+      }
+      current.firstDateMs = Math.min(current.firstDateMs, createdTime);
+      current.lastDateMs = Math.max(current.lastDateMs, createdTime);
+      grouped.set(key, current);
+    });
+
+    return Array.from(grouped.values())
+      .map((client) => {
+        const sortedQuotes = [...client.quotes].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+        const latestQuote = sortedQuotes[0] || client.quotes[0];
+        const latestStatus = normalizeStatusValue(latestQuote?.status);
+        const latestStatusLabel = statusMap[latestStatus]?.label || 'Presupuesto';
+        const lastDate = new Date(client.lastDateMs);
+        const firstDate = new Date(client.firstDateMs);
+        return {
+          ...client,
+          latestQuote,
+          latestStatusLabel,
+          lastDateLabel: lastDate.toLocaleDateString('es-AR'),
+          firstDateLabel: firstDate.toLocaleDateString('es-AR'),
+        };
+      })
+      .sort((a, b) => b.lastDateMs - a.lastDateMs);
+  }, [quotes]);
+  const clientZoneMap = useMemo(() => {
+    const locatedClients = clientHistory
+      .map((client) => {
+        const locatedQuote = [...client.quotes]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .find((quote) => toFiniteCoordinate(quote.location_lat) !== null && toFiniteCoordinate(quote.location_lng) !== null);
+        if (!locatedQuote) return null;
+        const lat = toFiniteCoordinate(locatedQuote.location_lat);
+        const lon = toFiniteCoordinate(locatedQuote.location_lng);
+        if (lat === null || lon === null) return null;
+        return {
+          id: client.key,
+          name: client.name,
+          totalAmount: client.totalAmount,
+          movements: client.quotes.length,
+          lastDateLabel: client.lastDateLabel,
+          address: getQuoteAddress(locatedQuote) || 'Zona sin dirección',
+          lat,
+          lon,
+        };
+      })
+      .filter(Boolean) as Array<{
+      id: string;
+      name: string;
+      totalAmount: number;
+      movements: number;
+      lastDateLabel: string;
+      address: string;
+      lat: number;
+      lon: number;
+    }>;
+
+    const points =
+      locatedClients.length > 0 || !isDesignPreview
+        ? locatedClients
+        : [
+            {
+              id: 'preview-daniel',
+              name: 'DANIEL',
+              totalAmount: 658858.6,
+              movements: 2,
+              lastDateLabel: '26/2/2026',
+              address: 'San Nicolás',
+              lat: -34.6037,
+              lon: -58.3816,
+            },
+            {
+              id: 'preview-cristina',
+              name: 'CRISTINA',
+              totalAmount: 196000,
+              movements: 1,
+              lastDateLabel: '9/2/2026',
+              address: 'Recoleta',
+              lat: -34.5889,
+              lon: -58.3974,
+            },
+            {
+              id: 'preview-zona-sur',
+              name: 'Cliente zona sur',
+              totalAmount: 156000,
+              movements: 1,
+              lastDateLabel: '5/2/2026',
+              address: 'Balvanera',
+              lat: -34.6098,
+              lon: -58.4071,
+            },
+          ];
+
+    if (!points.length) {
+      return { points, mapUrl: '', markers: [] as Array<(typeof points)[number] & { x: number; y: number }> };
+    }
+
+    const lats = points.map((point) => point.lat);
+    const lons = points.map((point) => point.lon);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+    const latSpan = Math.max(maxLat - minLat, 0.015);
+    const lonSpan = Math.max(maxLon - minLon, 0.015);
+    const marginLat = Math.max(latSpan * 0.35, 0.012);
+    const marginLon = Math.max(lonSpan * 0.35, 0.012);
+    const left = clampLongitude(minLon - marginLon);
+    const right = clampLongitude(maxLon + marginLon);
+    const bottom = clampLatitude(minLat - marginLat);
+    const top = clampLatitude(maxLat + marginLat);
+    const mapPoints: DashboardMapPoint[] = points.map((point) => ({
+      id: point.id,
+      kind: 'job',
+      title: point.name,
+      subtitle: point.address,
+      meta: point.lastDateLabel,
+      lat: point.lat,
+      lon: point.lon,
+      createdAt: point.lastDateLabel,
+    }));
+    const markers = points.map((point) => ({
+      ...point,
+      x: ((point.lon - left) / Math.max(right - left, 0.000001)) * 100,
+      y: ((top - point.lat) / Math.max(top - bottom, 0.000001)) * 100,
+    }));
+
+    return {
+      points,
+      mapUrl: buildOsmStaticMultiMarkerUrl(mapPoints),
+      markers,
+    };
+  }, [clientHistory, isDesignPreview]);
   const activeQuote = useMemo(
     () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
     [quotes, activeQuoteId]
@@ -6536,41 +6730,129 @@ export default function TechniciansPage() {
                                 Tus clientes y presupuestos en movimiento
                               </h2>
                               <p className="mt-3 text-sm leading-7 text-slate-600">
-                                Esta es la parte central de tu operación: quién está esperando, qué cliente avanzó y qué presupuesto necesita una acción tuya.
+                                Mapeo histórico por zona: dónde se movió tu trabajo y qué clientes vuelven a aparecer.
                               </p>
                             </div>
                             <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Clientes activos</p>
-                              <p className="mt-2 text-3xl font-semibold text-slate-900">{quoteStats.total}</p>
-                              <p className="text-xs text-slate-500">Presupuestos hoy en tu cuenta</p>
+                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Clientes históricos</p>
+                              <p className="mt-2 text-3xl font-semibold text-slate-900">{clientHistory.length}</p>
+                              <p className="text-xs text-slate-500">{quoteStats.total} movimientos cargados</p>
                             </div>
                           </div>
 
-                          <div className="mt-5 space-y-3">
-                            {recentQuotes.length === 0 && (
-                              <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                                Todavía no hay clientes con presupuestos cargados.
-                              </div>
-                            )}
-                            {recentQuotes.map((quote) => (
-                              <button
-                                key={quote.id}
-                                type="button"
-                                onClick={() => loadQuote(quote)}
-                                className="flex w-full items-center justify-between gap-4 rounded-[24px] border border-slate-200 bg-white px-5 py-4 text-left transition hover:border-slate-300 hover:bg-slate-50"
-                              >
-                                <div className="min-w-0">
-                                  <p className="truncate text-base font-semibold text-slate-900">{quote.client_name || 'Cliente sin nombre'}</p>
-                                  <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-400">
-                                    {new Date(quote.created_at).toLocaleDateString('es-AR')}
-                                  </p>
+                          <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+                            <div className="space-y-3">
+                              {clientHistory.length === 0 && (
+                                <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
+                                  Todavía no hay clientes con presupuestos cargados.
                                 </div>
-                                <div className="text-right">
-                                  <p className="text-sm font-semibold text-slate-900">${(quote.total_amount || 0).toLocaleString('es-AR')}</p>
-                                  <p className="mt-1 text-xs text-slate-500">Presupuesto cargado</p>
-                                </div>
-                              </button>
-                            ))}
+                              )}
+                              {clientHistory.slice(0, 4).map((client) => (
+                                <button
+                                  key={client.key}
+                                  type="button"
+                                  onClick={() => client.latestQuote && loadQuote(client.latestQuote)}
+                                  className="flex w-full items-center justify-between gap-4 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-[#ffcf93] hover:bg-[#fffaf4]"
+                                >
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-sm font-semibold uppercase text-white shadow-[0_18px_34px_-26px_rgba(42,3,56,0.9)]">
+                                      {client.name.slice(0, 2)}
+                                    </span>
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-base font-semibold text-slate-900">{client.name}</span>
+                                      <span className="mt-1 block text-xs text-slate-500">
+                                        {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} · último {client.lastDateLabel}
+                                      </span>
+                                      <span className="mt-1 block text-[11px] text-slate-400">
+                                        Desde {client.firstDateLabel}
+                                        {client.locationCount > 0 ? ` · ${client.locationCount} con ubicación` : ''}
+                                      </span>
+                                    </span>
+                                  </div>
+                                  <div className="shrink-0 text-right">
+                                    <p className="text-sm font-semibold text-slate-900">${client.totalAmount.toLocaleString('es-AR')}</p>
+                                    <span className="mt-1 inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
+                                      {client.latestStatusLabel}
+                                    </span>
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+
+                            <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-slate-200 bg-[#fffaf4] shadow-[inset_0_1px_0_rgba(255,255,255,0.84)]">
+                              {clientZoneMap.mapUrl ? (
+                                <>
+                                  <iframe
+                                    title="Mapa histórico de clientes por zona"
+                                    src={clientZoneMap.mapUrl}
+                                    loading="lazy"
+                                    className="absolute inset-0 h-full w-full border-0 grayscale-[0.08] saturate-[0.9]"
+                                  />
+                                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0)_42%,rgba(42,3,56,0.12))]" />
+                                  <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/72 bg-white/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2a0338] shadow-[0_16px_36px_-24px_rgba(42,3,56,0.58)] backdrop-blur">
+                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338]">
+                                      <MapPinned className="h-3.5 w-3.5" strokeWidth={2.2} />
+                                    </span>
+                                    Mapa por zona
+                                  </div>
+                                  {clientZoneMap.markers.map((point, index) => (
+                                    <button
+                                      key={point.id}
+                                      type="button"
+                                      onClick={() => {
+                                        const client = clientHistory.find((item) => item.key === point.id);
+                                        if (client?.latestQuote) loadQuote(client.latestQuote);
+                                      }}
+                                      className="group absolute z-10 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-[#ff8f1f] text-xs font-semibold text-[#2a0338] shadow-[0_18px_38px_-22px_rgba(42,3,56,0.9)] transition hover:z-20 hover:scale-110"
+                                      style={{ left: `${point.x}%`, top: `${point.y}%` }}
+                                      title={`${point.name} · ${point.address}`}
+                                    >
+                                      {index + 1}
+                                      <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden min-w-[150px] -translate-x-1/2 rounded-2xl border border-white/72 bg-white/94 px-3 py-2 text-left text-[#180f24] shadow-[0_18px_42px_-28px_rgba(42,3,56,0.72)] backdrop-blur group-hover:block">
+                                        <span className="block truncate text-xs font-semibold">{point.name}</span>
+                                        <span className="mt-1 block truncate text-[11px] font-medium text-slate-500">{point.address}</span>
+                                        <span className="mt-1 block text-[11px] font-semibold text-[#8a4a07]">
+                                          {point.movements} mov. · ${point.totalAmount.toLocaleString('es-AR')}
+                                        </span>
+                                      </span>
+                                    </button>
+                                  ))}
+                                  <div className="absolute bottom-3 left-3 right-3 rounded-[18px] border border-white/72 bg-white/90 px-3 py-2 shadow-[0_16px_34px_-28px_rgba(42,3,56,0.62)] backdrop-blur">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <div>
+                                        <p className="text-sm font-semibold text-[#180f24]">Clientes por zona</p>
+                                        <p className="mt-0.5 text-xs text-slate-500">
+                                          {clientZoneMap.points.length} {clientZoneMap.points.length === 1 ? 'punto mapeado' : 'puntos mapeados'}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setActiveTab('operativo')}
+                                        className="rounded-full bg-[#2a0338] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#3a094a]"
+                                      >
+                                        Abrir mapa
+                                      </button>
+                                    </div>
+                                  </div>
+                                </>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab('perfil')}
+                                  className="flex h-full min-h-[360px] w-full flex-col items-start justify-between p-5 text-left transition hover:bg-white/45"
+                                >
+                                  <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_18px_38px_-28px_rgba(255,143,31,0.9)]">
+                                    <MapPinned className="h-5 w-5" strokeWidth={2.1} />
+                                  </span>
+                                  <span>
+                                    <span className="block text-sm font-semibold text-[#180f24]">Sin zonas mapeadas</span>
+                                    <span className="mt-1 block text-xs leading-5 text-slate-500">
+                                      Para mapear clientes, carga ubicación en los presupuestos o completa tu punto de trabajo.
+                                    </span>
+                                  </span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
 
