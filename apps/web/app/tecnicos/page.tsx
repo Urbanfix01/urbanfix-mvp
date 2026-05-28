@@ -1805,6 +1805,17 @@ export default function TechniciansPage() {
     profile?.business_name || profile?.full_name || session?.user?.email || 'Tu cuenta';
 
   const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
+  const mobilePrimaryNavItems = navItems.filter(
+    (item) =>
+      item.key === 'lobby' ||
+      item.key === 'operativo' ||
+      item.key === 'presupuestos' ||
+      item.key === 'agenda' ||
+      item.key === 'perfil'
+  );
+  const mobileSecondaryNavItems = navItems.filter(
+    (item) => !mobilePrimaryNavItems.some((primaryItem) => primaryItem.key === item.key)
+  );
   const activeSupportLabel = useMemo(() => {
     if (isBetaAdmin) {
       return (
@@ -5854,22 +5865,50 @@ export default function TechniciansPage() {
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
       <div className="relative overflow-hidden">
-        <div className="absolute left-0 top-0 bottom-0 hidden w-[78px] bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] lg:block" />
+        <div className="absolute left-0 top-0 bottom-0 hidden w-[86px] bg-[linear-gradient(180deg,#17031f_0%,#2a0338_46%,#15031d_100%)] lg:block" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-28 pt-8 md:px-6 lg:pl-[106px]">
-          <div className="hidden w-[78px] shrink-0 lg:block">
+        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[116px]">
+          <div className="hidden w-[86px] shrink-0 lg:block">
             <aside
+              aria-label="Navegación técnica"
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
-              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
-                isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
+              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#17031f_0%,#2a0338_48%,#15031d_100%)] shadow-[18px_0_56px_-48px_rgba(0,0,0,0.9),inset_-1px_0_0_rgba(255,255,255,0.07)] transition-[width] duration-300 lg:flex ${
+                isDesktopNavExpanded ? 'w-[268px]' : 'w-[86px]'
               }`}
             >
               <div className="flex w-full flex-col">
-                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-4' : 'px-2 py-4'}`}>
+                <div className={`${isDesktopNavExpanded ? 'px-3 pb-2 pt-4' : 'px-2 pb-2 pt-4'}`}>
+                  <div
+                    className={`flex items-center border border-white/10 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
+                      isDesktopNavExpanded
+                        ? 'gap-3 rounded-[22px] px-3 py-3'
+                        : 'mx-auto h-12 w-12 justify-center rounded-[18px]'
+                    }`}
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-sm font-black text-[#2a0338] shadow-[0_18px_30px_-20px_rgba(255,143,31,0.95)]">
+                      UF
+                    </span>
+                    {isDesktopNavExpanded && (
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
+                        <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.45]">
+                          Panel técnico
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-3' : 'px-2 py-3'}`}>
+                  {isDesktopNavExpanded && (
+                    <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/[0.38]">
+                      Operación
+                    </p>
+                  )}
                   <div className="flex flex-col gap-1.5">
                     {navItems.map((item) => {
                       const Icon = item.icon;
@@ -5878,32 +5917,39 @@ export default function TechniciansPage() {
                         <button
                           key={item.key}
                           type="button"
+                          aria-pressed={isActive}
                           title={!isDesktopNavExpanded ? item.label : undefined}
                           onClick={() => {
                             setActiveTab(item.key);
                             if (item.key === 'presupuestos') setQuoteFilter('all');
                           }}
-                          className={`group relative flex items-center transition ${
+                          className={`group relative flex items-center transition duration-200 ${
                             isDesktopNavExpanded
-                              ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                              : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                              ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
+                              : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
                           } ${
                             isActive
-                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
-                              : 'text-white hover:bg-white/10 hover:text-white'
+                              ? 'bg-white/[0.13] text-white shadow-[0_18px_34px_-30px_rgba(255,143,31,0.85),inset_0_1px_0_rgba(255,255,255,0.12)]'
+                              : 'text-white/[0.72] hover:bg-white/[0.075] hover:text-white'
                           }`}
                         >
+                          {isActive && (
+                            <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#ff8f1f]" />
+                          )}
                           <span
-                            className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] transition ${
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] transition ${
                               isActive
-                                ? 'bg-white/16 text-white'
-                                : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
+                                ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_26px_-18px_rgba(255,143,31,0.9)]'
+                                : 'bg-white/[0.08] text-white/[0.82] group-hover:bg-white/[0.13] group-hover:text-white'
                             }`}
                           >
                             <Icon className="h-4 w-4" />
                           </span>
                           {isDesktopNavExpanded && (
-                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{item.label}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[13px] font-semibold">{item.label}</span>
+                              <span className="mt-0.5 block truncate text-[10px] font-medium text-white/[0.38]">{item.hint}</span>
+                            </span>
                           )}
                           {item.key === 'notificaciones' && unreadNotifications > 0 && (
                             <span
@@ -5920,11 +5966,19 @@ export default function TechniciansPage() {
                   </div>
                 </nav>
 
-                <div className={`${isDesktopNavExpanded ? 'px-3 pb-3 pt-2.5' : 'px-2 pb-3 pt-2.5'} border-t border-white/10`}>
+                <div className={`${isDesktopNavExpanded ? 'px-3 pb-3 pt-3' : 'px-2 pb-3 pt-3'} border-t border-white/10`}>
                   {isDesktopNavExpanded && (
-                    <div className="mb-2 rounded-[16px] border border-white/10 bg-white/5 px-2.5 py-2">
-                      <p className="truncate text-[13px] font-semibold text-white">{technicianSidebarAccountLabel}</p>
-                      <p className="mt-0.5 text-[9px] uppercase tracking-[0.16em] text-white/45">Cuenta técnica</p>
+                    <div className="mb-3 rounded-[18px] border border-white/10 bg-white/[0.055] px-3 py-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.42]">Perfil</p>
+                        <p className="text-xs font-semibold text-[#ffcf93]">{profileCompletionPercent}%</p>
+                      </div>
+                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#ffcf93)] transition-[width] duration-500"
+                          style={{ width: `${profileCompletionPercent}%` }}
+                        />
+                      </div>
                     </div>
                   )}
 
@@ -5932,13 +5986,13 @@ export default function TechniciansPage() {
                     <a
                       href={session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil'}
                       title={!isDesktopNavExpanded ? 'Perfil' : undefined}
-                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                      className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
+                          : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
                       }`}
                     >
-                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-white/[0.08] text-white/[0.82] transition group-hover:bg-white/[0.13] group-hover:text-white">
                         <User className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Perfil</span>}
@@ -5948,13 +6002,13 @@ export default function TechniciansPage() {
                       type="button"
                       title={!isDesktopNavExpanded ? 'Configuración' : undefined}
                       onClick={() => setActiveTab('perfil')}
-                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                      className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
+                          : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
                       }`}
                     >
-                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-white/[0.08] text-white/[0.82] transition group-hover:bg-white/[0.13] group-hover:text-white">
                         <Settings className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
@@ -5966,13 +6020,13 @@ export default function TechniciansPage() {
                       type="button"
                       title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                       onClick={handleLogout}
-                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                      className={`group relative flex items-center text-white/[0.82] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
+                          : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
                       }`}
                     >
-                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
                         <LogOut className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
@@ -5986,25 +6040,37 @@ export default function TechniciansPage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
-              <div className="flex items-center gap-2 overflow-x-auto">
-                {navItems.map((item) => {
+            <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-3 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
+              <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/[0.42]">Más herramientas</p>
+                  <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
+                </div>
+                <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[10px] font-semibold text-[#ffcf93]">
+                  {quotes.length} activos
+                </span>
+              </div>
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {mobileSecondaryNavItems.map((item) => {
                   const isActive = activeNavKey === item.key;
+                  const Icon = item.icon;
                   return (
                     <button
                       key={item.key}
                       type="button"
+                      aria-pressed={isActive}
                       onClick={() => {
                         setActiveTab(item.key);
                         if (item.key === 'presupuestos') setQuoteFilter('all');
                       }}
-                      className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
+                      className={`shrink-0 rounded-full px-3 py-2 text-xs font-semibold transition sm:text-sm ${
                         isActive
                           ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
-                          : 'bg-white/10 text-white/90 hover:bg-white/14 hover:text-white'
+                          : 'bg-white/10 text-white/90 hover:bg-white/[0.14] hover:text-white'
                       }`}
                     >
                       <span className="inline-flex items-center gap-2">
+                        <Icon className="h-3.5 w-3.5" />
                         {item.label}
                         {item.key === 'notificaciones' && unreadNotifications > 0 && (
                           <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
@@ -6015,11 +6081,47 @@ export default function TechniciansPage() {
                     </button>
                   );
                 })}
-                <span className="ml-auto hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-[10px] font-semibold text-white/58 sm:inline-flex">
-                  {quotes.length} activos
-                </span>
               </div>
             </div>
+
+            <nav
+              aria-label="Navegación principal móvil"
+              className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[28px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(34,6,47,0.96),rgba(42,3,56,0.96))] p-2 shadow-[0_26px_70px_-34px_rgba(0,0,0,0.92),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur lg:hidden"
+            >
+              <div className="grid grid-cols-5 gap-1">
+                {mobilePrimaryNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = activeNavKey === item.key;
+                  const mobileLabel =
+                    item.key === 'lobby'
+                      ? 'Panel'
+                      : item.key === 'operativo'
+                        ? 'Mapa'
+                        : item.key === 'presupuestos'
+                          ? 'Presup.'
+                          : item.label;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      aria-pressed={isActive}
+                      onClick={() => {
+                        setActiveTab(item.key);
+                        if (item.key === 'presupuestos') setQuoteFilter('all');
+                      }}
+                      className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 text-[10px] font-semibold transition ${
+                        isActive
+                          ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_18px_34px_-24px_rgba(255,143,31,0.92)]'
+                          : 'text-white/[0.68] hover:bg-white/[0.08] hover:text-white'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="max-w-full truncate">{mobileLabel}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </nav>
 
             <main className="relative pt-6">
           <section className="space-y-6">
