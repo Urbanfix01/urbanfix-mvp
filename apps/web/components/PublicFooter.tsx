@@ -34,7 +34,7 @@ export default function PublicFooter() {
       <div className="mx-auto grid w-full max-w-7xl gap-10 px-4 py-10 sm:px-6 lg:grid-cols-[1.2fr_0.9fr_0.9fr] lg:px-8">
         <div>
           <Link href="/" className="inline-flex items-center gap-3">
-            <img src="/icon.png" alt="UrbanFix" className="h-10 w-10 rounded-xl" />
+            <img src="/icon-48.png" alt="UrbanFix" className="h-10 w-10 rounded-xl" />
             <span className="text-2xl font-extrabold tracking-tight text-white">
               URBAN<span className="text-[#ff8f1f]">FIX</span>
             </span>

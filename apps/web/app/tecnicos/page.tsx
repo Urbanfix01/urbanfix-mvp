@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
 import {
+  ArrowLeft,
   ArrowRight,
   Bell,
   Building2,
@@ -10,10 +11,14 @@ import {
   Clock,
   CreditCard,
   Eye,
+  EyeOff,
   FileText,
   Home,
   ImagePlus,
+  Loader2,
+  LockKeyhole,
   LogOut,
+  Mail,
   MessageCircle,
   Search,
   Settings,
@@ -612,6 +617,8 @@ const authLogoFrameClass =
 const authInputClass =
   'mt-2 w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-sm text-[color:var(--ui-ink)] outline-none transition placeholder:text-[color:var(--ui-muted)]/70 focus:border-[color:var(--ui-accent-soft)]';
 
+const authIconInputClass = authInputClass.replace('px-4', 'pl-11 pr-4');
+
 const authPrimaryButtonClass =
   'w-full rounded-2xl bg-[color:var(--ui-accent)] px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-black/20 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -623,6 +630,52 @@ const authSecondaryButtonBlockClass =
 
 const authOptionButtonClass =
   'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-left transition hover:border-[color:var(--ui-accent-soft)]';
+
+const AUTH_FORM_VALIDATION_MESSAGES = [
+  'Ingresa correo y contraseña.',
+  'Ingresa un correo válido.',
+  'La contraseña debe tener al menos 6 caracteres.',
+  'Ingresa al menos tu nombre para crear la cuenta.',
+] as const;
+
+const getFriendlyAuthErrorMessage = (
+  error: unknown,
+  mode: 'login' | 'register' | 'recovery' | 'google'
+) => {
+  const rawMessage = error instanceof Error ? error.message : String(error || '');
+  if (AUTH_FORM_VALIDATION_MESSAGES.includes(rawMessage as (typeof AUTH_FORM_VALIDATION_MESSAGES)[number])) {
+    return rawMessage;
+  }
+
+  const normalizedMessage = rawMessage.toLowerCase();
+  if (normalizedMessage.includes('invalid login credentials') || normalizedMessage.includes('invalid credentials')) {
+    return 'Correo o contraseña incorrectos.';
+  }
+  if (normalizedMessage.includes('email not confirmed')) {
+    return 'Confirma tu correo antes de ingresar.';
+  }
+  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('user already exists')) {
+    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseña.';
+  }
+  if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
+    return 'La contraseña debe tener al menos 6 caracteres.';
+  }
+  if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
+    return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
+  }
+  if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
+    return 'No pudimos conectar. Revisa tu conexión e intenta nuevamente.';
+  }
+  if (mode === 'google') {
+    return 'No pudimos abrir el acceso con Google. Intenta nuevamente.';
+  }
+  if (mode === 'recovery') {
+    return 'No pudimos enviar el correo de recuperación.';
+  }
+  return mode === 'register'
+    ? 'No pudimos crear la cuenta. Revisa los datos e intenta de nuevo.'
+    : 'No pudimos ingresar. Revisa los datos e intenta de nuevo.';
+};
 
 const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
   profile: AccessProfile;
@@ -641,7 +694,7 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
     description: 'Presupuestos, solicitudes cercanas, seguimiento de trabajos y perfil público desde un mismo panel.',
     note: 'Ideal para operar y cotizar sin salir de la web.',
     icon: Wrench,
-    iconShellClassName: 'border-[#ff8f1f]/25 bg-[#ff8f1f]/12',
+    iconShellClassName: 'border-[#ff8f1f]/[0.25] bg-[#ff8f1f]/[0.12]',
     iconClassName: 'text-[#ff8f1f]',
   },
   {
@@ -651,7 +704,7 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
     description: 'Centraliza marca, responsables, presupuestos y flujo comercial en una única cuenta operativa.',
     note: 'Pensado para equipos, marcas y gestión comercial.',
     icon: Building2,
-    iconShellClassName: 'border-[#2a0338]/18 bg-[#2a0338]/8',
+    iconShellClassName: 'border-[#2a0338]/[0.18] bg-[#2a0338]/[0.08]',
     iconClassName: 'text-[#2a0338]',
   },
   {
@@ -1383,9 +1436,12 @@ export default function TechniciansPage() {
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [sendingRecovery, setSendingRecovery] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [selectedAccessProfile, setSelectedAccessProfile] = useState<AccessProfile | null>(null);
+  const [accessTransitionProfile, setAccessTransitionProfile] = useState<AccessProfile | null>(null);
   const [recoveryPassword, setRecoveryPassword] = useState('');
   const [recoveryConfirm, setRecoveryConfirm] = useState('');
   const [recoveryError, setRecoveryError] = useState('');
@@ -1406,6 +1462,7 @@ export default function TechniciansPage() {
   const [supportError, setSupportError] = useState('');
   const supportFileInputRef = useRef<HTMLInputElement | null>(null);
   const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
+  const accessTransitionTimerRef = useRef<number | null>(null);
   const [accessVideoMuted, setAccessVideoMuted] = useState(true);
   const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
   const [dashboardVideoAvailable, setDashboardVideoAvailable] = useState(Boolean(DASHBOARD_VIDEO_URL));
@@ -1634,6 +1691,14 @@ export default function TechniciansPage() {
     document.documentElement.style.colorScheme = UI_THEME;
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (accessTransitionTimerRef.current) {
+        window.clearTimeout(accessTransitionTimerRef.current);
+      }
+    };
+  }, []);
+
   const setAccessProfileInUrl = (profile: AccessProfile | null) => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
@@ -1652,24 +1717,45 @@ export default function TechniciansPage() {
   };
 
   const handleAccessProfileSelect = (profile: AccessProfile) => {
+    if (accessTransitionTimerRef.current) {
+      window.clearTimeout(accessTransitionTimerRef.current);
+      accessTransitionTimerRef.current = null;
+    }
+    setAccessTransitionProfile(profile);
+    setAuthError('');
+    setAuthNotice('');
+    setShowAuthPassword(false);
+
+    accessTransitionTimerRef.current = window.setTimeout(() => {
+      accessTransitionTimerRef.current = null;
+      setAccessTransitionProfile(null);
+
     if (profile === 'cliente') {
       if (typeof window !== 'undefined') {
-        window.location.href = '/cliente';
+        const clientParams = new URLSearchParams();
+        clientParams.set('mode', authMode);
+        window.location.href = `/cliente?${clientParams.toString()}`;
       }
       return;
     }
     setSelectedAccessProfile(profile);
-    setAuthError('');
-    setAuthNotice('');
     setAccessProfileInUrl(profile);
+    }, 240);
   };
 
   const handleBackToProfileSelector = () => {
+    if (accessTransitionTimerRef.current) {
+      window.clearTimeout(accessTransitionTimerRef.current);
+      accessTransitionTimerRef.current = null;
+    }
+    setAccessTransitionProfile(null);
     setSelectedAccessProfile(null);
     setAutoGoogleStarted(false);
     setQuickRegisterMode(false);
     setAuthError('');
     setAuthNotice('');
+    setGoogleAuthLoading(false);
+    setShowAuthPassword(false);
     setAccessProfileInUrl(null);
   };
 
@@ -4378,6 +4464,8 @@ export default function TechniciansPage() {
     setAuthMode('login');
     setAuthError('');
     setAuthNotice('');
+    setGoogleAuthLoading(false);
+    setShowAuthPassword(false);
     setEmail('');
     setPassword('');
     setFullName('');
@@ -4386,15 +4474,18 @@ export default function TechniciansPage() {
   };
 
   const handleGoogleLogin = async () => {
+    if (googleAuthLoading) return;
     setAuthError('');
     setAuthNotice('');
+    setGoogleAuthLoading(true);
     const redirectTo = `${window.location.origin}/tecnicos`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
     if (error) {
-      setAuthError(error.message);
+      setAuthError(getFriendlyAuthErrorMessage(error, 'google'));
+      setGoogleAuthLoading(false);
     }
   };
 
@@ -4425,7 +4516,7 @@ export default function TechniciansPage() {
       if (error) throw error;
       setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
     } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos enviar el correo de recuperación.');
+      setAuthError(getFriendlyAuthErrorMessage(error, 'recovery'));
     } finally {
       setSendingRecovery(false);
     }
@@ -4500,7 +4591,7 @@ export default function TechniciansPage() {
         setPassword('');
       }
     } catch (error: any) {
-      setAuthError(error?.message || 'No pudimos iniciar sesión.');
+      setAuthError(getFriendlyAuthErrorMessage(error, authMode));
     } finally {
       setAuthLoading(false);
     }
@@ -5094,7 +5185,7 @@ export default function TechniciansPage() {
                         className={`h-full w-full ${logoPresentation.img}`}
                       />
                     ) : (
-                      <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                      <img src="/icon-48.png" alt="UrbanFix logo" className="h-10 w-10" />
                     )}
                   </div>
                   <div className="text-left">
@@ -5463,173 +5554,104 @@ export default function TechniciansPage() {
           <div className="relative overflow-hidden">
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(255,143,31,0.18),_transparent_28%),radial-gradient(circle_at_top_right,_rgba(82,35,122,0.26),_transparent_32%),linear-gradient(180deg,#16031f_0%,#21002f_52%,#14031c_100%)]"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-24 top-10 h-72 w-72 rounded-full bg-[#ff8f1f]/18 blur-3xl"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -left-12 bottom-0 h-72 w-72 rounded-full bg-[#f5d8a4]/10 blur-3xl"
+              className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#16031f_0%,#21002f_52%,#14031c_100%)]"
             />
 
-            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
-              <section className="w-full rounded-[34px] border border-[#eadfce]/70 bg-[#fffdf9]/96 p-6 text-[#180f24] shadow-[0_36px_100px_-54px_rgba(0,0,0,0.86)] backdrop-blur sm:p-8">
-                <div className="mb-6 flex items-center gap-4 border-b border-slate-200 pb-5">
-                  <div
-                    style={brandLogoUrl ? ({ aspectRatio: logoAspect } as React.CSSProperties) : undefined}
-                    className={`${authLogoFrameClass} ${logoPresentation.frame} ${logoPresentation.padding} bg-white`}
-                  >
-                    {brandLogoUrl ? (
-                      <img
-                        src={brandLogoUrl}
-                        alt="Logo de empresa"
-                        onLoad={handleLogoLoaded}
-                        className={`h-full w-full ${logoPresentation.img}`}
-                      />
-                    ) : (
-                      <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">UrbanFix</p>
-                    <p className="mt-1 text-base font-semibold text-slate-900">
-                      {selectedAccessMeta ? selectedAccessMeta.panelLabel : 'Acceso a la plataforma'}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-500">
-                      {selectedAccessMeta
-                        ? 'Login y registro adaptados al lenguaje visual actual.'
-                        : 'Elige tu perfil para entrar al flujo correcto.'}
-                    </p>
-                  </div>
-                </div>
-
+            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+              <section
+                className={`w-full backdrop-blur ${
+                  selectedAccessProfile
+                    ? 'rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-5'
+                    : 'rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-5'
+                }`}
+              >
                 {!selectedAccessProfile ? (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-400">Paso 1</p>
-                        <h2 className="mt-3 text-3xl font-semibold text-slate-900">Selecciona tu perfil</h2>
-                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                          Cada perfil abre un flujo distinto. Elegimos primero el contexto y recien despues mostramos el acceso.
-                        </p>
-                      </div>
-                      <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                        <ShieldCheck className="h-3.5 w-3.5 text-[#2a0338]" />
-                        Acceso guiado
-                      </div>
-                    </div>
-
-                    <div className="mt-6 space-y-3">
-                      {AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
-                        const Icon = option.icon;
-                        return (
-                          <button
-                            key={option.profile}
-                            type="button"
-                            onClick={() => handleAccessProfileSelect(option.profile)}
-                            className="group relative w-full overflow-hidden rounded-[26px] border border-slate-200 bg-white p-5 text-left shadow-[0_18px_44px_-34px_rgba(15,23,42,0.48)] transition hover:-translate-y-0.5 hover:border-[#ffb35e]/45 hover:shadow-[0_22px_56px_-34px_rgba(42,3,56,0.42)]"
-                          >
-                            <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-gradient-to-b from-[#ff8f1f] via-[#ffb35e] to-[#2a0338]" />
-                            <div className="relative flex items-start gap-4">
-                              <div
-                                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border ${option.iconShellClassName}`}
-                              >
-                                <Icon className={`h-5 w-5 ${option.iconClassName}`} />
-                              </div>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-lg font-semibold text-slate-900">{option.title}</p>
-                                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                                    {option.badge}
-                                  </span>
-                                </div>
-                                <p className="mt-2 text-sm leading-6 text-slate-600">{option.description}</p>
-                                <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                  {option.note}
-                                </p>
-                              </div>
-                              <ArrowRight className="mt-1 h-5 w-5 shrink-0 text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-[#2a0338]" />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-6 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        Que cambia con este acceso
-                      </p>
-                      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-                        {[
-                          'Menos friccion para entrar al panel correcto.',
-                          'Copy mas claro segun tecnico, empresa o cliente.',
-                          'Mejor consistencia visual con la home actual.',
-                        ].map((item) => (
-                          <div
-                            key={item}
-                            className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-600"
-                          >
-                            {item}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[#ffcf93]/60 bg-[#fff4e8] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#8f4f08]">
-                          <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
-                          Paso 2
-                        </div>
-                        <h2 className="mt-4 text-3xl font-semibold text-slate-900">
-                          {quickRegisterMode ? 'Acceso rapido activado' : 'Entrar o crear tu cuenta'}
-                        </h2>
-                        <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                          {quickRegisterMode
-                            ? 'Usa Google o crea tu cuenta por correo en un paso. Terminas de cargar datos despues de entrar.'
-                            : (selectedAccessMeta?.description || '')}
-                        </p>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
+                  <div className={`space-y-3 ${accessTransitionProfile ? 'ufx-auth-selector-exit' : 'ufx-auth-view-enter'}`}>
+                    {AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
+                      const Icon = option.icon;
+                      const isTransitionTarget = accessTransitionProfile === option.profile;
+                      const isTransitionDimmed = Boolean(accessTransitionProfile) && !isTransitionTarget;
+                      return (
                         <button
+                          key={option.profile}
                           type="button"
-                          onClick={handleBackToProfileSelector}
-                          className={authSecondaryButtonClass}
+                          disabled={Boolean(accessTransitionProfile)}
+                          onClick={() => handleAccessProfileSelect(option.profile)}
+                          className={`group relative w-full overflow-hidden rounded-[24px] border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.045))] px-4 py-4 text-left shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ffb35e]/[0.52] hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.17),rgba(255,255,255,0.07))] hover:shadow-[0_26px_62px_-42px_rgba(255,143,31,0.7)] disabled:cursor-default ${
+                            isTransitionTarget
+                              ? 'scale-[1.015] border-[#ffcf93]/60 bg-[linear-gradient(135deg,rgba(255,143,31,0.18),rgba(255,255,255,0.08))] shadow-[0_28px_72px_-42px_rgba(255,143,31,0.9)]'
+                              : ''
+                          } ${isTransitionDimmed ? 'scale-[0.985] opacity-40 blur-[1px]' : ''}`}
                         >
-                          Cambiar perfil
+                          <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-gradient-to-b from-[#ff8f1f] via-[#ffcf93] to-white/[0.18]" />
+                          <div
+                            aria-hidden="true"
+                            className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.32] to-transparent"
+                          />
+                          <div className="relative flex items-center gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
+                              <Icon className={`h-5 w-5 ${option.iconClassName}`} />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-lg font-semibold text-white">{option.title}</p>
+                                <span className="rounded-full border border-white/[0.12] bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/[0.58]">
+                                  {option.badge}
+                                </span>
+                              </div>
+                            </div>
+                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.06] text-[#ffcf93] transition group-hover:translate-x-0.5 group-hover:border-[#ffcf93]/50 group-hover:bg-[#ff8f1f]/[0.12]">
+                              <ArrowRight className="h-4 w-4" />
+                            </span>
+                          </div>
                         </button>
-                        <a href="https://www.urbanfix.com.ar" className={authSecondaryButtonClass}>
-                          Volver al inicio
-                        </a>
-                      </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="ufx-auth-view-enter">
+                    <div className="mb-3 flex items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        onClick={handleBackToProfileSelector}
+                        aria-label="Volver al selector de perfiles"
+                        title="Volver al selector de perfiles"
+                        className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.06] text-[#ffcf93] transition hover:border-[#ffcf93]/50 hover:bg-[#ff8f1f]/[0.12] hover:text-white"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/[0.72]">
+                        {selectedAccessProfile === 'empresa' ? (
+                          <Building2 className="h-3.5 w-3.5 text-[#ffcf93]" />
+                        ) : (
+                          <Wrench className="h-3.5 w-3.5 text-[#ffcf93]" />
+                        )}
+                        {selectedAccessMeta?.panelLabel || 'Acceso'}
+                      </span>
                     </div>
 
                     {entryPrompt && (
-                      <div className="mt-5 rounded-[22px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                        <p className="font-semibold">Acceso a precios actualizado</p>
+                      <div className="mb-4 rounded-[22px] border border-[#ffcf93]/40 bg-[#ff8f1f]/[0.12] px-4 py-3 text-sm text-[#ffe2bd]">
                         <p className="mt-1 leading-6">{entryPrompt}</p>
                       </div>
                     )}
 
-                    <div className="mt-6 grid gap-5 xl:grid-cols-[1.18fr_0.82fr]">
-                      <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_16px_40px_-30px_rgba(15,23,42,0.38)]">
+                    <div className="rounded-[28px] border border-[#eadfce]/70 bg-[#fffdf9] p-5 text-[#180f24] shadow-[0_28px_76px_-50px_rgba(0,0,0,0.92)]">
                         <button
                           type="button"
                           onClick={handleGoogleLogin}
-                          className="flex w-full items-center justify-center gap-2 rounded-full bg-[#2a0338] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_36px_-24px_rgba(42,3,56,0.75)] transition hover:bg-[#3c0d4d]"
+                          disabled={googleAuthLoading || authLoading}
+                          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                          {quickRegisterMode ? 'Continuar con Google (recomendado)' : 'Continuar con Google'}
+                          {googleAuthLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-[#2a0338]" />
+                          ) : (
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-black text-[#2a0338]">
+                              G
+                            </span>
+                          )}
+                          {googleAuthLoading ? 'Abriendo Google...' : 'Continuar con Google'}
                         </button>
-
-                        {quickRegisterMode && (
-                          <p className="mt-3 text-xs font-semibold text-emerald-600">
-                            Acceso rapido activo. Completas tu perfil despues de entrar.
-                          </p>
-                        )}
 
                         <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
                           <div className="h-px flex-1 bg-slate-200" />
@@ -5638,30 +5660,32 @@ export default function TechniciansPage() {
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAuthMode('login');
-                              setQuickRegisterMode(false);
-                              setAuthError('');
-                              setAuthNotice('');
-                            }}
-                            className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAuthMode('login');
+                                setQuickRegisterMode(false);
+                                setAuthError('');
+                                setAuthNotice('');
+                                setShowAuthPassword(false);
+                              }}
+                              className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
                               authMode === 'login'
                                 ? 'bg-[#2a0338] text-white shadow-sm'
                                 : 'text-slate-500 hover:bg-white hover:text-slate-900'
                             }`}
                           >
-                            Iniciar sesion
+                            Ingresar
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setAuthMode('register');
-                              setAuthError('');
-                              setAuthNotice('');
-                            }}
-                            className={`rounded-xl px-3 py-2 text-xs font-semibold transition ${
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAuthMode('register');
+                                setAuthError('');
+                                setAuthNotice('');
+                                setShowAuthPassword(false);
+                              }}
+                              className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
                               authMode === 'register'
                                 ? 'bg-[#2a0338] text-white shadow-sm'
                                 : 'text-slate-500 hover:bg-white hover:text-slate-900'
@@ -5673,48 +5697,63 @@ export default function TechniciansPage() {
 
                         {authMode === 'register' && !quickRegisterMode && (
                           <div className="mt-4 space-y-3">
-                            <input
-                              value={fullName}
-                              onChange={(event) => setFullName(event.target.value)}
-                              placeholder="Nombre completo"
-                              className={authInputClass.replace('mt-2 ', '')}
-                            />
-                            <input
-                              value={businessName}
-                              onChange={(event) => setBusinessName(event.target.value)}
-                              placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
-                              className={authInputClass.replace('mt-2 ', '')}
-                            />
-                          </div>
-                        )}
-
-                        {authMode === 'register' && quickRegisterMode && (
-                          <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs text-emerald-700">
-                            Alta rapida por correo habilitada. Nombre y negocio se completan luego.
-                            <button
-                              type="button"
-                              onClick={() => setQuickRegisterMode(false)}
-                              className="ml-2 font-semibold text-emerald-800 underline underline-offset-2 hover:text-emerald-900"
-                            >
-                              Cargar datos ahora
-                            </button>
+                            <div className="relative">
+                              <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                              <input
+                                value={fullName}
+                                onChange={(event) => setFullName(event.target.value)}
+                                placeholder="Nombre completo"
+                                autoComplete="name"
+                                className={authIconInputClass.replace('mt-2 ', '')}
+                              />
+                            </div>
+                            <div className="relative">
+                              <Building2 className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                              <input
+                                value={businessName}
+                                onChange={(event) => setBusinessName(event.target.value)}
+                                placeholder={selectedAccessProfile === 'empresa' ? 'Nombre de la empresa' : 'Nombre del negocio'}
+                                autoComplete="organization"
+                                className={authIconInputClass.replace('mt-2 ', '')}
+                              />
+                            </div>
+                            <p className="text-[11px] leading-5 text-slate-500">
+                              Luego completas rubros, zona y datos comerciales dentro del panel.
+                            </p>
                           </div>
                         )}
 
                         <div className="mt-4 space-y-3">
-                          <input
-                            value={email}
-                            onChange={(event) => setEmail(event.target.value)}
-                            placeholder="Correo"
-                            className={authInputClass.replace('mt-2 ', '')}
-                          />
-                          <input
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            type="password"
-                            placeholder="Contrasena"
-                            className={authInputClass.replace('mt-2 ', '')}
-                          />
+                          <div className="relative">
+                            <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                            <input
+                              value={email}
+                              onChange={(event) => setEmail(event.target.value)}
+                              type="email"
+                              placeholder="Correo"
+                              autoComplete="email"
+                              className={authIconInputClass.replace('mt-2 ', '')}
+                            />
+                          </div>
+                          <div className="relative">
+                            <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                            <input
+                              value={password}
+                              onChange={(event) => setPassword(event.target.value)}
+                              type={showAuthPassword ? 'text' : 'password'}
+                              placeholder="Contrasena"
+                              autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                              className={authIconInputClass.replace('mt-2 ', '').replace('pr-4', 'pr-12')}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowAuthPassword((current) => !current)}
+                              aria-label={showAuthPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                              className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                            >
+                              {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            </button>
+                          </div>
                         </div>
 
                         {authMode === 'login' && (
@@ -5722,78 +5761,38 @@ export default function TechniciansPage() {
                             <button
                               type="button"
                               onClick={handlePasswordRecovery}
-                              disabled={sendingRecovery}
-                              className="text-xs font-semibold text-slate-500 transition hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+                              disabled={sendingRecovery || authLoading || googleAuthLoading}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-[#ffcf93] hover:bg-[#fff4e8] hover:text-[#8f4f08] disabled:cursor-not-allowed disabled:opacity-50"
                             >
+                              {sendingRecovery && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                               {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contrasena?'}
                             </button>
                           </div>
                         )}
 
-                        {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
-                        {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+                        {authNotice && (
+                          <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-700">
+                            {authNotice}
+                          </p>
+                        )}
+                        {authError && (
+                          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                            {authError}
+                          </p>
+                        )}
 
                         <button
                           type="button"
                           onClick={handleEmailAuth}
-                          disabled={authLoading}
-                          className="mt-5 w-full rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={authLoading || googleAuthLoading}
+                          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {authLoading
-                            ? 'Procesando...'
-                            : authMode === 'login'
-                              ? 'Iniciar sesion'
-                              : quickRegisterMode
-                                ? 'Crear cuenta en 1 paso'
-                                : 'Crear cuenta'}
+                          {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                          {authLoading ? 'Procesando...' : authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+                          {!authLoading && <ArrowRight className="h-4 w-4" />}
                         </button>
-
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAuthMode(authMode === 'login' ? 'register' : 'login');
-                            setAuthError('');
-                            setAuthNotice('');
-                          }}
-                          className="mt-4 w-full text-sm text-slate-500 transition hover:text-slate-900"
-                        >
-                          {authMode === 'login' ? 'No tienes cuenta? Registrate' : 'Ya tienes cuenta? Ingresa'}
-                        </button>
-                      </div>
-
-                      <div className="space-y-4">
-                        <div className="rounded-[28px] border border-[#3a184a] bg-[linear-gradient(180deg,#2a0338_0%,#1d0628_100%)] p-5 text-white shadow-[0_24px_60px_-42px_rgba(18,2,24,0.92)]">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffd6a6]">
-                            Que se activa al entrar
-                          </p>
-                          <div className="mt-4 space-y-3">
-                            {selectedAccessMeta?.accessBullets.map((item) => (
-                              <div key={item} className="flex items-start gap-3 rounded-2xl border border-white/8 bg-white/6 px-3 py-3">
-                                <span className="mt-1 h-2.5 w-2.5 rounded-full bg-[#ff8f1f]" />
-                                <p className="text-sm leading-6 text-white/78">{item}</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="rounded-[28px] border border-slate-200 bg-slate-50 p-5">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                            Despues del registro
-                          </p>
-                          <div className="mt-4 space-y-2">
-                            {selectedAccessMeta?.afterSteps.map((item) => (
-                              <div
-                                key={item}
-                                className="rounded-2xl border border-slate-200 bg-white px-3 py-3 text-xs leading-5 text-slate-600"
-                              >
-                                {item}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
                     </div>
-                  </>
+                  </div>
                 )}
               </section>
             </main>

@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase/supabase';
 import Link from 'next/link';
-import { LogOut, Settings, User } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LogOut, Mail, Settings, User, UserRound } from 'lucide-react';
 import PublicTopNav from '../../components/PublicTopNav';
 
 type ClientRequestRow = {
@@ -78,6 +78,51 @@ const defaultClientProfileForm: ClientProfileForm = {
 
 const CREATE_REQUEST_INTENT = 'create-request';
 
+const CLIENT_AUTH_FORM_VALIDATION_MESSAGES = [
+  'Ingresa correo y contrasena.',
+  'Ingresa un correo valido.',
+  'La contrasena debe tener al menos 6 caracteres.',
+] as const;
+
+const getFriendlyClientAuthErrorMessage = (
+  error: unknown,
+  mode: 'login' | 'register' | 'recovery' | 'google'
+) => {
+  const rawMessage = error instanceof Error ? error.message : String(error || '');
+  if (CLIENT_AUTH_FORM_VALIDATION_MESSAGES.includes(rawMessage as (typeof CLIENT_AUTH_FORM_VALIDATION_MESSAGES)[number])) {
+    return rawMessage;
+  }
+
+  const normalizedMessage = rawMessage.toLowerCase();
+  if (normalizedMessage.includes('invalid login credentials') || normalizedMessage.includes('invalid credentials')) {
+    return 'Correo o contrasena incorrectos.';
+  }
+  if (normalizedMessage.includes('email not confirmed')) {
+    return 'Confirma tu correo antes de ingresar.';
+  }
+  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('user already exists')) {
+    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contrasena.';
+  }
+  if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
+    return 'La contrasena debe tener al menos 6 caracteres.';
+  }
+  if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
+    return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
+  }
+  if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
+    return 'No pudimos conectar. Revisa tu conexion e intenta nuevamente.';
+  }
+  if (mode === 'google') {
+    return 'No pudimos abrir el acceso con Google. Intenta nuevamente.';
+  }
+  if (mode === 'recovery') {
+    return 'No pudimos enviar el correo de recuperacion.';
+  }
+  return mode === 'register'
+    ? 'No pudimos crear la cuenta. Revisa los datos e intenta de nuevo.'
+    : 'No pudimos ingresar. Revisa los datos e intenta de nuevo.';
+};
+
 const badgeByStatus = (status: string) => {
   const normalized = status.toLowerCase();
   if (normalized === 'matched') return 'bg-emerald-100 text-emerald-700';
@@ -116,19 +161,19 @@ const clientPanelSurfaceClass =
   'rounded-[32px] border border-white/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.96),rgba(249,244,237,0.98)_58%,rgba(246,238,248,0.96)_100%)] shadow-[0_28px_80px_-40px_rgba(42,3,56,0.34)]';
 
 const clientPanelCardClass =
-  'rounded-[30px] border border-white/80 bg-white/84 p-6 shadow-[0_24px_56px_-42px_rgba(42,3,56,0.34)] backdrop-blur';
+  'rounded-[30px] border border-white/80 bg-white/[0.84] p-6 shadow-[0_24px_56px_-42px_rgba(42,3,56,0.34)] backdrop-blur';
 
 const clientPanelMutedCardClass =
   'rounded-[24px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(247,239,248,0.9),rgba(255,255,255,0.86))] p-4';
 
 const clientPanelInputClass =
-  'mt-2 w-full rounded-2xl border border-[#ddd7ea] bg-white/92 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-2 focus:ring-[#f8e4cb]';
+  'mt-2 w-full rounded-2xl border border-[#ddd7ea] bg-white/[0.92] px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-2 focus:ring-[#f8e4cb]';
 
 const clientPanelPrimaryButtonClass =
   'rounded-full bg-[linear-gradient(135deg,#2a0338,#4a1260)] px-4 py-2 text-xs font-semibold text-white shadow-[0_18px_32px_-22px_rgba(42,3,56,0.95)] transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-55';
 
 const clientPanelSecondaryButtonClass =
-  'rounded-full border border-[#d8cfdf] bg-white/88 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-[#ff8f1f]/60 hover:text-[#2a0338]';
+  'rounded-full border border-[#d8cfdf] bg-white/[0.88] px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-[#ff8f1f]/60 hover:text-[#2a0338]';
 
 export default function ClientRequestsHub() {
   const requestTitleInputRef = useRef<HTMLInputElement | null>(null);
@@ -145,6 +190,9 @@ export default function ClientRequestsHub() {
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [googleAuthLoading, setGoogleAuthLoading] = useState(false);
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
+  const [sendingRecovery, setSendingRecovery] = useState(false);
 
   const [form, setForm] = useState<CreateRequestForm>(defaultForm);
   const [savingRequest, setSavingRequest] = useState(false);
@@ -187,6 +235,8 @@ export default function ClientRequestsHub() {
     const intent = (params.get('intent') || '').toLowerCase();
     if (mode === 'register') {
       setAuthMode('register');
+    } else if (mode === 'login') {
+      setAuthMode('login');
     }
     if (params.get('quick') === '1') {
       setAuthMode('register');
@@ -369,14 +419,40 @@ export default function ClientRequestsHub() {
   }, [session?.user?.id]);
 
   const handleGoogleAuth = async () => {
+    if (googleAuthLoading) return;
     setAuthError('');
     setAuthNotice('');
+    setGoogleAuthLoading(true);
     const redirectTo = `${window.location.origin}/cliente${window.location.search || ''}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
-    if (error) setAuthError(error.message || 'No se pudo continuar con Google.');
+    if (error) {
+      setAuthError(getFriendlyClientAuthErrorMessage(error, 'google'));
+      setGoogleAuthLoading(false);
+    }
+  };
+
+  const handlePasswordRecovery = async () => {
+    setAuthError('');
+    setAuthNotice('');
+    const safeEmail = email.trim();
+    if (!safeEmail) {
+      setAuthError('Ingresa tu correo para recuperar la contrasena.');
+      return;
+    }
+    setSendingRecovery(true);
+    try {
+      const redirectTo = `${window.location.origin}/cliente`;
+      const { error } = await supabase.auth.resetPasswordForEmail(safeEmail, { redirectTo });
+      if (error) throw error;
+      setAuthNotice('Te enviamos un correo para recuperar tu contrasena.');
+    } catch (error: any) {
+      setAuthError(getFriendlyClientAuthErrorMessage(error, 'recovery'));
+    } finally {
+      setSendingRecovery(false);
+    }
   };
 
   const handleEmailAuth = async () => {
@@ -386,13 +462,13 @@ export default function ClientRequestsHub() {
     try {
       const safeEmail = email.trim().toLowerCase();
       if (!safeEmail || !password) {
-        throw new Error('Ingresa email y contraseña.');
+        throw new Error('Ingresa correo y contrasena.');
       }
       if (!safeEmail.includes('@')) {
-        throw new Error('Ingresa un email válido.');
+        throw new Error('Ingresa un correo valido.');
       }
       if (password.trim().length < 6) {
-        throw new Error('La contraseña debe tener al menos 6 caracteres.');
+        throw new Error('La contrasena debe tener al menos 6 caracteres.');
       }
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
@@ -420,7 +496,7 @@ export default function ClientRequestsHub() {
         setPassword('');
       }
     } catch (error: any) {
-      setAuthError(error?.message || 'No se pudo iniciar sesión.');
+      setAuthError(getFriendlyClientAuthErrorMessage(error, authMode));
     } finally {
       setAuthLoading(false);
     }
@@ -658,143 +734,183 @@ export default function ClientRequestsHub() {
 
   if (!session?.user) {
     return (
-      <div className="min-h-screen bg-slate-100">
+      <div className="min-h-screen bg-[#16031f] text-white">
         <PublicTopNav activeHref="/cliente" sticky />
-        <div className="p-6 md:p-10">
-          <div className="mx-auto grid w-full max-w-6xl gap-6 md:grid-cols-[1.05fr_0.95fr]">
-          <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <p className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.15em] text-white">
-              {createRequestIntent ? 'Crear solicitud' : 'UrbanFix clientes'}
-            </p>
-            <h1 className="mt-4 text-4xl font-black text-slate-900">
-              {createRequestIntent ? 'Crea tu cuenta y publica tu solicitud' : 'Publica tu solicitud y recibe técnicos cercanos'}
-            </h1>
-            <p className="mt-4 text-sm leading-relaxed text-slate-600">
-              {createRequestIntent
-                ? 'Entras, completas tu perfil y publicas el trabajo para que UrbanFix busque técnicos cercanos según tu zona.'
-                : 'Este panel te permite crear solicitudes de trabajo para que UrbanFix busque técnicos en un radio de 20 km según tu ubicación y urgencia.'}
-            </p>
-            <ul className="mt-6 space-y-2 text-sm text-slate-600">
-              <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Publicación en segundos</li>
-              <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Matching por distancia</li>
-              <li className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">Solicitud directa opcional</li>
-            </ul>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {[
-                {
-                  title: '1. Crea tu cuenta',
-                  description: 'Entras con email o Google y quedas listo para operar sin vueltas.',
-                },
-                {
-                  title: '2. Completa tu perfil',
-                  description: 'Con nombre, teléfono y ciudad se activa mejor el matching por zona.',
-                },
-                {
-                  title: '3. Publica y compara',
-                  description: 'UrbanFix te muestra técnicos cercanos y deja trazable cada solicitud.',
-                },
-              ].map((item) => (
-                <div key={item.title} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.title}</p>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">{item.description}</p>
-                </div>
-              ))}
-            </div>
-            <Link
-              href="/vidriera"
-              className="mt-5 inline-flex rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-            >
-              Ver vidriera de técnicos
-            </Link>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
-              <button
-                type="button"
-                onClick={() => setAuthMode('login')}
-                className={`rounded-xl px-3 py-2 text-sm font-semibold ${
-                  authMode === 'login' ? 'bg-slate-900 text-white' : 'text-slate-600'
-                }`}
-              >
-                Ingresar
-              </button>
-              <button
-                type="button"
-                onClick={() => setAuthMode('register')}
-                className={`rounded-xl px-3 py-2 text-sm font-semibold ${
-                  authMode === 'register' ? 'bg-slate-900 text-white' : 'text-slate-600'
-                }`}
-              >
-                Crear cuenta
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleGoogleAuth}
-              className="mt-5 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-            >
-              {createRequestIntent ? 'Continuar y crear solicitud con Google' : 'Continuar con Google'}
-            </button>
-
-            <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-              <div className="h-px flex-1 bg-slate-200" />
-              o
-              <div className="h-px flex-1 bg-slate-200" />
-            </div>
-
-            {authMode === 'register' && (
-              <div>
-                <label className="text-xs font-semibold text-slate-600">Nombre y apellido</label>
-                <input
-                  value={fullName}
-                  onChange={(event) => setFullName(event.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
+        <div className="relative overflow-hidden">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#16031f_0%,#21002f_52%,#14031c_100%)]"
+          />
+          <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
+            <section className="ufx-auth-view-enter w-full rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] backdrop-blur sm:p-5">
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <Link
+                  href="/tecnicos"
+                  aria-label="Volver al selector de perfiles"
+                  title="Volver al selector de perfiles"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.06] text-[#ffcf93] transition hover:border-[#ffcf93]/50 hover:bg-[#ff8f1f]/[0.12] hover:text-white"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+                <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.06] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/[0.72]">
+                  <UserRound className="h-3.5 w-3.5 text-[#ffcf93]" />
+                  Portal cliente
+                </span>
               </div>
-            )}
 
-            <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-600">Email</label>
-              <input
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-              />
-            </div>
+              {createRequestIntent && (
+                <div className="mb-4 rounded-[22px] border border-[#ffcf93]/40 bg-[#ff8f1f]/[0.12] px-4 py-3 text-sm text-[#ffe2bd]">
+                  <p className="leading-6">Ingresa o crea tu cuenta para publicar tu solicitud.</p>
+                </div>
+              )}
 
-            <div className="mt-4">
-              <label className="text-xs font-semibold text-slate-600">Contraseña</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-              />
-            </div>
+              <div className="rounded-[28px] border border-[#eadfce]/70 bg-[#fffdf9] p-5 text-[#180f24] shadow-[0_28px_76px_-50px_rgba(0,0,0,0.92)]">
+                <button
+                  type="button"
+                  onClick={handleGoogleAuth}
+                  disabled={authLoading || googleAuthLoading}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {googleAuthLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-[#2a0338]" />
+                  ) : (
+                    <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-black text-[#2a0338]">
+                      G
+                    </span>
+                  )}
+                  {googleAuthLoading ? 'Abriendo Google...' : 'Continuar con Google'}
+                </button>
 
-            <button
-              type="button"
-              onClick={handleEmailAuth}
-              disabled={authLoading}
-              className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {authLoading
-                ? 'Procesando...'
-                : authMode === 'login'
-                  ? createRequestIntent
-                    ? 'Ingresar y crear solicitud'
-                    : 'Ingresar'
-                  : createRequestIntent
-                    ? 'Crear cuenta y continuar'
-                    : 'Crear cuenta'}
-            </button>
+                <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
+                  <div className="h-px flex-1 bg-slate-200" />
+                  o
+                  <div className="h-px flex-1 bg-slate-200" />
+                </div>
 
-            {authError && <p className="mt-3 text-xs text-rose-600">{authError}</p>}
-            {authNotice && <p className="mt-3 text-xs text-emerald-600">{authNotice}</p>}
-          </section>
-          </div>
+                <div className="grid grid-cols-2 gap-2 rounded-2xl border border-slate-200 bg-slate-50 p-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('login');
+                      setAuthError('');
+                      setAuthNotice('');
+                      setShowAuthPassword(false);
+                    }}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                      authMode === 'login'
+                        ? 'bg-[#2a0338] text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                    }`}
+                  >
+                    Ingresar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAuthMode('register');
+                      setAuthError('');
+                      setAuthNotice('');
+                      setShowAuthPassword(false);
+                    }}
+                    className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${
+                      authMode === 'register'
+                        ? 'bg-[#2a0338] text-white shadow-sm'
+                        : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                    }`}
+                  >
+                    Crear cuenta
+                  </button>
+                </div>
+
+                {authMode === 'register' && (
+                  <div className="mt-4 space-y-3">
+                    <div className="relative">
+                      <UserRound className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={fullName}
+                        onChange={(event) => setFullName(event.target.value)}
+                        placeholder="Nombre y apellido"
+                        autoComplete="name"
+                        className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                      />
+                    </div>
+                    <p className="text-[11px] leading-5 text-slate-500">
+                      Luego completas direccion, ciudad y datos de contacto dentro del portal.
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-4 space-y-3">
+                  <div className="relative">
+                    <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="Correo"
+                      autoComplete="email"
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                    />
+                  </div>
+                  <div className="relative">
+                    <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type={showAuthPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                      placeholder="Contrasena"
+                      autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
+                      className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-12 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAuthPassword((current) => !current)}
+                      aria-label={showAuthPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                      className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
+                    >
+                      {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {authMode === 'login' && (
+                  <div className="mt-3 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={handlePasswordRecovery}
+                      disabled={sendingRecovery || authLoading || googleAuthLoading}
+                      className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-[#ffcf93] hover:bg-[#fff4e8] hover:text-[#8f4f08] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {sendingRecovery && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contrasena?'}
+                    </button>
+                  </div>
+                )}
+
+                {authNotice && (
+                  <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-700">
+                    {authNotice}
+                  </p>
+                )}
+                {authError && (
+                  <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                    {authError}
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={handleEmailAuth}
+                  disabled={authLoading || googleAuthLoading}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {authLoading ? 'Procesando...' : authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+                  {!authLoading && <ArrowRight className="h-4 w-4" />}
+                </button>
+              </div>
+            </section>
+          </main>
         </div>
       </div>
     );

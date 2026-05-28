@@ -4,12 +4,15 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Manrope } from 'next/font/google';
 import {
   Activity,
+  ArrowRight,
   BarChart3,
+  CheckCircle2,
   ClipboardList,
   CreditCard,
   FileCheck2,
   GitBranch,
   Hammer,
+  LockKeyhole,
   LogOut,
   Mail,
   MessageSquareMore,
@@ -1693,6 +1696,7 @@ export default function AdminPage() {
   const [password, setPassword] = useState('');
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewError, setOverviewError] = useState('');
@@ -3152,18 +3156,28 @@ export default function AdminPage() {
   const handleEmailLogin = async () => {
     setAuthError('');
     setAuthNotice('');
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
-    if (error) {
-      setAuthError(error.message);
+    setAuthLoading(true);
+    try {
+      const safeEmail = email.trim().toLowerCase();
+      if (!safeEmail || !password) {
+        throw new Error('Ingresa correo y contrasena.');
+      }
+      const { error } = await supabase.auth.signInWithPassword({
+        email: safeEmail,
+        password,
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      setAuthError(error?.message || 'No pudimos iniciar sesion.');
+    } finally {
+      setAuthLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
     setAuthError('');
     setAuthNotice('');
+    setAuthLoading(true);
     const redirectTo = `${window.location.origin}/admin`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -3171,6 +3185,7 @@ export default function AdminPage() {
     });
     if (error) {
       setAuthError(error.message);
+      setAuthLoading(false);
     }
   };
 
@@ -5444,48 +5459,61 @@ export default function AdminPage() {
     return (
       <div
         style={themeStyles}
-        className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
+        className={`${manrope.className} min-h-screen bg-[#16031f] text-white`}
       >
         <AuthHashHandler />
         <div className="relative overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
-          <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
-          <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,#16031f_0%,#21002f_54%,#100318_100%)]" />
+          <div className="absolute inset-x-0 top-0 h-48 bg-[linear-gradient(180deg,rgba(255,143,31,0.16),transparent)]" />
+          <div className="absolute inset-x-0 bottom-0 h-48 bg-[linear-gradient(0deg,rgba(8,1,12,0.72),transparent)]" />
 
-          <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-5xl items-center gap-10 px-6 py-16 md:grid-cols-[1.1fr_0.9fr]">
+          <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-8 px-4 py-12 sm:px-6 md:grid-cols-[1.08fr_0.92fr] lg:px-8">
             <div className="space-y-6 text-center md:text-left">
               <div className="flex items-center justify-center gap-3 md:justify-start">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-lg shadow-slate-200/60">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-10 w-10" />
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white shadow-[0_18px_46px_-28px_rgba(255,255,255,0.7)]">
+                  <img src="/icon-48.png" alt="UrbanFix logo" className="h-10 w-10" />
                 </div>
                 <div className="text-left">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">UrbanFix</p>
-                  <p className="text-sm font-semibold text-slate-700">Panel admin</p>
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/[0.45]">UrbanFix</p>
+                  <p className="text-sm font-semibold text-white">Panel admin</p>
                 </div>
               </div>
-              <h1 className="text-4xl font-black text-slate-900 md:text-5xl">Acceso administrativo</h1>
-              <p className="text-base text-slate-600">
-                Ingresa con tu cuenta para ver métricas, suscripciones y soporte.
-                    </p>
+              <h1 className="max-w-xl text-4xl font-black leading-tight tracking-tight text-white md:text-5xl">Acceso administrativo</h1>
+              <p className="max-w-xl text-base leading-7 text-white/70">
+                Entra al centro de control para revisar metricas, usuarios, soporte y roadmap sin salir del flujo operativo.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3 md:max-w-2xl">
+                {['Metricas', 'Soporte', 'Roadmap'].map((item) => (
+                  <div key={item} className="rounded-[20px] border border-white/10 bg-white/[0.06] px-4 py-3 text-left">
+                    <CheckCircle2 className="h-4 w-4 text-[#ffb35e]" />
+                    <p className="mt-2 text-sm font-semibold text-white">{item}</p>
+                  </div>
+                ))}
+              </div>
               <a
                 href="/"
-                className="inline-flex items-center justify-center rounded-full border border-slate-300 px-5 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.08] px-5 py-2 text-sm font-semibold text-white/[0.78] transition hover:border-white/[0.28] hover:text-white"
               >
                 Volver al inicio
+                <ArrowRight className="h-4 w-4" />
               </a>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-2xl shadow-slate-200/60">
+            <div className="rounded-[32px] border border-[#eadfce]/70 bg-[#fffdf9] p-6 text-[#180f24] shadow-[0_34px_110px_-62px_rgba(0,0,0,0.82)] sm:p-8">
               <div className="space-y-3">
                 <h2 className="text-2xl font-bold text-slate-900">Iniciar sesión</h2>
-                <p className="text-sm text-slate-600">Solo administradores autorizados.</p>
+                <p className="text-sm leading-6 text-slate-600">Solo administradores autorizados. Usa Google o tu correo registrado.</p>
               </div>
 
               <button
                 type="button"
                 onClick={handleGoogleLogin}
-                className="mt-6 flex w-full items-center justify-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+                disabled={authLoading}
+                className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
               >
+                <span className="flex h-6 w-6 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-xs font-black text-[#2a0338]">
+                  G
+                </span>
                 Continuar con Google
               </button>
 
@@ -5496,30 +5524,49 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-3">
-                <input
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="Correo"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
-                <input
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  type="password"
-                  placeholder="Contraseña"
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                />
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    placeholder="Correo"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                  />
+                </div>
+                <div className="relative">
+                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    type="password"
+                    autoComplete="current-password"
+                    placeholder="Contrasena"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                  />
+                </div>
               </div>
 
-              {authNotice && <p className="mt-4 text-xs text-emerald-600">{authNotice}</p>}
-              {authError && <p className="mt-4 text-xs text-amber-600">{authError}</p>}
+              {authNotice && (
+                <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-700">
+                  {authNotice}
+                </p>
+              )}
+              {authError && (
+                <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                  {authError}
+                </p>
+              )}
 
               <button
                 type="button"
                 onClick={handleEmailLogin}
-                className="mt-5 w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-400/40 transition hover:bg-slate-800"
+                disabled={authLoading}
+                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Ingresar
+                {authLoading ? 'Validando...' : 'Ingresar'}
+                {!authLoading && <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
           </main>

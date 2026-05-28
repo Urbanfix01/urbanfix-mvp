@@ -204,7 +204,7 @@ export default function TechnicianDashboard() {
                 Crear cuenta
               </button>
               <Link
-                href="/portal"
+                href="/tecnicos"
                 className="block w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-center font-semibold text-slate-700 transition hover:bg-slate-100"
               >
                 Cambiar perfil

@@ -13,8 +13,6 @@ const navLinks = [
   { label: 'Tecnicos disponibles', href: '/vidriera' },
 ];
 
-const createRequestHref = '/cliente?mode=register&quick=1&intent=create-request';
-
 type PublicTopNavProps = {
   activeHref?: string;
   sticky?: boolean;
@@ -27,7 +25,7 @@ type AuthNavProfile = {
   avatar_url?: string | null;
 };
 
-const accountAreaHrefs = new Set(['/portal', '/tecnicos', '/tecnico-panel', '/cliente']);
+const accountAreaHrefs = new Set(['/tecnicos', '/tecnico-panel', '/cliente']);
 
 const platformButtonClass =
   'inline-flex rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] transition';
@@ -36,11 +34,9 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<AuthNavProfile | null>(null);
-  const isCreateRequestActive = activeHref === '/cliente';
-  const isDemoActive = activeHref === '/descargar-app';
   const isPlatformActive = activeHref === '/tecnicos' || activeHref === '/tecnico-panel';
   const isAccountAreaActive = activeHref ? accountAreaHrefs.has(activeHref) : false;
-  const panelHref = activeHref && accountAreaHrefs.has(activeHref) ? activeHref : '/portal';
+  const panelHref = activeHref && accountAreaHrefs.has(activeHref) ? activeHref : '/tecnicos';
   const profileName =
     profile?.business_name?.trim() ||
     profile?.full_name?.trim() ||
@@ -131,11 +127,10 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
     >
       <div className="flex w-full items-center justify-between gap-2 px-2 py-2 sm:px-6">
         <a href="/" className="flex min-w-0 items-center gap-2">
-          <img src="/icon.png" alt="UrbanFix" className="h-8 w-8 shrink-0 rounded-lg sm:h-9 sm:w-9" />
+          <img src="/icon-48.png" alt="UrbanFix" className="h-8 w-8 shrink-0 rounded-lg sm:h-9 sm:w-9" />
           <span className="ufx-brand-word whitespace-nowrap text-[1.22rem] font-extrabold tracking-tight leading-none sm:text-[1.72rem]">
             <span className="ufx-brand-word-main">URBAN</span>
             <span className="ufx-brand-word-accent">FIX</span>
-            <span aria-hidden="true" className="ufx-brand-word-sheen" />
           </span>
         </a>
 
@@ -154,42 +149,10 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
             ))}
           </nav>
 
-          <a
-            href={createRequestHref}
-            className={`hidden ${platformButtonClass} xl:inline-flex ${
-              isCreateRequestActive
-                ? 'border-white bg-white text-[#2a0338]'
-                : 'border-[#ffbf73]/70 bg-[#fff5e8] text-[#2a0338] hover:bg-white'
-            }`}
-          >
-            Crear solicitud
-          </a>
-
-          <a
-            href="/descargar-app"
-            className={`hidden ${platformButtonClass} xl:inline-flex ${
-              isDemoActive
-                ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
-                : 'border-[#ff8f1f]/80 bg-[#ff8f1f] text-[#2a0338] hover:bg-[#ffad56]'
-            }`}
-          >
-            Solicitar demo
-          </a>
-
           {isAuthenticated ? (
             <div className="hidden xl:block">{accountChip}</div>
           ) : (
             <>
-              <a
-                href="/portal"
-                className={`hidden ${platformButtonClass} lg:inline-flex ${
-                  activeHref === '/portal'
-                    ? 'border-white bg-white text-[#2a0338]'
-                    : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
-                }`}
-              >
-                Mis Paneles
-              </a>
               <a
                 href="/tecnicos"
                 className={`hidden ${platformButtonClass} xl:inline-flex ${
@@ -236,41 +199,8 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
                 {link.label}
               </a>
             ))}
-            <a
-              href={createRequestHref}
-              onClick={() => setMenuOpen(false)}
-              className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
-                isCreateRequestActive
-                  ? 'border-white bg-white text-[#2a0338]'
-                  : 'border-[#ffbf73]/70 bg-[#fff5e8] text-[#2a0338] hover:bg-white'
-              }`}
-            >
-              Crear solicitud
-            </a>
-            <a
-              href="/descargar-app"
-              onClick={() => setMenuOpen(false)}
-              className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
-                isDemoActive
-                  ? 'border-[#ffbf73] bg-[#ffbf73] text-[#2a0338]'
-                  : 'border-[#ff8f1f]/80 bg-[#ff8f1f] text-[#2a0338] hover:bg-[#ffad56]'
-              }`}
-            >
-              Solicitar demo
-            </a>
             {!isAuthenticated && (
               <>
-                <a
-                  href="/portal"
-                  onClick={() => setMenuOpen(false)}
-                  className={`mt-1 rounded-full border px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.08em] transition ${
-                    activeHref === '/portal'
-                      ? 'border-white bg-white text-[#2a0338]'
-                      : 'border-white/70 text-white hover:bg-white hover:text-[#2a0338]'
-                  }`}
-                >
-                  Mis Paneles
-                </a>
                 <a
                   href="/tecnicos"
                   onClick={() => setMenuOpen(false)}

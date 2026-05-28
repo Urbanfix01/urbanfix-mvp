@@ -1,6 +1,5 @@
 import type { Metadata } from 'next';
-
-import PortalAccessHub from '../../components/PortalAccessHub';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
   title: 'Acceso a Cuentas | UrbanFix',
@@ -12,5 +11,5 @@ export const metadata: Metadata = {
 };
 
 export default function PortalPage() {
-  return <PortalAccessHub />;
+  redirect('/tecnicos');
 }

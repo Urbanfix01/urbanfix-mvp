@@ -53,10 +53,10 @@ const ACCESS_OPTIONS: AccessOption[] = [
     registerHref: '/cliente?mode=register',
     accountHref: '/cliente',
     icon: Users,
-    shellClassName: 'border-[#8bd4ff]/55 bg-[#eff9ff]',
+    shellClassName: 'border-[#8bd4ff]/[0.55] bg-[#eff9ff]',
     iconClassName: 'text-[#0f5f8f]',
     cardClassName: 'border-[#d8edf8] bg-[linear-gradient(180deg,rgba(239,249,255,0.96),rgba(255,255,255,0.98))]',
-    spotlightClassName: 'from-[#7fd4ff]/28 via-transparent to-transparent',
+    spotlightClassName: 'from-[rgba(127,212,255,0.28)] via-transparent to-transparent',
   },
   {
     role: 'tecnico',
@@ -69,10 +69,10 @@ const ACCESS_OPTIONS: AccessOption[] = [
     registerHref: buildTechnicianAccessHref('register'),
     accountHref: TECH_PANEL_PATH,
     icon: Wrench,
-    shellClassName: 'border-[#f6c08f]/60 bg-[#fff3e7]',
+    shellClassName: 'border-[#f6c08f]/[0.60] bg-[#fff3e7]',
     iconClassName: 'text-[#a24b06]',
     cardClassName: 'border-[#f0ddca] bg-[linear-gradient(180deg,rgba(255,243,231,0.96),rgba(255,255,255,0.98))]',
-    spotlightClassName: 'from-[#ffb35e]/28 via-transparent to-transparent',
+    spotlightClassName: 'from-[rgba(255,179,94,0.28)] via-transparent to-transparent',
   },
 ];
 
@@ -114,70 +114,62 @@ export default function PortalAccessHub() {
       <main className="relative overflow-hidden">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(255,143,31,0.16),_transparent_24%),radial-gradient(circle_at_left,_rgba(94,51,140,0.24),_transparent_32%),linear-gradient(180deg,#14071f_0%,#22062f_52%,#12041a_100%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -left-24 top-24 h-72 w-72 rounded-full bg-[#ff8f1f]/14 blur-3xl"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute -right-20 top-12 h-80 w-80 rounded-full bg-[#3b82f6]/12 blur-3xl"
+          className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,#14071f_0%,#22062f_52%,#12041a_100%)]"
         />
 
         <div className="relative z-10 mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-6xl items-center px-4 py-10 sm:px-6 lg:px-8">
-          <section className="w-full rounded-[36px] border border-white/12 bg-white/[0.06] p-5 shadow-[0_44px_140px_-70px_rgba(0,0,0,0.92)] backdrop-blur md:p-8">
+          <section className="w-full rounded-[36px] border border-white/[0.12] bg-white/[0.06] p-5 shadow-[0_44px_140px_-70px_rgba(0,0,0,0.92)] backdrop-blur md:p-8">
             <div className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr]">
               <div className="space-y-6">
                 <div className="space-y-4">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.08] px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/70">
                     <ShieldCheck className="h-4 w-4 text-[#ffb35e]" />
                     Acceso a cuentas
                   </div>
 
                   <div>
                     <h1 className="text-4xl font-black tracking-tight text-white sm:text-5xl">
-                      {selectedOption ? `Entrar como ${selectedOption.title}` : 'Quien entra hoy?'}
+                      {selectedOption ? `Entrar como ${selectedOption.title}` : 'Elige como entrar'}
                     </h1>
-                    <p className="mt-3 max-w-2xl text-sm leading-7 text-white/72 sm:text-base">
+                    <p className="mt-3 max-w-2xl text-sm leading-7 text-white/[0.72] sm:text-base">
                       {selectedOption
                         ? 'Primero definimos el perfil y despues te llevamos al flujo exacto para ingresar o crear tu cuenta.'
-                        : 'El acceso ahora parte desde un selector unico, estilo perfiles. Eliges cliente o tecnico y sigues directo al panel correcto.'}
+                        : 'El acceso ahora parte desde un selector unico. Eliges cliente o tecnico y sigues directo al panel correcto.'}
                     </p>
                   </div>
 
                   <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-[28px] border border-white/12 bg-white/8 p-4">
+                    <div className="rounded-[28px] border border-white/[0.12] bg-white/[0.08] p-4">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Paso 1</p>
                       <p className="mt-2 text-base font-semibold text-white">Selecciona perfil</p>
-                      <p className="mt-2 text-sm leading-6 text-white/65">
+                      <p className="mt-2 text-sm leading-6 text-white/[0.65]">
                         Cliente y tecnico tienen acceso y lenguaje distintos.
                       </p>
                     </div>
-                    <div className="rounded-[28px] border border-white/12 bg-white/8 p-4">
+                    <div className="rounded-[28px] border border-white/[0.12] bg-white/[0.08] p-4">
                       <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Paso 2</p>
                       <p className="mt-2 text-base font-semibold text-white">Ingresa a tu cuenta</p>
-                      <p className="mt-2 text-sm leading-6 text-white/65">
+                      <p className="mt-2 text-sm leading-6 text-white/[0.65]">
                         Si ya tienes sesion, entras directo. Si no, sigues al login correcto.
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-white/65">
-                    <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-3 py-1.5">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-white/[0.65]">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.08] px-3 py-1.5">
                       <BriefcaseBusiness className="h-4 w-4 text-[#ffb35e]" />
                       Un solo punto de entrada
                     </span>
                     {loadingSession ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-3 py-1.5">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.08] px-3 py-1.5">
                         Validando sesion...
                       </span>
                     ) : session ? (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/18 bg-emerald-400/10 px-3 py-1.5 text-emerald-100">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-emerald-400/[0.18] bg-emerald-400/10 px-3 py-1.5 text-emerald-100">
                         Sesion activa: {sessionLabel}
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-3 py-1.5">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.08] px-3 py-1.5">
                         Si no tienes cuenta, puedes crearla luego de elegir perfil.
                       </span>
                     )}
@@ -196,8 +188,8 @@ export default function PortalAccessHub() {
                         onClick={() => setSelectedRole(option.role)}
                         className={`group relative overflow-hidden rounded-[30px] border p-6 text-left transition ${
                           isSelected
-                            ? 'border-white/60 bg-white/16 shadow-[0_26px_70px_-42px_rgba(255,255,255,0.45)]'
-                            : 'border-white/12 bg-white/6 hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10'
+                            ? 'border-white/60 bg-white/[0.16] shadow-[0_26px_70px_-42px_rgba(255,255,255,0.45)]'
+                            : 'border-white/[0.12] bg-white/[0.06] hover:-translate-y-0.5 hover:border-white/30 hover:bg-white/10'
                         }`}
                       >
                         <div
@@ -211,19 +203,19 @@ export default function PortalAccessHub() {
                           <div className="mt-5 flex items-start justify-between gap-3">
                             <div>
                               <p className="text-2xl font-bold text-white">{option.title}</p>
-                              <p className="mt-2 text-sm leading-6 text-white/72">{option.description}</p>
+                              <p className="mt-2 text-sm leading-6 text-white/[0.72]">{option.description}</p>
                             </div>
                             <ArrowRight
                               className={`mt-1 h-5 w-5 shrink-0 transition ${
-                                isSelected ? 'text-white' : 'text-white/35 group-hover:translate-x-0.5 group-hover:text-white/80'
+                                isSelected ? 'text-white' : 'text-white/[0.35] group-hover:translate-x-0.5 group-hover:text-white/80'
                               }`}
                             />
                           </div>
                           <div className="mt-5 flex flex-wrap items-center gap-2">
-                            <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                            <span className="rounded-full border border-white/[0.12] bg-white/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/70">
                               {option.badge}
                             </span>
-                            <span className="rounded-full border border-white/12 bg-white/10 px-3 py-1 text-[11px] text-white/55">
+                            <span className="rounded-full border border-white/[0.12] bg-white/10 px-3 py-1 text-[11px] text-white/[0.55]">
                               {option.panelLabel}
                             </span>
                           </div>
@@ -233,10 +225,10 @@ export default function PortalAccessHub() {
                   })}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-2 text-sm text-white/58">
+                <div className="flex flex-wrap items-center gap-3 border-t border-white/10 pt-2 text-sm text-white/[0.58]">
                   <Link
                     href="/admin"
-                    className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 font-semibold text-white/72 transition hover:border-white/22 hover:text-white"
+                    className="inline-flex items-center gap-2 rounded-full border border-white/[0.12] bg-white/[0.08] px-4 py-2 font-semibold text-white/[0.72] transition hover:border-white/[0.22] hover:text-white"
                   >
                     <Settings className="h-4 w-4" />
                     Administracion
@@ -325,7 +317,7 @@ export default function PortalAccessHub() {
 
                       <div className="rounded-[28px] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,245,232,0.96),rgba(255,255,255,0.98))] p-5">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">Listo para continuar</p>
-                        <p className="mt-3 text-lg font-semibold text-slate-900">Netflix style, pero para UrbanFix</p>
+                        <p className="mt-3 text-lg font-semibold text-slate-900">Acceso claro por perfil</p>
                         <p className="mt-2 text-sm leading-6 text-slate-600">
                           Seleccionas quien entra y evitamos mezclar el acceso de cliente con el de tecnico.
                         </p>

@@ -33,7 +33,7 @@ export default function PaginaWebPage() {
             <header className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm backdrop-blur">
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 shadow-lg shadow-slate-300/60">
-                  <img src="/icon.png" alt="UrbanFix logo" className="h-8 w-8" />
+                  <img src="/icon-48.png" alt="UrbanFix logo" className="h-8 w-8" />
                 </div>
                 <div>
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">UrbanFix</p>
