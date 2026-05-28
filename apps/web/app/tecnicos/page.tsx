@@ -15,6 +15,7 @@ import {
   FileText,
   Home,
   ImagePlus,
+  Info,
   Loader2,
   LockKeyhole,
   LogOut,
@@ -682,6 +683,7 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
   title: string;
   badge: string;
   description: string;
+  info: string;
   note: string;
   icon: LucideIcon;
   iconShellClassName: string;
@@ -692,6 +694,7 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
     title: 'Técnico',
     badge: 'Operativo',
     description: 'Presupuestos, solicitudes cercanas, seguimiento de trabajos y perfil público desde un mismo panel.',
+    info: 'Para profesionales que cotizan, responden solicitudes, organizan agenda y muestran su perfil publico.',
     note: 'Ideal para operar y cotizar sin salir de la web.',
     icon: Wrench,
     iconShellClassName: 'border-[#ff8f1f]/[0.25] bg-[#ff8f1f]/[0.12]',
@@ -702,6 +705,7 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
     title: 'Empresa',
     badge: 'Comercial',
     description: 'Centraliza marca, responsables, presupuestos y flujo comercial en una única cuenta operativa.',
+    info: 'Para empresas, marcas o equipos que necesitan gestionar responsables, presupuestos y datos comerciales.',
     note: 'Pensado para equipos, marcas y gestión comercial.',
     icon: Building2,
     iconShellClassName: 'border-[#2a0338]/[0.18] bg-[#2a0338]/[0.08]',
@@ -712,6 +716,7 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
     title: 'Cliente',
     badge: 'Solicitudes',
     description: 'Publica pedidos, recibe cotizaciones y encuentra técnicos en el flujo específico para clientes.',
+    info: 'Para personas que quieren publicar una solicitud, seguir respuestas y contactar tecnicos desde su portal.',
     note: 'Te llevamos directo al portal cliente.',
     icon: Home,
     iconShellClassName: 'border-sky-200 bg-sky-50',
@@ -5600,9 +5605,24 @@ export default function TechniciansPage() {
                                 </span>
                               </div>
                             </div>
-                            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.06] text-[#ffcf93] transition group-hover:translate-x-0.5 group-hover:border-[#ffcf93]/50 group-hover:bg-[#ff8f1f]/[0.12]">
-                              <ArrowRight className="h-4 w-4" />
-                            </span>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span
+                                className="group/info relative flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.045] text-white/[0.62] transition hover:border-[#ffcf93]/50 hover:bg-white/[0.10] hover:text-[#ffcf93]"
+                                aria-label={`Info sobre ${option.title}`}
+                                title={option.info}
+                              >
+                                <Info className="h-4 w-4" />
+                                <span
+                                  role="tooltip"
+                                  className="pointer-events-none absolute right-full top-1/2 z-30 mr-2 hidden w-[min(72vw,240px)] -translate-y-1/2 rounded-2xl border border-[#ffcf93]/40 bg-[#fffdf9] px-3 py-2 text-[11px] font-medium leading-5 text-[#2a0338] opacity-0 shadow-[0_18px_42px_-24px_rgba(0,0,0,0.7)] transition duration-200 group-hover/info:opacity-100 sm:block"
+                                >
+                                  {option.info}
+                                </span>
+                              </span>
+                              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.06] text-[#ffcf93] transition group-hover:translate-x-0.5 group-hover:border-[#ffcf93]/50 group-hover:bg-[#ff8f1f]/[0.12]">
+                                <ArrowRight className="h-4 w-4" />
+                              </span>
+                            </div>
                           </div>
                         </button>
                       );
