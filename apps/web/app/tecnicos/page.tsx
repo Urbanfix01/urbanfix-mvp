@@ -21,7 +21,7 @@ import {
   LogOut,
   Mail,
   MessageCircle,
-  MoreHorizontal,
+  MoreVertical,
   Search,
   Settings,
   ShieldCheck,
@@ -1586,6 +1586,9 @@ export default function TechniciansPage() {
   const [masterCategory, setMasterCategory] = useState('all');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
+  const [isMobileDockVisible, setIsMobileDockVisible] = useState(true);
+  const mobileScrollYRef = useRef(0);
+  const mobileScrollTickingRef = useRef(false);
   const uiTheme = UI_THEME;
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
@@ -1819,6 +1822,7 @@ export default function TechniciansPage() {
     (item) => !mobilePrimaryNavItems.some((primaryItem) => primaryItem.key === item.key)
   );
   const isMobileSecondaryActive = mobileSecondaryNavItems.some((item) => item.key === activeNavKey);
+  const isMobileDockShown = isMobileDockVisible || isMobileToolsOpen;
   const activeSupportLabel = useMemo(() => {
     if (isBetaAdmin) {
       return (
@@ -1836,6 +1840,36 @@ export default function TechniciansPage() {
     { value: 'completed', label: 'Finalizado' },
     { value: 'paid', label: 'Cobrado' },
   ];
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    mobileScrollYRef.current = window.scrollY;
+
+    const handleScroll = () => {
+      if (mobileScrollTickingRef.current) return;
+      mobileScrollTickingRef.current = true;
+
+      window.requestAnimationFrame(() => {
+        const currentY = window.scrollY;
+        const delta = currentY - mobileScrollYRef.current;
+
+        if (Math.abs(delta) > 10) {
+          const scrollingUp = delta < 0;
+          setIsMobileDockVisible(scrollingUp || currentY < 80);
+          if (!scrollingUp && currentY > 80) {
+            setIsMobileToolsOpen(false);
+          }
+          mobileScrollYRef.current = currentY;
+        }
+
+        mobileScrollTickingRef.current = false;
+      });
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -6045,7 +6079,9 @@ export default function TechniciansPage() {
           <div className="min-w-0 flex-1">
             <nav
               aria-label="Navegación principal móvil"
-              className="fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[28px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(34,6,47,0.96),rgba(42,3,56,0.96))] p-2 shadow-[0_26px_70px_-34px_rgba(0,0,0,0.92),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur lg:hidden"
+              className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[28px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(34,6,47,0.96),rgba(42,3,56,0.96))] p-2 shadow-[0_26px_70px_-34px_rgba(0,0,0,0.92),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur transition duration-300 lg:hidden ${
+                isMobileDockShown ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-[calc(100%+1.25rem)] opacity-0'
+              }`}
             >
               {isMobileToolsOpen && (
                 <div className="absolute inset-x-0 bottom-[calc(100%+0.75rem)] rounded-[26px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(42,3,56,0.98),rgba(28,3,38,0.98))] p-3 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.10)]">
@@ -6091,21 +6127,7 @@ export default function TechniciansPage() {
                   </div>
                 </div>
               )}
-              <button
-                type="button"
-                aria-expanded={isMobileToolsOpen}
-                aria-label="Abrir más herramientas"
-                onClick={() => setIsMobileToolsOpen((prev) => !prev)}
-                className={`absolute -top-4 right-4 inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-[11px] font-semibold shadow-[0_18px_34px_-24px_rgba(0,0,0,0.9)] transition ${
-                  isMobileToolsOpen || isMobileSecondaryActive
-                    ? 'border-[#ffcf93]/70 bg-[#ff8f1f] text-[#2a0338]'
-                    : 'border-white/[0.14] bg-[#2a0338] text-white hover:bg-[#360946]'
-                }`}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-                Más
-              </button>
-              <div className="grid grid-cols-5 gap-1">
+              <div className="grid grid-cols-[repeat(5,minmax(0,1fr))_42px] gap-1">
                 {mobilePrimaryNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeNavKey === item.key;
@@ -6136,8 +6158,24 @@ export default function TechniciansPage() {
                       <Icon className="h-4 w-4" />
                       <span className="max-w-full truncate">{mobileLabel}</span>
                     </button>
-                  );
-                })}
+                    );
+                  })}
+                <button
+                  type="button"
+                  aria-expanded={isMobileToolsOpen}
+                  aria-label="Más herramientas"
+                  onClick={() => setIsMobileToolsOpen((prev) => !prev)}
+                  className={`relative flex min-h-[58px] items-center justify-center rounded-[20px] px-1 transition ${
+                    isMobileToolsOpen || isMobileSecondaryActive
+                      ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_18px_34px_-24px_rgba(255,143,31,0.92)]'
+                      : 'text-white/[0.68] hover:bg-white/[0.08] hover:text-white'
+                  }`}
+                >
+                  <MoreVertical className="h-5 w-5" />
+                  {unreadNotifications > 0 && (
+                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#ef4444]" />
+                  )}
+                </button>
               </div>
             </nav>
 
