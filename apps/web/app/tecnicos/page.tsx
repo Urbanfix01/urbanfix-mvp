@@ -6079,25 +6079,28 @@ export default function TechniciansPage() {
           <div className="min-w-0 flex-1">
             <nav
               aria-label="Navegación principal móvil"
-              className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[28px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(34,6,47,0.96),rgba(42,3,56,0.96))] p-2 shadow-[0_26px_70px_-34px_rgba(0,0,0,0.92),inset_0_1px_0_rgba(255,255,255,0.10)] backdrop-blur transition duration-300 lg:hidden ${
+              className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[24px] border border-white/[0.10] bg-[rgba(35,5,47,0.92)] p-1.5 shadow-[0_18px_48px_-30px_rgba(0,0,0,0.86),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition duration-300 lg:hidden ${
                 isMobileDockShown ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-[calc(100%+1.25rem)] opacity-0'
               }`}
             >
               {isMobileToolsOpen && (
-                <div className="absolute inset-x-0 bottom-[calc(100%+0.75rem)] rounded-[26px] border border-white/[0.14] bg-[linear-gradient(180deg,rgba(42,3,56,0.98),rgba(28,3,38,0.98))] p-3 shadow-[0_24px_60px_-28px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.10)]">
+                <div className="absolute inset-x-2 bottom-[calc(100%+0.6rem)] rounded-[22px] border border-white/[0.10] bg-[rgba(31,5,42,0.96)] p-2.5 shadow-[0_22px_54px_-32px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
                   <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/[0.42]">Más herramientas</p>
-                      <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
-                    </div>
-                    <span className="shrink-0 rounded-full border border-white/10 bg-white/[0.08] px-3 py-1 text-[10px] font-semibold text-[#ffcf93]">
-                      {quotes.length} activos
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.46]">Herramientas</p>
+                    <span className="shrink-0 rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-semibold text-white/[0.58]">
+                      {quotes.length}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     {mobileSecondaryNavItems.map((item) => {
                       const isActive = activeNavKey === item.key;
                       const Icon = item.icon;
+                      const compactLabel =
+                        item.key === 'visualizador'
+                          ? 'Ver'
+                          : item.key === 'notificaciones'
+                            ? 'Alertas'
+                            : item.label;
                       return (
                         <button
                           key={item.key}
@@ -6108,14 +6111,14 @@ export default function TechniciansPage() {
                             setIsMobileToolsOpen(false);
                             if (item.key === 'presupuestos') setQuoteFilter('all');
                           }}
-                          className={`flex min-h-11 items-center gap-2 rounded-[18px] px-3 text-left text-xs font-semibold transition ${
+                          className={`flex min-h-10 items-center gap-2 rounded-[16px] px-3 text-left text-xs font-semibold transition ${
                             isActive
-                              ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.95)]'
-                              : 'bg-white/[0.08] text-white/[0.88] hover:bg-white/[0.14] hover:text-white'
+                              ? 'bg-white/[0.13] text-[#ffcf93] shadow-[inset_0_0_0_1px_rgba(255,207,147,0.24)]'
+                              : 'bg-white/[0.055] text-white/[0.82] hover:bg-white/[0.10] hover:text-white'
                           }`}
                         >
-                          <Icon className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                          <Icon className={isActive ? 'h-4 w-4 shrink-0 text-[#ffcf93]' : 'h-4 w-4 shrink-0 text-white/[0.62]'} />
+                          <span className="min-w-0 flex-1 truncate">{compactLabel}</span>
                           {item.key === 'notificaciones' && unreadNotifications > 0 && (
                             <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
                               {unreadNotifications}
@@ -6127,7 +6130,7 @@ export default function TechniciansPage() {
                   </div>
                 </div>
               )}
-              <div className="grid grid-cols-[repeat(5,minmax(0,1fr))_42px] gap-1">
+              <div className="grid grid-cols-[repeat(5,minmax(0,1fr))_38px] gap-0.5">
                 {mobilePrimaryNavItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = activeNavKey === item.key;
@@ -6149,14 +6152,15 @@ export default function TechniciansPage() {
                         setIsMobileToolsOpen(false);
                         if (item.key === 'presupuestos') setQuoteFilter('all');
                       }}
-                      className={`relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-[20px] px-1 text-[10px] font-semibold transition ${
+                      className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[10px] font-semibold transition ${
                         isActive
-                          ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_18px_34px_-24px_rgba(255,143,31,0.92)]'
-                          : 'text-white/[0.68] hover:bg-white/[0.08] hover:text-white'
+                          ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,143,31,0.18)]'
+                          : 'text-white/[0.58] hover:bg-white/[0.06] hover:text-white'
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className={isActive ? 'h-4 w-4 text-[#ff9c1a]' : 'h-4 w-4'} />
                       <span className="max-w-full truncate">{mobileLabel}</span>
+                      {isActive && <span className="absolute bottom-1.5 h-1 w-4 rounded-full bg-[#ff8f1f]" />}
                     </button>
                     );
                   })}
@@ -6165,10 +6169,10 @@ export default function TechniciansPage() {
                   aria-expanded={isMobileToolsOpen}
                   aria-label="Más herramientas"
                   onClick={() => setIsMobileToolsOpen((prev) => !prev)}
-                  className={`relative flex min-h-[58px] items-center justify-center rounded-[20px] px-1 transition ${
+                  className={`relative flex min-h-[56px] items-center justify-center rounded-[18px] px-1 transition ${
                     isMobileToolsOpen || isMobileSecondaryActive
-                      ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_18px_34px_-24px_rgba(255,143,31,0.92)]'
-                      : 'text-white/[0.68] hover:bg-white/[0.08] hover:text-white'
+                      ? 'bg-white/[0.08] text-[#ff9c1a] shadow-[inset_0_0_0_1px_rgba(255,143,31,0.18)]'
+                      : 'text-white/[0.58] hover:bg-white/[0.06] hover:text-white'
                   }`}
                 >
                   <MoreVertical className="h-5 w-5" />
