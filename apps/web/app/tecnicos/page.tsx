@@ -5902,51 +5902,44 @@ export default function TechniciansPage() {
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
       <div className="relative overflow-hidden">
-        <div className="absolute left-0 top-0 bottom-0 hidden w-[86px] bg-[linear-gradient(180deg,#17031f_0%,#2a0338_46%,#15031d_100%)] lg:block" />
+        <div className="absolute left-0 top-0 bottom-0 hidden w-[74px] bg-[linear-gradient(180deg,#17031f_0%,#250331_48%,#13021a_100%)] lg:block" />
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
         <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
         <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
 
-        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[116px]">
-          <div className="hidden w-[86px] shrink-0 lg:block">
+        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[96px]">
+          <div className="hidden w-[74px] shrink-0 lg:block">
             <aside
               aria-label="Navegación técnica"
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
-              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#17031f_0%,#2a0338_48%,#15031d_100%)] shadow-[18px_0_56px_-48px_rgba(0,0,0,0.9),inset_-1px_0_0_rgba(255,255,255,0.07)] transition-[width] duration-300 lg:flex ${
-                isDesktopNavExpanded ? 'w-[268px]' : 'w-[86px]'
+              className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/[0.08] bg-[linear-gradient(180deg,#17031f_0%,#250331_48%,#13021a_100%)] shadow-[14px_0_44px_-42px_rgba(0,0,0,0.9),inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
+                isDesktopNavExpanded ? 'w-[222px]' : 'w-[74px]'
               }`}
             >
               <div className="flex w-full flex-col">
                 <div className={`${isDesktopNavExpanded ? 'px-3 pb-2 pt-4' : 'px-2 pb-2 pt-4'}`}>
                   <div
-                    className={`flex items-center border border-white/10 bg-white/[0.055] shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] ${
+                    className={`flex items-center ${
                       isDesktopNavExpanded
-                        ? 'gap-3 rounded-[22px] px-3 py-3'
-                        : 'mx-auto h-12 w-12 justify-center rounded-[18px]'
+                        ? 'gap-3 rounded-[18px] px-2.5 py-2'
+                        : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
                     }`}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-sm font-black text-[#2a0338] shadow-[0_18px_30px_-20px_rgba(255,143,31,0.95)]">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[#ffcf93]/25 bg-[#ff8f1f] text-sm font-black text-[#2a0338] shadow-[0_14px_28px_-22px_rgba(255,143,31,0.9)]">
                       UF
                     </span>
                     {isDesktopNavExpanded && (
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-white">{technicianSidebarAccountLabel}</p>
-                        <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.45]">
-                          Panel técnico
-                        </p>
+                        <p className="truncate text-[13px] font-semibold text-white">{technicianSidebarAccountLabel}</p>
+                        <p className="mt-0.5 text-[10px] font-semibold text-white/[0.42]">Panel técnico</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 py-3' : 'px-2 py-3'}`}>
-                  {isDesktopNavExpanded && (
-                    <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-white/[0.38]">
-                      Operación
-                    </p>
-                  )}
-                  <div className="flex flex-col gap-1.5">
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-2.5 py-2' : 'px-2 py-2'}`}>
+                  <div className="flex flex-col gap-0.5">
                     {navItems.map((item) => {
                       const Icon = item.icon;
                       const isActive = activeNavKey === item.key;
@@ -5962,31 +5955,28 @@ export default function TechniciansPage() {
                           }}
                           className={`group relative flex items-center transition duration-200 ${
                             isDesktopNavExpanded
-                              ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
-                              : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
+                              ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
+                              : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
                           } ${
                             isActive
-                              ? 'bg-white/[0.13] text-white shadow-[0_18px_34px_-30px_rgba(255,143,31,0.85),inset_0_1px_0_rgba(255,255,255,0.12)]'
-                              : 'text-white/[0.72] hover:bg-white/[0.075] hover:text-white'
+                              ? 'bg-white/[0.075] text-white'
+                              : 'text-white/[0.58] hover:bg-white/[0.055] hover:text-white'
                           }`}
                         >
                           {isActive && (
-                            <span className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-[#ff8f1f]" />
+                            <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-[#ff8f1f]" />
                           )}
                           <span
-                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] transition ${
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition ${
                               isActive
-                                ? 'bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_26px_-18px_rgba(255,143,31,0.9)]'
-                                : 'bg-white/[0.08] text-white/[0.82] group-hover:bg-white/[0.13] group-hover:text-white'
+                                ? 'text-[#ff9c1a]'
+                                : 'bg-white/[0.055] text-white/[0.68] group-hover:bg-white/[0.09] group-hover:text-white'
                             }`}
                           >
                             <Icon className="h-4 w-4" />
                           </span>
                           {isDesktopNavExpanded && (
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[13px] font-semibold">{item.label}</span>
-                              <span className="mt-0.5 block truncate text-[10px] font-medium text-white/[0.38]">{item.hint}</span>
-                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{item.label}</span>
                           )}
                           {item.key === 'notificaciones' && unreadNotifications > 0 && (
                             <span
@@ -6003,33 +5993,18 @@ export default function TechniciansPage() {
                   </div>
                 </nav>
 
-                <div className={`${isDesktopNavExpanded ? 'px-3 pb-3 pt-3' : 'px-2 pb-3 pt-3'} border-t border-white/10`}>
-                  {isDesktopNavExpanded && (
-                    <div className="mb-3 rounded-[18px] border border-white/10 bg-white/[0.055] px-3 py-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.42]">Perfil</p>
-                        <p className="text-xs font-semibold text-[#ffcf93]">{profileCompletionPercent}%</p>
-                      </div>
-                      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10">
-                        <div
-                          className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#ffcf93)] transition-[width] duration-500"
-                          style={{ width: `${profileCompletionPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex flex-col gap-1.5">
+                <div className={`${isDesktopNavExpanded ? 'px-2.5 pb-3 pt-2.5' : 'px-2 pb-3 pt-2.5'} border-t border-white/[0.08]`}>
+                  <div className="flex flex-col gap-0.5">
                     <a
                       href={session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil'}
                       title={!isDesktopNavExpanded ? 'Perfil' : undefined}
                       className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
-                          : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
+                          ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
+                          : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-white/[0.08] text-white/[0.82] transition group-hover:bg-white/[0.13] group-hover:text-white">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.055] text-white/[0.68] transition group-hover:bg-white/[0.09] group-hover:text-white">
                         <User className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Perfil</span>}
@@ -6041,11 +6016,11 @@ export default function TechniciansPage() {
                       onClick={() => setActiveTab('perfil')}
                       className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
-                          : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
+                          ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
+                          : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-white/[0.08] text-white/[0.82] transition group-hover:bg-white/[0.13] group-hover:text-white">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.055] text-white/[0.68] transition group-hover:bg-white/[0.09] group-hover:text-white">
                         <Settings className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
@@ -6059,11 +6034,11 @@ export default function TechniciansPage() {
                       onClick={handleLogout}
                       className={`group relative flex items-center text-white/[0.82] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white ${
                         isDesktopNavExpanded
-                          ? 'min-h-11 w-full gap-3 rounded-[18px] px-3 text-left'
-                          : 'mx-auto h-11 w-11 justify-center rounded-[18px]'
+                          ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
+                          : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[13px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_24px_-18px_rgba(255,140,26,0.9)] transition group-hover:brightness-105">
                         <LogOut className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
