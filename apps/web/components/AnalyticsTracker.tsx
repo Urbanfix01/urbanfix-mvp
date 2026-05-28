@@ -37,19 +37,17 @@ export default function AnalyticsTracker() {
       referrer: document.referrer || '',
       ...payload,
     };
-    try {
-      fetch(ANALYTICS_ENDPOINT, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(tokenRef.current ? { Authorization: `Bearer ${tokenRef.current}` } : {}),
-        },
-        body: JSON.stringify(body),
-        keepalive: true,
-      });
-    } catch {
-      // noop
-    }
+    void fetch(ANALYTICS_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(tokenRef.current ? { Authorization: `Bearer ${tokenRef.current}` } : {}),
+      },
+      body: JSON.stringify(body),
+      keepalive: true,
+    }).catch(() => {
+      // Analytics should never block the user experience.
+    });
   };
 
   const sendFunnelEvent = (eventName: string, eventContext?: Record<string, unknown>) => {
