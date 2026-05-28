@@ -1,12 +1,14 @@
 node_modules/
 
 # Local tooling/runtime artifacts
+.codex-logs/
 .expo/
 .vercel/
 apps/mobile/.expo/
 apps/web/.expo/
 apps/mobile/.env
 apps/web/.next/
+apps/web/.next-codex-dev*/
 tmp/
 urbanfix-main-clean/
 urbanfix-mvp/

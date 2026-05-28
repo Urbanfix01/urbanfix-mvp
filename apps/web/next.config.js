@@ -2,6 +2,8 @@
 const path = require('path');
 
 const nextConfig = {
+  ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
+
   // Next.js 15+: moved out of `experimental`
   serverExternalPackages: ['@react-pdf/renderer'],
 
