@@ -6167,11 +6167,11 @@ export default function TechniciansPage() {
                     <section className="overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,#fffdf9_0%,#ffffff_45%,#f6eff8_100%)] p-5 shadow-[0_30px_80px_-52px_rgba(42,3,56,0.35)] sm:p-6">
                       <div className="flex flex-col gap-5 xl:flex-row xl:items-stretch xl:justify-between">
                         <div className="min-w-0 flex-1">
-                          <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce] bg-white/80 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a6786]">
-                            <Wrench className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                          <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce]/70 bg-white/55 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7a6786] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                            <span className="h-1.5 w-1.5 rounded-full bg-[#ff8f1f] shadow-[0_0_0_4px_rgba(255,143,31,0.10)]" />
                             Inicio operativo
                           </div>
-                          <h1 className="mt-4 max-w-3xl text-[clamp(1.8rem,4vw,3.4rem)] font-semibold leading-[1.03] text-[#180f24]">
+                          <h1 className="mt-3 max-w-3xl text-[clamp(1.8rem,4vw,3.4rem)] font-semibold leading-[1.03] text-[#180f24]">
                             {technicianHomeName}
                           </h1>
                           <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
