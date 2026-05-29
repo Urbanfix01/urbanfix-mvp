@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Manrope } from 'next/font/google';
+import { Manrope, Space_Grotesk } from 'next/font/google';
 import {
   ArrowLeft,
   ArrowRight,
@@ -546,6 +546,9 @@ type RequestOfferDraft = {
   etaHours: string;
 };
 
+type FinanceTimelineMode = 'weekly' | 'monthly' | 'yearly';
+type QuoteFilter = 'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid';
+
 type DashboardMapPoint = {
   id: string;
   kind: 'job' | 'request';
@@ -594,8 +597,13 @@ const manrope = Manrope({
   weight: ['400', '500', '600', '700', '800'],
 });
 
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['600', '700'],
+});
+
 const themeStyles = {
-  '--ui-bg': '#F5F4F0',
+  '--ui-bg': '#ECE9E2',
   '--ui-card': '#FFFFFF',
   '--ui-border': '#E2E8F0',
   '--ui-ink': '#0F172A',
@@ -846,19 +854,6 @@ const approvedStatuses = new Set(['approved', 'accepted']);
 const draftStatuses = new Set(['draft', 'borrador']);
 const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
 const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
-const readyToScheduleStatuses = new Set(['approved', 'accepted']);
-const billingStatuses = new Set([
-  'approved',
-  'accepted',
-  'paid',
-  'cobrado',
-  'cobrados',
-  'pagado',
-  'pagados',
-  'completed',
-  'completado',
-  'finalizado',
-]);
 
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
@@ -877,6 +872,39 @@ const normalizeStatusValue = (status?: string | null) => {
   if (completedStatuses.has(normalized)) return 'completed';
   if (paidStatuses.has(normalized)) return 'paid';
   return 'draft';
+};
+
+type QuoteStatusGroup = 'draft' | 'pending' | 'approved' | 'completed' | 'paid';
+
+const canonicalQuoteStatusGroups: Record<QuoteStatusGroup, Set<string>> = {
+  draft: new Set(['draft']),
+  pending: new Set(['pending', 'presented']),
+  approved: new Set(['approved']),
+  completed: new Set(['completed']),
+  paid: new Set(['paid']),
+};
+
+const quoteHasStatusGroup = (status: string | null | undefined, group: QuoteStatusGroup) =>
+  canonicalQuoteStatusGroups[group].has(normalizeStatusValue(status));
+
+const quoteNeedsFollowUp = (status: string | null | undefined) =>
+  quoteHasStatusGroup(status, 'pending') || quoteHasStatusGroup(status, 'approved');
+
+const quoteIsBillable = (status: string | null | undefined) =>
+  quoteHasStatusGroup(status, 'approved') ||
+  quoteHasStatusGroup(status, 'completed') ||
+  quoteHasStatusGroup(status, 'paid');
+
+const quoteIsOperational = quoteIsBillable;
+
+const getQuoteStatusInfo = (status?: string | null) => {
+  const normalized = normalizeStatusValue(status);
+  return (
+    statusMap[normalized] || {
+      label: normalized ? normalized.toUpperCase() : 'N/A',
+      className: 'bg-slate-100 text-slate-600',
+    }
+  );
 };
 
 const toNumber = (value: string) => {
@@ -909,6 +937,18 @@ const buildRequestOfferDraft = (request: NearbyRequestRow): RequestOfferDraft =>
 const toFiniteCoordinate = (value: unknown) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isArgentinaCoordinate = (lat: number, lon: number) =>
+  lat >= -56 && lat <= -21 && lon >= -75 && lon <= -53;
+
+const resolveQuoteMapCoordinate = (quote: Pick<QuoteRow, 'location_lat' | 'location_lng'>) => {
+  const rawLat = toFiniteCoordinate(quote.location_lat);
+  const rawLon = toFiniteCoordinate(quote.location_lng);
+  if (rawLat === null || rawLon === null) return null;
+  if (isArgentinaCoordinate(rawLat, rawLon)) return { lat: rawLat, lon: rawLon };
+  if (isArgentinaCoordinate(rawLon, rawLat)) return { lat: rawLon, lon: rawLat };
+  return null;
 };
 
 const toAmountValue = (value: any) => {
@@ -951,8 +991,199 @@ const normalizeQuoteRow = (quote: QuoteRow) => ({
       : toAmountValue(quote.discount_percent),
 });
 
+const PREVIEW_TECHNICIAN_QUOTES: QuoteRow[] = [
+  {
+    id: 'preview-quote-daniel-001',
+    client_name: 'DANIEL',
+    client_address: 'Av. Corrientes 820, San Nicolas, CABA',
+    location_address: 'Av. Corrientes 820, San Nicolas, Buenos Aires',
+    location_lat: -34.603722,
+    location_lng: -58.381592,
+    total_amount: 434526.88,
+    tax_rate: 0,
+    discount_percent: 0,
+    status: 'presented',
+    created_at: '2026-05-26T14:30:00.000Z',
+    quote_items: [
+      {
+        id: 'preview-item-daniel-001',
+        description: 'Revision electrica y tablero',
+        unit_price: 434526.88,
+        quantity: 1,
+        metadata: { type: 'labor', unit: 'trabajo' },
+      },
+    ],
+  },
+  {
+    id: 'preview-quote-cristina-001',
+    client_name: 'CRISTINA',
+    client_address: 'Av. Santa Fe 1860, Recoleta, CABA',
+    location_address: 'Av. Santa Fe 1860, Recoleta, Buenos Aires',
+    location_lat: -34.59471,
+    location_lng: -58.39337,
+    total_amount: 196000,
+    tax_rate: 0,
+    discount_percent: 0,
+    status: 'paid',
+    created_at: '2026-05-23T12:00:00.000Z',
+    quote_items: [
+      {
+        id: 'preview-item-cristina-001',
+        description: 'Reparacion sanitaria y sellado',
+        unit_price: 196000,
+        quantity: 1,
+        metadata: { type: 'labor', unit: 'trabajo' },
+      },
+    ],
+  },
+  {
+    id: 'preview-quote-hernan-001',
+    client_name: 'HERNAN',
+    client_address: 'Av. Rivadavia 3050, Balvanera, CABA',
+    location_address: 'Av. Rivadavia 3050, Balvanera, Buenos Aires',
+    location_lat: -34.61021,
+    location_lng: -58.41062,
+    total_amount: 78988.7,
+    tax_rate: 0,
+    discount_percent: 0,
+    status: 'approved',
+    created_at: '2026-05-20T16:45:00.000Z',
+    quote_items: [
+      {
+        id: 'preview-item-hernan-001',
+        description: 'Mano de obra de pintura',
+        unit_price: 78988.7,
+        quantity: 1,
+        metadata: { type: 'labor', unit: 'jornada' },
+      },
+    ],
+  },
+  {
+    id: 'preview-quote-laura-001',
+    client_name: 'LAURA',
+    client_address: 'Scalabrini Ortiz 1440, Palermo, CABA',
+    location_address: 'Scalabrini Ortiz 1440, Palermo, Buenos Aires',
+    location_lat: -34.58932,
+    location_lng: -58.42404,
+    total_amount: 224331.72,
+    tax_rate: 0,
+    discount_percent: 0,
+    status: 'pending',
+    created_at: '2026-05-18T10:15:00.000Z',
+    quote_items: [
+      {
+        id: 'preview-item-laura-001',
+        description: 'Instalacion y ajuste de aberturas',
+        unit_price: 224331.72,
+        quantity: 1,
+        metadata: { type: 'labor', unit: 'trabajo' },
+      },
+    ],
+  },
+];
+
 const formatCurrency = (value: number) =>
   `$${Number(value || 0).toLocaleString('es-AR')}`;
+
+const formatDashboardMoney = (value: number) => {
+  const amount = Number(value || 0);
+  const hasCents = Math.abs(amount % 1) > 0.005;
+  return `$${amount.toLocaleString('es-AR', {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const formatCompactDashboardMoney = (value: number) => {
+  const amount = Math.abs(Number(value || 0));
+  if (amount >= 1000000) {
+    return `$${(Number(value || 0) / 1000000).toLocaleString('es-AR', {
+      maximumFractionDigits: 1,
+    })} M`;
+  }
+  if (amount >= 1000) {
+    return `$${Math.round(Number(value || 0) / 1000).toLocaleString('es-AR')} mil`;
+  }
+  return formatDashboardMoney(value);
+};
+
+const getQuoteDisplayNumber = (quote: Pick<QuoteRow, 'id' | 'client_name' | 'created_at'>) => {
+  const id = String(quote.id || '').trim();
+  const previewMatch = id.match(/^preview-quote-([a-z]+)-(\d+)$/i);
+  if (previewMatch) return `${previewMatch[1].slice(0, 3).toUpperCase()}-${previewMatch[2]}`;
+  const compact = id.replace(/[^a-z0-9]/gi, '').toUpperCase();
+  if (compact.length >= 6) return compact.slice(-6);
+  const clientPrefix = String(quote.client_name || 'UF').replace(/[^a-z0-9]/gi, '').slice(0, 3).toUpperCase();
+  const created = new Date(quote.created_at);
+  const dateSuffix = Number.isFinite(created.getTime())
+    ? `${String(created.getDate()).padStart(2, '0')}${String(created.getMonth() + 1).padStart(2, '0')}`
+    : '0000';
+  return `${clientPrefix || 'UF'}-${compact || dateSuffix}`;
+};
+
+const getNiceChartMax = (value: number) => {
+  const safeValue = Math.max(1, Number(value || 0));
+  const exponent = Math.floor(Math.log10(safeValue));
+  const magnitude = 10 ** exponent;
+  const normalized = safeValue / magnitude;
+  const niceNormalized = normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  return niceNormalized * magnitude;
+};
+
+const startOfFinanceWeek = (date: Date) => {
+  const next = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const day = next.getDay();
+  const offset = day === 0 ? 6 : day - 1;
+  next.setDate(next.getDate() - offset);
+  return next;
+};
+
+const startOfFinancePeriod = (date: Date, mode: FinanceTimelineMode) => {
+  if (mode === 'weekly') return startOfFinanceWeek(date);
+  if (mode === 'yearly') return new Date(date.getFullYear(), 0, 1);
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+};
+
+const addFinancePeriods = (date: Date, offset: number, mode: FinanceTimelineMode) => {
+  if (mode === 'weekly') {
+    const next = new Date(date);
+    next.setDate(next.getDate() + offset * 7);
+    return startOfFinanceWeek(next);
+  }
+  if (mode === 'yearly') {
+    return new Date(date.getFullYear() + offset, 0, 1);
+  }
+  return new Date(date.getFullYear(), date.getMonth() + offset, 1);
+};
+
+const getFinancePeriodKey = (date: Date, mode: FinanceTimelineMode) => {
+  const period = startOfFinancePeriod(date, mode);
+  if (mode === 'weekly') {
+    return `w-${period.getFullYear()}-${period.getMonth() + 1}-${period.getDate()}`;
+  }
+  if (mode === 'yearly') return `${period.getFullYear()}`;
+  return `${period.getFullYear()}-${period.getMonth() + 1}`;
+};
+
+const getFinancePeriodLabel = (date: Date, mode: FinanceTimelineMode) => {
+  if (mode === 'weekly') {
+    return `${date.getDate()}/${date.getMonth() + 1}`;
+  }
+  if (mode === 'yearly') return String(date.getFullYear());
+  return date.toLocaleDateString('es-AR', { month: 'short' });
+};
+
+const getFinanceTimelineUnit = (mode: FinanceTimelineMode, amount: number) => {
+  if (mode === 'weekly') return amount === 1 ? 'semana' : 'semanas';
+  if (mode === 'yearly') return amount === 1 ? 'año' : 'años';
+  return amount === 1 ? 'mes' : 'meses';
+};
+
+const financeTimelineModeOptions: Array<{ id: FinanceTimelineMode; label: string }> = [
+  { id: 'weekly', label: 'Semanal' },
+  { id: 'monthly', label: 'Mensual' },
+  { id: 'yearly', label: 'Anual' },
+];
 
 const getQuoteAddress = (quote: QuoteRow) =>
   quote.client_address || quote.address || quote.location_address || '';
@@ -1623,9 +1854,13 @@ export default function TechniciansPage() {
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState('');
-  const [quoteFilter, setQuoteFilter] = useState<'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid'>(
-    'all'
-  );
+  const [quoteFilter, setQuoteFilter] = useState<QuoteFilter>('all');
+  const [clientHistoryFilter, setClientHistoryFilter] = useState<'all' | 'located' | 'pending' | 'paid'>('all');
+  const [selectedClientKey, setSelectedClientKey] = useState('');
+  const [financeTimelineMode, setFinanceTimelineMode] = useState<FinanceTimelineMode>('monthly');
+  const [financeTimelineOffset, setFinanceTimelineOffset] = useState(0);
+  const [activeFinancePointKey, setActiveFinancePointKey] = useState<string | null>(null);
+  const financeTimelineDragRef = useRef<{ lastX: number } | null>(null);
   const provinceOptions = useMemo(() => getProvinceOptions(profileForm.country), [profileForm.country]);
   const provinceFieldLabel = useMemo(() => getProvinceLabel(profileForm.country), [profileForm.country]);
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
@@ -1661,6 +1896,7 @@ export default function TechniciansPage() {
         address: prev.address || 'Vista previa local',
         profilePublished: true,
       }));
+      setQuotes(PREVIEW_TECHNICIAN_QUOTES.map(normalizeQuoteRow));
     }
     const nextPath = sanitizeNextPath(params.get('next'));
     const intent = params.get('intent');
@@ -1877,6 +2113,15 @@ export default function TechniciansPage() {
     { value: 'completed', label: 'Finalizado' },
     { value: 'paid', label: 'Cobrado' },
   ];
+  const quoteFilterOptions: Array<{ key: QuoteFilter; label: string }> = [
+    { key: 'all', label: 'Todos' },
+    { key: 'draft', label: 'Computo' },
+    { key: 'pending', label: 'Pendientes' },
+    { key: 'approved', label: 'Aprobados' },
+    { key: 'completed', label: 'Finalizados' },
+    { key: 'paid', label: 'Cobrados' },
+  ];
+  const activeQuoteFilterLabel = quoteFilterOptions.find((option) => option.key === quoteFilter)?.label || 'Todos';
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -2286,6 +2531,10 @@ export default function TechniciansPage() {
 
   const fetchQuotes = async (userId?: string) => {
     if (!userId) return;
+    if (isDesignPreview) {
+      setQuotes(PREVIEW_TECHNICIAN_QUOTES.map(normalizeQuoteRow));
+      return;
+    }
     const { data, error } = await supabase
       .from('quotes')
       .select('*, quote_items(unit_price, quantity, metadata)')
@@ -2791,11 +3040,12 @@ export default function TechniciansPage() {
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
     setClientAddress(getQuoteAddress(quote));
-    if (quote.location_lat && quote.location_lng) {
+    const quoteCoordinate = resolveQuoteMapCoordinate(quote);
+    if (quoteCoordinate) {
       setGeoSelected({
         display_name: quote.location_address || getQuoteAddress(quote) || 'Ubicacion',
-        lat: Number(quote.location_lat),
-        lon: Number(quote.location_lng),
+        lat: quoteCoordinate.lat,
+        lon: quoteCoordinate.lon,
       });
     } else {
       setGeoSelected(null);
@@ -3249,9 +3499,9 @@ export default function TechniciansPage() {
         const status = normalizeStatusValue(quote.status);
         const amount = toAmountValue(quote.total_amount);
         if (status === 'draft') acc.draft += 1;
-        if (pendingStatuses.has(status)) acc.pending += 1;
-        if (approvedStatuses.has(status)) acc.approved += 1;
-        if (paidStatuses.has(status)) {
+        if (quoteHasStatusGroup(status, 'pending')) acc.pending += 1;
+        if (quoteHasStatusGroup(status, 'approved')) acc.approved += 1;
+        if (quoteHasStatusGroup(status, 'paid')) {
           acc.paid += 1;
           acc.paidAmount += amount;
           acc.profitAmount += getLaborAmount(quote);
@@ -3321,11 +3571,11 @@ export default function TechniciansPage() {
 
       current.quotes.push(quote);
       current.totalAmount += amount;
-      if (paidStatuses.has(status)) current.paidAmount += amount;
-      if (pendingStatuses.has(status)) current.pendingCount += 1;
-      if (approvedStatuses.has(status)) current.approvedCount += 1;
-      if (paidStatuses.has(status)) current.paidCount += 1;
-      if (toFiniteCoordinate(quote.location_lat) !== null && toFiniteCoordinate(quote.location_lng) !== null) {
+      if (quoteHasStatusGroup(status, 'paid')) current.paidAmount += amount;
+      if (quoteHasStatusGroup(status, 'pending')) current.pendingCount += 1;
+      if (quoteHasStatusGroup(status, 'approved')) current.approvedCount += 1;
+      if (quoteHasStatusGroup(status, 'paid')) current.paidCount += 1;
+      if (resolveQuoteMapCoordinate(quote)) {
         current.locationCount += 1;
       }
       current.firstDateMs = Math.min(current.firstDateMs, createdTime);
@@ -3340,7 +3590,7 @@ export default function TechniciansPage() {
         );
         const latestQuote = sortedQuotes[0] || client.quotes[0];
         const latestStatus = normalizeStatusValue(latestQuote?.status);
-        const latestStatusLabel = statusMap[latestStatus]?.label || 'Presupuesto';
+        const latestStatusLabel = getQuoteStatusInfo(latestStatus).label || 'Presupuesto';
         const lastDate = new Date(client.lastDateMs);
         const firstDate = new Date(client.firstDateMs);
         return {
@@ -3358,11 +3608,10 @@ export default function TechniciansPage() {
       .map((client) => {
         const locatedQuote = [...client.quotes]
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-          .find((quote) => toFiniteCoordinate(quote.location_lat) !== null && toFiniteCoordinate(quote.location_lng) !== null);
+          .find((quote) => resolveQuoteMapCoordinate(quote) !== null);
         if (!locatedQuote) return null;
-        const lat = toFiniteCoordinate(locatedQuote.location_lat);
-        const lon = toFiniteCoordinate(locatedQuote.location_lng);
-        if (lat === null || lon === null) return null;
+        const coordinate = resolveQuoteMapCoordinate(locatedQuote);
+        if (!coordinate) return null;
         return {
           id: client.key,
           name: client.name,
@@ -3370,8 +3619,8 @@ export default function TechniciansPage() {
           movements: client.quotes.length,
           lastDateLabel: client.lastDateLabel,
           address: getQuoteAddress(locatedQuote) || 'Zona sin dirección',
-          lat,
-          lon,
+          lat: coordinate.lat,
+          lon: coordinate.lon,
         };
       })
       .filter(Boolean) as Array<{
@@ -3423,75 +3672,251 @@ export default function TechniciansPage() {
 
     return { points };
   }, [clientHistory, isDesignPreview]);
+  const clientHistorySummary = useMemo(
+    () => ({
+      clients: clientHistory.length,
+      movements: quoteStats.total,
+      located: clientHistory.filter((client) => client.locationCount > 0).length,
+      pending: clientHistory.filter((client) => client.quotes.some((quote) => quoteNeedsFollowUp(quote.status))).length,
+      paid: clientHistory.filter((client) => client.paidCount > 0).length,
+    }),
+    [clientHistory, quoteStats.total]
+  );
+  const clientHistoryFilterOptions = useMemo(
+    () => [
+      { id: 'all' as const, label: 'Todos', count: clientHistorySummary.clients },
+      { id: 'located' as const, label: 'Con ubicación', count: clientHistorySummary.located },
+      { id: 'pending' as const, label: 'Seguimiento', count: clientHistorySummary.pending },
+      { id: 'paid' as const, label: 'Cobrados', count: clientHistorySummary.paid },
+    ],
+    [clientHistorySummary]
+  );
+  const filteredClientHistory = useMemo(() => {
+    if (clientHistoryFilter === 'located') return clientHistory.filter((client) => client.locationCount > 0);
+    if (clientHistoryFilter === 'pending') {
+      return clientHistory.filter((client) => client.quotes.some((quote) => quoteNeedsFollowUp(quote.status)));
+    }
+    if (clientHistoryFilter === 'paid') return clientHistory.filter((client) => client.paidCount > 0);
+    return clientHistory;
+  }, [clientHistory, clientHistoryFilter]);
+  const visibleClientZonePoints = useMemo(() => {
+    const visibleKeys = new Set(filteredClientHistory.map((client) => client.key));
+    return clientZoneMap.points.filter((point) => visibleKeys.has(point.id));
+  }, [clientZoneMap.points, filteredClientHistory]);
+  useEffect(() => {
+    if (!selectedClientKey) return;
+    if (!filteredClientHistory.some((client) => client.key === selectedClientKey)) {
+      setSelectedClientKey('');
+    }
+  }, [filteredClientHistory, selectedClientKey]);
   const activeQuote = useMemo(
     () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
     [quotes, activeQuoteId]
   );
   const financeSeries = useMemo(() => {
     const now = new Date();
-    const points: { key: string; label: string; quotes: number; paid: number; profit: number }[] = [];
-    for (let i = 5; i >= 0; i -= 1) {
-      const point = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = `${point.getFullYear()}-${point.getMonth() + 1}`;
-      const label = point.toLocaleDateString('es-AR', { month: 'short' });
-      points.push({ key, label, quotes: 0, paid: 0, profit: 0 });
+    const currentPeriod = startOfFinancePeriod(now, financeTimelineMode);
+    const basePeriod = addFinancePeriods(currentPeriod, financeTimelineOffset, financeTimelineMode);
+    const points: {
+      key: string;
+      label: string;
+      quotes: number;
+      paid: number;
+      profit: number;
+      isFuture: boolean;
+      quoteRefs: Array<{
+        id: string;
+        number: string;
+        clientName: string;
+        amount: number;
+        paid: number;
+        profit: number;
+        status: string;
+        statusLabel: string;
+        dateLabel: string;
+      }>;
+    }[] = [];
+    for (let i = 5; i >= -2; i -= 1) {
+      const point = addFinancePeriods(basePeriod, -i, financeTimelineMode);
+      const key = getFinancePeriodKey(point, financeTimelineMode);
+      const label = getFinancePeriodLabel(point, financeTimelineMode);
+      points.push({ key, label, quotes: 0, paid: 0, profit: 0, isFuture: point > currentPeriod, quoteRefs: [] });
     }
     quotes.forEach((quote) => {
       const created = new Date(quote.created_at);
-      const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
+      const key = getFinancePeriodKey(created, financeTimelineMode);
       const bucket = points.find((item) => item.key === key);
       if (!bucket) return;
       const amount = toAmountValue(quote.total_amount);
       const status = normalizeStatusValue(quote.status);
       bucket.quotes += amount;
-      if (paidStatuses.has(status)) {
-        bucket.paid += amount;
-        bucket.profit += getLaborAmount(quote);
+      const paidAmount = quoteHasStatusGroup(status, 'paid') ? amount : 0;
+      const profitAmount = quoteHasStatusGroup(status, 'paid') ? getLaborAmount(quote) : 0;
+      if (quoteHasStatusGroup(status, 'paid')) {
+        bucket.paid += paidAmount;
+        bucket.profit += profitAmount;
       }
+      bucket.quoteRefs.push({
+        id: quote.id,
+        number: getQuoteDisplayNumber(quote),
+        clientName: quote.client_name || 'Cliente',
+        amount,
+        paid: paidAmount,
+        profit: profitAmount,
+        status,
+        statusLabel: getQuoteStatusInfo(status).label,
+        dateLabel: Number.isFinite(created.getTime()) ? created.toLocaleDateString('es-AR') : '',
+      });
+    });
+    points.forEach((point) => {
+      point.quoteRefs.sort((a, b) => b.amount - a.amount);
     });
     return points;
-  }, [quotes]);
-  const maxFinanceValue = useMemo(
-    () =>
-      Math.max(
-        1,
-        ...financeSeries.map((item) => Math.max(item.quotes || 0, item.paid || 0, item.profit || 0))
-      ),
-    [financeSeries]
-  );
+  }, [financeTimelineMode, financeTimelineOffset, quotes]);
+  const financeTimelinePositionLabel =
+    financeTimelineOffset === 0
+      ? 'Actual'
+      : financeTimelineOffset < 0
+        ? `${Math.abs(financeTimelineOffset)} ${getFinanceTimelineUnit(
+            financeTimelineMode,
+            Math.abs(financeTimelineOffset)
+          )} atrás`
+        : `${financeTimelineOffset} ${getFinanceTimelineUnit(financeTimelineMode, financeTimelineOffset)} adelante`;
+  const financeTimelineTitle =
+    financeTimelineMode === 'weekly'
+      ? 'Tendencia semanal + próximas 2'
+      : financeTimelineMode === 'yearly'
+        ? 'Tendencia anual + próximos 2'
+        : 'Tendencia mensual + próximos 2';
+  const moveFinanceTimeline = (delta: number) => {
+    setActiveFinancePointKey(null);
+    setFinanceTimelineOffset((value) => Math.max(-12, Math.min(6, value + delta)));
+  };
+  const handleFinanceTimelinePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (target instanceof HTMLElement && target.closest('button')) return;
+    financeTimelineDragRef.current = { lastX: event.clientX };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+  const handleFinanceTimelinePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = financeTimelineDragRef.current;
+    if (!drag) return;
+    const delta = event.clientX - drag.lastX;
+    if (Math.abs(delta) < 72) return;
+    moveFinanceTimeline(delta < 0 ? 1 : -1);
+    drag.lastX = event.clientX;
+  };
+  const handleFinanceTimelinePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    financeTimelineDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  };
+  const financeOverview = useMemo(() => {
+    const bestMonth = financeSeries.reduce(
+      (best, item) => (item.quotes > best.quotes ? item : best),
+      financeSeries[0] || { key: '', label: '-', quotes: 0, paid: 0, profit: 0 }
+    );
+    const currentKey = getFinancePeriodKey(new Date(), financeTimelineMode);
+    const currentMonth = financeSeries.find((item) => !item.isFuture && item.key === currentKey);
+    const latestActiveMonth =
+      [...financeSeries].reverse().find((item) => item.quotes > 0 || item.paid > 0 || item.profit > 0) ||
+      financeSeries[financeSeries.length - 1] ||
+      bestMonth;
+    const futureMonths = financeSeries.filter((item) => item.isFuture).map((item) => item.label.toUpperCase());
+    const collectionRate = quoteStats.amount > 0 ? Math.round((quoteStats.paidAmount / quoteStats.amount) * 100) : 0;
+    const laborRate = quoteStats.paidAmount > 0 ? Math.round((quoteStats.profitAmount / quoteStats.paidAmount) * 100) : 0;
+    return {
+      bestMonth,
+      currentMonth,
+      futureMonths,
+      latestActiveMonth,
+      collectionRate,
+      laborRate,
+    };
+  }, [financeSeries, financeTimelineMode, quoteStats.amount, quoteStats.paidAmount, quoteStats.profitAmount]);
   const financeChart = useMemo(() => {
-    const width = 240;
-    const height = 80;
-    const padding = 6;
-    const step = financeSeries.length > 1 ? (width - padding * 2) / (financeSeries.length - 1) : 0;
-    const buildPath = (key: 'quotes' | 'paid' | 'profit') =>
-      financeSeries
-        .map((item, index) => {
-          const value = item[key] || 0;
-          const x = padding + index * step;
-          const y = height - padding - (value / maxFinanceValue) * (height - padding * 2);
-          return `${index === 0 ? 'M' : 'L'} ${x} ${y}`;
-        })
-        .join(' ');
+    const width = 860;
+    const height = 250;
+    const padding = { top: 22, right: 18, bottom: 38, left: 66 };
+    const plotWidth = width - padding.left - padding.right;
+    const plotHeight = height - padding.top - padding.bottom;
+    const maxRawValue = Math.max(
+      1,
+      ...financeSeries
+        .filter((item) => !item.isFuture)
+        .map((item) => Math.max(item.quotes || 0, item.paid || 0, item.profit || 0))
+    );
+    const maxValue = getNiceChartMax(maxRawValue * 1.12);
+    const step = financeSeries.length > 1 ? plotWidth / (financeSeries.length - 1) : 0;
+    const getX = (index: number) => padding.left + index * step;
+    const getY = (value: number) => padding.top + ((maxValue - value) / maxValue) * plotHeight;
     const buildPoints = (key: 'quotes' | 'paid' | 'profit') =>
-      financeSeries.map((item, index) => {
-        const value = item[key] || 0;
-        return {
-          x: padding + index * step,
-          y: height - padding - (value / maxFinanceValue) * (height - padding * 2),
-        };
-      });
+      financeSeries.map((item, index) => ({
+        key: item.key,
+        x: getX(index),
+        y: getY(item[key] || 0),
+        value: item[key] || 0,
+        label: item.label,
+        hasValue: !item.isFuture,
+        quoteRefs: item.quoteRefs,
+      }));
+    const buildPath = (points: ReturnType<typeof buildPoints>) =>
+      points
+        .filter((point) => point.hasValue)
+        .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x.toFixed(2)} ${point.y.toFixed(2)}`)
+        .join(' ');
+    const buildAreaPath = (points: ReturnType<typeof buildPoints>) => {
+      const visiblePoints = points.filter((point) => point.hasValue);
+      if (!visiblePoints.length) return '';
+      const bottomY = getY(0);
+      return `${buildPath(visiblePoints)} L ${visiblePoints[visiblePoints.length - 1].x.toFixed(
+        2
+      )} ${bottomY.toFixed(2)} L ${visiblePoints[0].x.toFixed(2)} ${bottomY.toFixed(2)} Z`;
+    };
+    const quotesPoints = buildPoints('quotes');
+    const paidPoints = buildPoints('paid');
+    const profitPoints = buildPoints('profit');
+    const gridLines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+      const value = maxValue * ratio;
+      return {
+        value,
+        y: getY(value),
+        label: formatCompactDashboardMoney(value),
+      };
+    });
     return {
       width,
       height,
-      quotesPath: buildPath('quotes'),
-      paidPath: buildPath('paid'),
-      profitPath: buildPath('profit'),
-      quotesPoints: buildPoints('quotes'),
-      paidPoints: buildPoints('paid'),
-      profitPoints: buildPoints('profit'),
+      padding,
+      plotLeft: padding.left,
+      plotRight: width - padding.right,
+      plotBottom: height - padding.bottom,
+      gridLines,
+      quotesAreaPath: buildAreaPath(quotesPoints),
+      quotesPath: buildPath(quotesPoints),
+      paidPath: buildPath(paidPoints),
+      profitPath: buildPath(profitPoints),
+      quotesPoints,
+      paidPoints,
+      profitPoints,
     };
-  }, [financeSeries, maxFinanceValue]);
+  }, [financeSeries]);
+  const activeFinancePoint = useMemo(() => {
+    if (!activeFinancePointKey) return null;
+    const index = financeSeries.findIndex((item) => item.key === activeFinancePointKey);
+    if (index < 0) return null;
+    const seriesPoint = financeSeries[index];
+    const chartPoint = financeChart.quotesPoints[index];
+    if (!seriesPoint || !chartPoint || seriesPoint.isFuture || seriesPoint.quoteRefs.length === 0) return null;
+    const pendingAmount = Math.max(0, seriesPoint.quotes - seriesPoint.paid);
+    return {
+      ...seriesPoint,
+      pendingAmount,
+      xPercent: (chartPoint.x / financeChart.width) * 100,
+      yPercent: (chartPoint.y / financeChart.height) * 100,
+    };
+  }, [activeFinancePointKey, financeChart, financeSeries]);
   const billingMonthlySeries = useMemo(() => {
     const now = new Date();
     const points: { key: string; label: string; total: number }[] = [];
@@ -3503,7 +3928,7 @@ export default function TechniciansPage() {
     }
     quotes.forEach((quote) => {
       const status = normalizeStatusValue(quote.status);
-      if (!billingStatuses.has(status)) return;
+      if (!quoteIsBillable(status)) return;
       const created = new Date(quote.created_at);
       const key = `${created.getFullYear()}-${created.getMonth() + 1}`;
       const bucket = points.find((item) => item.key === key);
@@ -3516,7 +3941,7 @@ export default function TechniciansPage() {
     const map = new Map<number, number>();
     quotes.forEach((quote) => {
       const status = normalizeStatusValue(quote.status);
-      if (!billingStatuses.has(status)) return;
+      if (!quoteIsBillable(status)) return;
       const year = new Date(quote.created_at).getFullYear();
       map.set(year, (map.get(year) || 0) + toAmountValue(quote.total_amount));
     });
@@ -3561,19 +3986,17 @@ export default function TechniciansPage() {
     });
   }, [masterItems, masterSearch, masterCategory]);
   const approvedJobs = useMemo(
-    () => quotes.filter((quote) => readyToScheduleStatuses.has(normalizeStatusValue(quote.status))),
+    () => quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'approved')),
     [quotes]
   );
   const dashboardJobPoints = useMemo(() => {
-    const operationalStatuses = new Set(['approved', 'completed', 'paid']);
     const points: DashboardMapPoint[] = [];
     quotes.forEach((quote) => {
-      if (!operationalStatuses.has(normalizeStatusValue(quote.status))) return;
-      const lat = toFiniteCoordinate(quote.location_lat);
-      const lon = toFiniteCoordinate(quote.location_lng);
-      if (lat === null || lon === null) return;
+      if (!quoteIsOperational(quote.status)) return;
+      const coordinate = resolveQuoteMapCoordinate(quote);
+      if (!coordinate) return;
       const status = normalizeStatusValue(quote.status);
-      const statusLabel = statusMap[status]?.label || 'Trabajo';
+      const statusLabel = getQuoteStatusInfo(status).label || 'Trabajo';
       const addressLabel = getQuoteAddress(quote) || 'Ubicacion sin direccion';
       points.push({
         id: `job:${quote.id}`,
@@ -3581,8 +4004,8 @@ export default function TechniciansPage() {
         title: quote.client_name || 'Trabajo sin cliente',
         subtitle: addressLabel,
         meta: `${statusLabel} · ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
-        lat,
-        lon,
+        lat: coordinate.lat,
+        lon: coordinate.lon,
         createdAt: quote.created_at,
       });
     });
@@ -3747,10 +4170,9 @@ export default function TechniciansPage() {
     };
   }, [dashboardMapPoints, dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
   const jobsWithoutCoordinatesCount = useMemo(() => {
-    const operationalStatuses = new Set(['approved', 'completed', 'paid']);
     return quotes.filter((quote) => {
-      if (!operationalStatuses.has(normalizeStatusValue(quote.status))) return false;
-      return toFiniteCoordinate(quote.location_lat) === null || toFiniteCoordinate(quote.location_lng) === null;
+      if (!quoteIsOperational(quote.status)) return false;
+      return resolveQuoteMapCoordinate(quote) === null;
     }).length;
   }, [quotes]);
   const requestsWithoutCoordinatesCount = useMemo(
@@ -3920,19 +4342,19 @@ export default function TechniciansPage() {
   );
   const filteredQuotes = useMemo(() => {
     if (quoteFilter === 'pending') {
-      return quotes.filter((quote) => pendingStatuses.has(normalizeStatusValue(quote.status)));
+      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'pending'));
     }
     if (quoteFilter === 'approved') {
-      return quotes.filter((quote) => approvedStatuses.has(normalizeStatusValue(quote.status)));
+      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'approved'));
     }
     if (quoteFilter === 'draft') {
-      return quotes.filter((quote) => draftStatuses.has(normalizeStatusValue(quote.status)));
+      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'draft'));
     }
     if (quoteFilter === 'completed') {
-      return quotes.filter((quote) => completedStatuses.has(normalizeStatusValue(quote.status)));
+      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'completed'));
     }
     if (quoteFilter === 'paid') {
-      return quotes.filter((quote) => paidStatuses.has(normalizeStatusValue(quote.status)));
+      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'paid'));
     }
     return quotes;
   }, [quotes, quoteFilter]);
@@ -3958,7 +4380,7 @@ export default function TechniciansPage() {
     setActiveTab('visualizador');
   };
 
-  const handleShowQuotes = (filter: 'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid') => {
+  const handleShowQuotes = (filter: QuoteFilter) => {
     setQuoteFilter(filter);
     setActiveTab('presupuestos');
   };
@@ -5042,7 +5464,7 @@ export default function TechniciansPage() {
     });
     const monthPaidAmount = monthQuotes.reduce((acc, quote) => {
       const status = normalizeStatusValue(quote.status);
-      return paidStatuses.has(status) ? acc + toAmountValue(quote.total_amount) : acc;
+      return quoteHasStatusGroup(status, 'paid') ? acc + toAmountValue(quote.total_amount) : acc;
     }, 0);
     const nextAction =
       quoteStats.pending > 0
@@ -6206,11 +6628,11 @@ export default function TechniciansPage() {
     >
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
-      <div className="relative overflow-hidden">
+      <div className="relative overflow-hidden bg-[linear-gradient(180deg,#ebe8df_0%,#f7f6f1_38%,#e9edf0_100%)]">
         <div className="absolute left-0 top-0 bottom-0 hidden w-[74px] bg-[linear-gradient(180deg,#17031f_0%,#250331_48%,#13021a_100%)] lg:block" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.08),_transparent_55%)]" />
-        <div className="absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/15 blur-3xl" />
-        <div className="absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0EA5E9]/10 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(42,3,56,0.10)_0%,rgba(42,3,56,0.04)_12%,rgba(255,255,255,0)_34%)]" />
+        <div className="absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(24,15,36,0.08),rgba(24,15,36,0))]" />
+        <div className="absolute inset-x-0 bottom-0 h-72 bg-[linear-gradient(0deg,rgba(15,23,42,0.08),rgba(15,23,42,0))]" />
 
         <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[96px]">
           <div className="hidden w-[74px] shrink-0 lg:block">
@@ -6471,11 +6893,11 @@ export default function TechniciansPage() {
                   <>
                     <div className="px-1 sm:px-2">
                       <div className="min-w-0">
-                        <div className="inline-flex items-center gap-2 rounded-full border border-[#eadfce]/70 bg-white/70 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7a6786] shadow-[inset_0_1px_0_rgba(255,255,255,0.72)]">
+                        <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500 shadow-sm">
                           <span className="h-1.5 w-1.5 rounded-full bg-[#ff8f1f] shadow-[0_0_0_4px_rgba(255,143,31,0.10)]" />
                           Hoy, {technicianTodayLabel}
                         </div>
-                        <h1 className="mt-3 max-w-4xl text-[clamp(1.8rem,3.5vw,2.75rem)] font-semibold leading-[1.03] text-[#180f24]">
+                        <h1 className={`${spaceGrotesk.className} mt-3 max-w-4xl text-4xl font-bold leading-[1.03] text-[#180f24] sm:text-5xl lg:text-[2.75rem]`}>
                           Bienvenido, {technicianHomeName}
                         </h1>
                         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
@@ -6484,32 +6906,40 @@ export default function TechniciansPage() {
                       </div>
                     </div>
 
-                    <section className="overflow-hidden rounded-[34px] border border-white/70 bg-[linear-gradient(135deg,#fffdf9_0%,#ffffff_45%,#f6eff8_100%)] p-5 shadow-[0_30px_80px_-52px_rgba(42,3,56,0.35)] sm:p-6">
+                    <section className="overflow-hidden rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
                         {[
-                          { label: 'Pendientes', value: quoteStats.pending, hint: technicianStatusWindow.pendingLabel },
-                          { label: 'Aprobados', value: quoteStats.approved, hint: 'listos' },
-                          { label: 'Balance mes', value: formatCurrency(technicianStatusWindow.monthPaidAmount), hint: technicianMonthLabel },
-                          { label: 'Perfil', value: `${profileCompletionPercent}%`, hint: profileForm.profilePublished ? 'visible' : 'por publicar' },
+                          { label: 'Pendientes', value: quoteStats.pending, hint: technicianStatusWindow.pendingLabel, tone: 'bg-[#ff8f1f]' },
+                          { label: 'Aprobados', value: quoteStats.approved, hint: 'listos', tone: 'bg-emerald-500' },
+                          { label: 'Balance mes', value: formatCurrency(technicianStatusWindow.monthPaidAmount), hint: technicianMonthLabel, tone: 'bg-[#2a0338]' },
+                          { label: 'Perfil', value: `${profileCompletionPercent}%`, hint: profileForm.profilePublished ? 'visible' : 'por publicar', tone: 'bg-slate-400' },
                         ].map((item) => (
-                          <div key={item.label} className="rounded-[22px] border border-[#eadfce] bg-white/72 px-3 py-4 sm:px-4">
+                          <div
+                            key={item.label}
+                            className="flex min-h-[108px] flex-col items-center justify-center rounded-[22px] border border-slate-200/90 bg-white px-3 py-5 text-center shadow-[0_18px_42px_-34px_rgba(15,23,42,0.42),inset_0_1px_0_rgba(255,255,255,0.86)] sm:px-4"
+                          >
+                            <span className={`mb-3 h-1 w-8 rounded-full ${item.tone}`} />
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
-                            <p className="mt-2 truncate text-2xl font-semibold text-[#180f24]">{item.value}</p>
-                            <p className="mt-1 truncate text-xs text-slate-500">{item.hint}</p>
+                            <p className={`${spaceGrotesk.className} mt-2 max-w-full truncate text-3xl font-bold leading-none text-[#180f24]`}>
+                              {item.value}
+                            </p>
+                            <p className="mt-2 max-w-full truncate text-xs text-slate-500">{item.hint}</p>
                           </div>
                         ))}
                       </div>
 
                       <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.95fr)]">
                         <div className="space-y-4">
-                          <div className="rounded-[24px] border border-[#eadfce] bg-white/72 p-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="rounded-[24px] border border-slate-200/90 bg-white p-4 shadow-[0_18px_42px_-36px_rgba(15,23,42,0.38)]">
+                            <div className="flex min-h-[86px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
-                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7a91]">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
                                   Acción recomendada
                                 </p>
-                                <p className="mt-1 text-sm font-semibold text-[#180f24]">{technicianStatusWindow.nextAction}</p>
-                                <p className="mt-1 text-xs leading-5 text-slate-500">{technicianStatusWindow.actionHint}</p>
+                                <p className={`${spaceGrotesk.className} mt-1 text-lg font-bold text-[#180f24]`}>
+                                  {technicianStatusWindow.nextAction}
+                                </p>
+                                <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">{technicianStatusWindow.actionHint}</p>
                               </div>
                               <button
                                 type="button"
@@ -6521,24 +6951,24 @@ export default function TechniciansPage() {
                             </div>
                           </div>
 
-                          <div className="rounded-[26px] border border-[#eadfce] bg-white/78 p-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="rounded-[24px] border border-slate-200/90 bg-white p-4 shadow-[0_18px_42px_-36px_rgba(15,23,42,0.38)]">
+                            <div className="flex min-h-[88px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                                   Configuración inicial
                                 </p>
-                                <p className="mt-1 text-sm font-semibold text-slate-900">
+                                <p className={`${spaceGrotesk.className} mt-1 text-lg font-bold text-slate-900`}>
                                   {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
                                     ? lobbyPrimarySetupStep.title
                                     : 'Tu panel ya está listo para operar'}
                                 </p>
-                                <p className="mt-1 text-xs leading-5 text-slate-500">
+                                <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
                                   {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
                                     ? lobbyPrimarySetupStep.description
                                     : 'Puedes seguir optimizando presupuestos, agenda y presencia pública.'}
                                 </p>
                               </div>
-                              <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-[#eadfce] bg-[#fffdf9] px-3 py-1.5 text-xs font-semibold text-[#2a0338]">
+                              <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#2a0338]">
                                 {lobbySetupCompleted}/{lobbySetupSteps.length} completo
                               </span>
                             </div>
@@ -6551,7 +6981,7 @@ export default function TechniciansPage() {
                           </div>
                         </div>
 
-                        <div className="relative min-h-[250px] overflow-hidden rounded-[26px] border border-[#eadfce] bg-[#fffaf4] shadow-[inset_0_1px_0_rgba(255,255,255,0.78)]">
+                        <div className="relative min-h-[250px] overflow-hidden rounded-[26px] border border-slate-200/90 bg-white shadow-[0_22px_50px_-38px_rgba(15,23,42,0.48),inset_0_1px_0_rgba(255,255,255,0.78)]">
                           {technicianHomeMapPoint && technicianHomeMapUrl ? (
                             <>
                               <iframe
@@ -6612,7 +7042,6 @@ export default function TechniciansPage() {
                           className="group relative flex min-h-[148px] w-full items-start justify-center text-center focus:outline-none"
                         >
                           <span className="relative z-10 flex aspect-square w-[104px] items-center justify-center overflow-visible rounded-full border border-[#ffbd73] bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.38),rgba(255,255,255,0)_28%),linear-gradient(145deg,#ffad56_0%,#ff8f1f_52%,#e77700_100%)] text-[#2a0338] shadow-[0_22px_42px_-24px_rgba(255,143,31,0.95),inset_0_1px_0_rgba(255,255,255,0.52),inset_0_-14px_26px_rgba(138,74,7,0.13)] transition duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04] group-hover:shadow-[0_30px_60px_-30px_rgba(255,143,31,0.95),inset_0_1px_0_rgba(255,255,255,0.58),inset_0_-14px_26px_rgba(138,74,7,0.16)] group-hover:ring-8 group-hover:ring-[#ff8f1f]/10 group-focus-visible:ring-4 group-focus-visible:ring-[#ffcf93]/55 sm:w-[116px]">
-                            <span aria-hidden="true" className="pointer-events-none absolute -inset-3 rounded-full bg-[#ff8f1f]/25 opacity-0 blur-xl transition duration-300 group-hover:opacity-100" />
                             <span className="absolute inset-[20px] rounded-full bg-[radial-gradient(circle_at_34%_24%,rgba(255,255,255,0.35),rgba(255,255,255,0.16)_45%,rgba(255,255,255,0.08)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.42)] transition duration-300 group-hover:scale-110 group-hover:bg-white/24" />
                             <FilePlus className="relative z-10 h-11 w-11 -rotate-[7deg] transition duration-300 ease-out group-hover:-rotate-[2deg] group-hover:scale-110" strokeWidth={1.75} />
                             <span className="absolute -bottom-4 left-1/2 z-20 inline-flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border border-[#2a0338]/10 bg-[#2a0338] px-3 py-1.5 text-[12px] font-semibold leading-none text-white shadow-[0_14px_26px_-18px_rgba(42,3,56,0.9)] [letter-spacing:0] transition duration-300 group-hover:-translate-y-1 group-hover:shadow-[0_18px_30px_-18px_rgba(42,3,56,0.95)]">
@@ -6628,7 +7057,6 @@ export default function TechniciansPage() {
                           className="group relative flex min-h-[148px] w-full items-start justify-center text-center focus:outline-none"
                         >
                           <span className="relative z-10 flex aspect-square w-[104px] items-center justify-center overflow-visible rounded-full border border-slate-200 bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.96),rgba(255,255,255,0)_32%),linear-gradient(145deg,#ffffff_0%,#fffdf8_52%,#f3f0ea_100%)] text-slate-700 shadow-[0_22px_44px_-30px_rgba(15,23,42,0.5),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(42,3,56,0.045)] transition duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04] group-hover:border-[#ffcf93] group-hover:shadow-[0_30px_58px_-34px_rgba(15,23,42,0.62),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(255,143,31,0.075)] group-hover:ring-8 group-hover:ring-[#ff8f1f]/10 group-focus-visible:ring-4 group-focus-visible:ring-[#ffcf93]/45 sm:w-[116px]">
-                            <span aria-hidden="true" className="pointer-events-none absolute -inset-3 rounded-full bg-[#ff8f1f]/14 opacity-0 blur-xl transition duration-300 group-hover:opacity-100" />
                             <span className="absolute inset-[20px] rounded-full bg-[radial-gradient(circle_at_34%_24%,rgba(255,255,255,0.95),rgba(248,250,252,0.92)_48%,rgba(241,245,249,0.78)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition duration-300 group-hover:scale-110 group-hover:bg-[#fff3e6]" />
                             <MapPinned className="relative z-10 h-10 w-10 -rotate-[7deg] transition duration-300 ease-out group-hover:-rotate-[2deg] group-hover:scale-110" strokeWidth={1.75} />
                             <span className="absolute -bottom-4 left-1/2 z-20 inline-flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold leading-none text-[#180f24] shadow-[0_14px_26px_-20px_rgba(15,23,42,0.55)] [letter-spacing:0] transition duration-300 group-hover:-translate-y-1 group-hover:border-[#ffcf93] group-hover:shadow-[0_18px_30px_-22px_rgba(15,23,42,0.7)]">
@@ -6644,7 +7072,6 @@ export default function TechniciansPage() {
                           className="group relative flex min-h-[148px] w-full items-start justify-center text-center focus:outline-none"
                         >
                           <span className="relative z-10 flex aspect-square w-[104px] items-center justify-center overflow-visible rounded-full border border-slate-200 bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.96),rgba(255,255,255,0)_32%),linear-gradient(145deg,#ffffff_0%,#fffdf8_52%,#f3f0ea_100%)] text-slate-700 shadow-[0_22px_44px_-30px_rgba(15,23,42,0.5),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(42,3,56,0.045)] transition duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04] group-hover:border-[#ffcf93] group-hover:shadow-[0_30px_58px_-34px_rgba(15,23,42,0.62),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(255,143,31,0.075)] group-hover:ring-8 group-hover:ring-[#ff8f1f]/10 group-focus-visible:ring-4 group-focus-visible:ring-[#ffcf93]/45 sm:w-[116px]">
-                            <span aria-hidden="true" className="pointer-events-none absolute -inset-3 rounded-full bg-[#ff8f1f]/14 opacity-0 blur-xl transition duration-300 group-hover:opacity-100" />
                             <span className="absolute inset-[20px] rounded-full bg-[radial-gradient(circle_at_34%_24%,rgba(255,255,255,0.95),rgba(248,250,252,0.92)_48%,rgba(241,245,249,0.78)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition duration-300 group-hover:scale-110 group-hover:bg-[#fff3e6]" />
                             <UserCog className="relative z-10 h-10 w-10 -rotate-[7deg] transition duration-300 ease-out group-hover:-rotate-[2deg] group-hover:scale-110" strokeWidth={1.75} />
                             <span className="absolute -bottom-4 left-1/2 z-20 inline-flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold leading-none text-[#180f24] shadow-[0_14px_26px_-20px_rgba(15,23,42,0.55)] [letter-spacing:0] transition duration-300 group-hover:-translate-y-1 group-hover:border-[#ffcf93] group-hover:shadow-[0_18px_30px_-22px_rgba(15,23,42,0.7)]">
@@ -6662,7 +7089,6 @@ export default function TechniciansPage() {
                             className="group relative flex min-h-[148px] w-full items-start justify-center text-center focus:outline-none"
                           >
                             <span className="relative z-10 flex aspect-square w-[104px] items-center justify-center overflow-visible rounded-full border border-slate-200 bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.96),rgba(255,255,255,0)_32%),linear-gradient(145deg,#ffffff_0%,#fffdf8_52%,#f3f0ea_100%)] text-slate-700 shadow-[0_22px_44px_-30px_rgba(15,23,42,0.5),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(42,3,56,0.045)] transition duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04] group-hover:border-[#ffcf93] group-hover:shadow-[0_30px_58px_-34px_rgba(15,23,42,0.62),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(255,143,31,0.075)] group-hover:ring-8 group-hover:ring-[#ff8f1f]/10 group-focus-visible:ring-4 group-focus-visible:ring-[#ffcf93]/45 sm:w-[116px]">
-                              <span aria-hidden="true" className="pointer-events-none absolute -inset-3 rounded-full bg-[#ff8f1f]/14 opacity-0 blur-xl transition duration-300 group-hover:opacity-100" />
                               <span className="absolute inset-[20px] rounded-full bg-[radial-gradient(circle_at_34%_24%,rgba(255,255,255,0.95),rgba(248,250,252,0.92)_48%,rgba(241,245,249,0.78)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition duration-300 group-hover:scale-110 group-hover:bg-[#fff3e6]" />
                               <Store className="relative z-10 h-10 w-10 -rotate-[7deg] transition duration-300 ease-out group-hover:-rotate-[2deg] group-hover:scale-110" strokeWidth={1.75} />
                               <span className="absolute -bottom-4 left-1/2 z-20 inline-flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold leading-none text-[#180f24] shadow-[0_14px_26px_-20px_rgba(15,23,42,0.55)] [letter-spacing:0] transition duration-300 group-hover:-translate-y-1 group-hover:border-[#ffcf93] group-hover:shadow-[0_18px_30px_-22px_rgba(15,23,42,0.7)]">
@@ -6678,7 +7104,6 @@ export default function TechniciansPage() {
                             className="group relative flex min-h-[148px] w-full items-start justify-center text-center focus:outline-none"
                           >
                             <span className="relative z-10 flex aspect-square w-[104px] items-center justify-center overflow-visible rounded-full border border-slate-200 bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.96),rgba(255,255,255,0)_32%),linear-gradient(145deg,#ffffff_0%,#fffdf8_52%,#f3f0ea_100%)] text-slate-700 shadow-[0_22px_44px_-30px_rgba(15,23,42,0.5),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(42,3,56,0.045)] transition duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04] group-hover:border-[#ffcf93] group-hover:shadow-[0_30px_58px_-34px_rgba(15,23,42,0.62),inset_0_1px_0_rgba(255,255,255,0.98),inset_0_-12px_24px_rgba(255,143,31,0.075)] group-hover:ring-8 group-hover:ring-[#ff8f1f]/10 group-focus-visible:ring-4 group-focus-visible:ring-[#ffcf93]/45 sm:w-[116px]">
-                              <span aria-hidden="true" className="pointer-events-none absolute -inset-3 rounded-full bg-[#ff8f1f]/14 opacity-0 blur-xl transition duration-300 group-hover:opacity-100" />
                               <span className="absolute inset-[20px] rounded-full bg-[radial-gradient(circle_at_34%_24%,rgba(255,255,255,0.95),rgba(248,250,252,0.92)_48%,rgba(241,245,249,0.78)_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] transition duration-300 group-hover:scale-110 group-hover:bg-[#fff3e6]" />
                               <Store className="relative z-10 h-10 w-10 -rotate-[7deg] transition duration-300 ease-out group-hover:-rotate-[2deg] group-hover:scale-110" strokeWidth={1.75} />
                               <span className="absolute -bottom-4 left-1/2 z-20 inline-flex -translate-x-1/2 items-center whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-[12px] font-semibold leading-none text-[#180f24] shadow-[0_14px_26px_-20px_rgba(15,23,42,0.55)] [letter-spacing:0] transition duration-300 group-hover:-translate-y-1 group-hover:border-[#ffcf93] group-hover:shadow-[0_18px_30px_-22px_rgba(15,23,42,0.7)]">
@@ -6692,74 +7117,150 @@ export default function TechniciansPage() {
 
                     <section className="space-y-6">
                       <div className="space-y-6">
-                        <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
+                        <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                           <div className="flex flex-wrap items-start justify-between gap-4">
                             <div className="max-w-2xl">
                               <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Clientes</p>
-                              <h2 className="mt-2 text-[clamp(1.55rem,2.5vw,2.2rem)] font-semibold leading-tight text-slate-900">
-                                Tus clientes y presupuestos en movimiento
+                              <h2 className="mt-2 text-2xl font-semibold leading-tight text-slate-900 sm:text-3xl">
+                                Clientes y zonas activas
                               </h2>
-                              <p className="mt-3 text-sm leading-7 text-slate-600">
-                                Mapeo histórico por zona: dónde se movió tu trabajo y qué clientes vuelven a aparecer.
-                              </p>
                             </div>
-                            <div className="rounded-[24px] border border-slate-200 bg-slate-50 px-4 py-3">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Clientes históricos</p>
-                              <p className="mt-2 text-3xl font-semibold text-slate-900">{clientHistory.length}</p>
-                              <p className="text-xs text-slate-500">{quoteStats.total} movimientos cargados</p>
+                            <div className="grid w-full gap-2 sm:w-auto sm:grid-cols-3">
+                              <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-3">
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Mapeados</p>
+                                <p className="mt-2 text-2xl font-semibold text-slate-900">{clientHistorySummary.located}</p>
+                              </div>
+                              <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-3">
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Clientes</p>
+                                <p className="mt-2 text-2xl font-semibold text-slate-900">{clientHistorySummary.clients}</p>
+                              </div>
+                              <div className="rounded-[22px] border border-slate-200 bg-white px-4 py-3">
+                                <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Movimientos</p>
+                                <p className="mt-2 text-2xl font-semibold text-[#2a0338]">{clientHistorySummary.movements}</p>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+                          <div className="mt-5 flex flex-wrap gap-2">
+                            {clientHistoryFilterOptions.map((option) => {
+                              const active = clientHistoryFilter === option.id;
+                              return (
+                                <button
+                                  key={option.id}
+                                  type="button"
+                                  onClick={() => setClientHistoryFilter(option.id)}
+                                  className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                                    active
+                                      ? 'border-[#ff8f1f] bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_30px_-24px_rgba(255,143,31,0.9)]'
+                                      : 'border-slate-200 bg-white text-slate-500 hover:border-[#ffcf93] hover:text-slate-900'
+                                  }`}
+                                >
+                                  <span>{option.label}</span>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? 'bg-white/55' : 'bg-slate-100'}`}>
+                                    {option.count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,0.86fr)_minmax(380px,1.14fr)]">
                             <div className="space-y-3">
-                              {clientHistory.length === 0 && (
+                              {filteredClientHistory.length === 0 && (
                                 <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                                  Todavía no hay clientes con presupuestos cargados.
+                                  No hay clientes en este filtro todavía.
                                 </div>
                               )}
-                              {clientHistory.slice(0, 4).map((client) => (
-                                <button
-                                  key={client.key}
-                                  type="button"
-                                  onClick={() => client.latestQuote && loadQuote(client.latestQuote)}
-                                  className="flex w-full items-center justify-between gap-4 rounded-[24px] border border-slate-200 bg-white px-4 py-4 text-left transition hover:border-[#ffcf93] hover:bg-[#fffaf4]"
-                                >
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-sm font-semibold uppercase text-white shadow-[0_18px_34px_-26px_rgba(42,3,56,0.9)]">
-                                      {client.name.slice(0, 2)}
-                                    </span>
-                                    <span className="min-w-0">
-                                      <span className="block truncate text-base font-semibold text-slate-900">{client.name}</span>
-                                      <span className="mt-1 block text-xs text-slate-500">
-                                        {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} · último {client.lastDateLabel}
+                              {filteredClientHistory.slice(0, 5).map((client) => {
+                                const selected = selectedClientKey === client.key;
+                                const pendingClient = client.quotes.some((quote) => quoteNeedsFollowUp(quote.status));
+                                const paidClient = client.paidCount > 0;
+                                return (
+                                  <div
+                                    key={client.key}
+                                    role="button"
+                                    tabIndex={0}
+                                    onClick={() => setSelectedClientKey(client.key)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        setSelectedClientKey(client.key);
+                                      }
+                                    }}
+                                    className={`group flex w-full items-center justify-between gap-4 rounded-[24px] border px-4 py-4 text-left transition ${
+                                      selected
+                                        ? 'border-[#ff8f1f] bg-[#fff8ef] shadow-[0_22px_42px_-34px_rgba(255,143,31,0.9)]'
+                                        : 'border-slate-200 bg-white hover:border-[#ffcf93] hover:bg-[#fffaf4]'
+                                    }`}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      <span
+                                        className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold uppercase shadow-[0_18px_34px_-26px_rgba(42,3,56,0.9)] ${
+                                          selected ? 'bg-[#ff8f1f] text-[#2a0338]' : 'bg-[#2a0338] text-white'
+                                        }`}
+                                      >
+                                        {client.name.slice(0, 2)}
                                       </span>
-                                      <span className="mt-1 block text-[11px] text-slate-400">
-                                        Desde {client.firstDateLabel}
-                                        {client.locationCount > 0 ? ` · ${client.locationCount} con ubicación` : ''}
+                                      <span className="min-w-0">
+                                        <span className="flex min-w-0 flex-wrap items-center gap-2">
+                                          <span className="truncate text-base font-semibold text-slate-900">{client.name}</span>
+                                          {client.locationCount > 0 ? (
+                                            <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                              ubicación
+                                            </span>
+                                          ) : null}
+                                        </span>
+                                        <span className="mt-1 block text-xs text-slate-500">
+                                          {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} · último {client.lastDateLabel}
+                                        </span>
+                                        <span className="mt-1 block text-[11px] text-slate-400">
+                                          Desde {client.firstDateLabel}
+                                          {pendingClient ? ' · requiere seguimiento' : paidClient ? ' · trabajo cobrado' : ''}
+                                        </span>
                                       </span>
-                                    </span>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      <p className="text-sm font-semibold text-slate-900">${client.totalAmount.toLocaleString('es-AR')}</p>
+                                      <span
+                                        className={`mt-1 inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${
+                                          paidClient
+                                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                            : pendingClient
+                                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                                              : 'border-slate-200 bg-slate-50 text-slate-500'
+                                        }`}
+                                      >
+                                        {client.latestStatusLabel}
+                                      </span>
+                                      {client.latestQuote ? (
+                                        <button
+                                          type="button"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            loadQuote(client.latestQuote);
+                                          }}
+                                          className="mt-2 inline-flex rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-[#ffcf93] hover:text-slate-900"
+                                        >
+                                          Ver
+                                        </button>
+                                      ) : null}
+                                    </div>
                                   </div>
-                                  <div className="shrink-0 text-right">
-                                    <p className="text-sm font-semibold text-slate-900">${client.totalAmount.toLocaleString('es-AR')}</p>
-                                    <span className="mt-1 inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-semibold text-slate-500">
-                                      {client.latestStatusLabel}
-                                    </span>
-                                  </div>
-                                </button>
-                              ))}
+                                );
+                              })}
                             </div>
 
-                            {clientZoneMap.points.length > 0 ? (
+                            {visibleClientZonePoints.length > 0 ? (
                               <TechnicianClientHistoryMap
-                                points={clientZoneMap.points}
+                                points={visibleClientZonePoints}
+                                selectedPointId={selectedClientKey}
                                 onSelectPoint={(pointId) => {
-                                  const client = clientHistory.find((item) => item.key === pointId);
-                                  if (client?.latestQuote) loadQuote(client.latestQuote);
+                                  setSelectedClientKey(pointId);
                                 }}
                                 onOpenMap={() => setActiveTab('operativo')}
                               />
                             ) : (
-                              <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-slate-200 bg-[#fffaf4] shadow-[inset_0_1px_0_rgba(255,255,255,0.84)]">
+                              <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[inset_0_1px_0_rgba(255,255,255,0.84)]">
                                 <button
                                   type="button"
                                   onClick={() => setActiveTab('perfil')}
@@ -6780,83 +7281,381 @@ export default function TechniciansPage() {
                           </div>
                         </div>
 
-                        <div className="rounded-[32px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.96))] p-6 shadow-[0_24px_52px_rgba(15,23,42,0.08)]">
-                          <div className="flex items-center justify-between gap-3">
+                        <div className="relative overflow-hidden rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
+                          <div className="relative flex flex-wrap items-start justify-between gap-3">
                             <div>
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Facturación</p>
-                              <h3 className="mt-2 text-xl font-semibold text-slate-900">Caja, cobro y mano de obra</h3>
+                              <p className="inline-flex rounded-full border border-[#ffcf93] bg-[#fff8ef] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a4a07]">
+                                Facturación
+                              </p>
+                              <h3 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Caja, cobro y mano de obra</h3>
                             </div>
-                            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">6 meses</span>
-                          </div>
-
-                          <div className="mt-5 grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-[24px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
-                                <span className="h-2 w-2 rounded-full bg-slate-900" />
-                                Total
-                              </div>
-                              <p className="mt-3 text-xl font-semibold text-slate-900">${quoteStats.amount.toLocaleString('es-AR')}</p>
-                              <p className="mt-1 text-xs text-slate-500">Presupuestos activos.</p>
-                            </div>
-                            <div className="rounded-[24px] border border-amber-200 bg-[linear-gradient(180deg,#fffaf0,#fff6e5)] px-4 py-4 shadow-sm">
-                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-amber-500">
-                                <span className="h-2 w-2 rounded-full bg-amber-500" />
-                                Cobrado
-                              </div>
-                              <p className="mt-3 text-xl font-semibold text-amber-700">${quoteStats.paidAmount.toLocaleString('es-AR')}</p>
-                              <p className="mt-1 text-xs text-amber-700/70">Monto cobrado.</p>
-                            </div>
-                            <div className="rounded-[24px] border border-emerald-200 bg-[linear-gradient(180deg,#f4fdf8,#eefcf4)] px-4 py-4 shadow-sm">
-                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-emerald-500">
-                                <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                                Mano de obra
-                              </div>
-                              <p className="mt-3 text-xl font-semibold text-emerald-700">${quoteStats.profitAmount.toLocaleString('es-AR')}</p>
-                              <p className="mt-1 text-xs text-emerald-700/70">Total de mano de obra cobrada.</p>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
+                                {financeTimelineMode === 'weekly' ? '6 + 2 semanas' : financeTimelineMode === 'yearly' ? '6 + 2 años' : '6 + 2 meses'}
+                              </span>
+                              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
+                                Último {financeOverview.latestActiveMonth.label.toUpperCase()}
+                              </span>
+                              <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                                {financeOverview.collectionRate}% cobrado
+                              </span>
                             </div>
                           </div>
 
-                          <div className="mt-5 rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Tendencia 6 meses</p>
-                              <div className="flex flex-wrap items-center gap-3 text-[10px] font-semibold text-slate-500">
-                                <span className="inline-flex items-center gap-1">
+                          <div className="relative mt-5 grid gap-3 sm:grid-cols-3">
+                            <div className="group rounded-[26px] border border-slate-200 bg-white/92 px-4 py-4 shadow-[0_18px_42px_-34px_rgba(15,23,42,0.45)] backdrop-blur transition hover:-translate-y-0.5 hover:shadow-[0_24px_54px_-40px_rgba(15,23,42,0.52)]">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                                  <span className="h-2 w-2 rounded-full bg-slate-900" />
+                                  Total
+                                </div>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-950 text-white shadow-[0_14px_28px_-20px_rgba(15,23,42,0.9)]">
+                                  <FileText className="h-4 w-4" strokeWidth={1.9} />
+                                </span>
+                              </div>
+                              <p className="mt-3 text-2xl font-semibold tracking-tight text-slate-900">{formatDashboardMoney(quoteStats.amount)}</p>
+                              <p className="mt-1 text-xs text-slate-500">{quoteStats.total} presupuestos cargados.</p>
+                            </div>
+                            <div className="group rounded-[26px] border border-[#ffd7a3] bg-[linear-gradient(145deg,#fffdf9,#fff2df)] px-4 py-4 shadow-[0_18px_42px_-34px_rgba(245,158,11,0.55)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_54px_-40px_rgba(245,158,11,0.65)]">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-amber-600">
+                                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                                  Cobrado
+                                </div>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_14px_28px_-20px_rgba(245,158,11,0.9)]">
+                                  <CreditCard className="h-4 w-4" strokeWidth={1.9} />
+                                </span>
+                              </div>
+                              <p className="mt-3 text-2xl font-semibold tracking-tight text-amber-700">{formatDashboardMoney(quoteStats.paidAmount)}</p>
+                              <p className="mt-1 text-xs text-amber-700/70">{quoteStats.paid} presupuestos cobrados.</p>
+                            </div>
+                            <div className="group rounded-[26px] border border-emerald-200 bg-[linear-gradient(145deg,#fbfffd,#eafbf1)] px-4 py-4 shadow-[0_18px_42px_-34px_rgba(16,185,129,0.55)] transition hover:-translate-y-0.5 hover:shadow-[0_24px_54px_-40px_rgba(16,185,129,0.65)]">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-emerald-600">
+                                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                                  Mano de obra
+                                </div>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500 text-white shadow-[0_14px_28px_-20px_rgba(16,185,129,0.9)]">
+                                  <Tag className="h-4 w-4" strokeWidth={1.9} />
+                                </span>
+                              </div>
+                              <p className="mt-3 text-2xl font-semibold tracking-tight text-emerald-700">{formatDashboardMoney(quoteStats.profitAmount)}</p>
+                              <p className="mt-1 text-xs text-emerald-700/70">{financeOverview.laborRate}% del cobro confirmado.</p>
+                            </div>
+                          </div>
+
+                          <div className="relative mt-6">
+                            <div className="flex flex-wrap items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{financeTimelineTitle}</p>
+                                <p className="mt-1 text-sm font-semibold text-slate-900">
+                                  Mejor periodo: {financeOverview.bestMonth.label.toUpperCase()} · {formatDashboardMoney(financeOverview.bestMonth.quotes)}
+                                  {financeTimelineOffset !== 0 ? (
+                                    <span className="font-medium text-slate-400"> · {financeTimelinePositionLabel}</span>
+                                  ) : null}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 text-[10px] font-semibold text-slate-500">
+                                <span className="inline-flex rounded-full border border-slate-200 bg-white p-1 shadow-sm">
+                                  {financeTimelineModeOptions.map((option) => {
+                                    const active = financeTimelineMode === option.id;
+                                    return (
+                                      <button
+                                        key={option.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setFinanceTimelineMode(option.id);
+                                          setFinanceTimelineOffset(0);
+                                          setActiveFinancePointKey(null);
+                                        }}
+                                        className={`rounded-full px-3 py-1.5 text-[10px] font-semibold transition ${
+                                          active
+                                            ? 'bg-[#2a0338] text-white shadow-[0_12px_24px_-18px_rgba(42,3,56,0.9)]'
+                                            : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900'
+                                        }`}
+                                      >
+                                        {option.label}
+                                      </button>
+                                    );
+                                  })}
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2.5 py-1 shadow-sm">
                                   <span className="h-2 w-2 rounded-full bg-slate-900" />
                                   Presupuestos
                                 </span>
-                                <span className="inline-flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-white px-2.5 py-1 shadow-sm">
                                   <span className="h-2 w-2 rounded-full bg-amber-500" />
                                   Cobrados
                                 </span>
-                                <span className="inline-flex items-center gap-1">
+                                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-white px-2.5 py-1 shadow-sm">
                                   <span className="h-2 w-2 rounded-full bg-emerald-500" />
                                   Mano de obra
                                 </span>
                               </div>
                             </div>
-                            <svg
-                              viewBox={`0 0 ${financeChart.width} ${financeChart.height}`}
-                              className="mt-3 h-28 w-full"
-                              role="img"
-                              aria-label="Grafico de presupuestos y mano de obra"
+                            <div
+                              className="relative mt-4 cursor-grab select-none touch-pan-y active:cursor-grabbing"
+                              onPointerDown={handleFinanceTimelinePointerDown}
+                              onPointerMove={handleFinanceTimelinePointerMove}
+                              onPointerUp={handleFinanceTimelinePointerEnd}
+                              onPointerCancel={handleFinanceTimelinePointerEnd}
+                              onClick={() => setActiveFinancePointKey(null)}
+                              aria-label="Arrastra hacia los lados para mover la linea de tiempo"
                             >
-                              <path d={financeChart.quotesPath} fill="none" stroke="#0F172A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d={financeChart.paidPath} fill="none" stroke="#F59E0B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              <path d={financeChart.profitPath} fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                              {financeChart.quotesPoints.map((point, index) => (
-                                <circle key={`q-${index}`} cx={point.x} cy={point.y} r="2" fill="#0F172A" />
+                              <div className="pointer-events-none absolute left-1 top-1/2 z-20 h-16 w-1.5 -translate-y-1/2 rounded-full bg-slate-300/80 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.7)] md:h-20" />
+                              <div className="pointer-events-none absolute right-1 top-1/2 z-20 h-16 w-1.5 -translate-y-1/2 rounded-full bg-slate-300/80 shadow-[0_10px_24px_-18px_rgba(15,23,42,0.7)] md:h-20" />
+                              <svg
+                                viewBox={`0 0 ${financeChart.width} ${financeChart.height}`}
+                                className="h-[250px] w-full overflow-visible"
+                                role="img"
+                                aria-label="Grafico de facturacion con seis meses reales y dos proximos"
+                              >
+                              <defs>
+                                <linearGradient id="ufx-finance-quotes-area" x1="0" x2="0" y1="0" y2="1">
+                                  <stop offset="0%" stopColor="#0F172A" stopOpacity="0.12" />
+                                  <stop offset="100%" stopColor="#0F172A" stopOpacity="0" />
+                                </linearGradient>
+                                <linearGradient id="ufx-finance-quotes-line" x1="0" x2="1" y1="0" y2="0">
+                                  <stop offset="0%" stopColor="#334155" />
+                                  <stop offset="100%" stopColor="#0F172A" />
+                                </linearGradient>
+                                <linearGradient id="ufx-finance-paid-line" x1="0" x2="1" y1="0" y2="0">
+                                  <stop offset="0%" stopColor="#FBBF24" />
+                                  <stop offset="100%" stopColor="#D97706" />
+                                </linearGradient>
+                                <linearGradient id="ufx-finance-profit-line" x1="0" x2="1" y1="0" y2="0">
+                                  <stop offset="0%" stopColor="#34D399" />
+                                  <stop offset="100%" stopColor="#059669" />
+                                </linearGradient>
+                                <filter id="ufx-finance-line-shadow" x="-10%" y="-20%" width="120%" height="140%">
+                                  <feDropShadow dx="0" dy="8" stdDeviation="7" floodColor="#0f172a" floodOpacity="0.12" />
+                                </filter>
+                              </defs>
+                              <rect
+                                x={financeChart.plotLeft}
+                                y={financeChart.padding.top}
+                                width={financeChart.plotRight - financeChart.plotLeft}
+                                height={financeChart.plotBottom - financeChart.padding.top}
+                                rx="18"
+                                fill="#ffffff"
+                                opacity="0.56"
+                              />
+                              {financeChart.gridLines.map((line) => (
+                                <g key={`grid-${line.label}`}>
+                                  <line
+                                    x1={financeChart.plotLeft}
+                                    x2={financeChart.plotRight}
+                                    y1={line.y}
+                                    y2={line.y}
+                                    stroke="#E2E8F0"
+                                    strokeWidth="1"
+                                  />
+                                  <text
+                                    x={financeChart.plotLeft - 10}
+                                    y={line.y + 4}
+                                    textAnchor="end"
+                                    className="fill-slate-400 text-[10px] font-semibold"
+                                  >
+                                    {line.label}
+                                  </text>
+                                </g>
                               ))}
+                              {financeSeries.map((item, index) => {
+                                const point = financeChart.quotesPoints[index];
+                                return (
+                                  <g key={`month-${item.key}`}>
+                                    <line
+                                      x1={point.x}
+                                      x2={point.x}
+                                      y1={financeChart.padding.top}
+                                      y2={financeChart.plotBottom}
+                                      stroke={item.isFuture ? '#E5E7EB' : '#F1F5F9'}
+                                      strokeWidth="1"
+                                      strokeDasharray={item.isFuture ? '5 7' : undefined}
+                                    />
+                                    <text
+                                      x={point.x}
+                                      y={financeChart.height - 8}
+                                      textAnchor="middle"
+                                      className={`text-[10px] font-semibold uppercase ${item.isFuture ? 'fill-slate-300' : 'fill-slate-400'}`}
+                                    >
+                                      {item.label}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+                              <path d={financeChart.quotesAreaPath} fill="url(#ufx-finance-quotes-area)" />
+                              <g filter="url(#ufx-finance-line-shadow)">
+                                <path d={financeChart.quotesPath} fill="none" stroke="url(#ufx-finance-quotes-line)" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d={financeChart.paidPath} fill="none" stroke="url(#ufx-finance-paid-line)" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
+                                <path d={financeChart.profitPath} fill="none" stroke="url(#ufx-finance-profit-line)" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
+                              </g>
+                              {financeChart.quotesPoints.map((point, index) => {
+                                const hasQuotes = point.hasValue && point.quoteRefs.length > 0;
+                                const active = activeFinancePointKey === point.key;
+                                const quoteBadge =
+                                  point.quoteRefs.length === 1 ? `#${point.quoteRefs[0].number}` : `${point.quoteRefs.length} pres.`;
+                                const badgeWidth = Math.max(48, quoteBadge.length * 6.3 + 16);
+                                const badgeX = Math.min(
+                                  financeChart.width - badgeWidth - 8,
+                                  Math.max(8, point.x - badgeWidth / 2)
+                                );
+                                const badgeY = Math.max(6, point.y - 31);
+                                return (
+                                  <g
+                                    key={`q-${index}`}
+                                    role={hasQuotes ? 'button' : undefined}
+                                    tabIndex={hasQuotes ? 0 : -1}
+                                    className={hasQuotes ? 'cursor-pointer outline-none' : undefined}
+                                    onPointerDown={(event) => {
+                                      if (!hasQuotes) return;
+                                      event.stopPropagation();
+                                    }}
+                                    onClick={(event) => {
+                                      if (!hasQuotes) return;
+                                      event.stopPropagation();
+                                      setActiveFinancePointKey((current) => (current === point.key ? null : point.key));
+                                    }}
+                                    onKeyDown={(event) => {
+                                      if (!hasQuotes) return;
+                                      if (event.key === 'Enter' || event.key === ' ') {
+                                        event.preventDefault();
+                                        setActiveFinancePointKey((current) => (current === point.key ? null : point.key));
+                                      }
+                                    }}
+                                    aria-label={
+                                      hasQuotes
+                                        ? `${point.label}: ${point.quoteRefs.length} presupuestos asignados`
+                                        : undefined
+                                    }
+                                  >
+                                    {point.hasValue ? (
+                                      <>
+                                        <circle cx={point.x} cy={point.y} r="17" fill="transparent" />
+                                        {point.value > 0 ? <circle cx={point.x} cy={point.y} r={active ? '12' : '9'} fill="#0F172A" opacity={active ? '0.12' : '0.08'} /> : null}
+                                        <circle cx={point.x} cy={point.y} r={active ? '5.5' : '4'} fill="#0F172A" stroke="#fff" strokeWidth="2" />
+                                        {hasQuotes ? (
+                                          <g>
+                                            <rect
+                                              x={badgeX}
+                                              y={badgeY}
+                                              width={badgeWidth}
+                                              height="20"
+                                              rx="10"
+                                              fill={active ? '#2A0338' : '#FFFFFF'}
+                                              stroke={active ? '#2A0338' : '#E2E8F0'}
+                                              strokeWidth="1"
+                                            />
+                                            <text
+                                              x={badgeX + badgeWidth / 2}
+                                              y={badgeY + 13.5}
+                                              textAnchor="middle"
+                                              className={`text-[9px] font-bold ${active ? 'fill-white' : 'fill-slate-700'}`}
+                                            >
+                                              {quoteBadge}
+                                            </text>
+                                          </g>
+                                        ) : null}
+                                      </>
+                                    ) : null}
+                                  </g>
+                                );
+                              })}
                               {financeChart.paidPoints.map((point, index) => (
-                                <circle key={`a-${index}`} cx={point.x} cy={point.y} r="2" fill="#F59E0B" />
+                                <g key={`a-${index}`}>
+                                  {point.hasValue ? (
+                                    <>
+                                      {point.value > 0 ? <circle cx={point.x} cy={point.y} r="8" fill="#F59E0B" opacity="0.1" /> : null}
+                                      <circle cx={point.x} cy={point.y} r="3.5" fill="#F59E0B" stroke="#fff" strokeWidth="2" />
+                                    </>
+                                  ) : null}
+                                </g>
                               ))}
                               {financeChart.profitPoints.map((point, index) => (
-                                <circle key={`p-${index}`} cx={point.x} cy={point.y} r="2" fill="#10B981" />
+                                <g key={`p-${index}`}>
+                                  {point.hasValue ? (
+                                    <>
+                                      {point.value > 0 ? <circle cx={point.x} cy={point.y} r="8" fill="#10B981" opacity="0.1" /> : null}
+                                      <circle cx={point.x} cy={point.y} r="3.5" fill="#10B981" stroke="#fff" strokeWidth="2" />
+                                    </>
+                                  ) : null}
+                                </g>
                               ))}
-                            </svg>
-                            <div className="mt-2 flex items-center justify-between text-[10px] text-slate-400">
-                              {financeSeries.map((item) => (
-                                <span key={item.key} className="uppercase">{item.label}</span>
-                              ))}
+                              </svg>
+                              {activeFinancePoint ? (
+                                <div
+                                  className="pointer-events-auto absolute z-30 w-[min(320px,calc(100%-1rem))] rounded-[24px] border border-slate-200 bg-white/96 p-3 text-left shadow-[0_28px_70px_-35px_rgba(15,23,42,0.55)] backdrop-blur"
+                                  style={{
+                                    left: `${Math.min(82, Math.max(18, activeFinancePoint.xPercent))}%`,
+                                    top: `${
+                                      activeFinancePoint.yPercent < 42
+                                        ? Math.min(76, activeFinancePoint.yPercent + 8)
+                                        : Math.max(12, activeFinancePoint.yPercent - 4)
+                                    }%`,
+                                    transform: activeFinancePoint.yPercent < 42 ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
+                                  }}
+                                  onPointerDown={(event) => event.stopPropagation()}
+                                  onClick={(event) => event.stopPropagation()}
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-400">
+                                        {activeFinancePoint.label.toUpperCase()} · {activeFinancePoint.quoteRefs.length} presupuestos
+                                      </p>
+                                      <p className="mt-1 text-base font-semibold text-slate-950">
+                                        {formatDashboardMoney(activeFinancePoint.quotes)}
+                                      </p>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setActiveFinancePointKey(null)}
+                                      className="flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-400 transition hover:border-slate-300 hover:text-slate-700"
+                                      aria-label="Cerrar detalle del punto"
+                                    >
+                                      <X className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                  <div className="mt-3 grid grid-cols-2 gap-2 text-[10px] font-semibold">
+                                    <div className="rounded-2xl bg-emerald-50 px-3 py-2 text-emerald-700">
+                                      Cobrado
+                                      <span className="mt-0.5 block text-xs text-emerald-900">
+                                        {formatDashboardMoney(activeFinancePoint.paid)}
+                                      </span>
+                                    </div>
+                                    <div className="rounded-2xl bg-amber-50 px-3 py-2 text-amber-700">
+                                      Pendiente
+                                      <span className="mt-0.5 block text-xs text-amber-900">
+                                        {formatDashboardMoney(activeFinancePoint.pendingAmount)}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="mt-3 space-y-1.5">
+                                    {activeFinancePoint.quoteRefs.slice(0, 4).map((quoteRef) => (
+                                      <div
+                                        key={`finance-tooltip-${quoteRef.id}`}
+                                        className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/80 px-3 py-2"
+                                      >
+                                        <div className="min-w-0">
+                                          <p className="truncate text-[11px] font-bold text-slate-900">
+                                            #{quoteRef.number} · {quoteRef.clientName}
+                                          </p>
+                                          <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                                            {quoteRef.dateLabel} · {quoteRef.statusLabel}
+                                          </p>
+                                        </div>
+                                        <span className="shrink-0 text-[11px] font-bold text-slate-950">
+                                          {formatDashboardMoney(quoteRef.amount)}
+                                        </span>
+                                      </div>
+                                    ))}
+                                    {activeFinancePoint.quoteRefs.length > 4 ? (
+                                      <p className="px-1 text-[10px] font-semibold text-slate-400">
+                                        +{activeFinancePoint.quoteRefs.length - 4} presupuestos mas en este periodo
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         </div>
@@ -6867,7 +7666,7 @@ export default function TechniciansPage() {
                 )}
 
                 {activeTab === 'operativo' && (
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa operativo</p>
@@ -7252,7 +8051,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'nuevo' && (
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <section className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Job config</p>
@@ -7594,7 +8393,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'presupuestos' && (
-              <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <section className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-semibold text-slate-900">Presupuestos</h2>
@@ -7603,15 +8402,7 @@ export default function TechniciansPage() {
                 <div className="flex items-center gap-2">
                   {quoteFilter !== 'all' && (
                     <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
-                      {quoteFilter === 'pending'
-                        ? 'Pendientes'
-                        : quoteFilter === 'approved'
-                          ? 'Aprobados'
-                          : quoteFilter === 'draft'
-                              ? 'Computo'
-                              : quoteFilter === 'completed'
-                                ? 'Finalizados'
-                                : 'Cobrados'}
+                      {activeQuoteFilterLabel}
                     </span>
                   )}
                   <button
@@ -7623,27 +8414,16 @@ export default function TechniciansPage() {
                     +
                   </button>
                   <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
-                    {filteredQuotes.length} activos
+                    {filteredQuotes.length} en vista
                   </span>
                 </div>
                 </div>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {[
-                    { key: 'all', label: 'Todos' },
-                    { key: 'draft', label: 'Computo' },
-                    { key: 'pending', label: 'Pendientes' },
-                    { key: 'approved', label: 'Aprobados' },
-                    { key: 'completed', label: 'Finalizados' },
-                    { key: 'paid', label: 'Cobrados' },
-                  ].map((filter) => (
+                  {quoteFilterOptions.map((filter) => (
                     <button
                       key={filter.key}
                       type="button"
-                      onClick={() =>
-                        setQuoteFilter(
-                          filter.key as 'all' | 'draft' | 'pending' | 'approved' | 'completed' | 'paid'
-                        )
-                      }
+                      onClick={() => setQuoteFilter(filter.key)}
                       className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
                         quoteFilter === filter.key
                           ? 'border-slate-900 bg-slate-900 text-white'
@@ -7661,16 +8441,20 @@ export default function TechniciansPage() {
                     </div>
                   )}
                   {filteredQuotes.map((quote) => {
-                    const info = statusMap[quote.status || ''] || {
-                      label: (quote.status || 'N/A').toUpperCase(),
-                      className: 'bg-slate-100 text-slate-600',
-                    };
+                    const info = getQuoteStatusInfo(quote.status);
                     const canShareFeedbackLink = canShareQuoteFeedback(quote.status);
                     return (
-                        <button
+                        <div
                           key={quote.id}
-                          type="button"
+                          role="button"
+                          tabIndex={0}
                           onClick={() => handleViewQuote(quote)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              handleViewQuote(quote);
+                            }
+                          }}
                           className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
                             activeQuoteId === quote.id
                               ? 'border-slate-300 bg-slate-50 shadow-sm'
@@ -7743,7 +8527,7 @@ export default function TechniciansPage() {
                         <p className="mt-3 text-sm font-semibold text-slate-900">
                           ${(quote.total_amount || 0).toLocaleString('es-AR')}
                         </p>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -7751,7 +8535,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'visualizador' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Visualizador</p>
@@ -7833,7 +8617,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'agenda' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Agenda</p>
                 <div className="mt-1 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                   <div>
@@ -8108,7 +8892,7 @@ export default function TechniciansPage() {
                             const end = parseDateLocal(endValue);
                             const durationDays = start && end ? Math.max(0, diffCalendarDays(start, end)) : 0;
                             const isSaving = scheduleSavingId === quote.id;
-                            const statusInfo = statusMap[normalizeStatusValue(quote.status)] || statusMap.approved;
+                            const statusInfo = getQuoteStatusInfo(quote.status);
 
                             return (
                               <div
@@ -8251,7 +9035,7 @@ export default function TechniciansPage() {
               </div>
             )}
             {activeTab === 'historial' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Historial</p>
                 <h2 className="text-xl font-semibold text-slate-900">Historico de facturacion</h2>
                 <p className="text-sm text-slate-500">
@@ -8306,7 +9090,7 @@ export default function TechniciansPage() {
                     </div>
                   </div>
 
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                  <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Resumen anual</p>
                     <p className="mt-2 text-xs text-slate-500">Total facturado por ano.</p>
                     <div className="mt-4 space-y-3">
@@ -8347,7 +9131,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'notificaciones' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Notificaciones</p>
@@ -8411,7 +9195,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'soporte' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Soporte beta</p>
@@ -8584,7 +9368,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'perfil' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil</p>
                 <h2 className="text-xl font-semibold text-slate-900">Perfil del tecnico</h2>
                 <p className="text-sm text-slate-500">Completa la informacion para que tus presupuestos sean mas claros.</p>
@@ -9555,7 +10339,7 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'precios' && (
-              <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/60">
+              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios</p>
                 <h2 className="text-xl font-semibold text-slate-900">Mano de obra</h2>
                 <p className="text-sm text-slate-500">

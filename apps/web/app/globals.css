@@ -584,9 +584,25 @@ header .header-view-option {
 
 /* --- TECHNICIAN CLIENT HISTORY MAP --- */
 .ufx-client-history-map {
+  z-index: 0;
+  contain: paint;
   background:
     radial-gradient(circle at 18% 18%, rgba(255, 143, 31, 0.12), transparent 22%),
     linear-gradient(180deg, #fff7ed, #f8fafc);
+}
+
+.ufx-client-history-map .leaflet-pane {
+  z-index: 1;
+}
+
+.ufx-client-history-map .leaflet-control-container {
+  position: relative;
+  z-index: 2;
+}
+
+.ufx-client-history-map .leaflet-tooltip-pane,
+.ufx-client-history-map .leaflet-popup-pane {
+  z-index: 4;
 }
 
 .ufx-client-history-map .leaflet-control-attribution {
@@ -651,12 +667,27 @@ header .header-view-option {
     0 8px 22px -12px rgba(255, 127, 15, 0.95);
 }
 
+.ufx-client-map-pin.is-selected .ufx-client-map-pin-core {
+  border-color: #ffffff;
+  transform: translate(-50%, -50%) scale(1.12);
+  box-shadow:
+    0 0 0 7px rgba(255, 143, 31, 0.2),
+    0 18px 36px -18px rgba(42, 3, 56, 0.9),
+    0 8px 22px -12px rgba(255, 127, 15, 0.95);
+}
+
 .ufx-client-map-pin-pulse {
   position: absolute;
   inset: 3px;
   border-radius: 999px;
   background: rgba(255, 143, 31, 0.22);
   box-shadow: 0 0 0 8px rgba(255, 143, 31, 0.08);
+}
+
+.ufx-client-map-pin.is-selected .ufx-client-map-pin-pulse {
+  inset: 0;
+  background: rgba(255, 143, 31, 0.32);
+  box-shadow: 0 0 0 12px rgba(255, 143, 31, 0.11);
 }
 
 .ufx-client-map-tooltip {
