@@ -60,6 +60,7 @@ import {
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import LocalityAutocomplete from '../../components/LocalityAutocomplete';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
+import TechnicianClientHistoryMap from '../../components/TechnicianClientHistoryMap';
 import { parseTechnicianLocation } from '../../lib/technician-location';
 import type {
   AccessProfile,
@@ -1145,8 +1146,7 @@ const clampLongitude = (value: number) => {
   return value;
 };
 
-const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
-  if (!points.length) return '';
+const buildOsmBoundsForPoints = (points: Array<{ lat: number; lon: number }>) => {
   const limitedPoints = points.slice(0, 80);
   const lats = limitedPoints.map((point) => point.lat);
   const lons = limitedPoints.map((point) => point.lon);
@@ -1158,13 +1158,21 @@ const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
   const lonSpan = Math.max(maxLon - minLon, 0.015);
   const marginLat = Math.max(latSpan * 0.25, 0.01);
   const marginLon = Math.max(lonSpan * 0.25, 0.01);
-  const left = clampLongitude(minLon - marginLon);
-  const right = clampLongitude(maxLon + marginLon);
-  const bottom = clampLatitude(minLat - marginLat);
-  const top = clampLatitude(maxLat + marginLat);
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${left.toFixed(6)}%2C${bottom.toFixed(
+  return {
+    left: clampLongitude(minLon - marginLon),
+    right: clampLongitude(maxLon + marginLon),
+    bottom: clampLatitude(minLat - marginLat),
+    top: clampLatitude(maxLat + marginLat),
+  };
+};
+
+const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
+  if (!points.length) return '';
+  const limitedPoints = points.slice(0, 80);
+  const bounds = buildOsmBoundsForPoints(limitedPoints);
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bounds.left.toFixed(6)}%2C${bounds.bottom.toFixed(
     6
-  )}%2C${right.toFixed(6)}%2C${top.toFixed(6)}&layer=mapnik`;
+  )}%2C${bounds.right.toFixed(6)}%2C${bounds.top.toFixed(6)}&layer=mapnik`;
 };
 
 const RUBRO_ORDER = [
@@ -3413,45 +3421,7 @@ export default function TechniciansPage() {
             },
           ];
 
-    if (!points.length) {
-      return { points, mapUrl: '', markers: [] as Array<(typeof points)[number] & { x: number; y: number }> };
-    }
-
-    const lats = points.map((point) => point.lat);
-    const lons = points.map((point) => point.lon);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-    const latSpan = Math.max(maxLat - minLat, 0.015);
-    const lonSpan = Math.max(maxLon - minLon, 0.015);
-    const marginLat = Math.max(latSpan * 0.35, 0.012);
-    const marginLon = Math.max(lonSpan * 0.35, 0.012);
-    const left = clampLongitude(minLon - marginLon);
-    const right = clampLongitude(maxLon + marginLon);
-    const bottom = clampLatitude(minLat - marginLat);
-    const top = clampLatitude(maxLat + marginLat);
-    const mapPoints: DashboardMapPoint[] = points.map((point) => ({
-      id: point.id,
-      kind: 'job',
-      title: point.name,
-      subtitle: point.address,
-      meta: point.lastDateLabel,
-      lat: point.lat,
-      lon: point.lon,
-      createdAt: point.lastDateLabel,
-    }));
-    const markers = points.map((point) => ({
-      ...point,
-      x: ((point.lon - left) / Math.max(right - left, 0.000001)) * 100,
-      y: ((top - point.lat) / Math.max(top - bottom, 0.000001)) * 100,
-    }));
-
-    return {
-      points,
-      mapUrl: buildOsmStaticMultiMarkerUrl(mapPoints),
-      markers,
-    };
+    return { points };
   }, [clientHistory, isDesignPreview]);
   const activeQuote = useMemo(
     () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
@@ -6779,63 +6749,17 @@ export default function TechniciansPage() {
                               ))}
                             </div>
 
-                            <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-slate-200 bg-[#fffaf4] shadow-[inset_0_1px_0_rgba(255,255,255,0.84)]">
-                              {clientZoneMap.mapUrl ? (
-                                <>
-                                  <iframe
-                                    title="Mapa histórico de clientes por zona"
-                                    src={clientZoneMap.mapUrl}
-                                    loading="lazy"
-                                    className="absolute inset-0 h-full w-full border-0 grayscale-[0.08] saturate-[0.9]"
-                                  />
-                                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.34),rgba(255,255,255,0)_42%,rgba(42,3,56,0.12))]" />
-                                  <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/72 bg-white/90 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2a0338] shadow-[0_16px_36px_-24px_rgba(42,3,56,0.58)] backdrop-blur">
-                                    <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338]">
-                                      <MapPinned className="h-3.5 w-3.5" strokeWidth={2.2} />
-                                    </span>
-                                    Mapa por zona
-                                  </div>
-                                  {clientZoneMap.markers.map((point, index) => (
-                                    <button
-                                      key={point.id}
-                                      type="button"
-                                      onClick={() => {
-                                        const client = clientHistory.find((item) => item.key === point.id);
-                                        if (client?.latestQuote) loadQuote(client.latestQuote);
-                                      }}
-                                      className="group absolute z-10 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-white/80 bg-[#ff8f1f] text-xs font-semibold text-[#2a0338] shadow-[0_18px_38px_-22px_rgba(42,3,56,0.9)] transition hover:z-20 hover:scale-110"
-                                      style={{ left: `${point.x}%`, top: `${point.y}%` }}
-                                      title={`${point.name} · ${point.address}`}
-                                    >
-                                      {index + 1}
-                                      <span className="pointer-events-none absolute left-1/2 top-full mt-2 hidden min-w-[150px] -translate-x-1/2 rounded-2xl border border-white/72 bg-white/94 px-3 py-2 text-left text-[#180f24] shadow-[0_18px_42px_-28px_rgba(42,3,56,0.72)] backdrop-blur group-hover:block">
-                                        <span className="block truncate text-xs font-semibold">{point.name}</span>
-                                        <span className="mt-1 block truncate text-[11px] font-medium text-slate-500">{point.address}</span>
-                                        <span className="mt-1 block text-[11px] font-semibold text-[#8a4a07]">
-                                          {point.movements} mov. · ${point.totalAmount.toLocaleString('es-AR')}
-                                        </span>
-                                      </span>
-                                    </button>
-                                  ))}
-                                  <div className="absolute bottom-3 left-3 right-3 rounded-[18px] border border-white/72 bg-white/90 px-3 py-2 shadow-[0_16px_34px_-28px_rgba(42,3,56,0.62)] backdrop-blur">
-                                    <div className="flex flex-wrap items-center justify-between gap-2">
-                                      <div>
-                                        <p className="text-sm font-semibold text-[#180f24]">Clientes por zona</p>
-                                        <p className="mt-0.5 text-xs text-slate-500">
-                                          {clientZoneMap.points.length} {clientZoneMap.points.length === 1 ? 'punto mapeado' : 'puntos mapeados'}
-                                        </p>
-                                      </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setActiveTab('operativo')}
-                                        className="rounded-full bg-[#2a0338] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#3a094a]"
-                                      >
-                                        Abrir mapa
-                                      </button>
-                                    </div>
-                                  </div>
-                                </>
-                              ) : (
+                            {clientZoneMap.points.length > 0 ? (
+                              <TechnicianClientHistoryMap
+                                points={clientZoneMap.points}
+                                onSelectPoint={(pointId) => {
+                                  const client = clientHistory.find((item) => item.key === pointId);
+                                  if (client?.latestQuote) loadQuote(client.latestQuote);
+                                }}
+                                onOpenMap={() => setActiveTab('operativo')}
+                              />
+                            ) : (
+                              <div className="relative min-h-[360px] overflow-hidden rounded-[28px] border border-slate-200 bg-[#fffaf4] shadow-[inset_0_1px_0_rgba(255,255,255,0.84)]">
                                 <button
                                   type="button"
                                   onClick={() => setActiveTab('perfil')}
@@ -6847,12 +6771,12 @@ export default function TechniciansPage() {
                                   <span>
                                     <span className="block text-sm font-semibold text-[#180f24]">Sin zonas mapeadas</span>
                                     <span className="mt-1 block text-xs leading-5 text-slate-500">
-                                      Para mapear clientes, carga ubicación en los presupuestos o completa tu punto de trabajo.
+                                      Para mapear clientes con precisión, cada presupuesto necesita ubicación confirmada.
                                     </span>
                                   </span>
                                 </button>
-                              )}
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
 

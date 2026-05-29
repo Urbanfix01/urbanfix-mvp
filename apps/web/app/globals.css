@@ -582,6 +582,128 @@ header .header-view-option {
   }
 }
 
+/* --- TECHNICIAN CLIENT HISTORY MAP --- */
+.ufx-client-history-map {
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255, 143, 31, 0.12), transparent 22%),
+    linear-gradient(180deg, #fff7ed, #f8fafc);
+}
+
+.ufx-client-history-map .leaflet-control-attribution {
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.84);
+  color: rgba(71, 85, 105, 0.8);
+  font-size: 9px;
+  backdrop-filter: blur(10px);
+}
+
+.ufx-client-history-map .leaflet-control-zoom {
+  overflow: hidden;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  box-shadow: 0 18px 36px -28px rgba(15, 23, 42, 0.76);
+}
+
+.ufx-client-history-map .leaflet-control-zoom a {
+  border: 0;
+  background: rgba(255, 255, 255, 0.92);
+  color: #2a0338;
+  font-weight: 800;
+}
+
+.ufx-client-history-map .leaflet-control-zoom a:hover {
+  background: #fff7ed;
+  color: #ff8f1f;
+}
+
+.ufx-client-map-pin-shell {
+  background: transparent !important;
+  border: 0 !important;
+}
+
+.ufx-client-map-pin {
+  position: relative;
+  height: 44px;
+  width: 44px;
+}
+
+.ufx-client-map-pin-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  display: flex;
+  height: 34px;
+  width: 34px;
+  transform: translate(-50%, -50%);
+  align-items: center;
+  justify-content: center;
+  border: 2px solid rgba(255, 255, 255, 0.88);
+  border-radius: 999px;
+  background: linear-gradient(180deg, #ffa43a, #ff7f0f);
+  color: #2a0338;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow:
+    0 16px 32px -18px rgba(42, 3, 56, 0.82),
+    0 8px 22px -12px rgba(255, 127, 15, 0.95);
+}
+
+.ufx-client-map-pin-pulse {
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  background: rgba(255, 143, 31, 0.22);
+  box-shadow: 0 0 0 8px rgba(255, 143, 31, 0.08);
+}
+
+.ufx-client-map-tooltip {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.ufx-client-map-tooltip::before {
+  display: none;
+}
+
+.ufx-client-map-tooltip-card {
+  min-width: 156px;
+  border: 1px solid rgba(226, 232, 240, 0.88);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.94);
+  padding: 10px 12px;
+  color: #180f24;
+  box-shadow: 0 20px 42px -30px rgba(42, 3, 56, 0.72);
+  backdrop-filter: blur(14px);
+}
+
+.ufx-client-map-tooltip-title {
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.ufx-client-map-tooltip-meta,
+.ufx-client-map-tooltip-subtle {
+  margin-top: 4px;
+  font-family: var(--font-body);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ufx-client-map-tooltip-meta {
+  color: #64748b;
+}
+
+.ufx-client-map-tooltip-subtle {
+  color: #8a4a07;
+  font-weight: 700;
+}
+
 /* --- PUBLIC TECHNICIANS MAP --- */
 .ufx-public-map {
   background:
