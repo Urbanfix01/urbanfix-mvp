@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
-import { supabase } from '../../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, Loader2, LockKeyhole, LogOut, Mail, Settings, ShieldCheck, User, UserRound } from 'lucide-react';
 import GoogleMark from '../../components/GoogleMark';
@@ -218,6 +218,11 @@ export default function ClientRequestsHub() {
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
 
   useEffect(() => {
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      setLoadingSession(false);
+      return;
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoadingSession(false);
@@ -423,6 +428,10 @@ export default function ClientRequestsHub() {
     if (googleAuthLoading) return;
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     setGoogleAuthLoading(true);
     const redirectTo = `${window.location.origin}/cliente${window.location.search || ''}`;
     const { error } = await supabase.auth.signInWithOAuth({
@@ -438,6 +447,10 @@ export default function ClientRequestsHub() {
   const handlePasswordRecovery = async () => {
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     const safeEmail = email.trim();
     if (!safeEmail) {
       setAuthError('Ingresa tu correo para recuperar la contrasena.');
@@ -459,6 +472,10 @@ export default function ClientRequestsHub() {
   const handleEmailAuth = async () => {
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     setAuthLoading(true);
     try {
       const safeEmail = email.trim().toLowerCase();

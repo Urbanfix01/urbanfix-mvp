@@ -36,7 +36,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
-import { supabase } from '../../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
@@ -2154,6 +2154,20 @@ export default function TechniciansPage() {
   }, []);
 
   useEffect(() => {
+    if (!hasSupabaseConfig) {
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+      const designPreviewEnabled =
+        typeof window !== 'undefined' &&
+        process.env.NODE_ENV !== 'production' &&
+        (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
+        params?.get('preview') === 'panel';
+      if (!designPreviewEnabled) {
+        setAuthError(supabaseConfigError);
+      }
+      setLoadingSession(false);
+      setLoadingProfile(false);
+      return;
+    }
     supabase.auth.getSession().then(({ data: { session } }) => {
       sessionUserIdRef.current = session?.user?.id ?? null;
       setSession(session);
@@ -5146,6 +5160,10 @@ export default function TechniciansPage() {
     if (googleAuthLoading) return;
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     setGoogleAuthLoading(true);
     const redirectTo = `${window.location.origin}/tecnicos`;
     const { error } = await supabase.auth.signInWithOAuth({
@@ -5173,6 +5191,10 @@ export default function TechniciansPage() {
   const handlePasswordRecovery = async () => {
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
       setAuthError('Ingresa tu correo para recuperar la contraseña.');
@@ -5225,6 +5247,10 @@ export default function TechniciansPage() {
   const handleEmailAuth = async () => {
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     setAuthLoading(true);
     try {
       const safeEmail = email.trim().toLowerCase();

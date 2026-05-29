@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react';
 import { POST_AUTH_REDIRECT_KEY } from '../lib/auth/post-auth';
-import { supabase } from '../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 
 const getOAuthTokensFromHash = () => {
   if (typeof window === 'undefined') return null;
@@ -52,6 +52,10 @@ export default function AuthHashHandler() {
     const tokens = getOAuthTokensFromHash();
     const code = getAuthCodeFromSearch();
     if (!tokens && !code) return;
+    if (!hasSupabaseConfig) {
+      console.error('No se pudo completar OAuth: falta configurar Supabase.');
+      return;
+    }
 
     const basePath = window.location.pathname || '/';
     const cleanedPath = stripAuthParams();
