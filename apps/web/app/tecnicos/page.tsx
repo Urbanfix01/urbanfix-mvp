@@ -3836,9 +3836,9 @@ export default function TechniciansPage() {
     };
   }, [financeSeries, financeTimelineMode, quoteStats.amount, quoteStats.paidAmount, quoteStats.profitAmount]);
   const financeChart = useMemo(() => {
-    const width = 860;
+    const width = 1480;
     const height = 250;
-    const padding = { top: 22, right: 18, bottom: 38, left: 66 };
+    const padding = { top: 22, right: 22, bottom: 38, left: 58 };
     const plotWidth = width - padding.left - padding.right;
     const plotHeight = height - padding.top - padding.bottom;
     const maxRawValue = Math.max(
