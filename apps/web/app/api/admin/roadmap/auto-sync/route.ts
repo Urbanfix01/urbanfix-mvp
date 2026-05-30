@@ -191,13 +191,10 @@ export async function POST(request: NextRequest) {
   }
   const normalizedToken = (autosyncToken || '').trim();
   if (!normalizedToken) {
-    return NextResponse.json({ error: 'Missing ROADMAP_AUTOSYNC_TOKEN' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
   if (isWeakAutosyncToken(normalizedToken)) {
-    return NextResponse.json(
-      { error: `Misconfigured ROADMAP_AUTOSYNC_TOKEN. Usa un token aleatorio de al menos ${MIN_AUTOSYNC_TOKEN_LENGTH} caracteres.` },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const incomingToken = (request.headers.get('x-roadmap-autosync-token') || '').trim();

@@ -119,6 +119,11 @@ const validateAdminRoutes = () => {
     const source = fs.readFileSync(filePath, 'utf8');
     const tokenRoute = tokenOnlyRoutes.get(relativeRoute);
 
+    if (/['"`](Missing|Misconfigured)\s+[A-Z0-9_]+/.test(source)) {
+      push('fail', `${relativeRoute}: no debe exponer nombres de secretos en errores de configuracion`);
+      return;
+    }
+
     if (tokenRoute) {
       const hasTokenGuard =
         source.includes(tokenRoute.header) && tokenRoute.guards.every((guard) => source.includes(guard));

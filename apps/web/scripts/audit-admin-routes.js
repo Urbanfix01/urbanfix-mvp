@@ -36,6 +36,11 @@ for (const filePath of walk(adminApiDir)) {
   const source = fs.readFileSync(filePath, 'utf8');
   const tokenRoute = tokenOnlyRoutes.get(relativeRoute);
 
+  if (/['"`](Missing|Misconfigured)\s+[A-Z0-9_]+/.test(source)) {
+    report.fail.push(`${relativeRoute}: no debe exponer nombres de secretos en errores de configuracion`);
+    continue;
+  }
+
   if (tokenRoute) {
     const missingGuard = tokenRoute.guards.find((guard) => !source.includes(guard));
     if (!source.includes(tokenRoute.header) || missingGuard) {

@@ -26,10 +26,10 @@ const safeSecretCompare = (a: string, b: string) => {
 export async function POST(request: NextRequest) {
   const normalizedSecret = String(webhookSecret || '').trim();
   if (!normalizedSecret) {
-    return NextResponse.json({ error: 'Missing NOTIFY_WEBHOOK_SECRET' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
   if (isWeakSecret(normalizedSecret)) {
-    return NextResponse.json({ error: 'Misconfigured NOTIFY_WEBHOOK_SECRET' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const headerSecret = String(request.headers.get('x-hook-secret') || '').trim();

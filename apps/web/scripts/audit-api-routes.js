@@ -114,6 +114,10 @@ for (const filePath of walk(apiDir)) {
     report.fail.push(`${route}: no debe exponer Missing server config`);
   }
 
+  if (/['"`](Missing|Misconfigured)\s+[A-Z0-9_]+/.test(source)) {
+    report.fail.push(`${route}: no debe exponer nombres de secretos en errores de configuracion`);
+  }
+
   if (/Servicio no disponible\.[\s\S]{0,120}status:\s*500/.test(source)) {
     report.fail.push(`${route}: falta de configuracion debe responder 503`);
   }
