@@ -23,6 +23,8 @@ npm run production:audit
 
 Use `.env.example` as the source of truth for Vercel environment variable names. Do not commit real values.
 
+Before opening real users, complete [PRODUCTION_LAUNCH_CHECKLIST.md](./PRODUCTION_LAUNCH_CHECKLIST.md).
+
 Required before opening real users:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
