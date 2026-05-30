@@ -9,6 +9,7 @@
     "lint": "eslint",
     "admin-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-admin-routes.js",
     "api-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-api-routes.js",
+    "auth-session:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-auth-session-cookie.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
     "image-config:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-next-image-config.js",
     "secret-boundaries:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-secret-boundaries.js",

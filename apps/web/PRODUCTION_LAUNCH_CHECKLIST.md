@@ -95,6 +95,7 @@ Before launch, confirm access approval is still admin/server controlled:
 Run from `apps/web`:
 
 ```bash
+npm run auth-session:audit
 npm run env-template:audit
 npm run image-config:audit
 npm run secret-boundaries:audit

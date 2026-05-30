@@ -222,6 +222,7 @@ const main = async () => {
   validateEnv();
   validateUrlAlignment();
   validateAdminRoutes();
+  runLocalAudit('audit-auth-session-cookie.js', 'Cookie de sesion');
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
   runLocalAudit('audit-secret-boundaries.js', 'Limites de secretos');
