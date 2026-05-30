@@ -6,6 +6,7 @@ import {
   insertClientEvent,
   loadClientRequest,
 } from '@/app/api/client/_shared/data';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const statusSet = new Set([
   'published',
@@ -239,12 +240,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'Solicitud invalida.' }, { status: 400 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 12 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const action = toText(body.action);
   if (!action) {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clientSupabase as supabase, getAuthUser } from '@/app/api/client/_shared/auth';
 import { getClientWorkspaceSnapshot, insertClientEvent } from '@/app/api/client/_shared/data';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   geocodeFirstResult,
@@ -111,12 +112,11 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 16 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const title = toText(body.title);
   const category = toText(body.category);

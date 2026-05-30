@@ -22,6 +22,9 @@ const protectedRoutes = new Set([
 const protectedRouteGuards = new Map([
   ['billing/checkout/route.ts', ['readLimitedJsonBody']],
   ['billing/coupon/validate/route.ts', ['readLimitedJsonBody']],
+  ['client/requests/route.ts', ['readLimitedJsonBody']],
+  ['client/requests/[id]/route.ts', ['readLimitedJsonBody']],
+  ['tecnico/requests/[id]/offer/route.ts', ['readLimitedJsonBody']],
 ]);
 
 const tokenGuardedRoutes = new Map([

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const supabase = getServiceRoleClient();
 
@@ -60,12 +61,11 @@ export async function POST(
     return NextResponse.json({ error: 'Solicitud invalida.' }, { status: 400 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 8 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const responseType = normalizeResponseType(body.response_type);
   const parsedPrice = parseArsValue(body.price_ars);
