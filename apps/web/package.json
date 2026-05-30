@@ -10,6 +10,7 @@
     "admin-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-admin-routes.js",
     "api-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-api-routes.js",
     "auth-session:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-auth-session-cookie.js",
+    "cookies:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-cookie-policy.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
     "image-config:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-next-image-config.js",
     "post-auth-redirects:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-post-auth-redirects.js",

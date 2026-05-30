@@ -223,6 +223,7 @@ const main = async () => {
   validateUrlAlignment();
   validateAdminRoutes();
   runLocalAudit('audit-auth-session-cookie.js', 'Cookie de sesion');
+  runLocalAudit('audit-cookie-policy.js', 'Politica de cookies');
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
   runLocalAudit('audit-post-auth-redirects.js', 'Redirects post-auth');

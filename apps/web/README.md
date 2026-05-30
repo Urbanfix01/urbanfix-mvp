@@ -8,6 +8,7 @@ Run these checks before pushing launch-related changes:
 
 ```bash
 npm run auth-session:audit
+npm run cookies:audit
 npm run env-template:audit
 npm run image-config:audit
 npm run post-auth-redirects:audit
@@ -20,7 +21,7 @@ npm run api-routes:audit
 npm run production:audit
 ```
 
-`production:audit` also checks admin route protection, auth session cookie policy, post-auth redirects, public API route classification, env template coverage, remote image config, secret boundaries, Supabase client guards, Supabase migration coverage, Storage bucket policies, and required production variables.
+`production:audit` also checks admin route protection, auth session cookie policy, general cookie policy, post-auth redirects, public API route classification, env template coverage, remote image config, secret boundaries, Supabase client guards, Supabase migration coverage, Storage bucket policies, and required production variables.
 
 After Vercel finishes deploying production, run:
 

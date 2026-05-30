@@ -52,6 +52,7 @@ const buildResponse = (
       maxAge: COOKIE_MAX_AGE_SECONDS,
       httpOnly: true,
       sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
       path: '/',
     });
   }

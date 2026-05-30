@@ -96,6 +96,7 @@ Run from `apps/web`:
 
 ```bash
 npm run auth-session:audit
+npm run cookies:audit
 npm run env-template:audit
 npm run image-config:audit
 npm run post-auth-redirects:audit
