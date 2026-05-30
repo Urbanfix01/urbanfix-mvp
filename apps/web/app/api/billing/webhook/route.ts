@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -39,12 +40,11 @@ export async function POST(request: NextRequest) {
   }
 
   const searchParams = request.nextUrl.searchParams;
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 16 * 1024, allowEmpty: true });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const topic = (body?.type || body?.topic || searchParams.get('type') || searchParams.get('topic') || '')
     .toString()

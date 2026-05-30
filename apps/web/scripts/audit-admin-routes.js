@@ -9,7 +9,7 @@ const tokenOnlyRoutes = new Map([
     path.join('roadmap', 'auto-sync', 'route.ts').split(path.sep).join('/'),
     {
       header: 'x-roadmap-autosync-token',
-      guards: ['timingSafeEqual', 'ROADMAP_AUTOSYNC_TOKEN'],
+      guards: ['timingSafeEqual', 'ROADMAP_AUTOSYNC_TOKEN', 'readLimitedJsonBody'],
     },
   ],
 ]);

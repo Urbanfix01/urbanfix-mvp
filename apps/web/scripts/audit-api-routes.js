@@ -31,7 +31,7 @@ const tokenGuardedRoutes = new Map([
     'billing/webhook/route.ts',
     {
       label: 'verificacion proveedor',
-      guards: ['MP_ACCESS_TOKEN', 'fetchMpPayment', 'fetchMpPreapproval'],
+      guards: ['MP_ACCESS_TOKEN', 'fetchMpPayment', 'fetchMpPreapproval', 'readLimitedJsonBody'],
     },
   ],
 ]);

@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server';
 type ReadJsonOptions = {
   maxBytes?: number;
   invalidMessage?: string;
+  allowEmpty?: boolean;
 };
 
 type ReadJsonSuccess<T> = {
@@ -24,6 +25,7 @@ export const readLimitedJsonBody = async <T extends Record<string, unknown> = Re
 ): Promise<ReadJsonSuccess<T> | ReadJsonFailure> => {
   const maxBytes = options.maxBytes ?? 16 * 1024;
   const invalidMessage = options.invalidMessage || 'Body invalido.';
+  const allowEmpty = options.allowEmpty ?? false;
   const contentLengthHeader = request.headers.get('content-length');
   const contentLength = contentLengthHeader ? Number(contentLengthHeader) : 0;
 
@@ -43,6 +45,9 @@ export const readLimitedJsonBody = async <T extends Record<string, unknown> = Re
   }
 
   if (!rawBody.trim()) {
+    if (allowEmpty) {
+      return { ok: true, body: {} as T };
+    }
     return { ok: false, status: 400, error: invalidMessage };
   }
 
