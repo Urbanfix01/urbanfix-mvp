@@ -8,6 +8,7 @@ Run these checks before pushing launch-related changes:
 
 ```bash
 npm run env-template:audit
+npm run image-config:audit
 npm run security-headers:audit
 npm run supabase:migrations:audit
 npm run storage:audit
@@ -15,7 +16,7 @@ npm run api-routes:audit
 npm run production:audit
 ```
 
-`production:audit` also checks admin route protection, public API route classification, env template coverage, Supabase migration coverage, Storage bucket policies, and required production variables.
+`production:audit` also checks admin route protection, public API route classification, env template coverage, remote image config, Supabase migration coverage, Storage bucket policies, and required production variables.
 
 ## Production variables
 

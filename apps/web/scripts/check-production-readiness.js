@@ -223,6 +223,7 @@ const main = async () => {
   validateUrlAlignment();
   validateAdminRoutes();
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
+  runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
   runLocalAudit('audit-security-headers.js', 'Headers de seguridad');
   runLocalAudit('audit-supabase-migrations.js', 'Migraciones Supabase');
   runLocalAudit('audit-storage-migrations.js', 'Storage Supabase');

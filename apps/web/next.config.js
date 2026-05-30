@@ -33,16 +33,6 @@ const nextConfig = {
   // Keep tracing scoped to the web app even if the repo root has extra lockfiles.
   outputFileTracingRoot: path.join(__dirname),
 
-  // Image config (Supabase)
-  images: {
-    remotePatterns: [
-      {
-        protocol: 'https',
-        hostname: '**',
-      },
-    ],
-  },
-
   eslint: {
     ignoreDuringBuilds: true,
   },
