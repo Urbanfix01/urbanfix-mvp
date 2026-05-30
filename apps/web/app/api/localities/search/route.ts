@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { getCountryCode, getCountryConfig } from '../../../../lib/location-catalog';
 
+const MAX_SEARCH_QUERY_LENGTH = 80;
+const MAX_SEARCH_FILTER_LENGTH = 80;
+
 type GeoRefLocalityRow = {
   nombre?: string;
   departamento?: { nombre?: string };
@@ -33,6 +36,23 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+const normalizeSearchParam = (value: string | null) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+const rejectOversizedSearchParam = (value: string, maxLength: number, message: string) => {
+  if (value.length <= maxLength) return null;
+
+  return NextResponse.json(
+    {
+      results: [],
+      error: `${message} Usa hasta ${maxLength} caracteres.`,
+    },
+    { status: 400 }
+  );
+};
 
 const tokenizeText = (value: string) => normalizeText(value).split(' ').filter(Boolean);
 
@@ -443,11 +463,16 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: rateLimit.error, results: [] }, { status: rateLimit.status, headers: rateLimit.headers });
   }
 
-  const country = String(request.nextUrl.searchParams.get('country') || '').trim();
-  const province = String(request.nextUrl.searchParams.get('province') || '').trim();
-  const query = String(request.nextUrl.searchParams.get('query') || '').trim();
+  const country = normalizeSearchParam(request.nextUrl.searchParams.get('country'));
+  const province = normalizeSearchParam(request.nextUrl.searchParams.get('province'));
+  const query = normalizeSearchParam(request.nextUrl.searchParams.get('query'));
   const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 12);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(18, Math.round(requestedLimit))) : 12;
+  const oversizedParamResponse =
+    rejectOversizedSearchParam(country, MAX_SEARCH_FILTER_LENGTH, 'El pais es demasiado largo.') ||
+    rejectOversizedSearchParam(province, MAX_SEARCH_FILTER_LENGTH, 'La provincia es demasiado larga.') ||
+    rejectOversizedSearchParam(query, MAX_SEARCH_QUERY_LENGTH, 'La localidad es demasiado larga.');
+  if (oversizedParamResponse) return oversizedParamResponse;
 
   if (!country || !province || query.length < 2) {
     return NextResponse.json({ results: [] });

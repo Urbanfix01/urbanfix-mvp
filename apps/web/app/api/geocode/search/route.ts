@@ -3,6 +3,8 @@ import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { DEFAULT_COUNTRY_NAME, getCountryCode, getCountryConfig, isCoordinateWithinCountry } from '../../../../lib/location-catalog';
 
 const GEOCODE_CACHE_TTL_MS = 45_000;
+const MAX_SEARCH_QUERY_LENGTH = 140;
+const MAX_SEARCH_HINT_LENGTH = 80;
 
 type GeocodeApiPayload = {
   results: Array<{ display_name: string; lat: number; lon: number; precision: 'exact' | 'approx' }>;
@@ -19,6 +21,23 @@ const normalizeSearchText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+
+const normalizeSearchParam = (value: string | null) =>
+  String(value || '')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+const rejectOversizedSearchParam = (value: string, maxLength: number, message: string) => {
+  if (value.length <= maxLength) return null;
+
+  return NextResponse.json(
+    {
+      results: [],
+      error: `${message} Usa hasta ${maxLength} caracteres.`,
+    },
+    { status: 400 }
+  );
+};
 
 type NominatimRow = {
   display_name?: string;
@@ -299,10 +318,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: rateLimit.error, results: [] }, { status: rateLimit.status, headers: rateLimit.headers });
   }
 
-  const query = String(request.nextUrl.searchParams.get('query') || '').trim();
-  const cityHint = String(request.nextUrl.searchParams.get('city') || '').trim();
-  const provinceHint = String(request.nextUrl.searchParams.get('province') || '').trim();
-  const countryHint = getCountryConfig(String(request.nextUrl.searchParams.get('country') || '').trim() || DEFAULT_COUNTRY_NAME).name;
+  const query = normalizeSearchParam(request.nextUrl.searchParams.get('query'));
+  const cityHint = normalizeSearchParam(request.nextUrl.searchParams.get('city'));
+  const provinceHint = normalizeSearchParam(request.nextUrl.searchParams.get('province'));
+  const rawCountryHint = normalizeSearchParam(request.nextUrl.searchParams.get('country')) || DEFAULT_COUNTRY_NAME;
+  const oversizedParamResponse =
+    rejectOversizedSearchParam(query, MAX_SEARCH_QUERY_LENGTH, 'La direccion es demasiado larga.') ||
+    rejectOversizedSearchParam(cityHint, MAX_SEARCH_HINT_LENGTH, 'La ciudad es demasiado larga.') ||
+    rejectOversizedSearchParam(provinceHint, MAX_SEARCH_HINT_LENGTH, 'La provincia es demasiado larga.') ||
+    rejectOversizedSearchParam(rawCountryHint, MAX_SEARCH_HINT_LENGTH, 'El pais es demasiado largo.');
+  if (oversizedParamResponse) return oversizedParamResponse;
+
+  const countryHint = getCountryConfig(rawCountryHint).name;
   const countryCode = getCountryCode(countryHint);
   const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 5);
   const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(12, Math.round(requestedLimit))) : 8;

@@ -53,8 +53,20 @@ const publicRoutes = new Map([
       guards: ['readLimitedJsonBody', 'enforceRateLimit'],
     },
   ],
-  ['geocode/search/route.ts', { label: 'publica por diseno con rate limit', guards: ['enforceRateLimit'] }],
-  ['localities/search/route.ts', { label: 'publica por diseno con rate limit', guards: ['enforceRateLimit'] }],
+  [
+    'geocode/search/route.ts',
+    {
+      label: 'publica por diseno con rate limit y query acotada',
+      guards: ['enforceRateLimit', 'MAX_SEARCH_QUERY_LENGTH', 'MAX_SEARCH_HINT_LENGTH', 'rejectOversizedSearchParam'],
+    },
+  ],
+  [
+    'localities/search/route.ts',
+    {
+      label: 'publica por diseno con rate limit y query acotada',
+      guards: ['enforceRateLimit', 'MAX_SEARCH_QUERY_LENGTH', 'MAX_SEARCH_FILTER_LENGTH', 'rejectOversizedSearchParam'],
+    },
+  ],
   [
     'public/quote-feedback/[token]/route.ts',
     {
