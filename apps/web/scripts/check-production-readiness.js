@@ -249,6 +249,7 @@ const main = async () => {
   runLocalAudit('audit-cookie-policy.js', 'Politica de cookies');
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
+  runLocalAudit('audit-json-body-limits.js', 'Limites de body JSON');
   runLocalAudit('audit-post-auth-redirects.js', 'Redirects post-auth');
   runLocalAudit('audit-secret-boundaries.js', 'Limites de secretos');
   runLocalAudit('audit-security-headers.js', 'Headers de seguridad');

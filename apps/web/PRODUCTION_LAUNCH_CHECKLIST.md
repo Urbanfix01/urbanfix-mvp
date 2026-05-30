@@ -99,6 +99,7 @@ npm run auth-session:audit
 npm run cookies:audit
 npm run env-template:audit
 npm run image-config:audit
+npm run json-body:audit
 npm run post-auth-redirects:audit
 npm run secret-boundaries:audit
 npm run security-headers:audit
