@@ -32,3 +32,5 @@ Launch order:
 3. Apply audited production migrations.
 4. Run the migration and production audits.
 5. Test signup, login, technician panel, client flow, quote creation, billing, and notifications.
+
+Access approval must stay server/admin controlled. Browser clients should never insert or update `profiles.access_granted` or `profiles.access_granted_at` directly.
