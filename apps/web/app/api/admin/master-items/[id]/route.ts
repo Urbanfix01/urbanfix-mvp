@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
 import { canonicalizeMasterItemUnit } from '@/lib/master-items';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const isMissingColumnError = (error: any, column: string) => {
   const message = String(error?.message || '').toLowerCase();
@@ -61,12 +62,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   }
 
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 8 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const patch: Record<string, any> = {};
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const VALID_STATUSES = new Set(['new', 'contacted', 'qualified', 'closed']);
 
@@ -57,12 +58,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: Record<string, unknown>;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 4 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const id = sanitizeText(body.id, 80);
   const status = sanitizeText(body.status, 40).toLowerCase();

@@ -14,6 +14,14 @@ const tokenOnlyRoutes = new Map([
   ],
 ]);
 
+const protectedRouteGuards = new Map([
+  ['access/legacy/route.ts', ['readLimitedJsonBody']],
+  ['access/route.ts', ['readLimitedJsonBody']],
+  ['demo-requests/route.ts', ['readLimitedJsonBody']],
+  ['master-items/[id]/route.ts', ['readLimitedJsonBody']],
+  ['support/messages/route.ts', ['readLimitedJsonBody']],
+]);
+
 const walk = (directory) => {
   if (!fs.existsSync(directory)) return [];
   const entries = fs.readdirSync(directory, { withFileTypes: true });
@@ -57,6 +65,11 @@ for (const filePath of walk(adminApiDir)) {
     report.fail.push(`${relativeRoute}: falta validacion de admin`);
   } else {
     report.ok.push(`${relativeRoute}: admin validado`);
+  }
+
+  const missingGuard = (protectedRouteGuards.get(relativeRoute) || []).find((guard) => !source.includes(guard));
+  if (missingGuard) {
+    report.fail.push(`${relativeRoute}: falta ${missingGuard}`);
   }
 }
 

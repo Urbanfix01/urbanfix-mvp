@@ -112,6 +112,13 @@ const validateAdminRoutes = () => {
       },
     ],
   ]);
+  const protectedRouteGuards = new Map([
+    ['access/legacy/route.ts', ['readLimitedJsonBody']],
+    ['access/route.ts', ['readLimitedJsonBody']],
+    ['demo-requests/route.ts', ['readLimitedJsonBody']],
+    ['master-items/[id]/route.ts', ['readLimitedJsonBody']],
+    ['support/messages/route.ts', ['readLimitedJsonBody']],
+  ]);
 
   const files = walkRouteFiles(adminApiDir);
   files.forEach((filePath) => {
@@ -139,6 +146,11 @@ const validateAdminRoutes = () => {
       push('fail', `${relativeRoute}: falta validacion de admin`);
     } else {
       push('ok', `${relativeRoute}: admin validado`);
+    }
+
+    const missingGuard = (protectedRouteGuards.get(relativeRoute) || []).find((guard) => !source.includes(guard));
+    if (missingGuard) {
+      push('fail', `${relativeRoute}: falta ${missingGuard}`);
     }
   });
 };
