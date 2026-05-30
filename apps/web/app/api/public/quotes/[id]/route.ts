@@ -6,19 +6,48 @@ const supabase = getServiceRoleClient();
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
+const normalizeStatus = (value: unknown) => String(value || '').trim().toLowerCase();
+
+const PUBLIC_QUOTE_STATUSES = new Set([
+  'sent',
+  'presented',
+  'pending',
+  'pendiente',
+  'approved',
+  'accepted',
+  'aprobado',
+  'completed',
+  'completado',
+  'finalizado',
+  'finalizados',
+  'paid',
+  'cobrado',
+  'cobrados',
+  'pagado',
+  'pagados',
+  'charged',
+  'rejected',
+  'rechazado',
+  'expired',
+  'vencido',
+  'desestimado',
+]);
+
+const isPublicQuoteStatus = (value: unknown) => PUBLIC_QUOTE_STATUSES.has(normalizeStatus(value));
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
-  }
-
   const resolvedParams = await params;
   const quoteId = String(resolvedParams?.id || '').trim();
 
   if (!isUuid(quoteId)) {
     return NextResponse.json({ error: 'Presupuesto invalido.' }, { status: 400 });
+  }
+
+  if (!supabase) {
+    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
   }
 
   const { data: quote, error: quoteError } = await supabase
@@ -38,6 +67,18 @@ export async function GET(
 
   if (!quote) {
     return NextResponse.json({ error: 'Presupuesto no disponible.' }, { status: 404 });
+  }
+
+  if (!isPublicQuoteStatus(quote.status)) {
+    return NextResponse.json(
+      { error: 'Presupuesto no disponible.' },
+      {
+        status: 404,
+        headers: {
+          'Cache-Control': 'no-store',
+        },
+      }
+    );
   }
 
   const [itemsResult, attachmentsResult, profileResult] = await Promise.all([

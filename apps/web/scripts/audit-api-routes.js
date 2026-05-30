@@ -36,15 +36,21 @@ const tokenGuardedRoutes = new Map([
   ],
 ]);
 
-const publicRoutes = new Set([
-  'analytics/track/route.ts',
-  'auth/session/route.ts',
-  'billing/plans/route.ts',
-  'demo-requests/route.ts',
-  'geocode/search/route.ts',
-  'localities/search/route.ts',
-  'public/quote-feedback/[token]/route.ts',
-  'public/quotes/[id]/route.ts',
+const publicRoutes = new Map([
+  ['analytics/track/route.ts', { label: 'publica por diseno' }],
+  ['auth/session/route.ts', { label: 'publica por diseno' }],
+  ['billing/plans/route.ts', { label: 'publica por diseno' }],
+  ['demo-requests/route.ts', { label: 'publica por diseno' }],
+  ['geocode/search/route.ts', { label: 'publica por diseno' }],
+  ['localities/search/route.ts', { label: 'publica por diseno' }],
+  ['public/quote-feedback/[token]/route.ts', { label: 'publica por diseno' }],
+  [
+    'public/quotes/[id]/route.ts',
+    {
+      label: 'publica por diseno con estado compartible',
+      guards: ['PUBLIC_QUOTE_STATUSES', 'isPublicQuoteStatus', 'quote.status'],
+    },
+  ],
 ]);
 
 const walk = (directory) => {
@@ -86,8 +92,14 @@ for (const filePath of walk(apiDir)) {
     continue;
   }
 
-  if (publicRoutes.has(route)) {
-    report.ok.push(`${route}: publica por diseno`);
+  const publicRoute = publicRoutes.get(route);
+  if (publicRoute) {
+    const missingGuard = (publicRoute.guards || []).find((guard) => !source.includes(guard));
+    if (missingGuard) {
+      report.fail.push(`${route}: falta ${missingGuard}`);
+    } else {
+      report.ok.push(`${route}: ${publicRoute.label}`);
+    }
     continue;
   }
 
