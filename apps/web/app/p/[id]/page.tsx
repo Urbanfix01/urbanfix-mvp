@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { supabase } from '../../../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../../lib/supabase/supabase';
 import { useParams } from 'next/navigation';
 import { Manrope } from 'next/font/google';
 // ✅ IMPORTACIÓN LIMPIA
@@ -47,6 +47,8 @@ export default function QuotePage() {
     
     // 1. Carga Inicial
     fetchQuoteData(params.id as string);
+
+    if (!hasSupabaseConfig) return;
 
     // 2. REALTIME
     const channel = supabase
@@ -102,6 +104,13 @@ export default function QuotePage() {
       if (!requestId || !isClosed) {
         setFeedbackSaved(null);
         setFeedbackNotice('');
+        setFeedbackError('');
+        return;
+      }
+
+      if (!hasSupabaseConfig) {
+        setFeedbackSaved(null);
+        setFeedbackNotice(supabaseConfigError);
         setFeedbackError('');
         return;
       }
@@ -218,6 +227,10 @@ export default function QuotePage() {
       alert('Este trabajo todavia no esta vinculado a una solicitud del cliente.');
       return;
     }
+    if (!hasSupabaseConfig) {
+      alert(supabaseConfigError);
+      return;
+    }
 
     const {
       data: { user },
@@ -253,6 +266,10 @@ export default function QuotePage() {
     }
     if (comment.length < 6) {
       alert('Escribe un comentario breve sobre el trabajo realizado.');
+      return;
+    }
+    if (!hasSupabaseConfig) {
+      alert(supabaseConfigError);
       return;
     }
 

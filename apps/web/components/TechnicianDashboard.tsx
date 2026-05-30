@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
-import { supabase } from '../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 import Link from 'next/link';
 import {
   AlertCircle,
@@ -101,6 +101,11 @@ export default function TechnicianDashboard() {
 
   // Session management
   useEffect(() => {
+    if (!hasSupabaseConfig) {
+      setLoadingSession(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoadingSession(false);
@@ -145,6 +150,7 @@ export default function TechnicianDashboard() {
   }, [session?.access_token, fetchDashboard]);
 
   const handleLogout = async () => {
+    if (!hasSupabaseConfig) return;
     await supabase.auth.signOut();
   };
 

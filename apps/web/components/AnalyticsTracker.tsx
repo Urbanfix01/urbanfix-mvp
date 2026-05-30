@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
-import { supabase } from '../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId } from '../lib/analytics';
 const HEARTBEAT_MS = 60000;
 
@@ -19,6 +19,8 @@ export default function AnalyticsTracker() {
   }, [accessToken]);
 
   useEffect(() => {
+    if (!hasSupabaseConfig) return;
+
     supabase.auth.getSession().then(({ data }) => {
       setAccessToken(data.session?.access_token || null);
     });

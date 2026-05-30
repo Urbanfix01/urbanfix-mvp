@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react';
 import type { Session } from '@supabase/supabase-js';
 
-import { supabase } from '../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 
 const syncServerSession = async (session: Session | null) => {
   await fetch('/api/auth/session', {
@@ -33,6 +33,11 @@ export default function AuthSessionBridge() {
         }
       }
     };
+
+    if (!hasSupabaseConfig) {
+      void publish(null);
+      return;
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (!cancelled) {

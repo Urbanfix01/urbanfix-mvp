@@ -225,6 +225,7 @@ const main = async () => {
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
   runLocalAudit('audit-security-headers.js', 'Headers de seguridad');
+  runLocalAudit('audit-supabase-client-guards.js', 'Guardas Supabase cliente');
   runLocalAudit('audit-supabase-migrations.js', 'Migraciones Supabase');
   runLocalAudit('audit-storage-migrations.js', 'Storage Supabase');
   runLocalAudit('audit-api-routes.js', 'Rutas API no admin');

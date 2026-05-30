@@ -15,7 +15,7 @@ import {
   Wrench,
 } from 'lucide-react';
 
-import { supabase } from '../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 import PublicTopNav from './PublicTopNav';
 
 type AccessRole = 'cliente' | 'tecnico';
@@ -83,6 +83,11 @@ export default function PortalAccessHub() {
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!hasSupabaseConfig) {
+      setLoadingSession(false);
+      return;
+    }
 
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled) return;

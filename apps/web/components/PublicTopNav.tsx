@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-import { supabase } from '../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 
 const navLinks = [
   { label: 'Inicio', href: '/' },
@@ -46,6 +46,8 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
 
   useEffect(() => {
     let cancelled = false;
+
+    if (!hasSupabaseConfig) return;
 
     const loadProfile = async (userId: string) => {
       const { data } = await supabase

@@ -24,7 +24,7 @@ import {
   Workflow,
   Wrench,
 } from 'lucide-react';
-import { supabase } from '../../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
 import PublicTopNav from '../../components/PublicTopNav';
 import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
@@ -1843,6 +1843,12 @@ export default function AdminPage() {
   const flowCanvasRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      setLoadingSession(false);
+      return;
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoadingSession(false);
@@ -3156,6 +3162,10 @@ export default function AdminPage() {
   const handleEmailLogin = async () => {
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     setAuthLoading(true);
     try {
       const safeEmail = email.trim().toLowerCase();
@@ -3177,6 +3187,10 @@ export default function AdminPage() {
   const handleGoogleLogin = async () => {
     setAuthError('');
     setAuthNotice('');
+    if (!hasSupabaseConfig) {
+      setAuthError(supabaseConfigError);
+      return;
+    }
     setAuthLoading(true);
     const redirectTo = `${window.location.origin}/admin`;
     const { error } = await supabase.auth.signInWithOAuth({

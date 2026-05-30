@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Heart } from 'lucide-react';
-import { supabase } from '../../lib/supabase/supabase';
+import { hasSupabaseConfig, supabase } from '../../lib/supabase/supabase';
 
 type ProfileLikeButtonProps = {
   profileId: string;
@@ -20,6 +20,8 @@ type LikeApiPayload = {
 
 const buildAuthHeaders = async () => {
   const headers: HeadersInit = {};
+  if (!hasSupabaseConfig) return headers;
+
   try {
     const { data } = await supabase.auth.getSession();
     const token = data?.session?.access_token || '';
