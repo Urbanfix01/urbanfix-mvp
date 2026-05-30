@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const ROADMAP_UPDATES_SELECT_WITH_SECTOR =
   'id,title,description,status,area,priority,sector,owner,eta_date,source_key,source_branch,source_commit,source_files,created_by,updated_by,created_at,updated_at';
@@ -290,12 +291,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 48 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const title = toOptionalText(body?.title);
   if (!title || title.length < 3) {

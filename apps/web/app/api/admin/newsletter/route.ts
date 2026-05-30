@@ -12,6 +12,7 @@ import {
   normalizeNewsletterUrl,
   resolveNewsletterAudience,
 } from '@/lib/newsletter';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const AUTH_USERS_PAGE_SIZE = 200;
@@ -767,12 +768,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 64 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const mode = body?.mode === 'test' ? 'test' : body?.mode === 'retry_failed' ? 'retry_failed' : 'send';
   const audience = String(body?.audience || 'opted_in_all') as NewsletterAudience;

@@ -10,6 +10,7 @@ import {
   buildAdminClientRequestWhatsappText,
 } from '@/lib/client-requests-share';
 import { normalizeNewsletterEmail } from '@/lib/newsletter';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const MAX_REQUESTS = 80;
@@ -254,12 +255,11 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 12 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const requestId = toText(body.requestId);
   if (!requestId) {
@@ -361,12 +361,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: Record<string, unknown> = {};
-  try {
-    body = (await request.json()) as Record<string, unknown>;
-  } catch {
-    return NextResponse.json({ error: 'Body invalido.' }, { status: 400 });
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 8 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const action = toText(body.action).toLowerCase();
   if (action !== 'send_email') {

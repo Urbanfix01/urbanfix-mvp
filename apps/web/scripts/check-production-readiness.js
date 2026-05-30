@@ -115,8 +115,14 @@ const validateAdminRoutes = () => {
   const protectedRouteGuards = new Map([
     ['access/legacy/route.ts', ['readLimitedJsonBody']],
     ['access/route.ts', ['readLimitedJsonBody']],
+    ['client-requests/route.ts', ['readLimitedJsonBody']],
     ['demo-requests/route.ts', ['readLimitedJsonBody']],
+    ['flow-diagram/route.ts', ['readLimitedJsonBody']],
     ['master-items/[id]/route.ts', ['readLimitedJsonBody']],
+    ['newsletter/route.ts', ['readLimitedJsonBody']],
+    ['roadmap/route.ts', ['readLimitedJsonBody']],
+    ['roadmap/[id]/feedback/route.ts', ['readLimitedJsonBody']],
+    ['roadmap/[id]/route.ts', ['readLimitedJsonBody']],
     ['support/messages/route.ts', ['readLimitedJsonBody']],
   ]);
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const DEFAULT_DIAGRAM_KEY = 'app_web_operativo';
 
@@ -142,12 +143,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 32 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const diagramKey = normalizeDiagramKey(body?.diagram_key);
   if (!diagramKey) {

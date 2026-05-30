@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const ROADMAP_SENTIMENT = new Set(['positive', 'neutral', 'negative']);
 
@@ -99,12 +100,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   }
 
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 12 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const message = toText(body?.body);
   if (message.length < 2) {

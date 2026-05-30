@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
 const ROADMAP_UPDATE_SELECT_WITH_SECTOR =
   'id,title,description,status,area,priority,sector,owner,eta_date,created_by,updated_by,created_at,updated_at';
@@ -92,12 +93,11 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return NextResponse.json({ error: 'Missing id' }, { status: 400 });
   }
 
-  let body: any = null;
-  try {
-    body = await request.json();
-  } catch {
-    body = null;
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 48 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
   }
+  const body = bodyResult.body;
 
   const includesAuditMessage = body && Object.prototype.hasOwnProperty.call(body, 'audit_message');
   const auditMessage = includesAuditMessage ? toOptionalText(body.audit_message) : null;
