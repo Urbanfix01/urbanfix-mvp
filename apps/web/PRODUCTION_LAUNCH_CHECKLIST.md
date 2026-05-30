@@ -97,6 +97,7 @@ Run from `apps/web`:
 ```bash
 npm run env-template:audit
 npm run image-config:audit
+npm run secret-boundaries:audit
 npm run security-headers:audit
 npm run supabase-client:audit
 npm run supabase:migrations:audit

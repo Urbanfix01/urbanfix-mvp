@@ -224,6 +224,7 @@ const main = async () => {
   validateAdminRoutes();
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
+  runLocalAudit('audit-secret-boundaries.js', 'Limites de secretos');
   runLocalAudit('audit-security-headers.js', 'Headers de seguridad');
   runLocalAudit('audit-supabase-client-guards.js', 'Guardas Supabase cliente');
   runLocalAudit('audit-supabase-migrations.js', 'Migraciones Supabase');

@@ -11,6 +11,7 @@
     "api-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-api-routes.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
     "image-config:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-next-image-config.js",
+    "secret-boundaries:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-secret-boundaries.js",
     "security-headers:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-security-headers.js",
     "supabase-client:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-supabase-client-guards.js",
     "storage:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-storage-migrations.js",
