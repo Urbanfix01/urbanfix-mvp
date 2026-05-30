@@ -190,15 +190,22 @@ export default function QuotePage() {
     if (accepting) return;
     try {
       setAccepting(true);
-      const { data, error } = await supabase.rpc('approve_quote', { quote_id: quote.id });
-      if (error) throw error;
+      const response = await fetch(`/api/public/quotes/${encodeURIComponent(quote.id)}/approve`, {
+        method: 'POST',
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(String(payload?.error || 'No se pudo confirmar el presupuesto.'));
+      }
+      const data = payload?.quote;
       if (data && data.id) {
         setQuote(data);
       } else {
         await fetchQuoteData(quote.id);
       }
     } catch (err: any) {
-      console.error('Error RPC:', err);
+      console.error('Error aprobando presupuesto:', err);
       alert(err?.message || 'No se pudo confirmar el presupuesto. Intenta nuevamente.');
     } finally {
       setAccepting(false);

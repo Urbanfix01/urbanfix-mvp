@@ -45,6 +45,13 @@ const publicRoutes = new Map([
   ['localities/search/route.ts', { label: 'publica por diseno' }],
   ['public/quote-feedback/[token]/route.ts', { label: 'publica por diseno' }],
   [
+    'public/quotes/[id]/approve/route.ts',
+    {
+      label: 'publica por link con reglas de aprobacion',
+      guards: ['APPROVABLE_QUOTE_STATUSES', '.update(', 'quote.status'],
+    },
+  ],
+  [
     'public/quotes/[id]/route.ts',
     {
       label: 'publica por diseno con estado compartible',
