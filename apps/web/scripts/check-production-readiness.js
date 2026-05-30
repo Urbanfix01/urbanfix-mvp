@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { createClient } = require('@supabase/supabase-js');
 
 const appRoot = path.resolve(__dirname, '..');
@@ -10,13 +11,13 @@ const requiredEnv = [
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
   'NEXT_PUBLIC_PUBLIC_WEB_URL',
+  'NOTIFY_WEBHOOK_SECRET',
 ];
 
 const launchEnv = [
   'MP_ACCESS_TOKEN',
   'RESEND_API_KEY',
   'NEWSLETTER_FROM_EMAIL',
-  'NOTIFY_WEBHOOK_SECRET',
 ];
 
 const criticalTables = [
@@ -65,6 +66,30 @@ const report = {
 };
 
 const push = (level, message) => report[level].push(message);
+
+const getFirstFailureLine = (output) => {
+  const lines = String(output || '')
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.find((line) => line.startsWith('- ')) || lines[0] || 'sin detalle';
+};
+
+const runLocalAudit = (scriptName, label) => {
+  const result = spawnSync(
+    process.execPath,
+    ['--preserve-symlinks', '--preserve-symlinks-main', path.join(appRoot, 'scripts', scriptName)],
+    { encoding: 'utf8' }
+  );
+
+  if (result.status === 0) {
+    push('ok', `${label} sin bloqueos`);
+    return;
+  }
+
+  const detail = getFirstFailureLine(result.stderr || result.stdout);
+  push('fail', `${label}: ${detail}`);
+};
 
 const walkRouteFiles = (directory) => {
   if (!fs.existsSync(directory)) return [];
@@ -146,6 +171,11 @@ const validateUrlAlignment = () => {
   if (normalize(process.env.ALLOW_LEGACY_ACCESS_BACKFILL).toLowerCase() === 'true') {
     push('fail', 'ALLOW_LEGACY_ACCESS_BACKFILL esta activo; desactivarlo antes de abrir usuarios reales');
   }
+
+  const notifySecret = normalize(process.env.NOTIFY_WEBHOOK_SECRET);
+  if (notifySecret && notifySecret.length < 32) {
+    push('fail', 'NOTIFY_WEBHOOK_SECRET debe tener al menos 32 caracteres');
+  }
 };
 
 const checkTable = async (supabase, entry, level = 'fail') => {
@@ -192,6 +222,7 @@ const main = async () => {
   validateEnv();
   validateUrlAlignment();
   validateAdminRoutes();
+  runLocalAudit('audit-api-routes.js', 'Rutas API no admin');
   await validateSupabase();
 
   printSection('OK', report.ok);

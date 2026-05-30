@@ -1,16 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { timingSafeEqual } from 'node:crypto';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const webhookSecret = process.env.NOTIFY_WEBHOOK_SECRET;
+const MIN_WEBHOOK_SECRET_LENGTH = 32;
 
 const supabase = getServiceRoleClient();
 
+const isWeakSecret = (value: string) => {
+  const normalized = value.trim().toLowerCase();
+  if (normalized.length < MIN_WEBHOOK_SECRET_LENGTH) return true;
+  return ['replace_with_secure_token', 'replace_me', 'your_token_here', 'changeme', 'example', 'test'].includes(
+    normalized
+  );
+};
+
+const safeSecretCompare = (a: string, b: string) => {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  if (left.length !== right.length) return false;
+  return timingSafeEqual(left, right);
+};
+
 export async function POST(request: NextRequest) {
-  if (webhookSecret) {
-    const headerSecret = request.headers.get('x-hook-secret');
-    if (headerSecret !== webhookSecret) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const normalizedSecret = String(webhookSecret || '').trim();
+  if (!normalizedSecret) {
+    return NextResponse.json({ error: 'Missing NOTIFY_WEBHOOK_SECRET' }, { status: 500 });
+  }
+  if (isWeakSecret(normalizedSecret)) {
+    return NextResponse.json({ error: 'Misconfigured NOTIFY_WEBHOOK_SECRET' }, { status: 500 });
+  }
+
+  const headerSecret = String(request.headers.get('x-hook-secret') || '').trim();
+  if (!headerSecret || !safeSecretCompare(headerSecret, normalizedSecret)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   if (!supabase) {
