@@ -34,3 +34,5 @@ Launch order:
 5. Test signup, login, technician panel, client flow, quote creation, billing, and notifications.
 
 Access approval must stay server/admin controlled. Browser clients should never insert or update `profiles.access_granted` or `profiles.access_granted_at` directly.
+
+Legacy bulk access backfill is disabled by default. If it is needed for a one-time migration, temporarily set `ALLOW_LEGACY_ACCESS_BACKFILL=true`, run the admin action with manual confirmation, and remove the variable immediately after.

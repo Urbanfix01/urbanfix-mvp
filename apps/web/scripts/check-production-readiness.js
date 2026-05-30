@@ -91,6 +91,10 @@ const validateUrlAlignment = () => {
   if (webUrl && !/^https:\/\/www\.urbanfix\.com\.ar\/?$/.test(webUrl)) {
     push('warn', `NEXT_PUBLIC_PUBLIC_WEB_URL apunta a ${webUrl}`);
   }
+
+  if (normalize(process.env.ALLOW_LEGACY_ACCESS_BACKFILL).toLowerCase() === 'true') {
+    push('fail', 'ALLOW_LEGACY_ACCESS_BACKFILL esta activo; desactivarlo antes de abrir usuarios reales');
+  }
 };
 
 const checkTable = async (supabase, entry, level = 'fail') => {

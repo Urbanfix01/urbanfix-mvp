@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
 
+const LEGACY_BACKFILL_CONFIRMATION = 'HABILITAR LEGACY';
+
 type LegacyCandidateRow = {
   id: string;
   email: string | null;
@@ -32,6 +34,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
   }
 
+  if (process.env.ALLOW_LEGACY_ACCESS_BACKFILL !== 'true') {
+    return NextResponse.json(
+      { error: 'Backfill legacy deshabilitado. Activa ALLOW_LEGACY_ACCESS_BACKFILL=true solo durante la migracion.' },
+      { status: 403 }
+    );
+  }
+
   const user = await getAuthUser(request);
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -40,6 +49,20 @@ export async function POST(request: NextRequest) {
   const isAdmin = await ensureAdmin(user.id);
   if (!isAdmin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
+  let body: { confirmation?: string } | null = null;
+  try {
+    body = await request.json();
+  } catch {
+    body = null;
+  }
+
+  if (String(body?.confirmation || '').trim() !== LEGACY_BACKFILL_CONFIRMATION) {
+    return NextResponse.json(
+      { error: `Confirmacion requerida: ${LEGACY_BACKFILL_CONFIRMATION}` },
+      { status: 400 }
+    );
   }
 
   const { data, error } = await supabase

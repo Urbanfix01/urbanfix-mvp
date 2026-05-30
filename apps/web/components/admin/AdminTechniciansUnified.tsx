@@ -5,6 +5,8 @@ import { supabase } from '../../lib/supabase/supabase';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../public/PublicTechniciansMap';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 
+const LEGACY_BACKFILL_CONFIRMATION = 'HABILITAR LEGACY';
+
 type AdminTechniciansUnifiedProps = {
   accessToken?: string | null;
 };
@@ -191,6 +193,7 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
   const [isSaving, setIsSaving] = useState(false);
   const [quickActionLoading, setQuickActionLoading] = useState<QuickActionType>(null);
   const [legacyBulkLoading, setLegacyBulkLoading] = useState(false);
+  const [legacyBulkConfirmation, setLegacyBulkConfirmation] = useState('');
   const [reviewBulkLoading, setReviewBulkLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -224,6 +227,11 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     return '';
   }, [draftSnapshot, formData, selectedProfile]);
   const legacyValidProfiles = useMemo(() => allProfiles.filter(hasLegacyValidAccessCandidate), [allProfiles]);
+  const canRunLegacyBackfill =
+    Boolean(accessToken) &&
+    !legacyBulkLoading &&
+    legacyValidProfiles.length > 0 &&
+    legacyBulkConfirmation.trim() === LEGACY_BACKFILL_CONFIRMATION;
   const incompleteDuplicateCounts = useMemo(() => {
     const counts = new Map<string, number>();
     allProfiles.forEach((profile) => {
@@ -533,7 +541,7 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
   };
 
   const handleEnableLegacyProfiles = async () => {
-    if (!accessToken || legacyBulkLoading || legacyValidProfiles.length === 0) return;
+    if (!canRunLegacyBackfill) return;
 
     setLegacyBulkLoading(true);
     setMessage('');
@@ -542,7 +550,9 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
         method: 'POST',
         headers: {
           Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ confirmation: legacyBulkConfirmation.trim() }),
       });
 
       const payload = (await response.json().catch(() => null)) as (LegacyBulkResponse & { error?: string }) | null;
@@ -558,6 +568,8 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
 
       setMessage(`✅ Se habilitaron ${updatedIds.length} perfiles legacy válidos.`);
       await loadAllProfiles();
+
+      setLegacyBulkConfirmation('');
 
       if (selectedProfile && updatedIds.includes(selectedProfile.id)) {
         await loadFullProfile(selectedProfile.id);
@@ -715,15 +727,26 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
               <p className="mt-1 text-sm text-slate-600">
                 Toma solo perfiles publicados, sin acceso, con email, negocio, teléfono y ciudad completos.
               </p>
+              <p className="mt-2 text-xs font-semibold text-violet-700">
+                Requiere variable interna activa y confirmacion manual exacta.
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={handleEnableLegacyProfiles}
-              disabled={!accessToken || legacyBulkLoading || legacyValidProfiles.length === 0}
-              className="rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {legacyBulkLoading ? 'Procesando...' : `Habilitar ${legacyValidProfiles.length} perfil(es)`}
-            </button>
+            <div className="w-full max-w-sm space-y-2 sm:w-72">
+              <input
+                value={legacyBulkConfirmation}
+                onChange={(event) => setLegacyBulkConfirmation(event.target.value)}
+                placeholder={LEGACY_BACKFILL_CONFIRMATION}
+                className="w-full rounded-xl border border-violet-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-violet-500 focus:ring-2 focus:ring-violet-100"
+              />
+              <button
+                type="button"
+                onClick={handleEnableLegacyProfiles}
+                disabled={!canRunLegacyBackfill}
+                className="w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {legacyBulkLoading ? 'Procesando...' : `Habilitar ${legacyValidProfiles.length} perfil(es)`}
+              </button>
+            </div>
           </div>
 
           <div className="mt-3 grid gap-3 lg:grid-cols-[160px_minmax(0,1fr)]">
