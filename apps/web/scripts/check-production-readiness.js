@@ -225,6 +225,7 @@ const main = async () => {
   runLocalAudit('audit-auth-session-cookie.js', 'Cookie de sesion');
   runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-next-image-config.js', 'Imagenes remotas');
+  runLocalAudit('audit-post-auth-redirects.js', 'Redirects post-auth');
   runLocalAudit('audit-secret-boundaries.js', 'Limites de secretos');
   runLocalAudit('audit-security-headers.js', 'Headers de seguridad');
   runLocalAudit('audit-supabase-client-guards.js', 'Guardas Supabase cliente');

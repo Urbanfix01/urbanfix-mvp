@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { POST_AUTH_REDIRECT_KEY } from '../lib/auth/post-auth';
+import { POST_AUTH_REDIRECT_KEY, sanitizeNextPath } from '../lib/auth/post-auth';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 
 const getOAuthTokensFromHash = () => {
@@ -38,8 +38,9 @@ const stripAuthParams = () => {
 const resolvePostAuthRedirect = (cleanedPath: string, isRecovery: boolean) => {
   if (typeof window === 'undefined') return '/tecnicos';
   if (isRecovery) return '/tecnicos?recovery=1';
-  if (cleanedPath && cleanedPath !== '/') return cleanedPath;
-  const storedRedirect = window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
+  const safeCleanedPath = sanitizeNextPath(cleanedPath);
+  if (safeCleanedPath && safeCleanedPath !== '/') return safeCleanedPath;
+  const storedRedirect = sanitizeNextPath(window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY));
   if (storedRedirect) {
     window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
     return storedRedirect;

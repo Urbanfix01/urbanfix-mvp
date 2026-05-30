@@ -12,6 +12,7 @@
     "auth-session:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-auth-session-cookie.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
     "image-config:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-next-image-config.js",
+    "post-auth-redirects:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-post-auth-redirects.js",
     "secret-boundaries:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-secret-boundaries.js",
     "security-headers:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-security-headers.js",
     "supabase-client:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-supabase-client-guards.js",
