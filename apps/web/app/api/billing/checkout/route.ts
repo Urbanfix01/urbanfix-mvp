@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -27,7 +28,7 @@ const getAuthUser = async (request: NextRequest) => {
 
 const createMpPreapproval = async (payload: any) => {
   if (!mpAccessToken) {
-    throw new Error('Falta MP_ACCESS_TOKEN');
+    throw new Error('Servicio no disponible.');
   }
   const response = await fetch('https://api.mercadopago.com/preapproval', {
     method: 'POST',
@@ -67,7 +68,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const payload = await request.json();
+    if (!mpAccessToken) {
+      return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
+    }
+
+    const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 8 * 1024 });
+    if (!bodyResult.ok) {
+      return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+    }
+    const payload = bodyResult.body;
     const planId = String(payload?.planId || '');
     const couponCode = String(payload?.couponCode || '').trim().toUpperCase();
     const rawSuccessUrl = String(payload?.successUrl || '').trim();

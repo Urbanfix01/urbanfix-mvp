@@ -7,7 +7,7 @@ const mpAccessToken = process.env.MP_ACCESS_TOKEN;
 const supabase = getServiceRoleClient();
 
 const fetchMpPreapproval = async (id: string) => {
-  if (!mpAccessToken) throw new Error('Falta MP_ACCESS_TOKEN');
+  if (!mpAccessToken) throw new Error('Servicio no disponible.');
   const response = await fetch(`https://api.mercadopago.com/preapproval/${id}`, {
     headers: {
       Authorization: `Bearer ${mpAccessToken}`,
@@ -21,7 +21,7 @@ const fetchMpPreapproval = async (id: string) => {
 };
 
 const fetchMpPayment = async (id: string) => {
-  if (!mpAccessToken) throw new Error('Falta MP_ACCESS_TOKEN');
+  if (!mpAccessToken) throw new Error('Servicio no disponible.');
   const response = await fetch(`https://api.mercadopago.com/v1/payments/${id}`, {
     headers: {
       Authorization: `Bearer ${mpAccessToken}`,

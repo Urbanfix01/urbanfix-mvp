@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const supabase = getServiceRoleClient();
@@ -22,7 +23,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const payload = await request.json();
+  const bodyResult = await readLimitedJsonBody<Record<string, any>>(request, { maxBytes: 4 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+  }
+  const payload = bodyResult.body;
   const code = String(payload?.code || '').trim().toUpperCase();
   if (!code) {
     return NextResponse.json({ valid: false, reason: 'missing_code' });

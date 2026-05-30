@@ -19,6 +19,11 @@ const protectedRoutes = new Set([
   'tecnicos/[id]/likes/route.ts',
 ]);
 
+const protectedRouteGuards = new Map([
+  ['billing/checkout/route.ts', ['readLimitedJsonBody']],
+  ['billing/coupon/validate/route.ts', ['readLimitedJsonBody']],
+]);
+
 const tokenGuardedRoutes = new Map([
   [
     'notify/route.ts',
@@ -118,6 +123,10 @@ for (const filePath of walk(apiDir)) {
     report.fail.push(`${route}: no debe exponer nombres de secretos en errores de configuracion`);
   }
 
+  if (/['"`]Falta\s+[A-Z0-9_]+/.test(source)) {
+    report.fail.push(`${route}: no debe exponer nombres de variables internas`);
+  }
+
   if (/Servicio no disponible\.[\s\S]{0,120}status:\s*500/.test(source)) {
     report.fail.push(`${route}: falta de configuracion debe responder 503`);
   }
@@ -135,6 +144,10 @@ for (const filePath of walk(apiDir)) {
       report.ok.push(`${route}: sesion requerida`);
     } else {
       report.fail.push(`${route}: falta validacion de sesion`);
+    }
+    const missingGuard = (protectedRouteGuards.get(route) || []).find((guard) => !source.includes(guard));
+    if (missingGuard) {
+      report.fail.push(`${route}: falta ${missingGuard}`);
     }
     continue;
   }
