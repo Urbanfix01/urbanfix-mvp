@@ -222,6 +222,7 @@ const main = async () => {
   validateEnv();
   validateUrlAlignment();
   validateAdminRoutes();
+  runLocalAudit('audit-env-template.js', 'Plantilla de variables');
   runLocalAudit('audit-supabase-migrations.js', 'Migraciones Supabase');
   runLocalAudit('audit-api-routes.js', 'Rutas API no admin');
   await validateSupabase();
