@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "master-items:audit": "node scripts/audit-master-items.js",
-    "master-items:normalize": "node scripts/normalize-master-items.js"
+    "master-items:normalize": "node scripts/normalize-master-items.js",
+    "production:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/check-production-readiness.js"
   },
   "engines": {
     "node": "20.x"
