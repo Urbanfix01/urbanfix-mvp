@@ -9,11 +9,12 @@ Run these checks before pushing launch-related changes:
 ```bash
 npm run env-template:audit
 npm run supabase:migrations:audit
+npm run storage:audit
 npm run api-routes:audit
 npm run production:audit
 ```
 
-`production:audit` also checks admin route protection, public API route classification, env template coverage, Supabase migration coverage, and required production variables.
+`production:audit` also checks admin route protection, public API route classification, env template coverage, Supabase migration coverage, Storage bucket policies, and required production variables.
 
 ## Production variables
 
@@ -51,3 +52,10 @@ apps/web/lib/supabase/migrations
 ```
 
 Do not bulk-apply legacy SQL. Use `npm run supabase:migrations:audit` and apply only canonical migrations.
+
+Required Storage buckets:
+
+- `urbanfix-assets`
+- `beta-support`
+
+Run `npm run storage:audit` before launch to confirm bucket and policy migrations are present.

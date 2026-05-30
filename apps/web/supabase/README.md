@@ -38,3 +38,8 @@ Access approval must stay server/admin controlled. Browser clients should never 
 Legacy bulk access backfill is disabled by default. If it is needed for a one-time migration, temporarily set `ALLOW_LEGACY_ACCESS_BACKFILL=true`, run the admin action with manual confirmation, and remove the variable immediately after.
 
 Legacy public quote RPCs are intentionally locked down by canonical migrations. Public budget links are served by the web API, which can hide drafts and control approval rules server-side.
+
+Required Storage buckets:
+
+- `urbanfix-assets`: public bucket for technician profile media, certificates, and quote attachments. Authenticated users can write only inside their own top-level folder.
+- `beta-support`: public bucket for support-chat images. Users can write inside their own folder; beta admins can manage support images.
