@@ -10,6 +10,7 @@
     "admin-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-admin-routes.js",
     "api-routes:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-api-routes.js",
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
+    "security-headers:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-security-headers.js",
     "storage:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-storage-migrations.js",
     "master-items:audit": "node scripts/audit-master-items.js",
     "master-items:normalize": "node scripts/normalize-master-items.js",

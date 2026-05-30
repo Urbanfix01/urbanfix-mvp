@@ -8,6 +8,7 @@ Run these checks before pushing launch-related changes:
 
 ```bash
 npm run env-template:audit
+npm run security-headers:audit
 npm run supabase:migrations:audit
 npm run storage:audit
 npm run api-routes:audit
