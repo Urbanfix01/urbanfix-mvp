@@ -98,6 +98,22 @@ for (const filePath of walk(apiDir)) {
   const source = fs.readFileSync(filePath, 'utf8');
   const tokenGuard = tokenGuardedRoutes.get(route);
 
+  if (source.includes('Missing server config')) {
+    report.fail.push(`${route}: no debe exponer Missing server config`);
+  }
+
+  if (/Servicio no disponible\.[\s\S]{0,120}status:\s*500/.test(source)) {
+    report.fail.push(`${route}: falta de configuracion debe responder 503`);
+  }
+
+  if (
+    source.includes('createServiceRoleClient()') &&
+    !source.includes('getServiceRoleClient()') &&
+    !source.includes('supabaseServerConfigError')
+  ) {
+    report.fail.push(`${route}: createServiceRoleClient debe mapear errores de configuracion`);
+  }
+
   if (protectedRoutes.has(route)) {
     if (source.includes('getAuthUser') || source.includes('auth.getUser')) {
       report.ok.push(`${route}: sesion requerida`);

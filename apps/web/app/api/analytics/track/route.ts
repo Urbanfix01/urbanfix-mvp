@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
   }
 
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const bodyResult = await readLimitedJsonBody(request, { maxBytes: 8 * 1024 });

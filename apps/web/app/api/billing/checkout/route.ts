@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
@@ -59,7 +59,7 @@ const createMpPreapproval = async (payload: any) => {
 export async function POST(request: NextRequest) {
   try {
     if (!supabase) {
-      return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+      return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
     }
 
     const user = await getAuthUser(request);

@@ -36,7 +36,7 @@ export async function POST(
   }
 
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const { data: quote, error: quoteError } = await supabase

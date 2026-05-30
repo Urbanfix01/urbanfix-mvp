@@ -127,7 +127,7 @@ const buildRequestRecord = (
 };
 
 const loadClientRequests = async () => {
-  if (!supabase) throw new Error('Missing server config');
+  if (!supabase) throw new Error('Servicio no disponible.');
 
   const { data: requestRows, error: requestError } = await supabase
     .from('client_requests')
@@ -206,7 +206,7 @@ const parseDestinationEmails = (value: unknown) => {
 
 export async function GET(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);
@@ -241,7 +241,7 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);
@@ -312,7 +312,7 @@ export async function PATCH(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);
@@ -348,7 +348,7 @@ export async function DELETE(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);

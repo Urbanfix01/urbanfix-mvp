@@ -73,7 +73,7 @@ const normalizeEtaDate = (value: unknown) => {
 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);

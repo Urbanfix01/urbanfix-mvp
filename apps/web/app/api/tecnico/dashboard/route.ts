@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { createAnonClient, createServiceRoleClient } from '@/lib/supabase/server';
+import { supabaseConfigError, supabaseServerConfigError } from '@/lib/supabase/config';
 
 const getAuthenticatedUser = async (authHeader: string) => {
   const token = authHeader.replace(/^Bearer\s+/i, '');
@@ -166,9 +167,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(payload, { status: 200 });
   } catch (error: any) {
     console.error('[GET /api/tecnico/dashboard]', error);
+    const message = String(error?.message || '');
+    if (message === supabaseConfigError || message === supabaseServerConfigError) {
+      return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
+    }
+    if (message.includes('token')) {
+      return NextResponse.json({ error: 'Sesion requerida.' }, { status: 401 });
+    }
+
     return NextResponse.json(
-      { error: error?.message || 'Internal server error' },
-      { status: error?.message?.includes('token') ? 401 : 500 }
+      { error: message || 'No se pudo cargar el dashboard.' },
+      { status: 500 }
     );
   }
 }

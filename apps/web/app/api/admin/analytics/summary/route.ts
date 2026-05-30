@@ -18,7 +18,7 @@ const getProfileLabel = (profile: any, fallback?: string) =>
 
 export async function GET(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);

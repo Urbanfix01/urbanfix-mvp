@@ -31,7 +31,7 @@ const isLegacyValidProfile = (profile: LegacyCandidateRow) =>
 
 export async function POST(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   if (process.env.ALLOW_LEGACY_ACCESS_BACKFILL !== 'true') {

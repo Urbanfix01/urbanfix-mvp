@@ -3,7 +3,7 @@ import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/a
 
 export async function POST(request: NextRequest) {
   if (!supabase) {
-    return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
+    return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
   }
 
   const user = await getAuthUser(request);
