@@ -19,6 +19,12 @@ npm run production:audit
 
 `production:audit` also checks admin route protection, public API route classification, env template coverage, remote image config, Supabase client guards, Supabase migration coverage, Storage bucket policies, and required production variables.
 
+After Vercel finishes deploying production, run:
+
+```bash
+npm run production:smoke
+```
+
 ## Production variables
 
 Use `.env.example` as the source of truth for Vercel environment variable names. Do not commit real values.

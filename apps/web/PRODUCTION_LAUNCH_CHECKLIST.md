@@ -115,6 +115,10 @@ Expected before real launch:
 
 After Vercel deploy finishes:
 
+```bash
+npm run production:smoke
+```
+
 - Open `https://www.urbanfix.com.ar`.
 - Open `/tecnicos` and sign in with email/password.
 - Test Google login for technician.
