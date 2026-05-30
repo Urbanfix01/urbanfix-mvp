@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const mpAccessToken = process.env.MP_ACCESS_TOKEN;
 
-const supabase =
-  supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+const supabase = getServiceRoleClient();
 
 const fetchMpPreapproval = async (id: string) => {
   if (!mpAccessToken) throw new Error('Falta MP_ACCESS_TOKEN');

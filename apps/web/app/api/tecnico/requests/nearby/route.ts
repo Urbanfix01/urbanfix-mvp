@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
@@ -17,10 +17,7 @@ import {
   isCoordinateWithinSupportedCountries,
 } from '../../../../../lib/location-catalog';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-const supabase = supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+const supabase = getServiceRoleClient();
 
 const PROFILE_SELECT_CANDIDATES = [
   'id, access_granted, country, city, company_address, address, service_lat, service_lng, service_radius_km, working_hours, full_name, business_name',

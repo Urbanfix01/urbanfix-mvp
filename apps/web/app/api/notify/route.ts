@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/lib/supabase/server';
 
-const supabaseUrl = process.env.SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const webhookSecret = process.env.NOTIFY_WEBHOOK_SECRET;
 
-const supabase =
-  supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null;
+const supabase = getServiceRoleClient();
 
 export async function POST(request: NextRequest) {
   if (webhookSecret) {

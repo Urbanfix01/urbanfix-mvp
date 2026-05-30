@@ -1,9 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
+import { getServiceRoleClient } from '../../../lib/supabase/server';
 import {
   buildAdminClientRequestTicketHref,
   buildAdminClientRequestZoneHref,
@@ -61,15 +61,7 @@ const formatStatusLabel = (value: string | null | undefined) => {
 };
 
 const getSupabase = () => {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceRoleKey) return null;
-  return createClient(url, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return getServiceRoleClient();
 };
 
 const buildRequestRecord = (row: RequestRow): AdminClientRequestRecord => ({

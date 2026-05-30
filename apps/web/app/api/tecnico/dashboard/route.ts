@@ -1,23 +1,11 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const getSupabase = () => {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !serviceKey) {
-    throw new Error('Missing Supabase credentials');
-  }
-  return createClient(url, serviceKey);
-};
+import { createAnonClient, createServiceRoleClient } from '@/lib/supabase/server';
 
 const getAuthenticatedUser = async (authHeader: string) => {
   const token = authHeader.replace(/^Bearer\s+/i, '');
   if (!token) throw new Error('No authentication token');
 
-  const supabase = createClient(
-    String(process.env.NEXT_PUBLIC_SUPABASE_URL || ''),
-    String(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''),
-  );
+  const supabase = createAnonClient();
 
   const { data, error } = await supabase.auth.getUser(token);
   if (error || !data.user) throw new Error('Invalid token');
@@ -30,7 +18,7 @@ export async function GET(request: NextRequest) {
     const authHeader = request.headers.get('authorization') || '';
     const user = await getAuthenticatedUser(authHeader);
 
-    const supabase = getSupabase();
+    const supabase = createServiceRoleClient();
 
     // Fetch technician profile
     const { data: profileData, error: profileError } = await supabase

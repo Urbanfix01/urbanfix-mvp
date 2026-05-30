@@ -1,8 +1,8 @@
 import type { MetadataRoute } from "next";
-import { createClient } from "@supabase/supabase-js";
 import { gremioSlugs } from "../lib/seo/gremios-data";
 import { ciudadSlugs, guiaSlugs } from "../lib/seo/urbanfix-data";
 import { buildTechnicianPath } from "../lib/seo/technician-profile";
+import { createAnonClient } from "../lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -31,13 +31,12 @@ const hasWorkZoneConfigured = (profile: ProfileSitemapRow) =>
   );
 
 const getTechnicianEntries = async (baseUrl: string): Promise<MetadataRoute.Sitemap> => {
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!supabaseUrl || !key) return [];
-
-  const supabase = createClient(supabaseUrl, key, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
+  let supabase: ReturnType<typeof createAnonClient>;
+  try {
+    supabase = createAnonClient();
+  } catch {
+    return [];
+  }
 
   const { data, error } = await supabase
     .from("profiles")

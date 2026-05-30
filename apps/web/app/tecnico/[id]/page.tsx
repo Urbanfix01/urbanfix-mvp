@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { createClient } from '@supabase/supabase-js';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../components/PublicTopNav';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
+import { getServiceRoleClient } from '../../../lib/supabase/server';
 import { buildTechnicianPath, extractProfileId, isUuid } from '../../../lib/seo/technician-profile';
 import {
   PUBLIC_PROFILE_SELECT_FALLBACK,
@@ -196,15 +196,7 @@ const getPublicProfileById = async (profileId: string) => {
 };
 
 const getSupabase = () => {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
-  return createClient(url, anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  return getServiceRoleClient();
 };
 
 export const dynamic = 'force-dynamic';

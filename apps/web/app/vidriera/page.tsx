@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
-import { createClient } from '@supabase/supabase-js';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../components/public/PublicTechniciansMap';
 import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../components/PublicTopNav';
+import { createAnonClient } from '../../lib/supabase/server';
 import {
   getArgentinaZoneSearchOptions,
   matchesArgentinaZoneQuery,
@@ -128,15 +128,11 @@ const buildWhatsappLink = (phone: string | null | undefined) => {
 };
 
 const getPublicSupabaseClient = () => {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !anonKey) return null;
-  return createClient(url, anonKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  });
+  try {
+    return createAnonClient();
+  } catch {
+    return null;
+  }
 };
 
 const isProfilePublished = (value: boolean | null | undefined) => value !== false;
