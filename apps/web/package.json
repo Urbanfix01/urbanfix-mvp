@@ -9,6 +9,7 @@
     "lint": "eslint",
     "master-items:audit": "node scripts/audit-master-items.js",
     "master-items:normalize": "node scripts/normalize-master-items.js",
+    "supabase:migrations:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-supabase-migrations.js",
     "production:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/check-production-readiness.js"
   },
   "engines": {
