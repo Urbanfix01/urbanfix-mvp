@@ -24,6 +24,13 @@ const securityHeaders = [
   },
 ];
 
+const apiNoStoreHeaders = [
+  {
+    key: 'Cache-Control',
+    value: 'no-store, max-age=0',
+  },
+];
+
 const nextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
 
@@ -42,6 +49,10 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: securityHeaders,
+      },
+      {
+        source: '/api/:path*',
+        headers: apiNoStoreHeaders,
       },
     ];
   },

@@ -14,6 +14,9 @@ const requiredMarkers = [
   'Permissions-Policy',
   'Strict-Transport-Security',
   'includeSubDomains',
+  'Cache-Control',
+  'no-store, max-age=0',
+  '/api/:path*',
   'async headers()',
 ];
 

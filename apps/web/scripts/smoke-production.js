@@ -89,6 +89,18 @@ const assertSecurityHeaders = async () => {
   }
 };
 
+const assertApiNoStore = async () => {
+  const response = await fetch(buildUrl('/api/geocode/search?query=ab'), {
+    cache: 'no-store',
+    redirect: 'manual',
+    headers: {
+      'user-agent': 'urbanfix-production-smoke/1.0',
+    },
+  });
+
+  assertHeader(response.headers, 'cache-control', 'no-store');
+};
+
 const assertNotifyRejectsAnonymous = async () => {
   if (skipNotify) {
     warn('Notify endpoint omitido para target local/no estricto.');
@@ -115,6 +127,7 @@ const main = async () => {
   console.log(`Production smoke target: ${baseUrl.toString().replace(/\/$/, '')}`);
 
   await assertSecurityHeaders();
+  await assertApiNoStore();
   await assertPage('/tecnicos', 'Tecnicos');
   await assertPage('/cliente', 'Cliente');
   await assertPage('/admin', 'Admin');
@@ -135,6 +148,7 @@ const main = async () => {
   console.log('\nOK');
   console.log('- Paginas principales responden.');
   console.log('- Headers de seguridad presentes.');
+  console.log('- APIs responden sin cache.');
   console.log('- No se detectaron placeholders visibles.');
   if (!skipNotify) console.log('- Notify rechaza llamadas sin secreto.');
 };
