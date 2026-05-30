@@ -43,6 +43,61 @@ const productionCriticalMigrations = [
   '20260323110000_client_requests_contract_alignment.sql',
 ];
 
+const supersededCriticalMigrations = new Map([
+  [
+    '20240502_approve_quote_rpc.sql',
+    [
+      '20260529143000_revoke_public_approve_quote_rpc.sql',
+      '20260529150000_quote_rls_and_legacy_rpc_lockdown.sql',
+    ],
+  ],
+  [
+    '20260128_public_quote_bundle_allow_drafts.sql',
+    ['20260529150000_quote_rls_and_legacy_rpc_lockdown.sql'],
+  ],
+  [
+    '20260128_secure_user_data.sql',
+    [
+      '20260529120000_production_rls_hardening.sql',
+      '20260529150000_quote_rls_and_legacy_rpc_lockdown.sql',
+    ],
+  ],
+  [
+    '20260201_access_codes.sql',
+    [
+      '20260529145500_profiles_access_columns_baseline.sql',
+      '20260529150000_quote_rls_and_legacy_rpc_lockdown.sql',
+    ],
+  ],
+  [
+    '20260202_access_gate.sql',
+    [
+      '20260529145500_profiles_access_columns_baseline.sql',
+      '20260529124500_profiles_access_grant_column_lock.sql',
+      '20260529150000_quote_rls_and_legacy_rpc_lockdown.sql',
+    ],
+  ],
+  [
+    '20260215_quotes_policies.sql',
+    ['20260529150000_quote_rls_and_legacy_rpc_lockdown.sql'],
+  ],
+  [
+    '20260215_quote_items_policies.sql',
+    ['20260529150000_quote_rls_and_legacy_rpc_lockdown.sql'],
+  ],
+  [
+    '20260215_quote_revision_requests.sql',
+    ['20260529150000_quote_rls_and_legacy_rpc_lockdown.sql'],
+  ],
+  [
+    '20260216_approve_quote_rpc_fix.sql',
+    [
+      '20260529143000_revoke_public_approve_quote_rpc.sql',
+      '20260529150000_quote_rls_and_legacy_rpc_lockdown.sql',
+    ],
+  ],
+]);
+
 const optionalOperationalMigrations = [
   '20260228_admin_roadmap_feedback.sql',
   '20260306_analytics_funnel_events.sql',
@@ -88,8 +143,16 @@ const criticalSet = new Set(productionCriticalMigrations);
 const optionalOperationalSet = new Set(optionalOperationalMigrations);
 const referenceSet = new Set(legacyReferenceMigrations);
 
+const supersededCritical = Array.from(supersededCriticalMigrations.entries()).filter(
+  ([file, replacements]) =>
+    legacySet.has(file) &&
+    !canonicalSet.has(file) &&
+    replacements.every((replacement) => canonicalSet.has(replacement)),
+);
+const supersededCriticalSet = new Set(supersededCritical.map(([file]) => file));
+
 const missingCritical = productionCriticalMigrations.filter(
-  (file) => legacySet.has(file) && !canonicalSet.has(file),
+  (file) => legacySet.has(file) && !canonicalSet.has(file) && !supersededCriticalSet.has(file),
 );
 
 const missingOptionalOperational = optionalOperationalMigrations.filter(
@@ -116,6 +179,10 @@ printList('Already present in canonical and legacy', duplicated);
 printList('Optional operational migrations missing from canonical', missingOptionalOperational);
 printList('Reference-only legacy migrations. Do not bulk-apply to production.', referenceOnly);
 printList('Unclassified legacy migrations. Review before launch.', unclassifiedLegacy);
+printList(
+  'Superseded critical legacy migrations covered by canonical hardening',
+  supersededCritical.map(([file, replacements]) => `${file} -> ${replacements.join(', ')}`),
+);
 printList('Production-critical migrations missing from canonical', missingCritical);
 
 if (missingCritical.length > 0 || unclassifiedLegacy.length > 0) {

@@ -36,3 +36,5 @@ Launch order:
 Access approval must stay server/admin controlled. Browser clients should never insert or update `profiles.access_granted` or `profiles.access_granted_at` directly.
 
 Legacy bulk access backfill is disabled by default. If it is needed for a one-time migration, temporarily set `ALLOW_LEGACY_ACCESS_BACKFILL=true`, run the admin action with manual confirmation, and remove the variable immediately after.
+
+Legacy public quote RPCs are intentionally locked down by canonical migrations. Public budget links are served by the web API, which can hide drafts and control approval rules server-side.
