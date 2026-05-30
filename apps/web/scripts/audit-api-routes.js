@@ -41,7 +41,7 @@ const publicRoutes = new Map([
     'analytics/track/route.ts',
     {
       label: 'publica por diseno con body limitado',
-      guards: ['readLimitedJsonBody'],
+      guards: ['readLimitedJsonBody', 'enforceRateLimit'],
     },
   ],
   ['auth/session/route.ts', { label: 'publica por diseno' }],
@@ -50,7 +50,7 @@ const publicRoutes = new Map([
     'demo-requests/route.ts',
     {
       label: 'publica por diseno con body limitado',
-      guards: ['readLimitedJsonBody'],
+      guards: ['readLimitedJsonBody', 'enforceRateLimit'],
     },
   ],
   ['geocode/search/route.ts', { label: 'publica por diseno' }],
@@ -59,14 +59,14 @@ const publicRoutes = new Map([
     'public/quote-feedback/[token]/route.ts',
     {
       label: 'publica por link con body limitado',
-      guards: ['readLimitedJsonBody', 'feedbackAllowed'],
+      guards: ['readLimitedJsonBody', 'feedbackAllowed', 'enforceRateLimit'],
     },
   ],
   [
     'public/quotes/[id]/approve/route.ts',
     {
       label: 'publica por link con reglas de aprobacion',
-      guards: ['APPROVABLE_QUOTE_STATUSES', '.update(', 'quote.status'],
+      guards: ['APPROVABLE_QUOTE_STATUSES', '.update(', 'quote.status', 'enforceRateLimit'],
     },
   ],
   [

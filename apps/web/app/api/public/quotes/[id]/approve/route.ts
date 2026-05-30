@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const supabase = getServiceRoleClient();
@@ -18,6 +19,15 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const rateLimit = enforceRateLimit(_request, {
+    keyPrefix: 'public-quote-approve',
+    max: 20,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json({ error: rateLimit.error }, { status: rateLimit.status, headers: rateLimit.headers });
+  }
+
   const resolvedParams = await params;
   const quoteId = String(resolvedParams?.id || '').trim();
 

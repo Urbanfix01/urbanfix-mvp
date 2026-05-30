@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
@@ -165,6 +166,15 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  const rateLimit = enforceRateLimit(request, {
+    keyPrefix: 'quote-feedback',
+    max: 12,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json({ error: rateLimit.error }, { status: rateLimit.status, headers: rateLimit.headers });
+  }
+
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
   }

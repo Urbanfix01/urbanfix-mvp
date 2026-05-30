@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
@@ -49,6 +50,15 @@ const getAuthUser = async (request: NextRequest) => {
 };
 
 export async function POST(request: NextRequest) {
+  const rateLimit = enforceRateLimit(request, {
+    keyPrefix: 'analytics-track',
+    max: 120,
+    windowMs: 60 * 1000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json({ error: rateLimit.error }, { status: rateLimit.status, headers: rateLimit.headers });
+  }
+
   if (!supabase) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
   }
