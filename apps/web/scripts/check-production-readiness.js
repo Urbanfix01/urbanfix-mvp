@@ -1,4 +1,8 @@
+const fs = require('fs');
+const path = require('path');
 const { createClient } = require('@supabase/supabase-js');
+
+const appRoot = path.resolve(__dirname, '..');
 
 const requiredEnv = [
   'NEXT_PUBLIC_SUPABASE_URL',
@@ -61,6 +65,53 @@ const report = {
 };
 
 const push = (level, message) => report[level].push(message);
+
+const walkRouteFiles = (directory) => {
+  if (!fs.existsSync(directory)) return [];
+  const entries = fs.readdirSync(directory, { withFileTypes: true });
+  return entries.flatMap((entry) => {
+    const fullPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return walkRouteFiles(fullPath);
+    return entry.isFile() && entry.name === 'route.ts' ? [fullPath] : [];
+  });
+};
+
+const validateAdminRoutes = () => {
+  const adminApiDir = path.join(appRoot, 'app', 'api', 'admin');
+  const tokenOnlyRoutes = new Map([
+    [
+      path.join('roadmap', 'auto-sync', 'route.ts').split(path.sep).join('/'),
+      {
+        header: 'x-roadmap-autosync-token',
+        guards: ['timingSafeEqual', 'ROADMAP_AUTOSYNC_TOKEN'],
+      },
+    ],
+  ]);
+
+  const files = walkRouteFiles(adminApiDir);
+  files.forEach((filePath) => {
+    const relativeRoute = path.relative(adminApiDir, filePath).split(path.sep).join('/');
+    const source = fs.readFileSync(filePath, 'utf8');
+    const tokenRoute = tokenOnlyRoutes.get(relativeRoute);
+
+    if (tokenRoute) {
+      const hasTokenGuard =
+        source.includes(tokenRoute.header) && tokenRoute.guards.every((guard) => source.includes(guard));
+      if (!hasTokenGuard) {
+        push('fail', `${relativeRoute}: token interno incompleto`);
+      } else {
+        push('ok', `${relativeRoute}: token interno`);
+      }
+      return;
+    }
+
+    if (!source.includes('getAuthUser(') || !source.includes('ensureAdmin(')) {
+      push('fail', `${relativeRoute}: falta validacion de admin`);
+    } else {
+      push('ok', `${relativeRoute}: admin validado`);
+    }
+  });
+};
 
 const validateEnv = () => {
   requiredEnv.forEach((name) => {
@@ -140,6 +191,7 @@ const printSection = (title, items) => {
 const main = async () => {
   validateEnv();
   validateUrlAlignment();
+  validateAdminRoutes();
   await validateSupabase();
 
   printSection('OK', report.ok);
