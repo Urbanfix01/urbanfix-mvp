@@ -24,7 +24,7 @@ const tokenGuardedRoutes = new Map([
     'notify/route.ts',
     {
       label: 'token interno',
-      guards: ['NOTIFY_WEBHOOK_SECRET', 'x-hook-secret', 'timingSafeEqual'],
+      guards: ['NOTIFY_WEBHOOK_SECRET', 'x-hook-secret', 'timingSafeEqual', 'readLimitedJsonBody'],
     },
   ],
   [
@@ -37,13 +37,31 @@ const tokenGuardedRoutes = new Map([
 ]);
 
 const publicRoutes = new Map([
-  ['analytics/track/route.ts', { label: 'publica por diseno' }],
+  [
+    'analytics/track/route.ts',
+    {
+      label: 'publica por diseno con body limitado',
+      guards: ['readLimitedJsonBody'],
+    },
+  ],
   ['auth/session/route.ts', { label: 'publica por diseno' }],
   ['billing/plans/route.ts', { label: 'publica por diseno' }],
-  ['demo-requests/route.ts', { label: 'publica por diseno' }],
+  [
+    'demo-requests/route.ts',
+    {
+      label: 'publica por diseno con body limitado',
+      guards: ['readLimitedJsonBody'],
+    },
+  ],
   ['geocode/search/route.ts', { label: 'publica por diseno' }],
   ['localities/search/route.ts', { label: 'publica por diseno' }],
-  ['public/quote-feedback/[token]/route.ts', { label: 'publica por diseno' }],
+  [
+    'public/quote-feedback/[token]/route.ts',
+    {
+      label: 'publica por link con body limitado',
+      guards: ['readLimitedJsonBody', 'feedbackAllowed'],
+    },
+  ],
   [
     'public/quotes/[id]/approve/route.ts',
     {

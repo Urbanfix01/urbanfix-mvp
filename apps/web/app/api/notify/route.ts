@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
+import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const webhookSecret = process.env.NOTIFY_WEBHOOK_SECRET;
@@ -40,8 +41,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Missing server config' }, { status: 500 });
   }
 
-  const payload = await request.json();
-  const record = payload?.record || payload?.new || payload;
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 16 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+  }
+  const payload = bodyResult.body as Record<string, any>;
+  const record = (payload?.record || payload?.new || payload) as Record<string, any>;
   const userId = record?.user_id;
   const title = record?.title;
   const body = record?.body;
