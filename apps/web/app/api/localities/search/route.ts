@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { getCountryCode, getCountryConfig } from '../../../../lib/location-catalog';
 
 type GeoRefLocalityRow = {
@@ -433,6 +434,15 @@ const fetchGlobalLocalities = async (country: string, province: string, query: s
 };
 
 export async function GET(request: NextRequest) {
+  const rateLimit = enforceRateLimit(request, {
+    keyPrefix: 'localities-search',
+    max: 120,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json({ error: rateLimit.error, results: [] }, { status: rateLimit.status, headers: rateLimit.headers });
+  }
+
   const country = String(request.nextUrl.searchParams.get('country') || '').trim();
   const province = String(request.nextUrl.searchParams.get('province') || '').trim();
   const query = String(request.nextUrl.searchParams.get('query') || '').trim();

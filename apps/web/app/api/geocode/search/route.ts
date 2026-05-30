@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { DEFAULT_COUNTRY_NAME, getCountryCode, getCountryConfig, isCoordinateWithinCountry } from '../../../../lib/location-catalog';
 
 const GEOCODE_CACHE_TTL_MS = 45_000;
@@ -289,6 +290,15 @@ const fetchNominatimRows = async (query: string, limit: number, countryCode: str
 };
 
 export async function GET(request: NextRequest) {
+  const rateLimit = enforceRateLimit(request, {
+    keyPrefix: 'geocode-search',
+    max: 90,
+    windowMs: 10 * 60 * 1000,
+  });
+  if (!rateLimit.ok) {
+    return NextResponse.json({ error: rateLimit.error, results: [] }, { status: rateLimit.status, headers: rateLimit.headers });
+  }
+
   const query = String(request.nextUrl.searchParams.get('query') || '').trim();
   const cityHint = String(request.nextUrl.searchParams.get('city') || '').trim();
   const provinceHint = String(request.nextUrl.searchParams.get('province') || '').trim();
