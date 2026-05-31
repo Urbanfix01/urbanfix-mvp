@@ -4,6 +4,8 @@ import { getCountryCode, getCountryConfig } from '../../../../lib/location-catal
 
 const MAX_SEARCH_QUERY_LENGTH = 80;
 const MAX_SEARCH_FILTER_LENGTH = 80;
+const LOCALITY_LIST_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const localityListCache = new Map<string, { expiresAt: number; payload: { results: Array<{ name: string; label: string }>; error: string } }>();
 
 type GeoRefLocalityRow = {
   nombre?: string;
@@ -304,6 +306,68 @@ const fetchArgentinaLocalities = async (province: string, query: string, limit: 
   }
 };
 
+const fetchArgentinaLocalityList = async (province: string, limit: number) => {
+  const cacheKey = `ar|${normalizeText(province)}|${limit}`;
+  const cached = localityListCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.payload;
+  }
+
+  const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(
+    province
+  )}&max=${limit}&campos=nombre,departamento,municipio,provincia`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      signal: controller.signal,
+      headers: {
+        Accept: 'application/json',
+      },
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      return {
+        results: [] as Array<{ name: string; label: string }>,
+        error: 'No pudimos consultar las localidades en este momento.',
+      };
+    }
+
+    const payload = (await response.json()) as { localidades?: GeoRefLocalityRow[] };
+    const rows = Array.isArray(payload.localidades) ? payload.localidades : [];
+    const results = dedupeLocalityResults(
+      rows
+        .map((row) => {
+          const name = String(row.nombre || '').trim();
+          if (!name) return null;
+          return {
+            name,
+            label: buildLocalityLabel(row),
+          };
+        })
+        .filter(Boolean) as Array<{ name: string; label: string }>
+    ).sort((left, right) => left.name.localeCompare(right.name, 'es', { sensitivity: 'base' }));
+
+    const listPayload = { results, error: '' };
+    localityListCache.set(cacheKey, {
+      expiresAt: Date.now() + LOCALITY_LIST_CACHE_TTL_MS,
+      payload: listPayload,
+    });
+
+    return listPayload;
+  } catch {
+    clearTimeout(timeoutId);
+    return {
+      results: [] as Array<{ name: string; label: string }>,
+      error: 'La carga de localidades tardó demasiado. Intenta nuevamente.',
+    };
+  }
+};
+
 const fetchArgentinaDistricts = async (province: string, query: string, limit: number) => {
   const upstreamLimit = Math.max(limit * 2, 12);
   const controller = new AbortController();
@@ -466,19 +530,34 @@ export async function GET(request: NextRequest) {
   const country = normalizeSearchParam(request.nextUrl.searchParams.get('country'));
   const province = normalizeSearchParam(request.nextUrl.searchParams.get('province'));
   const query = normalizeSearchParam(request.nextUrl.searchParams.get('query'));
+  const mode = normalizeSearchParam(request.nextUrl.searchParams.get('mode'));
   const requestedLimit = Number(request.nextUrl.searchParams.get('limit') || 12);
-  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(18, Math.round(requestedLimit))) : 12;
+  const isListMode = mode === 'list';
+  const maxLimit = isListMode ? 5000 : 18;
+  const limit = Number.isFinite(requestedLimit) ? Math.max(1, Math.min(maxLimit, Math.round(requestedLimit))) : 12;
   const oversizedParamResponse =
     rejectOversizedSearchParam(country, MAX_SEARCH_FILTER_LENGTH, 'El pais es demasiado largo.') ||
     rejectOversizedSearchParam(province, MAX_SEARCH_FILTER_LENGTH, 'La provincia es demasiado larga.') ||
     rejectOversizedSearchParam(query, MAX_SEARCH_QUERY_LENGTH, 'La localidad es demasiado larga.');
   if (oversizedParamResponse) return oversizedParamResponse;
 
-  if (!country || !province || query.length < 2) {
+  if (!country || !province || (!isListMode && query.length < 2)) {
     return NextResponse.json({ results: [] });
   }
 
   const normalizedCountry = getCountryConfig(country).name;
+  if (isListMode) {
+    if (normalizedCountry === 'Argentina') {
+      const { results, error } = await fetchArgentinaLocalityList(province, limit);
+      return NextResponse.json({ results, error });
+    }
+
+    return NextResponse.json({
+      results: [] as Array<{ name: string; label: string }>,
+      error: 'El listado desplegable de localidades todavia no esta disponible para este pais.',
+    });
+  }
+
   if (normalizedCountry === 'Argentina') {
     const [georefResult, districtResult] = await Promise.all([
       fetchPredictiveArgentinaLocalities(province, query, limit),

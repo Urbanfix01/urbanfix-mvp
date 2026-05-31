@@ -58,7 +58,7 @@ import {
   isKnownProvinceName,
 } from '../../lib/location-catalog';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
-import LocalityAutocomplete from '../../components/LocalityAutocomplete';
+import LocalitySelect from '../../components/LocalitySelect';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import TechnicianClientHistoryMap from '../../components/TechnicianClientHistoryMap';
 import { parseTechnicianLocation } from '../../lib/technician-location';
@@ -6240,17 +6240,13 @@ export default function TechniciansPage() {
 
                   <div>
                     <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Ciudad / localidad</label>
-                    <LocalityAutocomplete
+                    <LocalitySelect
                       country={profileForm.country}
                       province={profileForm.province}
                       value={profileForm.city}
                       onChange={handleCityChange}
-                      placeholder="Ej: Ingeniero Adolfo Sourdeaux"
-                      inputClassName={authInputClass}
+                      selectClassName={authInputClass}
                       helperClassName="mt-2 text-[11px] text-[color:var(--ui-muted)]"
-                      panelClassName="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] shadow-xl"
-                      itemClassName="w-full border-b border-[color:var(--ui-border)]/60 px-4 py-3 text-left text-sm text-[color:var(--ui-ink)] transition hover:bg-[color:var(--ui-accent-soft)]/10"
-                      emptyClassName="px-4 py-3 text-sm text-[color:var(--ui-muted)]"
                     />
                   </div>
 
@@ -9834,17 +9830,13 @@ export default function TechniciansPage() {
                         </div>
                       </div>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad / localidad</label>
-                      <LocalityAutocomplete
+                      <LocalitySelect
                         country={profileForm.country}
                         province={profileForm.province}
                         value={profileForm.city}
                         onChange={handleCityChange}
-                        placeholder="Ej: Ingeniero Adolfo Sourdeaux"
-                        inputClassName="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                        selectClassName="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                         helperClassName="mt-2 text-xs text-slate-500"
-                        panelClassName="absolute left-0 right-0 z-20 mt-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-xl"
-                        itemClassName="w-full border-b border-slate-100 px-4 py-3 text-left text-sm text-slate-700 transition hover:bg-slate-50"
-                        emptyClassName="px-4 py-3 text-sm text-slate-500"
                       />
                       <div className="mt-3">
                         <TechnicianLocationPicker
