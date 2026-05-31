@@ -3343,10 +3343,27 @@ export default function TechniciansPage() {
   };
 
   const handleProvinceChange = (province: string) => {
+    if (profileForm.province !== province) {
+      setTechnicianLocationResult(null);
+    }
     setProfileForm((prev) => ({
       ...prev,
       province,
       city: prev.province === province ? prev.city : '',
+      address: prev.province === province ? prev.address : '',
+      locationPickerResult: prev.province === province ? prev.locationPickerResult : null,
+    }));
+  };
+
+  const handleCityChange = (city: string) => {
+    if (profileForm.city !== city) {
+      setTechnicianLocationResult(null);
+    }
+    setProfileForm((prev) => ({
+      ...prev,
+      city,
+      address: prev.city === city ? prev.address : '',
+      locationPickerResult: prev.city === city ? prev.locationPickerResult : null,
     }));
   };
 
@@ -6227,7 +6244,7 @@ export default function TechniciansPage() {
                       country={profileForm.country}
                       province={profileForm.province}
                       value={profileForm.city}
-                      onChange={(city) => setProfileForm((prev) => ({ ...prev, city }))}
+                      onChange={handleCityChange}
                       placeholder="Ej: Ingeniero Adolfo Sourdeaux"
                       inputClassName={authInputClass}
                       helperClassName="mt-2 text-[11px] text-[color:var(--ui-muted)]"
@@ -6248,8 +6265,9 @@ export default function TechniciansPage() {
                       cityHint={profileForm.city}
                       provinceHint={profileForm.province}
                       label="Ubicacion de trabajo"
-                      description="Busca la direccion con altura y confirma el punto exacto en el mapa."
+                      description="Elige la localidad arriba. Luego escribe solo calle y altura, busca la direccion y ajusta el pin."
                       required={false}
+                      autoSearch={false}
                     />
                   </div>
 
@@ -9820,7 +9838,7 @@ export default function TechniciansPage() {
                         country={profileForm.country}
                         province={profileForm.province}
                         value={profileForm.city}
-                        onChange={(city) => setProfileForm((prev) => ({ ...prev, city }))}
+                        onChange={handleCityChange}
                         placeholder="Ej: Ingeniero Adolfo Sourdeaux"
                         inputClassName="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                         helperClassName="mt-2 text-xs text-slate-500"
@@ -9839,8 +9857,9 @@ export default function TechniciansPage() {
                           cityHint={profileForm.city}
                           provinceHint={profileForm.province}
                           label="Direccion base"
-                          description="Completa primero tu ciudad o localidad, busca la dirección con altura y confirma el punto exacto en el mapa."
+                          description="Elige la localidad arriba. Luego escribe solo calle y altura, busca la direccion y ajusta el pin."
                           required={profileForm.profilePublished}
+                          autoSearch={false}
                           error={
                             profileForm.profilePublished && !hasResolvedBaseAddress
                               ? 'Confirma tu punto exacto en el mapa para publicar en la vidriera'

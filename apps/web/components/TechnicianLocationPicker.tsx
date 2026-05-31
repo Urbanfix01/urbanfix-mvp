@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { HelpCircle, MapPin, X } from 'lucide-react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { HelpCircle, MapPin, Search, X } from 'lucide-react';
 import { DEFAULT_COUNTRY_NAME, isCoordinateWithinCountry } from '../lib/location-catalog';
 
 export interface LocationPickerResult {
@@ -32,6 +32,7 @@ interface Props {
   required?: boolean;
   disabled?: boolean;
   error?: string;
+  autoSearch?: boolean;
 }
 
 type GeocodeSearchResponse = {
@@ -42,6 +43,8 @@ type GeocodeSearchResponse = {
 
 const SEARCH_CACHE_TTL_MS = 45_000;
 const SEARCH_RATE_LIMIT_COOLDOWN_MS = 7_000;
+
+const hasAddressHeight = (value: string) => /\b\d{1,6}[a-zA-Z]?\b/.test(String(value || ''));
 
 const buildSearchCacheKey = (query: string, countryHint?: string, cityHint?: string, provinceHint?: string) =>
   JSON.stringify({
@@ -126,6 +129,7 @@ export default function TechnicianLocationPicker({
   required = true,
   disabled = false,
   error,
+  autoSearch = true,
 }: Props) {
   const [input, setInput] = useState('');
   const [suggestions, setSuggestions] = useState<LocationPickerResult[]>([]);
@@ -142,6 +146,71 @@ export default function TechnicianLocationPicker({
   const searchRequestIdRef = useRef(0);
   const searchCacheRef = useRef(new Map<string, { expiresAt: number; payload: GeocodeSearchResponse }>());
   const rateLimitedUntilRef = useRef(0);
+
+  const runAddressSearch = useCallback(
+    async (rawQuery: string, options: { force?: boolean } = {}) => {
+      const trimmed = rawQuery.trim();
+      if (trimmed.length === 0 || trimmed.length < 3) {
+        setSuggestions([]);
+        setLoading(false);
+        setSearchError('');
+        return;
+      }
+
+      if (!hasAddressHeight(trimmed)) {
+        setSuggestions([]);
+        setLoading(false);
+        if (options.force) {
+          setSearchError('Agrega la altura exacta. Ejemplo: Husares 564.');
+        }
+        return;
+      }
+
+      const now = Date.now();
+      if (rateLimitedUntilRef.current > now) {
+        setSuggestions([]);
+        setLoading(false);
+        setSearchError('Hicimos muchas busquedas seguidas. Espera unos segundos y vuelve a buscar.');
+        return;
+      }
+
+      const cacheKey = buildSearchCacheKey(trimmed, countryHint, cityHint, provinceHint);
+      const cached = searchCacheRef.current.get(cacheKey);
+      if (cached && cached.expiresAt > now) {
+        setSuggestions(cached.payload.results);
+        setSearchError(cached.payload.error || '');
+        setLoading(false);
+        return;
+      }
+
+      const requestId = searchRequestIdRef.current + 1;
+      searchRequestIdRef.current = requestId;
+      setLoading(true);
+      setSearchError('');
+
+      const response = await geocodeAddress(trimmed, countryHint, cityHint, provinceHint);
+      if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
+
+      if (response.rateLimited) {
+        rateLimitedUntilRef.current = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
+      }
+
+      searchCacheRef.current.set(cacheKey, {
+        expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
+        payload: response,
+      });
+
+      setSuggestions(response.results);
+      setSearchError(
+        response.error ||
+          (options.force && response.results.length === 0
+            ? 'No encontramos esa direccion. Revisa calle, altura y localidad.'
+            : '')
+      );
+      setLoading(false);
+    },
+    [cityHint, countryHint, provinceHint]
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -161,6 +230,11 @@ export default function TechnicianLocationPicker({
   }, [query, value?.displayName]);
 
   useEffect(() => {
+    if (!autoSearch) {
+      setLoading(false);
+      return;
+    }
+
     const trimmed = input.trim();
     if (trimmed.length === 0 || trimmed.length < 3) {
       setSuggestions([]);
@@ -169,55 +243,34 @@ export default function TechnicianLocationPicker({
       return;
     }
 
-    const now = Date.now();
-    if (rateLimitedUntilRef.current > now) {
+    if (!hasAddressHeight(trimmed)) {
       setSuggestions([]);
       setLoading(false);
-      setSearchError('Demasiadas busquedas seguidas. Espera unos segundos e intenta nuevamente.');
+      setSearchError('');
       return;
     }
 
-    const cacheKey = buildSearchCacheKey(trimmed, countryHint, cityHint, provinceHint);
-    const cached = searchCacheRef.current.get(cacheKey);
-    if (cached && cached.expiresAt > now) {
-      setSuggestions(cached.payload.results);
-      setSearchError(cached.payload.error || '');
-      setLoading(false);
-      return;
-    }
-
-    const requestId = searchRequestIdRef.current + 1;
-    searchRequestIdRef.current = requestId;
     setLoading(true);
     setSearchError('');
 
     const timer = window.setTimeout(async () => {
-      const response = await geocodeAddress(trimmed, countryHint, cityHint, provinceHint);
-      if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
-
-      if (response.rateLimited) {
-        rateLimitedUntilRef.current = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
-      }
-
-      searchCacheRef.current.set(cacheKey, {
-        expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
-        payload: response,
-      });
-
-      setSuggestions(response.results);
-      setSearchError(response.error || '');
-      setLoading(false);
-    }, 900);
+      await runAddressSearch(trimmed);
+    }, 1200);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [cityHint, countryHint, input, provinceHint]);
+  }, [autoSearch, input, runAddressSearch]);
 
   const handleSearch = (query: string) => {
     setInput(query);
     onQueryChange?.(query);
+    setSearchError('');
+    if (!autoSearch) {
+      setSuggestions([]);
+    }
     if (value && query.trim() !== value.displayName.trim()) {
+      setShowMap(false);
       onChange(null);
     }
   };
@@ -432,6 +485,8 @@ export default function TechnicianLocationPicker({
     suggestion.secondaryLabel ||
     suggestion.fullDisplayName ||
     `${suggestion.lat.toFixed(4)}, ${suggestion.lng.toFixed(4)}`;
+  const addressStepReady = hasAddressHeight(input);
+  const mapStepReady = Boolean(value?.isValid && value.precision === 'exact');
 
   return (
     <div className="space-y-2">
@@ -453,14 +508,39 @@ export default function TechnicianLocationPicker({
 
       <p className="text-xs text-slate-500">{description}</p>
 
+      <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
+        {[
+          { label: 'Localidad', done: Boolean(cityHint?.trim()) },
+          { label: 'Calle + altura', done: addressStepReady },
+          { label: 'Pin exacto', done: mapStepReady },
+        ].map((step) => (
+          <span
+            key={step.label}
+            className={`rounded-full border px-2 py-1 text-center ${
+              step.done
+                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                : 'border-slate-200 bg-white text-slate-400'
+            }`}
+          >
+            {step.label}
+          </span>
+        ))}
+      </div>
+
       {/* Input y Búsqueda */}
       <div className="space-y-2">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <div className="flex-1 relative">
             <input
               type="text"
               value={input}
               onChange={(e) => handleSearch(e.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  void runAddressSearch(input, { force: true });
+                }
+              }}
               placeholder="Calle y altura, ej: Husares 564, Quilmes"
               disabled={disabled}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
@@ -483,14 +563,33 @@ export default function TechnicianLocationPicker({
           </div>
           <button
             type="button"
-            onClick={() => setShowMap(!showMap)}
+            onClick={() => void runAddressSearch(input, { force: true })}
+            disabled={disabled || loading}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            <Search className="mr-1 inline h-4 w-4" />
+            {loading ? 'Buscando' : 'Buscar'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!value?.isValid) {
+                setSearchError('Primero busca y elige una direccion; despues ajusta el pin en el mapa.');
+                return;
+              }
+              setShowMap(!showMap);
+            }}
             disabled={disabled}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
           >
             <MapPin className="h-4 w-4 inline mr-1" />
-            Mapa
+            {value?.isValid ? 'Ajustar pin' : 'Mapa'}
           </button>
         </div>
+
+        {!cityHint?.trim() && (
+          <p className="text-[11px] text-amber-700">Primero elige una ciudad o localidad para mejorar la precision.</p>
+        )}
 
         {/* Sugerencias */}
         {suggestions.length > 0 && (

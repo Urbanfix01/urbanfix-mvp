@@ -31,6 +31,7 @@ const normalizeText = (value: string) =>
     .trim();
 
 const tokenizeText = (value: string) => normalizeText(value).split(' ').filter(Boolean);
+const looksLikeStreetAddress = (value: string) => /\b\d{3,6}[a-zA-Z]?\b/.test(String(value || ''));
 
 const isSingleEditAway = (source: string, target: string) => {
   if (!source || !target) return false;
@@ -181,6 +182,14 @@ export default function LocalityAutocomplete({
       return;
     }
 
+    if (looksLikeStreetAddress(trimmed)) {
+      setSuggestions([]);
+      setLoading(false);
+      setError('Este campo es solo para ciudad o localidad. La calle y altura van abajo.');
+      setOpen(false);
+      return;
+    }
+
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
     setLoading(true);
@@ -236,6 +245,11 @@ export default function LocalityAutocomplete({
   const handleInputChange = (nextValue: string) => {
     setInput(nextValue);
     setOpen(true);
+    if (looksLikeStreetAddress(nextValue)) {
+      setSuggestions([]);
+      setError('Este campo es solo para ciudad o localidad. La calle y altura van abajo.');
+      return;
+    }
     if (!nextValue.trim()) {
       onChange('');
       setSuggestions([]);
