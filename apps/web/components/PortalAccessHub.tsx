@@ -37,7 +37,7 @@ type AccessOption = {
   spotlightClassName: string;
 };
 
-const TECH_PANEL_PATH = '/tecnico-panel';
+const TECH_PANEL_PATH = '/tecnicos';
 const buildTechnicianAccessHref = (mode: 'login' | 'register') =>
   `/tecnicos?mode=${mode}&perfil=tecnico&next=${encodeURIComponent(TECH_PANEL_PATH)}`;
 

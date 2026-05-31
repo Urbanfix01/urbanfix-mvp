@@ -1,14 +1,14 @@
 import type { Metadata } from 'next';
-import TechnicianDashboard from '../../components/TechnicianDashboard';
+import { redirect } from 'next/navigation';
 
 export const metadata: Metadata = {
-  title: 'Panel Técnico | UrbanFix',
+  title: 'Panel Tecnico | UrbanFix',
   description: 'Gestiona tus solicitudes, cotizaciones y disponibilidad en UrbanFix.',
   alternates: {
-    canonical: '/tecnico-panel',
+    canonical: '/tecnicos',
   },
 };
 
 export default function TechnicianPanelPage() {
-  return <TechnicianDashboard />;
+  redirect('/tecnicos');
 }

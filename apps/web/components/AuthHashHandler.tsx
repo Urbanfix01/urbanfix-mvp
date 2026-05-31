@@ -38,13 +38,13 @@ const stripAuthParams = () => {
 const resolvePostAuthRedirect = (cleanedPath: string, isRecovery: boolean) => {
   if (typeof window === 'undefined') return '/tecnicos';
   if (isRecovery) return '/tecnicos?recovery=1';
-  const safeCleanedPath = sanitizeNextPath(cleanedPath);
-  if (safeCleanedPath && safeCleanedPath !== '/') return safeCleanedPath;
   const storedRedirect = sanitizeNextPath(window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY));
   if (storedRedirect) {
     window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
     return storedRedirect;
   }
+  const safeCleanedPath = sanitizeNextPath(cleanedPath);
+  if (safeCleanedPath && safeCleanedPath !== '/') return safeCleanedPath;
   return '/tecnicos';
 };
 

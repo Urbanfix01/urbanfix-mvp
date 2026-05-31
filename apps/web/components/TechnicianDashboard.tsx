@@ -188,7 +188,7 @@ export default function TechnicianDashboard() {
   if (!session) {
     return (
       <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 to-slate-100">
-        <PublicTopNav activeHref="/tecnico-panel" sticky />
+        <PublicTopNav activeHref="/tecnicos" sticky />
         <div className="flex flex-1 items-center justify-center px-4">
           <div className="w-full max-w-md space-y-6 rounded-3xl border border-white/80 bg-white/90 p-8 shadow-lg">
             <div className="text-center">
@@ -198,13 +198,13 @@ export default function TechnicianDashboard() {
 
             <div className="space-y-3">
               <button
-                onClick={() => (window.location.href = '/tecnicos?mode=login&perfil=tecnico&next=%2Ftecnico-panel')}
+                onClick={() => (window.location.href = '/tecnicos?mode=login&perfil=tecnico&next=%2Ftecnicos')}
                 className="w-full rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 transition"
               >
                 Iniciar sesión
               </button>
               <button
-                onClick={() => (window.location.href = '/tecnicos?mode=register&perfil=tecnico&next=%2Ftecnico-panel')}
+                onClick={() => (window.location.href = '/tecnicos?mode=register&perfil=tecnico&next=%2Ftecnicos')}
                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 font-semibold text-slate-700 hover:bg-slate-50 transition"
               >
                 Crear cuenta
@@ -224,7 +224,7 @@ export default function TechnicianDashboard() {
 
   return (
     <div className="flex min-h-screen flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100">
-      <PublicTopNav activeHref="/tecnico-panel" sticky />
+      <PublicTopNav activeHref="/tecnicos" sticky />
 
       <div className="flex flex-1">
         {/* Sidebar */}
