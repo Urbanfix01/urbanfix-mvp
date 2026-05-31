@@ -3377,11 +3377,13 @@ export default function TechniciansPage() {
       ...prev,
       country: countryHint || prev.country,
       address:
-        result && normalizedLocationLabel && normalizedLocationLabel !== GENERIC_MAP_LOCATION_LABEL
+        result && prev.address.trim()
+          ? prev.address
+          : result && normalizedLocationLabel && normalizedLocationLabel !== GENERIC_MAP_LOCATION_LABEL
           ? normalizedLocationLabel
           : prev.address,
-      city: localityHint || prev.city,
-      province: provinceHint || prev.province,
+      city: prev.city || localityHint,
+      province: prev.province || provinceHint,
       locationPickerResult: result,
     }));
     setProfilePersistTick((prev) => prev + 1);

@@ -46,6 +46,34 @@ const SEARCH_RATE_LIMIT_COOLDOWN_MS = 7_000;
 
 const hasAddressHeight = (value: string) => /\b\d{1,6}[a-zA-Z]?\b/.test(String(value || ''));
 
+type StructuredAddressFields = {
+  locality: string;
+  street: string;
+  number: string;
+};
+
+const normalizeSpacing = (value: string) => String(value || '').trim().replace(/\s+/g, ' ');
+
+const parseStructuredAddress = (value: string): StructuredAddressFields => {
+  const compact = normalizeSpacing(value).replace(/\s+·\s+/g, ', ');
+  const parts = compact
+    .split(',')
+    .map((part) => normalizeSpacing(part))
+    .filter(Boolean);
+  const streetLine = parts[0] || '';
+  const number = streetLine.match(/\b\d{1,6}[a-zA-Z]?\b/)?.[0] || '';
+  const street = normalizeSpacing(number ? streetLine.replace(new RegExp(`\\b${number}\\b`), '') : streetLine);
+  const locality = parts[1] || '';
+
+  return { locality, street, number };
+};
+
+const composeStructuredAddress = (fields: StructuredAddressFields) => {
+  const streetLine = normalizeSpacing([fields.street, fields.number].filter(Boolean).join(' '));
+  const locality = normalizeSpacing(fields.locality);
+  return [streetLine, locality].filter(Boolean).join(', ');
+};
+
 const buildSearchCacheKey = (query: string, countryHint?: string, cityHint?: string, provinceHint?: string) =>
   JSON.stringify({
     query: query.trim().toLowerCase(),
@@ -132,6 +160,11 @@ export default function TechnicianLocationPicker({
   autoSearch = true,
 }: Props) {
   const [input, setInput] = useState('');
+  const [addressFields, setAddressFields] = useState<StructuredAddressFields>({
+    locality: '',
+    street: '',
+    number: '',
+  });
   const [suggestions, setSuggestions] = useState<LocationPickerResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [showMap, setShowMap] = useState(false);
@@ -223,10 +256,16 @@ export default function TechnicianLocationPicker({
     };
   }, []);
 
-  // Initialize input from value
+  // Initialize input from controlled query
   useEffect(() => {
-    const nextInput = value?.displayName ?? query ?? '';
+    const nextInput = query ?? value?.displayName ?? '';
     setInput((current) => (current === nextInput ? current : nextInput));
+    const parsed = parseStructuredAddress(nextInput);
+    setAddressFields((current) =>
+      current.locality === parsed.locality && current.street === parsed.street && current.number === parsed.number
+        ? current
+        : parsed
+    );
     if (!nextInput.trim()) {
       setSuggestions([]);
       setSearchError('');
@@ -279,11 +318,22 @@ export default function TechnicianLocationPicker({
     }
   };
 
+  const handleStructuredAddressChange = (field: keyof StructuredAddressFields, nextValue: string) => {
+    const nextFields = {
+      ...addressFields,
+      [field]: nextValue,
+    };
+    const nextQuery = composeStructuredAddress(nextFields);
+    setAddressFields(nextFields);
+    handleSearch(nextQuery);
+  };
+
   // Select suggestion
   const handleSelectSuggestion = (result: LocationPickerResult) => {
+    const structuredQuery = composeStructuredAddress(addressFields);
     onChange(result);
-    setInput(result.displayName);
-    onQueryChange?.(result.displayName);
+    setInput(structuredQuery || result.displayName);
+    onQueryChange?.(structuredQuery || result.displayName);
     setSuggestions([]);
     setSearchError('');
     setShowMap(true);
@@ -293,6 +343,7 @@ export default function TechnicianLocationPicker({
   const handleClear = () => {
     onChange(null);
     setInput('');
+    setAddressFields({ locality: '', street: '', number: '' });
     onQueryChange?.('');
     setSuggestions([]);
     setShowMap(false);
@@ -489,7 +540,10 @@ export default function TechnicianLocationPicker({
     suggestion.secondaryLabel ||
     suggestion.fullDisplayName ||
     `${suggestion.lat.toFixed(4)}, ${suggestion.lng.toFixed(4)}`;
-  const addressStepReady = hasAddressHeight(input);
+  const composedAddressQuery = composeStructuredAddress(addressFields);
+  const hasStreet = Boolean(addressFields.street.trim());
+  const hasNumber = Boolean(addressFields.number.trim()) && hasAddressHeight(addressFields.number);
+  const addressStepReady = hasStreet && hasNumber;
   const mapStepReady = Boolean(value?.isValid && value.precision === 'exact');
 
   return (
@@ -512,11 +566,12 @@ export default function TechnicianLocationPicker({
 
       <p className="text-xs text-slate-500">{description}</p>
 
-      <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
+      <div className="grid grid-cols-4 gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
         {[
-          { label: 'Localidad', done: Boolean(cityHint?.trim()) },
-          { label: 'Calle + altura', done: addressStepReady },
-          { label: 'Pin exacto', done: mapStepReady },
+          { label: 'Partido', done: Boolean(cityHint?.trim()) },
+          { label: 'Localidad', done: Boolean(addressFields.locality.trim()) },
+          { label: 'Altura', done: addressStepReady },
+          { label: 'Pin', done: mapStepReady },
         ].map((step) => (
           <span
             key={step.label}
@@ -533,8 +588,62 @@ export default function TechnicianLocationPicker({
 
       {/* Input y Búsqueda */}
       <div className="space-y-2">
+        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white/70 p-3">
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Localidad / barrio
+            </label>
+            <input
+              type="text"
+              value={addressFields.locality}
+              onChange={(event) => handleStructuredAddressChange('locality', event.target.value)}
+              placeholder="Ej: Ingeniero Adolfo Sourdeaux"
+              disabled={disabled}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:bg-slate-50"
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Calle
+              </label>
+              <input
+                type="text"
+                value={addressFields.street}
+                onChange={(event) => handleStructuredAddressChange('street', event.target.value)}
+                placeholder="Ej: Husares"
+                disabled={disabled}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:bg-slate-50"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Altura
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={addressFields.number}
+                onChange={(event) => handleStructuredAddressChange('number', event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    event.preventDefault();
+                    void runAddressSearch(composedAddressQuery, { force: true });
+                  }
+                }}
+                placeholder="564"
+                disabled={disabled}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:bg-slate-50"
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Buscamos como: {composedAddressQuery || 'completa localidad, calle y altura'}.
+          </p>
+        </div>
+
         <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="flex-1 relative">
+          <div className="hidden">
             <input
               type="text"
               value={input}
@@ -567,7 +676,7 @@ export default function TechnicianLocationPicker({
           </div>
           <button
             type="button"
-            onClick={() => void runAddressSearch(input, { force: true })}
+            onClick={() => void runAddressSearch(composedAddressQuery, { force: true })}
             disabled={disabled || loading}
             className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -583,7 +692,7 @@ export default function TechnicianLocationPicker({
                   setSearchError('Si la direccion no aparece, ubica el pin manualmente en el mapa.');
                   return;
                 }
-                setSearchError('Primero escribe calle y altura; despues busca o ubica el pin en el mapa.');
+                setSearchError('Primero completa calle y altura; despues busca o ubica el pin en el mapa.');
                 return;
               }
               setShowMap(!showMap);
