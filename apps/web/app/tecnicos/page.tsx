@@ -6098,112 +6098,74 @@ export default function TechniciansPage() {
               className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
             />
 
-            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-16 lg:grid-cols-[1.05fr_0.95fr]">
-              <div className="space-y-6 text-center lg:text-left">
+            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-5xl items-center gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[0.72fr_1.28fr] lg:py-14">
+              <div className="space-y-5 text-center lg:text-left">
                 <div className={authPillClass}>
                   Primer ingreso
                 </div>
-                <h1 className="text-4xl font-black text-[color:var(--ui-ink)] sm:text-5xl">Configura tu perfil</h1>
-                <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
-                  Antes de crear presupuestos necesitamos tus datos básicos. Esto se muestra en el link público y en el
-                  PDF que recibe tu cliente.
+                <h1 className="text-4xl font-black leading-tight text-[color:var(--ui-ink)] sm:text-5xl">
+                  Datos clave para operar
+                </h1>
+                <p className="text-base leading-7 text-[color:var(--ui-muted)]">
+                  Una carga breve para identificar tu negocio, recibir consultas y ubicarte con precision en el mapa.
                 </p>
 
-                <div className={authSurfaceMutedClass}>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">Por qué te lo pedimos</p>
-                  <ul className="mt-4 space-y-3 text-sm text-[color:var(--ui-muted)]">
-                    <li className="flex gap-3">
-                      <span className="mt-2 h-2 w-2 rounded-full bg-[color:var(--ui-accent-soft)]" />
-                      Tu cliente identifica rápido tu negocio y confía más en el presupuesto.
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="mt-2 h-2 w-2 rounded-full bg-[color:var(--ui-accent-soft)]" />
-                      Evitas preguntas repetidas (teléfono, dirección, horarios) y aceleras la aprobación.
-                    </li>
-                    <li className="flex gap-3">
-                      <span className="mt-2 h-2 w-2 rounded-full bg-[color:var(--ui-accent-soft)]" />
-                      Tu marca (logo + foto) hace que el documento se vea profesional y memorable.
-                    </li>
-                  </ul>
-                </div>
-
-                <div className={authSurfaceSoftClass}>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">Consejo de marca</p>
-                  <p className="mt-3 text-sm text-[color:var(--ui-muted)]">
-                    Logo recomendado: fondo transparente o claro, alto contraste y versión horizontal si es posible.
-                    Foto recomendada: rostro visible, luz natural y fondo simple.
-                  </p>
+                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                  {[
+                    { label: 'Identidad', value: 'Nombre y negocio' },
+                    { label: 'Contacto', value: 'WhatsApp visible' },
+                    { label: 'Zona', value: 'Punto exacto' },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-4 py-3 text-left shadow-sm"
+                    >
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-muted)]">
+                        {item.label}
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-[color:var(--ui-ink)]">{item.value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
               <div className={authSurfaceClass}>
-                <div className="overflow-hidden rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/78">
-                  <div className="relative h-44 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
-                    {profileForm.bannerUrl ? (
-                      <img src={profileForm.bannerUrl} alt="Banner" className="h-full w-full object-cover" />
-                    ) : null}
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.18)_0%,rgba(2,6,23,0.48)_100%)]" />
-                    <div className="absolute inset-x-4 top-4 flex flex-wrap items-center justify-between gap-2">
-                      <span className="rounded-full bg-black/35 px-3 py-2 text-[11px] font-semibold text-white/90">
-                        Portada del perfil publico
-                      </span>
-                      <label className="inline-flex cursor-pointer items-center rounded-full bg-[color:var(--ui-card)]/92 px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
-                        {uploadingBanner ? 'Subiendo...' : 'Subir banner'}
-                        <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
-                      </label>
-                    </div>
-                    {!profileForm.bannerUrl && (
-                      <div className="absolute inset-x-6 bottom-5 text-center sm:text-left">
-                        <p className="text-lg font-semibold text-white">Banner del perfil</p>
-                        <p className="mt-1 text-sm text-white/75">Portada horizontal para tu perfil publico. Recomendado: 1200x675.</p>
+                <div className="flex flex-col gap-4 rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/78 p-4 shadow-sm sm:flex-row sm:items-center">
+                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)] shadow-sm">
+                    {profileForm.avatarUrl ? (
+                      <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm font-black text-[color:var(--ui-muted)]">
+                        {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
                       </div>
                     )}
                   </div>
 
-                  <div className="space-y-3 px-5 py-4 sm:px-6">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                      <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border-4 border-[color:var(--ui-card)] bg-[color:var(--ui-bg)] shadow-sm">
-                        {profileForm.avatarUrl ? (
-                          <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-sm font-bold text-[color:var(--ui-muted)]">
-                            {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
-                          </div>
-                        )}
-                      </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-muted)]">
+                      Vista previa
+                    </p>
+                    <p className="mt-1 truncate text-base font-black text-[color:var(--ui-ink)]">
+                      {profileForm.businessName || 'Tu negocio'}
+                    </p>
+                    <p className="truncate text-sm text-[color:var(--ui-muted)]">
+                      {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` · ${profileForm.email}` : ''}
+                    </p>
+                  </div>
 
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-base font-semibold text-[color:var(--ui-ink)]">
-                          {profileForm.businessName || 'Tu negocio'}
-                        </p>
-                        <p className="truncate text-sm text-[color:var(--ui-muted)]">{profileForm.fullName || 'Tu nombre'}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2 border-t border-[color:var(--ui-border)]/70 pt-3">
-                      <label className="inline-flex shrink-0 cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                        {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
-                        <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                      </label>
-                      <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
-                        {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
-                        <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                      </label>
-                      {profileForm.companyLogoUrl ? (
-                        <div className="ml-auto hidden h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[color:var(--ui-border)] bg-white sm:flex">
-                          <img
-                            src={profileForm.companyLogoUrl}
-                            alt="Logo"
-                            onLoad={handleLogoLoaded}
-                            className="h-full w-full object-contain p-1"
-                          />
-                        </div>
-                      ) : null}
-                    </div>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
+                      {uploadingAvatar ? 'Subiendo...' : 'Foto opcional'}
+                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                    </label>
+                    <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
+                      {uploadingCompanyLogo ? 'Subiendo...' : 'Logo opcional'}
+                      <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                    </label>
                   </div>
                 </div>
 
-                <div className="mt-4 space-y-4">
+                <div className="mt-5 space-y-4">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre y apellido</label>
@@ -6225,24 +6187,14 @@ export default function TechniciansPage() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Teléfono / WhatsApp</label>
-                      <input
-                        value={profileForm.phone}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
-                        placeholder="+54 9 ..."
-                        className={authInputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Email</label>
-                      <input
-                        value={profileForm.email}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
-                        className={authInputClass}
-                      />
-                    </div>
+                  <div>
+                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">WhatsApp de contacto</label>
+                    <input
+                      value={profileForm.phone}
+                      onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                      placeholder="+54 9 ..."
+                      className={authInputClass}
+                    />
                   </div>
 
                   <div>
@@ -6305,8 +6257,8 @@ export default function TechniciansPage() {
                       countryHint={profileForm.country}
                       cityHint={profileForm.city}
                       provinceHint={profileForm.province}
-                      label="Dirección base"
-                      description="Completa primero tu ciudad o localidad, busca la dirección con altura y confirma el punto exacto en el mapa."
+                      label="Ubicacion de trabajo"
+                      description="Busca la direccion con altura y confirma el punto exacto en el mapa."
                       required={false}
                     />
                   </div>
@@ -6323,7 +6275,7 @@ export default function TechniciansPage() {
                     disabled={profileSaving || !canSaveRequiredProfile}
                     className={authPrimaryButtonClass}
                   >
-                    {profileSaving ? 'Guardando...' : 'Guardar y entrar'}
+                    {profileSaving ? 'Guardando...' : 'Guardar datos clave'}
                   </button>
 
                   {profileMessage && <p className="text-xs text-[color:var(--ui-muted)]">{profileMessage}</p>}
