@@ -189,6 +189,55 @@ const extractAddressNumber = (value: string) =>
   normalizeSearchText(value)
     .match(/\b\d{1,6}[a-z]?\b/)?.[0] || '';
 
+const expandCommonAddressAbbreviations = (value: string) =>
+  String(value || '')
+    .trim()
+    .replace(/\bing\.?\b/gi, 'Ingeniero')
+    .replace(/\bgral\.?\b/gi, 'General')
+    .replace(/\bav\.?\b/gi, 'Avenida')
+    .replace(/\bsta\.?\b/gi, 'Santa')
+    .replace(/\bsto\.?\b/gi, 'Santo')
+    .replace(/\s+/g, ' ');
+
+const parseAddressQuery = (query: string) => {
+  const compact = String(query || '').trim().replace(/\s+/g, ' ');
+  const parts = compact
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const streetAddress = expandCommonAddressAbbreviations(parts[0] || compact);
+  const inlineLocalities = parts.slice(1).map(expandCommonAddressAbbreviations).filter(Boolean);
+  const numberToken = extractAddressNumber(streetAddress);
+  const streetPart = streetAddress
+    .split(/\s+/)
+    .filter((token) => normalizeSearchText(token) !== numberToken)
+    .join(' ')
+    .trim();
+
+  return {
+    compact,
+    streetAddress,
+    streetPart,
+    numberToken,
+    inlineLocalities,
+  };
+};
+
+type GeoRefAddressRow = {
+  nomenclatura?: string;
+  altura?: { valor?: number | string };
+  calle?: { nombre?: string };
+  departamento?: { nombre?: string };
+  localidad?: { nombre?: string };
+  localidad_censal?: { nombre?: string };
+  municipio?: { nombre?: string };
+  provincia?: { nombre?: string };
+  ubicacion?: {
+    lat?: number | string;
+    lon?: number | string;
+  };
+};
+
 const buildStructuredAddressLabels = (row: NominatimRow, countryHint: string) => {
   const displayName = String(row.display_name || '').trim();
   const displayParts = displayName
@@ -232,20 +281,39 @@ const buildStructuredAddressLabels = (row: NominatimRow, countryHint: string) =>
 
 const buildQueryVariants = (query: string, cityHint = '', provinceHint = '', countryHint = DEFAULT_COUNTRY_NAME) => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
+  const parsed = parseAddressQuery(compact);
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
   const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
   const normalizedCountryHint = String(countryHint || '').trim().replace(/\s+/g, ' ');
-  const localityAliases = buildLocationAliases(normalizedCityHint).slice(0, 3);
   const variants = [compact];
-  const tokens = compact.split(' ').filter(Boolean);
-  const numberToken = tokens.find((token) => /\d/.test(token)) || '';
-  const streetTokens = tokens.filter((token) => !/\d/.test(token));
-  const streetPart = streetTokens.join(' ').trim();
+  const localityAliases = Array.from(
+    new Set([
+      ...parsed.inlineLocalities,
+      normalizedCityHint,
+      ...buildLocationAliases(normalizedCityHint).slice(0, 3),
+    ].filter(Boolean))
+  );
+  const numberToken = parsed.numberToken;
+  const streetPart = parsed.streetPart;
+  const streetAddress = parsed.streetAddress;
+
+  localityAliases.forEach((locality) => {
+    if (normalizedProvinceHint) {
+      variants.push(`${streetAddress}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
+    }
+    if (normalizedCityHint && normalizeSearchText(locality) !== normalizeSearchText(normalizedCityHint)) {
+      variants.push(`${streetAddress}, ${locality}, ${normalizedCityHint}, ${normalizedCountryHint}`);
+      if (normalizedProvinceHint) {
+        variants.push(`${streetAddress}, ${locality}, ${normalizedCityHint}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
+      }
+    }
+    variants.push(`${streetAddress}, ${locality}, ${normalizedCountryHint}`);
+  });
 
   if (numberToken && streetPart) {
-    variants.push(`${numberToken} ${streetPart}`);
+    variants.push(streetAddress);
+    variants.push(`${streetAddress}, ${normalizedCountryHint}`);
     variants.push(`${streetPart} ${numberToken}, ${normalizedCountryHint}`);
-    variants.push(`${numberToken} ${streetPart}, ${normalizedCountryHint}`);
   }
 
   if (streetPart) {
@@ -255,8 +323,8 @@ const buildQueryVariants = (query: string, cityHint = '', provinceHint = '', cou
   if (normalizedProvinceHint) {
     variants.push(`${compact}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     if (numberToken && streetPart) {
+      variants.push(`${streetAddress}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
       variants.push(`${streetPart} ${numberToken}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
-      variants.push(`${numberToken} ${streetPart}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
     if (streetPart) {
       variants.push(`${streetPart}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
@@ -269,31 +337,12 @@ const buildQueryVariants = (query: string, cityHint = '', provinceHint = '', cou
       variants.push(`${compact}, ${normalizedCityHint}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
     }
     if (numberToken && streetPart) {
-      variants.push(`${streetPart} ${numberToken}, ${normalizedCityHint}, ${normalizedCountryHint}`);
+      variants.push(`${streetAddress}, ${normalizedCityHint}, ${normalizedCountryHint}`);
     }
     if (streetPart) {
       variants.push(`${streetPart}, ${normalizedCityHint}, ${normalizedCountryHint}`);
     }
   }
-
-  localityAliases.forEach((locality) => {
-    variants.push(`${compact}, ${locality}, ${normalizedCountryHint}`);
-    if (normalizedProvinceHint) {
-      variants.push(`${compact}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
-    }
-    if (numberToken && streetPart) {
-      variants.push(`${streetPart} ${numberToken}, ${locality}, ${normalizedCountryHint}`);
-      if (normalizedProvinceHint) {
-        variants.push(`${streetPart} ${numberToken}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
-      }
-    }
-    if (streetPart) {
-      variants.push(`${streetPart}, ${locality}, ${normalizedCountryHint}`);
-      if (normalizedProvinceHint) {
-        variants.push(`${streetPart}, ${locality}, ${normalizedProvinceHint}, ${normalizedCountryHint}`);
-      }
-    }
-  });
 
   variants.push(`${compact}, ${normalizedCountryHint}`);
 
@@ -302,13 +351,18 @@ const buildQueryVariants = (query: string, cityHint = '', provinceHint = '', cou
 
 const buildStreetFallbackVariants = (query: string, cityHint = '', provinceHint = '', countryHint = DEFAULT_COUNTRY_NAME) => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
+  const parsed = parseAddressQuery(compact);
   const normalizedCityHint = String(cityHint || '').trim().replace(/\s+/g, ' ');
   const normalizedProvinceHint = String(provinceHint || '').trim().replace(/\s+/g, ' ');
   const normalizedCountryHint = String(countryHint || '').trim().replace(/\s+/g, ' ');
-  const localityAliases = buildLocationAliases(normalizedCityHint).slice(0, 3);
-  const tokens = compact.split(' ').filter(Boolean);
-  const streetTokens = tokens.filter((token) => !/\d/.test(token));
-  const streetPart = streetTokens.join(' ').trim();
+  const localityAliases = Array.from(
+    new Set([
+      ...parsed.inlineLocalities,
+      normalizedCityHint,
+      ...buildLocationAliases(normalizedCityHint).slice(0, 3),
+    ].filter(Boolean))
+  );
+  const streetPart = parsed.streetPart;
 
   if (!streetPart) return [];
 
@@ -386,6 +440,92 @@ const fetchNominatimRows = async (query: string, limit: number, countryCode: str
   };
 };
 
+const fetchArgentinaAddressRows = async (query: string, cityHint: string, provinceHint: string, limit: number) => {
+  const parsed = parseAddressQuery(query);
+  if (!parsed.streetAddress || !parsed.numberToken || !provinceHint.trim()) {
+    return { rows: [] as NominatimRow[], error: '' };
+  }
+
+  const buildUrl = (includeDepartment: boolean) => {
+    const params = new URLSearchParams({
+      direccion: parsed.streetAddress,
+      provincia: provinceHint,
+      max: String(Math.max(limit, 8)),
+    });
+    if (includeDepartment && cityHint.trim()) {
+      params.set('departamento', cityHint.trim());
+    }
+    return `https://apis.datos.gob.ar/georef/api/direcciones?${params.toString()}`;
+  };
+
+  const fetchRows = async (url: string) => {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch(url, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return { rows: [] as GeoRefAddressRow[], error: 'No pudimos consultar direcciones oficiales en este momento.' };
+      }
+
+      const payload = (await response.json()) as { direcciones?: GeoRefAddressRow[] };
+      return { rows: Array.isArray(payload.direcciones) ? payload.direcciones : [], error: '' };
+    } catch {
+      clearTimeout(timeoutId);
+      return { rows: [] as GeoRefAddressRow[], error: 'La busqueda oficial de direcciones tardó demasiado.' };
+    }
+  };
+
+  const primary = await fetchRows(buildUrl(true));
+  const sourceRows = primary.rows.length > 0 || !cityHint.trim() ? primary : await fetchRows(buildUrl(false));
+  const rows = sourceRows.rows
+    .map((row): NominatimRow | null => {
+      const lat = Number(row.ubicacion?.lat);
+      const lon = Number(row.ubicacion?.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+      const road = String(row.calle?.nombre || parsed.streetPart || '').trim();
+      const houseNumber = String(row.altura?.valor || parsed.numberToken || '').trim();
+      const locality = String(
+        row.localidad_censal?.nombre || row.localidad?.nombre || parsed.inlineLocalities[0] || ''
+      ).trim();
+      const department = String(row.departamento?.nombre || row.municipio?.nombre || cityHint || '').trim();
+      const province = String(row.provincia?.nombre || provinceHint || '').trim();
+      const displayName =
+        row.nomenclatura ||
+        [road && houseNumber ? `${road} ${houseNumber}` : road, locality, department, province, DEFAULT_COUNTRY_NAME]
+          .filter(Boolean)
+          .join(', ');
+
+      return {
+        display_name: displayName,
+        lat: String(lat),
+        lon: String(lon),
+        importance: 1,
+        addresstype: 'house',
+        address: {
+          house_number: houseNumber,
+          road,
+          city: locality,
+          county: department,
+          state: province,
+        },
+      };
+    })
+    .filter(Boolean) as NominatimRow[];
+
+  return {
+    rows,
+    error: rows.length > 0 ? '' : sourceRows.error,
+  };
+};
+
 export async function GET(request: NextRequest) {
   const rateLimit = enforceRateLimit(request, {
     keyPrefix: 'geocode-search',
@@ -424,15 +564,20 @@ export async function GET(request: NextRequest) {
 
   try {
     const upstreamLimit = Math.max(limit, 8);
-    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(0, cityHint ? 4 : provinceHint ? 3 : 2);
+    const parsedQuery = parseAddressQuery(query);
+    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(0, cityHint ? 8 : provinceHint ? 6 : 4);
     const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint, countryHint).slice(
       0,
-      cityHint ? 1 : provinceHint ? 1 : 0
+      cityHint ? 3 : provinceHint ? 2 : 0
     );
+    const argentinaAddressResult =
+      countryHint === 'Argentina'
+        ? await fetchArgentinaAddressRows(query, cityHint, provinceHint, upstreamLimit)
+        : { rows: [] as NominatimRow[], error: '' };
     const primaryResult = await collectNominatimRows(variants, upstreamLimit, countryCode);
-    let firstError = primaryResult.error;
+    let firstError = argentinaAddressResult.error || primaryResult.error;
     let rateLimited = primaryResult.rateLimited;
-    let rows = primaryResult.rows;
+    let rows = dedupeNominatimRows([...argentinaAddressResult.rows, ...primaryResult.rows]);
 
     if (!rateLimited && rows.length < limit && fallbackVariants.length > 0) {
       const fallbackResult = await collectNominatimRows(fallbackVariants, Math.max(6, limit), countryCode);
@@ -446,10 +591,12 @@ export async function GET(request: NextRequest) {
     const normalizedQuery = normalizeSearchText(query);
     const normalizedCityHint = normalizeSearchText(cityHint);
     const normalizedProvinceHint = normalizeSearchText(provinceHint);
-    const normalizedLocalityAliases = buildLocationAliases(cityHint).map((item) => normalizeSearchText(item));
+    const normalizedLocalityAliases = Array.from(
+      new Set([...parsedQuery.inlineLocalities, cityHint, ...buildLocationAliases(cityHint)].map((item) => normalizeSearchText(item)).filter(Boolean))
+    );
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
     const queryNumber = extractAddressNumber(query) || queryTokens.find((token) => /\d/.test(token)) || '';
-    const queryStreet = normalizeSearchText(queryTokens.filter((token) => !/\d/.test(token)).join(' '));
+    const queryStreet = normalizeSearchText(parsedQuery.streetPart || queryTokens.filter((token) => !/\d/.test(token)).join(' '));
     const seen = new Set<string>();
 
     const results = rows

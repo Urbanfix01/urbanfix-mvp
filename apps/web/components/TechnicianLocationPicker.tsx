@@ -201,12 +201,16 @@ export default function TechnicianLocationPicker({
       });
 
       setSuggestions(response.results);
-      setSearchError(
-        response.error ||
-          (options.force && response.results.length === 0
-            ? 'No encontramos esa direccion. Revisa calle, altura y localidad.'
-            : '')
-      );
+      if (options.force && response.results.length === 0) {
+        setShowMap(true);
+        setSearchError(
+          response.error
+            ? `${response.error} Si la direccion no aparece, ubica el pin manualmente en el mapa.`
+            : 'No encontramos esa direccion. Ubica el pin manualmente en el mapa.'
+        );
+      } else {
+        setSearchError(response.error || '');
+      }
       setLoading(false);
     },
     [cityHint, countryHint, provinceHint]
@@ -574,7 +578,12 @@ export default function TechnicianLocationPicker({
             type="button"
             onClick={() => {
               if (!value?.isValid) {
-                setSearchError('Primero busca y elige una direccion; despues ajusta el pin en el mapa.');
+                if (addressStepReady) {
+                  setShowMap(!showMap);
+                  setSearchError('Si la direccion no aparece, ubica el pin manualmente en el mapa.');
+                  return;
+                }
+                setSearchError('Primero escribe calle y altura; despues busca o ubica el pin en el mapa.');
                 return;
               }
               setShowMap(!showMap);
