@@ -309,12 +309,7 @@ header .header-view-option {
   flex-direction: column;
   align-items: center;
   gap: 0.85rem;
-  border: 1px solid rgba(226, 232, 240, 0.82);
-  border-radius: 1.5rem;
-  background: rgba(255, 255, 255, 0.62);
-  padding: 1.35rem 1.55rem;
-  box-shadow: 0 28px 70px -52px rgba(15, 23, 42, 0.62);
-  backdrop-filter: blur(14px);
+  padding: 0.5rem;
 }
 
 .ufx-brand-loader-mark {
