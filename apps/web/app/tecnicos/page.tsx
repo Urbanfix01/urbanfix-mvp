@@ -6239,7 +6239,7 @@ export default function TechniciansPage() {
                   </div>
 
                   <div>
-                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Ciudad / localidad</label>
+                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Localidad / partido</label>
                     <LocalitySelect
                       country={profileForm.country}
                       province={profileForm.province}
@@ -9829,7 +9829,7 @@ export default function TechniciansPage() {
                           </select>
                         </div>
                       </div>
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad / localidad</label>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Localidad / partido</label>
                       <LocalitySelect
                         country={profileForm.country}
                         province={profileForm.province}

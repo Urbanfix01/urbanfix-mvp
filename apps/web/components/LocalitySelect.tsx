@@ -122,7 +122,7 @@ export default function LocalitySelect({
             ? 'Selecciona pais y provincia primero'
             : loading
               ? 'Cargando localidades...'
-              : 'Seleccionar localidad'}
+              : 'Seleccionar localidad o partido'}
         </option>
         {value && !options.some((option) => normalizeText(option.name) === normalizedValue) && (
           <option value={value}>{value}</option>
@@ -139,7 +139,7 @@ export default function LocalitySelect({
         <p className="mt-2 text-xs text-rose-500">{error}</p>
       ) : (
         <p className={baseHelperClassName}>
-          {loading ? 'Cargando localidades disponibles...' : 'Elige una localidad del listado oficial.'}
+          {loading ? 'Cargando localidades disponibles...' : 'Elige una localidad o partido del listado oficial.'}
         </p>
       )}
     </div>

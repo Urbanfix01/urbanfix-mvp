@@ -255,6 +255,173 @@ const buildArgentinaDistrictLabel = (name: string, province: string, kind: 'muni
   return `Departamento de ${name}, ${province}`;
 };
 
+const ARGENTINA_DISTRICT_FALLBACKS: Record<string, string[]> = {
+  'buenos aires': [
+    'Adolfo Alsina',
+    'Adolfo Gonzales Chaves',
+    'Alberti',
+    'Almirante Brown',
+    'Arrecifes',
+    'Avellaneda',
+    'Ayacucho',
+    'Azul',
+    'Bahia Blanca',
+    'Balcarce',
+    'Baradero',
+    'Benito Juarez',
+    'Berazategui',
+    'Berisso',
+    'Bolivar',
+    'Bragado',
+    'Brandsen',
+    'Campana',
+    'Canuelas',
+    'Capitan Sarmiento',
+    'Carlos Casares',
+    'Carlos Tejedor',
+    'Carmen de Areco',
+    'Castelli',
+    'Chacabuco',
+    'Chascomus',
+    'Chivilcoy',
+    'Colon',
+    'Coronel Dorrego',
+    'Coronel Pringles',
+    'Coronel Rosales',
+    'Coronel Suarez',
+    'Daireaux',
+    'Dolores',
+    'Ensenada',
+    'Escobar',
+    'Esteban Echeverria',
+    'Exaltacion de la Cruz',
+    'Ezeiza',
+    'Florencio Varela',
+    'Florentino Ameghino',
+    'General Alvarado',
+    'General Alvear',
+    'General Arenales',
+    'General Belgrano',
+    'General Guido',
+    'General Juan Madariaga',
+    'General La Madrid',
+    'General Las Heras',
+    'General Lavalle',
+    'General Paz',
+    'General Pinto',
+    'General Pueyrredon',
+    'General Rodriguez',
+    'General San Martin',
+    'General Viamonte',
+    'General Villegas',
+    'Guamini',
+    'Hipolito Yrigoyen',
+    'Hurlingham',
+    'Ituzaingo',
+    'Jose C. Paz',
+    'Junin',
+    'La Costa',
+    'La Matanza',
+    'La Plata',
+    'Lanus',
+    'Laprida',
+    'Las Flores',
+    'Leandro N. Alem',
+    'Lezama',
+    'Lincoln',
+    'Loberia',
+    'Lobos',
+    'Lomas de Zamora',
+    'Lujan',
+    'Magdalena',
+    'Maipu',
+    'Malvinas Argentinas',
+    'Mar Chiquita',
+    'Marcos Paz',
+    'Mercedes',
+    'Merlo',
+    'Monte',
+    'Monte Hermoso',
+    'Moreno',
+    'Moron',
+    'Navarro',
+    'Necochea',
+    'Nueve de Julio',
+    'Olavarria',
+    'Patagones',
+    'Pehuajo',
+    'Pellegrini',
+    'Pergamino',
+    'Pila',
+    'Pilar',
+    'Pinamar',
+    'Presidente Peron',
+    'Puan',
+    'Punta Indio',
+    'Quilmes',
+    'Ramallo',
+    'Rauch',
+    'Rivadavia',
+    'Rojas',
+    'Roque Perez',
+    'Saavedra',
+    'Saladillo',
+    'Salliquelo',
+    'Salto',
+    'San Andres de Giles',
+    'San Antonio de Areco',
+    'San Cayetano',
+    'San Fernando',
+    'San Isidro',
+    'San Miguel',
+    'San Nicolas',
+    'San Pedro',
+    'San Vicente',
+    'Suipacha',
+    'Tandil',
+    'Tapalque',
+    'Tigre',
+    'Tordillo',
+    'Tornquist',
+    'Trenque Lauquen',
+    'Tres Arroyos',
+    'Tres de Febrero',
+    'Tres Lomas',
+    'Veinticinco de Mayo',
+    'Vicente Lopez',
+    'Villa Gesell',
+    'Villarino',
+    'Zarate',
+  ],
+  'ciudad autonoma de buenos aires': [
+    'Comuna 1',
+    'Comuna 2',
+    'Comuna 3',
+    'Comuna 4',
+    'Comuna 5',
+    'Comuna 6',
+    'Comuna 7',
+    'Comuna 8',
+    'Comuna 9',
+    'Comuna 10',
+    'Comuna 11',
+    'Comuna 12',
+    'Comuna 13',
+    'Comuna 14',
+    'Comuna 15',
+  ],
+};
+
+const buildArgentinaFallbackDistricts = (province: string, limit: number) => {
+  const normalizedProvince = normalizeText(province);
+  return (ARGENTINA_DISTRICT_FALLBACKS[normalizedProvince] || [])
+    .slice(0, limit)
+    .map((name) => ({
+      name,
+      label: buildArgentinaDistrictLabel(name, province, 'municipality'),
+    }));
+};
+
 const fetchArgentinaLocalities = async (province: string, query: string, limit: number) => {
   const upstreamLimit = Math.max(limit * 4, 24);
   const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(
@@ -364,6 +531,88 @@ const fetchArgentinaLocalityList = async (province: string, limit: number) => {
     return {
       results: [] as Array<{ name: string; label: string }>,
       error: 'La carga de localidades tardó demasiado. Intenta nuevamente.',
+    };
+  }
+};
+
+const fetchArgentinaDistrictList = async (province: string, limit: number) => {
+  const cacheKey = `ar-districts|${normalizeText(province)}|${limit}`;
+  const cached = localityListCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.payload;
+  }
+
+  const municipalityUrl = `https://apis.datos.gob.ar/georef/api/municipios?provincia=${encodeURIComponent(
+    province
+  )}&max=${limit}&campos=nombre,provincia`;
+  const departmentUrl = `https://apis.datos.gob.ar/georef/api/departamentos?provincia=${encodeURIComponent(
+    province
+  )}&max=${limit}&campos=nombre,provincia`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const [municipalityResponse, departmentResponse] = await Promise.all([
+      fetch(municipalityUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }),
+      fetch(departmentUrl, {
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }),
+    ]);
+
+    clearTimeout(timeoutId);
+
+    const municipalityRows = municipalityResponse.ok
+      ? ((((await municipalityResponse.json()) as { municipios?: GeoRefDistrictRow[] }).municipios || []).map((row) => {
+          const name = String(row.nombre || '').trim();
+          const provinceName = String(row.provincia?.nombre || province).trim() || province;
+          if (!name) return null;
+          return {
+            name,
+            label: buildArgentinaDistrictLabel(name, provinceName, 'municipality'),
+          };
+        }).filter(Boolean) as Array<{ name: string; label: string }>)
+      : [];
+
+    const departmentRows = departmentResponse.ok
+      ? ((((await departmentResponse.json()) as { departamentos?: GeoRefDistrictRow[] }).departamentos || []).map((row) => {
+          const name = String(row.nombre || '').trim();
+          const provinceName = String(row.provincia?.nombre || province).trim() || province;
+          if (!name) return null;
+          return {
+            name,
+            label: buildArgentinaDistrictLabel(name, provinceName, 'department'),
+          };
+        }).filter(Boolean) as Array<{ name: string; label: string }>)
+      : [];
+
+    const results = dedupeLocalityResults([...municipalityRows, ...departmentRows]).sort((left, right) =>
+      left.name.localeCompare(right.name, 'es', { sensitivity: 'base' })
+    );
+    const fallbackResults = buildArgentinaFallbackDistricts(province, limit);
+    const resolvedResults = results.length > 0 ? results : fallbackResults;
+    const payload = {
+      results: resolvedResults,
+      error: resolvedResults.length > 0 ? '' : 'No pudimos consultar las localidades en este momento.',
+    };
+
+    localityListCache.set(cacheKey, {
+      expiresAt: Date.now() + LOCALITY_LIST_CACHE_TTL_MS,
+      payload,
+    });
+
+    return payload;
+  } catch {
+    clearTimeout(timeoutId);
+    const fallbackResults = buildArgentinaFallbackDistricts(province, limit);
+    return {
+      results: fallbackResults,
+      error: fallbackResults.length > 0 ? '' : 'La carga de localidades tardó demasiado. Intenta nuevamente.',
     };
   }
 };
@@ -548,8 +797,13 @@ export async function GET(request: NextRequest) {
   const normalizedCountry = getCountryConfig(country).name;
   if (isListMode) {
     if (normalizedCountry === 'Argentina') {
-      const { results, error } = await fetchArgentinaLocalityList(province, limit);
-      return NextResponse.json({ results, error });
+      const districtResult = await fetchArgentinaDistrictList(province, limit);
+      if (districtResult.results.length > 0) {
+        return NextResponse.json(districtResult);
+      }
+
+      const localityResult = await fetchArgentinaLocalityList(province, limit);
+      return NextResponse.json(localityResult);
     }
 
     return NextResponse.json({
