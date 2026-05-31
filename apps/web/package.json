@@ -14,6 +14,7 @@
     "env-template:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-env-template.js",
     "image-config:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-next-image-config.js",
     "json-body:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-json-body-limits.js",
+    "marketplace-flow:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-marketplace-flow.js",
     "post-auth-redirects:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-post-auth-redirects.js",
     "secret-boundaries:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-secret-boundaries.js",
     "security-headers:audit": "node --preserve-symlinks --preserve-symlinks-main scripts/audit-security-headers.js",
