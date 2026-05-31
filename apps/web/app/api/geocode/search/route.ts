@@ -7,7 +7,22 @@ const MAX_SEARCH_QUERY_LENGTH = 140;
 const MAX_SEARCH_HINT_LENGTH = 80;
 
 type GeocodeApiPayload = {
-  results: Array<{ display_name: string; lat: number; lon: number; precision: 'exact' | 'approx' }>;
+  results: Array<{
+    display_name: string;
+    full_display_name?: string;
+    primary_label?: string;
+    secondary_label?: string;
+    detail_label?: string;
+    accuracy_label?: string;
+    street?: string;
+    house_number?: string;
+    locality?: string;
+    province?: string;
+    postcode?: string;
+    lat: number;
+    lon: number;
+    precision: 'exact' | 'approx';
+  }>;
   error: string;
   rateLimited?: boolean;
 };
@@ -59,6 +74,7 @@ type NominatimRow = {
     town?: string;
     village?: string;
     hamlet?: string;
+    municipality?: string;
     county?: string;
     state_district?: string;
     state?: string;
@@ -137,12 +153,16 @@ const buildLocationAliases = (value: string) => {
 const getRoadLabel = (row: NominatimRow) =>
   String(row.address?.road || row.address?.pedestrian || row.address?.footway || row.address?.residential || '').trim();
 
+const getHouseNumberLabel = (row: NominatimRow) =>
+  String(row.address?.house_number || '').trim();
+
 const getLocalityLabels = (row: NominatimRow) =>
   [
     row.address?.city,
     row.address?.town,
     row.address?.village,
     row.address?.hamlet,
+    row.address?.municipality,
     row.address?.suburb,
     row.address?.neighbourhood,
     row.address?.quarter,
@@ -151,6 +171,64 @@ const getLocalityLabels = (row: NominatimRow) =>
   ]
     .map((item) => String(item || '').trim())
     .filter(Boolean);
+
+const uniqLabels = (labels: string[]) => {
+  const seen = new Set<string>();
+  return labels
+    .map((item) => String(item || '').trim())
+    .filter((item) => {
+      if (!item) return false;
+      const key = normalizeSearchText(item);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const extractAddressNumber = (value: string) =>
+  normalizeSearchText(value)
+    .match(/\b\d{1,6}[a-z]?\b/)?.[0] || '';
+
+const buildStructuredAddressLabels = (row: NominatimRow, countryHint: string) => {
+  const displayName = String(row.display_name || '').trim();
+  const displayParts = displayName
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const firstPartNumber = displayParts[0]?.match(/^\d{1,6}[a-zA-Z]?$/)?.[0] || '';
+  const houseNumber = getHouseNumberLabel(row) || firstPartNumber;
+  const street = getRoadLabel(row) || (firstPartNumber ? displayParts[1] : displayParts[0]) || '';
+  const locality = uniqLabels([
+    row.address?.city || '',
+    row.address?.town || '',
+    row.address?.village || '',
+    row.address?.hamlet || '',
+    row.address?.municipality || '',
+    row.address?.suburb || '',
+    row.address?.neighbourhood || '',
+    row.address?.quarter || '',
+    row.address?.county || '',
+  ])[0] || '';
+  const province = String(row.address?.state || row.address?.state_district || '').trim();
+  const postcode = String(row.address?.postcode || '').trim();
+  const primaryLabel = street && houseNumber ? `${street} ${houseNumber}` : street || displayParts.slice(0, 2).join(' ');
+  const secondaryLabel = uniqLabels([locality, province]).join(', ');
+  const detailLabel = uniqLabels([postcode, countryHint]).join(' · ');
+  const displayLabel = [primaryLabel, secondaryLabel].filter(Boolean).join(' · ') || displayName;
+
+  return {
+    displayName,
+    displayLabel,
+    primaryLabel: primaryLabel || displayName,
+    secondaryLabel,
+    detailLabel,
+    street,
+    houseNumber,
+    locality,
+    province,
+    postcode,
+  };
+};
 
 const buildQueryVariants = (query: string, cityHint = '', provinceHint = '', countryHint = DEFAULT_COUNTRY_NAME) => {
   const compact = String(query || '').trim().replace(/\s+/g, ' ');
@@ -370,7 +448,7 @@ export async function GET(request: NextRequest) {
     const normalizedProvinceHint = normalizeSearchText(provinceHint);
     const normalizedLocalityAliases = buildLocationAliases(cityHint).map((item) => normalizeSearchText(item));
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
-    const queryNumber = queryTokens.find((token) => /\d/.test(token)) || '';
+    const queryNumber = extractAddressNumber(query) || queryTokens.find((token) => /\d/.test(token)) || '';
     const queryStreet = normalizeSearchText(queryTokens.filter((token) => !/\d/.test(token)).join(' '));
     const seen = new Set<string>();
 
@@ -389,9 +467,12 @@ export async function GET(request: NextRequest) {
         }
         seen.add(dedupeKey);
 
-        const normalizedRoad = normalizeSearchText(getRoadLabel(item));
-        const normalizedHouseNumber = normalizeSearchText(String(item.address?.house_number || ''));
+        const labels = buildStructuredAddressLabels(item, countryHint);
+        const normalizedRoad = normalizeSearchText(labels.street);
+        const normalizedHouseNumber = extractAddressNumber(labels.houseNumber);
         const normalizedLocalities = getLocalityLabels(item).map((part) => normalizeSearchText(part));
+        const hasHouseNumber = Boolean(normalizedHouseNumber);
+        const exactHouseNumberMatch = Boolean(queryNumber && normalizedHouseNumber === queryNumber);
         let score = Number(item.importance || 0);
         if (normalizedDisplayName.startsWith(normalizedQuery)) score += 4;
         else if (normalizedDisplayName.includes(normalizedQuery)) score += 2;
@@ -401,7 +482,8 @@ export async function GET(request: NextRequest) {
           else if (normalizedRoad.includes(queryStreet) || queryStreet.includes(normalizedRoad)) score += 3;
           else if (normalizedDisplayName.includes(queryStreet)) score += 1.5;
         }
-        if (queryNumber && normalizedHouseNumber === queryNumber) score += 7;
+        if (queryNumber && exactHouseNumberMatch) score += 18;
+        else if (queryNumber && hasHouseNumber) score += 5;
         else if (queryNumber && normalizedDisplayName.includes(queryNumber)) score += 1.5;
         if (normalizedCityHint && normalizedDisplayName.includes(normalizedCityHint)) score += 2.5;
         if (normalizedProvinceHint && normalizedDisplayName.includes(normalizedProvinceHint)) score += 3;
@@ -418,15 +500,31 @@ export async function GET(request: NextRequest) {
             score += 2;
           }
         }
-        if (queryNumber && !normalizedDisplayName.includes(queryNumber) && !normalizedHouseNumber) score -= 2.25;
-        if (queryNumber && normalizedHouseNumber && normalizedHouseNumber !== queryNumber) score -= 1.25;
-        if (queryNumber && !normalizedHouseNumber && item.addresstype === 'road') score -= 1;
+        if (queryNumber && !hasHouseNumber) score -= 10;
+        if (queryNumber && hasHouseNumber && !exactHouseNumberMatch) score -= 3;
+        if (queryNumber && !hasHouseNumber && item.addresstype === 'road') score -= 4;
+        if (item.addresstype === 'house' || item.addresstype === 'building') score += 3;
 
         return {
-          display_name: displayName,
+          display_name: labels.displayLabel,
+          full_display_name: labels.displayName,
+          primary_label: labels.primaryLabel,
+          secondary_label: labels.secondaryLabel,
+          detail_label: labels.detailLabel,
+          accuracy_label:
+            queryNumber && exactHouseNumberMatch
+              ? 'Altura exacta'
+              : hasHouseNumber
+                ? 'Altura detectada'
+                : 'Confirmar en mapa',
+          street: labels.street,
+          house_number: labels.houseNumber,
+          locality: labels.locality,
+          province: labels.province,
+          postcode: labels.postcode,
           lat,
           lon: lng,
-          precision: normalizedHouseNumber === queryNumber && queryNumber ? 'exact' : 'approx',
+          precision: hasHouseNumber && (!queryNumber || exactHouseNumberMatch) ? 'exact' : 'approx',
           score,
         };
       })
@@ -435,6 +533,16 @@ export async function GET(request: NextRequest) {
       .slice(0, limit)
       .map((item) => ({
         display_name: (item as any).display_name,
+        full_display_name: (item as any).full_display_name,
+        primary_label: (item as any).primary_label,
+        secondary_label: (item as any).secondary_label,
+        detail_label: (item as any).detail_label,
+        accuracy_label: (item as any).accuracy_label,
+        street: (item as any).street,
+        house_number: (item as any).house_number,
+        locality: (item as any).locality,
+        province: (item as any).province,
+        postcode: (item as any).postcode,
         lat: (item as any).lat,
         lon: (item as any).lon,
         precision: (item as any).precision,

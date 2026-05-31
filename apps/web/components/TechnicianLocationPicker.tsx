@@ -8,6 +8,12 @@ export interface LocationPickerResult {
   lat: number;
   lng: number;
   displayName: string;
+  fullDisplayName?: string;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  detailLabel?: string;
+  accuracyLabel?: string;
+  houseNumber?: string;
   isValid: boolean;
   precision: 'exact' | 'approx';
 }
@@ -69,7 +75,18 @@ const geocodeAddress = async (
       cache: 'no-store',
     });
     const payload = (await response.json()) as {
-      results?: Array<{ display_name: string; lat: number; lon: number; precision?: 'exact' | 'approx' }>;
+      results?: Array<{
+        display_name: string;
+        full_display_name?: string;
+        primary_label?: string;
+        secondary_label?: string;
+        detail_label?: string;
+        accuracy_label?: string;
+        house_number?: string;
+        lat: number;
+        lon: number;
+        precision?: 'exact' | 'approx';
+      }>;
       error?: string;
       rateLimited?: boolean;
     };
@@ -79,6 +96,12 @@ const geocodeAddress = async (
         lat: Number(item.lat),
         lng: Number(item.lon),
         displayName: item.display_name,
+        fullDisplayName: item.full_display_name,
+        primaryLabel: item.primary_label,
+        secondaryLabel: item.secondary_label,
+        detailLabel: item.detail_label,
+        accuracyLabel: item.accuracy_label,
+        houseNumber: item.house_number,
         isValid: isCoordinateWithinCountry(Number(item.lat), Number(item.lon), countryHint || DEFAULT_COUNTRY_NAME),
         precision: item.precision === 'exact' ? 'exact' : 'approx',
       }))
@@ -405,6 +428,11 @@ export default function TechnicianLocationPicker({
     ? 'Haz clic o arrastra el pin para fijar tu punto exacto.'
     : `Este punto define dónde apareces en el mapa y tu cobertura de ${coverageRadiusKm} km.`;
 
+  const getSuggestionSecondary = (suggestion: LocationPickerResult) =>
+    suggestion.secondaryLabel ||
+    suggestion.fullDisplayName ||
+    `${suggestion.lat.toFixed(4)}, ${suggestion.lng.toFixed(4)}`;
+
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2">
@@ -433,7 +461,7 @@ export default function TechnicianLocationPicker({
               type="text"
               value={input}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Ej: Av. Rivadavia 1000, Buenos Aires..."
+              placeholder="Calle y altura, ej: Husares 564, Quilmes"
               disabled={disabled}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
             />
@@ -466,17 +494,35 @@ export default function TechnicianLocationPicker({
 
         {/* Sugerencias */}
         {suggestions.length > 0 && (
-          <div className="max-h-80 overflow-y-auto rounded-lg border border-slate-200 bg-white shadow-sm">
+          <div className="max-h-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
             {suggestions.map((suggestion, index) => (
               <button
                 key={index}
                 type="button"
                 onClick={() => handleSelectSuggestion(suggestion)}
-                className="w-full px-3 py-2 text-left text-sm hover:bg-blue-50 border-b border-slate-100 last:border-b-0"
+                className="w-full border-b border-slate-100 px-3 py-3 text-left transition hover:bg-orange-50/60 last:border-b-0"
               >
-                <div className="font-medium text-slate-900">{suggestion.displayName}</div>
-                <div className="text-xs text-slate-500">
-                  {suggestion.lat.toFixed(4)}, {suggestion.lng.toFixed(4)}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold text-slate-950">
+                      {suggestion.primaryLabel || suggestion.displayName}
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                      {getSuggestionSecondary(suggestion)}
+                    </div>
+                    {suggestion.detailLabel && (
+                      <div className="mt-1 text-[11px] font-medium text-slate-400">{suggestion.detailLabel}</div>
+                    )}
+                  </div>
+                  <span
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] ${
+                      suggestion.precision === 'exact'
+                        ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
+                        : 'border border-amber-200 bg-amber-50 text-amber-700'
+                    }`}
+                  >
+                    {suggestion.accuracyLabel || (suggestion.precision === 'exact' ? 'Altura exacta' : 'Confirmar')}
+                  </span>
                 </div>
               </button>
             ))}
