@@ -6098,38 +6098,8 @@ export default function TechniciansPage() {
               className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
             />
 
-            <main className="relative z-10 mx-auto grid min-h-screen w-full max-w-5xl items-center gap-6 px-4 py-10 sm:px-6 lg:grid-cols-[0.72fr_1.28fr] lg:py-14">
-              <div className="space-y-5 text-center lg:text-left">
-                <div className={authPillClass}>
-                  Primer ingreso
-                </div>
-                <h1 className="text-4xl font-black leading-tight text-[color:var(--ui-ink)] sm:text-5xl">
-                  Datos clave para operar
-                </h1>
-                <p className="text-base leading-7 text-[color:var(--ui-muted)]">
-                  Una carga breve para identificar tu negocio, recibir consultas y ubicarte con precision en el mapa.
-                </p>
-
-                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                  {[
-                    { label: 'Identidad', value: 'Nombre y negocio' },
-                    { label: 'Contacto', value: 'WhatsApp visible' },
-                    { label: 'Zona', value: 'Punto exacto' },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-4 py-3 text-left shadow-sm"
-                    >
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-muted)]">
-                        {item.label}
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-[color:var(--ui-ink)]">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className={authSurfaceClass}>
+            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10 sm:px-6 lg:py-14">
+              <div className={`w-full ${authSurfaceClass}`}>
                 <div className="flex flex-col gap-4 rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/78 p-4 shadow-sm sm:flex-row sm:items-center">
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)] shadow-sm">
                     {profileForm.avatarUrl ? (
