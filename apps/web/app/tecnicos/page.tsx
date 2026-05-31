@@ -92,6 +92,30 @@ const COVERAGE_RADIUS_KM = 20;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
 
+function UrbanFixBrandLoader({ label = 'Cargando UrbanFix' }: { label?: string }) {
+  return (
+    <div className="ufx-brand-loader" role="status" aria-label={label}>
+      <div className="ufx-brand-loader-mark" aria-hidden="true">
+        <img src="/icon-48.png" alt="" />
+      </div>
+      <div className="ufx-brand-loader-word" aria-hidden="true">
+        <div className="ufx-brand-loader-word-base">
+          <span>URBAN</span>
+          <span className="ufx-brand-loader-fix">FIX</span>
+        </div>
+        <div className="ufx-brand-loader-word-fill">
+          <span>URBAN</span>
+          <span className="ufx-brand-loader-fix">FIX</span>
+        </div>
+      </div>
+      <div className="ufx-brand-loader-track" aria-hidden="true">
+        <span />
+      </div>
+      <span className="sr-only">{label}</span>
+    </div>
+  );
+}
+
 type WorkingHoursConfig = {
   weekdayFrom: string;
   weekdayTo: string;
@@ -5856,9 +5880,7 @@ export default function TechniciansPage() {
           data-ui-theme={uiTheme}
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
-          <div className="rounded-2xl border border-slate-200 bg-white/80 px-6 py-4 text-sm text-slate-500 shadow-sm">
-            Cargando...
-          </div>
+          <UrbanFixBrandLoader label="Cargando UrbanFix" />
         </div>
       </>
     );
@@ -5875,9 +5897,7 @@ export default function TechniciansPage() {
           data-ui-theme={uiTheme}
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-muted)] flex items-center justify-center`}
         >
-          <div className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/84 px-6 py-4 text-sm text-[color:var(--ui-muted)] shadow-sm backdrop-blur">
-            {adminGateStatus === 'checking' ? 'Validando acceso...' : 'Cargando perfil...'}
-          </div>
+          <UrbanFixBrandLoader label={adminGateStatus === 'checking' ? 'Validando acceso' : 'Cargando perfil'} />
         </div>
       </>
     );
