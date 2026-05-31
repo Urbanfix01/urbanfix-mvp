@@ -62,7 +62,7 @@ const getProviderConfig = () => ({
 const sendEmail = async (params: { to: string[]; subject: string; html: string; text: string }) => {
   const provider = getProviderConfig();
   if (!provider.apiKey || !provider.fromEmail) {
-    throw new Error('Falta configurar RESEND_API_KEY y NEWSLETTER_FROM_EMAIL para enviar mails desde admin.');
+    throw new Error('Servicio no disponible.');
   }
 
   const response = await fetch(RESEND_API_URL, {
@@ -383,6 +383,11 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const provider = getProviderConfig();
+    if (!provider.apiKey || !provider.fromEmail) {
+      return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
+    }
+
     const requests = await loadClientRequests();
     const requestRecord = requests.find((item) => item.id === requestId);
     if (!requestRecord) {

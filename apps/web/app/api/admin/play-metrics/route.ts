@@ -19,7 +19,7 @@ const packageName =
 const getAccessToken = async () => {
   const credentials = getServiceAccount();
   if (!credentials) {
-    throw new Error('Falta GOOGLE_PLAY_SERVICE_ACCOUNT_B64 o GOOGLE_PLAY_SERVICE_ACCOUNT_JSON');
+    throw new Error('Servicio no disponible.');
   }
   const auth = new GoogleAuth({
     credentials,
@@ -210,6 +210,8 @@ export async function GET(request: NextRequest) {
       errors,
     });
   } catch (error: any) {
-    return NextResponse.json({ error: error?.message || 'No se pudo consultar Play' }, { status: 500 });
+    const message = error?.message || 'No se pudo consultar Play';
+    const status = message === 'Servicio no disponible.' ? 503 : 500;
+    return NextResponse.json({ error: message }, { status });
   }
 }

@@ -55,6 +55,16 @@ for (const filePath of walk(adminApiDir)) {
     continue;
   }
 
+  if (/['"`]Falta(?:\s+configurar)?\s+[A-Z0-9_]+/.test(source)) {
+    report.fail.push(`${relativeRoute}: no debe exponer nombres de variables internas`);
+    continue;
+  }
+
+  if (/Servicio no disponible\.[\s\S]{0,120}status:\s*500/.test(source)) {
+    report.fail.push(`${relativeRoute}: falta de configuracion debe responder 503`);
+    continue;
+  }
+
   if (tokenRoute) {
     const missingGuard = tokenRoute.guards.find((guard) => !source.includes(guard));
     if (!source.includes(tokenRoute.header) || missingGuard) {

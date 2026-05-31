@@ -553,7 +553,7 @@ const sendNewsletterEmail = async (params: {
 }) => {
   const provider = getNewsletterProviderConfig();
   if (!provider.apiKey || !provider.fromEmail) {
-    throw new Error('Falta configurar RESEND_API_KEY y NEWSLETTER_FROM_EMAIL para enviar newsletters.');
+    throw new Error('Servicio no disponible.');
   }
 
   const response = await fetch(RESEND_API_URL, {
@@ -814,10 +814,7 @@ export async function POST(request: NextRequest) {
     const provider = getNewsletterProviderConfig();
 
     if (!provider.apiKey || !provider.fromEmail) {
-      return NextResponse.json(
-        { error: 'Falta configurar RESEND_API_KEY y NEWSLETTER_FROM_EMAIL para enviar newsletters.' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
     }
 
     if (mode !== 'retry_failed' && audience.startsWith('opted_in_') && !newsletterColumnsReady) {

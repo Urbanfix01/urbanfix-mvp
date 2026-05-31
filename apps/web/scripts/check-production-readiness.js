@@ -137,6 +137,16 @@ const validateAdminRoutes = () => {
       return;
     }
 
+    if (/['"`]Falta(?:\s+configurar)?\s+[A-Z0-9_]+/.test(source)) {
+      push('fail', `${relativeRoute}: no debe exponer nombres de variables internas`);
+      return;
+    }
+
+    if (/Servicio no disponible\.[\s\S]{0,120}status:\s*500/.test(source)) {
+      push('fail', `${relativeRoute}: falta de configuracion debe responder 503`);
+      return;
+    }
+
     if (tokenRoute) {
       const hasTokenGuard =
         source.includes(tokenRoute.header) && tokenRoute.guards.every((guard) => source.includes(guard));
