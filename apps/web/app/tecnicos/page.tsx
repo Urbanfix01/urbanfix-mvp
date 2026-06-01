@@ -6159,23 +6159,23 @@ export default function TechniciansPage() {
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
           <div className="relative overflow-hidden bg-[linear-gradient(180deg,#ebe8df_0%,#f7f4ee_50%,#e8edf0_100%)]">
-            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-8 sm:px-6 lg:py-12">
-              <section className="w-full overflow-hidden rounded-[36px] border border-white/80 bg-white/[0.92] shadow-[0_32px_100px_-58px_rgba(15,23,42,0.55)] backdrop-blur">
-                <div className="border-b border-slate-200/70 px-5 py-6 sm:px-7">
-                  <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-8 sm:px-6 lg:py-12">
+              <section className="w-full overflow-hidden rounded-[30px] border border-white/80 bg-white/[0.94] shadow-[0_26px_78px_-60px_rgba(15,23,42,0.48)] backdrop-blur">
+                <div className="border-b border-slate-200/70 px-5 py-5 sm:px-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
                     <div className="min-w-0">
-                      <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/25 bg-[#fff7ed] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a4a00] shadow-sm">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/25 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8a4a00]">
                         <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
                         Registro tecnico
                       </span>
-                      <h1 className={`${spaceGrotesk.className} mt-4 text-4xl font-bold tracking-tight text-[#180f24] sm:text-5xl`}>
-                        Datos clave para operar
+                      <h1 className={`${spaceGrotesk.className} mt-3 text-3xl font-bold tracking-tight text-[#180f24] sm:text-4xl`}>
+                        Datos clave
                       </h1>
-                      <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                        Una carga breve para identificar tu negocio, recibir consultas y ubicarte con precisión en el mapa.
+                      <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                        Identifica tu negocio, contacto y punto exacto de trabajo.
                       </p>
                     </div>
-                    <div className="w-full rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-[0_18px_46px_-38px_rgba(15,23,42,0.5)] sm:max-w-[260px]">
+                    <div className="w-full sm:max-w-[210px]">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Progreso</p>
                         <p className="text-sm font-black text-[#180f24]">{requiredProfileDoneCount}/3</p>
@@ -6189,100 +6189,95 @@ export default function TechniciansPage() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {requiredProfileSteps.map((step) => {
                       const StepIcon = step.icon;
                       return (
                         <div
                           key={step.key}
-                          className={`flex min-h-[68px] items-center gap-3 rounded-[20px] border px-3 py-3 transition ${
+                          className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 transition ${
                             step.done
-                              ? 'border-emerald-200 bg-emerald-50/80 text-emerald-800'
-                              : 'border-slate-200 bg-white text-slate-600'
+                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                              : 'border-slate-200 bg-white text-slate-500'
                           }`}
                         >
                           <span
-                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
                               step.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
                             }`}
                           >
-                            <StepIcon className="h-4 w-4" />
+                            <StepIcon className="h-3.5 w-3.5" />
                           </span>
-                          <span className="min-w-0">
-                            <span className="block text-sm font-bold">{step.label}</span>
-                            <span className="block truncate text-xs opacity-75">{step.detail}</span>
-                          </span>
+                          <span className="text-xs font-semibold">{step.label}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
 
-                <div className="px-5 py-5 sm:px-7 sm:py-6">
-                  <div className="overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_26px_74px_-54px_rgba(15,23,42,0.68)]">
-                    <div className="relative h-44 overflow-hidden bg-[#180f24] sm:h-52">
+                <div className="px-5 py-5 sm:px-6">
+                  <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                    <div className="relative h-28 overflow-hidden bg-slate-100 sm:h-32">
                       {profileForm.bannerUrl ? (
                         <img src={profileForm.bannerUrl} alt="Portada del perfil" className="h-full w-full object-cover" />
                       ) : (
-                        <div className="h-full w-full bg-[linear-gradient(135deg,#2a0338_0%,#432151_48%,#ff8f1f_100%)]">
-                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.28),transparent_28%),linear-gradient(90deg,rgba(255,255,255,0.08),transparent_42%)]" />
+                        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#f5efe6)]">
+                          <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Banner opcional
+                          </span>
                         </div>
                       )}
-                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.10),rgba(15,23,42,0.48))]" />
-                      <div className="absolute left-4 top-4 rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/82 backdrop-blur">
-                        Portada publica
-                      </div>
-                      <label className="absolute bottom-4 right-4 inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white px-3.5 py-2 text-[11px] font-bold text-[#180f24] shadow-[0_18px_38px_-24px_rgba(0,0,0,0.75)] transition hover:-translate-y-0.5 hover:bg-[#fff7ed]">
+                      {profileForm.bannerUrl && (
+                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.02),rgba(15,23,42,0.18))]" />
+                      )}
+                      <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white/92 px-3 py-1.5 text-[11px] font-semibold text-[#180f24] shadow-sm transition hover:border-[#ff8f1f]/40 hover:bg-white">
                         {uploadingBanner ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                        {uploadingBanner ? 'Subiendo...' : profileForm.bannerUrl ? 'Cambiar banner' : 'Subir banner'}
+                        {uploadingBanner ? 'Subiendo...' : 'Banner'}
                         <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
                       </label>
                     </div>
 
-                    <div className="px-4 pb-5 sm:px-5">
-                      <div className="-mt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                        <div className="flex min-w-0 flex-1 items-end gap-4">
-                          <div className="relative h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[28px] border-[5px] border-white bg-slate-100 shadow-[0_24px_48px_-30px_rgba(15,23,42,0.8)]">
+                    <div className="px-4 pb-4 sm:px-5">
+                      <div className="-mt-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="flex min-w-0 flex-1 items-end gap-3">
+                          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[22px] border-[4px] border-white bg-slate-100 shadow-sm">
                             {profileForm.avatarUrl ? (
                               <img src={profileForm.avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
                             ) : profileForm.companyLogoUrl ? (
-                              <img src={profileForm.companyLogoUrl} alt="Logo del negocio" className="h-full w-full object-contain p-3" />
+                              <img src={profileForm.companyLogoUrl} alt="Logo del negocio" className="h-full w-full object-contain p-2.5" />
                             ) : (
-                              <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#e2e8f0)] text-2xl font-black text-slate-500">
+                              <div className="flex h-full w-full items-center justify-center bg-slate-100 text-xl font-black text-slate-500">
                                 {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
                               </div>
                             )}
                             <label
                               title="Subir foto de perfil"
-                              className="absolute bottom-1.5 right-1.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_24px_-16px_rgba(255,143,31,0.9)] transition hover:scale-105"
+                              className="absolute bottom-1 right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-sm transition hover:scale-105"
                             >
-                              {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                              {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
                               <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                             </label>
                           </div>
 
                           <div className="min-w-0 pb-1">
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                              Vista previa del perfil
-                            </p>
-                            <p className={`${spaceGrotesk.className} mt-1 truncate text-2xl font-bold text-[#180f24]`}>
+                            <p className={`${spaceGrotesk.className} truncate text-xl font-bold text-[#180f24]`}>
                               {profileForm.businessName || 'Tu negocio'}
                             </p>
-                            <p className="mt-1 truncate text-sm text-slate-500">
+                            <p className="mt-0.5 truncate text-xs text-slate-500">
                               {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` · ${profileForm.email}` : ''}
                             </p>
                           </div>
                         </div>
 
                         <div className="flex flex-wrap gap-2 sm:justify-end">
-                          <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#fff7ed] px-3.5 text-[11px] font-bold text-[#7a4a15] shadow-sm transition hover:border-[#ff8f1f]/70">
+                          <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-[#ff8f1f]/45">
                             {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <User className="h-3.5 w-3.5" />}
-                            {uploadingAvatar ? 'Subiendo...' : 'Foto de perfil'}
+                            {uploadingAvatar ? 'Subiendo...' : 'Foto'}
                             <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
                           </label>
-                          <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-[#ff8f1f]/45 hover:bg-[#fffaf4]">
+                          <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 transition hover:border-[#ff8f1f]/35 hover:text-slate-700">
                             {uploadingCompanyLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Store className="h-3.5 w-3.5" />}
-                            {uploadingCompanyLogo ? 'Subiendo...' : 'Logo negocio'}
+                            {uploadingCompanyLogo ? 'Subiendo...' : 'Logo'}
                             <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
                           </label>
                         </div>
