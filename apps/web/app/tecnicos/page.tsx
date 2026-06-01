@@ -2120,6 +2120,7 @@ export default function TechniciansPage() {
   );
   const isMobileSecondaryActive = mobileSecondaryNavItems.some((item) => item.key === activeNavKey);
   const isMobileDockShown = isMobileDockVisible || isMobileToolsOpen;
+  const isProfileUnderReview = Boolean(session?.user && profileHydrated && profile && profile.access_granted !== true);
   const activeSupportLabel = useMemo(() => {
     if (isBetaAdmin) {
       return (
@@ -6302,91 +6303,6 @@ export default function TechniciansPage() {
     );
   }
 
-  if (session?.user && profileHydrated && profile && profile.access_granted !== true) {
-    return (
-      <>
-        <AuthHashHandler />
-        <PublicTopNav activeHref="/tecnicos" sticky />
-        {sessionMediaOverlays}
-        <div
-          style={activeThemeStyles}
-          data-ui-theme={uiTheme}
-          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
-        >
-          <main className="mx-auto flex min-h-screen w-full max-w-5xl items-center justify-center px-6 py-16">
-            <section className="relative w-full overflow-hidden rounded-[36px] border border-[color:var(--ui-border)] bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(255,250,244,0.82))] p-6 shadow-[0_34px_110px_-70px_rgba(42,3,56,0.62)] sm:p-8 lg:grid lg:grid-cols-[0.95fr_1.05fr] lg:gap-8">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -right-24 -top-24 h-64 w-64 rounded-full bg-[#ff8f1f]/[0.18] blur-3xl"
-              />
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute -bottom-20 -left-20 h-56 w-56 rounded-full bg-[#2a0338]/10 blur-3xl"
-              />
-
-              <div className="relative">
-                <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/30 bg-white/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a4a15] shadow-sm">
-                  <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
-                  Perfil en revisión
-                </span>
-                <h1 className="mt-5 text-4xl font-black tracking-tight text-[#16031f] sm:text-5xl">
-                  Ya tenemos tus datos
-                </h1>
-                <p className="mt-4 max-w-xl text-base leading-7 text-slate-600">
-                  Tu perfil técnico quedó preparado. Para mantener la vidriera cuidada, UrbanFix revisa la cuenta antes
-                  de habilitar el panel operativo y la publicación pública.
-                </p>
-
-                <div className="mt-7 flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2a0338] px-5 text-sm font-semibold text-white shadow-[0_18px_42px_-24px_rgba(42,3,56,0.85)] transition hover:-translate-y-0.5"
-                  >
-                    Verificar estado
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-sm font-semibold text-[#2a0338] shadow-sm transition hover:border-[#ff8f1f]/50"
-                  >
-                    Cerrar sesión
-                  </button>
-                </div>
-              </div>
-
-              <div className="relative mt-8 rounded-[28px] border border-white/80 bg-white/[0.82] p-5 shadow-[0_24px_72px_-56px_rgba(42,3,56,0.7)] lg:mt-0">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                  Estado de cuenta
-                </p>
-                <div className="mt-5 space-y-3">
-                  {[
-                    { label: 'Perfil base', value: 'Completo' },
-                    { label: 'Ubicación', value: 'Confirmada' },
-                    { label: 'Acceso operativo', value: 'Pendiente' },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3"
-                    >
-                      <span className="text-sm font-medium text-slate-600">{item.label}</span>
-                      <span className="rounded-full border border-[#ff8f1f]/25 bg-[#fff7ed] px-3 py-1 text-xs font-semibold text-[#8a4a00]">
-                        {item.value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-5 text-sm leading-6 text-slate-500">
-                  Si ya fuiste aprobado, usa "Verificar estado" para actualizar la sesión.
-                </p>
-              </div>
-            </section>
-          </main>
-        </div>
-      </>
-    );
-  }
-
   if (!session?.user && !isDesignPreview) {
     return (
       <>
@@ -6937,7 +6853,43 @@ export default function TechniciansPage() {
             </nav>
 
             <main className="relative pt-6">
-          <section className="space-y-6">
+              {isProfileUnderReview && (
+                <section className="mb-5 overflow-hidden rounded-[28px] border border-[#ffcf93]/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,247,237,0.9))] p-4 shadow-[0_22px_62px_-46px_rgba(42,3,56,0.62)] sm:p-5">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="min-w-0">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/25 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7a4a15] shadow-sm">
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                        Perfil en revisión
+                      </span>
+                      <h2 className={`${spaceGrotesk.className} mt-3 text-2xl font-bold tracking-tight text-[#180f24]`}>
+                        Ya podés preparar tu operación
+                      </h2>
+                      <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
+                        Tu perfil está cargado y UrbanFix lo está revisando. Mientras tanto podés crear presupuestos,
+                        ordenar clientes y completar detalles; las solicitudes cercanas y la vidriera pública se habilitan
+                        cuando quede aprobado.
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('perfil')}
+                        className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#ff8f1f]/35 bg-white px-4 text-xs font-semibold text-[#2a0338] shadow-sm transition hover:border-[#ff8f1f]/60 hover:bg-[#fff7ed]"
+                      >
+                        Revisar perfil
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#2a0338] px-4 text-xs font-semibold text-white shadow-[0_18px_38px_-26px_rgba(42,3,56,0.9)] transition hover:-translate-y-0.5 hover:bg-[#3a094a]"
+                      >
+                        Verificar estado
+                      </button>
+                    </div>
+                  </div>
+                </section>
+              )}
+              <section className="space-y-6">
             {(activeTab === 'lobby' || activeTab === 'operativo') && (
               <div className="space-y-6">
                 {activeTab === 'lobby' && (
@@ -7731,12 +7683,18 @@ export default function TechniciansPage() {
                     <button
                       type="button"
                       onClick={fetchNearbyRequests}
-                      disabled={loadingNearbyRequests}
+                      disabled={loadingNearbyRequests || isProfileUnderReview}
                       className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {loadingNearbyRequests ? 'Actualizando...' : 'Actualizar solicitudes'}
+                      {isProfileUnderReview ? 'En revisión' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar solicitudes'}
                     </button>
                   </div>
+                  {isProfileUnderReview && (
+                    <div className="mt-4 rounded-2xl border border-[#ffcf93]/60 bg-[#fff7ed] px-4 py-3 text-xs leading-5 text-[#7a4a15]">
+                      Las solicitudes por zona se activan cuando UrbanFix aprueba el perfil. Mientras tanto podés usar
+                      presupuestos, clientes, agenda y configuración.
+                    </div>
+                  )}
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     <button
