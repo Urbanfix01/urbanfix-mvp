@@ -671,6 +671,49 @@ const FLOW_SHAPE_LABEL: Record<FlowDiagramNodeShape, string> = {
   end: 'Fin',
 };
 
+const FLOW_COLUMN_STYLE: Record<
+  FlowDiagramColumnId,
+  {
+    label: string;
+    fill: string;
+    stroke: string;
+    accent: string;
+    accentSoft: string;
+    text: string;
+  }
+> = {
+  captacion: {
+    label: 'Entrada y perfiles',
+    fill: '#FFF7ED',
+    stroke: '#FED7AA',
+    accent: '#F97316',
+    accentSoft: '#FFEDD5',
+    text: '#7C2D12',
+  },
+  operacion: {
+    label: 'Operacion real',
+    fill: '#EFF6FF',
+    stroke: '#BFDBFE',
+    accent: '#2563EB',
+    accentSoft: '#DBEAFE',
+    text: '#1E3A8A',
+  },
+  control: {
+    label: 'Control admin',
+    fill: '#F5F3FF',
+    stroke: '#DDD6FE',
+    accent: '#4C1D95',
+    accentSoft: '#EDE9FE',
+    text: '#2E1065',
+  },
+};
+
+const FLOW_EDGE_MAIN_COLOR = '#64748B';
+const FLOW_EDGE_RETURN_COLOR = '#C2410C';
+const FLOW_EDGE_ACTIVE_COLOR = '#4F46E5';
+const FLOW_EDGE_DECISION_YES_COLOR = '#059669';
+const FLOW_EDGE_DECISION_NO_COLOR = '#DC2626';
+
 const FLOW_MIN_ZOOM = 0.7;
 const FLOW_MAX_ZOOM = 2.2;
 const FLOW_CLASSIC_Y_SCALE = 1.22;
@@ -5043,6 +5086,30 @@ export default function AdminPage() {
     return { width, height, offsetX, offsetY };
   }, [flowBranchNodes]);
 
+  const flowLaneFrames = useMemo(
+    () =>
+      FLOW_DIAGRAM_COLUMNS.flatMap((column) => {
+        const nodes = flowBranchNodes.filter((item) => item.node.column === column.id);
+        if (!nodes.length) return [];
+        const minX = Math.min(...nodes.map((item) => item.x));
+        const minY = Math.min(...nodes.map((item) => item.y));
+        const maxX = Math.max(...nodes.map((item) => item.x + item.width));
+        const maxY = Math.max(...nodes.map((item) => item.y + item.height));
+        return [
+          {
+            ...column,
+            ...FLOW_COLUMN_STYLE[column.id],
+            x: minX - 36,
+            y: minY - 70,
+            width: maxX - minX + 72,
+            height: maxY - minY + 134,
+            count: nodes.length,
+          },
+        ];
+      }),
+    [flowBranchNodes]
+  );
+
   const flowBranchEdges = useMemo(() => {
     const nodeRects = Array.from(flowBranchNodeMap.values()).map((item) => ({
       id: item.node.id,
@@ -7880,13 +7947,30 @@ export default function AdminPage() {
                             id="admin-flow-classic-svg"
                             viewBox={`0 0 ${flowDiagramFrame.width} ${flowDiagramFrame.height}`}
                             style={{ height: `${Math.round(flowDiagramFrame.height)}px` }}
-                            className="w-full bg-white"
+                            className="w-full bg-[#f8fafc]"
                             role="img"
                             aria-label="Diagrama de flujo ramificado App/Web"
                           >
                             <defs>
+                              <linearGradient id="flow-surface-gradient" x1="0" x2="1" y1="0" y2="1">
+                                <stop offset="0%" stopColor="#FFFFFF" />
+                                <stop offset="52%" stopColor="#F8FAFC" />
+                                <stop offset="100%" stopColor="#F1F5F9" />
+                              </linearGradient>
+                              <pattern id="flow-grid" width="36" height="36" patternUnits="userSpaceOnUse">
+                                <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#E2E8F0" strokeWidth="1" />
+                              </pattern>
+                              <filter id="flow-node-shadow" x="-20%" y="-40%" width="140%" height="180%">
+                                <feDropShadow dx="0" dy="10" stdDeviation="10" floodColor="#0F172A" floodOpacity="0.13" />
+                              </filter>
+                              <filter id="flow-soft-shadow" x="-20%" y="-40%" width="140%" height="180%">
+                                <feDropShadow dx="0" dy="6" stdDeviation="7" floodColor="#0F172A" floodOpacity="0.08" />
+                              </filter>
                               <marker id="flow-classic-arrow" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#334155" />
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill={FLOW_EDGE_MAIN_COLOR} />
+                              </marker>
+                              <marker id="flow-classic-arrow-return" markerWidth="10" markerHeight="10" refX="8.5" refY="5" orient="auto">
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill={FLOW_EDGE_RETURN_COLOR} />
                               </marker>
                               <marker
                                 id="flow-classic-arrow-active"
@@ -7896,14 +7980,23 @@ export default function AdminPage() {
                                 refY="5"
                                 orient="auto"
                               >
-                                <path d="M 0 0 L 10 5 L 0 10 z" fill="#1D4ED8" />
+                                <path d="M 0 0 L 10 5 L 0 10 z" fill={FLOW_EDGE_ACTIVE_COLOR} />
                               </marker>
                             </defs>
 
+                            <rect width={flowDiagramFrame.width} height={flowDiagramFrame.height} fill="url(#flow-surface-gradient)" />
+                            <rect
+                              x={24}
+                              y={76}
+                              width={flowDiagramFrame.width - 48}
+                              height={flowDiagramFrame.height - 104}
+                              fill="url(#flow-grid)"
+                              opacity={0.42}
+                            />
                             <text
-                              x={flowDiagramFrame.width / 2}
-                              y={32}
-                              textAnchor="middle"
+                              x={48}
+                              y={38}
+                              textAnchor="start"
                               fontSize={18}
                               fontWeight={800}
                               fill="#0F172A"
@@ -7911,42 +8004,130 @@ export default function AdminPage() {
                               Flujo real operativo App/Web
                             </text>
                             <text
-                              x={flowDiagramFrame.width / 2}
-                              y={52}
-                              textAnchor="middle"
+                              x={48}
+                              y={60}
+                              textAnchor="start"
                               fontSize={12}
                               fontWeight={600}
                               fill="#64748B"
                             >
                               Captacion, aprobacion admin, operacion tecnica, solicitudes cliente y mejora continua
                             </text>
+                            <g transform={`translate(${flowDiagramFrame.width - 248} 28)`}>
+                              <rect width={200} height={34} rx={17} fill="#FFFFFF" stroke="#E2E8F0" filter="url(#flow-soft-shadow)" />
+                              <circle cx={19} cy={17} r={5} fill="#F97316" />
+                              <text x={34} y={21} fontSize={11} fontWeight={800} fill="#475569">
+                                {flowNodes.length} pasos conectados
+                              </text>
+                            </g>
 
                             <g transform={`translate(${flowDiagramFrame.offsetX} ${flowDiagramFrame.offsetY})`}>
+                              {flowLaneFrames.map((lane) => (
+                                <g key={lane.id}>
+                                  <rect
+                                    x={lane.x}
+                                    y={lane.y}
+                                    width={lane.width}
+                                    height={lane.height}
+                                    rx={28}
+                                    fill={lane.fill}
+                                    stroke={lane.stroke}
+                                    strokeWidth={1.4}
+                                    opacity={0.76}
+                                  />
+                                  <rect
+                                    x={lane.x + 18}
+                                    y={lane.y + 18}
+                                    width={lane.width - 36}
+                                    height={38}
+                                    rx={19}
+                                    fill="#FFFFFF"
+                                    stroke={lane.stroke}
+                                    filter="url(#flow-soft-shadow)"
+                                  />
+                                  <circle cx={lane.x + 40} cy={lane.y + 37} r={6} fill={lane.accent} />
+                                  <text x={lane.x + 56} y={lane.y + 34} fontSize={12} fontWeight={900} fill={lane.text}>
+                                    {lane.label}
+                                  </text>
+                                  <text x={lane.x + 56} y={lane.y + 49} fontSize={10} fontWeight={700} fill="#64748B">
+                                    {lane.helper} · {lane.count} pasos
+                                  </text>
+                                </g>
+                              ))}
+
                               {flowBranchEdges.map((edge) => {
                                 const isActive = selectedFlowEdgeIds.has(edge.id);
+                                const fromItem = flowBranchNodeMap.get(edge.from);
+                                const toItem = flowBranchNodeMap.get(edge.to);
+                                const isReturn = Boolean(fromItem && toItem && toItem.y < fromItem.y - 20);
+                                const isDecisionNo = edge.label === 'no';
+                                const isDecisionYes = edge.label === 'si';
+                                const edgeColor = isActive
+                                  ? FLOW_EDGE_ACTIVE_COLOR
+                                  : isDecisionNo
+                                    ? FLOW_EDGE_DECISION_NO_COLOR
+                                    : isDecisionYes
+                                      ? FLOW_EDGE_DECISION_YES_COLOR
+                                      : isReturn
+                                        ? FLOW_EDGE_RETURN_COLOR
+                                        : FLOW_EDGE_MAIN_COLOR;
+                                const markerId = isActive
+                                  ? 'flow-classic-arrow-active'
+                                  : isReturn
+                                    ? 'flow-classic-arrow-return'
+                                    : 'flow-classic-arrow';
+                                const labelWidth = edge.label ? Math.max(34, edge.label.length * 7 + 18) : 0;
                                 return (
                                   <g key={edge.id}>
                                     <path
                                       d={edge.path}
                                       fill="none"
-                                      stroke={isActive ? '#1D4ED8' : '#334155'}
-                                      strokeWidth={isActive ? 2.5 : 1.7}
-                                      markerEnd={isActive ? 'url(#flow-classic-arrow-active)' : 'url(#flow-classic-arrow)'}
+                                      stroke="#FFFFFF"
+                                      strokeWidth={isActive ? 6 : 5}
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
-                                      opacity={isActive ? 0.97 : 0.86}
+                                      opacity={0.95}
+                                    />
+                                    <path
+                                      d={edge.path}
+                                      fill="none"
+                                      stroke={edgeColor}
+                                      strokeWidth={isActive ? 3 : 2}
+                                      markerEnd={`url(#${markerId})`}
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeDasharray={isReturn && !isActive ? '8 8' : undefined}
+                                      opacity={isActive ? 0.98 : isReturn ? 0.86 : 0.78}
                                     />
                                     {edge.label && (
-                                      <text
-                                        x={edge.labelX}
-                                        y={edge.labelY}
-                                        textAnchor="middle"
-                                        fontSize={12}
-                                        fontWeight={700}
-                                        fill={edge.label === 'no' ? '#B91C1C' : '#0F172A'}
-                                      >
-                                        {edge.label}
-                                      </text>
+                                      <g>
+                                        <rect
+                                          x={edge.labelX - labelWidth / 2}
+                                          y={edge.labelY - 17}
+                                          width={labelWidth}
+                                          height={22}
+                                          rx={11}
+                                          fill="#FFFFFF"
+                                          stroke={isDecisionNo ? '#FECACA' : isDecisionYes ? '#A7F3D0' : '#CBD5E1'}
+                                          filter="url(#flow-soft-shadow)"
+                                        />
+                                        <text
+                                          x={edge.labelX}
+                                          y={edge.labelY - 2}
+                                          textAnchor="middle"
+                                          fontSize={11}
+                                          fontWeight={900}
+                                          fill={
+                                            isDecisionNo
+                                              ? FLOW_EDGE_DECISION_NO_COLOR
+                                              : isDecisionYes
+                                                ? FLOW_EDGE_DECISION_YES_COLOR
+                                                : '#334155'
+                                          }
+                                        >
+                                          {edge.label.toUpperCase()}
+                                        </text>
+                                      </g>
                                     )}
                                   </g>
                                 );
@@ -7957,14 +8138,13 @@ export default function AdminPage() {
                                 const isSelected = selectedFlowNode?.id === node.id;
                                 const centerX = x + width / 2;
                                 const centerY = y + height / 2;
-                                const fillColor = isSelected
-                                  ? '#0F172A'
-                                  : node.shape === 'decision'
-                                    ? '#1D4ED8'
-                                    : node.shape === 'start' || node.shape === 'end'
-                                      ? '#1E40AF'
-                                      : '#2563EB';
-                                const strokeColor = isSelected ? '#020617' : '#1E3A8A';
+                                const columnStyle = FLOW_COLUMN_STYLE[node.column];
+                                const isDecision = node.shape === 'decision';
+                                const isTerminal = node.shape === 'start' || node.shape === 'end';
+                                const fillColor = isTerminal ? columnStyle.accent : '#FFFFFF';
+                                const strokeColor = isSelected ? FLOW_EDGE_ACTIVE_COLOR : columnStyle.stroke;
+                                const labelColor = isTerminal ? '#FFFFFF' : '#0F172A';
+                                const subtitleColor = isTerminal ? '#FFEFD5' : '#64748B';
                                 const code = flowNodeCodeMap.get(node.id) || node.id;
                                 return (
                                   <g
@@ -7975,42 +8155,98 @@ export default function AdminPage() {
                                     style={{ cursor: flowNodeDragStart?.nodeId === node.id ? 'grabbing' : 'grab' }}
                                     aria-label={`Paso ${code} - ${node.title}`}
                                   >
-                                    <text x={x + 2} y={Math.max(18, y - 8)} fontSize={11} fontWeight={700} fill="#475569">
-                                      {code} • {FLOW_SHAPE_LABEL[node.shape]}
-                                    </text>
-                                    {node.shape === 'decision' ? (
-                                      <polygon
-                                        points={`${centerX},${y} ${x + width},${centerY} ${centerX},${y + height} ${x},${centerY}`}
-                                        fill={fillColor}
-                                        stroke={strokeColor}
-                                        strokeWidth={isSelected ? 2.8 : 2}
+                                    {isSelected && (
+                                      <rect
+                                        x={x - 8}
+                                        y={y - 8}
+                                        width={width + 16}
+                                        height={height + 16}
+                                        rx={isDecision ? 24 : isTerminal ? 30 : 20}
+                                        fill={columnStyle.accent}
+                                        opacity={0.16}
                                       />
-                                    ) : (
+                                    )}
+                                    <g>
                                       <rect
                                         x={x}
-                                        y={y}
-                                        width={width}
-                                        height={height}
-                                        rx={node.shape === 'start' || node.shape === 'end' ? 24 : 8}
-                                        fill={fillColor}
-                                        stroke={strokeColor}
-                                        strokeWidth={isSelected ? 2.8 : 2}
+                                        y={Math.max(10, y - 34)}
+                                        width={96}
+                                        height={24}
+                                        rx={12}
+                                        fill="#FFFFFF"
+                                        stroke={columnStyle.stroke}
+                                        filter="url(#flow-soft-shadow)"
                                       />
+                                      <circle cx={x + 15} cy={Math.max(22, y - 22)} r={5} fill={columnStyle.accent} />
+                                      <text x={x + 27} y={Math.max(26, y - 17)} fontSize={10} fontWeight={900} fill={columnStyle.text}>
+                                        {code}
+                                      </text>
+                                      <text x={x + 66} y={Math.max(26, y - 17)} fontSize={9} fontWeight={800} fill="#94A3B8">
+                                        {FLOW_SHAPE_LABEL[node.shape]}
+                                      </text>
+                                    </g>
+                                    {isDecision ? (
+                                      <g filter="url(#flow-node-shadow)">
+                                        <polygon
+                                          points={`${centerX},${y} ${x + width},${centerY} ${centerX},${y + height} ${x},${centerY}`}
+                                          fill="#FFFFFF"
+                                          stroke={strokeColor}
+                                          strokeWidth={isSelected ? 3 : 1.8}
+                                        />
+                                        <polygon
+                                          points={`${centerX},${y + 10} ${x + width - 18},${centerY} ${centerX},${y + height - 10} ${x + 18},${centerY}`}
+                                          fill={columnStyle.accentSoft}
+                                          opacity={0.72}
+                                        />
+                                      </g>
+                                    ) : (
+                                      <g filter="url(#flow-node-shadow)">
+                                        <rect
+                                          x={x}
+                                          y={y}
+                                          width={width}
+                                          height={height}
+                                          rx={isTerminal ? Math.min(28, height / 2) : 16}
+                                          fill={fillColor}
+                                          stroke={strokeColor}
+                                          strokeWidth={isSelected ? 3 : 1.8}
+                                        />
+                                        {!isTerminal && (
+                                          <rect
+                                            x={x}
+                                            y={y}
+                                            width={7}
+                                            height={height}
+                                            rx={4}
+                                            fill={columnStyle.accent}
+                                          />
+                                        )}
+                                      </g>
                                     )}
                                     <text
                                       x={centerX}
-                                      y={centerY - (node.flowLabel.length > 1 ? 8 : 0)}
+                                      y={centerY - (node.flowLabel.length > 1 ? 10 : 3)}
                                       textAnchor="middle"
                                       dominantBaseline="middle"
-                                      fontSize={node.shape === 'start' || node.shape === 'end' ? 21 : 16}
-                                      fontWeight={800}
-                                      fill="#FFFFFF"
+                                      fontSize={isTerminal ? 17 : isDecision ? 14 : 14}
+                                      fontWeight={900}
+                                      fill={labelColor}
                                     >
                                       {node.flowLabel.map((line, index) => (
-                                        <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 16}>
+                                        <tspan key={`${node.id}-${line}`} x={centerX} dy={index === 0 ? 0 : 15}>
                                           {line}
                                         </tspan>
                                       ))}
+                                    </text>
+                                    <text
+                                      x={centerX}
+                                      y={y + height - (isDecision ? 24 : 13)}
+                                      textAnchor="middle"
+                                      fontSize={10}
+                                      fontWeight={800}
+                                      fill={subtitleColor}
+                                    >
+                                      {node.subtitle}
                                     </text>
                                   </g>
                                 );
