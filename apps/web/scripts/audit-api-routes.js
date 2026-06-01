@@ -13,6 +13,7 @@ const protectedRoutes = new Set([
   'client/technicians/map/route.ts',
   'client/technicians/nearby/route.ts',
   'tecnico/dashboard/route.ts',
+  'tecnico/registration-whatsapp/route.ts',
   'tecnico/quotes/[id]/feedback-link/route.ts',
   'tecnico/requests/nearby/route.ts',
   'tecnico/requests/[id]/offer/route.ts',
@@ -24,6 +25,7 @@ const protectedRouteGuards = new Map([
   ['billing/coupon/validate/route.ts', ['readLimitedJsonBody']],
   ['client/requests/route.ts', ['readLimitedJsonBody']],
   ['client/requests/[id]/route.ts', ['readLimitedJsonBody']],
+  ['tecnico/registration-whatsapp/route.ts', ['readLimitedJsonBody']],
   ['tecnico/requests/[id]/offer/route.ts', ['readLimitedJsonBody']],
 ]);
 

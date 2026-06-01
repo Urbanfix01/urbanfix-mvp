@@ -1837,6 +1837,7 @@ export default function TechniciansPage() {
   const lastPersistedProfileSignatureRef = useRef('');
   const lastAttemptedProfileSignatureRef = useRef('');
   const profilePersistInFlightRef = useRef(false);
+  const registrationWhatsAppNoticeInFlightRef = useRef(false);
   const autoSaveTimerRef = useRef<number | null>(null);
   const autoSaveMessageTimerRef = useRef<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -4440,6 +4441,37 @@ export default function TechniciansPage() {
     }
   };
 
+  const notifyTechnicianRegistrationWhatsapp = async () => {
+    if (!session?.access_token || !session?.user?.id) return;
+    if (registrationWhatsAppNoticeInFlightRef.current) return;
+    registrationWhatsAppNoticeInFlightRef.current = true;
+
+    try {
+      const response = await fetch('/api/tecnico/registration-whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ source: 'profile_save' }),
+      });
+
+      if (!response.ok) return;
+
+      const payload = (await response.json().catch(() => null)) as { sent?: boolean } | null;
+      if (payload?.sent) {
+        setProfileMessage((current) =>
+          current ? `${current} Tambien te enviamos un WhatsApp.` : 'Te enviamos un WhatsApp con el estado del alta.'
+        );
+        await fetchNotifications(session.user.id);
+      }
+    } catch (error) {
+      console.warn('No se pudo enviar el aviso de WhatsApp del registro tecnico.', error);
+    } finally {
+      registrationWhatsAppNoticeInFlightRef.current = false;
+    }
+  };
+
   const persistProfile = async ({
     silent = false,
     refreshNearby = false,
@@ -4617,6 +4649,9 @@ export default function TechniciansPage() {
 
       if (refreshNearby && nextAccessGranted === true) {
         await fetchNearbyRequests();
+      }
+      if (!silent) {
+        await notifyTechnicianRegistrationWhatsapp();
       }
       return true;
     } catch (error: any) {
