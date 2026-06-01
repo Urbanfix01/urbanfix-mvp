@@ -6219,40 +6219,76 @@ export default function TechniciansPage() {
                 </div>
 
                 <div className="px-5 py-5 sm:px-7 sm:py-6">
-                  <div className="flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-center">
-                  <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)] shadow-sm">
-                    {profileForm.avatarUrl ? (
-                      <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-sm font-black text-[color:var(--ui-muted)]">
-                        {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
+                  <div className="overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_26px_74px_-54px_rgba(15,23,42,0.68)]">
+                    <div className="relative h-44 overflow-hidden bg-[#180f24] sm:h-52">
+                      {profileForm.bannerUrl ? (
+                        <img src={profileForm.bannerUrl} alt="Portada del perfil" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="h-full w-full bg-[linear-gradient(135deg,#2a0338_0%,#432151_48%,#ff8f1f_100%)]">
+                          <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.28),transparent_28%),linear-gradient(90deg,rgba(255,255,255,0.08),transparent_42%)]" />
+                        </div>
+                      )}
+                      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.10),rgba(15,23,42,0.48))]" />
+                      <div className="absolute left-4 top-4 rounded-full border border-white/20 bg-black/25 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/82 backdrop-blur">
+                        Portada publica
                       </div>
-                    )}
-                  </div>
+                      <label className="absolute bottom-4 right-4 inline-flex cursor-pointer items-center gap-2 rounded-full border border-white/20 bg-white px-3.5 py-2 text-[11px] font-bold text-[#180f24] shadow-[0_18px_38px_-24px_rgba(0,0,0,0.75)] transition hover:-translate-y-0.5 hover:bg-[#fff7ed]">
+                        {uploadingBanner ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                        {uploadingBanner ? 'Subiendo...' : profileForm.bannerUrl ? 'Cambiar banner' : 'Subir banner'}
+                        <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
+                      </label>
+                    </div>
 
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[color:var(--ui-muted)]">
-                      Vista previa
-                    </p>
-                    <p className="mt-1 truncate text-base font-black text-[color:var(--ui-ink)]">
-                      {profileForm.businessName || 'Tu negocio'}
-                    </p>
-                    <p className="truncate text-sm text-[color:var(--ui-muted)]">
-                      {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` · ${profileForm.email}` : ''}
-                    </p>
-                  </div>
+                    <div className="px-4 pb-5 sm:px-5">
+                      <div className="-mt-10 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                        <div className="flex min-w-0 flex-1 items-end gap-4">
+                          <div className="relative h-[92px] w-[92px] shrink-0 overflow-hidden rounded-[28px] border-[5px] border-white bg-slate-100 shadow-[0_24px_48px_-30px_rgba(15,23,42,0.8)]">
+                            {profileForm.avatarUrl ? (
+                              <img src={profileForm.avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
+                            ) : profileForm.companyLogoUrl ? (
+                              <img src={profileForm.companyLogoUrl} alt="Logo del negocio" className="h-full w-full object-contain p-3" />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#e2e8f0)] text-2xl font-black text-slate-500">
+                                {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
+                              </div>
+                            )}
+                            <label
+                              title="Subir foto de perfil"
+                              className="absolute bottom-1.5 right-1.5 flex h-8 w-8 cursor-pointer items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_24px_-16px_rgba(255,143,31,0.9)] transition hover:scale-105"
+                            >
+                              {uploadingAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                              <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                            </label>
+                          </div>
 
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
-                      {uploadingAvatar ? 'Subiendo...' : 'Foto opcional'}
-                      <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                    </label>
-                    <label className="inline-flex shrink-0 cursor-pointer items-center rounded-full border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-3 py-2 text-[11px] font-semibold text-[color:var(--ui-ink)] shadow-sm transition hover:border-[color:var(--ui-accent-soft)]">
-                      {uploadingCompanyLogo ? 'Subiendo...' : 'Logo opcional'}
-                      <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                    </label>
+                          <div className="min-w-0 pb-1">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                              Vista previa del perfil
+                            </p>
+                            <p className={`${spaceGrotesk.className} mt-1 truncate text-2xl font-bold text-[#180f24]`}>
+                              {profileForm.businessName || 'Tu negocio'}
+                            </p>
+                            <p className="mt-1 truncate text-sm text-slate-500">
+                              {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` · ${profileForm.email}` : ''}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2 sm:justify-end">
+                          <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#fff7ed] px-3.5 text-[11px] font-bold text-[#7a4a15] shadow-sm transition hover:border-[#ff8f1f]/70">
+                            {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <User className="h-3.5 w-3.5" />}
+                            {uploadingAvatar ? 'Subiendo...' : 'Foto de perfil'}
+                            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                          </label>
+                          <label className="inline-flex min-h-10 shrink-0 cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 text-[11px] font-bold text-slate-700 shadow-sm transition hover:border-[#ff8f1f]/45 hover:bg-[#fffaf4]">
+                            {uploadingCompanyLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Store className="h-3.5 w-3.5" />}
+                            {uploadingCompanyLogo ? 'Subiendo...' : 'Logo negocio'}
+                            <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
+                          </label>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
 
                 <div className="mt-6 space-y-6">
                   <div className="space-y-4">
