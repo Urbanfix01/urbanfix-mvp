@@ -5364,6 +5364,40 @@ export default function TechniciansPage() {
     Boolean(profileForm.phone.trim()) &&
     hasResolvedBaseAddress;
   const hasWorkZoneForShowcase = hasResolvedBaseAddress;
+  const requiredProfileSteps = useMemo(
+    () => [
+      {
+        key: 'identity',
+        label: 'Identidad',
+        detail: 'Nombre y negocio',
+        done: Boolean(profileForm.fullName.trim()) && Boolean(profileForm.businessName.trim()),
+        icon: User,
+      },
+      {
+        key: 'contact',
+        label: 'Contacto',
+        detail: 'WhatsApp visible',
+        done: Boolean(profileForm.phone.trim()),
+        icon: MessageCircle,
+      },
+      {
+        key: 'location',
+        label: 'Ubicacion',
+        detail: 'Punto exacto',
+        done: hasResolvedBaseAddress,
+        icon: MapPinned,
+      },
+    ],
+    [hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, profileForm.phone]
+  );
+  const requiredProfileDoneCount = useMemo(
+    () => requiredProfileSteps.filter((step) => step.done).length,
+    [requiredProfileSteps]
+  );
+  const requiredProfileProgress = useMemo(() => {
+    if (!requiredProfileSteps.length) return 0;
+    return Math.round((requiredProfileDoneCount / requiredProfileSteps.length) * 100);
+  }, [requiredProfileDoneCount, requiredProfileSteps.length]);
 
   const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
   const selectedSpecialtiesSet = useMemo(
@@ -6124,23 +6158,68 @@ export default function TechniciansPage() {
           data-ui-theme={uiTheme}
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
         >
-          <div className="relative overflow-hidden">
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(14,116,144,0.18),_transparent_55%)]"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -right-24 top-12 h-64 w-64 rounded-full bg-[#F5B942]/20 blur-3xl"
-            />
-            <div
-              aria-hidden="true"
-              className="pointer-events-none absolute -left-16 bottom-0 h-56 w-56 rounded-full bg-[#0F172A]/10 blur-3xl"
-            />
+          <div className="relative overflow-hidden bg-[linear-gradient(180deg,#ebe8df_0%,#f7f4ee_50%,#e8edf0_100%)]">
+            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-8 sm:px-6 lg:py-12">
+              <section className="w-full overflow-hidden rounded-[36px] border border-white/80 bg-white/[0.92] shadow-[0_32px_100px_-58px_rgba(15,23,42,0.55)] backdrop-blur">
+                <div className="border-b border-slate-200/70 px-5 py-6 sm:px-7">
+                  <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
+                      <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/25 bg-[#fff7ed] px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a4a00] shadow-sm">
+                        <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                        Registro tecnico
+                      </span>
+                      <h1 className={`${spaceGrotesk.className} mt-4 text-4xl font-bold tracking-tight text-[#180f24] sm:text-5xl`}>
+                        Datos clave para operar
+                      </h1>
+                      <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
+                        Una carga breve para identificar tu negocio, recibir consultas y ubicarte con precisión en el mapa.
+                      </p>
+                    </div>
+                    <div className="w-full rounded-[24px] border border-slate-200 bg-white px-4 py-3 shadow-[0_18px_46px_-38px_rgba(15,23,42,0.5)] sm:max-w-[260px]">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Progreso</p>
+                        <p className="text-sm font-black text-[#180f24]">{requiredProfileDoneCount}/3</p>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                        <div
+                          className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#ffd09a,#2a0338)] transition-[width] duration-500"
+                          style={{ width: `${requiredProfileProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
 
-            <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-3xl items-center px-4 py-10 sm:px-6 lg:py-14">
-              <div className={`w-full ${authSurfaceClass}`}>
-                <div className="flex flex-col gap-4 rounded-3xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/78 p-4 shadow-sm sm:flex-row sm:items-center">
+                  <div className="mt-5 grid gap-2 sm:grid-cols-3">
+                    {requiredProfileSteps.map((step) => {
+                      const StepIcon = step.icon;
+                      return (
+                        <div
+                          key={step.key}
+                          className={`flex min-h-[68px] items-center gap-3 rounded-[20px] border px-3 py-3 transition ${
+                            step.done
+                              ? 'border-emerald-200 bg-emerald-50/80 text-emerald-800'
+                              : 'border-slate-200 bg-white text-slate-600'
+                          }`}
+                        >
+                          <span
+                            className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                              step.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
+                            }`}
+                          >
+                            <StepIcon className="h-4 w-4" />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block text-sm font-bold">{step.label}</span>
+                            <span className="block truncate text-xs opacity-75">{step.detail}</span>
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="px-5 py-5 sm:px-7 sm:py-6">
+                  <div className="flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-center">
                   <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-bg)] shadow-sm">
                     {profileForm.avatarUrl ? (
                       <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
@@ -6175,8 +6254,19 @@ export default function TechniciansPage() {
                   </div>
                 </div>
 
-                <div className="mt-5 space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
+                <div className="mt-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#2a0338] text-white shadow-[0_16px_34px_-24px_rgba(42,3,56,0.85)]">
+                        <User className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Datos publicos</p>
+                        <p className="text-sm font-bold text-[#180f24]">Identidad y contacto</p>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre y apellido</label>
                       <input
@@ -6205,9 +6295,21 @@ export default function TechniciansPage() {
                       placeholder="+54 9 ..."
                       className={authInputClass}
                     />
+                    </div>
                   </div>
 
-                  <div>
+                  <div className="space-y-4 border-t border-slate-200/70 pt-5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.85)]">
+                        <MapPinned className="h-4 w-4" />
+                      </span>
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Zona de trabajo</p>
+                        <p className="text-sm font-bold text-[#180f24]">Localidad, calle y pin exacto</p>
+                      </div>
+                    </div>
+
+                    <div>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
                         <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Pais</label>
@@ -6268,6 +6370,7 @@ export default function TechniciansPage() {
                       required={false}
                       autoSearch={false}
                     />
+                    </div>
                   </div>
 
                   {!canSaveRequiredProfile && (
@@ -6295,7 +6398,8 @@ export default function TechniciansPage() {
                     Cerrar sesión
                   </button>
                 </div>
-              </div>
+                </div>
+              </section>
             </main>
           </div>
         </div>
