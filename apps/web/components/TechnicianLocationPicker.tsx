@@ -540,7 +540,8 @@ export default function TechnicianLocationPicker({
     suggestion.secondaryLabel ||
     suggestion.fullDisplayName ||
     `${suggestion.lat.toFixed(4)}, ${suggestion.lng.toFixed(4)}`;
-  const composedAddressQuery = composeStructuredAddress(addressFields);
+  const effectiveLocality = normalizeSpacing(cityHint || addressFields.locality);
+  const composedAddressQuery = composeStructuredAddress({ ...addressFields, locality: effectiveLocality });
   const hasStreet = Boolean(addressFields.street.trim());
   const hasNumber = Boolean(addressFields.number.trim()) && hasAddressHeight(addressFields.number);
   const addressStepReady = hasStreet && hasNumber;
@@ -566,10 +567,9 @@ export default function TechnicianLocationPicker({
 
       <p className="text-xs text-slate-500">{description}</p>
 
-      <div className="grid grid-cols-4 gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
+      <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
         {[
-          { label: 'Partido', done: Boolean(cityHint?.trim()) },
-          { label: 'Localidad', done: Boolean(addressFields.locality.trim()) },
+          { label: 'Distrito', done: Boolean(effectiveLocality) },
           { label: 'Altura', done: addressStepReady },
           { label: 'Pin', done: mapStepReady },
         ].map((step) => (
@@ -589,19 +589,6 @@ export default function TechnicianLocationPicker({
       {/* Input y Búsqueda */}
       <div className="space-y-2">
         <div className="space-y-2 rounded-2xl border border-slate-200 bg-white/70 p-3">
-          <div>
-            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
-              Localidad / barrio
-            </label>
-            <input
-              type="text"
-              value={addressFields.locality}
-              onChange={(event) => handleStructuredAddressChange('locality', event.target.value)}
-              placeholder="Ej: Ingeniero Adolfo Sourdeaux"
-              disabled={disabled}
-              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 disabled:bg-slate-50"
-            />
-          </div>
           <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -638,7 +625,7 @@ export default function TechnicianLocationPicker({
             </div>
           </div>
           <p className="text-[11px] text-slate-500">
-            Buscamos como: {composedAddressQuery || 'completa localidad, calle y altura'}.
+            Buscamos como: {composedAddressQuery || 'completa distrito, calle y altura'}.
           </p>
         </div>
 
