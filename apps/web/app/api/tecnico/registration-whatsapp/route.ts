@@ -129,6 +129,25 @@ const sendWhatsAppTemplate = async (payload: ReturnType<typeof buildProfilePaylo
     return { configured: true, sent: false, channel: 'whatsapp' as const };
   }
 
+  const usesSampleTemplate = templateName.toLowerCase() === 'hello_world';
+  const template: Record<string, any> = {
+    name: templateName,
+    language: { code: language },
+  };
+
+  if (!usesSampleTemplate) {
+    template.components = [
+      {
+        type: 'body',
+        parameters: [
+          { type: 'text', text: payload.full_name || 'Técnico UrbanFix' },
+          { type: 'text', text: payload.business_name || 'tu negocio' },
+          { type: 'text', text: payload.panel_url || 'UrbanFix' },
+        ],
+      },
+    ];
+  }
+
   const response = await fetch(`${WHATSAPP_API_BASE}/${graphVersion}/${phoneNumberId}/messages`, {
     method: 'POST',
     headers: {
@@ -139,20 +158,7 @@ const sendWhatsAppTemplate = async (payload: ReturnType<typeof buildProfilePaylo
       messaging_product: 'whatsapp',
       to: payload.whatsapp_phone,
       type: 'template',
-      template: {
-        name: templateName,
-        language: { code: language },
-        components: [
-          {
-            type: 'body',
-            parameters: [
-              { type: 'text', text: payload.full_name || 'Técnico UrbanFix' },
-              { type: 'text', text: payload.business_name || 'tu negocio' },
-              { type: 'text', text: payload.panel_url || 'UrbanFix' },
-            ],
-          },
-        ],
-      },
+      template,
     }),
   });
 
