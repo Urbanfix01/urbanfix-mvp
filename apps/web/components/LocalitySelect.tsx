@@ -25,6 +25,14 @@ const normalizeText = (value: string) =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const cleanAdministrativePrefix = (value: string) =>
+  String(value || '')
+    .replace(/\b(partido|departamento|municipio)\s+de\s+/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const getOptionDisplayLabel = (option: LocalityOption) => cleanAdministrativePrefix(option.label || option.name);
+
 const loadLocalities = async (
   country: string,
   province: string
@@ -71,6 +79,9 @@ export default function LocalitySelect({
   const [options, setOptions] = useState<LocalityOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
@@ -80,6 +91,8 @@ export default function LocalitySelect({
       setOptions([]);
       setLoading(false);
       setError('');
+      setQuery('');
+      setOpen(false);
       return;
     }
 
@@ -100,8 +113,56 @@ export default function LocalitySelect({
   const selectedValue = useMemo(() => {
     if (!normalizedValue) return '';
     const exact = options.find((option) => normalizeText(option.name) === normalizedValue);
-    return exact?.name || value;
+    return exact?.name || cleanAdministrativePrefix(value);
   }, [normalizedValue, options, value]);
+
+  const selectedDisplayValue = useMemo(() => {
+    if (!selectedValue) return '';
+    const exact = options.find((option) => normalizeText(option.name) === normalizeText(selectedValue));
+    return exact ? getOptionDisplayLabel(exact) : cleanAdministrativePrefix(selectedValue);
+  }, [options, selectedValue]);
+
+  useEffect(() => {
+    setQuery(selectedDisplayValue);
+  }, [selectedDisplayValue]);
+
+  useEffect(() => {
+    const handleDocumentPointerDown = (event: PointerEvent) => {
+      if (!rootRef.current || rootRef.current.contains(event.target as Node)) return;
+      setOpen(false);
+      setQuery(selectedDisplayValue);
+    };
+
+    document.addEventListener('pointerdown', handleDocumentPointerDown);
+    return () => document.removeEventListener('pointerdown', handleDocumentPointerDown);
+  }, [selectedDisplayValue]);
+
+  const visibleOptions = useMemo(() => {
+    const normalizedQuery = normalizeText(query);
+    const rows = normalizedQuery
+      ? options.filter((option) => {
+          const display = getOptionDisplayLabel(option);
+          return normalizeText(option.name).includes(normalizedQuery) || normalizeText(display).includes(normalizedQuery);
+        })
+      : options;
+
+    const seen = new Set<string>();
+    return rows
+      .filter((option) => {
+        const key = normalizeText(getOptionDisplayLabel(option));
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 80);
+  }, [options, query]);
+
+  const handleSelect = (option: LocalityOption) => {
+    const display = getOptionDisplayLabel(option);
+    setQuery(display);
+    setOpen(false);
+    onChange(option.name);
+  };
 
   const baseSelectClassName =
     selectClassName ||
@@ -110,36 +171,71 @@ export default function LocalitySelect({
   const isDisabled = disabled || !country.trim() || !province.trim() || loading;
 
   return (
-    <div>
-      <select
-        value={selectedValue}
-        onChange={(event) => onChange(event.target.value)}
+    <div ref={rootRef} className="relative">
+      <input
+        value={query}
+        onChange={(event) => {
+          setQuery(event.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' && visibleOptions.length > 0) {
+            event.preventDefault();
+            handleSelect(visibleOptions[0]);
+          }
+          if (event.key === 'Escape') {
+            setOpen(false);
+            setQuery(selectedDisplayValue);
+          }
+        }}
         disabled={isDisabled}
         className={baseSelectClassName}
-      >
-        <option value="">
-          {!country.trim() || !province.trim()
+        placeholder={
+          !country.trim() || !province.trim()
             ? 'Selecciona pais y provincia primero'
             : loading
               ? 'Cargando localidades...'
-              : 'Seleccionar localidad o partido'}
-        </option>
-        {value && !options.some((option) => normalizeText(option.name) === normalizedValue) && (
-          <option value={value}>{value}</option>
-        )}
-        {options.map((option) => (
-          <option key={`${option.name}-${option.label}`} value={option.name}>
-            {option.label || option.name}
-          </option>
-        ))}
-      </select>
+              : 'Escribe para buscar distrito'
+        }
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+      />
+      {open && !isDisabled && (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 max-h-72 overflow-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_24px_54px_-34px_rgba(15,23,42,0.55)]">
+          {visibleOptions.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">No encontramos ese distrito en la lista.</div>
+          ) : (
+            visibleOptions.map((option) => {
+              const display = getOptionDisplayLabel(option);
+              const isSelected = normalizeText(option.name) === normalizeText(selectedValue);
+              return (
+                <button
+                  key={`${option.name}-${option.label}`}
+                  type="button"
+                  onClick={() => handleSelect(option)}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left text-sm transition ${
+                    isSelected
+                      ? 'bg-[#fff7ed] font-semibold text-[#7a4a15]'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                  }`}
+                >
+                  <span className="min-w-0 truncate">{display}</span>
+                  {isSelected && <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#ff8f1f]" />}
+                </button>
+              );
+            })
+          )}
+        </div>
+      )}
       {!country.trim() || !province.trim() ? (
         <p className={baseHelperClassName}>Selecciona pais y provincia para habilitar localidades.</p>
       ) : error ? (
         <p className="mt-2 text-xs text-rose-500">{error}</p>
       ) : (
         <p className={baseHelperClassName}>
-          {loading ? 'Cargando localidades disponibles...' : 'Elige una localidad o partido del listado oficial.'}
+          {loading ? 'Cargando localidades disponibles...' : 'Escribe para filtrar y elige el distrito del listado.'}
         </p>
       )}
     </div>

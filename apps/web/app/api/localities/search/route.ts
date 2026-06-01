@@ -246,13 +246,8 @@ const dedupeLocalityResults = (rows: Array<{ name: string; label: string }>) => 
   });
 };
 
-const buildArgentinaDistrictLabel = (name: string, province: string, kind: 'municipality' | 'department') => {
-  if (kind === 'municipality') {
-    const prefix = normalizeText(province) === 'buenos aires' ? 'Partido de' : 'Municipio de';
-    return `${prefix} ${name}, ${province}`;
-  }
-
-  return `Departamento de ${name}, ${province}`;
+const buildArgentinaDistrictLabel = (name: string, province: string, _kind: 'municipality' | 'department') => {
+  return `${name}, ${province}`;
 };
 
 const ARGENTINA_DISTRICT_FALLBACKS: Record<string, string[]> = {
