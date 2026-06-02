@@ -5415,6 +5415,70 @@ export default function AdminPage() {
     };
   }, [roadmapOpenCount, roadmapTotals.blocked]);
 
+  const flowOperationalTracks = useMemo(
+    () => [
+      {
+        key: 'semana-1-admin',
+        stage: '01',
+        title: 'Cerrar acceso y aprobación',
+        status: filteredPendingAccess.length > 0 ? `${filteredPendingAccess.length} perfil(es) por revisar` : 'Sin cola pendiente',
+        statusClass:
+          filteredPendingAccess.length > 0
+            ? 'border-amber-200 bg-amber-50 text-amber-800'
+            : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        detail: 'Validar login, datos clave, ubicación exacta, WhatsApp y acceso aprobado antes de abrir usuarios reales.',
+        nextAction: 'Abrir Accesos',
+        tab: 'accesos' as AdminTabKey,
+        nodeIds: ['auth_session', 'profile_setup', 'review_gate', 'admin_queue', 'admin_decision', 'admin_approve'],
+      },
+      {
+        key: 'operacion-cliente-tecnico',
+        stage: '02',
+        title: 'Probar cliente → técnico',
+        status: `${overview?.kpis.totalQuotes ?? 0} presupuesto(s) cargado(s)`,
+        statusClass: 'border-sky-200 bg-sky-50 text-sky-800',
+        detail: 'Ejecutar cuentas controladas: cliente crea solicitud, técnico recibe, responde, comparte link y registra estado.',
+        nextAction: 'Abrir Solicitudes',
+        tab: 'solicitudes' as AdminTabKey,
+        nodeIds: ['client_request', 'nearby_match', 'technician_offer', 'quote_link', 'client_decision', 'quote_adjust'],
+      },
+      {
+        key: 'caja-control',
+        stage: '03',
+        title: 'Medir caja y operación',
+        status: formatCurrency(overview?.kpis.revenueTotal ?? 0),
+        statusClass: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+        detail: 'Confirmar que presupuestos, cobros, mano de obra y tendencia mensual reflejen datos reales.',
+        nextAction: 'Abrir Facturación',
+        tab: 'facturacion' as AdminTabKey,
+        nodeIds: ['work_execution', 'billing_capture', 'admin_monitoring'],
+      },
+      {
+        key: 'mejora-beta',
+        stage: '04',
+        title: 'Roadmap y fricción beta',
+        status: roadmapOpenCount > 0 ? `${roadmapOpenCount} tarea(s) abierta(s)` : 'Roadmap sin pendientes abiertos',
+        statusClass:
+          roadmapTotals.blocked > 0
+            ? 'border-rose-200 bg-rose-50 text-rose-700'
+            : roadmapOpenCount > 0
+              ? 'border-violet-200 bg-violet-50 text-violet-800'
+              : 'border-emerald-200 bg-emerald-50 text-emerald-700',
+        detail: 'Registrar fricción real, soporte, mobile y mejoras antes de pasar a beta cerrada con técnicos reales.',
+        nextAction: 'Abrir Roadmap',
+        tab: 'roadmap' as AdminTabKey,
+        nodeIds: ['admin_notifications', 'roadmap_loop', 'flow_end'],
+      },
+    ],
+    [
+      filteredPendingAccess.length,
+      overview?.kpis.revenueTotal,
+      overview?.kpis.totalQuotes,
+      roadmapOpenCount,
+      roadmapTotals.blocked,
+    ]
+  );
+
   const premiumSurfaceClass =
     'rounded-[30px] border border-[#e5d9ea] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(250,244,250,0.95)_100%)] p-5 shadow-[0_16px_34px_rgba(31,10,46,0.10)] backdrop-blur-[3px] lg:p-6';
   const premiumPanelClass =
@@ -7720,6 +7784,60 @@ export default function AdminPage() {
                 <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700">
                   {flowNodes.length} nodos activos
                 </span>
+              </div>
+
+              <div className="mt-6 rounded-[28px] border border-[#eadff0] bg-[linear-gradient(135deg,rgba(255,255,255,0.98)_0%,rgba(249,245,250,0.96)_55%,rgba(255,247,237,0.92)_100%)] p-4 shadow-[0_16px_32px_rgba(31,10,46,0.08)]">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b6f98]">Trabajo guiado por flujo</p>
+                    <h4 className="mt-1 text-xl font-semibold text-[#180f24]">Orden de avance recomendado</h4>
+                    <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6c6177]">
+                      Usamos el diagrama como mapa maestro: cerramos primero seguridad y aprobación, después probamos el circuito cliente-técnico y por último medimos caja, soporte y beta.
+                    </p>
+                  </div>
+                  <span className="rounded-full border border-[#eadff0] bg-white px-3 py-2 text-xs font-semibold text-[#432451] shadow-[0_8px_18px_rgba(31,10,46,0.05)]">
+                    Prioridad: producción controlada
+                  </span>
+                </div>
+
+                <div className="mt-5 grid gap-3 xl:grid-cols-4">
+                  {flowOperationalTracks.map((track) => (
+                    <article
+                      key={track.key}
+                      className="rounded-[24px] border border-[#eadff0] bg-white/92 p-4 shadow-[0_10px_22px_rgba(31,10,46,0.06)]"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#2a0338] text-sm font-black text-white">
+                          {track.stage}
+                        </span>
+                        <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold ${track.statusClass}`}>
+                          {track.status}
+                        </span>
+                      </div>
+                      <h5 className="mt-4 text-base font-semibold text-[#180f24]">{track.title}</h5>
+                      <p className="mt-2 min-h-[72px] text-xs leading-6 text-[#6c6177]">{track.detail}</p>
+                      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFlowNodeId(track.nodeIds[0]);
+                            setFlowProcessDialogNodeId(track.nodeIds[0]);
+                          }}
+                          className="rounded-full border border-[#eadff0] bg-[#fbf7fb] px-3 py-2 text-[11px] font-semibold text-[#432451] transition hover:border-[#d8c4e3] hover:bg-white"
+                        >
+                          Ver en diagrama
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab(track.tab)}
+                          className="rounded-full bg-[#ff8f1f] px-3 py-2 text-[11px] font-semibold text-[#2a0338] shadow-[0_12px_24px_-18px_rgba(255,143,31,0.9)] transition hover:bg-[#ffad56]"
+                        >
+                          {track.nextAction}
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
 
               <div className="mt-6 space-y-6">
