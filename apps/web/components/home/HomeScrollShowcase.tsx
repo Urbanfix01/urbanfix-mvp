@@ -7,41 +7,41 @@ const flowSteps = [
   {
     title: '1. Ingreso correcto',
     description:
-      'UrbanFix ordena la entrada de tecnico, empresa o cliente para que cada actor caiga en el flujo que le corresponde.',
+      'UrbanFix ordena la entrada de técnico, empresa o cliente para que cada actor caiga en el flujo que le corresponde.',
   },
   {
     title: '2. Presupuesto estructurado',
     description:
-      'La propuesta se arma con cliente, rubro, mano de obra, materiales y observaciones tecnicas en una misma capa operativa.',
+      'La propuesta se arma con cliente, rubro, mano de obra, materiales y observaciones técnicas en una misma capa operativa.',
   },
   {
-    title: '3. Envio y respuesta',
+    title: '3. Envío y respuesta',
     description:
-      'El presupuesto puede salir por link o WhatsApp, y el cliente revisa la propuesta dentro de una experiencia mas clara.',
+      'El presupuesto puede salir por link o WhatsApp, y el cliente revisa la propuesta dentro de una experiencia más clara.',
   },
   {
     title: '4. Visibilidad y continuidad',
     description:
-      'Perfil publico, rubros indexables, mapa y soporte completan una presencia mas ordenada para seguir creciendo.',
+      'Perfil público, rubros indexables, mapa y soporte completan una presencia más ordenada para seguir creciendo.',
   },
 ];
 
 const moduleCards = [
   {
-    title: 'Panel tecnico',
-    description: 'Cotizacion, items, estados y lectura operativa dentro de una sola interfaz.',
+    title: 'Panel técnico',
+    description: 'Cotización, ítems, estados y lectura operativa dentro de una sola interfaz.',
   },
   {
     title: 'Portal cliente',
-    description: 'Ingreso para publicar pedidos, revisar propuestas y responder con menos friccion.',
+    description: 'Ingreso para publicar pedidos, revisar propuestas y responder con menos fricción.',
   },
   {
     title: 'Base de rubros',
-    description: 'Mano de obra, variantes tecnicas y referencias para cotizar con mas criterio.',
+    description: 'Mano de obra, variantes técnicas y referencias para cotizar con más criterio.',
   },
   {
     title: 'Presupuesto compartible',
-    description: 'Salida por link y presentacion mas prolija para el cliente final.',
+    description: 'Salida por link y presentación más prolija para el cliente final.',
   },
   {
     title: 'Vidriera y mapa',
@@ -54,8 +54,8 @@ const moduleCards = [
 ];
 
 const impactStats = [
-  { label: 'Panel tecnico y portal cliente', value: '2 frentes' },
-  { label: 'Visibilidad publica', value: '24/7' },
+  { label: 'Panel técnico y portal cliente', value: '2 frentes' },
+  { label: 'Visibilidad pública', value: '24/7' },
   { label: 'Presupuesto y respuesta', value: 'Link + PDF' },
   { label: 'Base operativa', value: '1 plataforma' },
 ];
@@ -105,10 +105,10 @@ export default function HomeScrollShowcase() {
         >
           <p className="text-[11px] font-semibold uppercase tracking-[0.23em] text-white/60">Plataforma UrbanFix</p>
           <h2 className="mt-3 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-4xl">
-            La home ahora explica lo mismo que UrbanFix ya ofrece dentro de la plataforma y en sus capas publicas.
+            La home muestra el recorrido real: entrar, cotizar, compartir, responder y seguir operando.
           </h2>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-white/80">
-            Presupuestos compartibles, base tecnica de rubros, portal cliente, perfiles publicos, mapa de tecnicos y
+            Presupuestos compartibles, base técnica de rubros, portal cliente, perfiles públicos, mapa de técnicos y
             lectura administrativa en un mismo ecosistema.
           </p>
         </article>
@@ -150,7 +150,7 @@ export default function HomeScrollShowcase() {
         >
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">Modulos clave</p>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">Módulos clave</p>
               <h3 className="mt-2 text-2xl font-semibold text-white">Todo conectado para operar y presentarte mejor</h3>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -191,10 +191,10 @@ export default function HomeScrollShowcase() {
           data-ufx-reveal
           className="ufx-reveal rounded-[30px] border border-white/15 bg-gradient-to-r from-[#3a0b4f]/85 via-[#2f0a44]/85 to-[#230535]/85 p-6 shadow-[0_30px_70px_-45px_rgba(0,0,0,0.95)] sm:p-8"
         >
-          <h3 className="text-2xl font-semibold text-white sm:text-3xl">Listo para escalar la operacion diaria</h3>
+          <h3 className="text-2xl font-semibold text-white sm:text-3xl">Listo para escalar la operación diaria</h3>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/80">
-            Desde un tecnico independiente hasta una operacion con multiples actores, UrbanFix junta presupuesto,
-            cliente, vidriera publica, mapa y soporte en una misma estructura.
+            Desde un técnico independiente hasta una operación con múltiples actores, UrbanFix junta presupuesto,
+            cliente, vidriera pública, mapa y soporte en una misma estructura.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
@@ -207,7 +207,7 @@ export default function HomeScrollShowcase() {
               href="/vidriera"
               className="rounded-full border border-white/35 px-5 py-2.5 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
             >
-              Ver tecnicos por zona
+              Ver técnicos por zona
             </Link>
           </div>
         </article>

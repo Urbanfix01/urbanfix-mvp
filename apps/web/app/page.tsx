@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Sora } from 'next/font/google';
-import { ClipboardList, FileCheck2, MapPinned, Sparkles, ArrowDown } from 'lucide-react';
+import { ArrowDown, ArrowRight, Building2, ClipboardList, FileCheck2, MapPinned, Sparkles, UserRound, Wrench } from 'lucide-react';
 import AuthHashHandler from '../components/AuthHashHandler';
 import FloatingWhatsappChannelButton from '../components/home/FloatingWhatsappChannelButton';
 import HomeHeroTransition from '../components/home/HomeHeroTransition';
@@ -37,6 +37,30 @@ const heroPillars = [
     title: 'Vidriera pública y mapa',
     description: 'Perfiles visibles, cobertura por zona y descubrimiento comercial sin login.',
     icon: MapPinned,
+  },
+];
+
+const accessCards = [
+  {
+    title: 'Cliente',
+    eyebrow: 'Pedir un trabajo',
+    description: 'Publica una solicitud, deja el contexto y sigue las respuestas desde tu portal.',
+    href: '/cliente',
+    icon: UserRound,
+  },
+  {
+    title: 'Técnico',
+    eyebrow: 'Operar cotizaciones',
+    description: 'Cotiza, responde clientes, revisa tu mapa y ordena el estado de tu caja.',
+    href: '/tecnicos?perfil=tecnico&mode=login',
+    icon: Wrench,
+  },
+  {
+    title: 'Empresa',
+    eyebrow: 'Gestionar operación',
+    description: 'Coordina responsables, presupuestos y seguimiento comercial desde un acceso propio.',
+    href: '/tecnicos?perfil=empresa&mode=login',
+    icon: Building2,
   },
 ];
 
@@ -79,12 +103,11 @@ export default function HomePage() {
                     UrbanFix en una sola capa operativa
                   </p>
                   <h1 className="mt-4 max-w-4xl text-3xl font-semibold leading-tight text-white sm:text-5xl">
-                    Presupuestar, operar, mostrar cobertura y crecer con una estructura mucho más clara.
+                    UrbanFix organiza presupuestos, técnicos y clientes en una sola operación.
                   </h1>
                   <p className="mt-4 max-w-3xl text-sm leading-7 text-white/82 sm:text-base">
-                    UrbanFix une panel técnico, base de rubros, portal cliente, presencia pública y mapa de técnicos
-                    disponibles. La portada ordena los accesos principales para entender rápido el producto, descargar
-                    la app y entrar a la plataforma correcta según cada perfil.
+                    Una entrada clara para cada perfil: el cliente pide, el técnico cotiza y la empresa ordena su operación.
+                    La home deja visible el flujo real de la plataforma sin mezclar accesos.
                   </p>
                   <div className="mt-6 flex flex-wrap gap-3">
                     <Link
@@ -94,17 +117,45 @@ export default function HomePage() {
                       Crear solicitud
                     </Link>
                     <Link
-                      href="/urbanfix"
+                      href="/tecnicos"
                       className="rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffad56]"
                     >
-                      Ver todo lo que ofrece
+                      Entrar a la plataforma
                     </Link>
                     <Link
-                      href="/descargar-app"
+                      href="/vidriera"
                       className="rounded-full border border-[#ff8f1f]/35 bg-[#ff8f1f]/10 px-5 py-2.5 text-sm font-semibold text-[#ffd6a6] transition hover:border-[#ffb45e] hover:bg-[#ff8f1f]/16 hover:text-white"
                     >
-                      Descargar app
+                      Ver técnicos disponibles
                     </Link>
+                  </div>
+
+                  <div className="mt-8 grid gap-3 lg:grid-cols-3">
+                    {accessCards.map((item) => {
+                      const Icon = item.icon;
+
+                      return (
+                        <Link
+                          key={item.title}
+                          href={item.href}
+                          className="group rounded-[26px] border border-white/12 bg-[linear-gradient(145deg,rgba(255,255,255,0.10),rgba(255,255,255,0.04))] p-4 shadow-[0_22px_60px_-42px_rgba(0,0,0,0.9)] backdrop-blur-md transition duration-300 hover:-translate-y-1 hover:border-[#ff8f1f]/55 hover:bg-white/[0.13]"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_14px_26px_rgba(255,143,31,0.22)]">
+                              <Icon className="h-5 w-5" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffd6a6]">
+                                {item.eyebrow}
+                              </p>
+                              <p className="mt-1 text-base font-semibold text-white">{item.title}</p>
+                            </div>
+                            <ArrowRight className="h-4 w-4 shrink-0 text-white/45 transition group-hover:text-[#ffb35e]" />
+                          </div>
+                          <p className="mt-3 text-sm leading-6 text-white/70">{item.description}</p>
+                        </Link>
+                      );
+                    })}
                   </div>
                 </div>
 
