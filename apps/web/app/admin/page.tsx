@@ -4387,6 +4387,45 @@ export default function AdminPage() {
     return stableQueue.slice(0, 4);
   }, [overview, resolvedSummaryBaseline, roadmapUpdates, supportUsers.length]);
 
+  const summaryExecutiveSignal = useMemo(() => {
+    if (!overview) return null;
+
+    const blockedRoadmapCount = roadmapUpdates.filter((item) => item.status === 'blocked').length;
+    const pendingDecisionCount = overview.kpis.pendingAccess + supportUsers.length + blockedRoadmapCount;
+    const accessRatio = overview.kpis.totalUsers
+      ? Math.round((overview.kpis.accessGranted / overview.kpis.totalUsers) * 100)
+      : 0;
+    const paidRatio = overview.kpis.totalQuotes
+      ? Math.round((overview.kpis.paidQuotesCount / overview.kpis.totalQuotes) * 100)
+      : 0;
+
+    if (pendingDecisionCount > 0) {
+      return {
+        status: 'Atención requerida',
+        helper: `${formatNumber(pendingDecisionCount)} foco(s) esperando decisión admin`,
+        badgeClass: 'border-[#ffbe76] bg-[#fff4e4] text-[#9a4d00]',
+        surfaceClass: 'border-[#ffcf97] bg-[linear-gradient(135deg,#fff8ef_0%,#fffdf8_100%)]',
+        ctaLabel: overview.kpis.pendingAccess > 0 ? 'Revisar accesos' : supportUsers.length > 0 ? 'Responder soporte' : 'Ver roadmap',
+        ctaTab: overview.kpis.pendingAccess > 0 ? 'accesos' : supportUsers.length > 0 ? 'mensajes' : 'roadmap',
+        pendingDecisionCount,
+        accessRatio,
+        paidRatio,
+      };
+    }
+
+    return {
+      status: 'Operación estable',
+      helper: 'Sin bloqueos críticos en el tablero actual',
+      badgeClass: 'border-emerald-200 bg-emerald-50 text-emerald-700',
+      surfaceClass: 'border-emerald-200 bg-[linear-gradient(135deg,#f0fdf4_0%,#ffffff_100%)]',
+      ctaLabel: 'Ver roadmap',
+      ctaTab: 'roadmap',
+      pendingDecisionCount,
+      accessRatio,
+      paidRatio,
+    };
+  }, [overview, roadmapUpdates, supportUsers.length]);
+
   const argentinaZoneHeatmap = useMemo(() => {
     if (!overview) {
       return {
@@ -6537,124 +6576,129 @@ export default function AdminPage() {
             <>
               {activeTab === 'resumen' && (
                 <>
-                  <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
-                    <div className="space-y-6">
-                      <article className="relative overflow-hidden rounded-[34px] border border-[#2f0f42] bg-[linear-gradient(145deg,#1d062a_0%,#2c0b3c_48%,#4b1764_100%)] p-6 text-white shadow-[0_32px_80px_rgba(29,6,42,0.35)]">
-                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,175,72,0.22),transparent_32%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_30%)]" />
-                        <div className="relative z-10">
-                          <div className="flex flex-wrap items-start justify-between gap-4">
-                            <div className="max-w-2xl">
-                              <p className="text-[11px] uppercase tracking-[0.24em] text-white/48">Control premium</p>
-                              <h3 className="mt-3 max-w-xl text-[clamp(1.9rem,3vw,2.65rem)] font-semibold leading-tight text-white">
-                                Centro de mando para leer el estado del negocio en una sola pasada
-                              </h3>
-                              <p className="mt-4 max-w-xl text-sm leading-7 text-white/72">
-                                Reordenamos la lectura para que los frentes críticos, la operación comercial y el pulso del producto convivan en una vista ejecutiva de tres columnas.
-                              </p>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2 text-xs">
-                              <span className={`rounded-full px-3 py-1.5 font-semibold shadow-[0_8px_18px_rgba(0,0,0,0.16)] ${adminExecutionPulse.badgeClass}`}>
-                                {adminExecutionPulse.label}
-                              </span>
-                              <span className="rounded-full border border-white/14 bg-white/8 px-3 py-1.5 font-semibold text-white/88 backdrop-blur">
-                                Vista {activeTabLabel}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
-                                className="rounded-full border border-[#ffcf97]/40 bg-[#fff4e4] px-3 py-1.5 font-semibold text-[#8d4c12] transition hover:border-[#ffbf73] hover:bg-[#fffaef]"
-                              >
-                                Reiniciar base
-                              </button>
-                            </div>
+                  <section className="mt-6 space-y-6">
+                    <article className="relative overflow-hidden rounded-[34px] border border-[#e5d9ea] bg-[linear-gradient(135deg,#fffdf8_0%,#fbf7fb_46%,#f2edf4_100%)] p-5 shadow-[0_28px_70px_rgba(31,10,46,0.12)] lg:p-6">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,156,26,0.16),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(67,36,81,0.08),transparent_32%)]" />
+                      <div className="relative z-10 grid gap-6 xl:grid-cols-[1fr_380px]">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${summaryExecutiveSignal?.badgeClass || 'border-[#eadff0] bg-white text-[#432451]'}`}>
+                              {summaryExecutiveSignal?.status || 'Resumen admin'}
+                            </span>
+                            <span className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
+                              {adminExecutionPulse.label}
+                            </span>
+                            <span className="rounded-full border border-[#eadff0] bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-[#6c6177]">
+                              Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
+                            </span>
                           </div>
-
-                          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                            <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">MRR activo</p>
-                              <p className="mt-3 text-2xl font-semibold text-white">{formatCurrency(overview.kpis.mrr)}</p>
-                              <p className="mt-2 text-xs text-white/64">Facturación recurrente en la lectura actual.</p>
-                            </div>
-                            <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Visitas 7d</p>
-                              <p className="mt-3 text-2xl font-semibold text-white">{formatNumber(overview.kpis.visitsLast7)}</p>
-                              <p className="mt-2 text-xs text-white/64">Movimiento reciente sobre la experiencia pública.</p>
-                            </div>
-                            <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur">
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Base actual</p>
-                              <p className="mt-3 text-base font-semibold text-white">{formatDateTime(resolvedSummaryBaseline?.setAt || null)}</p>
-                              <p className="mt-2 text-xs text-white/64">Punto de comparación para alertas y desvíos.</p>
-                            </div>
-                          </div>
-
-                          <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                            {summaryPrimaryCards.map((card) => {
-                              const Icon = card.icon;
-                              return (
-                                <article
-                                  key={card.key}
-                                  className="rounded-[26px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06))] px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur"
-                                >
-                                  <div className="flex items-start justify-between gap-3">
-                                    <div>
-                                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/48">{card.label}</p>
-                                      <p className="mt-3 text-2xl font-semibold text-white">{card.value}</p>
-                                    </div>
-                                    <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
-                                      <Icon className="h-5 w-5" />
-                                    </span>
-                                  </div>
-                                  <p className="mt-3 text-xs leading-6 text-white/70">{card.helper}</p>
-                                  <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
-                                </article>
-                              );
-                            })}
-                          </div>
+                          <p className="mt-5 text-[11px] uppercase tracking-[0.24em] text-[#8b7c98]">Resumen Admin</p>
+                          <h3 className="mt-3 max-w-3xl text-[clamp(2rem,3.2vw,3.1rem)] font-semibold leading-[1.02] text-[#180f24]">
+                            Estado real para decidir rápido
+                          </h3>
+                          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#5f526b]">
+                            Una lectura limpia de accesos, caja, soporte y producto. Lo importante queda arriba; el detalle vive en cada módulo.
+                          </p>
                         </div>
-                      </article>
 
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {summarySystemCards.map((card) => {
-                          const Icon = card.icon;
-                          return (
-                            <article key={card.label} className={`${adminSystemCardBaseClass} ${card.tone}`}>
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-[11px] uppercase tracking-[0.18em] opacity-70">{card.label}</p>
-                                  <p className="mt-3 text-2xl font-semibold">{card.value}</p>
-                                </div>
-                                <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${card.iconClass}`}>
-                                  <Icon className="h-5 w-5" />
-                                </span>
-                              </div>
-                              <p className="mt-2 text-xs leading-6 opacity-80">{card.helper}</p>
-                            </article>
-                          );
-                        })}
+                        <aside className={`rounded-[28px] border p-5 shadow-[0_18px_42px_rgba(31,10,46,0.10)] ${summaryExecutiveSignal?.surfaceClass || 'border-[#eadff0] bg-white'}`}>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#8b7c98]">Próxima acción</p>
+                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">
+                            {summaryExecutiveSignal?.pendingDecisionCount || 0}
+                          </p>
+                          <p className="mt-2 text-sm leading-6 text-[#5f526b]">
+                            {summaryExecutiveSignal?.helper || 'Sin lectura disponible todavía.'}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setActiveTab((summaryExecutiveSignal?.ctaTab || 'roadmap') as AdminTabKey)}
+                            className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#2a0338] px-4 py-2 text-xs font-semibold text-white shadow-[0_12px_24px_rgba(42,3,56,0.18)] transition hover:bg-[#3b0b4d]"
+                          >
+                            {summaryExecutiveSignal?.ctaLabel || 'Ver roadmap'}
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </aside>
                       </div>
+
+                      <div className="relative z-10 mt-6 grid gap-3 md:grid-cols-4">
+                        <div className="rounded-[22px] border border-[#eadff0] bg-white/82 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">Acceso</p>
+                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{summaryExecutiveSignal?.accessRatio || 0}%</p>
+                          <p className="mt-1 text-xs text-[#6c6177]">{formatNumber(overview.kpis.accessGranted)} de {formatNumber(overview.kpis.totalUsers)} habilitados</p>
+                        </div>
+                        <div className="rounded-[22px] border border-[#fde1c4] bg-[#fff8ef]/90 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#a8651a]">Caja</p>
+                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{formatCurrency(overview.kpis.paidQuotesTotal)}</p>
+                          <p className="mt-1 text-xs text-[#9a4d00]">{summaryExecutiveSignal?.paidRatio || 0}% de presupuestos cobrados</p>
+                        </div>
+                        <div className="rounded-[22px] border border-[#dbeafe] bg-[#f6faff]/92 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#5f79a5]">MRR</p>
+                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{formatCurrency(overview.kpis.mrr)}</p>
+                          <p className="mt-1 text-xs text-[#64748b]">Facturación recurrente activa</p>
+                        </div>
+                        <div className="rounded-[22px] border border-[#d9f0e6] bg-[#f1fbf6]/92 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#047857]">Visitas 7d</p>
+                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{formatNumber(overview.kpis.visitsLast7)}</p>
+                          <p className="mt-1 text-xs text-[#047857]">Pulso reciente del sitio</p>
+                        </div>
+                      </div>
+                    </article>
+
+                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                      {summaryPrimaryCards.map((card) => {
+                        const Icon = card.icon;
+                        return (
+                          <article key={card.key} className={`${adminPrimaryCardBaseClass} ${card.cardClass}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">{card.label}</p>
+                                <p className="mt-3 text-2xl font-semibold text-[#180f24]">{card.value}</p>
+                              </div>
+                              <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
+                                <Icon className="h-5 w-5" />
+                              </span>
+                            </div>
+                            <p className="mt-3 text-xs leading-6 text-[#5f526b]">{card.helper}</p>
+                            <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
+                          </article>
+                        );
+                      })}
                     </div>
 
-                    <div className="space-y-6">
+                    <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                       <aside className={adminActionPanelClass}>
                         <div className="flex flex-wrap items-start justify-between gap-3">
                           <div>
                             <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
-                            <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Frentes prioritarios</h3>
+                            <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Lo que conviene resolver ahora</h3>
                             <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                              Decisiones, accesos y correcciones que hoy merecen movimiento inmediato.
+                              Accesos, soporte y bloqueos ordenados por impacto operativo.
                             </p>
                           </div>
-                          <span className={adminDashboardActionChipClass}>
-                            Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
+                            className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
+                          >
+                            Reiniciar base
+                          </button>
                         </div>
 
                         <div className="mt-5 space-y-3">
-                          {summaryMonitoringRows.map((row) => (
-                            <div key={row.label} className={adminActionRowClass}>
-                              <p className="text-[11px] uppercase tracking-[0.18em] text-[#6c6177]">{row.label}</p>
-                              <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
+                          {summaryMonitoringRows.map((row, index) => (
+                            <div
+                              key={row.label}
+                              className={`${adminActionRowClass} ${index === 0 ? 'border-[#ffcf97] bg-[#fff8ef]' : ''}`}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">{row.label}</p>
+                                  <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
+                                </div>
+                                <span className="rounded-full border border-[#eadff0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#6c6177]">
+                                  {index + 1}
+                                </span>
+                              </div>
                               <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
                               <div className="mt-3 flex justify-end">
                                 {row.tab ? (
@@ -6665,9 +6709,10 @@ export default function AdminPage() {
                                         setActiveTab(row.tab);
                                       }
                                     }}
-                                    className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
+                                    className="inline-flex items-center gap-2 rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
                                   >
                                     {row.cta}
+                                    <ArrowRight className="h-3.5 w-3.5" />
                                   </button>
                                 ) : (
                                   <button
@@ -6684,6 +6729,41 @@ export default function AdminPage() {
                         </div>
                       </aside>
 
+                      <article className="rounded-[30px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className={adminDashboardEyebrowClass}>Radar ejecutivo</p>
+                            <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Señales de negocio</h3>
+                          </div>
+                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
+                            {summaryInsightPanels.length} focos
+                          </span>
+                        </div>
+
+                        <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+                          {summaryInsightPanels.map((panel) => {
+                            const Icon = panel.icon;
+                            return (
+                              <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
+                                    <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
+                                  </div>
+                                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
+                                    <Icon className="h-5 w-5" />
+                                  </span>
+                                </div>
+                                <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
+                                <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </article>
+                    </section>
+
+                    <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
                       <div className={premiumPanelClass}>
                         <div className="flex items-center justify-between gap-3">
                           <div>
@@ -6703,7 +6783,7 @@ export default function AdminPage() {
 
                         {!playLoading && !playError && playMetrics && (
                           <>
-                            <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
+                            <div className="mt-4 grid gap-3 sm:grid-cols-3">
                               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                                 <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Instalaciones</p>
                                 <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(playMetrics.installs?.totalUserInstalls || 0)}</p>
@@ -6746,39 +6826,6 @@ export default function AdminPage() {
                           </>
                         )}
                       </div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <article className="rounded-[30px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)]">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className={adminDashboardEyebrowClass}>Radar ejecutivo</p>
-                            <h3 className="mt-2 text-lg font-semibold text-slate-900">Alertas y narrativa</h3>
-                          </div>
-                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">3 focos</span>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          {summaryInsightPanels.map((panel) => {
-                            const Icon = panel.icon;
-                            return (
-                              <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
-                                    <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
-                                  </div>
-                                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
-                                    <Icon className="h-5 w-5" />
-                                  </span>
-                                </div>
-                                <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
-                                <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
-                              </article>
-                            );
-                          })}
-                        </div>
-                      </article>
 
                       <div className={premiumPanelClass}>
                         <div className="flex items-center justify-between">
@@ -6803,7 +6850,7 @@ export default function AdminPage() {
                         )}
                         {!playLoading && playError && <p className="mt-3 text-xs text-rose-500">{playError}</p>}
                       </div>
-                    </div>
+                    </section>
                   </section>
 
                   <section className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
