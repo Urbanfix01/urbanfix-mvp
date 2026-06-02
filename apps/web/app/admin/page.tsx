@@ -23,6 +23,7 @@ import {
   Users,
   Workflow,
   Wrench,
+  X,
 } from 'lucide-react';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
@@ -2502,6 +2503,19 @@ export default function AdminPage() {
     setFlowProcessDialogNodeId((prev) => prev || selectedFlowNodeId);
   }, [isFlowFullscreen, selectedFlowNodeId]);
 
+  useEffect(() => {
+    if (!flowProcessDialogNodeId) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFlowProcessDialogNodeId(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [flowProcessDialogNodeId]);
+
   const loadFlowLayout = useCallback(async (token?: string, options?: { silent?: boolean }) => {
     if (!token) return;
     if (!options?.silent) {
@@ -3805,6 +3819,7 @@ export default function AdminPage() {
   };
 
   const handleOpenFlowNode = (node: AppWebFlowNode) => {
+    setFlowProcessDialogNodeId(null);
     if (node.target.type === 'admin') {
       setActiveTab(node.target.tab);
       return;
@@ -3816,9 +3831,7 @@ export default function AdminPage() {
 
   const handleFlowNodeSelect = (nodeId: string) => {
     setSelectedFlowNodeId(nodeId);
-    if (isFlowFullscreen) {
-      setFlowProcessDialogNodeId(nodeId);
-    }
+    setFlowProcessDialogNodeId(nodeId);
   };
 
   const adjustFlowZoom = (delta: number) => {
@@ -8376,8 +8389,14 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {isFlowFullscreen && flowProcessDialogNode && (
-                    <div className="pointer-events-none absolute right-5 top-20 z-40 max-w-sm">
+                  {flowProcessDialogNode && (
+                    <div
+                      className={`pointer-events-none z-[90] ${
+                        isFlowFullscreen
+                          ? 'absolute right-5 top-20 max-w-sm'
+                          : 'fixed bottom-5 left-4 right-4 sm:left-auto sm:max-w-sm'
+                      }`}
+                    >
                       <div className="pointer-events-auto rounded-2xl border border-slate-200 bg-white p-4 shadow-2xl shadow-slate-300/40">
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -8388,9 +8407,10 @@ export default function AdminPage() {
                           <button
                             type="button"
                             onClick={() => setFlowProcessDialogNodeId(null)}
-                            className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
+                            aria-label="Cerrar detalle del proceso"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                           >
-                            Cerrar
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                         <p className="mt-3 text-sm text-slate-600">{flowProcessDialogNode.description}</p>

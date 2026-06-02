@@ -119,6 +119,7 @@ const legacyReferenceMigrations = [
   '20260310_remote_history_placeholder.sql',
   '20260311_admin_roadmap_sync_and_close_realized_items.sql',
   '20260312_admin_roadmap_sector_split_and_pending_flow.sql',
+  '20260315_admin_flow_diagram_popup_completion.sql',
 ];
 
 const listSqlFiles = (directory) => {
