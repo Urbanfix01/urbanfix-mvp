@@ -150,12 +150,8 @@ const verifiedTechnicians: VerifiedTechnician[] = [
 
 const stepByStepStages = [
   {
-    title: 'Crear solicitud',
-    caption: 'Contá qué pasó',
-  },
-  {
-    title: 'Publicar',
-    caption: 'Mandalo al mapa',
+    title: 'Solicitud',
+    caption: 'Creá y publicá',
   },
   {
     title: 'Técnico',
@@ -374,19 +370,19 @@ export default function HomeScrollShowcase() {
   const visibleProfileOptions = selectedProfile ? [selectedProfile] : profileOptions;
   const stepByStepIndex =
     clientRating
-      ? 6
+      ? 5
       : postBudgetStep >= 2
-        ? 6
+        ? 5
         : postBudgetStep >= 1
-          ? 5
+          ? 4
           : hasAcceptedBudget
-            ? 4
+            ? 3
             : hasChosenTechnicians
-      ? 3
+      ? 2
       : tutorialStage > 1
-        ? 2
+        ? 1
         : selectedRequest
-          ? 1
+          ? 0
           : selectedProfileId
             ? 0
             : -1;
@@ -405,9 +401,9 @@ export default function HomeScrollShowcase() {
       : tutorialStage > 1
         ? 'Paso 3: elegí uno o más técnicos para que presupuesten.'
         : selectedRequest
-          ? 'Paso 2: publicá la solicitud para enviarla al mapa.'
+          ? 'Paso 1: publicá la solicitud para enviarla al mapa.'
           : selectedProfileId
-            ? 'Paso 1: creá la solicitud con lo que necesita resolver el cliente.'
+            ? 'Paso 1: creá y publicá la solicitud.'
             : 'Antes de empezar, elegí si entrás como cliente o técnico.';
   const technicianTopPositions = hasChosenTechnicians
     ? chosenTechnicians.length === 1
@@ -907,7 +903,7 @@ export default function HomeScrollShowcase() {
                 PASO A PASO INTERACTIVO
               </p>
               <h2 className="ufx-tutorial-title mt-4 text-4xl font-extrabold leading-[1.04] text-white sm:text-6xl lg:text-7xl">
-                Pedí un trabajo paso a paso
+                ¿Cómo funciona?
               </h2>
             </div>
 
@@ -973,7 +969,7 @@ export default function HomeScrollShowcase() {
                     </div>
                   </div>
                 </div>
-                <div className="hidden gap-2 sm:grid sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7">
+                <div className="hidden gap-2 sm:grid sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
                   {stepByStepStages.map((step, index) => {
                     const isActive = index === stepByStepIndex;
                     const isDone = stepByStepIndex >= 0 && index < stepByStepIndex;
