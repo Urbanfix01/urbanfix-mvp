@@ -863,6 +863,7 @@ export default function HomeScrollShowcase() {
   };
 
   const beginFlowDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse') return;
     if (event.button !== 0 || (event.target instanceof Element && event.target.closest('button, a'))) return;
     const node = flowScrollRef.current;
     if (!node || node.scrollWidth <= node.clientWidth) return;
@@ -1605,8 +1606,9 @@ export default function HomeScrollShowcase() {
         .ufx-flow-scroll {
           cursor: grab;
           overscroll-behavior-x: contain;
+          -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
-          touch-action: pan-y;
+          touch-action: pan-x pan-y;
         }
 
         .ufx-flow-scroll-bleed {
