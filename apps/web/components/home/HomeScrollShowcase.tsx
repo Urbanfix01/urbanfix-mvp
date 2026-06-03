@@ -897,7 +897,7 @@ export default function HomeScrollShowcase() {
     <section className="border-t border-white/10 bg-[#21002f] py-12 sm:py-16">
       <div className="mx-auto w-full max-w-7xl space-y-12 px-4 sm:px-6 lg:px-8">
         <div data-ufx-reveal className="ufx-reveal">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-12">
             <div className="max-w-4xl">
               <p className="ufx-tutorial-kicker inline-flex rounded-full border border-[#ff8f1f]/30 bg-[#ff8f1f]/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#ffb35e]">
                 PASO A PASO INTERACTIVO
@@ -908,7 +908,7 @@ export default function HomeScrollShowcase() {
             </div>
 
             {!isTutorialStarted ? (
-              <div className="ufx-tutorial-cta inline-flex lg:shrink-0">
+              <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-8">
                 <button
                   type="button"
                   onClick={startTutorial}
@@ -922,7 +922,7 @@ export default function HomeScrollShowcase() {
                 </button>
               </div>
             ) : (
-              <div className="ufx-tutorial-cta inline-flex lg:shrink-0">
+              <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-8">
                 <button
                   type="button"
                   onClick={goBackTutorialStep}
