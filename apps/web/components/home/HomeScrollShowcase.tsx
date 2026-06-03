@@ -443,6 +443,18 @@ export default function HomeScrollShowcase() {
   const finalCloseX = 1035;
   const finalRouteEndX = finalCloseX;
   const finalRouteProgressX = postBudgetStep >= 2 ? finalCloseX : postBudgetStep >= 1 ? finalPayX : finalWorkX;
+  const flowAutoScrollTarget =
+    postBudgetStep >= 2
+      ? 430
+      : hasAcceptedBudget
+        ? 420
+        : selectedBudgetTechnician
+          ? 380
+          : hasChosenTechnicians
+            ? 260
+            : tutorialStage > 1
+              ? 80
+              : 0;
   const visibleStepIndex = Math.max(stepByStepIndex, 0);
   const activeStep = stepByStepStages[visibleStepIndex] || stepByStepStages[0];
   const linkedFlowStyle = selectedRequest
@@ -863,6 +875,42 @@ export default function HomeScrollShowcase() {
   };
 
   useEffect(() => {
+    const node = flowScrollRef.current;
+    if (!node || !selectedRequestId) return;
+
+    const moveToActivePoint = () => {
+      if (flowDragState.current.active) return;
+
+      const maxScrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
+      const nextScrollLeft = Math.min(flowAutoScrollTarget, maxScrollLeft);
+
+      node.scrollTo({
+        left: nextScrollLeft,
+        behavior: 'smooth',
+      });
+      setFlowScrollLeft(Math.round(nextScrollLeft));
+    };
+
+    let frame = window.requestAnimationFrame(() => {
+      frame = window.requestAnimationFrame(moveToActivePoint);
+    });
+    const settleTimer = window.setTimeout(moveToActivePoint, 260);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(settleTimer);
+    };
+  }, [
+    selectedRequestId,
+    tutorialStage,
+    selectedTechnicianId,
+    acceptedBudgetTechnicianId,
+    chosenTechnicianIds.length,
+    postBudgetStep,
+    flowAutoScrollTarget,
+  ]);
+
+  useEffect(() => {
     const nodes = Array.from(document.querySelectorAll<HTMLElement>('[data-ufx-reveal]'));
     if (!nodes.length) return;
 
@@ -1064,7 +1112,7 @@ export default function HomeScrollShowcase() {
                           isFlowDragging ? 'is-dragging' : ''
                         }`}
                       >
-                      <div className="grid w-full gap-5 sm:min-w-[1700px] sm:grid-cols-[300px_1300px]">
+                      <div className="grid w-full gap-5 sm:min-w-[1800px] sm:grid-cols-[300px_1400px]">
                         {selectedProfileId === 'tecnico' ? <div className="hidden sm:block" /> : null}
                         <div className="flex min-w-[250px] flex-col items-center">
                           <div className="ufx-flow-connector h-10 w-px bg-[#ff8f1f]/75" />
@@ -1095,13 +1143,13 @@ export default function HomeScrollShowcase() {
                         {tutorialStage > 1 ? (
                           <div className="hidden min-w-[250px] justify-center sm:flex">
                             <div
-                              className={`relative w-[1300px] max-w-[1300px] shrink-0 transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                              className={`relative w-[1400px] max-w-[1400px] shrink-0 transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                                 hasChosenTechnicians ? 'h-[850px]' : 'h-[440px]'
                               }`}
                             >
                               <svg
                                 className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
-                                viewBox={`0 0 1300 ${hasChosenTechnicians ? 850 : 440}`}
+                                viewBox={`0 0 1400 ${hasChosenTechnicians ? 850 : 440}`}
                                 aria-hidden="true"
                               >
                                 <path d="M -146 160 H 130" stroke="#ff8f1f" strokeOpacity="0.62" strokeWidth="1.25" />
