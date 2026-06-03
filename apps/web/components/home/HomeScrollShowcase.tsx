@@ -453,13 +453,19 @@ export default function HomeScrollShowcase() {
           : hasChosenTechnicians
             ? 260
             : tutorialStage > 1
-              ? 0
+              ? 150
               : 0;
   const visibleStepIndex = Math.max(stepByStepIndex, 0);
   const activeStep = stepByStepStages[visibleStepIndex] || stepByStepStages[0];
   const linkedFlowStyle = selectedRequest
     ? { transform: `translateX(-${flowScrollLeft}px)` }
     : undefined;
+  const flowCanvasHeight = hasChosenTechnicians ? 850 : tutorialStage > 1 ? 440 : 260;
+  const mobileFlowScale = 0.78;
+  const flowScaleStyle = {
+    '--ufx-flow-mobile-width': `${Math.round(1660 * mobileFlowScale)}px`,
+    '--ufx-flow-mobile-height': `${Math.round(flowCanvasHeight * mobileFlowScale)}px`,
+  } as CSSProperties;
   const selectedTechnicianResponseCopy = selectedRequest ? requestResponseCopy[selectedRequest.id] : null;
   const selectedTechnicianMessage =
     selectedTechnician && selectedTechnicianResponseCopy
@@ -574,6 +580,7 @@ export default function HomeScrollShowcase() {
             setSelectedTechnicianId(null);
             setPostBudgetStep(0);
             setClientRating(0);
+            moveFlowTo(420);
           }}
           disabled={isAccepted}
           aria-label={`Aceptar presupuesto de ${technician.name}`}
@@ -701,6 +708,7 @@ export default function HomeScrollShowcase() {
                   setAcceptedBudgetTechnicianId(null);
                   setPostBudgetStep(0);
                   setClientRating(0);
+                  moveFlowTo(260);
                 }}
                 className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-extrabold text-[#2a0338] transition hover:bg-[#ffad56]"
               >
@@ -725,6 +733,7 @@ export default function HomeScrollShowcase() {
                     setAcceptedBudgetTechnicianId(null);
                     setPostBudgetStep(0);
                     setClientRating(0);
+                    moveFlowTo(260);
                   }}
                   className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-extrabold text-[#2a0338] transition hover:bg-[#ffad56]"
                 >
@@ -736,6 +745,19 @@ export default function HomeScrollShowcase() {
         ) : null}
       </div>
     );
+  };
+
+  const moveFlowTo = (left: number) => {
+    const node = flowScrollRef.current;
+    if (!node) return;
+
+    window.requestAnimationFrame(() => {
+      node.scrollTo({
+        left,
+        behavior: 'smooth',
+      });
+      setFlowScrollLeft(Math.round(left));
+    });
   };
 
   const selectProfile = (id: string) => {
@@ -785,6 +807,7 @@ export default function HomeScrollShowcase() {
     setClientRating(0);
     setTutorialStage(2);
     setFlowScrollLeft(0);
+    moveFlowTo(150);
   };
 
   const restartTutorial = () => {
@@ -1135,7 +1158,8 @@ export default function HomeScrollShowcase() {
                           isFlowDragging ? 'is-dragging' : ''
                         }`}
                       >
-                      <div className="grid w-full min-w-[1660px] grid-cols-[240px_1400px] gap-4 sm:min-w-[1800px] sm:grid-cols-[300px_1400px] sm:gap-5">
+                      <div className="ufx-flow-scale-shell" style={flowScaleStyle}>
+                      <div className="ufx-flow-scale-content grid w-full min-w-[1660px] grid-cols-[240px_1400px] gap-4 sm:min-w-[1800px] sm:grid-cols-[300px_1400px] sm:gap-5">
                         {selectedProfileId === 'tecnico' ? <div className="hidden sm:block" /> : null}
                         <div className="flex min-w-[220px] flex-col items-center sm:min-w-[250px]">
                           <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
@@ -1431,6 +1455,7 @@ export default function HomeScrollShowcase() {
                         ) : null}
                       </div>
                       </div>
+                      </div>
 
                     {tutorialStage > 1 && selectedTechnician && selectedTechnicianIds.includes(selectedTechnician.id) && !hasChosenTechnicians ? (
                       <div className="mt-3 rounded-2xl border border-[#ff8f1f]/35 bg-[#2f073f]/95 px-4 py-3 text-sm font-semibold leading-6 text-white sm:hidden">
@@ -1450,6 +1475,7 @@ export default function HomeScrollShowcase() {
                             setAcceptedBudgetTechnicianId(null);
                             setPostBudgetStep(0);
                             setClientRating(0);
+                            moveFlowTo(260);
                           }}
                           className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-extrabold text-[#2a0338] transition hover:bg-[#ffad56]"
                         >
@@ -1629,6 +1655,10 @@ export default function HomeScrollShowcase() {
           width: 0;
         }
 
+        .ufx-flow-scale-content {
+          transform-origin: left top;
+        }
+
         .ufx-flow-node:hover:not(:disabled) {
           transform: translateY(-2px) scale(1.01);
         }
@@ -1652,6 +1682,15 @@ export default function HomeScrollShowcase() {
         }
 
         @media (max-width: 639px) {
+          .ufx-flow-scale-shell {
+            height: var(--ufx-flow-mobile-height);
+            width: var(--ufx-flow-mobile-width);
+          }
+
+          .ufx-flow-scale-content {
+            transform: scale(0.78);
+          }
+
           .ufx-mobile-tech-card .ufx-tech-card {
             min-height: 4.25rem;
             border-radius: 1.25rem;
