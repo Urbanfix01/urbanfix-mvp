@@ -453,7 +453,7 @@ export default function HomeScrollShowcase() {
           : hasChosenTechnicians
             ? 260
             : tutorialStage > 1
-              ? 80
+              ? 0
               : 0;
   const visibleStepIndex = Math.max(stepByStepIndex, 0);
   const activeStep = stepByStepStages[visibleStepIndex] || stepByStepStages[0];
@@ -1119,9 +1119,9 @@ export default function HomeScrollShowcase() {
                           isFlowDragging ? 'is-dragging' : ''
                         }`}
                       >
-                      <div className="grid w-full gap-5 sm:min-w-[1800px] sm:grid-cols-[300px_1400px]">
+                      <div className="grid w-full min-w-[1660px] grid-cols-[240px_1400px] gap-4 sm:min-w-[1800px] sm:grid-cols-[300px_1400px] sm:gap-5">
                         {selectedProfileId === 'tecnico' ? <div className="hidden sm:block" /> : null}
-                        <div className="flex min-w-[250px] flex-col items-center">
+                        <div className="flex min-w-[220px] flex-col items-center sm:min-w-[250px]">
                           <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
                           <div className={`ufx-flow-node ${getConceptNodeStateClass(1)} inline-flex min-h-14 w-full max-w-[286px] items-center justify-center gap-2.5 rounded-full bg-[#ffad56] px-5 py-3 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.16)]`}>
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
@@ -1148,7 +1148,7 @@ export default function HomeScrollShowcase() {
                           </div>
                         </div>
                         {tutorialStage > 1 ? (
-                          <div className="hidden min-w-[250px] justify-center sm:flex">
+                          <div className="flex min-w-[250px] justify-center">
                             <div
                               className={`relative w-[1400px] max-w-[1400px] shrink-0 transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
                                 hasChosenTechnicians ? 'h-[850px]' : 'h-[440px]'
@@ -1413,7 +1413,7 @@ export default function HomeScrollShowcase() {
                         ) : selectedProfileId === 'cliente' ? (
                           <div className="hidden sm:block" />
                         ) : null}
-                        {tutorialStage > 1 ? (
+                        {false && tutorialStage > 1 ? (
                           <div className="flex flex-col items-center sm:hidden">
                             <div className="h-8 w-px bg-[#ff8f1f]/75" />
                             <div
