@@ -1005,12 +1005,18 @@ export default function HomeScrollShowcase() {
                   })}
                 </div>
               </div>
-              <p className="mt-5 text-lg font-semibold text-white">{conceptPrompt}</p>
+              <p
+                className={`mt-5 text-lg font-semibold text-white ${
+                  selectedProfile ? '' : 'mx-auto max-w-2xl text-center'
+                }`}
+              >
+                {conceptPrompt}
+              </p>
               <div
                 className={`mt-6 grid w-full gap-4 ${
                   selectedProfile
                     ? `${selectedRequest ? 'max-w-[300px]' : 'mx-auto max-w-[340px]'} justify-items-center`
-                    : 'max-w-5xl sm:grid-cols-3'
+                    : 'mx-auto max-w-[620px] justify-items-center sm:grid-cols-2'
                 } sm:items-start`}
                 style={linkedFlowStyle}
               >
