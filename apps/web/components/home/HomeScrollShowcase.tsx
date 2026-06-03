@@ -460,6 +460,18 @@ export default function HomeScrollShowcase() {
   const linkedFlowStyle = selectedRequest
     ? { transform: `translateX(-${flowScrollLeft}px)` }
     : undefined;
+  const selectedTechnicianResponseCopy = selectedRequest ? requestResponseCopy[selectedRequest.id] : null;
+  const selectedTechnicianMessage =
+    selectedTechnician && selectedTechnicianResponseCopy
+      ? selectedTechnicianResponseCopy.byTechnician[selectedTechnician.id] || selectedTechnicianResponseCopy.fallback
+      : 'Podemos ayudarte. Te paso disponibilidad, valor de mano de obra y presupuesto claro.';
+  const selectedTechnicianVisitNote = selectedTechnicianResponseCopy?.needsVisit
+    ? 'Para saber cuánto vale, este trabajo se confirma con visita técnica.'
+    : 'Con este pedido puede pasar una orientación clara antes de avanzar.';
+  const selectedTechnicianBudgetRequestLabel = `Pedir presupuesto a ${Math.max(
+    selectedTechnicianIds.length,
+    1
+  )} técnico${selectedTechnicianIds.length > 1 ? 's' : ''}`;
   const getConceptNodeStateClass = (stageIndex: number) => {
     if (stepByStepIndex > stageIndex) return 'ufx-node-past';
     if (stepByStepIndex === stageIndex) return 'ufx-node-current';
@@ -581,6 +593,7 @@ export default function HomeScrollShowcase() {
 
   const renderTechnicianCard = (technician: VerifiedTechnician, className = '', style?: CSSProperties) => {
     const isMobileListCard = className.includes('ufx-mobile-tech-card');
+    const isNetworkCard = className.includes('ufx-tech-network-card');
     const isFocused = selectedTechnicianId === technician.id;
     const isSelected = selectedTechnicianIds.includes(technician.id);
     const isChosen = chosenTechnicianIds.includes(technician.id);
@@ -694,29 +707,31 @@ export default function HomeScrollShowcase() {
                 {budgetRequestLabel}
               </button>
             </div>
-            <div className="mt-3 rounded-2xl border border-[#ff8f1f]/35 bg-[#2f073f]/95 px-4 py-3 text-sm font-semibold leading-6 text-white sm:hidden">
-              <p>{technicianMessage}</p>
-              <p className="mt-3 rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-[#ffd6a6]">
-                {visitNote}
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  const nextIds = selectedTechnicianIds.includes(technician.id)
-                    ? selectedTechnicianIds
-                    : [...selectedTechnicianIds, technician.id];
-                  setSelectedTechnicianId(null);
-                  setSelectedTechnicianIds(nextIds);
-                  setChosenTechnicianIds(nextIds);
-                  setAcceptedBudgetTechnicianId(null);
-                  setPostBudgetStep(0);
-                  setClientRating(0);
-                }}
-                className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-extrabold text-[#2a0338] transition hover:bg-[#ffad56]"
-              >
-                {budgetRequestLabel}
-              </button>
-            </div>
+            {!isNetworkCard ? (
+              <div className="mt-3 rounded-2xl border border-[#ff8f1f]/35 bg-[#2f073f]/95 px-4 py-3 text-sm font-semibold leading-6 text-white sm:hidden">
+                <p>{technicianMessage}</p>
+                <p className="mt-3 rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-[#ffd6a6]">
+                  {visitNote}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const nextIds = selectedTechnicianIds.includes(technician.id)
+                      ? selectedTechnicianIds
+                      : [...selectedTechnicianIds, technician.id];
+                    setSelectedTechnicianId(null);
+                    setSelectedTechnicianIds(nextIds);
+                    setChosenTechnicianIds(nextIds);
+                    setAcceptedBudgetTechnicianId(null);
+                    setPostBudgetStep(0);
+                    setClientRating(0);
+                  }}
+                  className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-extrabold text-[#2a0338] transition hover:bg-[#ffad56]"
+                >
+                  {budgetRequestLabel}
+                </button>
+              </div>
+            ) : null}
           </>
         ) : null}
       </div>
@@ -1561,6 +1576,32 @@ export default function HomeScrollShowcase() {
                         ) : null}
                       </div>
                       </div>
+
+                    {tutorialStage > 1 && selectedTechnician && selectedTechnicianIds.includes(selectedTechnician.id) && !hasChosenTechnicians ? (
+                      <div className="mt-3 rounded-2xl border border-[#ff8f1f]/35 bg-[#2f073f]/95 px-4 py-3 text-sm font-semibold leading-6 text-white sm:hidden">
+                        <p>{selectedTechnicianMessage}</p>
+                        <p className="mt-3 rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-[#ffd6a6]">
+                          {selectedTechnicianVisitNote}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const nextIds = selectedTechnicianIds.includes(selectedTechnician.id)
+                              ? selectedTechnicianIds
+                              : [...selectedTechnicianIds, selectedTechnician.id];
+                            setSelectedTechnicianId(null);
+                            setSelectedTechnicianIds(nextIds);
+                            setChosenTechnicianIds(nextIds);
+                            setAcceptedBudgetTechnicianId(null);
+                            setPostBudgetStep(0);
+                            setClientRating(0);
+                          }}
+                          className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-extrabold text-[#2a0338] transition hover:bg-[#ffad56]"
+                        >
+                          {selectedTechnicianBudgetRequestLabel}
+                        </button>
+                      </div>
+                    ) : null}
 
                     {tutorialStage > 1 ? (
                       <p className="mt-3 text-center text-sm font-semibold text-white/60" aria-live="polite">
