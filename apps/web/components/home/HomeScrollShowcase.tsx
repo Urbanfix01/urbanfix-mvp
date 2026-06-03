@@ -1108,7 +1108,7 @@ export default function HomeScrollShowcase() {
                         onPointerUp={endFlowDrag}
                         onPointerCancel={endFlowDrag}
                         onScroll={syncFlowScroll}
-                        className={`ufx-flow-scroll -mx-4 overflow-x-auto px-4 pb-5 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 ${
+                        className={`ufx-flow-scroll ufx-flow-scroll-bleed overflow-x-auto pb-5 ${
                           isFlowDragging ? 'is-dragging' : ''
                         }`}
                       >
@@ -1703,6 +1703,13 @@ export default function HomeScrollShowcase() {
           overscroll-behavior-x: contain;
           scrollbar-width: none;
           touch-action: pan-y;
+        }
+
+        .ufx-flow-scroll-bleed {
+          margin-left: calc(50% - 50vw);
+          margin-right: calc(50% - 50vw);
+          padding-left: max(1rem, calc((100vw - 80rem) / 2 + 2rem));
+          padding-right: max(1rem, calc((100vw - 80rem) / 2 + 2rem));
         }
 
         .ufx-flow-scroll.is-dragging {
