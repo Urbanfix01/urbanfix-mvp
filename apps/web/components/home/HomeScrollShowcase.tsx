@@ -592,6 +592,14 @@ export default function HomeScrollShowcase() {
       : 'ufx-node-current';
     const budgetRequestLabel = `Pedir presupuesto a ${selectedCount} técnico${selectedCount > 1 ? 's' : ''}`;
 
+    const cardTop = typeof style?.top === 'number' ? style.top : null;
+    const messagePositionClass =
+      cardTop !== null && cardTop <= 40
+        ? 'ufx-tech-message--top top-0'
+        : cardTop !== null && cardTop >= 300
+          ? 'ufx-tech-message--bottom bottom-0'
+          : 'top-1/2 -translate-y-1/2';
+
     return (
       <div key={technician.id} className={`ufx-tech-card-shell ${className}`} style={style}>
         <button
@@ -648,7 +656,7 @@ export default function HomeScrollShowcase() {
 
         {isFocused && isSelected && !hasChosenTechnicians ? (
           <>
-            <div className="ufx-tech-message absolute left-[calc(100%+10px)] top-1/2 z-40 hidden w-[246px] -translate-y-1/2 rounded-2xl border border-[#ff8f1f]/40 bg-[#2f073f]/95 px-3 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_18px_54px_rgba(0,0,0,0.32)] sm:block">
+            <div className={`ufx-tech-message absolute left-[calc(100%+10px)] z-40 hidden w-[246px] rounded-2xl border border-[#ff8f1f]/40 bg-[#2f073f]/95 px-3 py-3 text-[13px] font-semibold leading-5 text-white shadow-[0_18px_54px_rgba(0,0,0,0.32)] sm:block ${messagePositionClass}`}>
               <p>{technicianMessage}</p>
               <p className="mt-3 rounded-xl bg-white/[0.06] px-3 py-2 text-xs font-semibold leading-5 text-[#ffd6a6]">
                 {visitNote}
@@ -1161,19 +1169,14 @@ export default function HomeScrollShowcase() {
                               </div>
                               {visibleTechnicians.map((technician, index) => {
                                 const positionClass =
-                                  [
-                                    'absolute left-[240px] top-[0px] w-[190px]',
-                                    'absolute left-[240px] top-[110px] w-[190px]',
-                                    'absolute left-[240px] top-[220px] w-[190px]',
-                                    'absolute left-[240px] top-[330px] w-[190px]',
-                                  ][index] || 'absolute left-[240px] w-[190px]';
+                                  'absolute left-[240px] w-[190px]';
                                 const chosenPositionClass =
                                   'absolute left-[240px] w-[190px]';
 
                                 return renderTechnicianCard(
                                   technician,
                                   `ufx-tech-network-card ${hasChosenTechnicians ? chosenPositionClass : positionClass}`,
-                                  hasChosenTechnicians ? { top: technicianTopPositions[index] } : undefined
+                                  { top: technicianTopPositions[index] }
                                 );
                               })}
                               {hasChosenTechnicians
@@ -1729,6 +1732,16 @@ export default function HomeScrollShowcase() {
           border-bottom: 1px solid rgba(255, 143, 31, 0.4);
           border-left: 1px solid rgba(255, 143, 31, 0.4);
           background: rgba(47, 7, 63, 0.95);
+        }
+
+        .ufx-tech-message--top::before {
+          top: 38px;
+        }
+
+        .ufx-tech-message--bottom::before {
+          top: auto;
+          bottom: 38px;
+          transform: rotate(45deg);
         }
 
         @media (prefers-reduced-motion: reduce) {
