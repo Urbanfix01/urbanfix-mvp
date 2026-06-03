@@ -580,6 +580,7 @@ export default function HomeScrollShowcase() {
   };
 
   const renderTechnicianCard = (technician: VerifiedTechnician, className = '', style?: CSSProperties) => {
+    const isMobileListCard = className.includes('ufx-mobile-tech-card');
     const isFocused = selectedTechnicianId === technician.id;
     const isSelected = selectedTechnicianIds.includes(technician.id);
     const isChosen = chosenTechnicianIds.includes(technician.id);
@@ -626,7 +627,9 @@ export default function HomeScrollShowcase() {
           }}
           aria-label={`Elegir ${technician.name}`}
           aria-pressed={isActive}
-          className={`ufx-tech-card ${technicianStateClass} flex min-h-[76px] w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition hover:-translate-y-0.5 ${
+          className={`ufx-tech-card ${technicianStateClass} flex w-full items-center gap-3 border text-left transition hover:-translate-y-0.5 ${
+            isMobileListCard ? 'min-h-[68px] rounded-[20px] px-3 py-2.5' : 'min-h-[76px] rounded-2xl px-3 py-3'
+          } ${
             isActive ? 'text-white ring-1 ring-[#ff8f1f]/60' : 'text-white hover:border-[#ff8f1f]/60'
           }`}
           style={{
@@ -639,16 +642,20 @@ export default function HomeScrollShowcase() {
               : undefined,
           }}
         >
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ff8f1f] text-sm font-extrabold text-[#2a0338]">
+          <div className={`flex shrink-0 items-center justify-center rounded-full bg-[#ff8f1f] font-extrabold text-[#2a0338] ${
+            isMobileListCard ? 'h-9 w-9 text-xs' : 'h-10 w-10 text-sm'
+          }`}>
             {technician.initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-extrabold text-white">{technician.name}</p>
-            <p className={`truncate text-xs font-semibold ${isActive ? 'text-[#ffd6a6]' : 'text-white/55'}`}>
+            <p className={`truncate font-extrabold text-white ${isMobileListCard ? 'text-[13px]' : 'text-sm'}`}>
+              {technician.name}
+            </p>
+            <p className={`truncate font-semibold ${isMobileListCard ? 'text-[11px]' : 'text-xs'} ${isActive ? 'text-[#ffd6a6]' : 'text-white/55'}`}>
               {displayedSpecialty}
             </p>
             <span
-              className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-semibold ${
+              className={`${isMobileListCard ? 'mt-1 px-1.5 py-0.5 text-[10px]' : 'mt-2 px-2 py-1 text-[11px]'} inline-flex items-center gap-1 rounded-full font-semibold ${
                 isChosen
                   ? 'bg-white text-[#2a0338]'
                   : isSelected
@@ -1054,7 +1061,7 @@ export default function HomeScrollShowcase() {
                 </div>
               </div>
               <p
-                className={`mt-5 text-lg font-semibold text-white ${
+                className={`mt-4 text-base font-semibold leading-6 text-white sm:mt-5 sm:text-lg ${
                   selectedProfile ? '' : 'mx-auto max-w-2xl text-center'
                 }`}
               >
@@ -1079,7 +1086,7 @@ export default function HomeScrollShowcase() {
                   style={linkedFlowStyle}
                 >
                   <div className="flex min-w-[190px] flex-col items-center">
-                    <div className="ufx-flow-connector h-10 w-px bg-[#ff8f1f]/75" />
+                    <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
                     <button
                       type="button"
                       onClick={continueFromProfile}
@@ -1115,14 +1122,14 @@ export default function HomeScrollShowcase() {
                       <div className="grid w-full gap-5 sm:min-w-[1800px] sm:grid-cols-[300px_1400px]">
                         {selectedProfileId === 'tecnico' ? <div className="hidden sm:block" /> : null}
                         <div className="flex min-w-[250px] flex-col items-center">
-                          <div className="ufx-flow-connector h-10 w-px bg-[#ff8f1f]/75" />
+                          <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
                           <div className={`ufx-flow-node ${getConceptNodeStateClass(1)} inline-flex min-h-14 w-full max-w-[286px] items-center justify-center gap-2.5 rounded-full bg-[#ffad56] px-5 py-3 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.16)]`}>
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
                               <SelectedIcon className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 leading-tight">{selectedRequest.title}</span>
                           </div>
-                          <div className="ufx-flow-connector h-10 w-px bg-[#ff8f1f]/75" />
+                          <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
                           <div className="relative inline-flex">
                             <button
                               type="button"
@@ -1408,18 +1415,18 @@ export default function HomeScrollShowcase() {
                         ) : null}
                         {tutorialStage > 1 ? (
                           <div className="flex flex-col items-center sm:hidden">
-                            <div className="h-10 w-px bg-[#ff8f1f]/75" />
+                            <div className="h-8 w-px bg-[#ff8f1f]/75" />
                             <div
-                              className="flex h-16 w-16 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_0_46px_rgba(255,143,31,0.32)]"
+                              className="flex h-14 w-14 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_0_46px_rgba(255,143,31,0.32)]"
                               aria-label="Ubicación"
                             >
-                              <MapPin className="h-7 w-7" />
+                              <MapPin className="h-6 w-6" />
                             </div>
-                            <div className="mt-5 grid w-full gap-3">
-                              {visibleTechnicians.map((technician) => renderTechnicianCard(technician, 'w-full'))}
+                            <div className="mt-4 grid w-full max-w-[420px] gap-2.5">
+                              {visibleTechnicians.map((technician) => renderTechnicianCard(technician, 'ufx-mobile-tech-card w-full'))}
                             </div>
                             {hasChosenTechnicians ? (
-                              <div className="mt-3 grid w-full gap-2">
+                              <div className="mt-3 grid w-full max-w-[420px] gap-2">
                                 {chosenTechnicians.map((technician) => {
                                   const isBudgetAccepted = acceptedBudgetTechnicianId === technician.id;
                                   const isBudgetActive =
@@ -1439,7 +1446,7 @@ export default function HomeScrollShowcase() {
                                       }}
                                       aria-label={`Ver presupuesto de ${technician.name}`}
                                       aria-pressed={isBudgetAccepted || isBudgetActive}
-                                      className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full border px-4 py-2 text-sm font-extrabold transition ${
+                                      className={`inline-flex min-h-11 w-full items-center justify-between gap-2 rounded-2xl border px-4 py-2 text-sm font-extrabold transition ${
                                         isBudgetAccepted
                                           ? 'border-[#22c55e] bg-[#22c55e] text-[#062b15]'
                                           : isBudgetActive
@@ -1454,8 +1461,10 @@ export default function HomeScrollShowcase() {
                                       ) : (
                                         <ReceiptText className="h-4 w-4" />
                                       )}
-                                      <span>{isBudgetAccepted ? 'Aceptado' : `Presupuesto de ${technician.name}`}</span>
-                                      <span className="rounded-full bg-[#2a0338]/10 px-2 py-1 text-xs font-black">
+                                      <span className="min-w-0 flex-1 truncate text-left">
+                                        {isBudgetAccepted ? `${technician.name} aceptado` : `Presupuesto de ${technician.name}`}
+                                      </span>
+                                      <span className="shrink-0 rounded-full bg-[#2a0338]/10 px-2 py-1 text-xs font-black">
                                         {budgetQuote?.amount || 'A confirmar'}
                                       </span>
                                     </button>
@@ -1464,13 +1473,13 @@ export default function HomeScrollShowcase() {
                               </div>
                             ) : null}
                             {!hasAcceptedBudget && selectedBudgetTechnician ? (
-                              <div className="mt-4 grid w-full gap-3">
+                              <div className="mt-4 grid w-full max-w-[420px] gap-3">
                                 {renderBudgetCard(selectedBudgetTechnician, 'w-full')}
                               </div>
                             ) : null}
                             {hasAcceptedBudget ? (
-                              <div className="mt-4 flex w-full flex-col items-center">
-                                <div className="h-8 w-px bg-[#22c55e]/75" />
+                              <div className="mt-4 flex w-full max-w-[420px] flex-col items-center">
+                                <div className="h-6 w-px bg-[#22c55e]/75" />
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1487,7 +1496,7 @@ export default function HomeScrollShowcase() {
                                   {postBudgetStep >= 1 ? <CheckCircle2 className="h-4 w-4" /> : <Hammer className="h-4 w-4" />}
                                   {postBudgetStep >= 1 ? 'Trabajo realizado' : 'Realizar trabajo'}
                                 </button>
-                                <div className={`h-8 w-px ${postBudgetStep >= 1 ? 'bg-[#22c55e]/75' : 'bg-[#ff8f1f]/45'}`} />
+                                <div className={`h-6 w-px ${postBudgetStep >= 1 ? 'bg-[#22c55e]/75' : 'bg-[#ff8f1f]/45'}`} />
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1509,7 +1518,7 @@ export default function HomeScrollShowcase() {
                                 </button>
                                 {postBudgetStep >= 2 ? (
                                   <>
-                                    <div className="h-8 w-px bg-[#22c55e]/75" />
+                                    <div className="h-6 w-px bg-[#22c55e]/75" />
                                     <div
                                       className={`w-full rounded-2xl border px-4 py-3 ${
                                         clientRating
@@ -1523,7 +1532,7 @@ export default function HomeScrollShowcase() {
                                         </span>
                                         <Star className={clientRating ? 'h-4 w-4 text-[#22c55e]' : 'h-4 w-4 text-[#ffb35e]'} />
                                       </div>
-                                      <div className="mt-3 flex justify-center gap-1.5">
+                                      <div className="mt-3 flex justify-center gap-2">
                                         {[1, 2, 3, 4, 5].map((score) => (
                                           <button
                                             key={score}
@@ -1533,7 +1542,7 @@ export default function HomeScrollShowcase() {
                                               setPostBudgetStep(3);
                                             }}
                                             aria-label={`Calificar con ${score} estrella${score > 1 ? 's' : ''}`}
-                                            className={`flex h-9 w-9 items-center justify-center rounded-full border ${
+                                            className={`flex h-10 w-10 items-center justify-center rounded-full border ${
                                               clientRating >= score
                                                 ? 'border-[#22c55e] bg-[#22c55e] text-[#062b15]'
                                                 : 'border-white/14 bg-white/[0.06] text-white/55'
@@ -1597,7 +1606,7 @@ export default function HomeScrollShowcase() {
                               key={option.id}
                               type="button"
                               onClick={() => selectRequest(option.id)}
-                              className="group ufx-flow-node relative flex min-h-16 w-full items-center justify-center gap-2.5 overflow-hidden rounded-full bg-[#ff8f1f] px-4 py-3 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)] transition hover:bg-[#ffad56] hover:shadow-[0_18px_40px_rgba(255,143,31,0.24)]"
+                              className="group ufx-flow-node relative flex min-h-14 w-full items-center justify-center gap-2.5 overflow-hidden rounded-full bg-[#ff8f1f] px-4 py-3 text-center text-[15px] font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)] transition hover:bg-[#ffad56] hover:shadow-[0_18px_40px_rgba(255,143,31,0.24)] sm:min-h-16 sm:text-sm"
                             >
                               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
                                 <OptionIcon className="h-4 w-4" />
@@ -1706,10 +1715,10 @@ export default function HomeScrollShowcase() {
         }
 
         .ufx-flow-scroll-bleed {
-          margin-left: calc(50% - 50vw);
-          margin-right: calc(50% - 50vw);
-          padding-left: max(1rem, calc((100vw - 80rem) / 2 + 2rem));
-          padding-right: max(1rem, calc((100vw - 80rem) / 2 + 2rem));
+          margin-left: 0;
+          margin-right: 0;
+          padding-left: 0;
+          padding-right: 0;
         }
 
         .ufx-flow-scroll.is-dragging {
@@ -1743,6 +1752,38 @@ export default function HomeScrollShowcase() {
         .ufx-tech-card-shell {
           position: relative;
           overflow: visible;
+        }
+
+        @media (max-width: 639px) {
+          .ufx-mobile-tech-card .ufx-tech-card {
+            min-height: 4.25rem;
+            border-radius: 1.25rem;
+            padding: 0.625rem 0.75rem;
+          }
+
+          .ufx-mobile-tech-card .ufx-tech-card > div:first-child {
+            height: 2.25rem;
+            width: 2.25rem;
+            font-size: 0.75rem;
+          }
+
+          .ufx-mobile-tech-card .ufx-tech-card p:first-child {
+            font-size: 0.875rem;
+          }
+
+          .ufx-mobile-tech-card .ufx-tech-card span {
+            margin-top: 0.25rem;
+            padding: 0.125rem 0.5rem;
+          }
+        }
+
+        @media (min-width: 640px) {
+          .ufx-flow-scroll-bleed {
+            margin-left: calc(50% - 50vw);
+            margin-right: calc(50% - 50vw);
+            padding-left: max(1rem, calc((100vw - 80rem) / 2 + 2rem));
+            padding-right: max(1rem, calc((100vw - 80rem) / 2 + 2rem));
+          }
         }
 
         .ufx-tech-network-card {

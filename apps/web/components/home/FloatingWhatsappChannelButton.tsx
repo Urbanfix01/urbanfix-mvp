@@ -23,7 +23,7 @@ export default function FloatingWhatsappChannelButton({ href }: FloatingWhatsapp
       target="_blank"
       rel="noreferrer"
       aria-label="Sumate al canal de WhatsApp de UrbanFix"
-      className="fixed bottom-4 left-4 z-[60] flex items-center gap-2 rounded-full border border-white/12 bg-[#1b0a29]/92 px-2.5 py-2.5 text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-[#241138] sm:bottom-6 sm:left-6 sm:gap-2.5 sm:px-3 sm:py-2.5"
+      className="fixed bottom-4 right-4 z-[60] flex items-center gap-2 rounded-full border border-white/12 bg-[#1b0a29]/92 px-2.5 py-2.5 text-white shadow-[0_18px_50px_rgba(0,0,0,0.35)] backdrop-blur-md transition hover:-translate-y-0.5 hover:bg-[#241138] sm:bottom-6 sm:left-6 sm:right-auto sm:gap-2.5 sm:px-3 sm:py-2.5"
     >
       <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#25D366] shadow-[inset_0_1px_0_rgba(255,255,255,0.28)]">
         <svg viewBox="0 0 32 32" aria-hidden="true" className="h-[18px] w-[18px] fill-white">
@@ -31,7 +31,7 @@ export default function FloatingWhatsappChannelButton({ href }: FloatingWhatsapp
           <path d="M16.02 3.2c-7.07 0-12.8 5.73-12.8 12.8 0 2.25.59 4.45 1.7 6.39L3.2 28.8l6.56-1.68c1.86 1.01 3.95 1.54 6.07 1.54h.01c7.07 0 12.8-5.74 12.8-12.81 0-3.42-1.33-6.63-3.75-9.05A12.71 12.71 0 0 0 16.02 3.2Zm-.18 23.26h-.01a10.62 10.62 0 0 1-5.41-1.48l-.39-.23-3.89.99 1.04-3.79-.25-.39a10.58 10.58 0 0 1-1.62-5.63c0-5.86 4.77-10.62 10.64-10.62 2.84 0 5.51 1.11 7.52 3.12a10.56 10.56 0 0 1 3.1 7.52c0 5.87-4.77 10.63-10.63 10.63Z" />
         </svg>
       </span>
-      <span className="hidden min-[440px]:block">
+      <span className="hidden sm:block">
         <span className="block text-[9px] font-semibold uppercase tracking-[0.18em] text-white/55">
           Canal WhatsApp
         </span>
