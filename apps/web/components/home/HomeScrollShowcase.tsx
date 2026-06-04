@@ -373,6 +373,7 @@ export default function HomeScrollShowcase() {
   const visibleTechnicians = hasChosenTechnicians ? chosenTechnicians : verifiedTechnicians;
   const selectedBudgetCopy = selectedRequest ? budgetCopyByRequest[selectedRequest.id] : null;
   const SelectedIcon = (selectedRequest || requestOptions[0]).icon;
+  const SelectedProfileIcon = (selectedProfile || profileOptions[0]).icon;
   const profileActionLabel = selectedProfileId === 'tecnico' ? 'Recibir una solicitud' : 'Crear una solicitud';
   const visibleProfileOptions = selectedProfile ? [selectedProfile] : profileOptions;
   const stepByStepIndex =
@@ -450,6 +451,7 @@ export default function HomeScrollShowcase() {
   const finalCloseX = 1035;
   const finalRouteEndX = finalCloseX;
   const finalRouteProgressX = postBudgetStep >= 2 ? finalCloseX : postBudgetStep >= 1 ? finalPayX : finalWorkX;
+  const flowRouteY = selectedRequest ? 240 : 160;
   const flowAutoScrollTarget =
     isCompletedOverview
       ? 0
@@ -1165,22 +1167,22 @@ export default function HomeScrollShowcase() {
               >
                 {conceptPrompt}
               </p>
-              <div
-                className={`mt-6 grid w-full gap-4 ${
-                  selectedProfile
-                    ? `${selectedRequest ? 'max-w-[300px]' : 'mx-auto max-w-[340px]'} justify-items-center`
-                    : 'mx-auto max-w-[620px] justify-items-center sm:grid-cols-2'
-                } sm:items-start`}
-                style={linkedFlowStyle}
-              >
-                {visibleProfileOptions.map((option) => renderProfilePill(option))}
-              </div>
-
-              {selectedProfileId ? (
+              {!selectedRequest ? (
                 <div
-                  className={`grid w-full ${selectedRequest ? 'max-w-[300px]' : 'max-w-[340px]'} justify-items-center ${
-                    selectedRequest ? '' : 'mx-auto'
-                  }`}
+                  className={`mt-6 grid w-full gap-4 ${
+                    selectedProfile
+                      ? 'mx-auto max-w-[340px] justify-items-center'
+                      : 'mx-auto max-w-[620px] justify-items-center sm:grid-cols-2'
+                  } sm:items-start`}
+                  style={linkedFlowStyle}
+                >
+                  {visibleProfileOptions.map((option) => renderProfilePill(option))}
+                </div>
+              ) : null}
+
+              {selectedProfileId && !selectedRequest ? (
+                <div
+                  className="mx-auto grid w-full max-w-[340px] justify-items-center"
                   style={linkedFlowStyle}
                 >
                   <div className="flex min-w-[190px] flex-col items-center">
@@ -1221,14 +1223,38 @@ export default function HomeScrollShowcase() {
                       <div className="ufx-flow-scale-content grid w-full min-w-[1660px] grid-cols-[240px_1400px] gap-4 sm:min-w-[1800px] sm:grid-cols-[300px_1400px] sm:gap-5">
                         {selectedProfileId === 'tecnico' ? <div className="hidden sm:block" /> : null}
                         <div className="flex min-w-[220px] flex-col items-center sm:min-w-[250px]">
-                          <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
-                          <div className={`ufx-flow-node ${getConceptNodeStateClass(1)} inline-flex min-h-14 w-full max-w-[286px] items-center justify-center gap-2.5 rounded-full bg-[#ffad56] px-5 py-3 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.16)]`}>
+                          {selectedProfile ? (
+                            <>
+                              <div
+                                className={`ufx-flow-node ${getConceptNodeStateClass(0)} inline-flex min-h-12 w-full max-w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                                aria-label={selectedProfile.title}
+                              >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
+                                  <SelectedProfileIcon className="h-4 w-4" />
+                                </span>
+                                <span className="whitespace-nowrap">{selectedProfile.title}</span>
+                                <ArrowRight className="h-4 w-4" />
+                              </div>
+                              <div className="ufx-flow-connector h-6 w-px bg-[#ff8f1f]/75" />
+                              <div
+                                className={`ufx-flow-node ${getConceptNodeStateClass(0)} inline-flex min-h-12 w-full max-w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                              >
+                                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
+                                  <ClipboardList className="h-4 w-4" />
+                                </span>
+                                <span className="whitespace-nowrap">{profileActionLabel}</span>
+                                <ArrowRight className="h-4 w-4" />
+                              </div>
+                              <div className="ufx-flow-connector h-6 w-px bg-[#ff8f1f]/75" />
+                            </>
+                          ) : null}
+                          <div className={`ufx-flow-node ${getConceptNodeStateClass(1)} inline-flex min-h-12 w-full max-w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ffad56] px-5 py-2.5 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.16)]`}>
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
                               <SelectedIcon className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 leading-tight">{selectedRequest.title}</span>
                           </div>
-                          <div className="ufx-flow-connector h-7 w-px bg-[#ff8f1f]/75 sm:h-10" />
+                          <div className="ufx-flow-connector h-6 w-px bg-[#ff8f1f]/75" />
                           <div className="relative inline-flex">
                             <button
                               type="button"
@@ -1258,8 +1284,8 @@ export default function HomeScrollShowcase() {
                                 viewBox={`0 0 1400 ${hasChosenTechnicians ? 850 : 440}`}
                                 aria-hidden="true"
                               >
-                                <path d="M -146 160 H 130" stroke="#ff8f1f" strokeOpacity="0.62" strokeWidth="1.25" />
-                                <path d="M 130 160 H 220" stroke="#ff8f1f" strokeOpacity="0.5" strokeWidth="1.15" />
+                                <path d={`M -146 ${flowRouteY} H 130`} stroke="#ff8f1f" strokeOpacity="0.62" strokeWidth="1.25" />
+                                <path d={`M 130 ${flowRouteY} H 220`} stroke="#ff8f1f" strokeOpacity="0.5" strokeWidth="1.15" />
                                 {technicianLineYs.length ? (
                                   <path
                                     d={`M 220 ${Math.min(...technicianLineYs)} V ${Math.max(...technicianLineYs)}`}
@@ -1316,9 +1342,13 @@ export default function HomeScrollShowcase() {
                                   </>
                                 ) : null}
                               </svg>
-                              <ArrowRight className="absolute left-[82px] top-[152px] h-4 w-4 text-[#ff8f1f]" />
+                              <ArrowRight
+                                className="absolute left-[82px] h-4 w-4 text-[#ff8f1f]"
+                                style={{ top: flowRouteY - 8 }}
+                              />
                               <div
-                                className={`absolute left-[130px] top-[160px] z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_0_46px_rgba(255,143,31,0.32)] ${getConceptNodeStateClass(2)}`}
+                                className={`absolute left-[130px] z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_0_46px_rgba(255,143,31,0.32)] ${getConceptNodeStateClass(2)}`}
+                                style={{ top: flowRouteY }}
                                 aria-label="Ubicación"
                               >
                                 <MapPin className="h-7 w-7" />
