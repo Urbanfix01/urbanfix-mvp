@@ -340,7 +340,7 @@ const requestResponseCopy: Record<
 const FLOW_MOBILE_WIDTH = 1660;
 const FLOW_DESKTOP_WIDTH = 1800;
 const FLOW_FIT_MIN_SCALE = 0.18;
-const FLOW_FIT_MAX_SCALE = 0.64;
+const FLOW_FIT_MAX_SCALE = 0.74;
 
 export default function HomeScrollShowcase() {
   const [isTutorialStarted, setIsTutorialStarted] = useState(true);
@@ -1029,24 +1029,24 @@ export default function HomeScrollShowcase() {
   }, []);
 
   return (
-    <section className="border-t border-white/10 bg-[#21002f] py-12 sm:py-16">
-      <div className="mx-auto w-full max-w-7xl space-y-12 px-4 sm:px-6 lg:px-8">
+    <section className="border-t border-white/10 bg-[#21002f] py-8 sm:py-10">
+      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 sm:px-6 lg:px-8">
         <div data-ufx-reveal className="ufx-reveal">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:gap-12">
-            <div className="max-w-4xl">
-              <p className="ufx-tutorial-kicker inline-flex rounded-full border border-[#ff8f1f]/30 bg-[#ff8f1f]/10 px-3 py-1 text-[11px] font-extrabold uppercase tracking-[0.22em] text-[#ffb35e]">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:gap-8">
+            <div className="max-w-3xl">
+              <p className="ufx-tutorial-kicker inline-flex rounded-full border border-[#ff8f1f]/30 bg-[#ff8f1f]/10 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.22em] text-[#ffb35e]">
                 PASO A PASO INTERACTIVO
               </p>
-              <h2 className="ufx-tutorial-title mt-4 text-4xl font-extrabold leading-[1.04] text-white sm:text-6xl lg:text-7xl">
+              <h2 className="ufx-tutorial-title mt-3 text-4xl font-extrabold leading-[1.02] text-white sm:text-5xl lg:text-6xl">
                 ¿Cómo funciona?
               </h2>
-              <p className="mt-4 max-w-2xl text-base font-semibold leading-6 text-white/72 sm:text-lg">
+              <p className="mt-2 max-w-xl text-sm font-semibold leading-5 text-white/62 sm:text-base sm:leading-6">
                 Cliente pide, técnicos presupuestan y el ciclo cierra con pago y calificación.
               </p>
             </div>
 
             {!isTutorialStarted ? (
-              <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-8">
+              <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-6">
                 <button
                   type="button"
                   onClick={startTutorial}
@@ -1060,7 +1060,7 @@ export default function HomeScrollShowcase() {
                 </button>
               </div>
             ) : (
-              <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-8">
+              <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-6">
                 <button
                   type="button"
                   onClick={clientRating ? startTutorial : goBackTutorialStep}
@@ -1074,9 +1074,9 @@ export default function HomeScrollShowcase() {
           </div>
 
           {isTutorialStarted && tutorialStage <= 2 ? (
-            <div className="mt-8 max-w-7xl">
+            <div className="mt-5 max-w-7xl">
               <div
-                className="rounded-[28px] border border-white/10 bg-black/16 p-3 shadow-[0_22px_70px_rgba(0,0,0,0.18)] sm:p-4"
+                className="rounded-3xl border border-white/10 bg-black/10 p-2.5 shadow-[0_18px_52px_rgba(0,0,0,0.14)] sm:p-3"
                 aria-label="Paso a paso"
               >
                 <div className="sm:hidden">
@@ -1115,16 +1115,16 @@ export default function HomeScrollShowcase() {
                     return (
                       <div
                         key={step.title}
-                        className={`relative flex min-h-16 items-center gap-3 rounded-2xl border px-3 py-3 transition ${
+                        className={`relative flex min-h-12 items-center gap-2 rounded-xl border px-2.5 py-2 transition ${
                           isActive
-                            ? 'border-[#ff8f1f]/70 bg-[#ff8f1f]/14 text-white'
+                            ? 'border-[#ff8f1f]/60 bg-[#ff8f1f]/10 text-white'
                             : isDone
-                              ? 'border-[#ff8f1f]/35 bg-[#ff8f1f]/8 text-white/82'
+                              ? 'border-[#ff8f1f]/30 bg-[#ff8f1f]/5 text-white/72'
                               : 'border-white/10 bg-black/10 text-white/45'
                         }`}
                       >
                         <span
-                          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
+                          className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${
                             isActive || isDone
                               ? 'bg-[#ff8f1f] text-[#2a0338]'
                               : 'bg-white/[0.06] text-white/45'
@@ -1133,8 +1133,8 @@ export default function HomeScrollShowcase() {
                           {index + 1}
                         </span>
                         <span className="min-w-0">
-                          <span className="block text-sm font-extrabold">{step.title}</span>
-                          <span className="mt-0.5 block text-[11px] font-semibold leading-4 text-current opacity-70">
+                          <span className="block text-xs font-extrabold">{step.title}</span>
+                          <span className="mt-0.5 block text-[10px] font-semibold leading-3 text-current opacity-60">
                             {step.caption}
                           </span>
                         </span>
@@ -1143,7 +1143,7 @@ export default function HomeScrollShowcase() {
                   })}
                 </div>
                 {clientRating ? (
-                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                  <div className="mt-2 grid gap-2 sm:grid-cols-3">
                     {[
                       'Solicitud publicada',
                       'Presupuesto aceptado',
@@ -1151,7 +1151,7 @@ export default function HomeScrollShowcase() {
                     ].map((item) => (
                       <div
                         key={item}
-                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#22c55e]/35 bg-[#22c55e]/12 px-4 py-2 text-sm font-extrabold text-[#b9f7ce]"
+                        className="inline-flex min-h-8 items-center justify-center gap-2 rounded-full border border-[#22c55e]/30 bg-[#22c55e]/10 px-3 py-1.5 text-xs font-extrabold text-[#b9f7ce]"
                       >
                         <CheckCircle2 className="h-4 w-4 text-[#22c55e]" />
                         {item}
@@ -1161,7 +1161,7 @@ export default function HomeScrollShowcase() {
                 ) : null}
               </div>
               <p
-                className={`mt-4 max-w-3xl text-sm font-semibold leading-5 text-white sm:mt-5 sm:text-lg sm:leading-6 ${
+                className={`mt-3 max-w-3xl text-sm font-semibold leading-5 text-white/82 sm:mt-4 sm:text-base sm:leading-6 ${
                   selectedProfile ? '' : 'mx-auto text-center'
                 }`}
               >
