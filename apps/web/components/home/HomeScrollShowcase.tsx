@@ -419,7 +419,7 @@ export default function HomeScrollShowcase() {
   const acceptedBudgetLineY = acceptedBudgetIndex >= 0 ? technicianLineYs[acceptedBudgetIndex] : null;
   const conceptPrompt =
     clientRating
-      ? `Ciclo cerrado: el cliente pagó y calificó a ${acceptedBudgetTechnician?.name} con ${clientRating} estrellas.`
+      ? `Ciclo completo: solicitud, presupuesto, trabajo, pago y calificación.`
       : postBudgetStep >= 2
         ? `Pago realizado. Ahora el cliente cierra el trabajo con una calificación.`
         : postBudgetStep >= 1
@@ -1122,8 +1122,8 @@ export default function HomeScrollShowcase() {
                 ) : null}
               </div>
               <p
-                className={`mt-4 text-base font-semibold leading-6 text-white sm:mt-5 sm:text-lg ${
-                  selectedProfile ? '' : 'mx-auto max-w-2xl text-center'
+                className={`mt-4 max-w-3xl text-sm font-semibold leading-5 text-white sm:mt-5 sm:text-lg sm:leading-6 ${
+                  selectedProfile ? '' : 'mx-auto text-center'
                 }`}
               >
                 {conceptPrompt}
@@ -1642,13 +1642,13 @@ export default function HomeScrollShowcase() {
         }
 
         .ufx-node-past {
-          opacity: 0.48 !important;
-          filter: saturate(0.62) brightness(0.9);
-          box-shadow: 0 8px 20px rgba(0, 0, 0, 0.14) !important;
+          opacity: 0.72 !important;
+          filter: saturate(0.88) brightness(0.98);
+          box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16) !important;
         }
 
         .ufx-node-past:hover {
-          opacity: 0.68 !important;
+          opacity: 0.88 !important;
         }
 
         .ufx-flow-scroll {
