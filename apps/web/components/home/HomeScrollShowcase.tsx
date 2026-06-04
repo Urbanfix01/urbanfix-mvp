@@ -338,18 +338,18 @@ const requestResponseCopy: Record<
 };
 
 export default function HomeScrollShowcase() {
-  const [isTutorialStarted, setIsTutorialStarted] = useState(false);
-  const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
-  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [isTutorialStarted, setIsTutorialStarted] = useState(true);
+  const [selectedProfileId, setSelectedProfileId] = useState<string | null>('cliente');
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>('canilla');
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string | null>(null);
-  const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
-  const [chosenTechnicianIds, setChosenTechnicianIds] = useState<string[]>([]);
-  const [acceptedBudgetTechnicianId, setAcceptedBudgetTechnicianId] = useState<string | null>(null);
-  const [postBudgetStep, setPostBudgetStep] = useState(0);
-  const [clientRating, setClientRating] = useState(0);
-  const [tutorialStage, setTutorialStage] = useState(0);
+  const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>(['lucas', 'mauro', 'sofia']);
+  const [chosenTechnicianIds, setChosenTechnicianIds] = useState<string[]>(['lucas', 'mauro', 'sofia']);
+  const [acceptedBudgetTechnicianId, setAcceptedBudgetTechnicianId] = useState<string | null>('lucas');
+  const [postBudgetStep, setPostBudgetStep] = useState(3);
+  const [clientRating, setClientRating] = useState(3);
+  const [tutorialStage, setTutorialStage] = useState(2);
   const [isFlowDragging, setIsFlowDragging] = useState(false);
-  const [flowScrollLeft, setFlowScrollLeft] = useState(0);
+  const [flowScrollLeft, setFlowScrollLeft] = useState(430);
   const flowScrollRef = useRef<HTMLDivElement | null>(null);
   const flowDragState = useRef({ active: false, startX: 0, scrollLeft: 0 });
 
@@ -752,6 +752,7 @@ export default function HomeScrollShowcase() {
     if (!node) return;
 
     window.requestAnimationFrame(() => {
+      node.scrollLeft = left;
       node.scrollTo({
         left,
         behavior: 'smooth',
@@ -930,6 +931,7 @@ export default function HomeScrollShowcase() {
       const maxScrollLeft = Math.max(0, node.scrollWidth - node.clientWidth);
       const nextScrollLeft = Math.min(flowAutoScrollTarget, maxScrollLeft);
 
+      node.scrollLeft = nextScrollLeft;
       node.scrollTo({
         left: nextScrollLeft,
         behavior: 'smooth',
