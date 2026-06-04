@@ -337,6 +337,11 @@ const requestResponseCopy: Record<
   },
 };
 
+const FLOW_MOBILE_WIDTH = 1660;
+const FLOW_DESKTOP_WIDTH = 1800;
+const FLOW_FIT_MIN_SCALE = 0.18;
+const FLOW_FIT_MAX_SCALE = 0.64;
+
 export default function HomeScrollShowcase() {
   const [isTutorialStarted, setIsTutorialStarted] = useState(true);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>('cliente');
@@ -349,7 +354,8 @@ export default function HomeScrollShowcase() {
   const [clientRating, setClientRating] = useState(3);
   const [tutorialStage, setTutorialStage] = useState(2);
   const [isFlowDragging, setIsFlowDragging] = useState(false);
-  const [flowScrollLeft, setFlowScrollLeft] = useState(430);
+  const [flowScrollLeft, setFlowScrollLeft] = useState(0);
+  const [flowFitScale, setFlowFitScale] = useState(FLOW_FIT_MAX_SCALE);
   const flowScrollRef = useRef<HTMLDivElement | null>(null);
   const flowDragState = useRef({ active: false, startX: 0, scrollLeft: 0 });
 
@@ -363,6 +369,7 @@ export default function HomeScrollShowcase() {
     chosenTechnicians.find((item) => item.id === selectedTechnicianId) || acceptedBudgetTechnician;
   const hasChosenTechnicians = chosenTechnicians.length > 0;
   const hasAcceptedBudget = Boolean(acceptedBudgetTechnician);
+  const isCompletedOverview = Boolean(clientRating);
   const visibleTechnicians = hasChosenTechnicians ? chosenTechnicians : verifiedTechnicians;
   const selectedBudgetCopy = selectedRequest ? budgetCopyByRequest[selectedRequest.id] : null;
   const SelectedIcon = (selectedRequest || requestOptions[0]).icon;
@@ -444,7 +451,9 @@ export default function HomeScrollShowcase() {
   const finalRouteEndX = finalCloseX;
   const finalRouteProgressX = postBudgetStep >= 2 ? finalCloseX : postBudgetStep >= 1 ? finalPayX : finalWorkX;
   const flowAutoScrollTarget =
-    postBudgetStep >= 2
+    isCompletedOverview
+      ? 0
+      : postBudgetStep >= 2
       ? 430
       : hasAcceptedBudget
         ? 420
@@ -457,14 +466,19 @@ export default function HomeScrollShowcase() {
               : 0;
   const visibleStepIndex = Math.max(stepByStepIndex, 0);
   const activeStep = stepByStepStages[visibleStepIndex] || stepByStepStages[0];
-  const linkedFlowStyle = selectedRequest
+  const linkedFlowStyle = selectedRequest && !isCompletedOverview
     ? { transform: `translateX(-${flowScrollLeft}px)` }
     : undefined;
   const flowCanvasHeight = hasChosenTechnicians ? 850 : tutorialStage > 1 ? 440 : 260;
-  const mobileFlowScale = 0.78;
+  const mobileFlowScale = isCompletedOverview ? flowFitScale : 0.78;
+  const desktopFlowScale = isCompletedOverview ? flowFitScale : 1;
   const flowScaleStyle = {
-    '--ufx-flow-mobile-width': `${Math.round(1660 * mobileFlowScale)}px`,
+    '--ufx-flow-mobile-width': `${Math.round(FLOW_MOBILE_WIDTH * mobileFlowScale)}px`,
     '--ufx-flow-mobile-height': `${Math.round(flowCanvasHeight * mobileFlowScale)}px`,
+    '--ufx-flow-desktop-width': `${Math.round(FLOW_DESKTOP_WIDTH * desktopFlowScale)}px`,
+    '--ufx-flow-desktop-height': `${Math.round(flowCanvasHeight * desktopFlowScale)}px`,
+    '--ufx-flow-mobile-scale': String(mobileFlowScale),
+    '--ufx-flow-desktop-scale': String(desktopFlowScale),
   } as CSSProperties;
   const selectedTechnicianResponseCopy = selectedRequest ? requestResponseCopy[selectedRequest.id] : null;
   const selectedTechnicianMessage =
@@ -922,6 +936,28 @@ export default function HomeScrollShowcase() {
   };
 
   useEffect(() => {
+    const updateFlowFitScale = () => {
+      const isMobileViewport = window.innerWidth < 640;
+      const baseWidth = isMobileViewport ? FLOW_MOBILE_WIDTH : FLOW_DESKTOP_WIDTH;
+      const horizontalPadding = isMobileViewport ? 28 : 72;
+      const availableWidth = Math.max(260, window.innerWidth - horizontalPadding);
+      const nextScale = Math.min(
+        FLOW_FIT_MAX_SCALE,
+        Math.max(FLOW_FIT_MIN_SCALE, availableWidth / baseWidth)
+      );
+
+      setFlowFitScale(Number(nextScale.toFixed(3)));
+    };
+
+    updateFlowFitScale();
+    window.addEventListener('resize', updateFlowFitScale);
+
+    return () => {
+      window.removeEventListener('resize', updateFlowFitScale);
+    };
+  }, []);
+
+  useEffect(() => {
     const node = flowScrollRef.current;
     if (!node || !selectedRequestId) return;
 
@@ -956,6 +992,7 @@ export default function HomeScrollShowcase() {
     chosenTechnicianIds.length,
     postBudgetStep,
     flowAutoScrollTarget,
+    flowFitScale,
   ]);
 
   useEffect(() => {
@@ -1656,7 +1693,7 @@ export default function HomeScrollShowcase() {
           overscroll-behavior-x: contain;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
-          touch-action: pan-x pan-y;
+          touch-action: pan-x pan-y pinch-zoom;
         }
 
         .ufx-flow-scroll-bleed {
@@ -1677,7 +1714,13 @@ export default function HomeScrollShowcase() {
           width: 0;
         }
 
+        .ufx-flow-scale-shell {
+          height: var(--ufx-flow-desktop-height);
+          width: var(--ufx-flow-desktop-width);
+        }
+
         .ufx-flow-scale-content {
+          transform: scale(var(--ufx-flow-desktop-scale, 1));
           transform-origin: left top;
         }
 
@@ -1710,7 +1753,7 @@ export default function HomeScrollShowcase() {
           }
 
           .ufx-flow-scale-content {
-            transform: scale(0.78);
+            transform: scale(var(--ufx-flow-mobile-scale, 0.78));
           }
 
           .ufx-mobile-tech-card .ufx-tech-card {
