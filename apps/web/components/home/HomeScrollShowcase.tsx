@@ -1716,6 +1716,9 @@ export default function HomeScrollShowcase() {
 
         .ufx-flow-scale-shell {
           height: var(--ufx-flow-desktop-height);
+          margin-left: auto;
+          margin-right: auto;
+          overflow: hidden;
           width: var(--ufx-flow-desktop-width);
         }
 
