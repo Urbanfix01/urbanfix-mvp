@@ -1001,6 +1001,9 @@ export default function HomeScrollShowcase() {
               <h2 className="ufx-tutorial-title mt-4 text-4xl font-extrabold leading-[1.04] text-white sm:text-6xl lg:text-7xl">
                 ¿Cómo funciona?
               </h2>
+              <p className="mt-4 max-w-2xl text-base font-semibold leading-6 text-white/72 sm:text-lg">
+                Cliente pide, técnicos presupuestan y el ciclo cierra con pago y calificación.
+              </p>
             </div>
 
             {!isTutorialStarted ? (
@@ -1021,11 +1024,11 @@ export default function HomeScrollShowcase() {
               <div className="ufx-tutorial-cta inline-flex lg:shrink-0 lg:pt-8">
                 <button
                   type="button"
-                  onClick={goBackTutorialStep}
+                  onClick={clientRating ? startTutorial : goBackTutorialStep}
                   className="inline-flex min-h-11 items-center gap-2 rounded-full border border-white/14 px-5 py-2.5 text-sm font-bold text-white/76 transition hover:border-white/35 hover:text-white"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Volver un paso
+                  {clientRating ? <ArrowRight className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+                  {clientRating ? 'Explorar paso a paso' : 'Volver un paso'}
                 </button>
               </div>
             )}
@@ -1100,6 +1103,23 @@ export default function HomeScrollShowcase() {
                     );
                   })}
                 </div>
+                {clientRating ? (
+                  <div className="mt-4 grid gap-2 sm:grid-cols-3">
+                    {[
+                      'Solicitud publicada',
+                      'Presupuesto aceptado',
+                      'Pago y calificación',
+                    ].map((item) => (
+                      <div
+                        key={item}
+                        className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#22c55e]/35 bg-[#22c55e]/12 px-4 py-2 text-sm font-extrabold text-[#b9f7ce]"
+                      >
+                        <CheckCircle2 className="h-4 w-4 text-[#22c55e]" />
+                        {item}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
               <p
                 className={`mt-4 text-base font-semibold leading-6 text-white sm:mt-5 sm:text-lg ${
@@ -1410,7 +1430,7 @@ export default function HomeScrollShowcase() {
                                     >
                                       <div className="flex items-center justify-between gap-3">
                                         <span className="text-sm font-extrabold">
-                                          {clientRating ? 'Control final' : 'Calificar servicio'}
+                                          {clientRating ? 'Ciclo cerrado' : 'Calificar servicio'}
                                         </span>
                                         <span
                                           className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${
@@ -1422,7 +1442,7 @@ export default function HomeScrollShowcase() {
                                       </div>
                                       <p className="mt-2 text-xs font-semibold leading-5 text-white/68">
                                         {clientRating
-                                          ? `Ciclo cerrado con ${clientRating} estrellas para ${acceptedBudgetTechnician?.name}.`
+                                          ? `Trabajo realizado, pago registrado y ${clientRating} estrellas para ${acceptedBudgetTechnician?.name}.`
                                           : 'El cliente evalúa cómo salió el trabajo y cierra la solicitud.'}
                                       </p>
                                       <div className="mt-3 flex gap-1.5" aria-label="Elegir calificación">
