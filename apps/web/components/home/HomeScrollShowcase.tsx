@@ -49,6 +49,8 @@ type VerifiedTechnician = {
   specialty: string;
   zone: string;
   initials: string;
+  rating: string;
+  reviews: string;
 };
 
 type BudgetCopy = {
@@ -124,6 +126,8 @@ const verifiedTechnicians: VerifiedTechnician[] = [
     specialty: 'Plomería',
     zone: 'Zona norte',
     initials: 'LP',
+    rating: '4.8',
+    reviews: '127',
   },
   {
     id: 'mauro',
@@ -131,6 +135,8 @@ const verifiedTechnicians: VerifiedTechnician[] = [
     specialty: 'Refrigeración',
     zone: 'Centro',
     initials: 'MC',
+    rating: '4.9',
+    reviews: '86',
   },
   {
     id: 'sofia',
@@ -138,6 +144,8 @@ const verifiedTechnicians: VerifiedTechnician[] = [
     specialty: 'Electricidad',
     zone: 'Zona oeste',
     initials: 'SR',
+    rating: '4.7',
+    reviews: '104',
   },
   {
     id: 'equipo-sur',
@@ -145,6 +153,8 @@ const verifiedTechnicians: VerifiedTechnician[] = [
     specialty: 'Mantenimiento',
     zone: 'Zona sur',
     initials: 'ES',
+    rating: '4.6',
+    reviews: '152',
   },
 ];
 
@@ -337,25 +347,39 @@ const requestResponseCopy: Record<
   },
 };
 
-const FLOW_MOBILE_WIDTH = 1660;
-const FLOW_DESKTOP_WIDTH = 1800;
+const FLOW_MOBILE_WIDTH = 1720;
+const FLOW_DESKTOP_WIDTH = 1720;
 const FLOW_FIT_MIN_SCALE = 0.18;
 const FLOW_FIT_MAX_SCALE = 0.74;
+const FLOW_LOOP_STEP_MS = 760;
+const AUTO_GUIDE_PHASE_MS = 1900;
+const AUTO_GUIDE_TECHNICIAN_PHASE_MS = 3200;
+const AUTO_GUIDE_BUDGET_COMPARE_MS = 5400;
+const AUTO_GUIDE_BUDGET_DECISION_MS = 3400;
+const AUTO_GUIDE_TECHNICIAN_IDS = ['lucas', 'mauro', 'sofia'];
+const AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID = 'mauro';
+
+const getLoopStepStyle = (step: number, style?: CSSProperties) =>
+  ({
+    ...style,
+    '--ufx-loop-delay': `${step * FLOW_LOOP_STEP_MS}ms`,
+  }) as CSSProperties;
 
 export default function HomeScrollShowcase() {
   const [isTutorialStarted, setIsTutorialStarted] = useState(true);
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>('cliente');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>('canilla');
   const [selectedTechnicianId, setSelectedTechnicianId] = useState<string | null>(null);
-  const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>(['lucas', 'mauro', 'sofia']);
-  const [chosenTechnicianIds, setChosenTechnicianIds] = useState<string[]>(['lucas', 'mauro', 'sofia']);
-  const [acceptedBudgetTechnicianId, setAcceptedBudgetTechnicianId] = useState<string | null>('lucas');
-  const [postBudgetStep, setPostBudgetStep] = useState(3);
-  const [clientRating, setClientRating] = useState(3);
-  const [tutorialStage, setTutorialStage] = useState(2);
+  const [selectedTechnicianIds, setSelectedTechnicianIds] = useState<string[]>([]);
+  const [chosenTechnicianIds, setChosenTechnicianIds] = useState<string[]>([]);
+  const [acceptedBudgetTechnicianId, setAcceptedBudgetTechnicianId] = useState<string | null>(null);
+  const [postBudgetStep, setPostBudgetStep] = useState(0);
+  const [clientRating, setClientRating] = useState(0);
+  const [tutorialStage, setTutorialStage] = useState(1);
   const [isFlowDragging, setIsFlowDragging] = useState(false);
   const [flowScrollLeft, setFlowScrollLeft] = useState(0);
   const [flowFitScale, setFlowFitScale] = useState(FLOW_FIT_MAX_SCALE);
+  const [autoGuideStep, setAutoGuideStep] = useState(0);
   const flowScrollRef = useRef<HTMLDivElement | null>(null);
   const flowDragState = useRef({ active: false, startX: 0, scrollLeft: 0 });
 
@@ -370,7 +394,13 @@ export default function HomeScrollShowcase() {
   const hasChosenTechnicians = chosenTechnicians.length > 0;
   const hasAcceptedBudget = Boolean(acceptedBudgetTechnician);
   const isCompletedOverview = Boolean(clientRating);
-  const visibleTechnicians = hasChosenTechnicians ? chosenTechnicians : verifiedTechnicians;
+  const isAutoGuidePlaying = isTutorialStarted;
+  const guideTechnicians = verifiedTechnicians.filter((item) => AUTO_GUIDE_TECHNICIAN_IDS.includes(item.id));
+  const visibleTechnicians = hasChosenTechnicians
+    ? chosenTechnicians
+    : isAutoGuidePlaying && autoGuideStep >= 5
+      ? guideTechnicians
+      : verifiedTechnicians;
   const selectedBudgetCopy = selectedRequest ? budgetCopyByRequest[selectedRequest.id] : null;
   const SelectedIcon = (selectedRequest || requestOptions[0]).icon;
   const SelectedProfileIcon = (selectedProfile || profileOptions[0]).icon;
@@ -413,13 +443,30 @@ export default function HomeScrollShowcase() {
           : selectedProfileId
             ? 'Paso 1: creá y publicá la solicitud.'
             : 'Antes de empezar, elegí si entrás como cliente o técnico.';
-  const technicianTopPositions = hasChosenTechnicians
-    ? chosenTechnicians.length === 1
-      ? [112]
-      : [40, 245, 450, 655]
-    : [0, 110, 220, 330];
+  const networkTechnicianCardHeight = 96;
+  const networkTechnicianCardCenterY = networkTechnicianCardHeight / 2;
+  const technicianTopPositions = (() => {
+    const technicianCount = visibleTechnicians.length;
+
+    if (hasChosenTechnicians || (isAutoGuidePlaying && autoGuideStep >= 5)) {
+      if (technicianCount === 1) return [192];
+      if (technicianCount === 2) return [117, 267];
+      if (technicianCount === 3) return [42, 192, 342];
+      return [42, 192, 342, 492];
+    }
+
+    return [0, 110, 220, 330];
+  })();
+  const lastTechnicianTop =
+    technicianTopPositions[
+      Math.max(0, Math.min(visibleTechnicians.length, technicianTopPositions.length) - 1)
+    ] || 0;
+  const technicianLineCenterOffset =
+    hasChosenTechnicians || (isAutoGuidePlaying && autoGuideStep >= 5)
+      ? networkTechnicianCardCenterY
+      : 38;
   const technicianLineYs = visibleTechnicians.map(
-    (_, index) => technicianTopPositions[index] + (hasChosenTechnicians ? 48 : 38)
+    (_, index) => technicianTopPositions[index] + technicianLineCenterOffset
   );
   const acceptedBudgetIndex = acceptedBudgetTechnician
     ? chosenTechnicians.findIndex((item) => item.id === acceptedBudgetTechnician.id)
@@ -445,15 +492,144 @@ export default function HomeScrollShowcase() {
     ? chosenTechnicians.findIndex((item) => item.id === selectedBudgetTechnician.id)
     : -1;
   const selectedBudgetLineY = !hasAcceptedBudget && selectedBudgetIndex >= 0 ? technicianLineYs[selectedBudgetIndex] : null;
-  const finalRouteStartX = 611;
+  const flowLeftColumnWidth = 300;
+  const flowColumnGap = 20;
+  const leftFlowPillWidth = 238;
+  const leftFlowPillRightEdgeX = flowLeftColumnWidth / 2 + leftFlowPillWidth / 2;
+  const finalPillWidth = 170;
+  const finalPillHeight = 48;
+  const getFinalPillTop = (lineY: number) => lineY - finalPillHeight / 2;
   const finalWorkX = 650;
+  const finalWorkWidth = finalPillWidth;
   const finalPayX = 850;
-  const finalCloseX = 1035;
-  const finalRouteEndX = finalCloseX;
-  const finalRouteProgressX = postBudgetStep >= 2 ? finalCloseX : postBudgetStep >= 1 ? finalPayX : finalWorkX;
+  const finalPayWidth = finalPillWidth;
+  const finalCloseX = 1050;
   const flowRouteY = selectedRequest ? 240 : 160;
+  const publishLineStartX = leftFlowPillRightEdgeX - flowLeftColumnWidth - flowColumnGap;
+  const mapPinCenterX = 130;
+  const mapPinRadius = 32;
+  const mapPinLeftX = mapPinCenterX - mapPinRadius;
+  const mapPinRightX = mapPinCenterX + mapPinRadius;
+  const connectorOverlap = 12;
+  const mapPinLineInX = mapPinLeftX + connectorOverlap;
+  const mapPinLineOutX = mapPinRightX - connectorOverlap;
+  const technicianTrunkX = 220;
+  const technicianCardX = 240;
+  const technicianCardRightX = 430;
+  const budgetNodeX = 455;
+  const budgetNodeRightX = budgetNodeX + finalPillWidth;
+  const budgetDetailX = 615;
+  const technicianCardLineInX = technicianCardX + connectorOverlap;
+  const technicianCardLineOutX = technicianCardRightX - connectorOverlap;
+  const budgetNodeLineInX = budgetNodeX + connectorOverlap;
+  const budgetNodeLineOutX = budgetNodeRightX - connectorOverlap;
+  const budgetDetailLineInX = budgetDetailX + connectorOverlap;
+  const finalWorkLineInX = finalWorkX + connectorOverlap;
+  const finalPayLineInX = finalPayX + connectorOverlap;
+  const finalCloseLineInX = finalCloseX + connectorOverlap;
+  const finalRouteStartX = budgetNodeLineOutX;
+  const finalRouteEndX = finalCloseLineInX;
+  const finalRouteProgressX =
+    postBudgetStep >= 2 ? finalCloseLineInX : postBudgetStep >= 1 ? finalPayLineInX : finalWorkLineInX;
+  const mapUploadDistance = mapPinLineInX - publishLineStartX;
+  const publishArrowLeftX = (publishLineStartX + mapPinLineInX) / 2 - 8;
+  const shouldRenderBudgetConnectorLines =
+    hasChosenTechnicians || (isAutoGuidePlaying && autoGuideStep >= 5);
+  const shouldShowBudgetConnectorLines = hasChosenTechnicians;
+  const activeFinalRoutePath =
+    acceptedBudgetLineY !== null
+      ? `M ${finalRouteStartX} ${acceptedBudgetLineY} H ${finalRouteProgressX}`
+      : null;
+  const flowDiagramOffsetX = flowLeftColumnWidth + flowColumnGap;
+  const flowDiagramWidth = flowDiagramOffsetX + 1400;
+  const leftFlowCenterX = flowLeftColumnWidth / 2;
+  const leftFlowPillRightX = leftFlowCenterX + leftFlowPillWidth / 2;
+  const leftFlowPillHeight = 48;
+  const leftFlowGap = 24;
+  const profilePillCenterY = leftFlowPillHeight / 2;
+  const createPillCenterY = profilePillCenterY + leftFlowPillHeight + leftFlowGap;
+  const requestPillCenterY = createPillCenterY + leftFlowPillHeight + leftFlowGap;
+  const publishPillCenterY = requestPillCenterY + leftFlowPillHeight + leftFlowGap;
+  const mainProcessLineY = acceptedBudgetLineY ?? selectedBudgetLineY ?? technicianLineYs[1] ?? flowRouteY;
+  const diagramX = (x: number) => x + flowDiagramOffsetX;
+  const shouldRailReachTechnicians = !isAutoGuidePlaying || autoGuideStep >= 5;
+  const processRailSegments: Array<{ d: string; tone: 'warm' | 'success' }> = [
+    ...(selectedProfile
+      ? [
+          {
+            d: `M ${leftFlowCenterX} ${profilePillCenterY + leftFlowPillHeight / 2} V ${
+              createPillCenterY - leftFlowPillHeight / 2
+            }`,
+            tone: 'warm' as const,
+          },
+          {
+            d: `M ${leftFlowCenterX} ${createPillCenterY + leftFlowPillHeight / 2} V ${
+              requestPillCenterY - leftFlowPillHeight / 2
+            }`,
+            tone: 'warm' as const,
+          },
+          {
+            d: `M ${leftFlowCenterX} ${requestPillCenterY + leftFlowPillHeight / 2} V ${
+              publishPillCenterY - leftFlowPillHeight / 2
+            }`,
+            tone: 'warm' as const,
+          },
+        ]
+      : []),
+    {
+      d: `M ${leftFlowPillRightX} ${publishPillCenterY} H ${diagramX(mapPinLineInX)}`,
+      tone: 'warm',
+    },
+    ...(shouldRailReachTechnicians
+      ? [
+          {
+            d: `M ${diagramX(mapPinLineOutX)} ${flowRouteY} H ${diagramX(technicianTrunkX)}${
+              mainProcessLineY !== flowRouteY ? ` V ${mainProcessLineY}` : ''
+            } H ${diagramX(technicianCardLineInX)}`,
+            tone: hasAcceptedBudget ? ('success' as const) : ('warm' as const),
+          },
+        ]
+      : []),
+    ...((selectedBudgetLineY !== null || acceptedBudgetLineY !== null) && shouldRenderBudgetConnectorLines
+      ? [
+          {
+            d: `M ${diagramX(technicianCardLineOutX)} ${mainProcessLineY} H ${diagramX(budgetNodeLineInX)}`,
+            tone: hasAcceptedBudget ? ('success' as const) : ('warm' as const),
+          },
+        ]
+      : []),
+    ...(hasAcceptedBudget && acceptedBudgetLineY !== null
+      ? [
+          {
+            d: `M ${diagramX(finalRouteStartX)} ${acceptedBudgetLineY} H ${diagramX(finalRouteEndX)}`,
+            tone: 'success' as const,
+          },
+        ]
+      : []),
+  ];
+  const processRailDots = [
+    ...(selectedProfile
+      ? [
+          { x: leftFlowCenterX, y: createPillCenterY },
+          { x: leftFlowCenterX, y: requestPillCenterY },
+        ]
+      : []),
+    { x: diagramX(mapPinCenterX), y: flowRouteY },
+    ...(hasAcceptedBudget && acceptedBudgetLineY !== null
+      ? [
+          { x: diagramX(budgetNodeLineOutX), y: acceptedBudgetLineY },
+          { x: diagramX(finalWorkLineInX), y: acceptedBudgetLineY },
+          { x: diagramX(finalPayLineInX), y: acceptedBudgetLineY },
+        ]
+      : []),
+  ];
+  const isMapUploadActive = Boolean(
+    selectedRequest &&
+      tutorialStage > 1 &&
+      (isAutoGuidePlaying ? autoGuideStep === 4 : !hasChosenTechnicians)
+  );
   const flowAutoScrollTarget =
-    isCompletedOverview
+    isCompletedOverview || isAutoGuidePlaying
       ? 0
       : postBudgetStep >= 2
       ? 430
@@ -468,12 +644,27 @@ export default function HomeScrollShowcase() {
               : 0;
   const visibleStepIndex = Math.max(stepByStepIndex, 0);
   const activeStep = stepByStepStages[visibleStepIndex] || stepByStepStages[0];
-  const linkedFlowStyle = selectedRequest && !isCompletedOverview
+  const getAutoGuideFocusClass = (step: number) => (autoGuideStep === step ? 'ufx-guide-focus' : '');
+  const getGuideEnergyClass = (step: number) =>
+    isAutoGuidePlaying && autoGuideStep === step ? 'ufx-guide-energy' : '';
+  const getGuideStaggerStyle = (delay: number, style?: CSSProperties) =>
+    ({
+      ...style,
+      '--ufx-stagger-delay': `${delay}ms`,
+    }) as CSSProperties;
+  const shouldShowAutoGuideStep = (step: number) => !isAutoGuidePlaying || autoGuideStep >= step;
+  const getAutoGuideRevealClass = (step: number) =>
+    shouldShowAutoGuideStep(step) ? '' : 'ufx-guide-hidden';
+  const linkedFlowStyle = selectedRequest && !isCompletedOverview && !isAutoGuidePlaying
     ? { transform: `translateX(-${flowScrollLeft}px)` }
     : undefined;
-  const flowCanvasHeight = hasChosenTechnicians ? 850 : tutorialStage > 1 ? 440 : 260;
-  const mobileFlowScale = isCompletedOverview ? flowFitScale : 0.78;
-  const desktopFlowScale = isCompletedOverview ? flowFitScale : 1;
+  const flowCanvasHeight = hasChosenTechnicians
+    ? Math.max(560, lastTechnicianTop + 170)
+    : tutorialStage > 1
+      ? 440
+      : 260;
+  const mobileFlowScale = isCompletedOverview || isAutoGuidePlaying ? flowFitScale : 0.78;
+  const desktopFlowScale = isCompletedOverview || isAutoGuidePlaying ? flowFitScale : 1;
   const flowScaleStyle = {
     '--ufx-flow-mobile-width': `${Math.round(FLOW_MOBILE_WIDTH * mobileFlowScale)}px`,
     '--ufx-flow-mobile-height': `${Math.round(flowCanvasHeight * mobileFlowScale)}px`,
@@ -554,7 +745,7 @@ export default function HomeScrollShowcase() {
     );
   };
 
-  const renderBudgetCard = (technician: VerifiedTechnician, className = '') => {
+  const renderBudgetCard = (technician: VerifiedTechnician, className = '', style?: CSSProperties) => {
     const budgetQuote = getBudgetQuote(technician);
     if (!budgetQuote) return null;
     const isAccepted = acceptedBudgetTechnicianId === technician.id;
@@ -567,6 +758,7 @@ export default function HomeScrollShowcase() {
             ? 'border-[#ff8f1f] bg-[#ff8f1f]/18 ring-1 ring-[#ff8f1f]/70'
             : 'border-[#ff8f1f]/45 bg-[#2f073f]/95 hover:border-[#ff8f1f]/80'
         } ${className}`}
+        style={style}
         aria-live="polite"
       >
         <p
@@ -664,7 +856,11 @@ export default function HomeScrollShowcase() {
           aria-label={`Elegir ${technician.name}`}
           aria-pressed={isActive}
           className={`ufx-tech-card ${technicianStateClass} flex w-full items-center gap-3 border text-left transition hover:-translate-y-0.5 ${
-            isMobileListCard ? 'min-h-[68px] rounded-[20px] px-3 py-2.5' : 'min-h-[76px] rounded-2xl px-3 py-3'
+            isMobileListCard
+              ? 'min-h-[68px] rounded-[20px] px-3 py-2.5'
+              : isNetworkCard
+                ? 'h-24 rounded-2xl px-3 py-2.5'
+                : 'min-h-[88px] rounded-2xl px-3 py-3'
           } ${
             isActive ? 'text-white ring-1 ring-[#ff8f1f]/60' : 'text-white hover:border-[#ff8f1f]/60'
           }`}
@@ -690,8 +886,16 @@ export default function HomeScrollShowcase() {
             <p className={`truncate font-semibold ${isMobileListCard ? 'text-[11px]' : 'text-xs'} ${isActive ? 'text-[#ffd6a6]' : 'text-white/55'}`}>
               {displayedSpecialty}
             </p>
+            <p
+              className={`mt-1 flex items-center gap-1 font-extrabold ${
+                isMobileListCard ? 'text-[10px]' : 'text-[11px]'
+              } ${isActive ? 'text-[#b9f7ce]' : 'text-white/48'}`}
+            >
+              <Star className="h-3 w-3" fill="currentColor" />
+              {technician.rating} · {technician.reviews} reseñas
+            </p>
             <span
-              className={`${isMobileListCard ? 'mt-1 px-1.5 py-0.5 text-[10px]' : 'mt-2 px-2 py-1 text-[11px]'} inline-flex items-center gap-1 rounded-full font-semibold ${
+              className={`${isMobileListCard || isNetworkCard ? 'mt-1 px-1.5 py-0.5 text-[10px]' : 'mt-2 px-2 py-1 text-[11px]'} inline-flex items-center gap-1 rounded-full font-semibold ${
                 isChosen
                   ? 'bg-white text-[#2a0338]'
                   : isSelected
@@ -938,6 +1142,170 @@ export default function HomeScrollShowcase() {
   };
 
   useEffect(() => {
+    if (!isTutorialStarted) return;
+
+    const guidePhases = [
+      {
+        focusStep: 0,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: [] as string[],
+        chosenTechnicianIds: [] as string[],
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 1,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 1,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: [] as string[],
+        chosenTechnicianIds: [] as string[],
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 1,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 2,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: [] as string[],
+        chosenTechnicianIds: [] as string[],
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 1,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 3,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: [] as string[],
+        chosenTechnicianIds: [] as string[],
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 4,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: [] as string[],
+        chosenTechnicianIds: [] as string[],
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 5,
+        selectedTechnicianId: AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID,
+        selectedTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        chosenTechnicianIds: [] as string[],
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_TECHNICIAN_PHASE_MS,
+      },
+      {
+        focusStep: 6,
+        selectedTechnicianId: AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID,
+        selectedTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        chosenTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        acceptedBudgetTechnicianId: null,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_BUDGET_COMPARE_MS,
+      },
+      {
+        focusStep: 7,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        chosenTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        acceptedBudgetTechnicianId: AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID,
+        postBudgetStep: 0,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_BUDGET_DECISION_MS,
+      },
+      {
+        focusStep: 8,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        chosenTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        acceptedBudgetTechnicianId: AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID,
+        postBudgetStep: 1,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 9,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        chosenTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        acceptedBudgetTechnicianId: AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID,
+        postBudgetStep: 2,
+        clientRating: 0,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+      {
+        focusStep: 10,
+        selectedTechnicianId: null,
+        selectedTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        chosenTechnicianIds: AUTO_GUIDE_TECHNICIAN_IDS,
+        acceptedBudgetTechnicianId: AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID,
+        postBudgetStep: 3,
+        clientRating: 3,
+        tutorialStage: 2,
+        duration: AUTO_GUIDE_PHASE_MS,
+      },
+    ];
+
+    let phaseIndex = 0;
+    let guideTimer: number | null = null;
+
+    const applyGuidePhase = () => {
+      const phase = guidePhases[phaseIndex];
+      const phaseDuration = phase.duration || AUTO_GUIDE_PHASE_MS;
+
+      setAutoGuideStep(phase.focusStep);
+      setSelectedProfileId('cliente');
+      setSelectedRequestId('canilla');
+      setSelectedTechnicianId(phase.selectedTechnicianId);
+      setSelectedTechnicianIds(phase.selectedTechnicianIds);
+      setChosenTechnicianIds(phase.chosenTechnicianIds);
+      setAcceptedBudgetTechnicianId(phase.acceptedBudgetTechnicianId);
+      setPostBudgetStep(phase.postBudgetStep);
+      setClientRating(phase.clientRating);
+      setTutorialStage(phase.tutorialStage);
+      setFlowScrollLeft(0);
+
+      const node = flowScrollRef.current;
+      if (node) {
+        node.scrollTo({ left: 0, behavior: 'smooth' });
+      }
+
+      phaseIndex = (phaseIndex + 1) % guidePhases.length;
+      guideTimer = window.setTimeout(applyGuidePhase, phaseDuration);
+    };
+
+    applyGuidePhase();
+
+    return () => {
+      if (guideTimer) {
+        window.clearTimeout(guideTimer);
+      }
+    };
+  }, [isTutorialStarted]);
+
+  useEffect(() => {
     const updateFlowFitScale = () => {
       const isMobileViewport = window.innerWidth < 640;
       const baseWidth = isMobileViewport ? FLOW_MOBILE_WIDTH : FLOW_DESKTOP_WIDTH;
@@ -1074,7 +1442,7 @@ export default function HomeScrollShowcase() {
           </div>
 
           {isTutorialStarted && tutorialStage <= 2 ? (
-            <div className="mt-5 max-w-7xl">
+            <div className="mt-8 max-w-7xl">
               <div
                 className="rounded-3xl border border-white/10 bg-black/10 p-2.5 shadow-[0_18px_52px_rgba(0,0,0,0.14)] sm:p-3"
                 aria-label="Paso a paso"
@@ -1160,13 +1528,15 @@ export default function HomeScrollShowcase() {
                   </div>
                 ) : null}
               </div>
-              <p
-                className={`mt-3 max-w-3xl text-sm font-semibold leading-5 text-white/82 sm:mt-4 sm:text-base sm:leading-6 ${
-                  selectedProfile ? '' : 'mx-auto text-center'
-                }`}
-              >
-                {conceptPrompt}
-              </p>
+              {!isAutoGuidePlaying ? (
+                <p
+                  className={`mt-8 max-w-3xl text-sm font-semibold leading-5 text-white/82 sm:mt-10 sm:text-base sm:leading-6 ${
+                    selectedProfile ? '' : 'mx-auto text-center'
+                  }`}
+                >
+                  {conceptPrompt}
+                </p>
+              ) : null}
               {!selectedRequest ? (
                 <div
                   className={`mt-6 grid w-full gap-4 ${
@@ -1205,7 +1575,7 @@ export default function HomeScrollShowcase() {
               ) : null}
 
               {selectedProfileId && (tutorialStage === 1 || selectedRequest) ? (
-                <div className="mt-0 max-w-7xl">
+                <div className="mt-7 max-w-7xl">
                   {selectedRequest ? (
                     <>
                       <div
@@ -1220,13 +1590,43 @@ export default function HomeScrollShowcase() {
                         }`}
                       >
                       <div className="ufx-flow-scale-shell" style={flowScaleStyle}>
-                      <div className="ufx-flow-scale-content grid w-full min-w-[1660px] grid-cols-[240px_1400px] gap-4 sm:min-w-[1800px] sm:grid-cols-[300px_1400px] sm:gap-5">
+                      <div
+                        className="ufx-flow-scale-content relative grid w-full min-w-[1720px] grid-cols-[300px_1400px] gap-5"
+                        data-ufx-auto-guide-step={autoGuideStep}
+                      >
+                        {tutorialStage > 1 ? (
+                          <svg
+                            className="ufx-process-rail-canvas pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+                            viewBox={`0 0 ${flowDiagramWidth} ${hasChosenTechnicians ? 850 : 440}`}
+                            aria-hidden="true"
+                          >
+                            {processRailSegments.map((segment, index) => (
+                              <path
+                                key={`process-rail-${index}`}
+                                className={`ufx-process-rail-segment ${
+                                  segment.tone === 'success' ? 'ufx-process-rail-segment-success' : ''
+                                }`}
+                                d={segment.d}
+                              />
+                            ))}
+                            {processRailDots.map((dot, index) => (
+                              <circle
+                                key={`process-rail-dot-${index}`}
+                                className="ufx-process-rail-dot"
+                                cx={dot.x}
+                                cy={dot.y}
+                                r="3.5"
+                              />
+                            ))}
+                          </svg>
+                        ) : null}
                         {selectedProfileId === 'tecnico' ? <div className="hidden sm:block" /> : null}
-                        <div className="flex min-w-[220px] flex-col items-center sm:min-w-[250px]">
+                        <div className="relative z-10 flex w-[300px] flex-col items-center gap-6">
                           {selectedProfile ? (
                             <>
                               <div
-                                className={`ufx-flow-node ${getConceptNodeStateClass(0)} inline-flex min-h-12 w-full max-w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                                className={`ufx-loop-step ${getAutoGuideFocusClass(0)} ufx-flow-node ${getConceptNodeStateClass(0)} relative inline-flex min-h-12 w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                                style={getLoopStepStyle(0)}
                                 aria-label={selectedProfile.title}
                               >
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
@@ -1235,9 +1635,10 @@ export default function HomeScrollShowcase() {
                                 <span className="whitespace-nowrap">{selectedProfile.title}</span>
                                 <ArrowRight className="h-4 w-4" />
                               </div>
-                              <div className="ufx-flow-connector h-6 w-px bg-[#ff8f1f]/75" />
+                              <div className={`ufx-flow-connector ufx-guide-line ${getGuideEnergyClass(1)} ${getAutoGuideRevealClass(1)} h-6 w-px bg-[#ff8f1f]/75`} />
                               <div
-                                className={`ufx-flow-node ${getConceptNodeStateClass(0)} inline-flex min-h-12 w-full max-w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                                className={`ufx-loop-step ${getAutoGuideRevealClass(1)} ${getAutoGuideFocusClass(1)} ufx-flow-node ${getConceptNodeStateClass(0)} relative inline-flex min-h-12 w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                                style={getLoopStepStyle(1)}
                               >
                                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
                                   <ClipboardList className="h-4 w-4" />
@@ -1245,22 +1646,26 @@ export default function HomeScrollShowcase() {
                                 <span className="whitespace-nowrap">{profileActionLabel}</span>
                                 <ArrowRight className="h-4 w-4" />
                               </div>
-                              <div className="ufx-flow-connector h-6 w-px bg-[#ff8f1f]/75" />
+                              <div className={`ufx-flow-connector ufx-guide-line ${getGuideEnergyClass(2)} ${getAutoGuideRevealClass(2)} h-6 w-px bg-[#ff8f1f]/75`} />
                             </>
                           ) : null}
-                          <div className={`ufx-flow-node ${getConceptNodeStateClass(1)} inline-flex min-h-12 w-full max-w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ffad56] px-5 py-2.5 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.16)]`}>
+                          <div
+                            className={`ufx-loop-step ${getAutoGuideRevealClass(2)} ${getAutoGuideFocusClass(2)} ufx-flow-node ${getConceptNodeStateClass(1)} relative inline-flex min-h-12 w-[238px] items-center justify-center gap-2.5 rounded-full bg-[#ffad56] px-5 py-2.5 text-center text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.16)]`}
+                            style={getLoopStepStyle(2)}
+                          >
                             <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
                               <SelectedIcon className="h-4 w-4" />
                             </span>
                             <span className="min-w-0 leading-tight">{selectedRequest.title}</span>
                           </div>
-                          <div className="ufx-flow-connector h-6 w-px bg-[#ff8f1f]/75" />
-                          <div className="relative inline-flex">
+                          <div className={`ufx-flow-connector ufx-guide-line ${getGuideEnergyClass(3)} ${getAutoGuideRevealClass(3)} h-6 w-px bg-[#ff8f1f]/75`} />
+                          <div className={`relative inline-flex ${getAutoGuideRevealClass(3)}`}>
                             <button
                               type="button"
                               onClick={publishRequest}
                               disabled={tutorialStage > 1}
-                              className={`group ufx-flow-node ${getConceptNodeStateClass(1)} relative z-10 inline-flex min-h-12 w-[190px] items-center justify-center gap-2.5 overflow-hidden rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)] transition hover:bg-[#ffad56] hover:shadow-[0_18px_40px_rgba(255,143,31,0.24)] disabled:cursor-default disabled:bg-[#ffad56] disabled:hover:shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                              className={`group ufx-loop-step ${getAutoGuideFocusClass(3)} ufx-flow-node ${getConceptNodeStateClass(1)} relative z-10 inline-flex min-h-12 w-[238px] items-center justify-center gap-2.5 overflow-hidden rounded-full bg-[#ff8f1f] px-5 py-2.5 text-sm font-extrabold text-[#2a0338] shadow-[0_14px_34px_rgba(255,143,31,0.18)] transition hover:bg-[#ffad56] hover:shadow-[0_18px_40px_rgba(255,143,31,0.24)] disabled:cursor-default disabled:bg-[#ffad56] disabled:hover:shadow-[0_14px_34px_rgba(255,143,31,0.18)]`}
+                              style={getLoopStepStyle(3)}
                             >
                               <span className="relative flex h-7 w-7 items-center justify-center rounded-full bg-[#2a0338] text-[#ffb35e]">
                                 <Send className="h-4 w-4" />
@@ -1275,56 +1680,94 @@ export default function HomeScrollShowcase() {
                         {tutorialStage > 1 ? (
                           <div className="flex min-w-[250px] justify-center">
                             <div
-                              className={`relative w-[1400px] max-w-[1400px] shrink-0 transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+                              className={`relative w-[1400px] max-w-[1400px] shrink-0 transition-[height] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${getAutoGuideRevealClass(4)} ${
                                 hasChosenTechnicians ? 'h-[850px]' : 'h-[440px]'
                               }`}
                             >
                               <svg
-                                className="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+                                className="ufx-flow-lines-canvas pointer-events-none absolute inset-0 h-full w-full overflow-visible"
                                 viewBox={`0 0 1400 ${hasChosenTechnicians ? 850 : 440}`}
                                 aria-hidden="true"
                               >
-                                <path d={`M -146 ${flowRouteY} H 130`} stroke="#ff8f1f" strokeOpacity="0.62" strokeWidth="1.25" />
-                                <path d={`M 130 ${flowRouteY} H 220`} stroke="#ff8f1f" strokeOpacity="0.5" strokeWidth="1.15" />
-                                {technicianLineYs.length ? (
+                                <path
+                                  className="ufx-flow-wire"
+                                  d={`M ${publishLineStartX} ${flowRouteY} H ${mapPinLineInX}`}
+                                  stroke="#ff8f1f"
+                                  strokeOpacity="0.62"
+                                  strokeWidth="1.35"
+                                />
+                                {isMapUploadActive ? (
                                   <path
-                                    d={`M 220 ${Math.min(...technicianLineYs)} V ${Math.max(...technicianLineYs)}`}
-                                    stroke="#ff8f1f"
-                                    strokeOpacity="0.46"
-                                    strokeWidth="1.1"
+                                    className="ufx-map-upload-path"
+                                    d={`M ${publishLineStartX} ${flowRouteY} H ${mapPinLineInX}`}
+                                    stroke="#22c55e"
+                                    strokeLinecap="round"
+                                    strokeWidth="2.5"
                                   />
                                 ) : null}
-                                {technicianLineYs.map((lineY) => (
-                                  <path
-                                    key={`tech-line-${lineY}`}
-                                    d={`M 220 ${lineY} H 240`}
-                                    stroke="#ff8f1f"
-                                    strokeOpacity="0.46"
-                                    strokeWidth="1.1"
-                                  />
-                                ))}
-                                {hasChosenTechnicians
-                                  ? technicianLineYs.map((lineY) => (
+                                {shouldShowAutoGuideStep(5) ? (
+                                  <>
+                                    <path
+                                      className="ufx-branch-line"
+                                      d={`M ${mapPinLineOutX} ${flowRouteY} H ${technicianTrunkX}`}
+                                      pathLength={1}
+                                      stroke="#ff8f1f"
+                                      strokeOpacity="0.56"
+                                      strokeWidth="1.25"
+                                      style={getGuideStaggerStyle(0)}
+                                    />
+                                    {technicianLineYs.length ? (
+                                      <path
+                                        className="ufx-branch-line"
+                                        d={`M ${technicianTrunkX} ${Math.min(...technicianLineYs)} V ${Math.max(...technicianLineYs)}`}
+                                        pathLength={1}
+                                        stroke="#ff8f1f"
+                                        strokeOpacity="0.52"
+                                        strokeWidth="1.2"
+                                        style={getGuideStaggerStyle(120)}
+                                      />
+                                    ) : null}
+                                    {technicianLineYs.map((lineY, index) => (
+                                      <path
+                                        key={`tech-line-${lineY}`}
+                                        className="ufx-branch-line"
+                                        d={`M ${technicianTrunkX} ${lineY} H ${technicianCardLineInX}`}
+                                        pathLength={1}
+                                        stroke="#ff8f1f"
+                                        strokeOpacity="0.52"
+                                        strokeWidth="1.2"
+                                        style={getGuideStaggerStyle(250 + index * 120)}
+                                      />
+                                    ))}
+                                  </>
+                                ) : null}
+                                {shouldRenderBudgetConnectorLines
+                                  ? technicianLineYs.map((lineY, index) => (
                                       <path
                                         key={`budget-button-line-${lineY}`}
-                                        d={`M 430 ${lineY} H 455`}
+                                        className="ufx-branch-line"
+                                        d={`M ${technicianCardLineOutX} ${lineY} H ${budgetNodeLineInX}`}
+                                        pathLength={1}
                                         stroke="#ff8f1f"
-                                        strokeOpacity="0.5"
-                                        strokeWidth="1.1"
+                                        strokeOpacity={shouldShowBudgetConnectorLines ? '0.54' : '0.001'}
+                                        strokeWidth="1.2"
+                                        style={getGuideStaggerStyle(index * 80)}
                                       />
                                     ))
                                   : null}
-                                {selectedBudgetLineY !== null ? (
+                                {selectedBudgetLineY !== null && !isAutoGuidePlaying ? (
                                   <path
-                                    d={`M 611 ${selectedBudgetLineY} H 615`}
+                                    className="ufx-flow-wire"
+                                    d={`M ${budgetNodeLineOutX} ${selectedBudgetLineY} H ${budgetDetailLineInX}`}
                                     stroke="#ff8f1f"
                                     strokeOpacity="0.58"
-                                    strokeWidth="1.15"
+                                    strokeWidth="1.25"
                                   />
                                 ) : null}
                                 {hasAcceptedBudget && acceptedBudgetLineY !== null ? (
                                   <>
                                     <path
+                                      className="ufx-flow-wire"
                                       d={`M ${finalRouteStartX} ${acceptedBudgetLineY} H ${finalRouteEndX}`}
                                       stroke="#ff8f1f"
                                       strokeDasharray="7 9"
@@ -1333,38 +1776,134 @@ export default function HomeScrollShowcase() {
                                       strokeWidth="2"
                                     />
                                     <path
+                                      className={
+                                        isAutoGuidePlaying && autoGuideStep >= 7 && autoGuideStep <= 9
+                                          ? 'ufx-route-runner-path'
+                                          : undefined
+                                      }
                                       d={`M ${finalRouteStartX} ${acceptedBudgetLineY} H ${finalRouteProgressX}`}
+                                      pathLength={1}
                                       stroke="#22c55e"
                                       strokeLinecap="round"
                                       strokeOpacity="0.86"
                                       strokeWidth="2.4"
                                     />
+                                    {isAutoGuidePlaying && autoGuideStep >= 7 && autoGuideStep <= 9 && activeFinalRoutePath ? (
+                                      <circle className="ufx-route-runner-dot" r="5" aria-hidden="true">
+                                        <animateMotion
+                                          dur="1.35s"
+                                          path={activeFinalRoutePath}
+                                          repeatCount="indefinite"
+                                        />
+                                      </circle>
+                                    ) : null}
                                   </>
                                 ) : null}
                               </svg>
+                              {isMapUploadActive ? (
+                                <div
+                                  className="ufx-map-upload-packet absolute z-30 flex h-8 w-8 items-center justify-center rounded-full bg-[#22c55e] text-[#062b15] shadow-[0_0_30px_rgba(34,197,94,0.48)]"
+                                  style={{
+                                    top: flowRouteY,
+                                    left: publishLineStartX,
+                                    '--ufx-map-packet-distance': `${mapUploadDistance}px`,
+                                  } as CSSProperties}
+                                  aria-hidden="true"
+                                >
+                                  <Send className="h-4 w-4" />
+                                </div>
+                              ) : null}
                               <ArrowRight
-                                className="absolute left-[82px] h-4 w-4 text-[#ff8f1f]"
-                                style={{ top: flowRouteY - 8 }}
+                                className="ufx-diagram-connector-arrow absolute h-4 w-4 text-[#ff8f1f]"
+                                style={{ left: publishArrowLeftX, top: flowRouteY - 8 }}
                               />
                               <div
-                                className={`absolute left-[130px] z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_0_46px_rgba(255,143,31,0.32)] ${getConceptNodeStateClass(2)}`}
-                                style={{ top: flowRouteY }}
+                                className={`ufx-map-pin ${isMapUploadActive ? 'ufx-map-pin-receiving' : ''} ufx-loop-step ${getAutoGuideFocusClass(4)} absolute left-[130px] z-20 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-[0_0_46px_rgba(255,143,31,0.32)] ${getConceptNodeStateClass(2)}`}
+                                style={getLoopStepStyle(4, { top: flowRouteY })}
                                 aria-label="Ubicación"
                               >
+                                {isMapUploadActive ? (
+                                  <>
+                                    <span className="ufx-map-pin-ring" aria-hidden="true" />
+                                    <span className="ufx-map-pin-label" aria-hidden="true">
+                                      Solicitud enviada
+                                    </span>
+                                  </>
+                                ) : null}
                                 <MapPin className="h-7 w-7" />
                               </div>
-                              {visibleTechnicians.map((technician, index) => {
-                                const positionClass =
-                                  'absolute left-[240px] w-[190px]';
-                                const chosenPositionClass =
-                                  'absolute left-[240px] w-[190px]';
+                              {hasChosenTechnicians && shouldShowAutoGuideStep(6) && !hasAcceptedBudget ? (
+                                <div className="absolute left-[455px] top-[12px] z-30 inline-flex min-h-8 items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#2f073f]/92 px-3 py-1.5 text-[11px] font-extrabold uppercase tracking-[0.08em] text-[#ffd6a6] shadow-[0_12px_34px_rgba(0,0,0,0.18)]">
+                                  <ReceiptText className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                                  3 presupuestos para elegir
+                                </div>
+                              ) : null}
+                              {isAutoGuidePlaying && autoGuideStep === -1 && hasChosenTechnicians && !hasAcceptedBudget ? (
+                                <div className="ufx-budget-compare-panel absolute left-[632px] top-[18px] z-30 w-[278px] rounded-2xl border border-[#22c55e]/36 bg-[#041a12]/88 px-3 py-3 text-white shadow-[0_18px_52px_rgba(0,0,0,0.28)]">
+                                  <p className="text-[10px] font-extrabold uppercase tracking-[0.16em] text-[#7df7a8]">
+                                    Precio + reseñas
+                                  </p>
+                                  <div className="mt-2 grid gap-2">
+                                    {chosenTechnicians.map((technician) => {
+                                      const budgetQuote = getBudgetQuote(technician);
+                                      const isBestOption = technician.id === AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID;
 
-                                return renderTechnicianCard(
-                                  technician,
-                                  `ufx-tech-network-card ${hasChosenTechnicians ? chosenPositionClass : positionClass}`,
-                                  { top: technicianTopPositions[index] }
-                                );
-                              })}
+                                      return (
+                                        <div
+                                          key={`budget-compare-${technician.id}`}
+                                          className={`rounded-xl border px-3 py-2 ${
+                                            isBestOption
+                                              ? 'border-[#22c55e]/80 bg-[#22c55e]/14'
+                                              : 'border-white/10 bg-white/[0.05]'
+                                          }`}
+                                        >
+                                          <div className="flex items-center justify-between gap-2">
+                                            <span className="truncate text-xs font-extrabold">{technician.name}</span>
+                                            <span className="text-xs font-black text-[#ffd6a6]">
+                                              {budgetQuote?.amount || 'A confirmar'}
+                                            </span>
+                                          </div>
+                                          <div className="mt-1 flex items-center justify-between gap-2 text-[10px] font-extrabold text-white/62">
+                                            <span className="inline-flex items-center gap-1">
+                                              <Star className="h-3 w-3 text-[#22c55e]" fill="currentColor" />
+                                              {technician.rating} · {technician.reviews} reseñas
+                                            </span>
+                                            {isBestOption ? (
+                                              <span className="rounded-full bg-[#22c55e] px-2 py-0.5 text-[#062b15]">
+                                                Más conveniente
+                                              </span>
+                                            ) : null}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              ) : null}
+                              {shouldShowAutoGuideStep(hasChosenTechnicians ? 6 : 5)
+                                ? visibleTechnicians.map((technician, index) => {
+                                    const positionClass =
+                                      'absolute left-[240px] w-[190px]';
+                                    const chosenPositionClass =
+                                      'absolute left-[240px] w-[190px]';
+                                    const isLoopTechnician =
+                                      autoGuideStep === 5 && selectedTechnicianIds.includes(technician.id);
+                                    const technicianRevealStep = hasChosenTechnicians ? 6 : 5;
+
+                                    return renderTechnicianCard(
+                                      technician,
+                                      `ufx-tech-network-card ${getAutoGuideRevealClass(technicianRevealStep)} ${
+                                        isLoopTechnician ? `ufx-loop-step ${getAutoGuideFocusClass(5)}` : ''
+                                      } ${
+                                        hasChosenTechnicians ? chosenPositionClass : positionClass
+                                      }`,
+                                      getLoopStepStyle(
+                                        5,
+                                        getGuideStaggerStyle(360 + index * 130, { top: technicianTopPositions[index] })
+                                      )
+                                    );
+                                  })
+                                : null}
                               {hasChosenTechnicians
                                 ? chosenTechnicians.map((technician, index) => {
                                     const lineY = technicianLineYs[index];
@@ -1372,6 +1911,10 @@ export default function HomeScrollShowcase() {
                                     const isBudgetActive =
                                       !hasAcceptedBudget && selectedBudgetTechnician?.id === technician.id;
                                     const isBudgetMuted = hasAcceptedBudget && !isBudgetAccepted;
+                                    const isBestGuideBudget =
+                                      isAutoGuidePlaying &&
+                                      autoGuideStep === 6 &&
+                                      technician.id === AUTO_GUIDE_ACCEPTED_TECHNICIAN_ID;
                                     const budgetQuote = getBudgetQuote(technician);
 
                                     return (
@@ -1386,19 +1929,27 @@ export default function HomeScrollShowcase() {
                                         }}
                                         aria-label={`Ver presupuesto de ${technician.name}`}
                                         aria-pressed={isBudgetAccepted || isBudgetActive}
-                                        className={`ufx-budget-node absolute left-[455px] z-30 inline-flex min-h-11 w-[156px] flex-col items-center justify-center rounded-full border px-3 py-2 text-xs font-extrabold leading-tight transition hover:-translate-y-0.5 ${
+                                        className={`ufx-budget-node ${getAutoGuideRevealClass(6)} ${
+                                          isBudgetAccepted || isBudgetActive
+                                            ? `ufx-loop-step ${getAutoGuideFocusClass(isBudgetAccepted ? 7 : 6)}`
+                                            : ''
+                                        } absolute left-[455px] z-30 inline-flex h-12 w-[170px] flex-col items-center justify-center rounded-full border px-3 py-2 text-xs font-extrabold leading-tight transition-[background-color,border-color,box-shadow,color,opacity,transform] duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 ${
                                           isBudgetAccepted
                                             ? 'border-[#22c55e] bg-[#22c55e] text-[#062b15] shadow-[0_12px_30px_rgba(34,197,94,0.28)]'
                                             : isBudgetActive
                                             ? 'border-[#ff8f1f] bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_28px_rgba(255,143,31,0.24)]'
                                             : isBudgetMuted
                                               ? 'border-white/10 bg-white/18 text-white/42'
+                                            : isBestGuideBudget
+                                              ? 'border-[#22c55e]/80 bg-[#22c55e] text-[#062b15] shadow-[0_12px_32px_rgba(34,197,94,0.26)]'
                                             : 'border-white/18 bg-white text-[#2a0338] hover:border-[#ff8f1f]'
                                         }`}
-                                        style={{
-                                          top: lineY,
-                                          transform: 'translateY(-50%)',
-                                        }}
+                                        style={getLoopStepStyle(
+                                          6,
+                                          getGuideStaggerStyle(260 + index * 120, {
+                                            top: getFinalPillTop(lineY),
+                                          })
+                                        )}
                                       >
                                         <span className="inline-flex items-center gap-1.5">
                                           {isBudgetAccepted ? (
@@ -1409,20 +1960,24 @@ export default function HomeScrollShowcase() {
                                           {isBudgetAccepted ? 'Aceptado' : 'Presupuesto'}
                                         </span>
                                         <span className="text-[11px] font-black">{budgetQuote?.amount || 'A confirmar'}</span>
+                                        {isBestGuideBudget ? (
+                                          <span className="mt-0.5 rounded-full bg-[#062b15]/12 px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.08em]">
+                                            Mejor valor
+                                          </span>
+                                        ) : null}
                                       </button>
                                     );
                                   })
                                 : null}
-                              {!hasAcceptedBudget && selectedBudgetTechnician ? (() => {
-                                const budgetPositionClass =
-                                  [
-                                    'absolute left-[615px] top-[0px] z-30 w-[220px]',
-                                    'absolute left-[615px] top-[205px] z-30 w-[220px]',
-                                    'absolute left-[615px] top-[410px] z-30 w-[220px]',
-                                    'absolute left-[615px] top-[615px] z-30 w-[220px]',
-                                  ][selectedBudgetIndex] || 'absolute left-[615px] z-30 w-[220px]';
+                              {!isAutoGuidePlaying && !hasAcceptedBudget && selectedBudgetTechnician ? (() => {
+                                const budgetCardTop =
+                                  selectedBudgetLineY !== null ? Math.max(0, selectedBudgetLineY - 44) : 0;
 
-                                return renderBudgetCard(selectedBudgetTechnician, budgetPositionClass);
+                                return renderBudgetCard(
+                                  selectedBudgetTechnician,
+                                  'absolute left-[615px] z-30 w-[220px]',
+                                  { top: budgetCardTop }
+                                );
                               })() : null}
                               {hasAcceptedBudget && acceptedBudgetLineY !== null ? (
                                 <>
@@ -1433,16 +1988,16 @@ export default function HomeScrollShowcase() {
                                       setClientRating(0);
                                     }}
                                     disabled={postBudgetStep >= 1}
-                                    className={`absolute z-30 inline-flex min-h-11 w-[170px] items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-extrabold transition ${
+                                    className={`ufx-loop-step ${getAutoGuideRevealClass(8)} ${getAutoGuideFocusClass(8)} absolute z-30 inline-flex h-12 w-[170px] items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-extrabold transition ${
                                       postBudgetStep >= 1
                                         ? 'cursor-default border-[#22c55e] bg-[#22c55e] text-[#062b15] shadow-[0_12px_30px_rgba(34,197,94,0.24)]'
                                         : 'border-[#ff8f1f] bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_28px_rgba(255,143,31,0.22)] hover:bg-[#ffad56]'
                                     }`}
-                                    style={{
+                                    style={getLoopStepStyle(7, {
                                       left: finalWorkX,
-                                      top: acceptedBudgetLineY,
-                                      transform: 'translateY(-50%)',
-                                    }}
+                                      top: getFinalPillTop(acceptedBudgetLineY),
+                                      width: finalWorkWidth,
+                                    })}
                                     aria-label="Marcar trabajo realizado"
                                   >
                                     {postBudgetStep >= 1 ? (
@@ -1460,18 +2015,18 @@ export default function HomeScrollShowcase() {
                                       setClientRating(0);
                                     }}
                                     disabled={postBudgetStep < 1 || postBudgetStep >= 2}
-                                    className={`absolute z-30 inline-flex min-h-11 w-[160px] items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-extrabold transition ${
+                                    className={`ufx-loop-step ${getAutoGuideRevealClass(9)} ${getAutoGuideFocusClass(9)} absolute z-30 inline-flex h-12 w-[170px] items-center justify-center gap-2 rounded-full border px-4 py-2 text-xs font-extrabold transition ${
                                       postBudgetStep >= 2
                                         ? 'cursor-default border-[#22c55e] bg-[#22c55e] text-[#062b15] shadow-[0_12px_30px_rgba(34,197,94,0.24)]'
                                         : postBudgetStep >= 1
                                           ? 'border-[#ff8f1f] bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_28px_rgba(255,143,31,0.22)] hover:bg-[#ffad56]'
                                           : 'cursor-default border-white/10 bg-white/14 text-white/38'
                                     }`}
-                                    style={{
+                                    style={getLoopStepStyle(8, {
                                       left: finalPayX,
-                                      top: acceptedBudgetLineY,
-                                      transform: 'translateY(-50%)',
-                                    }}
+                                      top: getFinalPillTop(acceptedBudgetLineY),
+                                      width: finalPayWidth,
+                                    })}
                                     aria-label="Pagar trabajo"
                                   >
                                     {postBudgetStep >= 2 ? (
@@ -1483,16 +2038,16 @@ export default function HomeScrollShowcase() {
                                   </button>
                                   {postBudgetStep >= 2 ? (
                                     <div
-                                      className={`absolute z-30 w-[260px] rounded-2xl border px-4 py-3 text-white shadow-[0_18px_48px_rgba(0,0,0,0.24)] ${
+                                      className={`ufx-loop-step ${getAutoGuideRevealClass(10)} ${getAutoGuideFocusClass(10)} absolute z-30 w-[260px] rounded-2xl border px-4 py-3 text-white shadow-[0_18px_48px_rgba(0,0,0,0.24)] ${
                                         clientRating
                                           ? 'border-[#22c55e]/70 bg-[#12351f]/92'
                                           : 'border-[#ff8f1f]/45 bg-[#2f073f]/95'
                                       }`}
-                                      style={{
+                                      style={getLoopStepStyle(9, {
                                         left: finalCloseX,
                                         top: acceptedBudgetLineY,
                                         transform: 'translateY(-50%)',
-                                      }}
+                                      })}
                                       aria-label="Calificar trabajo"
                                     >
                                       <div className="flex items-center justify-between gap-3">
@@ -1599,7 +2154,7 @@ export default function HomeScrollShowcase() {
                     </>
                   ) : (
                     <>
-                      <div className="relative mx-auto hidden h-14 w-full max-w-[820px] sm:block">
+                      <div className="ufx-request-option-lines relative mx-auto hidden h-14 w-full max-w-[820px] sm:block">
                         <span className="ufx-flow-connector absolute left-1/2 top-0 h-7 w-px -translate-x-1/2 bg-[#ff8f1f]/75" />
                         <span className="absolute left-[16.06%] right-[16.06%] top-7 h-px bg-[#ff8f1f]/70" />
                         <span className="absolute left-[16.06%] top-7 h-7 w-px -translate-x-1/2 bg-[#ff8f1f]/70" />
@@ -1688,6 +2243,242 @@ export default function HomeScrollShowcase() {
           }
         }
 
+        .ufx-guide-hidden {
+          opacity: 0 !important;
+          pointer-events: none !important;
+          visibility: hidden;
+        }
+
+        .ufx-flow-connector,
+        .ufx-diagram-connector-arrow,
+        .ufx-request-option-lines,
+        .ufx-flow-lines-canvas path,
+        .ufx-flow-lines-canvas circle.ufx-route-runner-dot {
+          display: none !important;
+        }
+
+        .ufx-process-rail-canvas {
+          z-index: 0;
+        }
+
+        .ufx-process-rail-segment {
+          fill: none;
+          filter: drop-shadow(0 0 7px rgba(255, 143, 31, 0.22));
+          stroke: #ff8f1f;
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          stroke-opacity: 0.52;
+          stroke-width: 2;
+          vector-effect: non-scaling-stroke;
+        }
+
+        .ufx-process-rail-segment-success {
+          filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.28));
+          stroke: #22c55e;
+          stroke-opacity: 0.72;
+        }
+
+        .ufx-process-rail-dot {
+          fill: #22c55e;
+          filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.42));
+          opacity: 0.86;
+        }
+
+        .ufx-guide-line {
+          position: relative;
+          overflow: hidden;
+          border-radius: 999px;
+        }
+
+        .ufx-guide-line.ufx-guide-energy {
+          background: rgba(34, 197, 94, 0.82);
+          box-shadow: 0 0 18px rgba(34, 197, 94, 0.48);
+        }
+
+        .ufx-guide-line.ufx-guide-energy::after {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: -40%;
+          height: 46%;
+          width: 6px;
+          transform: translateX(-50%);
+          border-radius: 999px;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0),
+            rgba(255, 255, 255, 0.95),
+            rgba(34, 197, 94, 0)
+          );
+          animation: ufx-guide-line-travel 1.05s ease-in-out infinite;
+        }
+
+        .ufx-route-runner-path {
+          animation: ufx-route-runner-path 1.25s linear infinite;
+          fill: none;
+          filter: drop-shadow(0 0 9px rgba(34, 197, 94, 0.62));
+          stroke: #22c55e;
+          stroke-dasharray: 0.2 0.8;
+          stroke-linecap: round;
+          stroke-opacity: 1;
+          stroke-width: 3;
+        }
+
+        .ufx-route-runner-dot {
+          fill: #22c55e;
+          filter: drop-shadow(0 0 10px rgba(34, 197, 94, 0.72));
+        }
+
+        .ufx-branch-line {
+          animation: ufx-branch-line-soft-in 480ms ease both;
+          animation-delay: var(--ufx-stagger-delay, 0ms);
+        }
+
+        .ufx-flow-wire,
+        .ufx-branch-line {
+          stroke-linecap: round;
+          stroke-linejoin: round;
+          vector-effect: non-scaling-stroke;
+        }
+
+        .ufx-map-upload-path {
+          animation: ufx-map-upload-line 760ms linear infinite;
+          filter: drop-shadow(0 0 8px rgba(34, 197, 94, 0.58));
+          stroke-dasharray: 18 16;
+        }
+
+        .ufx-map-upload-packet {
+          animation: ufx-map-upload-packet 1.45s cubic-bezier(0.18, 0.78, 0.18, 1) infinite;
+        }
+
+        .ufx-map-pin {
+          overflow: visible;
+        }
+
+        .ufx-map-pin-receiving {
+          animation: ufx-map-pin-receive 1.45s ease-in-out infinite;
+        }
+
+        .ufx-map-pin-ring {
+          position: absolute;
+          inset: -9px;
+          border-radius: inherit;
+          border: 2px solid rgba(34, 197, 94, 0.68);
+          animation: ufx-map-pin-ring 1.45s ease-out infinite;
+        }
+
+        .ufx-map-pin-label {
+          position: absolute;
+          left: 50%;
+          top: calc(100% + 10px);
+          min-width: 134px;
+          transform: translateX(-50%);
+          border: 1px solid rgba(34, 197, 94, 0.38);
+          border-radius: 999px;
+          background: rgba(4, 26, 18, 0.92);
+          box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+          color: #b9f7ce;
+          font-size: 11px;
+          font-weight: 800;
+          line-height: 1;
+          padding: 7px 10px;
+          text-align: center;
+          white-space: nowrap;
+        }
+
+        @keyframes ufx-guide-line-travel {
+          from {
+            top: -44%;
+            opacity: 0;
+          }
+          18% {
+            opacity: 1;
+          }
+          82% {
+            opacity: 1;
+          }
+          to {
+            top: 100%;
+            opacity: 0;
+          }
+        }
+
+        @keyframes ufx-route-runner-path {
+          from {
+            stroke-dashoffset: 0;
+          }
+          to {
+            stroke-dashoffset: -1;
+          }
+        }
+
+        @keyframes ufx-branch-line-soft-in {
+          from {
+            opacity: 0;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+
+        @keyframes ufx-map-upload-line {
+          from {
+            stroke-dashoffset: 0;
+            opacity: 0.35;
+          }
+          45% {
+            opacity: 0.95;
+          }
+          to {
+            stroke-dashoffset: -34;
+            opacity: 0.35;
+          }
+        }
+
+        @keyframes ufx-map-upload-packet {
+          0% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translateX(0) scale(0.72);
+          }
+          16% {
+            opacity: 1;
+          }
+          82% {
+            opacity: 1;
+            transform: translate(-50%, -50%) translateX(var(--ufx-map-packet-distance, 173px)) scale(1);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translateX(var(--ufx-map-packet-distance, 173px)) scale(0.82);
+          }
+        }
+
+        @keyframes ufx-map-pin-receive {
+          0%,
+          64%,
+          100% {
+            transform: translate(-50%, -50%) scale(1);
+          }
+          78% {
+            transform: translate(-50%, -50%) scale(1.08);
+          }
+        }
+
+        @keyframes ufx-map-pin-ring {
+          0%,
+          58% {
+            opacity: 0;
+            transform: scale(0.82);
+          }
+          72% {
+            opacity: 0.85;
+          }
+          100% {
+            opacity: 0;
+            transform: scale(1.52);
+          }
+        }
+
         .ufx-flow-node {
           animation: ufx-flow-node-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
           transform-origin: center;
@@ -1696,6 +2487,44 @@ export default function HomeScrollShowcase() {
             box-shadow 220ms ease,
             background-color 220ms ease;
           will-change: transform, opacity;
+        }
+
+        .ufx-loop-step::after,
+        .ufx-tech-card-shell.ufx-loop-step .ufx-tech-card::after {
+          content: '';
+          pointer-events: none;
+          position: absolute;
+          inset: 0;
+          border-radius: inherit;
+          border: 2px solid rgba(34, 197, 94, 0);
+          box-shadow: 0 0 0 rgba(34, 197, 94, 0);
+          opacity: 0;
+          transform: scale(0.98);
+          transition:
+            border-color 220ms ease,
+            box-shadow 220ms ease,
+            opacity 220ms ease,
+            transform 220ms ease;
+        }
+
+        .ufx-loop-step.ufx-guide-focus::after,
+        .ufx-tech-card-shell.ufx-guide-focus .ufx-tech-card::after {
+          border-color: rgba(34, 197, 94, 0.9);
+          box-shadow:
+            0 0 0 5px rgba(34, 197, 94, 0.12),
+            0 0 30px rgba(34, 197, 94, 0.42);
+          opacity: 1;
+          transform: scale(1.025);
+          animation: ufx-guide-focus-pulse 950ms ease-in-out infinite alternate;
+        }
+
+        .ufx-loop-step > * {
+          position: relative;
+          z-index: 1;
+        }
+
+        .ufx-tech-card-shell.ufx-loop-step::after {
+          content: none;
         }
 
         .ufx-node-current {
@@ -1772,6 +2601,8 @@ export default function HomeScrollShowcase() {
 
         .ufx-tech-card {
           cursor: pointer;
+          position: relative;
+          overflow: visible;
         }
 
         .ufx-tech-card-shell {
@@ -1823,10 +2654,20 @@ export default function HomeScrollShowcase() {
         .ufx-tech-network-card {
           position: absolute;
           animation: ufx-flow-node-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: var(--ufx-stagger-delay, 0ms);
+        }
+
+        .ufx-budget-node {
+          animation: ufx-flow-node-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+          animation-delay: var(--ufx-stagger-delay, 0ms);
         }
 
         .ufx-budget-card {
           animation: ufx-flow-node-in 440ms cubic-bezier(0.16, 1, 0.3, 1) both;
+        }
+
+        .ufx-budget-compare-panel {
+          animation: ufx-budget-compare-in 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
         @keyframes ufx-flow-node-in {
@@ -1834,6 +2675,19 @@ export default function HomeScrollShowcase() {
             opacity: 0;
             filter: blur(7px);
             transform: translate3d(0, 12px, 0) scale(0.985);
+          }
+          to {
+            opacity: 1;
+            filter: blur(0);
+            transform: translate3d(0, 0, 0) scale(1);
+          }
+        }
+
+        @keyframes ufx-budget-compare-in {
+          from {
+            opacity: 0;
+            filter: blur(8px);
+            transform: translate3d(-12px, 0, 0) scale(0.985);
           }
           to {
             opacity: 1;
@@ -1850,6 +2704,21 @@ export default function HomeScrollShowcase() {
           to {
             opacity: 1;
             transform: scaleY(1);
+          }
+        }
+
+        @keyframes ufx-guide-focus-pulse {
+          from {
+            box-shadow:
+              0 0 0 5px rgba(34, 197, 94, 0.12),
+              0 0 28px rgba(34, 197, 94, 0.34);
+            transform: scale(1.025);
+          }
+          to {
+            box-shadow:
+              0 0 0 7px rgba(34, 197, 94, 0.16),
+              0 0 40px rgba(34, 197, 94, 0.52);
+            transform: scale(1.045);
           }
         }
 
@@ -1883,13 +2752,30 @@ export default function HomeScrollShowcase() {
           .ufx-flow-node,
           .ufx-flow-connector,
           .ufx-tech-network-card,
+          .ufx-budget-node,
           .ufx-budget-card,
-          .ufx-tech-card {
+          .ufx-budget-compare-panel,
+          .ufx-tech-card,
+          .ufx-guide-line.ufx-guide-energy::after,
+          .ufx-branch-line,
+          .ufx-route-runner-path,
+          .ufx-route-runner-dot,
+          .ufx-map-upload-path,
+          .ufx-map-upload-packet,
+          .ufx-map-pin-receiving,
+          .ufx-map-pin-ring,
+          .ufx-loop-step::after,
+          .ufx-tech-card-shell.ufx-loop-step .ufx-tech-card::after {
             opacity: 1 !important;
             filter: none !important;
             transform: none !important;
             animation: none !important;
             transition: none !important;
+          }
+
+          .ufx-loop-step::after,
+          .ufx-tech-card-shell.ufx-loop-step .ufx-tech-card::after {
+            display: none !important;
           }
         }
       `}</style>
