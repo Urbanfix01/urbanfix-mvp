@@ -6,6 +6,10 @@ export type AdminClientRequestRecord = {
   category: string;
   address: string;
   city: string | null;
+  locationLat?: number | null;
+  locationLng?: number | null;
+  googleMapsHref?: string;
+  appleMapsHref?: string;
   description: string;
   urgency: string;
   mode: string;
@@ -94,6 +98,12 @@ export const buildAdminClientRequestWhatsappText = (request: AdminClientRequestR
     lines.push(`Técnico objetivo: ${toText(request.targetTechnicianName)}`);
   }
 
+  if (toText(request.googleMapsHref) || toText(request.appleMapsHref)) {
+    lines.push('');
+    if (toText(request.googleMapsHref)) lines.push(`Google Maps: ${toText(request.googleMapsHref)}`);
+    if (toText(request.appleMapsHref)) lines.push(`Apple Maps: ${toText(request.appleMapsHref)}`);
+  }
+
   lines.push('', 'Detalle:', request.description, '', `Ver ticket: ${ticketHref}`);
 
   return lines.join('\n').trim();
@@ -118,6 +128,9 @@ export const buildAdminClientRequestEmailText = (request: AdminClientRequestReco
     `Zona: ${toText(request.city) || 'Sin ciudad'}`,
     `Dirección: ${request.address}`,
   ];
+
+  if (toText(request.googleMapsHref)) lines.push(`Google Maps: ${toText(request.googleMapsHref)}`);
+  if (toText(request.appleMapsHref)) lines.push(`Apple Maps: ${toText(request.appleMapsHref)}`);
 
   if (toText(request.preferredWindow)) {
     lines.push(`Franja sugerida: ${toText(request.preferredWindow)}`);
@@ -147,6 +160,14 @@ export const buildAdminClientRequestEmailText = (request: AdminClientRequestReco
 export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestRecord) => {
   const zoneHref = buildAdminClientRequestZoneHref(request);
   const ticketHref = buildAdminClientRequestTicketHref(request);
+  const mapLinksHtml =
+    toText(request.googleMapsHref) || toText(request.appleMapsHref)
+      ? `<p style="margin:10px 0 0;font-size:14px;line-height:1.6;">
+          ${toText(request.googleMapsHref) ? `<a href="${escapeHtml(toText(request.googleMapsHref))}" style="color:#2563eb;text-decoration:underline;">Abrir en Google Maps</a>` : ''}
+          ${toText(request.googleMapsHref) && toText(request.appleMapsHref) ? ' &nbsp;|&nbsp; ' : ''}
+          ${toText(request.appleMapsHref) ? `<a href="${escapeHtml(toText(request.appleMapsHref))}" style="color:#2563eb;text-decoration:underline;">Abrir en Apple Maps</a>` : ''}
+        </p>`
+      : '';
 
   return `<!DOCTYPE html>
   <html lang="es">
@@ -172,6 +193,7 @@ export const buildAdminClientRequestEmailHtml = (request: AdminClientRequestReco
             <div style="margin:0 0 18px;padding:16px 18px;border-radius:18px;background:#f8fafc;border:1px solid #e2e8f0;">
               <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#475569;">Datos de la solicitud</p>
               <p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Dirección:</strong> ${escapeHtml(request.address)}</p>
+              ${mapLinksHtml}
               <p style="margin:0 0 6px;font-size:14px;line-height:1.6;"><strong>Modo:</strong> ${escapeHtml(formatModeLabel(request.mode))}</p>
               <p style="margin:0;font-size:14px;line-height:1.6;"><strong>Estado:</strong> ${escapeHtml(formatStatusLabel(request.status))}</p>
             </div>

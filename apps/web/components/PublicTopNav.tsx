@@ -34,9 +34,10 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<AuthNavProfile | null>(null);
+  const [defaultAccountHref, setDefaultAccountHref] = useState('/tecnicos');
   const isPlatformActive = activeHref === '/tecnicos' || activeHref === '/tecnico-panel';
   const isAccountAreaActive = activeHref ? accountAreaHrefs.has(activeHref) : false;
-  const panelHref = activeHref && accountAreaHrefs.has(activeHref) ? activeHref : '/tecnicos';
+  const panelHref = activeHref === '/cliente' || activeHref === '/tecnico-panel' ? activeHref : defaultAccountHref;
   const profileName =
     profile?.business_name?.trim() ||
     profile?.full_name?.trim() ||
@@ -68,11 +69,14 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
       if (!user) {
         if (!cancelled) {
           setProfile(null);
+          setDefaultAccountHref('/tecnicos');
         }
         return;
       }
 
       if (!cancelled) {
+        const accountType = String(user.user_metadata?.user_type || user.user_metadata?.profile || '').toLowerCase();
+        setDefaultAccountHref(accountType === 'cliente' ? '/cliente' : '/tecnicos');
         setProfile({
           full_name: user.user_metadata?.full_name || null,
           business_name: user.user_metadata?.business_name || null,

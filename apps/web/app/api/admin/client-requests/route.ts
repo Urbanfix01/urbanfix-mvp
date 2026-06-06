@@ -11,6 +11,7 @@ import {
 } from '@/lib/client-requests-share';
 import { normalizeNewsletterEmail } from '@/lib/newsletter';
 import { readLimitedJsonBody } from '@/lib/api/read-json-body';
+import { buildMapLinks } from '@/lib/map-links';
 
 const RESEND_API_URL = 'https://api.resend.com/emails';
 const MAX_REQUESTS = 80;
@@ -28,6 +29,11 @@ type AuthUserFallback = {
 };
 
 const toText = (value: unknown) => String(value || '').trim();
+const toFiniteNumber = (value: unknown) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 const normalizeUrgency = (value: unknown) => {
   const normalized = toText(value).toLowerCase();
@@ -103,6 +109,14 @@ const buildRequestRecord = (
   const matchStats = matchesStatsMap.get(String(row.id || ''));
   const fallbackEmail = normalizeNewsletterEmail(authUser?.email);
   const fallbackName = fallbackEmail || 'Cliente UrbanFix';
+  const locationLat = toFiniteNumber(row.location_lat);
+  const locationLng = toFiniteNumber(row.location_lng);
+  const mapLinks = buildMapLinks({
+    address: row.address,
+    city: row.city,
+    lat: locationLat,
+    lng: locationLng,
+  });
 
   return {
     id: String(row.id || ''),
@@ -110,6 +124,10 @@ const buildRequestRecord = (
     category: toText(row.category) || 'General',
     address: toText(row.address),
     city: toText(row.city) || null,
+    locationLat,
+    locationLng,
+    googleMapsHref: mapLinks?.googleMapsHref || '',
+    appleMapsHref: mapLinks?.appleMapsHref || '',
     description: toText(row.description),
     urgency: toText(row.urgency) || 'media',
     mode: toText(row.mode) || 'marketplace',
@@ -133,7 +151,7 @@ const loadClientRequests = async () => {
   const { data: requestRows, error: requestError } = await supabase
     .from('client_requests')
     .select(
-      'id, client_id, title, category, address, city, description, urgency, mode, status, preferred_window, target_technician_name, target_technician_phone, created_at, updated_at'
+      'id, client_id, title, category, address, city, location_lat, location_lng, description, urgency, mode, status, preferred_window, target_technician_name, target_technician_phone, created_at, updated_at'
     )
     .order('updated_at', { ascending: false })
     .limit(MAX_REQUESTS);

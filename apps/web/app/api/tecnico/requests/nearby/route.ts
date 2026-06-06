@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/lib/supabase/server';
+import { buildMapLinks } from '@/lib/map-links';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
@@ -27,8 +28,8 @@ const PROFILE_SELECT_CANDIDATES = [
 ];
 
 const REQUESTS_SELECT_CANDIDATES = [
-  'id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km, photo_urls',
-  'id, title, category, address, city, description, urgency, preferred_window, status, mode, created_at, location_lat, location_lng',
+  'id, client_id, title, category, address, city, description, urgency, preferred_window, status, mode, target_technician_id, created_at, location_lat, location_lng, radius_km, photo_urls',
+  'id, client_id, title, category, address, city, description, urgency, preferred_window, status, mode, created_at, location_lat, location_lng',
   'id, title, category, address, city, description, urgency, status, created_at',
 ];
 
@@ -36,6 +37,12 @@ const OWN_MATCHES_SELECT_CANDIDATES = [
   'request_id, quote_status, quote_id, response_type, response_message, visit_eta_hours, price_ars, eta_hours, updated_at',
   'request_id, quote_status, quote_id, price_ars, eta_hours, updated_at',
   'request_id, quote_status, updated_at',
+];
+
+const CLIENT_PROFILES_SELECT_CANDIDATES = [
+  'id, full_name, avatar_url, email',
+  'id, full_name, avatar_url',
+  'id, full_name',
 ];
 
 const isSchemaDriftError = (message: string) => {
@@ -50,6 +57,8 @@ const isSchemaDriftError = (message: string) => {
     normalized.includes('location_lng') ||
     normalized.includes('radius_km') ||
     normalized.includes('photo_urls') ||
+    normalized.includes('client_id') ||
+    normalized.includes('avatar_url') ||
     normalized.includes('target_technician_id') ||
     normalized.includes('response_type') ||
     normalized.includes('response_message') ||
@@ -205,7 +214,9 @@ export async function GET(request: NextRequest) {
   let skippedByDistance = 0;
   let geocodedCount = 0;
   const requestIds = requestRows.map((row: any) => String(row.id || '').trim()).filter(Boolean);
+  const clientIds = Array.from(new Set(requestRows.map((row: any) => String(row.client_id || '').trim()).filter(Boolean)));
   const ownMatchesByRequestId = new Map<string, any>();
+  const clientProfilesById = new Map<string, any>();
   if (requestIds.length > 0) {
     const { data: ownMatchRows } = await selectWithFallback(OWN_MATCHES_SELECT_CANDIDATES, async (selectClause) =>
       await supabase
@@ -218,6 +229,16 @@ export async function GET(request: NextRequest) {
     matchRows.forEach((row: any) => {
       const requestId = String(row?.request_id || '').trim();
       if (requestId) ownMatchesByRequestId.set(requestId, row);
+    });
+  }
+  if (clientIds.length > 0) {
+    const { data: clientProfileRows } = await selectWithFallback(CLIENT_PROFILES_SELECT_CANDIDATES, async (selectClause) =>
+      await supabase.from('profiles').select(selectClause).in('id', clientIds)
+    );
+    const profileRows = Array.isArray(clientProfileRows) ? (clientProfileRows as any[]) : [];
+    profileRows.forEach((row: any) => {
+      const clientId = String(row?.id || '').trim();
+      if (clientId) clientProfilesById.set(clientId, row);
     });
   }
 
@@ -272,9 +293,21 @@ export async function GET(request: NextRequest) {
     }
     const ownMatch = ownMatchesByRequestId.get(String(row.id || '').trim());
     const ownEta = toFiniteNumber(ownMatch?.eta_hours);
+    const clientId = String(row.client_id || '').trim();
+    const clientProfile = clientId ? clientProfilesById.get(clientId) : null;
+    const mapLinks = buildMapLinks({
+      address: row.address,
+      city: row.city,
+      lat: requestLat,
+      lng: requestLng,
+    });
 
     normalizedRows.push({
       id: row.id,
+      client_id: clientId,
+      client_name:
+        String(clientProfile?.full_name || clientProfile?.email || '').trim() || 'Cliente UrbanFix',
+      client_avatar_url: String(clientProfile?.avatar_url || '').trim(),
       title: row.title || 'Solicitud sin titulo',
       category: row.category || 'General',
       city: row.city || '',
@@ -289,6 +322,8 @@ export async function GET(request: NextRequest) {
       match_radius_km: maxDistance,
       location_lat: Number(requestLat.toFixed(6)),
       location_lng: Number(requestLng.toFixed(6)),
+      google_maps_href: mapLinks?.googleMapsHref || '',
+      apple_maps_href: mapLinks?.appleMapsHref || '',
       photo_urls: Array.isArray(row.photo_urls)
         ? row.photo_urls.map((item: unknown) => String(item || '').trim()).filter(Boolean)
         : [],

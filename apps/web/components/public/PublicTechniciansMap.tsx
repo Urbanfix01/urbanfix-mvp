@@ -52,6 +52,7 @@ type Props = {
   title?: string;
   description?: string;
   searchConfig?: PublicTechniciansMapSearchConfig;
+  fullBleed?: boolean;
 };
 
 type DisplayPoint = PublicTechnicianMapPoint & {
@@ -161,6 +162,7 @@ export default function PublicTechniciansMap({
   title: _title,
   description: _description,
   searchConfig,
+  fullBleed = false,
 }: Props) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
@@ -270,6 +272,11 @@ export default function PublicTechniciansMap({
 
     const initMap = async () => {
       if (!mapHostRef.current || mapRef.current) return;
+      const hostRect = mapHostRef.current.getBoundingClientRect();
+      if (hostRect.width < 10 || hostRect.height < 10) {
+        window.setTimeout(initMap, 80);
+        return;
+      }
       const L = await import('leaflet');
       if (cancelled || !mapHostRef.current) return;
 
@@ -295,11 +302,18 @@ export default function PublicTechniciansMap({
       mapRef.current = map;
       setMapReady(true);
 
-      resizeObserver = new ResizeObserver(() => {
-        map.invalidateSize(false);
+      if (typeof ResizeObserver !== 'undefined') {
+        resizeObserver = new ResizeObserver(() => {
+          map.invalidateSize(false);
+        });
+        resizeObserver.observe(mapHostRef.current);
+      }
+      window.requestAnimationFrame(() => map.invalidateSize(false));
+      [120, 360, 800].forEach((delay) => {
+        window.setTimeout(() => {
+          if (!cancelled) map.invalidateSize(false);
+        }, delay);
       });
-      resizeObserver.observe(mapHostRef.current);
-      window.setTimeout(() => map.invalidateSize(false), 120);
     };
 
     initMap();
@@ -481,10 +495,17 @@ export default function PublicTechniciansMap({
   const hasSearchFilters = Boolean(searchConfig?.query || searchConfig?.hiddenFields?.some((field) => field.value));
 
   return (
-    <section className="mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]">
-      <div className="border-b border-white/12 bg-[#190426] px-2.5 py-2.5 sm:px-4 lg:px-6">
-        <div className="mx-auto w-full max-w-[1500px]">
-          {searchConfig ? (
+    <section
+      className={
+        fullBleed
+          ? 'h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)] overflow-hidden bg-[#12001c]'
+          : 'mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]'
+      }
+    >
+      {(!fullBleed || searchConfig) && (
+        <div className="border-b border-white/12 bg-[#190426] px-2.5 py-2.5 sm:px-4 lg:px-6">
+          <div className="mx-auto w-full max-w-[1500px]">
+            {searchConfig ? (
             <form
               method="get"
               action={searchConfig.actionHref}
@@ -551,12 +572,13 @@ export default function PublicTechniciansMap({
                 <div className="hidden lg:block" />
               )}
             </form>
-          ) : null}
+            ) : null}
+          </div>
         </div>
-      </div>
+      )}
 
-      <div className="relative h-[82vh] min-h-[680px] sm:min-h-[760px] max-h-[980px]">
-        <div ref={mapHostRef} className="ufx-public-map h-full w-full" />
+      <div className={fullBleed ? 'relative h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)]' : 'relative h-[82vh] min-h-[680px] sm:min-h-[760px] max-h-[980px]'}>
+        <div ref={mapHostRef} className={fullBleed ? 'ufx-public-map h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)] w-full' : 'ufx-public-map h-full w-full'} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
         {selectedPoint ? (

@@ -26,6 +26,8 @@ type AdminClientRequestItem = {
   whatsappHref: string;
   whatsappText: string;
   emailSubject: string;
+  googleMapsHref?: string;
+  appleMapsHref?: string;
 };
 
 type RequestsResponse = {
@@ -502,6 +504,26 @@ export default function AdminClientRequestsPanel({ accessToken, active }: Props)
                 >
                   Copiar ticket
                 </button>
+                {request.googleMapsHref && (
+                  <a
+                    href={request.googleMapsHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                  >
+                    Google Maps
+                  </a>
+                )}
+                {request.appleMapsHref && (
+                  <a
+                    href={request.appleMapsHref}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                  >
+                    Apple Maps
+                  </a>
+                )}
                 {isEditing ? (
                   <button
                     type="button"

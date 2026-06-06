@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { clientSupabase as supabase, getAuthUser } from '@/app/api/client/_shared/auth';
 import { getClientWorkspaceSnapshot, insertClientEvent } from '@/app/api/client/_shared/data';
 import { readLimitedJsonBody } from '@/lib/api/read-json-body';
+import { buildMapLinks } from '@/lib/map-links';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   geocodeFirstResult,
@@ -82,7 +83,7 @@ export async function POST(request: NextRequest) {
 
   const { data: clientProfile, error: clientProfileError } = await supabase
     .from('profiles')
-    .select('full_name, phone, city')
+    .select('phone, avatar_url')
     .eq('id', user.id)
     .maybeSingle();
 
@@ -99,9 +100,7 @@ export async function POST(request: NextRequest) {
   }
 
   const missingProfileFields: string[] = [];
-  if (!toText(clientProfile?.full_name)) missingProfileFields.push('Nombre');
   if (!toText(clientProfile?.phone)) missingProfileFields.push('Telefono');
-  if (!toText(clientProfile?.city)) missingProfileFields.push('Ciudad');
 
   if (missingProfileFields.length > 0) {
     return NextResponse.json(
@@ -123,7 +122,7 @@ export async function POST(request: NextRequest) {
   const address = toText(body.address);
   const city = toText(body.city);
   const province = toText(body.province);
-  const resolvedCity = city || toText(clientProfile?.city);
+  const resolvedCity = city;
   const description = toText(body.description);
   const preferredWindow = toText(body.preferredWindow);
   const urgency = normalizeUrgency(toText(body.urgency));
@@ -133,9 +132,9 @@ export async function POST(request: NextRequest) {
 
   const targetTechnicianId = toText(body.targetTechnicianId) || null;
 
-  if (!title || !category || !address || !description) {
+  if (!title || !category || !address || !resolvedCity || !description) {
     return NextResponse.json(
-      { error: 'Completa titulo, categoria, direccion y descripcion para publicar la solicitud.' },
+      { error: 'Completa titulo, categoria, direccion, ciudad y descripcion para publicar la solicitud.' },
       { status: 400 }
     );
   }
@@ -314,6 +313,13 @@ export async function POST(request: NextRequest) {
 
   const requestStatus =
     matchesPayload.length && String(requestRow.status || '') === 'published' ? 'matched' : requestRow.status;
+  const mapLinks = buildMapLinks({
+    address,
+    city: resolvedCity,
+    province,
+    lat: requestLat,
+    lng: requestLng,
+  });
 
   try {
     await insertClientEvent(
@@ -338,6 +344,10 @@ export async function POST(request: NextRequest) {
       request: {
         ...requestRow,
         status: requestStatus,
+        locationLat: requestLat,
+        locationLng: requestLng,
+        googleMapsHref: mapLinks?.googleMapsHref || '',
+        appleMapsHref: mapLinks?.appleMapsHref || '',
       },
       matches: matchesPayload,
       warning: warning || null,

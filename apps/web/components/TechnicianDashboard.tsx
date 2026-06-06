@@ -34,6 +34,8 @@ type TechnicianRequest = {
   created_at: string;
   location_lat: number;
   location_lng: number;
+  google_maps_href?: string;
+  apple_maps_href?: string;
   my_quote_status: 'pending' | 'submitted' | 'accepted' | 'rejected' | null;
   my_response_type: 'application' | 'direct_quote' | null;
   my_visit_eta_hours: number | null;
@@ -437,6 +439,35 @@ export default function TechnicianDashboard() {
                                 })}
                               />
                             </div>
+
+                            {(request.google_maps_href || request.apple_maps_href) && (
+                              <div className="rounded-lg border border-slate-200 bg-white p-3">
+                                <p className="mb-2 text-xs font-semibold uppercase text-slate-600">Mapa del trabajo</p>
+                                <p className="mb-3 text-sm text-slate-700">{request.address}</p>
+                                <div className="flex flex-wrap gap-2">
+                                  {request.google_maps_href && (
+                                    <a
+                                      href={request.google_maps_href}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+                                    >
+                                      Google Maps
+                                    </a>
+                                  )}
+                                  {request.apple_maps_href && (
+                                    <a
+                                      href={request.apple_maps_href}
+                                      target="_blank"
+                                      rel="noreferrer noopener"
+                                      className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:border-blue-300 hover:text-blue-700"
+                                    >
+                                      Apple Maps
+                                    </a>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {/* Response Info */}
                             {request.my_quote_status && (

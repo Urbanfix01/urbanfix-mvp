@@ -22,6 +22,7 @@ import {
   LogOut,
   Mail,
   MapPinned,
+  Menu,
   MessageCircle,
   MoreVertical,
   Search,
@@ -40,6 +41,8 @@ import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supa
 import AuthHashHandler from '../../components/AuthHashHandler';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
+import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
+import UrbanFixBrandLoader from '../../components/UrbanFixBrandLoader';
 import { POST_AUTH_REDIRECT_KEY, PRICE_ACCESS_INTENT, sanitizeNextPath } from '../../lib/auth/post-auth';
 import {
   buildMasterItemChoiceLabel,
@@ -91,30 +94,6 @@ const POST_LOGIN_VIDEO_MAX_MS = 10000;
 const COVERAGE_RADIUS_KM = 20;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
-
-function UrbanFixBrandLoader({ label = 'Cargando UrbanFix' }: { label?: string }) {
-  return (
-    <div className="ufx-brand-loader" role="status" aria-label={label}>
-      <div className="ufx-brand-loader-mark" aria-hidden="true">
-        <img src="/icon-48.png" alt="" />
-      </div>
-      <div className="ufx-brand-loader-word" aria-hidden="true">
-        <div className="ufx-brand-loader-word-base">
-          <span>URBAN</span>
-          <span className="ufx-brand-loader-fix">FIX</span>
-        </div>
-        <div className="ufx-brand-loader-word-fill">
-          <span>URBAN</span>
-          <span className="ufx-brand-loader-fix">FIX</span>
-        </div>
-      </div>
-      <div className="ufx-brand-loader-track" aria-hidden="true">
-        <span />
-      </div>
-      <span className="sr-only">{label}</span>
-    </div>
-  );
-}
 
 type WorkingHoursConfig = {
   weekdayFrom: string;
@@ -545,6 +524,9 @@ const toggleSpecialty = (currentValue: string, specialty: string) => {
 
 type NearbyRequestRow = {
   id: string;
+  client_id?: string | null;
+  client_name?: string | null;
+  client_avatar_url?: string | null;
   title: string;
   category: string;
   city: string;
@@ -559,16 +541,29 @@ type NearbyRequestRow = {
   match_radius_km: number;
   location_lat?: number | null;
   location_lng?: number | null;
+  google_maps_href?: string | null;
+  apple_maps_href?: string | null;
+  photo_urls?: string[];
   my_quote_status?: string | null;
+  my_response_type?: string | null;
+  my_response_message?: string | null;
+  my_visit_eta_hours?: number | null;
   my_price_ars?: number | null;
   my_eta_hours?: number | null;
   my_quote_updated_at?: string | null;
 };
 
+type RequestResponseType = 'direct_quote' | 'application';
+
 type RequestOfferDraft = {
+  responseType: RequestResponseType;
   priceArs: string;
   etaHours: string;
+  visitEtaHours: string;
+  message: string;
 };
+
+const DEFAULT_REQUEST_APPLICATION_MESSAGE = 'Estoy disponible para realizar este trabajo.';
 
 type FinanceTimelineMode = 'weekly' | 'monthly' | 'yearly';
 type QuoteFilter = 'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid';
@@ -600,10 +595,10 @@ const urgencyPriority = (urgency: string | null | undefined) => {
 
 const requestQuoteStatusLabel = (status: string | null | undefined) => {
   const normalized = String(status || '').toLowerCase().trim();
-  if (!normalized || normalized === 'pending') return 'Sin oferta';
-  if (normalized === 'submitted') return 'Oferta enviada';
-  if (normalized === 'accepted') return 'Oferta aceptada';
-  if (normalized === 'rejected') return 'Oferta rechazada';
+  if (!normalized || normalized === 'pending') return 'Sin respuesta';
+  if (normalized === 'submitted') return 'Postulacion enviada';
+  if (normalized === 'accepted') return 'Aceptada';
+  if (normalized === 'rejected') return 'Rechazada';
   return normalized.toUpperCase();
 };
 
@@ -614,6 +609,31 @@ const requestQuoteStatusClass = (status: string | null | undefined) => {
   if (normalized === 'accepted') return 'bg-emerald-100 text-emerald-700';
   if (normalized === 'rejected') return 'bg-rose-100 text-rose-700';
   return 'bg-slate-100 text-slate-700';
+};
+
+const normalizeRequestResponseType = (value: string | null | undefined): RequestResponseType =>
+  String(value || '').toLowerCase().trim() === 'application' ? 'application' : 'direct_quote';
+
+const requestResponseTypeLabel = (value: string | null | undefined) => {
+  const normalized = normalizeRequestResponseType(value);
+  return normalized === 'application' ? 'Postulacion' : 'Cotizacion';
+};
+
+const requestPublicZoneLabel = (request: Pick<NearbyRequestRow, 'city' | 'distance_km'>) => {
+  const city = String(request.city || '').trim();
+  const distance = Number(request.distance_km);
+  const distanceLabel = Number.isFinite(distance) ? `${distance.toFixed(1)} km aprox.` : 'Distancia aproximada';
+  return city ? `${city} · ${distanceLabel}` : distanceLabel;
+};
+
+const getClientInitials = (name: string) => {
+  const parts = name
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2);
+  if (parts.length === 0) return 'C';
+  return parts.map((part) => part.charAt(0).toUpperCase()).join('');
 };
 
 const manrope = Manrope({
@@ -937,13 +957,6 @@ const toNumber = (value: string) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
-const parseArsInput = (value: string) => {
-  const normalized = String(value || '').trim().replace(/\s+/g, '').replace(/\./g, '').replace(',', '.');
-  if (!normalized) return null;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
 const parseEtaInput = (value: string) => {
   const normalized = String(value || '').trim().replace(',', '.');
   if (!normalized) return null;
@@ -952,10 +965,16 @@ const parseEtaInput = (value: string) => {
 };
 
 const buildRequestOfferDraft = (request: NearbyRequestRow): RequestOfferDraft => ({
+  responseType: request.my_response_type ? normalizeRequestResponseType(request.my_response_type) : 'application',
   priceArs:
     request.my_price_ars === null || request.my_price_ars === undefined ? '' : String(Math.round(request.my_price_ars)),
   etaHours:
     request.my_eta_hours === null || request.my_eta_hours === undefined ? '' : String(Math.round(request.my_eta_hours)),
+  visitEtaHours:
+    request.my_visit_eta_hours === null || request.my_visit_eta_hours === undefined
+      ? ''
+      : String(Math.round(request.my_visit_eta_hours)),
+  message: request.my_response_message || DEFAULT_REQUEST_APPLICATION_MESSAGE,
 });
 
 const toFiniteCoordinate = (value: unknown) => {
@@ -1393,43 +1412,6 @@ const buildOsmEmbedUrl = (lat: number, lon: number) => {
 const buildOsmLink = (lat: number, lon: number, zoom = 16) =>
   `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=${zoom}/${lat}/${lon}`;
 
-const clampLatitude = (value: number) => Math.max(-85, Math.min(85, value));
-
-const clampLongitude = (value: number) => {
-  if (value > 180) return 180;
-  if (value < -180) return -180;
-  return value;
-};
-
-const buildOsmBoundsForPoints = (points: Array<{ lat: number; lon: number }>) => {
-  const limitedPoints = points.slice(0, 80);
-  const lats = limitedPoints.map((point) => point.lat);
-  const lons = limitedPoints.map((point) => point.lon);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const latSpan = Math.max(maxLat - minLat, 0.015);
-  const lonSpan = Math.max(maxLon - minLon, 0.015);
-  const marginLat = Math.max(latSpan * 0.25, 0.01);
-  const marginLon = Math.max(lonSpan * 0.25, 0.01);
-  return {
-    left: clampLongitude(minLon - marginLon),
-    right: clampLongitude(maxLon + marginLon),
-    bottom: clampLatitude(minLat - marginLat),
-    top: clampLatitude(maxLat + marginLat),
-  };
-};
-
-const buildOsmStaticMultiMarkerUrl = (points: DashboardMapPoint[]) => {
-  if (!points.length) return '';
-  const limitedPoints = points.slice(0, 80);
-  const bounds = buildOsmBoundsForPoints(limitedPoints);
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${bounds.left.toFixed(6)}%2C${bounds.bottom.toFixed(
-    6
-  )}%2C${bounds.right.toFixed(6)}%2C${bounds.top.toFixed(6)}&layer=mapnik`;
-};
-
 const RUBRO_ORDER = [
   'electricidad',
   'plomeria',
@@ -1756,11 +1738,6 @@ export default function TechniciansPage() {
   const [technicianWithinWorkingHours, setTechnicianWithinWorkingHours] = useState<boolean | null>(null);
   const [technicianWorkingHoursLabel, setTechnicianWorkingHoursLabel] = useState('');
   const [technicianRadiusKm, setTechnicianRadiusKm] = useState(COVERAGE_RADIUS_KM);
-  const [requestBoardCategoryFilter, setRequestBoardCategoryFilter] = useState('all');
-  const [requestBoardCityFilter, setRequestBoardCityFilter] = useState('all');
-  const [requestBoardModeFilter, setRequestBoardModeFilter] = useState<'all' | 'marketplace' | 'direct'>('all');
-  const [requestBoardUrgencyFilter, setRequestBoardUrgencyFilter] = useState<'all' | 'alta' | 'media' | 'baja'>('all');
-  const [requestBoardSort, setRequestBoardSort] = useState<'recent' | 'distance' | 'urgency'>('recent');
   const [dashboardMapFilter, setDashboardMapFilter] = useState<'all' | 'jobs' | 'requests'>('all');
   const [dashboardMapSelectedId, setDashboardMapSelectedId] = useState('');
   const [offerEditorRequestId, setOfferEditorRequestId] = useState('');
@@ -1855,6 +1832,7 @@ export default function TechniciansPage() {
   const [masterCategory, setMasterCategory] = useState('all');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
+  const [isMobileFloatingMenuOpen, setIsMobileFloatingMenuOpen] = useState(false);
   const [isMobileDockVisible, setIsMobileDockVisible] = useState(true);
   const mobileScrollYRef = useRef(0);
   const mobileScrollTickingRef = useRef(false);
@@ -1874,7 +1852,7 @@ export default function TechniciansPage() {
     | 'precios'
     | 'historial'
     | 'notificaciones'
-  >('lobby');
+  >('operativo');
   const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('editor');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -1985,6 +1963,16 @@ export default function TechniciansPage() {
   }, [session?.user?.id]);
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !session?.user) return;
+    const accountType = String(session.user.user_metadata?.user_type || '').toLowerCase();
+    if (accountType !== 'cliente') return;
+    const params = new URLSearchParams(window.location.search);
+    const requestedProfile = String(params.get('perfil') || params.get('audience') || '').toLowerCase();
+    if (requestedProfile === 'tecnico' || requestedProfile === 'empresa') return;
+    window.location.replace('/cliente');
+  }, [session?.user?.id, session?.user?.user_metadata?.user_type]);
+
+  useEffect(() => {
     if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted || !selectedAccessProfile)
       return;
     setAutoGoogleStarted(true);
@@ -2093,8 +2081,8 @@ export default function TechniciansPage() {
   }, [geoSelected]);
 
   const navItems: NavItem[] = [
+    { key: 'operativo', label: 'Mapa operativo', hint: 'Solicitudes por zona', short: 'MP', icon: Search },
     { key: 'lobby', label: 'Panel de control', hint: 'Resumen general', short: 'PC', icon: Home },
-    { key: 'operativo', label: 'Operativo', hint: 'Mapa y solicitudes', short: 'OP', icon: Search },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI', icon: Eye },
     { key: 'agenda', label: 'Agenda', hint: 'Planificacion', short: 'AG', icon: Calendar },
@@ -2629,10 +2617,10 @@ export default function TechniciansPage() {
   const getRequestOfferDraft = (request: NearbyRequestRow) =>
     offerDraftByRequestId[request.id] || buildRequestOfferDraft(request);
 
-  const handleRequestOfferDraftChange = (
+  const handleRequestOfferDraftChange = <Field extends keyof RequestOfferDraft>(
     request: NearbyRequestRow,
-    field: keyof RequestOfferDraft,
-    value: string
+    field: Field,
+    value: RequestOfferDraft[Field]
   ) => {
     setOfferDraftByRequestId((prev) => ({
       ...prev,
@@ -2648,7 +2636,10 @@ export default function TechniciansPage() {
     setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
     setOfferDraftByRequestId((prev) => ({
       ...prev,
-      [request.id]: prev[request.id] || buildRequestOfferDraft(request),
+      [request.id]: {
+        ...(prev[request.id] || buildRequestOfferDraft(request)),
+        responseType: 'application',
+      },
     }));
     setOfferEditorRequestId((prev) => (prev === request.id ? '' : request.id));
   };
@@ -2656,21 +2647,33 @@ export default function TechniciansPage() {
   const handleSubmitRequestOffer = async (request: NearbyRequestRow) => {
     if (!session?.access_token) return;
     const draft = getRequestOfferDraft(request);
-    const priceArs = parseArsInput(draft.priceArs);
-    if (priceArs === null || priceArs <= 0) {
-      setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: 'Ingresa un precio valido en ARS.' }));
+    const responseType: RequestResponseType = 'application';
+    const responseMessage = String(draft.message || '').trim() || DEFAULT_REQUEST_APPLICATION_MESSAGE;
+    const visitEtaValue = parseEtaInput(draft.visitEtaHours);
+    if (visitEtaValue === null || visitEtaValue <= 0) {
+      setOfferErrorByRequestId((prev) => ({
+        ...prev,
+        [request.id]: 'Indica en cuantas horas puedes coordinar.',
+      }));
       setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
       return;
     }
-    const etaValue = parseEtaInput(draft.etaHours);
-    if (etaValue === null || etaValue <= 0) {
-      setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: 'Ingresa una ETA valida en horas.' }));
+    if (responseMessage.length < 12) {
+      setOfferErrorByRequestId((prev) => ({
+        ...prev,
+        [request.id]: 'Escribe un mensaje breve para el cliente.',
+      }));
       setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
       return;
     }
 
-    const etaHours = Math.max(1, Math.min(720, Math.round(etaValue)));
-    const normalizedPrice = Math.round(priceArs * 100) / 100;
+    const visitEtaHours = Math.max(1, Math.min(720, Math.round(visitEtaValue)));
+    const requestBody: Record<string, unknown> = {
+      response_type: responseType,
+      visit_eta_hours: visitEtaHours,
+      message: responseMessage,
+    };
+
     setSubmittingOfferRequestId(request.id);
     setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: '' }));
     setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
@@ -2681,14 +2684,11 @@ export default function TechniciansPage() {
           Authorization: `Bearer ${session.access_token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          price_ars: normalizedPrice,
-          eta_hours: etaHours,
-        }),
+        body: JSON.stringify(requestBody),
       });
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload?.error || 'No se pudo enviar la oferta.');
+        throw new Error(payload?.error || 'No se pudo enviar la respuesta.');
       }
 
       setNearbyRequests((prev) =>
@@ -2698,14 +2698,14 @@ export default function TechniciansPage() {
                 ...row,
                 status: String(payload?.request?.status || row.status || 'quoted'),
                 my_quote_status: String(payload?.request?.my_quote_status || 'submitted'),
-                my_price_ars:
-                  payload?.request?.my_price_ars === null || payload?.request?.my_price_ars === undefined
-                    ? normalizedPrice
-                    : Number(payload.request.my_price_ars),
-                my_eta_hours:
-                  payload?.request?.my_eta_hours === null || payload?.request?.my_eta_hours === undefined
-                    ? etaHours
-                    : Number(payload.request.my_eta_hours),
+                my_response_type: String(payload?.request?.my_response_type || responseType),
+                my_response_message: String(payload?.request?.my_response_message || responseMessage),
+                my_visit_eta_hours:
+                  payload?.request?.my_visit_eta_hours === null || payload?.request?.my_visit_eta_hours === undefined
+                    ? visitEtaHours
+                    : Number(payload.request.my_visit_eta_hours),
+                my_price_ars: null,
+                my_eta_hours: null,
                 my_quote_updated_at: String(payload?.request?.my_quote_updated_at || new Date().toISOString()),
               }
             : row
@@ -2714,20 +2714,23 @@ export default function TechniciansPage() {
       setOfferDraftByRequestId((prev) => ({
         ...prev,
         [request.id]: {
-          priceArs: String(Math.round(normalizedPrice)),
-          etaHours: String(etaHours),
+          responseType,
+          priceArs: '',
+          etaHours: '',
+          visitEtaHours: String(visitEtaHours),
+          message: responseMessage,
         },
       }));
       setOfferSuccessByRequestId((prev) => ({
         ...prev,
-        [request.id]: String(payload?.message || 'Oferta enviada correctamente.'),
+        [request.id]: String(payload?.message || 'Respuesta enviada correctamente.'),
       }));
       setOfferErrorByRequestId((prev) => ({ ...prev, [request.id]: '' }));
       setOfferEditorRequestId('');
     } catch (error: any) {
       setOfferErrorByRequestId((prev) => ({
         ...prev,
-        [request.id]: error?.message || 'No se pudo enviar la oferta.',
+        [request.id]: error?.message || 'No se pudo enviar la respuesta.',
       }));
       setOfferSuccessByRequestId((prev) => ({ ...prev, [request.id]: '' }));
     } finally {
@@ -4048,60 +4051,9 @@ export default function TechniciansPage() {
     });
     return points.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [quotes]);
-  const requestBoardCategoryOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          nearbyRequests
-            .map((request) => String(request.category || '').trim())
-            .filter(Boolean)
-        )
-      ).sort((a, b) => a.localeCompare(b)),
-    [nearbyRequests]
-  );
-  const requestBoardCityOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          nearbyRequests
-            .map((request) => String(request.city || '').trim())
-            .filter(Boolean)
-        )
-      ).sort((a, b) => a.localeCompare(b)),
-    [nearbyRequests]
-  );
   const filteredNearbyRequests = useMemo(() => {
-    const rows = nearbyRequests.filter((request) => {
-      if (requestBoardCategoryFilter !== 'all' && request.category !== requestBoardCategoryFilter) return false;
-      if (requestBoardCityFilter !== 'all' && request.city !== requestBoardCityFilter) return false;
-      if (requestBoardModeFilter !== 'all' && request.mode !== requestBoardModeFilter) return false;
-      if (requestBoardUrgencyFilter !== 'all' && request.urgency !== requestBoardUrgencyFilter) return false;
-      return true;
-    });
-
-    const sorted = [...rows];
-    if (requestBoardSort === 'distance') {
-      sorted.sort((a, b) => a.distance_km - b.distance_km || String(b.created_at).localeCompare(String(a.created_at)));
-      return sorted;
-    }
-    if (requestBoardSort === 'urgency') {
-      sorted.sort((a, b) => {
-        const urgencyDiff = urgencyPriority(a.urgency) - urgencyPriority(b.urgency);
-        if (urgencyDiff !== 0) return urgencyDiff;
-        return a.distance_km - b.distance_km;
-      });
-      return sorted;
-    }
-    sorted.sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
-    return sorted;
-  }, [
-    nearbyRequests,
-    requestBoardCategoryFilter,
-    requestBoardCityFilter,
-    requestBoardModeFilter,
-    requestBoardSort,
-    requestBoardUrgencyFilter,
-  ]);
+    return [...nearbyRequests].sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  }, [nearbyRequests]);
   useEffect(() => {
     const validIds = new Set(nearbyRequests.map((request) => request.id));
     setOfferDraftByRequestId((prev) => {
@@ -4138,12 +4090,11 @@ export default function TechniciansPage() {
       const lat = toFiniteCoordinate(request.location_lat);
       const lon = toFiniteCoordinate(request.location_lng);
       if (lat === null || lon === null) return;
-      const cityAddress = [request.city, request.address].filter(Boolean).join(' · ');
       points.push({
         id: `request:${request.id}`,
         kind: 'request',
         title: request.title || 'Solicitud',
-        subtitle: cityAddress || 'Zona sin detalle',
+        subtitle: requestPublicZoneLabel(request),
         meta: `${request.urgency.toUpperCase()} · ${request.distance_km.toFixed(1)} km`,
         lat,
         lon,
@@ -4164,6 +4115,23 @@ export default function TechniciansPage() {
     if (!dashboardMapSelectedId) return null;
     return dashboardMapPoints.find((point) => point.id === dashboardMapSelectedId) || null;
   }, [dashboardMapPoints, dashboardMapSelectedId]);
+  const activeNearbyRequestIndex = useMemo(() => {
+    if (filteredNearbyRequests.length === 0) return -1;
+    const selectedRequestId =
+      dashboardSelectedMapPoint?.kind === 'request' ? dashboardSelectedMapPoint.id.replace('request:', '') : '';
+    const selectedIndex = selectedRequestId
+      ? filteredNearbyRequests.findIndex((request) => request.id === selectedRequestId)
+      : -1;
+    return selectedIndex >= 0 ? selectedIndex : 0;
+  }, [dashboardSelectedMapPoint?.id, dashboardSelectedMapPoint?.kind, filteredNearbyRequests]);
+  const activeNearbyRequest = activeNearbyRequestIndex >= 0 ? filteredNearbyRequests[activeNearbyRequestIndex] : null;
+  const showNearbyRequestAt = (nextIndex: number) => {
+    if (filteredNearbyRequests.length === 0) return;
+    const normalizedIndex = (nextIndex + filteredNearbyRequests.length) % filteredNearbyRequests.length;
+    const request = filteredNearbyRequests[normalizedIndex];
+    setDashboardMapFilter('requests');
+    setDashboardMapSelectedId(`request:${request.id}`);
+  };
   const dashboardMapCenterPoint = useMemo(() => {
     if (dashboardSelectedMapPoint) {
       return { lat: dashboardSelectedMapPoint.lat, lon: dashboardSelectedMapPoint.lon };
@@ -4180,45 +4148,6 @@ export default function TechniciansPage() {
     if (technicianLat === null || technicianLon === null) return null;
     return { lat: technicianLat, lon: technicianLon };
   }, [dashboardMapPoints, dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
-  const dashboardMapView = useMemo(() => {
-    if (dashboardSelectedMapPoint) {
-      return {
-        mode: 'single' as const,
-        url: buildOsmEmbedUrl(dashboardSelectedMapPoint.lat, dashboardSelectedMapPoint.lon),
-      };
-    }
-    if (dashboardMapPoints.length > 0) {
-      return {
-        mode: 'all' as const,
-        url: buildOsmStaticMultiMarkerUrl(dashboardMapPoints),
-      };
-    }
-    const technicianLat = toFiniteCoordinate(profile?.service_lat);
-    const technicianLon = toFiniteCoordinate(profile?.service_lng);
-    if (technicianLat !== null && technicianLon !== null) {
-      return {
-        mode: 'single' as const,
-        url: buildOsmEmbedUrl(technicianLat, technicianLon),
-      };
-    }
-    return {
-      mode: 'none' as const,
-      url: '',
-    };
-  }, [dashboardMapPoints, dashboardSelectedMapPoint, profile?.service_lat, profile?.service_lng]);
-  const jobsWithoutCoordinatesCount = useMemo(() => {
-    return quotes.filter((quote) => {
-      if (!quoteIsOperational(quote.status)) return false;
-      return resolveQuoteMapCoordinate(quote) === null;
-    }).length;
-  }, [quotes]);
-  const requestsWithoutCoordinatesCount = useMemo(
-    () =>
-      nearbyRequests.filter(
-        (request) => toFiniteCoordinate(request.location_lat) === null || toFiniteCoordinate(request.location_lng) === null
-      ).length,
-    [nearbyRequests]
-  );
   useEffect(() => {
     if (!dashboardMapPoints.length) {
       if (dashboardMapSelectedId) setDashboardMapSelectedId('');
@@ -6765,14 +6694,26 @@ export default function TechniciansPage() {
     >
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
-      <div className="relative overflow-hidden bg-[linear-gradient(180deg,#ebe8df_0%,#f7f6f1_38%,#e9edf0_100%)]">
+      <div
+        className={`relative overflow-hidden ${
+          activeTab === 'operativo'
+            ? 'bg-slate-950'
+            : 'bg-[linear-gradient(180deg,#ebe8df_0%,#f7f6f1_38%,#e9edf0_100%)]'
+        }`}
+      >
         <div className="absolute left-0 top-0 bottom-0 hidden w-[74px] bg-[linear-gradient(180deg,#17031f_0%,#250331_48%,#13021a_100%)] lg:block" />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(42,3,56,0.10)_0%,rgba(42,3,56,0.04)_12%,rgba(255,255,255,0)_34%)]" />
         <div className="absolute inset-x-0 top-0 h-64 bg-[linear-gradient(180deg,rgba(24,15,36,0.08),rgba(24,15,36,0))]" />
         <div className="absolute inset-x-0 bottom-0 h-72 bg-[linear-gradient(0deg,rgba(15,23,42,0.08),rgba(15,23,42,0))]" />
 
-        <div className="relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[96px]">
-          <div className="hidden w-[74px] shrink-0 lg:block">
+        <div
+          className={
+            activeTab === 'operativo'
+              ? 'relative mx-auto flex w-full max-w-none gap-0 px-0 pb-0 pt-0 lg:pl-[74px]'
+              : 'relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[96px]'
+          }
+        >
+          <div className={activeTab === 'operativo' ? 'contents' : 'hidden w-[74px] shrink-0 lg:block'}>
             <aside
               aria-label="Navegación técnica"
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
@@ -7022,7 +6963,129 @@ export default function TechniciansPage() {
               </div>
             </nav>
 
-            <main className="relative pt-6">
+            <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.4rem)] right-4 z-[60] flex flex-col items-end gap-3 lg:hidden">
+              {isMobileFloatingMenuOpen && (
+                <div className="w-[min(19.5rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/[0.10] bg-[rgba(35,5,47,0.96)] p-2.5 shadow-[0_24px_58px_-30px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
+                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.46]">Menú técnico</p>
+                      <p className="mt-0.5 truncate text-[12px] font-semibold text-white/[0.78]">
+                        {technicianSidebarAccountLabel}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Cerrar menú"
+                      onClick={() => setIsMobileFloatingMenuOpen(false)}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-white/[0.07] text-white/[0.72] transition hover:bg-white/[0.12] hover:text-white"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+
+                  <div className="max-h-[min(62vh,28rem)] overflow-y-auto pr-0.5">
+                    <div className="grid gap-1">
+                      {navItems.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeNavKey === item.key;
+                        return (
+                          <button
+                            key={item.key}
+                            type="button"
+                            aria-pressed={isActive}
+                            onClick={() => {
+                              setActiveTab(item.key);
+                              setIsMobileFloatingMenuOpen(false);
+                              setIsMobileToolsOpen(false);
+                              if (item.key === 'presupuestos') setQuoteFilter('all');
+                            }}
+                            className={`flex min-h-11 items-center gap-2.5 rounded-[16px] px-3 text-left text-[13px] font-semibold transition ${
+                              isActive
+                                ? 'bg-white/[0.13] text-[#ffcf93] shadow-[inset_0_0_0_1px_rgba(255,207,147,0.24)]'
+                                : 'text-white/[0.78] hover:bg-white/[0.075] hover:text-white'
+                            }`}
+                          >
+                            <span
+                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] ${
+                                isActive ? 'bg-[#ff8f1f] text-[#2a0338]' : 'bg-white/[0.06] text-white/[0.64]'
+                              }`}
+                            >
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                            {item.key === 'notificaciones' && unreadNotifications > 0 && (
+                              <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
+                                {unreadNotifications}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-2 border-t border-white/[0.08] pt-2">
+                      <a
+                        href={session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil'}
+                        onClick={() => setIsMobileFloatingMenuOpen(false)}
+                        className="flex min-h-11 items-center gap-2.5 rounded-[16px] px-3 text-[13px] font-semibold text-white/[0.78] transition hover:bg-white/[0.075] hover:text-white"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.06] text-white/[0.64]">
+                          <Store className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">Perfil público</span>
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setActiveTab('perfil');
+                          setIsMobileFloatingMenuOpen(false);
+                          setIsMobileToolsOpen(false);
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2.5 rounded-[16px] px-3 text-left text-[13px] font-semibold text-white/[0.78] transition hover:bg-white/[0.075] hover:text-white"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.06] text-white/[0.64]">
+                          <Settings className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">Configuración</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsMobileFloatingMenuOpen(false);
+                          void handleLogout();
+                        }}
+                        className="flex min-h-11 w-full items-center gap-2.5 rounded-[16px] px-3 text-left text-[13px] font-semibold text-white/[0.88] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338]">
+                          <LogOut className="h-4 w-4" />
+                        </span>
+                        <span className="min-w-0 flex-1 truncate">Cerrar sesión</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                aria-label={isMobileFloatingMenuOpen ? 'Cerrar menú técnico' : 'Abrir menú técnico'}
+                aria-expanded={isMobileFloatingMenuOpen}
+                onClick={() => {
+                  setIsMobileFloatingMenuOpen((prev) => !prev);
+                  setIsMobileToolsOpen(false);
+                }}
+                className={`flex h-14 items-center gap-2 rounded-full border px-4 text-sm font-black shadow-[0_18px_42px_-24px_rgba(0,0,0,0.86)] backdrop-blur-xl transition ${
+                  isMobileFloatingMenuOpen
+                    ? 'border-[#ffcf93]/35 bg-[#ff8f1f] text-[#2a0338]'
+                    : 'border-white/[0.12] bg-[rgba(35,5,47,0.94)] text-white'
+                }`}
+              >
+                {isMobileFloatingMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                <span>Menú</span>
+              </button>
+            </div>
+
+            <main className={activeTab === 'operativo' ? 'relative w-full pt-0' : 'relative pt-6'}>
               {isProfileUnderReview && (
                 <section className="mb-5 overflow-hidden rounded-[28px] border border-[#ffcf93]/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,247,237,0.9))] p-4 shadow-[0_22px_62px_-46px_rgba(42,3,56,0.62)] sm:p-5">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -7059,9 +7122,9 @@ export default function TechniciansPage() {
                   </div>
                 </section>
               )}
-              <section className="space-y-6">
+              <section className={activeTab === 'operativo' ? 'space-y-0' : 'space-y-6'}>
             {(activeTab === 'lobby' || activeTab === 'operativo') && (
-              <div className="space-y-6">
+              <div className={activeTab === 'operativo' ? 'space-y-0' : 'space-y-6'}>
                 {activeTab === 'lobby' && (
                   <>
                     <div className="px-1 sm:px-2">
@@ -7839,205 +7902,157 @@ export default function TechniciansPage() {
                 )}
 
                 {activeTab === 'operativo' && (
-                <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa operativo</p>
-                      <h3 className="mt-1 text-lg font-semibold text-slate-900">
-                        Trabajos propios + solicitudes por zona
-                      </h3>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Visualiza tus trabajos con ubicacion y las nuevas solicitudes cercanas dentro del radio activo.
-                      </p>
+                <div className="relative min-h-[calc(100dvh-57px)] overflow-hidden bg-slate-950">
+                  <div className="absolute left-3 right-3 top-3 z-30 rounded-[20px] border border-white/80 bg-white/92 px-3 py-2 shadow-[0_22px_58px_-42px_rgba(15,23,42,0.75)] backdrop-blur-xl sm:left-5 sm:right-5 sm:top-5 sm:px-4 xl:left-6 xl:right-6">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                    <div className="mr-auto min-w-[10rem]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Mapa operativo</p>
+                      <p className="text-sm font-bold text-slate-900">{filteredNearbyRequests.length} solicitudes visibles</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1 rounded-full bg-slate-100 p-1">
+                      <button
+                        type="button"
+                        onClick={() => setDashboardMapFilter('all')}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          dashboardMapFilter === 'all'
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        }`}
+                      >
+                        Todo {dashboardRequestPoints.length + dashboardJobPoints.length}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashboardMapFilter('jobs')}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          dashboardMapFilter === 'jobs'
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        }`}
+                      >
+                        Trabajos {dashboardJobPoints.length}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashboardMapFilter('requests')}
+                        className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                          dashboardMapFilter === 'requests'
+                            ? 'bg-slate-900 text-white shadow-sm'
+                            : 'text-slate-600 hover:bg-white hover:text-slate-900'
+                        }`}
+                      >
+                        Solicitudes {dashboardRequestPoints.length}
+                      </button>
                     </div>
                     <button
                       type="button"
                       onClick={fetchNearbyRequests}
                       disabled={loadingNearbyRequests || isProfileUnderReview}
-                      className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isProfileUnderReview ? 'En revisión' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar solicitudes'}
+                      {isProfileUnderReview ? 'En revisión' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar'}
                     </button>
                   </div>
                   {isProfileUnderReview && (
-                    <div className="mt-4 rounded-2xl border border-[#ffcf93]/60 bg-[#fff7ed] px-4 py-3 text-xs leading-5 text-[#7a4a15]">
-                      Las solicitudes por zona se activan cuando UrbanFix aprueba el perfil. Mientras tanto podés usar
-                      presupuestos, clientes, agenda y configuración.
-                    </div>
-                  )}
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setDashboardMapFilter('all')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        dashboardMapFilter === 'all'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Todo ({dashboardRequestPoints.length + dashboardJobPoints.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDashboardMapFilter('jobs')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        dashboardMapFilter === 'jobs'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Mis trabajos ({dashboardJobPoints.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setDashboardMapFilter('requests')}
-                      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                        dashboardMapFilter === 'requests'
-                          ? 'bg-slate-900 text-white'
-                          : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                      }`}
-                    >
-                      Solicitudes ({dashboardRequestPoints.length})
-                    </button>
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                      Radio: {technicianRadiusKm} km
-                    </span>
-                    {technicianWithinWorkingHours !== null && (
-                      <span
-                        className={`rounded-full px-3 py-1 text-[11px] font-semibold ${
-                          technicianWithinWorkingHours
-                            ? 'bg-emerald-100 text-emerald-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        {technicianWithinWorkingHours ? 'Dentro de horario' : 'Fuera de horario'}
-                      </span>
-                    )}
-                  </div>
-                  {technicianWorkingHoursLabel && (
-                    <p className="mt-2 text-xs text-slate-500">Horario activo: {technicianWorkingHoursLabel}</p>
-                  )}
-                  <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                      <label className="text-[11px] font-semibold text-slate-600">
-                        Rubro
-                        <select
-                          value={requestBoardCategoryFilter}
-                          onChange={(event) => setRequestBoardCategoryFilter(event.target.value)}
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
-                        >
-                          <option value="all">Ver todo</option>
-                          {requestBoardCategoryOptions.map((option) => (
-                            <option key={`request-category-${option}`} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-[11px] font-semibold text-slate-600">
-                        Ciudad
-                        <select
-                          value={requestBoardCityFilter}
-                          onChange={(event) => setRequestBoardCityFilter(event.target.value)}
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
-                        >
-                          <option value="all">Ver todo</option>
-                          {requestBoardCityOptions.map((option) => (
-                            <option key={`request-city-${option}`} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
-                      <label className="text-[11px] font-semibold text-slate-600">
-                        Tipo
-                        <select
-                          value={requestBoardModeFilter}
-                          onChange={(event) =>
-                            setRequestBoardModeFilter(event.target.value as 'all' | 'marketplace' | 'direct')
-                          }
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
-                        >
-                          <option value="all">Ver todo</option>
-                          <option value="marketplace">Cotizacion multiple</option>
-                          <option value="direct">Asignacion directa</option>
-                        </select>
-                      </label>
-                      <label className="text-[11px] font-semibold text-slate-600">
-                        Urgencia
-                        <select
-                          value={requestBoardUrgencyFilter}
-                          onChange={(event) =>
-                            setRequestBoardUrgencyFilter(event.target.value as 'all' | 'alta' | 'media' | 'baja')
-                          }
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
-                        >
-                          <option value="all">Ver todo</option>
-                          <option value="alta">Alta</option>
-                          <option value="media">Media</option>
-                          <option value="baja">Baja</option>
-                        </select>
-                      </label>
-                      <label className="text-[11px] font-semibold text-slate-600">
-                        Ordenar
-                        <select
-                          value={requestBoardSort}
-                          onChange={(event) =>
-                            setRequestBoardSort(event.target.value as 'recent' | 'distance' | 'urgency')
-                          }
-                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
-                        >
-                          <option value="recent">Fecha de carga</option>
-                          <option value="distance">Distancia</option>
-                          <option value="urgency">Urgencia</option>
-                        </select>
-                      </label>
-                    </div>
-                    <p className="mt-2 text-xs font-semibold text-slate-600">
-                      Mostrando {filteredNearbyRequests.length} de {nearbyRequests.length} solicitudes
+                    <p className="mt-2 text-[11px] font-semibold text-[#7a4a15]">
+                      Solicitudes por zona disponibles cuando UrbanFix apruebe el perfil.
                     </p>
+                  )}
+                  {nearbyRequestsWarning && <p className="mt-2 text-[11px] font-semibold text-amber-700">{nearbyRequestsWarning}</p>}
+                  {nearbyRequestsError && <p className="mt-2 text-[11px] font-semibold text-rose-600">{nearbyRequestsError}</p>}
                   </div>
-                  {nearbyRequestsWarning && <p className="mt-2 text-xs font-semibold text-amber-700">{nearbyRequestsWarning}</p>}
-                  {nearbyRequestsError && <p className="mt-2 text-xs font-semibold text-rose-600">{nearbyRequestsError}</p>}
 
-                  <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:order-1">
-                      <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
-                        <p>Solicitudes visibles: {filteredNearbyRequests.length}</p>
-                        <p className="mt-1 text-slate-500">Selecciona una solicitud para centrar el mapa.</p>
+                  <div className="relative h-[calc(100dvh-57px)] min-h-[680px]">
+                    <div className="absolute inset-0 overflow-hidden bg-slate-900">
+                      {dashboardMapPoints.length > 0 || dashboardMapCenterPoint ? (
+                        <TechnicianOperationalMap
+                          points={dashboardMapPoints}
+                          selectedPointId={dashboardMapSelectedId}
+                          fallbackCenter={dashboardMapCenterPoint}
+                          onSelectPoint={setDashboardMapSelectedId}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-300">
+                          No hay puntos geolocalizados todavia. Carga ubicaciones en tus trabajos o actualiza solicitudes.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="absolute bottom-4 left-3 right-3 z-40 max-h-[54dvh] overflow-y-auto rounded-[24px] border border-white/80 bg-white/92 p-3 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.78)] backdrop-blur-xl sm:left-5 sm:right-5 xl:bottom-5 xl:left-6 xl:right-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Solicitud</p>
+                          <p className="text-sm font-bold text-slate-900">
+                            {activeNearbyRequest ? `${activeNearbyRequestIndex + 1} de ${filteredNearbyRequests.length}` : 'Sin solicitudes'}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            aria-label="Solicitud anterior"
+                            onClick={() => showNearbyRequestAt(activeNearbyRequestIndex - 1)}
+                            disabled={filteredNearbyRequests.length <= 1}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Solicitud siguiente"
+                            onClick={() => showNearbyRequestAt(activeNearbyRequestIndex + 1)}
+                            disabled={filteredNearbyRequests.length <= 1}
+                            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="mt-3 max-h-[360px] space-y-2 overflow-auto pr-1">
-                        {filteredNearbyRequests.length === 0 && (
-                          <div className="rounded-xl border border-dashed border-slate-200 bg-white px-3 py-3 text-xs text-slate-500">
-                            No hay solicitudes para mostrar con estos filtros.
-                          </div>
-                        )}
-                        {filteredNearbyRequests.map((request) => {
-                          const selectedRequestId = dashboardSelectedMapPoint?.kind === 'request'
-                            ? dashboardSelectedMapPoint.id.replace('request:', '')
-                            : '';
-                          const isSelected = selectedRequestId === request.id;
+
+                      {activeNearbyRequest ? (
+                        (() => {
+                          const request = activeNearbyRequest;
+                          const isSelected = dashboardSelectedMapPoint?.id === `request:${request.id}`;
                           const offerDraft = getRequestOfferDraft(request);
                           const isOfferEditorOpen = offerEditorRequestId === request.id;
                           const isSubmittingOffer = submittingOfferRequestId === request.id;
                           const offerStatus = String(request.my_quote_status || 'pending').toLowerCase();
-                          const offerStatusLabel = requestQuoteStatusLabel(offerStatus);
-                          const offerStatusBadgeClass = requestQuoteStatusClass(offerStatus);
                           const offerSuccess = offerSuccessByRequestId[request.id] || '';
                           const offerError = offerErrorByRequestId[request.id] || '';
-                          const hasOfferValues =
+                          const savedResponseType = normalizeRequestResponseType(request.my_response_type);
+                          const isAppliedToRequest = offerStatus === 'submitted' && savedResponseType === 'application';
+                          const offerStatusLabel = isAppliedToRequest ? 'Ya postulado' : requestQuoteStatusLabel(offerStatus);
+                          const offerStatusBadgeClass = isAppliedToRequest
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : requestQuoteStatusClass(offerStatus);
+                          const hasDirectQuoteValues =
                             request.my_price_ars !== null &&
                             request.my_price_ars !== undefined &&
                             request.my_eta_hours !== null &&
                             request.my_eta_hours !== undefined;
+                          const hasApplicationValues =
+                            request.my_visit_eta_hours !== null &&
+                            request.my_visit_eta_hours !== undefined &&
+                            Boolean(String(request.my_response_message || '').trim());
+                          const hasResponseValues = hasDirectQuoteValues || hasApplicationValues;
+                          const responseSummary = hasApplicationValues
+                            ? `Postulacion: ${Math.round(Number(request.my_visit_eta_hours || 0))} h · ${String(
+                                request.my_response_message || ''
+                              ).trim()}`
+                            : hasDirectQuoteValues
+                              ? `Cotizacion: ${formatCurrency(Number(request.my_price_ars || 0))} · ETA ${Math.round(
+                                  Number(request.my_eta_hours || 0)
+                                )} h`
+                              : '';
+                          const requestDescription = String(request.description || '').trim();
+                          const preferredWindow = String(request.preferred_window || '').trim();
+                          const requestPhotoCount = Array.isArray(request.photo_urls) ? request.photo_urls.length : 0;
+                          const clientName = String(request.client_name || '').trim() || 'Cliente UrbanFix';
+                          const clientAvatarUrl = String(request.client_avatar_url || '').trim();
+
                           return (
                             <div
-                              key={request.id}
-                              className={`w-full rounded-xl border px-3 py-2 transition ${
-                                isSelected
-                                  ? 'border-slate-900 bg-slate-900 text-white'
-                                  : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
+                              className={`mt-3 grid gap-3 rounded-2xl border bg-white p-3 text-slate-700 transition xl:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)] ${
+                                isSelected ? 'border-[#ff8f1f] shadow-[0_0_0_3px_rgba(255,143,31,0.14)]' : 'border-slate-200'
                               }`}
                             >
                               <button
@@ -8046,59 +8061,79 @@ export default function TechniciansPage() {
                                   setDashboardMapFilter('requests');
                                   setDashboardMapSelectedId(`request:${request.id}`);
                                 }}
-                                className="w-full text-left"
+                                className="w-full min-w-0 text-left"
                               >
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <p className="truncate text-sm font-semibold">{request.title}</p>
-                                  <span
-                                    className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                                      isSelected ? 'bg-white/20 text-white' : urgencyBadgeClass(request.urgency)
-                                    }`}
-                                  >
+                                <div className="mb-3 flex items-center gap-2.5">
+                                  <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-xs font-bold text-white ring-2 ring-white shadow-sm">
+                                    {clientAvatarUrl ? (
+                                      <img src={clientAvatarUrl} alt={`Foto de ${clientName}`} className="h-full w-full object-cover" />
+                                    ) : (
+                                      getClientInitials(clientName)
+                                    )}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block truncate text-sm font-bold text-slate-900">{clientName}</span>
+                                    <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                      Cliente
+                                    </span>
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap items-start justify-between gap-2">
+                                  <p className="min-w-0 flex-1 text-base font-bold leading-5 text-slate-900">{request.title}</p>
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${urgencyBadgeClass(request.urgency)}`}>
                                     {request.urgency}
                                   </span>
                                 </div>
-                                <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                                  {request.category} · {request.city || 'Sin ciudad'}
+                                <p className="mt-2 text-xs font-semibold text-slate-500">
+                                  {request.category} · Zona: {requestPublicZoneLabel(request)}
                                 </p>
-                                <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                                  {request.address || 'Sin direccion'}
-                                </p>
-                                <div className={`mt-2 flex flex-wrap gap-2 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
-                                  <span>Distancia: {request.distance_km.toFixed(1)} km</span>
+                                {requestDescription && (
+                                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600 xl:line-clamp-2">
+                                    {requestDescription}
+                                  </p>
+                                )}
+                                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                                  <span>Ubicacion protegida</span>
                                   <span>Fecha: {new Date(request.created_at).toLocaleDateString('es-AR')}</span>
-                                  <span>Estado: {String(request.status || '').toUpperCase()}</span>
+                                  {preferredWindow && <span>Preferencia: {preferredWindow}</span>}
+                                  {requestPhotoCount > 0 && <span>Fotos: {requestPhotoCount}</span>}
                                 </div>
                               </button>
 
-                              <div className={`mt-2 rounded-xl border px-2.5 py-2 ${isSelected ? 'border-white/20 bg-black/10' : 'border-slate-200 bg-slate-50'}`}>
+                              <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${offerStatusBadgeClass}`}>
-                                      {offerStatusLabel}
-                                    </span>
-                                    {hasOfferValues && (
-                                      <span className={`text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
-                                        Tu oferta: {formatCurrency(Number(request.my_price_ars || 0))} · ETA {Math.round(Number(request.my_eta_hours || 0))} h
+                                  <div>
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                                      Postulacion al trabajo
+                                    </p>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${offerStatusBadgeClass}`}>
+                                        {offerStatusLabel}
                                       </span>
-                                    )}
+                                      {hasResponseValues && (
+                                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                          {requestResponseTypeLabel(savedResponseType)}
+                                        </span>
+                                      )}
+                                    </div>
                                   </div>
                                   <button
                                     type="button"
                                     onClick={() => handleToggleRequestOfferEditor(request)}
-                                    className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
-                                      isSelected
-                                        ? 'border-white/30 text-white hover:border-white/50'
-                                        : 'border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-900'
-                                    }`}
+                                    className="rounded-full border border-slate-300 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                                   >
-                                    {isOfferEditorOpen ? 'Cancelar' : offerStatus === 'pending' ? 'Ofertar' : 'Editar oferta'}
+                                    {isOfferEditorOpen ? 'Cancelar' : isAppliedToRequest ? 'Editar postulacion' : 'Postularme'}
                                   </button>
                                 </div>
 
-                                {request.my_quote_updated_at && hasOfferValues && (
-                                  <p className={`mt-1 text-[11px] ${isSelected ? 'text-white/75' : 'text-slate-500'}`}>
-                                    Ultima oferta: {new Date(request.my_quote_updated_at).toLocaleString('es-AR')}
+                                {responseSummary && (
+                                  <p className="mt-2 rounded-lg bg-white px-2 py-1.5 text-[11px] font-semibold leading-5 text-slate-700">
+                                    {responseSummary}
+                                  </p>
+                                )}
+                                {request.my_quote_updated_at && hasResponseValues && (
+                                  <p className="mt-1 text-[11px] text-slate-500">
+                                    Ultima respuesta: {new Date(request.my_quote_updated_at).toLocaleString('es-AR')}
                                   </p>
                                 )}
                                 {offerSuccess && <p className="mt-1 text-[11px] font-semibold text-emerald-600">{offerSuccess}</p>}
@@ -8106,121 +8141,54 @@ export default function TechniciansPage() {
 
                                 {isOfferEditorOpen && (
                                   <>
-                                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                                      <label className={`text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
-                                        Precio ARS
+                                    <p className="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] font-semibold leading-5 text-slate-600">
+                                      El cliente vera tu disponibilidad y este mensaje en su perfil.
+                                    </p>
+                                    <div className="mt-2 grid gap-2">
+                                      <label className="text-[11px] font-semibold text-slate-600">
+                                        Puedo coordinar en
                                         <input
-                                          value={offerDraft.priceArs}
+                                          value={offerDraft.visitEtaHours}
                                           onChange={(event) =>
-                                            handleRequestOfferDraftChange(request, 'priceArs', event.target.value)
-                                          }
-                                          inputMode="decimal"
-                                          placeholder="Ej: 85000"
-                                          className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs outline-none transition ${
-                                            isSelected
-                                              ? 'border-white/30 bg-black/20 text-white placeholder:text-white/50 focus:border-white/60'
-                                              : 'border-slate-200 bg-white text-slate-700 focus:border-slate-400'
-                                          }`}
-                                        />
-                                      </label>
-                                      <label className={`text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
-                                        ETA (horas)
-                                        <input
-                                          value={offerDraft.etaHours}
-                                          onChange={(event) =>
-                                            handleRequestOfferDraftChange(request, 'etaHours', event.target.value)
+                                            handleRequestOfferDraftChange(request, 'visitEtaHours', event.target.value)
                                           }
                                           inputMode="numeric"
-                                          placeholder="Ej: 24"
-                                          className={`mt-1.5 w-full rounded-xl border px-3 py-2 text-xs outline-none transition ${
-                                            isSelected
-                                              ? 'border-white/30 bg-black/20 text-white placeholder:text-white/50 focus:border-white/60'
-                                              : 'border-slate-200 bg-white text-slate-700 focus:border-slate-400'
-                                          }`}
+                                          placeholder="Horas"
+                                          className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
+                                        />
+                                      </label>
+                                      <label className="text-[11px] font-semibold text-slate-600">
+                                        Mensaje para el cliente
+                                        <textarea
+                                          value={offerDraft.message}
+                                          onChange={(event) =>
+                                            handleRequestOfferDraftChange(request, 'message', event.target.value)
+                                          }
+                                          rows={3}
+                                          placeholder={DEFAULT_REQUEST_APPLICATION_MESSAGE}
+                                          className="mt-1.5 w-full resize-none rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none transition focus:border-slate-400"
                                         />
                                       </label>
                                     </div>
-                                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => handleSubmitRequestOffer(request)}
-                                        disabled={isSubmittingOffer}
-                                        className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition ${
-                                          isSelected
-                                            ? 'bg-white text-slate-900 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-70'
-                                            : 'bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70'
-                                        }`}
-                                      >
-                                        {isSubmittingOffer ? 'Enviando...' : 'Enviar oferta'}
-                                      </button>
-                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSubmitRequestOffer(request)}
+                                      disabled={isSubmittingOffer}
+                                      className="mt-2 rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+                                    >
+                                      {isSubmittingOffer ? 'Enviando...' : 'Postularme para este trabajo'}
+                                    </button>
                                   </>
                                 )}
                               </div>
                             </div>
                           );
-                        })}
-                      </div>
-                    </div>
-                    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 lg:order-2">
-                      {dashboardMapView.url ? (
-                        <iframe
-                          title="Mapa operativo UrbanFix"
-                          src={dashboardMapView.url}
-                          className="h-[360px] w-full border-0"
-                          loading="lazy"
-                        />
+                        })()
                       ) : (
-                        <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-slate-500">
-                          No hay puntos geolocalizados todavia. Carga ubicaciones en tus trabajos o actualiza solicitudes.
+                        <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-4 text-xs text-slate-500">
+                          No hay solicitudes para mostrar.
                         </div>
                       )}
-                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3 text-xs">
-                        <span className="font-semibold text-slate-700">
-                          {dashboardSelectedMapPoint
-                            ? `${dashboardSelectedMapPoint.kind === 'request' ? 'Solicitud' : 'Trabajo'} seleccionado: ${dashboardSelectedMapPoint.title}`
-                            : dashboardMapPoints.length > 0
-                              ? 'Vista general: todos los puntos visibles'
-                              : 'Centro de mapa basado en tu zona'}
-                        </span>
-                        {dashboardMapCenterPoint && (
-                          <a
-                            href={buildOsmLink(
-                              dashboardMapCenterPoint.lat,
-                              dashboardMapCenterPoint.lon,
-                              dashboardSelectedMapPoint ? 16 : 12
-                            )}
-                            target="_blank"
-                            rel="noreferrer noopener"
-                            className="font-semibold text-slate-700 underline decoration-slate-300 underline-offset-2 transition hover:text-slate-900"
-                          >
-                            {dashboardSelectedMapPoint ? 'Abrir en mapa' : 'Abrir zona en mapa'}
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                    <div className="rounded-xl bg-white px-3 py-2 text-[11px] text-slate-600">
-                      <p>Puntos visibles en mapa: {dashboardMapPoints.length}</p>
-                      {(jobsWithoutCoordinatesCount > 0 || requestsWithoutCoordinatesCount > 0) && (
-                        <p className="mt-1 text-amber-700">
-                          Sin coordenadas: trabajos {jobsWithoutCoordinatesCount} | solicitudes {requestsWithoutCoordinatesCount}
-                        </p>
-                      )}
-                      <div className="mt-2">
-                        {dashboardSelectedMapPoint ? (
-                          <button
-                            type="button"
-                            onClick={() => setDashboardMapSelectedId('')}
-                            className="rounded-full border border-slate-300 px-2.5 py-1 text-[10px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                          >
-                            Ver todos en mapa
-                          </button>
-                        ) : (
-                          <p className="text-[10px] font-semibold text-emerald-700">Modo actual: vista general</p>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>

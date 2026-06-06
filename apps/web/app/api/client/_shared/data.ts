@@ -1,3 +1,5 @@
+import { buildMapLinks } from '@/lib/map-links';
+
 export const DIRECT_TIMEOUT_MS = 20 * 60 * 1000;
 export const MARKETPLACE_MATCH_LIMIT = 5;
 
@@ -273,6 +275,15 @@ const mapRequestRow = (
     String(row.assigned_technician_name || '').trim() ||
     String(row.target_technician_name || '').trim() ||
     'Tecnico UrbanFix';
+  const locationLat = toNumberOrNull(row.location_lat);
+  const locationLng = toNumberOrNull(row.location_lng);
+  const mapLinks = buildMapLinks({
+    address: row.address,
+    city: row.city,
+    province: row.province,
+    lat: locationLat,
+    lng: locationLng,
+  });
 
   return {
     id: String(row.id),
@@ -281,6 +292,10 @@ const mapRequestRow = (
     address: String(row.address || ''),
     city: String(row.city || ''),
     province: String(row.province || ''),
+    locationLat,
+    locationLng,
+    googleMapsHref: mapLinks?.googleMapsHref || '',
+    appleMapsHref: mapLinks?.appleMapsHref || '',
     description: String(row.description || ''),
     urgency: String(row.urgency || 'media'),
     preferredWindow: String(row.preferred_window || ''),

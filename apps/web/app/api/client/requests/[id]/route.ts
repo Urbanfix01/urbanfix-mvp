@@ -322,6 +322,29 @@ export async function PATCH(
       if (!hasSubmittedQuote(matchRow)) {
         return NextResponse.json({ error: 'Solo puedes seleccionar respuestas enviadas por tecnicos.' }, { status: 400 });
       }
+      const { error: acceptMatchError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'accepted' })
+        .eq('id', matchRow.id)
+        .eq('request_id', requestId);
+      if (acceptMatchError) {
+        return NextResponse.json(
+          { error: acceptMatchError.message || 'No pudimos seleccionar la postulacion.' },
+          { status: 500 }
+        );
+      }
+      const { error: rejectOtherMatchesError } = await supabase
+        .from('client_request_matches')
+        .update({ quote_status: 'rejected' })
+        .eq('request_id', requestId)
+        .neq('id', matchRow.id)
+        .eq('quote_status', 'submitted');
+      if (rejectOtherMatchesError) {
+        return NextResponse.json(
+          { error: rejectOtherMatchesError.message || 'No pudimos cerrar las otras postulaciones.' },
+          { status: 500 }
+        );
+      }
       await updateRequest(supabase, requestId, user.id, {
         status: 'selected',
         selected_match_id: matchRow.id,

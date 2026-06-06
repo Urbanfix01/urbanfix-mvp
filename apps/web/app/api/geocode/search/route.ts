@@ -205,9 +205,28 @@ const parseAddressQuery = (query: string) => {
     .split(',')
     .map((part) => part.trim())
     .filter(Boolean);
-  const streetAddress = expandCommonAddressAbbreviations(parts[0] || compact);
-  const inlineLocalities = parts.slice(1).map(expandCommonAddressAbbreviations).filter(Boolean);
+  const expandedFirstPart = expandCommonAddressAbbreviations(parts[0] || compact);
+  let streetAddress = expandedFirstPart;
+  let inlineLocalities = parts.slice(1).map(expandCommonAddressAbbreviations).filter(Boolean);
   const numberToken = extractAddressNumber(streetAddress);
+  if (numberToken && parts.length <= 1) {
+    const tokens = expandedFirstPart.split(/\s+/).filter(Boolean);
+    const numberIndex = tokens.findIndex((token) => normalizeSearchText(token) === numberToken);
+    const trailingTokens = numberIndex >= 0 ? tokens.slice(numberIndex + 1) : [];
+    const trailingFirstToken = normalizeSearchText(trailingTokens[0] || '');
+    const looksLikeUnit =
+      trailingFirstToken === 'piso' ||
+      trailingFirstToken === 'depto' ||
+      trailingFirstToken === 'dpto' ||
+      trailingFirstToken === 'dto' ||
+      trailingFirstToken === 'unidad' ||
+      trailingFirstToken === 'uf';
+
+    if (numberIndex >= 0 && trailingTokens.length > 0 && !looksLikeUnit) {
+      streetAddress = tokens.slice(0, numberIndex + 1).join(' ');
+      inlineLocalities = [trailingTokens.join(' '), ...inlineLocalities];
+    }
+  }
   const streetPart = streetAddress
     .split(/\s+/)
     .filter((token) => normalizeSearchText(token) !== numberToken)
@@ -442,18 +461,21 @@ const fetchNominatimRows = async (query: string, limit: number, countryCode: str
 
 const fetchArgentinaAddressRows = async (query: string, cityHint: string, provinceHint: string, limit: number) => {
   const parsed = parseAddressQuery(query);
-  if (!parsed.streetAddress || !parsed.numberToken || !provinceHint.trim()) {
+  if (!parsed.streetAddress || !parsed.numberToken) {
     return { rows: [] as NominatimRow[], error: '' };
   }
+  const departmentHint = cityHint.trim() || parsed.inlineLocalities[0] || '';
 
   const buildUrl = (includeDepartment: boolean) => {
     const params = new URLSearchParams({
       direccion: parsed.streetAddress,
-      provincia: provinceHint,
       max: String(Math.max(limit, 8)),
     });
-    if (includeDepartment && cityHint.trim()) {
-      params.set('departamento', cityHint.trim());
+    if (provinceHint.trim()) {
+      params.set('provincia', provinceHint.trim());
+    }
+    if (includeDepartment && departmentHint.trim()) {
+      params.set('departamento', departmentHint.trim());
     }
     return `https://apis.datos.gob.ar/georef/api/direcciones?${params.toString()}`;
   };
@@ -483,14 +505,19 @@ const fetchArgentinaAddressRows = async (query: string, cityHint: string, provin
   };
 
   const primary = await fetchRows(buildUrl(true));
-  const sourceRows = primary.rows.length > 0 || !cityHint.trim() ? primary : await fetchRows(buildUrl(false));
+  const sourceRows = primary.rows.length > 0 || !departmentHint.trim() ? primary : await fetchRows(buildUrl(false));
   const rows = sourceRows.rows
     .map((row): NominatimRow | null => {
       const lat = Number(row.ubicacion?.lat);
       const lon = Number(row.ubicacion?.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
 
-      const road = String(row.calle?.nombre || parsed.streetPart || '').trim();
+      const rawRoad = String(row.calle?.nombre || parsed.streetPart || '').trim();
+      const numericRoadPrefixMatch = rawRoad.match(/^\d+\s+(.+)$/);
+      const road =
+        numericRoadPrefixMatch && normalizeSearchText(numericRoadPrefixMatch[1]) === normalizeSearchText(parsed.streetPart)
+          ? numericRoadPrefixMatch[1].trim()
+          : rawRoad;
       const houseNumber = String(row.altura?.valor || parsed.numberToken || '').trim();
       const locality = String(
         row.localidad_censal?.nombre || row.localidad?.nombre || parsed.inlineLocalities[0] || ''

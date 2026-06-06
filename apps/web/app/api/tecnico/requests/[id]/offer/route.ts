@@ -236,7 +236,10 @@ export async function POST(
 
   return NextResponse.json({
     ok: true,
-    message: 'Oferta enviada correctamente.',
+    message:
+      responseType === 'application'
+        ? 'Postulacion enviada correctamente.'
+        : 'Cotizacion enviada correctamente.',
     request: {
       id: requestId,
       status: nextStatus,

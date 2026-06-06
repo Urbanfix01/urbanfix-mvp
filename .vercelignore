@@ -1,0 +1,17 @@
+node_modules
+apps/*/node_modules
+
+.env
+.env.*
+apps/*/.env
+apps/*/.env.*
+
+.next
+.next-*
+apps/*/.next
+apps/*/.next-*
+
+.git
+.codex-logs
+.expo
+tmp
