@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { ArrowLeft, ArrowRight, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, Settings, ShieldCheck, Store, User } from 'lucide-react';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
+import { clearAuthAccessProfileIntent, setAuthAccessProfileIntent } from '../../lib/auth/post-auth';
 import { buildMapLinks, buildOpenStreetMapEmbedUrl } from '../../lib/map-links';
 
 type ClientRequestResponse = {
@@ -550,6 +551,11 @@ export default function ClientRequestsHub() {
   }, [session?.user?.id, session?.user?.user_metadata]);
 
   useEffect(() => {
+    if (!session?.user?.id) return;
+    clearAuthAccessProfileIntent();
+  }, [session?.user?.id]);
+
+  useEffect(() => {
     return () => {
       if (addressLookupTimerRef.current && typeof window !== 'undefined') {
         window.clearTimeout(addressLookupTimerRef.current);
@@ -572,6 +578,7 @@ export default function ClientRequestsHub() {
   };
 
   const handleLogout = async () => {
+    clearAuthAccessProfileIntent();
     await supabase.auth.signOut();
   };
 
@@ -791,12 +798,14 @@ export default function ClientRequestsHub() {
       return;
     }
     setGoogleAuthLoading(true);
+    setAuthAccessProfileIntent('cliente');
     const redirectTo = `${window.location.origin}/cliente${window.location.search || ''}`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo },
     });
     if (error) {
+      clearAuthAccessProfileIntent();
       setAuthError(getFriendlyClientAuthErrorMessage(error, 'google'));
       setGoogleAuthLoading(false);
     }
@@ -846,6 +855,7 @@ export default function ClientRequestsHub() {
       if (password.trim().length < 6) {
         throw new Error('La contrasena debe tener al menos 6 caracteres.');
       }
+      setAuthAccessProfileIntent('cliente');
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({
           email: safeEmail,
@@ -897,6 +907,7 @@ export default function ClientRequestsHub() {
         setPassword('');
       }
     } catch (error: any) {
+      clearAuthAccessProfileIntent();
       setAuthError(getFriendlyClientAuthErrorMessage(error, authMode));
     } finally {
       setAuthLoading(false);

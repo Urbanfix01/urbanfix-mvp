@@ -43,7 +43,14 @@ import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
 import UrbanFixBrandLoader from '../../components/UrbanFixBrandLoader';
-import { POST_AUTH_REDIRECT_KEY, PRICE_ACCESS_INTENT, sanitizeNextPath } from '../../lib/auth/post-auth';
+import {
+  clearAuthAccessProfileIntent,
+  getAuthAccessProfileIntent,
+  POST_AUTH_REDIRECT_KEY,
+  PRICE_ACCESS_INTENT,
+  sanitizeNextPath,
+  setAuthAccessProfileIntent,
+} from '../../lib/auth/post-auth';
 import {
   buildMasterItemChoiceLabel,
   canonicalizeMasterItemUnit,
@@ -1656,6 +1663,23 @@ const getSupportUploadExtension = (file: File) => {
 const isAccessProfile = (value: string | null): value is AccessProfile =>
   value === 'tecnico' || value === 'empresa' || value === 'cliente';
 
+const buildClientAccessRedirect = (params: URLSearchParams) => {
+  const nextParams = new URLSearchParams();
+  const mode = params.get('mode');
+  if (mode === 'login' || mode === 'register') {
+    nextParams.set('mode', mode);
+  }
+  if (params.get('quick') === '1') {
+    nextParams.set('quick', '1');
+  }
+  const intent = params.get('intent');
+  if (intent) {
+    nextParams.set('intent', intent);
+  }
+  const query = nextParams.toString();
+  return query ? `/cliente?${query}` : '/cliente';
+};
+
 const getPostLoginVideoSeenKey = (userId: string) => `${POST_LOGIN_VIDEO_SEEN_STORAGE_KEY}:${userId}`;
 
 const hasSeenPostLoginVideo = (userId: string) => {
@@ -1915,17 +1939,21 @@ export default function TechniciansPage() {
       setEntryPrompt('');
     }
     const incomingProfile = (params.get('perfil') || params.get('audience') || '').toLowerCase();
+    const explicitTechnicianAccess = incomingProfile === 'tecnico' || incomingProfile === 'empresa';
+    if (explicitTechnicianAccess) {
+      clearAuthAccessProfileIntent();
+    }
     if (incomingProfile === 'cliente') {
-      const nextParams = new URLSearchParams();
-      const mode = params.get('mode');
-      if (mode === 'login' || mode === 'register') {
-        nextParams.set('mode', mode);
-      }
-      if (params.get('quick') === '1') {
-        nextParams.set('quick', '1');
-      }
-      const query = nextParams.toString();
-      window.location.replace(query ? `/cliente?${query}` : '/cliente');
+      setAuthAccessProfileIntent('cliente');
+      window.location.replace(buildClientAccessRedirect(params));
+      return;
+    }
+    if (
+      getAuthAccessProfileIntent() === 'cliente' &&
+      !explicitTechnicianAccess &&
+      params.get('recovery') !== '1'
+    ) {
+      window.location.replace(buildClientAccessRedirect(params));
       return;
     }
     if (isAccessProfile(incomingProfile)) {
@@ -1964,13 +1992,15 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !session?.user) return;
-    const accountType = String(session.user.user_metadata?.user_type || '').toLowerCase();
+    const accountType = String(
+      session.user.user_metadata?.user_type || session.user.user_metadata?.profile || ''
+    ).toLowerCase();
     if (accountType !== 'cliente') return;
     const params = new URLSearchParams(window.location.search);
     const requestedProfile = String(params.get('perfil') || params.get('audience') || '').toLowerCase();
     if (requestedProfile === 'tecnico' || requestedProfile === 'empresa') return;
     window.location.replace('/cliente');
-  }, [session?.user?.id, session?.user?.user_metadata?.user_type]);
+  }, [session?.user?.id, session?.user?.user_metadata?.profile, session?.user?.user_metadata?.user_type]);
 
   useEffect(() => {
     if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted || !selectedAccessProfile)
@@ -2027,16 +2057,18 @@ export default function TechniciansPage() {
       accessTransitionTimerRef.current = null;
       setAccessTransitionProfile(null);
 
-    if (profile === 'cliente') {
-      if (typeof window !== 'undefined') {
-        const clientParams = new URLSearchParams();
-        clientParams.set('mode', authMode);
-        window.location.href = `/cliente?${clientParams.toString()}`;
+      if (profile === 'cliente') {
+        if (typeof window !== 'undefined') {
+          setAuthAccessProfileIntent('cliente');
+          const clientParams = new URLSearchParams();
+          clientParams.set('mode', authMode);
+          window.location.href = `/cliente?${clientParams.toString()}`;
+        }
+        return;
       }
-      return;
-    }
-    setSelectedAccessProfile(profile);
-    setAccessProfileInUrl(profile);
+      clearAuthAccessProfileIntent();
+      setSelectedAccessProfile(profile);
+      setAccessProfileInUrl(profile);
     }, 240);
   };
 
@@ -2053,6 +2085,7 @@ export default function TechniciansPage() {
     setAuthNotice('');
     setGoogleAuthLoading(false);
     setShowAuthPassword(false);
+    clearAuthAccessProfileIntent();
     setAccessProfileInUrl(null);
   };
 
@@ -5125,6 +5158,7 @@ export default function TechniciansPage() {
   };
 
   const handleLogout = async () => {
+    clearAuthAccessProfileIntent();
     await supabase.auth.signOut();
     setSession(null);
     setLoadingProfile(false);
@@ -5155,6 +5189,11 @@ export default function TechniciansPage() {
       return;
     }
     setGoogleAuthLoading(true);
+    if (selectedAccessProfile) {
+      setAuthAccessProfileIntent(selectedAccessProfile);
+    } else {
+      clearAuthAccessProfileIntent();
+    }
     const redirectTo = `${window.location.origin}/tecnicos`;
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -5255,6 +5294,11 @@ export default function TechniciansPage() {
       }
       if (authMode === 'register' && !quickRegisterMode && !fullName.trim()) {
         throw new Error('Ingresa al menos tu nombre para crear la cuenta.');
+      }
+      if (selectedAccessProfile) {
+        setAuthAccessProfileIntent(selectedAccessProfile);
+      } else {
+        clearAuthAccessProfileIntent();
       }
       if (authMode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email: safeEmail, password });

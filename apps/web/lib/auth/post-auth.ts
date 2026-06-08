@@ -1,9 +1,13 @@
 export const POST_AUTH_REDIRECT_KEY = 'urbanfix_post_auth_redirect';
 export const AUTH_ACCESS_TOKEN_COOKIE = 'urbanfix_access_token';
 export const PRICE_ACCESS_INTENT = 'prices';
+export const AUTH_ACCESS_PROFILE_INTENT_KEY = 'urbanfix_auth_access_profile_intent';
+
+export type AuthAccessProfile = 'tecnico' | 'empresa' | 'cliente';
 
 const PRICE_ACCESS_PATH_PREFIXES = ['/precios-mano-de-obra', '/rubros'];
 const POST_AUTH_ALLOWED_PATH_PREFIXES = ['/tecnicos', '/tecnico-panel', '/cliente', '/admin', ...PRICE_ACCESS_PATH_PREFIXES];
+const AUTH_ACCESS_PROFILE_INTENT_TTL_MS = 30 * 60 * 1000;
 
 const decodePathForValidation = (value: string) => {
   try {
@@ -57,4 +61,82 @@ export const buildAuthRedirectPath = (nextPath: string) => {
   }
 
   return `/tecnicos?${params.toString()}`;
+};
+
+export const isAuthAccessProfile = (value: string | null | undefined): value is AuthAccessProfile =>
+  value === 'tecnico' || value === 'empresa' || value === 'cliente';
+
+const getBrowserStorageValue = (storage: Storage | null, key: string) => {
+  if (!storage) return null;
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const setBrowserStorageValue = (storage: Storage | null, key: string, value: string) => {
+  if (!storage) return;
+  try {
+    storage.setItem(key, value);
+  } catch {
+    // Storage can fail in private mode; auth will still continue through redirectTo.
+  }
+};
+
+const removeBrowserStorageValue = (storage: Storage | null, key: string) => {
+  if (!storage) return;
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Ignore storage errors.
+  }
+};
+
+const getSessionStorage = () => {
+  if (typeof window === 'undefined') return null;
+  return window.sessionStorage;
+};
+
+const getLocalStorage = () => {
+  if (typeof window === 'undefined') return null;
+  return window.localStorage;
+};
+
+export const setAuthAccessProfileIntent = (profile: AuthAccessProfile) => {
+  if (typeof window === 'undefined') return;
+  const value = JSON.stringify({ profile, createdAt: Date.now() });
+  setBrowserStorageValue(getSessionStorage(), AUTH_ACCESS_PROFILE_INTENT_KEY, value);
+  setBrowserStorageValue(getLocalStorage(), AUTH_ACCESS_PROFILE_INTENT_KEY, value);
+};
+
+export const clearAuthAccessProfileIntent = () => {
+  if (typeof window === 'undefined') return;
+  removeBrowserStorageValue(getSessionStorage(), AUTH_ACCESS_PROFILE_INTENT_KEY);
+  removeBrowserStorageValue(getLocalStorage(), AUTH_ACCESS_PROFILE_INTENT_KEY);
+};
+
+export const getAuthAccessProfileIntent = (): AuthAccessProfile | null => {
+  if (typeof window === 'undefined') return null;
+  const raw =
+    getBrowserStorageValue(getSessionStorage(), AUTH_ACCESS_PROFILE_INTENT_KEY) ||
+    getBrowserStorageValue(getLocalStorage(), AUTH_ACCESS_PROFILE_INTENT_KEY);
+  if (!raw) return null;
+
+  try {
+    if (isAuthAccessProfile(raw)) return raw;
+    const parsed = JSON.parse(raw) as { profile?: string; createdAt?: number };
+    if (!isAuthAccessProfile(parsed.profile)) {
+      clearAuthAccessProfileIntent();
+      return null;
+    }
+    if (typeof parsed.createdAt === 'number' && Date.now() - parsed.createdAt > AUTH_ACCESS_PROFILE_INTENT_TTL_MS) {
+      clearAuthAccessProfileIntent();
+      return null;
+    }
+    return parsed.profile;
+  } catch {
+    clearAuthAccessProfileIntent();
+    return null;
+  }
 };
