@@ -131,6 +131,29 @@ const defaultClientProfileForm: ClientProfileForm = {
   avatarUrl: '',
 };
 
+const getClientAuthProfileSeed = (session: Session | null) => {
+  const metadata = (session?.user?.user_metadata || {}) as Record<string, any>;
+  const fullName =
+    String(metadata.full_name || '').trim() ||
+    String(metadata.name || '').trim() ||
+    String(metadata.user_name || '').trim() ||
+    String(session?.user?.email || '')
+      .split('@')[0]
+      .replace(/[._-]+/g, ' ')
+      .trim();
+  const avatarUrl =
+    String(metadata.avatar_url || '').trim() ||
+    String(metadata.picture || '').trim() ||
+    String(metadata.photo_url || '').trim();
+  const phone = String(metadata.phone || metadata.whatsapp || '').trim();
+
+  return {
+    fullName,
+    avatarUrl,
+    phone,
+  };
+};
+
 const requestSteps = [
   {
     id: 1,
@@ -397,6 +420,7 @@ export default function ClientRequestsHub() {
   const profileIntentHandledRef = useRef(false);
   const requestIntentHandledRef = useRef(false);
   const addressLookupTimerRef = useRef<number | null>(null);
+  const authClientMetadataSyncedRef = useRef('');
   const [session, setSession] = useState<Session | null>(null);
   const [, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -485,6 +509,45 @@ export default function ClientRequestsHub() {
       setAuthNotice('Crea tu cuenta o ingresa para publicar tu solicitud.');
     }
   }, []);
+
+  useEffect(() => {
+    const user = session?.user;
+    if (!user?.id) {
+      authClientMetadataSyncedRef.current = '';
+      return;
+    }
+
+    const metadata = (user.user_metadata || {}) as Record<string, any>;
+    const seed = getClientAuthProfileSeed(session);
+    const nextData: Record<string, string> = {
+      user_type: 'cliente',
+      profile: 'cliente',
+    };
+
+    if (!String(metadata.full_name || '').trim() && seed.fullName) {
+      nextData.full_name = seed.fullName;
+    }
+    if (!String(metadata.avatar_url || '').trim() && seed.avatarUrl) {
+      nextData.avatar_url = seed.avatarUrl;
+    }
+    if (!String(metadata.phone || '').trim() && seed.phone) {
+      nextData.phone = seed.phone;
+    }
+
+    const alreadyClient =
+      String(metadata.user_type || '').toLowerCase() === 'cliente' &&
+      String(metadata.profile || '').toLowerCase() === 'cliente';
+    const needsSeed =
+      Boolean(nextData.full_name || nextData.avatar_url || nextData.phone) ||
+      !alreadyClient;
+    const syncKey = `${user.id}:${JSON.stringify(nextData)}`;
+    if (!needsSeed || authClientMetadataSyncedRef.current === syncKey) return;
+
+    authClientMetadataSyncedRef.current = syncKey;
+    supabase.auth.updateUser({ data: nextData }).catch(() => {
+      authClientMetadataSyncedRef.current = '';
+    });
+  }, [session?.user?.id, session?.user?.user_metadata]);
 
   useEffect(() => {
     return () => {
@@ -587,6 +650,7 @@ export default function ClientRequestsHub() {
     setLoadingClientProfile(true);
     setClientProfileError('');
     try {
+      const seed = getClientAuthProfileSeed(session);
       const { data, error } = await supabase
         .from('profiles')
         .select('id, full_name, phone, avatar_url, email')
@@ -599,9 +663,9 @@ export default function ClientRequestsHub() {
         const fallback = {
           id: userId,
           email: session?.user?.email || null,
-          full_name: session?.user?.user_metadata?.full_name || '',
-          phone: session?.user?.user_metadata?.phone || '',
-          avatar_url: session?.user?.user_metadata?.avatar_url || session?.user?.user_metadata?.picture || null,
+          full_name: seed.fullName || '',
+          phone: seed.phone || '',
+          avatar_url: seed.avatarUrl || null,
         };
         const { data: created, error: createError } = await supabase
           .from('profiles')
@@ -610,6 +674,31 @@ export default function ClientRequestsHub() {
           .single();
         if (createError) throw createError;
         profileRow = created;
+      } else {
+        const profilePatch: Record<string, string | null> = {};
+        if (!String(profileRow.full_name || '').trim() && seed.fullName) {
+          profilePatch.full_name = seed.fullName;
+        }
+        if (!String(profileRow.avatar_url || '').trim() && seed.avatarUrl) {
+          profilePatch.avatar_url = seed.avatarUrl;
+        }
+        if (!String(profileRow.phone || '').trim() && seed.phone) {
+          profilePatch.phone = seed.phone;
+        }
+        if (!String(profileRow.email || '').trim() && session?.user?.email) {
+          profilePatch.email = session.user.email;
+        }
+
+        if (Object.keys(profilePatch).length > 0) {
+          const { data: updated, error: updateError } = await supabase
+            .from('profiles')
+            .update(profilePatch)
+            .eq('id', userId)
+            .select('id, full_name, phone, avatar_url, email')
+            .maybeSingle();
+          if (updateError) throw updateError;
+          profileRow = updated || { ...profileRow, ...profilePatch };
+        }
       }
 
       setClientProfileForm({
@@ -768,13 +857,21 @@ export default function ClientRequestsHub() {
         if (!safePhone) {
           throw new Error('Ingresa tu WhatsApp para crear tu perfil de cliente.');
         }
+        const fallbackFullName = getClientAuthProfileSeed({
+          user: {
+            email: safeEmail,
+            user_metadata: {},
+          },
+        } as Session).fullName;
         const { data: signUpData, error } = await supabase.auth.signUp({
           email: safeEmail,
           password,
           options: {
             data: {
+              full_name: fallbackFullName,
               phone: safePhone,
               user_type: 'cliente',
+              profile: 'cliente',
             },
           },
         });
@@ -787,6 +884,7 @@ export default function ClientRequestsHub() {
           const { error: profileError } = await supabase.from('profiles').upsert({
             id: signUpData.user.id,
             email: safeEmail,
+            full_name: fallbackFullName,
             phone: safePhone,
           });
           if (profileError) throw profileError;
