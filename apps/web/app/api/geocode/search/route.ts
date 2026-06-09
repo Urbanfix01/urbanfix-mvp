@@ -87,8 +87,9 @@ const buildGeocodeCacheKey = (
   cityHint: string,
   provinceHint: string,
   countryHint: string,
-  limit: number
-) => JSON.stringify({ query: normalizeSearchText(query), cityHint, provinceHint, countryHint, limit });
+  limit: number,
+  quick: boolean
+) => JSON.stringify({ query: normalizeSearchText(query), cityHint, provinceHint, countryHint, limit, quick });
 
 const dedupeNominatimRows = (rows: NominatimRow[]) => {
   const seen = new Set<string>();
@@ -413,7 +414,7 @@ const fetchNominatimRows = async (query: string, limit: number, countryCode: str
   )}&addressdetails=1&email=info@urbanfixar.com`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
 
   let response: Response;
   try {
@@ -482,7 +483,7 @@ const fetchArgentinaAddressRows = async (query: string, cityHint: string, provin
 
   const fetchRows = async (url: string) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
 
     try {
       const response = await fetch(url, {
@@ -567,6 +568,7 @@ export async function GET(request: NextRequest) {
   const cityHint = normalizeSearchParam(request.nextUrl.searchParams.get('city'));
   const provinceHint = normalizeSearchParam(request.nextUrl.searchParams.get('province'));
   const rawCountryHint = normalizeSearchParam(request.nextUrl.searchParams.get('country')) || DEFAULT_COUNTRY_NAME;
+  const quick = request.nextUrl.searchParams.get('quick') === '1';
   const oversizedParamResponse =
     rejectOversizedSearchParam(query, MAX_SEARCH_QUERY_LENGTH, 'La direccion es demasiado larga.') ||
     rejectOversizedSearchParam(cityHint, MAX_SEARCH_HINT_LENGTH, 'La ciudad es demasiado larga.') ||
@@ -583,25 +585,29 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ results: [] });
   }
 
-  const cacheKey = buildGeocodeCacheKey(query, cityHint, provinceHint, countryHint, limit);
+  const cacheKey = buildGeocodeCacheKey(query, cityHint, provinceHint, countryHint, limit, quick);
   const cached = geocodeResponseCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return NextResponse.json(cached.payload);
   }
 
   try {
-    const upstreamLimit = Math.max(limit, 8);
+    const upstreamLimit = quick ? Math.max(limit, 4) : Math.max(limit, 8);
     const parsedQuery = parseAddressQuery(query);
-    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(0, cityHint ? 8 : provinceHint ? 6 : 4);
+    const variants = buildQueryVariants(query, cityHint, provinceHint, countryHint).slice(
+      0,
+      quick ? 1 : cityHint ? 8 : provinceHint ? 6 : 4
+    );
     const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint, countryHint).slice(
       0,
-      cityHint ? 3 : provinceHint ? 2 : 0
+      quick ? 0 : cityHint ? 3 : provinceHint ? 2 : 0
     );
-    const argentinaAddressResult =
+    const [argentinaAddressResult, primaryResult] = await Promise.all([
       countryHint === 'Argentina'
-        ? await fetchArgentinaAddressRows(query, cityHint, provinceHint, upstreamLimit)
-        : { rows: [] as NominatimRow[], error: '' };
-    const primaryResult = await collectNominatimRows(variants, upstreamLimit, countryCode);
+        ? fetchArgentinaAddressRows(query, cityHint, provinceHint, upstreamLimit)
+        : Promise.resolve({ rows: [] as NominatimRow[], error: '' }),
+      collectNominatimRows(variants, upstreamLimit, countryCode),
+    ]);
     let firstError = argentinaAddressResult.error || primaryResult.error;
     let rateLimited = primaryResult.rateLimited;
     let rows = dedupeNominatimRows([...argentinaAddressResult.rows, ...primaryResult.rows]);

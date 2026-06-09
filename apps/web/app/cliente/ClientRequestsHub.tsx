@@ -4,11 +4,13 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, Settings, ShieldCheck, Store, User } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, Settings, ShieldCheck, Store, User } from 'lucide-react';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
+import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
 import { clearAuthAccessProfileIntent, setAuthAccessProfileIntent } from '../../lib/auth/post-auth';
 import { buildMapLinks, buildOpenStreetMapEmbedUrl } from '../../lib/map-links';
+import { gremiosCatalog } from '../../lib/seo/gremios-data';
 
 type ClientRequestResponse = {
   id: string;
@@ -67,12 +69,26 @@ type CreateRequestForm = {
   city: string;
   description: string;
   urgency: 'baja' | 'media' | 'alta';
+  urgencyLevel: number;
+  preferredStartTime: string;
+  preferredEndTime: string;
   preferredWindow: string;
   mode: 'marketplace' | 'direct';
   radiusKm: number;
   targetTechnicianId: string;
   targetTechnicianName: string;
   targetTechnicianPhone: string;
+};
+
+type ClientRequestDraftPayload = {
+  form: CreateRequestForm;
+  requestStep: 1 | 2 | 3;
+  locationLat: number | null;
+  locationLng: number | null;
+  locationSource: 'gps' | 'address' | null;
+  confirmedAddressLabel: string;
+  confirmedAddressProvince: string;
+  savedAt: string;
 };
 
 type ClientProfileForm = {
@@ -118,6 +134,9 @@ const defaultForm: CreateRequestForm = {
   city: '',
   description: '',
   urgency: 'media',
+  urgencyLevel: 62,
+  preferredStartTime: '',
+  preferredEndTime: '',
   preferredWindow: '',
   mode: 'marketplace',
   radiusKm: 20,
@@ -159,21 +178,183 @@ const requestSteps = [
   {
     id: 1,
     label: 'Problema',
-    guide: 'Titulo, categoria y una descripcion corta.',
+    guide: 'Rubro, título corto y detalle del problema.',
   },
   {
     id: 2,
-    label: 'Ubicacion',
-    guide: 'Direccion, ciudad y punto confirmado por validacion o GPS.',
+    label: 'Ubicación',
+    guide: 'Calle, altura, ciudad y punto confirmado en el mapa.',
   },
   {
     id: 3,
-    label: 'Envio',
-    guide: 'Urgencia, horario y modo de solicitud.',
+    label: 'Envío',
+    guide: 'Revisa la solicitud y define urgencia u horario preferido.',
   },
 ] as const;
 
+const CLIENT_REQUEST_EXTRA_CATEGORY_OPTIONS = [
+  'Plomeria',
+  'Albanileria',
+  'Sanitario',
+  'Gas',
+  'Herreria',
+  'Carpinteria',
+  'Aire acondicionado',
+  'Refrigeracion',
+  'Cerrajeria',
+  'Impermeabilizacion',
+  'Techos',
+  'Durlock y yeseria',
+  'Pisos y revestimientos',
+  'Vidrieria y aberturas',
+  'Soldadura',
+  'Portones automaticos',
+  'Alarmas y camaras',
+  'Redes y datos',
+  'Calefaccion',
+  'Energia solar',
+  'Jardineria y poda',
+  'Limpieza',
+  'Limpieza post obra',
+  'Control de plagas',
+  'Mantenimiento de piletas',
+  'Mantenimiento de consorcios',
+  'Mantenimiento comercial',
+  'Banos y cocinas',
+  'Demolicion',
+  'Excavaciones',
+  'Hormigon armado',
+  'Estructuras metalicas',
+  'Reformas integrales',
+  'Electrodomesticos',
+  'Heladeras y freezers',
+  'Lavarropas y lavavajillas',
+  'Cocinas y hornos',
+  'Calefones y termotanques',
+  'Bombas de agua',
+  'Tanques de agua',
+  'Destapaciones',
+  'Humedad y filtraciones',
+  'Persianas y cortinas',
+  'Muebles a medida',
+  'Porteros electricos',
+  'Domotica',
+  'Otro',
+] as const;
+
+const REQUEST_CATEGORY_OPTIONS = Array.from(
+  new Set([...gremiosCatalog.map((item) => item.title), ...CLIENT_REQUEST_EXTRA_CATEGORY_OPTIONS])
+).sort((current, next) => {
+  if (current === 'Otro') return 1;
+  if (next === 'Otro') return -1;
+  return current.localeCompare(next, 'es', { sensitivity: 'base' });
+});
+const REQUEST_TIME_OPTIONS = [
+  '08:00',
+  '09:00',
+  '10:00',
+  '11:00',
+  '12:00',
+  '13:00',
+  '14:00',
+  '15:00',
+  '16:00',
+  '17:00',
+  '18:00',
+  '19:00',
+  '20:00',
+] as const;
+
+const urgencySliderMeta = {
+  baja: {
+    label: 'Baja',
+    percent: 32,
+    fillClass: 'from-emerald-500 via-lime-400 to-lime-300',
+    bubbleClass: 'border-emerald-200 bg-emerald-400 text-white shadow-emerald-200',
+  },
+  media: {
+    label: 'Media',
+    percent: 62,
+    fillClass: 'from-emerald-500 via-lime-400 to-amber-300',
+    bubbleClass: 'border-amber-200 bg-amber-400 text-white shadow-amber-200',
+  },
+  alta: {
+    label: 'Alta',
+    percent: 91,
+    fillClass: 'from-orange-500 via-amber-400 to-yellow-300',
+    bubbleClass: 'border-orange-200 bg-[#ff8f1f] text-white shadow-orange-200',
+  },
+} as const satisfies Record<CreateRequestForm['urgency'], {
+  label: string;
+  percent: number;
+  fillClass: string;
+  bubbleClass: string;
+}>;
+const clampUrgencyLevel = (value: number) => Math.min(100, Math.max(1, Math.round(value)));
+
+const getUrgencyFromLevel = (value: number): CreateRequestForm['urgency'] => {
+  const safeValue = clampUrgencyLevel(value);
+  if (safeValue <= 33) return 'baja';
+  if (safeValue <= 66) return 'media';
+  return 'alta';
+};
+
+const getFlipTimeParts = (value: string) => {
+  if (!value) return { hour: '--', minute: '--' };
+  const [hour = '--', minute = '--'] = value.split(':');
+  return { hour, minute };
+};
+
+const REQUEST_EXAMPLES = [
+  {
+    title: 'Pierde agua el inodoro',
+    description: 'Pierde agua constantemente desde la mochila. Necesito revisar si hay que cambiar mecanismo o flotante.',
+  },
+  {
+    title: 'No enfría el aire del living',
+    description: 'El equipo prende pero no enfría bien. Hace ruido y hace más de un año que no tiene service.',
+  },
+  {
+    title: 'Necesito revisar una llave térmica',
+    description: 'Salta la térmica cuando uso varios artefactos. Quiero revisar tablero y circuito.',
+  },
+  {
+    title: 'Filtración en el techo',
+    description: 'Apareció humedad después de la lluvia. Necesito ubicar la filtración y sellar la zona.',
+  },
+  {
+    title: 'Instalar un tomacorriente',
+    description: 'Necesito agregar un tomacorriente nuevo en una pared del ambiente y revisar la carga.',
+  },
+  {
+    title: 'Pintar una habitación',
+    description: 'Quiero pintar paredes y techo de una habitación. Hay algunos detalles para lijar y emprolijar.',
+  },
+  {
+    title: 'Cambiar una cerradura',
+    description: 'La cerradura está dura y cuesta abrir. Necesito cambiarla o repararla según convenga.',
+  },
+  {
+    title: 'Destapar la pileta de cocina',
+    description: 'El agua baja muy lento y vuelve olor. Necesito destapar y revisar el sifón.',
+  },
+] as const;
+
+const CLIENT_AVATAR_PRESETS = [
+  { label: 'Naranja', src: '/avatars/client-amber.svg' },
+  { label: 'Verde', src: '/avatars/client-green.svg' },
+  { label: 'Azul', src: '/avatars/client-blue.svg' },
+  { label: 'Violeta', src: '/avatars/client-violet.svg' },
+  { label: 'Rosa', src: '/avatars/client-rose.svg' },
+  { label: 'Teal', src: '/avatars/client-teal.svg' },
+  { label: 'Dorado', src: '/avatars/client-gold.svg' },
+  { label: 'Gris', src: '/avatars/client-slate.svg' },
+] as const;
+
 const CREATE_REQUEST_INTENT = 'create-request';
+const CLIENT_REQUEST_DRAFT_STORAGE_PREFIX = 'urbanfix:client-request-draft:';
+
+const getClientRequestDraftStorageKey = (userId: string) => `${CLIENT_REQUEST_DRAFT_STORAGE_PREFIX}${userId}`;
 
 const clientLoadingThemeStyles = {
   '--ui-bg': '#ECE9E2',
@@ -189,11 +370,61 @@ const clientLoadingThemeStyles = {
 } as React.CSSProperties;
 
 const CLIENT_AUTH_FORM_VALIDATION_MESSAGES = [
-  'Ingresa correo y contrasena.',
-  'Ingresa un correo valido.',
-  'La contrasena debe tener al menos 6 caracteres.',
+  'Ingresa correo y contraseña.',
+  'Ingresa un correo válido.',
+  'La contraseña debe tener al menos 6 caracteres.',
   'Ingresa tu WhatsApp para crear tu perfil de cliente.',
+  'Ingresa un WhatsApp argentino válido.',
 ] as const;
+
+const getArgentinaWhatsappValidation = (value: string) => {
+  const raw = String(value || '').trim();
+  const rawDigits = raw.replace(/\D/g, '');
+  let digits = rawDigits;
+
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  digits = digits.replace(/^0+/, '');
+
+  if (digits.startsWith('549')) {
+    digits = `549${digits.slice(3).replace(/^0+/, '')}`;
+  } else if (digits.startsWith('54')) {
+    const national = digits.slice(2).replace(/^0+/, '');
+    digits = national.startsWith('9') ? `54${national}` : `549${national}`;
+  } else if (/^11(15)\d{8}$/.test(digits)) {
+    digits = `54911${digits.slice(4)}`;
+  } else if (digits.length === 8) {
+    digits = `54911${digits}`;
+  } else {
+    digits = `549${digits}`;
+  }
+
+  const nationalDigits = digits.startsWith('549') ? digits.slice(3) : '';
+  const isValid = digits.length === 13 && digits.startsWith('549') && nationalDigits.length === 10;
+  const area = nationalDigits.slice(0, 2);
+  const blockA = nationalDigits.slice(2, 6);
+  const blockB = nationalDigits.slice(6);
+  const display = isValid ? `+54 9 ${area} ${blockA}-${blockB}` : raw;
+  const href = isValid ? `https://wa.me/${digits}` : '';
+
+  let message = '';
+  if (!rawDigits) {
+    message = 'Agrega un WhatsApp.';
+  } else if (!isValid) {
+    message = rawDigits.length < 10 ? 'Falta código de área.' : 'Revisa el número.';
+  } else {
+    message = display;
+  }
+
+  return {
+    raw,
+    digits,
+    display,
+    href,
+    isEmpty: rawDigits.length === 0,
+    isValid,
+    message,
+  };
+};
 
 const getFriendlyClientAuthErrorMessage = (
   error: unknown,
@@ -206,22 +437,22 @@ const getFriendlyClientAuthErrorMessage = (
 
   const normalizedMessage = rawMessage.toLowerCase();
   if (normalizedMessage.includes('invalid login credentials') || normalizedMessage.includes('invalid credentials')) {
-    return 'Correo o contrasena incorrectos.';
+    return 'Correo o contraseña incorrectos.';
   }
   if (normalizedMessage.includes('email not confirmed')) {
     return 'Confirma tu correo antes de ingresar.';
   }
   if (normalizedMessage.includes('already registered') || normalizedMessage.includes('user already exists')) {
-    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contrasena.';
+    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseña.';
   }
   if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
-    return 'La contrasena debe tener al menos 6 caracteres.';
+    return 'La contraseña debe tener al menos 6 caracteres.';
   }
   if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
     return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
   }
   if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
-    return 'No pudimos conectar. Revisa tu conexion e intenta nuevamente.';
+    return 'No pudimos conectar. Revisa tu conexión e intenta nuevamente.';
   }
   if (mode === 'google') {
     return 'No pudimos abrir el acceso con Google. Intenta nuevamente.';
@@ -316,7 +547,7 @@ const buildClientRequestsMapUrl = (points: ClientMapPoint[]) => {
 
 const normalizeRequestResponse = (raw: any): ClientRequestResponse => ({
   id: String(raw?.id || ''),
-  technicianName: String(raw?.technicianName || raw?.technician_name || 'Tecnico UrbanFix'),
+  technicianName: String(raw?.technicianName || raw?.technician_name || 'Técnico UrbanFix'),
   businessName: raw?.businessName || raw?.business_name ? String(raw?.businessName || raw?.business_name) : null,
   specialty: String(raw?.specialty || raw?.technician_specialty || 'General'),
   city: String(raw?.city || raw?.technician_city || ''),
@@ -421,7 +652,9 @@ export default function ClientRequestsHub() {
   const profileIntentHandledRef = useRef(false);
   const requestIntentHandledRef = useRef(false);
   const addressLookupTimerRef = useRef<number | null>(null);
+  const addressLookupSequenceRef = useRef(0);
   const authClientMetadataSyncedRef = useRef('');
+  const requestDraftRestoredKeyRef = useRef('');
   const [session, setSession] = useState<Session | null>(null);
   const [, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
@@ -438,11 +671,15 @@ export default function ClientRequestsHub() {
   const [activeClientView, setActiveClientView] = useState<ClientWorkspaceView>('request');
   const [form, setForm] = useState<CreateRequestForm>(defaultForm);
   const [requestStep, setRequestStep] = useState<1 | 2 | 3>(1);
+  const [requestTitleExampleIndex, setRequestTitleExampleIndex] = useState(0);
+  const [requestExampleCursor, setRequestExampleCursor] = useState(0);
+  const [requestExampleDeleting, setRequestExampleDeleting] = useState(false);
   const [savingRequest, setSavingRequest] = useState(false);
   const [requestError, setRequestError] = useState('');
   const [requestNotice, setRequestNotice] = useState('');
   const [requests, setRequests] = useState<ClientRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [requestsLoadError, setRequestsLoadError] = useState('');
   const [selectedClientRequestId, setSelectedClientRequestId] = useState('');
   const [clientMapShowAll, setClientMapShowAll] = useState(true);
   const [clientResponseActionId, setClientResponseActionId] = useState('');
@@ -466,12 +703,131 @@ export default function ClientRequestsHub() {
   const [uploadingClientAvatar, setUploadingClientAvatar] = useState(false);
   const [clientProfileError, setClientProfileError] = useState('');
   const [clientProfileNotice, setClientProfileNotice] = useState('');
+  const [savedClientProfilePhone, setSavedClientProfilePhone] = useState('');
   const [nearbyTechnicians, setNearbyTechnicians] = useState<NearbyTechnician[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyError, setNearbyError] = useState('');
   const [nearbyWarning, setNearbyWarning] = useState('');
   const [nearbyCenterLabel, setNearbyCenterLabel] = useState('');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
+  const clientRequestDraftStorageKey = session?.user?.id ? getClientRequestDraftStorageKey(session.user.id) : '';
+  const clientWhatsappValidation = useMemo(
+    () => getArgentinaWhatsappValidation(clientProfileForm.phone),
+    [clientProfileForm.phone]
+  );
+  const clientWhatsappControlToneClass = !clientProfileForm.phone.trim()
+    ? 'border-slate-300 bg-white text-slate-800 focus-within:border-[#2a0338] focus-within:ring-[#2a0338]/10'
+    : clientWhatsappValidation.isValid
+      ? 'border-emerald-300 bg-emerald-50/80 text-emerald-950 focus-within:border-emerald-500 focus-within:ring-emerald-100'
+      : 'border-amber-300 bg-amber-50/80 text-amber-950 focus-within:border-amber-500 focus-within:ring-amber-100';
+  const clientWhatsappInputStatusClass = !clientProfileForm.phone.trim()
+    ? 'text-slate-400'
+    : clientWhatsappValidation.isValid
+      ? 'text-emerald-600'
+      : 'text-amber-600';
+  const savedClientWhatsappValidation = useMemo(
+    () => getArgentinaWhatsappValidation(savedClientProfilePhone),
+    [savedClientProfilePhone]
+  );
+  const comparableClientWhatsapp = clientWhatsappValidation.isValid
+    ? clientWhatsappValidation.digits
+    : clientProfileForm.phone.trim();
+  const comparableSavedClientWhatsapp = savedClientWhatsappValidation.isValid
+    ? savedClientWhatsappValidation.digits
+    : savedClientProfilePhone.trim();
+  const hasClientWhatsappChanges = comparableClientWhatsapp !== comparableSavedClientWhatsapp;
+  const requestExamplePlaceholder = useMemo(
+    () => ({
+      title: REQUEST_EXAMPLES[requestTitleExampleIndex].title.slice(0, requestExampleCursor),
+      description: REQUEST_EXAMPLES[requestTitleExampleIndex].description.slice(0, requestExampleCursor),
+    }),
+    [requestExampleCursor, requestTitleExampleIndex]
+  );
+  const preferredStartTimeParts = useMemo(
+    () => getFlipTimeParts(form.preferredStartTime),
+    [form.preferredStartTime]
+  );
+  const preferredEndTimeParts = useMemo(
+    () => getFlipTimeParts(form.preferredEndTime),
+    [form.preferredEndTime]
+  );
+  const selectedUrgencyLevel = clampUrgencyLevel(form.urgencyLevel || urgencySliderMeta[form.urgency].percent);
+  const selectedUrgencyMeta = urgencySliderMeta[getUrgencyFromLevel(selectedUrgencyLevel)];
+  const requestPreviewClientName =
+    clientProfileForm.fullName.trim() ||
+    String(session?.user?.email || '')
+      .split('@')[0]
+      .replace(/[._-]+/g, ' ')
+      .trim() ||
+    'Cliente UrbanFix';
+  const requestPreviewInitial = requestPreviewClientName.slice(0, 1).toUpperCase() || 'C';
+  const requestPreviewZone =
+    form.city.trim() ||
+    confirmedAddressProvince.trim() ||
+    (confirmedAddressLabel.split(',').slice(-3, -1).join(', ').trim() || 'Zona protegida');
+  const requestPreviewWindow =
+    form.preferredStartTime && form.preferredEndTime ? `${form.preferredStartTime} - ${form.preferredEndTime}` : '';
+  const requestPreviewDate = new Intl.DateTimeFormat('es-AR').format(new Date());
+  const hasRequestDraftContent = useMemo(
+    () =>
+      Boolean(
+        form.title.trim() ||
+          form.category.trim() ||
+          form.address.trim() ||
+          form.city.trim() ||
+          form.description.trim() ||
+          form.preferredStartTime ||
+          form.preferredEndTime ||
+          form.preferredWindow ||
+          form.urgencyLevel !== defaultForm.urgencyLevel ||
+          locationLat !== null ||
+          locationLng !== null ||
+          confirmedAddressLabel.trim()
+      ),
+    [confirmedAddressLabel, form, locationLat, locationLng]
+  );
+
+  const setUrgencyLevel = (level: number) => {
+    const nextLevel = clampUrgencyLevel(level);
+    const nextUrgency = getUrgencyFromLevel(nextLevel);
+    setForm((prev) =>
+      prev.urgencyLevel === nextLevel && prev.urgency === nextUrgency
+        ? prev
+        : { ...prev, urgency: nextUrgency, urgencyLevel: nextLevel }
+    );
+  };
+
+  const setUrgencyFromSliderPosition = (clientX: number, sliderElement: HTMLDivElement) => {
+    const sliderRect = sliderElement.getBoundingClientRect();
+    if (!sliderRect.width) return;
+    const ratio = Math.min(1, Math.max(0, (clientX - sliderRect.left) / sliderRect.width));
+    setUrgencyLevel(1 + ratio * 99);
+  };
+
+  const handleClientPhoneChange = (value: string) => {
+    setClientProfileForm((prev) => ({ ...prev, phone: value }));
+    setClientProfileError('');
+    setClientProfileNotice('');
+  };
+
+  const setPreferredTimeRange = (field: 'preferredStartTime' | 'preferredEndTime', value: string) => {
+    setForm((prev) => {
+      const nextStart = field === 'preferredStartTime' ? value : prev.preferredStartTime;
+      const nextEnd = field === 'preferredEndTime' ? value : prev.preferredEndTime;
+      return {
+        ...prev,
+        preferredStartTime: nextStart,
+        preferredEndTime: nextEnd,
+        preferredWindow: nextStart && nextEnd ? `${nextStart} - ${nextEnd}` : '',
+      };
+    });
+  };
+
+  const normalizeClientPhoneField = () => {
+    const validation = getArgentinaWhatsappValidation(clientProfileForm.phone);
+    if (!validation.isValid) return;
+    setClientProfileForm((prev) => ({ ...prev, phone: validation.display }));
+  };
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
@@ -510,6 +866,42 @@ export default function ClientRequestsHub() {
       setAuthNotice('Crea tu cuenta o ingresa para publicar tu solicitud.');
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (requestStep !== 1 || (form.title.trim() && form.description.trim())) return;
+
+    const example = REQUEST_EXAMPLES[requestTitleExampleIndex];
+    const maxLength = Math.max(example.title.length, example.description.length);
+    let delay = 55;
+
+    if (!requestExampleDeleting && requestExampleCursor >= maxLength) {
+      delay = 3200;
+    } else if (requestExampleDeleting && requestExampleCursor > 0) {
+      delay = 24;
+    } else if (requestExampleDeleting && requestExampleCursor === 0) {
+      delay = 650;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (!requestExampleDeleting && requestExampleCursor < maxLength) {
+        setRequestExampleCursor((current) => Math.min(current + 1, maxLength));
+        return;
+      }
+      if (!requestExampleDeleting) {
+        setRequestExampleDeleting(true);
+        return;
+      }
+      if (requestExampleCursor > 0) {
+        setRequestExampleCursor((current) => Math.max(current - 1, 0));
+        return;
+      }
+      setRequestExampleDeleting(false);
+      setRequestTitleExampleIndex((current) => (current + 1) % REQUEST_EXAMPLES.length);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [form.description, form.title, requestExampleCursor, requestExampleDeleting, requestStep, requestTitleExampleIndex]);
 
   useEffect(() => {
     const user = session?.user;
@@ -577,6 +969,33 @@ export default function ClientRequestsHub() {
     requestIntentHandledRef.current = false;
   };
 
+  const clearClientRequestDraft = () => {
+    if (!clientRequestDraftStorageKey || typeof window === 'undefined') return;
+    window.localStorage.removeItem(clientRequestDraftStorageKey);
+  };
+
+  const handleSaveRequestDraft = () => {
+    if (!clientRequestDraftStorageKey || typeof window === 'undefined') return;
+    setRequestError('');
+    setRequestNotice('');
+    if (!hasRequestDraftContent) {
+      setRequestError('Carga al menos un dato para guardar el borrador.');
+      return;
+    }
+    const draft: ClientRequestDraftPayload = {
+      form,
+      requestStep,
+      locationLat,
+      locationLng,
+      locationSource,
+      confirmedAddressLabel,
+      confirmedAddressProvince,
+      savedAt: new Date().toISOString(),
+    };
+    window.localStorage.setItem(clientRequestDraftStorageKey, JSON.stringify(draft));
+    setRequestNotice('Borrador guardado.');
+  };
+
   const handleLogout = async () => {
     clearAuthAccessProfileIntent();
     await supabase.auth.signOut();
@@ -624,7 +1043,7 @@ export default function ClientRequestsHub() {
   const fetchRequests = async () => {
     if (!session?.access_token) return;
     setLoadingRequests(true);
-    setRequestError('');
+    setRequestsLoadError('');
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 10000);
     try {
@@ -641,9 +1060,9 @@ export default function ClientRequestsHub() {
         : [];
       setRequests(normalized);
     } catch (error: any) {
-      setRequestError(
+      setRequestsLoadError(
         error?.name === 'AbortError'
-          ? 'La carga de solicitudes tardo demasiado. Intenta actualizar.'
+          ? 'La carga de solicitudes tardó demasiado. Intenta actualizar.'
           : error?.message || 'No se pudieron cargar tus solicitudes.'
       );
     } finally {
@@ -708,11 +1127,13 @@ export default function ClientRequestsHub() {
         }
       }
 
+      const profilePhone = String(profileRow?.phone || '').trim();
       setClientProfileForm({
         fullName: String(profileRow?.full_name || '').trim(),
-        phone: String(profileRow?.phone || '').trim(),
+        phone: profilePhone,
         avatarUrl: String(profileRow?.avatar_url || '').trim(),
       });
+      setSavedClientProfilePhone(profilePhone);
     } catch (error: any) {
       setClientProfileError(error?.message || 'No se pudo cargar tu perfil.');
     } finally {
@@ -778,9 +1199,11 @@ export default function ClientRequestsHub() {
   useEffect(() => {
     if (!session?.user?.id) {
       setClientProfileForm(defaultClientProfileForm);
+      setSavedClientProfilePhone('');
       setClientProfileError('');
       setClientProfileNotice('');
       setNearbyTechnicians([]);
+      setRequestsLoadError('');
       setNearbyError('');
       setNearbyWarning('');
       setNearbyCenterLabel('');
@@ -788,6 +1211,65 @@ export default function ClientRequestsHub() {
     }
     fetchClientProfile(session.user.id);
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (!clientRequestDraftStorageKey || typeof window === 'undefined') {
+      requestDraftRestoredKeyRef.current = '';
+      return;
+    }
+    if (requestDraftRestoredKeyRef.current === clientRequestDraftStorageKey) return;
+    requestDraftRestoredKeyRef.current = clientRequestDraftStorageKey;
+
+    const rawDraft = window.localStorage.getItem(clientRequestDraftStorageKey);
+    if (!rawDraft) return;
+
+    try {
+      const draft = JSON.parse(rawDraft) as Partial<ClientRequestDraftPayload>;
+      if (!draft || typeof draft !== 'object' || !draft.form) return;
+
+      const rawForm = draft.form as Partial<CreateRequestForm>;
+      const rawUrgency =
+        rawForm.urgency === 'baja' || rawForm.urgency === 'media' || rawForm.urgency === 'alta'
+          ? rawForm.urgency
+          : defaultForm.urgency;
+      const restoredUrgencyLevel = clampUrgencyLevel(
+        Number(rawForm.urgencyLevel || urgencySliderMeta[rawUrgency].percent)
+      );
+      const restoredLat =
+        draft.locationLat !== null && draft.locationLat !== undefined && Number.isFinite(Number(draft.locationLat))
+          ? Number(draft.locationLat)
+          : null;
+      const restoredLng =
+        draft.locationLng !== null && draft.locationLng !== undefined && Number.isFinite(Number(draft.locationLng))
+          ? Number(draft.locationLng)
+          : null;
+      const restoredLocationSource =
+        draft.locationSource === 'gps' || draft.locationSource === 'address' ? draft.locationSource : null;
+
+      setForm({
+        ...defaultForm,
+        ...rawForm,
+        urgency: getUrgencyFromLevel(restoredUrgencyLevel),
+        urgencyLevel: restoredUrgencyLevel,
+        radiusKm: normalizeRadiusKm(rawForm.radiusKm, defaultForm.radiusKm),
+        mode: rawForm.mode === 'direct' ? 'direct' : 'marketplace',
+      });
+      setRequestStep(draft.requestStep === 2 || draft.requestStep === 3 ? draft.requestStep : 1);
+      setLocationLat(restoredLat);
+      setLocationLng(restoredLng);
+      setLocationSource(restoredLat !== null && restoredLng !== null ? restoredLocationSource || 'address' : null);
+      setConfirmedAddressLabel(String(draft.confirmedAddressLabel || ''));
+      setConfirmedAddressProvince(String(draft.confirmedAddressProvince || ''));
+      setAddressCandidates([]);
+      setAddressDropdownOpen(false);
+      setSelectedAddressCandidateKey('');
+      setAddressValidationError('');
+      setRequestError('');
+      setRequestNotice('Borrador recuperado.');
+    } catch {
+      window.localStorage.removeItem(clientRequestDraftStorageKey);
+    }
+  }, [clientRequestDraftStorageKey]);
 
   const handleGoogleAuth = async () => {
     if (googleAuthLoading) return;
@@ -820,7 +1302,7 @@ export default function ClientRequestsHub() {
     }
     const safeEmail = email.trim();
     if (!safeEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contrasena.');
+      setAuthError('Ingresa tu correo para recuperar la contraseña.');
       return;
     }
     setSendingRecovery(true);
@@ -828,7 +1310,7 @@ export default function ClientRequestsHub() {
       const redirectTo = `${window.location.origin}/cliente`;
       const { error } = await supabase.auth.resetPasswordForEmail(safeEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contrasena.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
     } catch (error: any) {
       setAuthError(getFriendlyClientAuthErrorMessage(error, 'recovery'));
     } finally {
@@ -847,13 +1329,13 @@ export default function ClientRequestsHub() {
     try {
       const safeEmail = email.trim().toLowerCase();
       if (!safeEmail || !password) {
-        throw new Error('Ingresa correo y contrasena.');
+        throw new Error('Ingresa correo y contraseña.');
       }
       if (!safeEmail.includes('@')) {
-        throw new Error('Ingresa un correo valido.');
+        throw new Error('Ingresa un correo válido.');
       }
       if (password.trim().length < 6) {
-        throw new Error('La contrasena debe tener al menos 6 caracteres.');
+        throw new Error('La contraseña debe tener al menos 6 caracteres.');
       }
       setAuthAccessProfileIntent('cliente');
       if (authMode === 'login') {
@@ -863,10 +1345,14 @@ export default function ClientRequestsHub() {
         });
         if (error) throw error;
       } else {
-        const safePhone = clientProfileForm.phone.trim();
-        if (!safePhone) {
+        const phoneValidation = getArgentinaWhatsappValidation(clientProfileForm.phone);
+        if (phoneValidation.isEmpty) {
           throw new Error('Ingresa tu WhatsApp para crear tu perfil de cliente.');
         }
+        if (!phoneValidation.isValid) {
+          throw new Error('Ingresa un WhatsApp argentino válido.');
+        }
+        const safePhone = phoneValidation.display;
         const fallbackFullName = getClientAuthProfileSeed({
           user: {
             email: safeEmail,
@@ -901,7 +1387,7 @@ export default function ClientRequestsHub() {
         }
         setAuthNotice(
           signUpData?.session
-            ? 'Cuenta creada. Tu perfil de cliente ya quedo guardado.'
+            ? 'Cuenta creada. Tu perfil de cliente ya quedó guardado.'
             : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se completará al iniciar sesión.'
         );
         setPassword('');
@@ -920,10 +1406,14 @@ export default function ClientRequestsHub() {
     setClientProfileError('');
     setClientProfileNotice('');
     try {
-      const phone = clientProfileForm.phone.trim();
-      if (!phone) {
+      const phoneValidation = getArgentinaWhatsappValidation(clientProfileForm.phone);
+      if (phoneValidation.isEmpty) {
         throw new Error('Ingresa tu WhatsApp para guardar tu perfil.');
       }
+      if (!phoneValidation.isValid) {
+        throw new Error('Ingresa un WhatsApp argentino válido.');
+      }
+      const phone = phoneValidation.display;
 
       const payload = {
         id: session.user.id,
@@ -934,6 +1424,8 @@ export default function ClientRequestsHub() {
       const { error } = await supabase.from('profiles').upsert(payload);
       if (error) throw error;
 
+      setClientProfileForm((prev) => ({ ...prev, phone }));
+      setSavedClientProfilePhone(phone);
       setClientProfileNotice('WhatsApp guardado.');
       await loadNearbyTechnicians(form.radiusKm);
     } catch (error: any) {
@@ -948,11 +1440,11 @@ export default function ClientRequestsHub() {
     event.target.value = '';
     if (!file) return;
     if (!session?.user?.id) {
-      setClientProfileError('Inicia sesion para subir una foto.');
+      setClientProfileError('Inicia sesión para subir una foto.');
       return;
     }
     if (!file.type.startsWith('image/')) {
-      setClientProfileError('Solo se permiten imagenes.');
+      setClientProfileError('Solo se permiten imágenes.');
       return;
     }
     if (file.size > CLIENT_AVATAR_MAX_BYTES) {
@@ -978,7 +1470,6 @@ export default function ClientRequestsHub() {
         .upsert({
           id: session.user.id,
           email: session.user.email || null,
-          phone: clientProfileForm.phone.trim() || null,
           avatar_url: publicUrl,
         });
       if (error) throw error;
@@ -992,6 +1483,29 @@ export default function ClientRequestsHub() {
     }
   };
 
+  const handleClientAvatarPresetSelect = async (avatarUrl: string) => {
+    if (!session?.user?.id) return;
+    setSavingClientProfile(true);
+    setClientProfileError('');
+    setClientProfileNotice('');
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .upsert({
+          id: session.user.id,
+          email: session.user.email || null,
+          avatar_url: avatarUrl,
+        });
+      if (error) throw error;
+      setClientProfileForm((prev) => ({ ...prev, avatarUrl }));
+      setClientProfileNotice('Imagen de perfil seleccionada.');
+    } catch (error: any) {
+      setClientProfileError(error?.message || 'No pudimos guardar la imagen.');
+    } finally {
+      setSavingClientProfile(false);
+    }
+  };
+
   const handlePublishRequest = async () => {
     if (!session?.access_token) return;
     setSavingRequest(true);
@@ -999,14 +1513,18 @@ export default function ClientRequestsHub() {
     setRequestNotice('');
     try {
       if (!isClientProfileComplete) {
-        throw new Error('Agrega tu foto de perfil y WhatsApp antes de publicar una solicitud.');
+        throw new Error(
+          clientWhatsappValidation.isEmpty
+            ? 'Agrega tu WhatsApp antes de publicar una solicitud.'
+            : 'Corrige tu WhatsApp antes de publicar una solicitud.'
+        );
       }
-      if (!form.title.trim() || !form.category.trim() || !form.address.trim() || !form.city.trim() || !form.description.trim()) {
-        throw new Error('Completa titulo, categoria, direccion, ciudad y descripcion.');
+      if (!form.title.trim() || !form.category.trim() || !form.address.trim() || !form.description.trim()) {
+        throw new Error('Completa título, categoría, dirección y descripción.');
       }
       if (locationLat === null || locationLng === null) {
         setRequestStep(2);
-        throw new Error('Valida la direccion o usa GPS antes de publicar.');
+        throw new Error('Valida la dirección o usa GPS antes de publicar.');
       }
       const response = await fetch('/api/client/requests', {
         method: 'POST',
@@ -1016,7 +1534,7 @@ export default function ClientRequestsHub() {
         },
         body: JSON.stringify({
           ...form,
-          city: form.city.trim(),
+          city: form.city.trim() || confirmedAddressProvince.trim() || 'Sin localidad',
           province: confirmedAddressProvince.trim(),
           locationLat,
           locationLng,
@@ -1060,6 +1578,7 @@ export default function ClientRequestsHub() {
       setConfirmedAddressProvince('');
       setAddressValidationError('');
       setActiveClientView('map');
+      clearClientRequestDraft();
       clearCreateRequestIntent();
       if (typeof window !== 'undefined') {
         window.setTimeout(() => {
@@ -1076,10 +1595,10 @@ export default function ClientRequestsHub() {
 
   const clientProfileMissingFields = useMemo(() => {
     const missing: string[] = [];
-    if (!clientProfileForm.avatarUrl.trim()) missing.push('Foto');
-    if (!clientProfileForm.phone.trim()) missing.push('WhatsApp');
+    if (clientWhatsappValidation.isEmpty) missing.push('WhatsApp');
+    else if (!clientWhatsappValidation.isValid) missing.push('WhatsApp válido');
     return missing;
-  }, [clientProfileForm.avatarUrl, clientProfileForm.phone]);
+  }, [clientWhatsappValidation.isEmpty, clientWhatsappValidation.isValid]);
 
   const isClientProfileComplete = clientProfileMissingFields.length === 0;
   const clientSetupSteps = useMemo(
@@ -1087,7 +1606,7 @@ export default function ClientRequestsHub() {
       {
         key: 'profile',
         title: 'Completa tu perfil',
-        description: 'Foto de perfil y WhatsApp para identificar tus solicitudes.',
+        description: 'WhatsApp obligatorio e imagen opcional para identificar tus solicitudes.',
         done: isClientProfileComplete,
         href: '#perfil-cliente',
       },
@@ -1147,6 +1666,11 @@ export default function ClientRequestsHub() {
     () => requests.filter((item) => item.locationLat !== null && item.locationLng !== null),
     [requests]
   );
+  const clientVisibleResponseTotal = useMemo(
+    () => requests.reduce((total, item) => total + visibleResponseCount(item.responses), 0),
+    [requests]
+  );
+  const clientRequestsWithoutMapCount = requests.length - requestsWithMap.length;
   const selectedMapRequest = useMemo(
     () =>
       requestsWithMap.find((item) => item.id === selectedClientRequestId) ||
@@ -1209,6 +1733,28 @@ export default function ClientRequestsHub() {
       createdAt: selectedMapRequest.created_at,
     };
   }, [selectedMapRequest]);
+  const selectedMapRequestIndex = useMemo(
+    () => (selectedMapRequest ? requestsWithMap.findIndex((item) => item.id === selectedMapRequest.id) : -1),
+    [requestsWithMap, selectedMapRequest]
+  );
+  const clientOperationalMapPoints = useMemo(
+    () =>
+      clientMapPoints.map((point) => ({
+        id: point.id,
+        kind: 'request' as const,
+        title: point.title,
+        subtitle: point.subtitle,
+        meta: point.meta,
+        lat: point.lat,
+        lon: point.lng,
+      })),
+    [clientMapPoints]
+  );
+  const clientMapFallbackCenter = useMemo(() => {
+    if (selectedClientMapPoint) return { lat: selectedClientMapPoint.lat, lon: selectedClientMapPoint.lng };
+    const firstPoint = clientMapPoints[0];
+    return firstPoint ? { lat: firstPoint.lat, lon: firstPoint.lng } : null;
+  }, [clientMapPoints, selectedClientMapPoint]);
   const clientMapView = useMemo(() => {
     if (!clientMapShowAll && selectedClientMapPoint) {
       return {
@@ -1237,6 +1783,15 @@ export default function ClientRequestsHub() {
         : requestsWithMap[0].id
     );
   }, [requestsWithMap]);
+
+  const showClientMapRequestAt = (index: number) => {
+    if (requestsWithMap.length === 0) return;
+    const nextIndex = (index + requestsWithMap.length) % requestsWithMap.length;
+    const nextRequest = requestsWithMap[nextIndex];
+    if (!nextRequest) return;
+    setSelectedClientRequestId(nextRequest.id);
+    setClientMapShowAll(false);
+  };
 
   const handleRefreshWorkspace = async () => {
     await Promise.all([fetchRequests(), loadNearbyTechnicians(form.radiusKm)]);
@@ -1287,7 +1842,7 @@ export default function ClientRequestsHub() {
       setClientResponseActionNotice(
         intent === 'reject'
           ? 'Respuesta rechazada.'
-          : `${responseItem.technicianName || 'Tecnico'} seleccionado para esta solicitud.`
+          : `${responseItem.technicianName || 'Técnico'} seleccionado para esta solicitud.`
       );
     } catch (error: any) {
       setClientResponseActionError(error?.message || 'No pudimos procesar la respuesta.');
@@ -1307,7 +1862,7 @@ export default function ClientRequestsHub() {
     if (!isClientProfileComplete) {
       if (profileIntentHandledRef.current) return;
       profileIntentHandledRef.current = true;
-      setClientProfileNotice((current) => current || 'Agrega foto y WhatsApp para publicar tu solicitud.');
+      setClientProfileNotice((current) => current || 'Agrega tu WhatsApp para publicar tu solicitud.');
       window.setTimeout(() => {
         document.getElementById('perfil-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }, 180);
@@ -1336,6 +1891,7 @@ export default function ClientRequestsHub() {
   }, [form.mode, form.targetTechnicianId, nearbyTechnicians]);
 
   const clearConfirmedAddress = () => {
+    addressLookupSequenceRef.current += 1;
     setAddressCandidates([]);
     setAddressDropdownOpen(false);
     setSelectedAddressCandidateKey('');
@@ -1361,47 +1917,57 @@ export default function ClientRequestsHub() {
     setAddressValidationError('');
     setRequestGeoNotice(
       candidate.precision === 'exact'
-        ? 'Direccion validada con altura exacta.'
-        : 'Direccion ubicada de forma aproximada. Revisa que calle, numero y ciudad esten completos.'
+        ? 'Dirección validada con altura exacta.'
+        : 'Dirección ubicada de forma aproximada. Revisa que calle, número y ciudad estén completos.'
     );
     setForm((prev) => ({
       ...prev,
       address: candidate.primaryLabel || prev.address,
-      city: candidate.locality || prev.city,
+      city: candidate.locality || candidate.province || prev.city,
     }));
   };
 
   const handleValidateAddress = async (options: { auto?: boolean; address?: string; city?: string } = {}) => {
+    const lookupSequence = addressLookupSequenceRef.current + 1;
+    addressLookupSequenceRef.current = lookupSequence;
+    const isAuto = Boolean(options.auto);
     const address = (options.address ?? form.address).trim();
     const city = (options.city ?? form.city).trim();
     setAddressValidationError('');
     setRequestError('');
     if (!address) {
-      if (!options.auto) setAddressValidationError('Completa direccion para validar el punto.');
+      if (!isAuto) setAddressValidationError('Completa dirección para validar el punto.');
       return;
     }
-    if (options.auto && (!/\d/.test(address) || address.length < 5)) {
+    if (isAuto && (!/\d/.test(address) || address.length < 5)) {
       return;
     }
 
-    setValidatingAddress(true);
+    if (!isAuto) setValidatingAddress(true);
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), isAuto ? 5500 : 8500);
     try {
       const province = inferAddressProvince(city);
-    const params = new URLSearchParams({ query: address, country: 'Argentina', limit: '8' });
+      const params = new URLSearchParams({ query: address, country: 'Argentina', limit: '6' });
+      if (isAuto) params.set('quick', '1');
       if (city) params.set('city', city);
       if (province) params.set('province', province);
-      const response = await fetch(`/api/geocode/search?${params.toString()}`);
+      const response = await fetch(`/api/geocode/search?${params.toString()}`, { signal: controller.signal });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error || 'No pudimos validar la direccion.');
-      const candidates: AddressCandidate[] = Array.isArray(payload?.results)
+      if (lookupSequence !== addressLookupSequenceRef.current) return;
+      if (!response.ok) throw new Error(payload?.error || 'No pudimos validar la dirección.');
+      const rawCandidates: AddressCandidate[] = Array.isArray(payload?.results)
         ? payload.results
             .map((item: any) => {
               const lat = Number(item?.lat);
               const lng = Number(item?.lon);
               if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+              const displayName = String(item?.full_display_name || item?.display_name || '').trim();
+              const primaryLabel = String(item?.primary_label || item?.display_name || displayName).trim();
+              if (!primaryLabel) return null;
               return {
-                displayName: String(item?.full_display_name || item?.display_name || '').trim(),
-                primaryLabel: String(item?.primary_label || item?.display_name || '').trim(),
+                displayName,
+                primaryLabel,
                 secondaryLabel: String(item?.secondary_label || '').trim(),
                 accuracyLabel: String(item?.accuracy_label || '').trim(),
                 locality: String(item?.locality || '').trim(),
@@ -1413,6 +1979,15 @@ export default function ClientRequestsHub() {
             })
             .filter((item: AddressCandidate | null): item is AddressCandidate => Boolean(item))
         : [];
+      const seenCandidateLabels = new Set<string>();
+      const candidates = rawCandidates
+        .filter((candidate) => {
+          const key = `${candidate.primaryLabel}|${candidate.secondaryLabel}`.toLowerCase();
+          if (seenCandidateLabels.has(key)) return false;
+          seenCandidateLabels.add(key);
+          return true;
+        })
+        .slice(0, 6);
 
       setAddressCandidates(candidates);
       if (!candidates.length) {
@@ -1423,16 +1998,26 @@ export default function ClientRequestsHub() {
         setConfirmedAddressLabel('');
         setConfirmedAddressProvince('');
         setAddressDropdownOpen(false);
-        if (!options.auto) setAddressValidationError('No encontramos esa direccion. Revisa calle, numero y ciudad.');
+        if (!isAuto) setAddressValidationError('No encontramos esa dirección. Revisa calle, número y ciudad.');
         return;
       }
 
       setAddressDropdownOpen(true);
-      setRequestGeoNotice('Selecciona una direccion del desplegable para confirmar el punto.');
+      setRequestGeoNotice('');
     } catch (error: any) {
-      setAddressValidationError(error?.message || 'No pudimos validar la direccion.');
+      if (lookupSequence !== addressLookupSequenceRef.current) return;
+      if (!isAuto) {
+        setAddressValidationError(
+          error?.name === 'AbortError'
+            ? 'La búsqueda tardó demasiado. Intenta con calle, número y localidad.'
+            : error?.message || 'No pudimos validar la dirección.'
+        );
+      }
     } finally {
-      setValidatingAddress(false);
+      window.clearTimeout(timeoutId);
+      if (lookupSequence === addressLookupSequenceRef.current && !isAuto) {
+        setValidatingAddress(false);
+      }
     }
   };
 
@@ -1444,7 +2029,7 @@ export default function ClientRequestsHub() {
     if (!/\d/.test(address) || address.trim().length < 5) return;
     addressLookupTimerRef.current = window.setTimeout(() => {
       void handleValidateAddress({ auto: true, address, city });
-    }, 450);
+    }, 320);
   };
 
   const handleUseCurrentLocation = () => {
@@ -1462,7 +2047,7 @@ export default function ClientRequestsHub() {
         setLocationLat(Number(position.coords.latitude.toFixed(6)));
         setLocationLng(Number(position.coords.longitude.toFixed(6)));
         setLocationSource('gps');
-        setConfirmedAddressLabel('Ubicacion actual del dispositivo');
+        setConfirmedAddressLabel('Ubicación actual del dispositivo');
         setConfirmedAddressProvince('');
         setAddressValidationError('');
         setAddressCandidates([]);
@@ -1486,6 +2071,51 @@ export default function ClientRequestsHub() {
         maximumAge: 60000,
       }
     );
+  };
+
+  const getRequestStepMissingMessage = () => {
+    if (requestStep === 1) {
+      if (!form.category.trim()) return 'Selecciona el gremio del trabajo.';
+      if (!form.title.trim()) return 'Escribe un título corto para la solicitud.';
+      if (!form.description.trim()) return 'Agrega una descripción breve del problema.';
+    }
+    if (requestStep === 2) {
+      if (!form.address.trim()) return 'Escribe calle y altura.';
+      if (locationLat === null || locationLng === null) {
+        return addressCandidates.length > 0
+          ? 'Confirma la dirección sugerida para ubicar la solicitud.'
+          : 'Confirma la dirección para ubicar la solicitud en el mapa.';
+      }
+    }
+    if (requestStep === 3) {
+      if ((form.preferredStartTime && !form.preferredEndTime) || (!form.preferredStartTime && form.preferredEndTime)) {
+        return 'Completa desde y hasta, o deja la franja vacía.';
+      }
+      if (form.preferredStartTime && form.preferredEndTime && form.preferredStartTime >= form.preferredEndTime) {
+        return 'La hora de inicio debe ser anterior a la hora de fin.';
+      }
+    }
+    return '';
+  };
+
+  const handleNextRequestStep = () => {
+    const message = getRequestStepMissingMessage();
+    if (message) {
+      setRequestError(message);
+      if (
+        requestStep === 2 &&
+        form.address.trim() &&
+        form.city.trim() &&
+        locationLat === null &&
+        locationLng === null &&
+        addressCandidates.length === 0
+      ) {
+        void handleValidateAddress();
+      }
+      return;
+    }
+    setRequestError('');
+    setRequestStep((current) => (current === 3 ? 3 : ((current + 1) as 1 | 2 | 3)));
   };
 
   if (!session?.user) {
@@ -1588,16 +2218,39 @@ export default function ClientRequestsHub() {
 
                 {authMode === 'register' && (
                   <div className="mt-4 space-y-3">
-                    <input
-                      value={clientProfileForm.phone}
-                      onChange={(event) => setClientProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
-                      placeholder="WhatsApp de contacto"
-                      autoComplete="tel"
-                      className="min-h-[48px] w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#2a0338] focus:ring-2 focus:ring-[#2a0338]/10"
-                    />
-                    <p className="text-[11px] leading-5 text-slate-500">
-                      La direccion del trabajo se carga despues, dentro de cada solicitud.
-                    </p>
+                    <div
+                      className={`flex min-h-[48px] items-center gap-2 rounded-2xl border px-3 py-2 shadow-sm transition focus-within:ring-2 ${clientWhatsappControlToneClass}`}
+                    >
+                      <span className={clientWhatsappInputStatusClass}>
+                        {clientProfileForm.phone.trim() && clientWhatsappValidation.isValid ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <MessageCircle className="h-4 w-4" />
+                        )}
+                      </span>
+                      <input
+                        value={clientProfileForm.phone}
+                        onChange={(event) => handleClientPhoneChange(event.target.value)}
+                        onBlur={normalizeClientPhoneField}
+                        placeholder="WhatsApp de contacto"
+                        autoComplete="tel"
+                        className="min-h-8 min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-slate-400"
+                      />
+                      {clientWhatsappValidation.isValid && (
+                        <a
+                          href={clientWhatsappValidation.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-[#2a0338] ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+                        >
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Probar
+                        </a>
+                      )}
+                    </div>
+                    {clientProfileForm.phone.trim() && !clientWhatsappValidation.isValid && (
+                      <p className="text-[11px] font-semibold text-amber-700">{clientWhatsappValidation.message}</p>
+                    )}
                   </div>
                 )}
 
@@ -1619,14 +2272,14 @@ export default function ClientRequestsHub() {
                       type={showAuthPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder="Contrasena"
+                      placeholder="Contraseña"
                       autoComplete={authMode === 'login' ? 'current-password' : 'new-password'}
                       className="min-h-[48px] w-full rounded-2xl border border-slate-300 bg-white py-3 pl-11 pr-12 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#2a0338] focus:ring-2 focus:ring-[#2a0338]/10"
                     />
                     <button
                       type="button"
                       onClick={() => setShowAuthPassword((current) => !current)}
-                      aria-label={showAuthPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                      aria-label={showAuthPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                       className="absolute right-3 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-700"
                     >
                       {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -1643,7 +2296,7 @@ export default function ClientRequestsHub() {
                       className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-500 transition hover:border-[#ffcf93] hover:bg-[#fff4e8] hover:text-[#8f4f08] disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {sendingRecovery && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-                      {sendingRecovery ? 'Enviando correo...' : 'Olvidaste tu contrasena?'}
+                      {sendingRecovery ? 'Enviando correo...' : '¿Olvidaste tu contraseña?'}
                     </button>
                   </div>
                 )}
@@ -1753,7 +2406,7 @@ export default function ClientRequestsHub() {
 
                   <button
                     type="button"
-                    title={!isDesktopNavExpanded ? 'Tecnicos' : undefined}
+                    title={!isDesktopNavExpanded ? 'Técnicos' : undefined}
                     onClick={openClientShowcase}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
                       isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
@@ -1764,7 +2417,7 @@ export default function ClientRequestsHub() {
                     }`}>
                       <Store className="h-4 w-4" />
                     </span>
-                    {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Tecnicos</span>}
+                    {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Técnicos</span>}
                   </button>
 
                   <button
@@ -1788,7 +2441,7 @@ export default function ClientRequestsHub() {
               <div className={`${isDesktopNavExpanded ? 'px-2.5 pb-3 pt-2.5' : 'px-2 pb-3 pt-2.5'} border-t border-white/[0.08]`}>
                 <button
                   type="button"
-                  title={!isDesktopNavExpanded ? 'Cerrar sesion' : undefined}
+                  title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                   onClick={handleLogout}
                   className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                     isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
@@ -1797,7 +2450,7 @@ export default function ClientRequestsHub() {
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338] transition group-hover:brightness-105">
                     <LogOut className="h-4 w-4" />
                   </span>
-                  {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesion</span>}
+                  {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesión</span>}
                 </button>
               </div>
             </div>
@@ -1940,7 +2593,7 @@ export default function ClientRequestsHub() {
                   ? requests.length > 0
                     ? 'Tu cuenta ya está operando con una base mucho más clara.'
                     : 'Tu cuenta ya está lista. Solo falta publicar tu primera solicitud.'
-                  : 'Tu registro ya quedo hecho. Ahora agrega foto y WhatsApp para publicar.'}
+                  : 'Tu registro ya quedó hecho. Ahora agrega WhatsApp para publicar.'}
               </h2>
               <p className="mt-2 text-sm text-slate-600">
                 UrbanFix te lleva por una secuencia simple: perfil, solicitud y lectura de técnicos cercanos.
@@ -1972,88 +2625,157 @@ export default function ClientRequestsHub() {
                 </div>
                 <p className="mt-2 text-sm leading-6 text-slate-600">{step.description}</p>
                 <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#7a6786]">
-                  Ir a esta seccion
+                  Ir a esta sección
                 </p>
               </a>
             ))}
           </div>
         </section>
 
-        <section id="perfil-cliente" className={!isClientProfileComplete || activeClientView === 'profile' ? clientPanelCardClass : 'hidden'}>
-          <div className="flex flex-wrap items-start justify-between gap-3">
+        <section
+          id="perfil-cliente"
+          className={
+            !isClientProfileComplete || activeClientView === 'profile'
+              ? `${clientPanelCardClass} overflow-hidden bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)]`
+              : 'hidden'
+          }
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Perfil cliente</p>
-              <h2 className="mt-1 text-lg font-semibold text-slate-950">Foto y WhatsApp</h2>
-              <p className="mt-1 text-sm text-slate-600">
-                Solo necesitamos estos datos. La direccion del trabajo se carga en cada solicitud.
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Perfil cliente</p>
+              <h2 className="mt-1 text-2xl font-semibold text-slate-950">Contacto</h2>
             </div>
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                isClientProfileComplete ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+              className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+                isClientProfileComplete
+                  ? 'bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200'
+                  : 'bg-amber-100 text-amber-800 ring-1 ring-amber-200'
               }`}
             >
-              {isClientProfileComplete ? 'Perfil completo' : `Faltan: ${clientProfileMissingFields.join(', ')}`}
+              {isClientProfileComplete ? 'Completo' : 'WhatsApp pendiente'}
             </span>
           </div>
 
           {loadingClientProfile ? (
-            <p className="mt-4 text-sm text-slate-500">Cargando perfil...</p>
+            <p className="mt-5 text-sm text-slate-500">Cargando perfil...</p>
           ) : (
             <>
-              <div className="mt-4 grid gap-4 sm:grid-cols-[auto_minmax(0,1fr)] sm:items-center">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-slate-400">
+              <div className="mt-5 grid gap-5 lg:grid-cols-[128px_minmax(0,1fr)] lg:items-start">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-[32px] border border-white bg-white text-slate-400 shadow-[0_22px_45px_-28px_rgba(15,23,42,0.9)] ring-1 ring-slate-200">
                     {clientProfileForm.avatarUrl ? (
                       <img src={clientProfileForm.avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
                     ) : (
-                      <User className="h-8 w-8" />
+                      <User className="h-11 w-11" />
                     )}
                   </div>
-                  <label
-                    className={`${clientPanelSecondaryButtonClass} inline-flex cursor-pointer items-center gap-2 ${
-                      uploadingClientAvatar ? 'pointer-events-none opacity-60' : ''
-                    }`}
-                  >
-                    {uploadingClientAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
-                    {uploadingClientAvatar ? 'Subiendo...' : clientProfileForm.avatarUrl ? 'Cambiar foto' : 'Subir foto'}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      disabled={uploadingClientAvatar}
-                      onChange={handleClientAvatarUpload}
-                      className="sr-only"
-                    />
-                  </label>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
+                    Foto opcional
+                  </span>
                 </div>
 
-                <div>
-                  <label className="text-xs font-semibold text-slate-600">WhatsApp de contacto</label>
-                  <input
-                    ref={clientProfilePhoneInputRef}
-                    value={clientProfileForm.phone}
-                    onChange={(event) => setClientProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
-                    placeholder="+54 9 11 1234-5678"
-                    autoComplete="tel"
-                    className={clientPanelInputClass}
-                  />
-                  <p className="mt-2 text-xs text-slate-500">
-                    La direccion exacta del trabajo va en el paso Ubicacion de la solicitud.
-                  </p>
-                </div>
-              </div>
+                <div className="min-w-0">
+                  <label className="text-xs font-semibold text-slate-600">WhatsApp</label>
+                  <div className="mt-1.5">
+                    <div
+                      className={`flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-2xl border px-3 py-2 shadow-sm transition focus-within:ring-2 ${clientWhatsappControlToneClass}`}
+                    >
+                      <span className={clientWhatsappInputStatusClass}>
+                        {clientProfileForm.phone.trim() && clientWhatsappValidation.isValid ? (
+                          <CheckCircle2 className="h-4 w-4" />
+                        ) : (
+                          <MessageCircle className="h-4 w-4" />
+                        )}
+                      </span>
+                      <input
+                        ref={clientProfilePhoneInputRef}
+                        value={clientProfileForm.phone}
+                        onChange={(event) => handleClientPhoneChange(event.target.value)}
+                        onBlur={normalizeClientPhoneField}
+                        placeholder="+54 9 11 1234-5678"
+                        autoComplete="tel"
+                        className="min-h-8 min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-slate-400"
+                      />
+                      {clientWhatsappValidation.isValid && (
+                        <a
+                          href={clientWhatsappValidation.href}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-[#2a0338] ring-1 ring-emerald-200 transition hover:bg-emerald-100"
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                          Probar chat
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                  {clientProfileForm.phone.trim() && !clientWhatsappValidation.isValid && (
+                    <p className="mt-2 text-xs font-semibold text-amber-700">{clientWhatsappValidation.message}</p>
+                  )}
+                  {hasClientWhatsappChanges && (
+                    <div className="mt-3 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={handleSaveClientProfile}
+                        disabled={savingClientProfile || !clientWhatsappValidation.isValid}
+                        className={`${clientPanelPrimaryButtonClass} min-h-11 px-6 disabled:cursor-not-allowed disabled:opacity-55`}
+                      >
+                        {savingClientProfile ? 'Guardando...' : 'Guardar'}
+                      </button>
+                    </div>
+                  )}
 
-              <div className="mt-4 flex flex-wrap items-center gap-3">
-                <button
-                  type="button"
-                  onClick={handleSaveClientProfile}
-                  disabled={savingClientProfile}
-                  className={clientPanelPrimaryButtonClass}
-                >
-                  {savingClientProfile ? 'Guardando...' : 'Guardar WhatsApp'}
-                </button>
-                {clientProfileError && <span className="text-xs text-rose-600">{clientProfileError}</span>}
-                {clientProfileNotice && <span className="text-xs text-emerald-600">{clientProfileNotice}</span>}
+                  <div className="mt-5 border-t border-slate-200 pt-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Avatar</p>
+                      <label
+                        className={`${clientPanelSecondaryButtonClass} inline-flex cursor-pointer items-center justify-center gap-2 px-3 py-1.5 text-xs ${
+                          uploadingClientAvatar ? 'pointer-events-none opacity-60' : ''
+                        }`}
+                      >
+                        {uploadingClientAvatar ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                        {uploadingClientAvatar ? 'Subiendo...' : 'Subir foto'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          disabled={uploadingClientAvatar}
+                          onChange={handleClientAvatarUpload}
+                          className="sr-only"
+                        />
+                      </label>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-8">
+                      {CLIENT_AVATAR_PRESETS.map((avatar) => {
+                        const selected = clientProfileForm.avatarUrl === avatar.src;
+                        return (
+                          <button
+                            key={avatar.src}
+                            type="button"
+                            onClick={() => handleClientAvatarPresetSelect(avatar.src)}
+                            disabled={savingClientProfile}
+                            aria-label={`Usar avatar ${avatar.label}`}
+                            title={avatar.label}
+                            className={`aspect-square overflow-hidden rounded-2xl border bg-white p-1.5 shadow-sm transition ${
+                              selected
+                                ? 'border-[#ff8f1f] ring-2 ring-[#ff8f1f]/25'
+                                : 'border-slate-200 hover:-translate-y-0.5 hover:border-slate-400 hover:shadow-md'
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            <img src={avatar.src} alt="" className="h-full w-full rounded-xl object-cover" />
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {(clientProfileError || clientProfileNotice) && (
+                    <div className="mt-3">
+                      {clientProfileError && <span className="text-xs text-rose-600">{clientProfileError}</span>}
+                      {clientProfileNotice && <span className="text-xs text-emerald-600">{clientProfileNotice}</span>}
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -2061,37 +2783,33 @@ export default function ClientRequestsHub() {
 
         <section className="grid gap-4">
           <article id="nueva-solicitud-cliente" className={activeClientView === 'request' ? 'grid gap-4' : 'hidden'}>
-            <div className={clientPanelCardClass}>
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Nueva solicitud</p>
-                  <h2 className="mt-1 text-xl font-semibold text-slate-950">{requestSteps[requestStep - 1].label}</h2>
-                </div>
-                <span className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-600">
-                  {requestStep}/3
-                </span>
-              </div>
-
-              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-2.5">
-                <div className="grid gap-2 sm:grid-cols-3">
-                  {requestSteps.map((step) => (
-                    <button
-                      key={step.id}
-                      type="button"
-                      onClick={() => setRequestStep(step.id)}
-                      className={`rounded-xl px-3 py-2 text-left text-sm transition ${
-                        requestStep === step.id
-                          ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200'
-                          : 'text-slate-500 hover:bg-white/70 hover:text-slate-900'
-                      }`}
-                    >
-                      <span className="block text-[11px] font-semibold uppercase tracking-[0.14em]">Paso {step.id}</span>
-                      <span className="mt-0.5 block font-semibold">{step.label}</span>
-                    </button>
-                  ))}
-                </div>
-                <p className="mt-3 text-sm text-slate-600">{requestSteps[requestStep - 1].guide}</p>
-              </div>
+            <div className="grid grid-cols-3 gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-1.5">
+              {requestSteps.map((step) => (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => {
+                    if (step.id <= requestStep) {
+                      setRequestError('');
+                      setRequestStep(step.id);
+                      return;
+                    }
+                    if (step.id === requestStep + 1) {
+                      handleNextRequestStep();
+                      return;
+                    }
+                    setRequestError('Completa el paso actual antes de avanzar.');
+                  }}
+                  className={`min-h-12 rounded-xl px-2 py-1.5 text-center text-xs transition ${
+                    requestStep === step.id
+                      ? 'bg-white text-slate-950 shadow-sm ring-1 ring-slate-200'
+                      : 'text-slate-500 hover:bg-white/70 hover:text-slate-900'
+                  }`}
+                >
+                  <span className="block text-[10px] font-semibold uppercase tracking-[0.12em]">Paso {step.id}</span>
+                  <span className="mt-0.5 block truncate font-semibold">{step.label}</span>
+                </button>
+              ))}
             </div>
 
             <div className={clientPanelCardClass}>
@@ -2102,112 +2820,224 @@ export default function ClientRequestsHub() {
                   ref={requestTitleInputRef}
                   value={form.title}
                   onChange={(event) => setForm((prev) => ({ ...prev, title: event.target.value }))}
-                  placeholder="Ej: No enfria el aire del living"
+                  placeholder={requestExamplePlaceholder.title}
                   className={clientPanelInputClass}
                 />
               </div>
               <div>
-                <label className="text-xs font-semibold text-slate-600">Categoría</label>
-                <input
+                <label className="text-xs font-semibold text-slate-600">Gremio</label>
+                <select
                   value={form.category}
                   onChange={(event) => setForm((prev) => ({ ...prev, category: event.target.value }))}
-                  placeholder="Ej: Refrigeracion"
-                  className={clientPanelInputClass}
-                />
+                  className={`${clientPanelInputClass} font-semibold`}
+                >
+                  <option value="">Selecciona un gremio</option>
+                  {REQUEST_CATEGORY_OPTIONS.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
             <div className={requestStep === 2 ? 'relative mt-3' : 'hidden'}>
-                <label className="text-xs font-semibold text-slate-600">Dirección</label>
+              <label className="text-xs font-semibold text-slate-600">Dirección</label>
               <input
                 value={form.address}
                 onChange={(event) => {
                   const nextAddress = event.target.value;
                   clearConfirmedAddress();
-                  setForm((prev) => ({ ...prev, address: nextAddress }));
-                  scheduleAddressLookup(nextAddress);
+                  setForm((prev) => ({ ...prev, address: nextAddress, city: '' }));
+                  scheduleAddressLookup(nextAddress, '');
                 }}
                 onFocus={() => {
                   if (addressCandidates.length > 0 && locationLat === null && locationLng === null) {
                     setAddressDropdownOpen(true);
                   }
                 }}
-                placeholder="Calle y numero. Ej: Corrientes 1234"
+                placeholder="Calle, número y localidad. Ej: Coronel Bogado 2556, Malvinas Argentinas"
                 className={clientPanelInputClass}
               />
               {addressDropdownOpen && addressCandidates.length > 0 && (
-                <div className="mt-2 overflow-hidden rounded-xl border border-slate-300 bg-white shadow-sm">
-                  <div className="border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700">
-                    Selecciona una direccion
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {addressCandidates.map((candidate) => {
-                      const key = getAddressCandidateKey(candidate);
-                      const selected = key === selectedAddressCandidateKey;
-                      return (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => applyAddressCandidate(candidate)}
-                          className={`block w-full px-3 py-2.5 text-left text-sm transition ${
-                            selected
-                              ? 'bg-slate-950 text-white'
-                              : 'text-slate-800 hover:bg-blue-600 hover:text-white'
-                          }`}
-                        >
-                          <span className="block font-semibold">
-                            {candidate.primaryLabel}
-                            {candidate.secondaryLabel ? ` - ${candidate.secondaryLabel}` : ''}
-                          </span>
-                          <span className={`mt-0.5 block text-xs ${selected ? 'text-white/80' : 'text-slate-500'}`}>
-                            {candidate.accuracyLabel || (candidate.precision === 'exact' ? 'Altura exacta' : 'Confirmar en mapa')}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div className="mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  {addressCandidates.map((candidate) => (
+                    <button
+                      key={getAddressCandidateKey(candidate)}
+                      type="button"
+                      onClick={() => applyAddressCandidate(candidate)}
+                      className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-3 text-left text-sm text-slate-800 transition last:border-b-0 hover:bg-emerald-50 hover:text-emerald-950"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-semibold">{candidate.primaryLabel}</span>
+                        <span className="mt-0.5 block truncate text-xs text-slate-500">
+                          {candidate.secondaryLabel || candidate.displayName}
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-full border border-slate-200 px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                        Usar
+                      </span>
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
 
-            <div className={`mt-3 grid gap-3 sm:grid-cols-3 ${requestStep === 1 ? 'hidden' : ''}`}>
-              <div className={requestStep === 2 ? '' : 'hidden'}>
-                <label className="text-xs font-semibold text-slate-600">Ciudad</label>
-                <input
-                  value={form.city}
-                  onChange={(event) => {
-                    const nextCity = event.target.value;
-                    clearConfirmedAddress();
-                    setForm((prev) => ({ ...prev, city: nextCity }));
-                    scheduleAddressLookup(form.address, nextCity);
-                  }}
-                  placeholder="Ej: CABA, Palermo, Vicente Lopez"
-                  className={clientPanelInputClass}
-                />
-              </div>
+            <div className={`mt-3 grid gap-4 ${requestStep === 3 ? '' : 'hidden'}`}>
               <div className={requestStep === 3 ? '' : 'hidden'}>
                 <label className="text-xs font-semibold text-slate-600">Urgencia</label>
-                <select
-                  value={form.urgency}
-                  onChange={(event) =>
-                    setForm((prev) => ({ ...prev, urgency: event.target.value as CreateRequestForm['urgency'] }))
-                  }
-                  className={clientPanelInputClass + ' font-semibold'}
-                >
-                  <option value="baja">Baja</option>
-                  <option value="media">Media</option>
-                  <option value="alta">Alta</option>
-                </select>
+                <div className="mt-3 px-3 pb-1 pt-8">
+                  <div
+                    className="relative mx-auto h-10 max-w-xl cursor-grab touch-none select-none active:cursor-grabbing"
+                    onPointerDown={(event) => {
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                      setUrgencyFromSliderPosition(event.clientX, event.currentTarget);
+                    }}
+                    onPointerMove={(event) => {
+                      if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+                      setUrgencyFromSliderPosition(event.clientX, event.currentTarget);
+                    }}
+                    onPointerUp={(event) => {
+                      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                        event.currentTarget.releasePointerCapture(event.pointerId);
+                      }
+                    }}
+                    onPointerCancel={(event) => {
+                      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+                        event.currentTarget.releasePointerCapture(event.pointerId);
+                      }
+                    }}
+                  >
+                    <div className="absolute left-0 right-0 top-1/2 h-4 -translate-y-1/2 rounded-full bg-slate-200 shadow-inner" />
+                    <div
+                      className={`absolute left-0 top-1/2 h-4 -translate-y-1/2 rounded-full bg-gradient-to-r ${selectedUrgencyMeta.fillClass}`}
+                      style={{ width: `${selectedUrgencyLevel}%` }}
+                    >
+                      <span className="absolute inset-0 rounded-full bg-[length:18px_18px] bg-[linear-gradient(135deg,rgba(255,255,255,0.18)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.18)_50%,rgba(255,255,255,0.18)_75%,transparent_75%,transparent)]" />
+                    </div>
+                    <div
+                      className="absolute -top-8 -translate-x-1/2"
+                      style={{ left: `${selectedUrgencyLevel}%` }}
+                    >
+                      <span
+                        className={`relative flex h-12 w-12 items-center justify-center rounded-full border-2 text-xs font-black shadow-lg ${selectedUrgencyMeta.bubbleClass}`}
+                      >
+                        {selectedUrgencyLevel}
+                        <span className="absolute -bottom-2 left-1/2 h-0 w-0 -translate-x-1/2 border-x-[6px] border-t-[8px] border-x-transparent border-t-current" />
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={100}
+                      step={1}
+                      value={selectedUrgencyLevel}
+                      onChange={(event) => {
+                        setUrgencyLevel(Number(event.target.value));
+                      }}
+                      aria-label="Nivel de urgencia de 1 a 100"
+                      className="absolute inset-x-0 top-1/2 h-10 w-full -translate-y-1/2 cursor-grab opacity-0 active:cursor-grabbing"
+                    />
+                  </div>
+                  <div className="mx-auto mt-1 grid max-w-xl grid-cols-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    <span>Baja</span>
+                    <span className="text-center">Media</span>
+                    <span className="text-right">Alta</span>
+                  </div>
+                </div>
               </div>
               <div className={requestStep === 3 ? '' : 'hidden'}>
                 <label className="text-xs font-semibold text-slate-600">Franja horaria (opcional)</label>
-                <input
-                  value={form.preferredWindow}
-                  onChange={(event) => setForm((prev) => ({ ...prev, preferredWindow: event.target.value }))}
-                  placeholder="Ej: 14:00 - 18:00"
-                  className={clientPanelInputClass}
-                />
+                <div className="mt-1.5 grid grid-cols-2 gap-2">
+                  {[
+                    {
+                      label: 'Desde',
+                      field: 'preferredStartTime' as const,
+                      value: form.preferredStartTime,
+                      parts: preferredStartTimeParts,
+                    },
+                    {
+                      label: 'Hasta',
+                      field: 'preferredEndTime' as const,
+                      value: form.preferredEndTime,
+                      parts: preferredEndTimeParts,
+                    },
+                  ].map((timeControl) => (
+                    <label
+                      key={timeControl.field}
+                      className="relative block cursor-pointer rounded-xl transition focus-within:ring-2 focus-within:ring-[#ff8f1f]/20"
+                    >
+                      <span className="flex items-center justify-center gap-1.5">
+                        {[timeControl.parts.hour, timeControl.parts.minute].map((part, index) => (
+                          <React.Fragment key={`${timeControl.field}-${index}`}>
+                            {index === 1 && <span className="text-2xl font-black text-slate-700 sm:text-3xl">:</span>}
+                            <span className="relative flex h-14 min-w-14 items-center justify-center overflow-hidden rounded-2xl bg-[#111827] px-2.5 text-3xl font-black leading-none text-white shadow-inner sm:h-16 sm:min-w-16 sm:text-4xl">
+                              <span className="absolute inset-x-0 top-1/2 h-px bg-white/18" />
+                              <span className="absolute inset-x-0 top-0 h-1/2 bg-white/[0.06]" />
+                              {part}
+                            </span>
+                          </React.Fragment>
+                        ))}
+                      </span>
+                      <select
+                        aria-label={`${timeControl.label} franja horaria`}
+                        value={timeControl.value}
+                        onChange={(event) => setPreferredTimeRange(timeControl.field, event.target.value)}
+                        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                      >
+                        <option value="">{timeControl.label}</option>
+                        {REQUEST_TIME_OPTIONS.map((time) => (
+                          <option key={`${timeControl.field}-${time}`} value={time}>
+                            {time}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ))}
+                </div>
               </div>
+            </div>
+
+            <div className={requestStep === 3 ? 'mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4' : 'hidden'}>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                Así lo verá el técnico
+              </p>
+              <article className="mt-3 rounded-2xl border border-slate-200 bg-white p-3 text-sm text-slate-700 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100 text-sm font-black text-slate-600">
+                      {clientProfileForm.avatarUrl ? (
+                        <img src={clientProfileForm.avatarUrl} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        requestPreviewInitial
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold text-slate-950">{requestPreviewClientName}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Cliente</p>
+                    </div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${urgencyClass(form.urgency)}`}>
+                    {form.urgency}
+                  </span>
+                </div>
+
+                <div className="mt-3">
+                  <h3 className="text-base font-bold text-slate-950">{form.title || 'Título pendiente'}</h3>
+                  <p className="mt-1 text-xs font-semibold text-slate-600">
+                    {form.category || 'Rubro pendiente'} · Zona: {requestPreviewZone} · Distancia según técnico
+                  </p>
+                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-700">
+                    {form.description || 'Descripción pendiente para que el técnico entienda el trabajo.'}
+                  </p>
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] font-medium text-slate-500">
+                  <span>Ubicación protegida</span>
+                  <span>Fecha: {requestPreviewDate}</span>
+                  {requestPreviewWindow && <span>Preferencia: {requestPreviewWindow}</span>}
+                </div>
+              </article>
             </div>
 
             <div className={requestStep === 2 ? 'mt-3 space-y-3' : 'hidden'}>
@@ -2216,39 +3046,36 @@ export default function ClientRequestsHub() {
                 <p className="text-xs font-medium text-rose-600">{addressValidationError}</p>
               )}
               {currentRequestMapLinks && locationLat !== null && locationLng !== null && (
-                <div
-                  className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800"
-                >
-                  <p className="font-semibold">Ubicacion confirmada</p>
-                  <p className="mt-1">
-                    {confirmedAddressLabel || [form.address, form.city].filter(Boolean).join(', ')}
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <a
-                      href={currentRequestMapLinks.googleMapsHref}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-100"
-                    >
-                      Google Maps
-                    </a>
-                    <a
-                      href={currentRequestMapLinks.appleMapsHref}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-800 transition hover:border-slate-300 hover:bg-slate-100"
-                    >
-                      Apple Maps
-                    </a>
-                  </div>
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-[#16031f] shadow-sm">
                   {currentRequestMapEmbedUrl && (
-                    <div className="mt-3 overflow-hidden rounded-xl border border-emerald-200 bg-white">
+                    <div className="relative h-40 overflow-hidden bg-slate-900 sm:h-44">
                       <iframe
                         title="Mapa de la solicitud"
                         src={currentRequestMapEmbedUrl}
-                        className="h-64 w-full border-0"
+                        className="h-full w-full border-0"
                         loading="lazy"
                       />
+                      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(22,3,31,0.22),rgba(22,3,31,0.05)_42%,rgba(22,3,31,0.72))]" />
+                      <div className="pointer-events-none absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/95 px-3 py-1.5 text-[11px] font-semibold text-slate-900 shadow-sm">
+                        <MapPin className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                        Mapa operativo
+                      </div>
+                      <div className="pointer-events-none absolute inset-x-3 bottom-3 flex items-end justify-between gap-3">
+                        <div className="min-w-0 rounded-2xl bg-white/95 px-3 py-2 text-xs text-slate-700 shadow-sm">
+                          <p className="truncate font-semibold text-slate-950">Punto confirmado</p>
+                          <p className="mt-0.5 truncate">
+                            {confirmedAddressLabel || [form.address, form.city].filter(Boolean).join(', ')}
+                          </p>
+                        </div>
+                        <a
+                          href={currentRequestMapLinks.googleMapsHref}
+                          target="_blank"
+                          rel="noreferrer noopener"
+                          className="pointer-events-auto shrink-0 rounded-full bg-[#ff8f1f] px-3 py-2 text-[11px] font-semibold text-[#2a0338] shadow-sm transition hover:bg-[#ffa748]"
+                        >
+                          Abrir
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -2281,7 +3108,7 @@ export default function ClientRequestsHub() {
                   disabled={validatingAddress || savingRequest}
                   className={clientPanelPrimaryButtonClass + ' text-xs disabled:opacity-60'}
                 >
-                  {validatingAddress ? 'Validando...' : 'Validar direccion'}
+                  {validatingAddress ? 'Validando...' : 'Validar dirección'}
                 </button>
                 <label className="flex items-center gap-2 text-[11px] font-semibold text-slate-700">
                   Radio (km)
@@ -2305,7 +3132,7 @@ export default function ClientRequestsHub() {
               {locationLat !== null && locationLng !== null ? (
                 <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] text-emerald-800">
                   <p className="font-semibold">
-                    Punto confirmado: {locationSource === 'gps' ? 'GPS del dispositivo' : 'Direccion validada'}
+                    Punto confirmado: {locationSource === 'gps' ? 'GPS del dispositivo' : 'Dirección validada'}
                   </p>
                   {confirmedAddressLabel && <p className="mt-1">{confirmedAddressLabel}</p>}
                   <p className="mt-1 text-emerald-700">
@@ -2318,25 +3145,6 @@ export default function ClientRequestsHub() {
                 </p>
               )}
               {addressValidationError && <p className="mt-2 text-[11px] text-rose-600">{addressValidationError}</p>}
-              {!addressDropdownOpen && addressCandidates.length > 1 && (
-                <div className="mt-3 space-y-2">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                    Otras coincidencias
-                  </p>
-                  {addressCandidates.slice(1, 4).map((candidate) => (
-                    <button
-                      key={`${candidate.lat}-${candidate.lng}-${candidate.displayName}`}
-                      type="button"
-                      onClick={() => applyAddressCandidate(candidate)}
-                      className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-left text-[11px] text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                    >
-                      <span className="block font-semibold text-slate-800">{candidate.primaryLabel}</span>
-                      <span className="mt-0.5 block">{candidate.secondaryLabel || candidate.displayName}</span>
-                      {candidate.accuracyLabel && <span className="mt-1 block text-slate-500">{candidate.accuracyLabel}</span>}
-                    </button>
-                  ))}
-                </div>
-              )}
               {requestGeoNotice && <p className="mt-1 text-[11px] text-slate-600">{requestGeoNotice}</p>}
             </div>
 
@@ -2346,7 +3154,7 @@ export default function ClientRequestsHub() {
                 rows={4}
                 value={form.description}
                 onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-                placeholder="Contanos que pasa, desde cuando y si hay algo urgente."
+                placeholder={requestExamplePlaceholder.description}
                 className={clientPanelInputClass}
               />
             </div>
@@ -2426,7 +3234,7 @@ export default function ClientRequestsHub() {
                     </div>
                   ) : (
                     <p className="text-[11px] text-slate-500">
-                      Elige un tecnico de la zona para enviar la solicitud directa.
+                      Elige un técnico de la zona para enviar la solicitud directa.
                     </p>
                   )}
 
@@ -2436,7 +3244,7 @@ export default function ClientRequestsHub() {
               )}
             </div>
 
-            <div className="mt-5 flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+            <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-4">
               <button
                 type="button"
                 onClick={() => setRequestStep((current) => (current === 1 ? 1 : ((current - 1) as 1 | 2 | 3)))}
@@ -2445,22 +3253,26 @@ export default function ClientRequestsHub() {
               >
                 Anterior
               </button>
-              {requestStep < 3 ? (
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (requestStep === 2 && locationLat === null && locationLng === null) {
-                      void handleValidateAddress();
-                      return;
-                    }
-                    setRequestStep((current) => (current === 3 ? 3 : ((current + 1) as 1 | 2 | 3)));
-                  }}
+                  onClick={handleSaveRequestDraft}
+                  disabled={savingRequest || !hasRequestDraftContent}
+                  className={clientPanelSecondaryButtonClass + ' disabled:cursor-not-allowed disabled:opacity-50'}
+                >
+                  Guardar borrador
+                </button>
+                {requestStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={handleNextRequestStep}
                   disabled={savingRequest || validatingAddress}
                   className={clientPanelPrimaryButtonClass + ' min-w-28'}
                 >
                   {validatingAddress ? 'Validando...' : 'Siguiente'}
                 </button>
-              ) : null}
+                ) : null}
+              </div>
             </div>
 
             <button
@@ -2473,7 +3285,7 @@ export default function ClientRequestsHub() {
                 ? 'Publicando...'
                 : isClientProfileComplete
                   ? 'Publicar solicitud'
-                  : 'Agrega foto y WhatsApp para publicar'}
+                  : 'Agrega WhatsApp para publicar'}
             </button>
 
             {requestError && <p className="mt-3 text-xs text-rose-600">{requestError}</p>}
@@ -2481,14 +3293,214 @@ export default function ClientRequestsHub() {
             </div>
           </article>
 
-          <article id="mapa-solicitudes-cliente" className={activeClientView === 'map' ? 'min-h-[calc(100dvh-57px)] bg-slate-100 px-4 py-5 sm:px-6 lg:px-8' : 'hidden'}>
-            <div className="rounded-[32px] border border-white/80 bg-white/95 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
+          <article id="mapa-solicitudes-cliente" className={activeClientView === 'map' ? 'relative min-h-[calc(100dvh-57px)] overflow-hidden bg-slate-950' : 'hidden'}>
+            <div className="relative h-[calc(100dvh-57px)] min-h-[680px]">
+              <div className="absolute inset-0 overflow-hidden bg-slate-900">
+                {clientOperationalMapPoints.length > 0 || clientMapFallbackCenter ? (
+                  <TechnicianOperationalMap
+                    points={clientOperationalMapPoints}
+                    selectedPointId={!clientMapShowAll ? selectedMapRequest?.id || '' : ''}
+                    fallbackCenter={clientMapFallbackCenter}
+                    onSelectPoint={(pointId) => {
+                      setSelectedClientRequestId(pointId);
+                      setClientMapShowAll(false);
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-300">
+                    Todavia no hay solicitudes con punto confirmado. Valida una direccion al cargar tu proxima solicitud.
+                  </div>
+                )}
+              </div>
+
+              <div className="absolute left-3 right-3 top-3 z-30 rounded-[20px] border border-white/80 bg-white/92 px-3 py-2 shadow-[0_22px_58px_-42px_rgba(15,23,42,0.75)] backdrop-blur-xl sm:left-5 sm:right-5 sm:top-5 sm:px-4 xl:left-6 xl:right-6">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  <div className="mr-auto min-w-[11rem]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Mapa cliente</p>
+                    <p className="text-sm font-bold text-slate-900">{clientMapPoints.length} solicitudes en mapa</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1 rounded-full bg-slate-100 p-1">
+                    <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                      Total {requests.length}
+                    </span>
+                    <span className="rounded-full px-3 py-1 text-xs font-semibold text-slate-600">
+                      Respuestas {clientVisibleResponseTotal}
+                    </span>
+                    <span className="rounded-full px-3 py-1 text-xs font-semibold text-slate-600">
+                      Sin punto {clientRequestsWithoutMapCount}
+                    </span>
+                  </div>
+                  {!clientMapShowAll && (
+                    <button
+                      type="button"
+                      onClick={() => setClientMapShowAll(true)}
+                      className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                    >
+                      Ver todas
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={handleRefreshWorkspace}
+                    disabled={loadingRequests}
+                    className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingRequests ? 'Actualizando...' : 'Actualizar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openRequestSection}
+                    className="rounded-full bg-[#ff8f1f] px-3 py-1.5 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                  >
+                    Nueva solicitud
+                  </button>
+                </div>
+                {requestsLoadError && <p className="mt-2 text-[11px] font-semibold text-rose-600">{requestsLoadError}</p>}
+              </div>
+
+              <div className="absolute bottom-4 left-3 right-3 z-40 max-h-[58dvh] overflow-y-auto rounded-[24px] border border-white/80 bg-white/92 p-3 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.78)] backdrop-blur-xl sm:left-5 sm:right-5 xl:bottom-5 xl:left-6 xl:right-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Solicitud</p>
+                    <p className="text-sm font-bold text-slate-900">
+                      {selectedMapRequest && selectedMapRequestIndex >= 0
+                        ? `${selectedMapRequestIndex + 1} de ${requestsWithMap.length}`
+                        : 'Sin solicitudes'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label="Solicitud anterior"
+                      onClick={() => showClientMapRequestAt(selectedMapRequestIndex - 1)}
+                      disabled={requestsWithMap.length <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Solicitud siguiente"
+                      onClick={() => showClientMapRequestAt(selectedMapRequestIndex + 1)}
+                      disabled={requestsWithMap.length <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {selectedMapRequest ? (
+                  <div className="mt-3 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedClientRequestId(selectedMapRequest.id);
+                        setClientMapShowAll(false);
+                      }}
+                      className="w-full min-w-0 text-left"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Tu solicitud</p>
+                          <h3 className="mt-1 text-base font-bold leading-5 text-slate-900">{selectedMapRequest.title}</h3>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${urgencyClass(selectedMapRequest.urgency)}`}>
+                            {selectedMapRequest.urgency}
+                          </span>
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${badgeByStatus(selectedMapRequest.status)}`}>
+                            {selectedMapRequest.status}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="mt-2 text-xs font-semibold text-slate-500">
+                        {selectedMapRequest.category} · {selectedMapRequest.city || 'Zona sin ciudad'}
+                      </p>
+                      <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-600">
+                        {selectedMapRequest.description || 'Sin descripcion cargada.'}
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                        <span>Direccion cargada</span>
+                        <span>Fecha: {new Date(selectedMapRequest.created_at).toLocaleDateString('es-AR')}</span>
+                        <span>
+                          {visibleResponseCount(selectedMapRequest.responses)}{' '}
+                          {visibleResponseCount(selectedMapRequest.responses) === 1 ? 'respuesta' : 'respuestas'}
+                        </span>
+                      </div>
+                    </button>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Postulaciones</p>
+                          <p className="mt-1 text-xs font-semibold text-slate-700">
+                            {selectedMapResponses.length > 0
+                              ? `${selectedMapResponses.length} respuesta(s) para revisar`
+                              : 'Todavia sin respuestas visibles'}
+                          </p>
+                        </div>
+                        {selectedGoogleMapsHref && (
+                          <a
+                            href={selectedGoogleMapsHref}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          >
+                            Abrir mapa
+                          </a>
+                        )}
+                      </div>
+
+                      {selectedMapResponses.length > 0 ? (
+                        <div className="mt-2 space-y-2">
+                          {selectedMapResponses.slice(0, 2).map((responseItem) => {
+                            const statusMeta = responseStatusMeta(responseItem.quoteStatus, responseItem.responseType);
+                            return (
+                              <div key={responseItem.id} className="rounded-xl bg-white px-3 py-2 text-xs text-slate-600">
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="min-w-0 truncate font-semibold text-slate-950">
+                                    {responseItem.businessName || responseItem.technicianName}
+                                  </p>
+                                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusMeta.className}`}>
+                                    {statusMeta.label}
+                                  </span>
+                                </div>
+                                <p className="mt-1 truncate">{responseItem.specialty}</p>
+                                {responseItem.responseMessage && (
+                                  <p className="mt-1 line-clamp-2 leading-5">{responseItem.responseMessage}</p>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {selectedMapResponses.length > 2 && (
+                            <p className="px-1 text-[11px] font-semibold text-slate-500">
+                              +{selectedMapResponses.length - 2} respuesta(s) mas en seguimiento.
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="mt-2 rounded-xl bg-white px-3 py-2 text-xs leading-5 text-slate-500">
+                          Cuando un tecnico se postule, lo vas a ver aca para elegir o rechazar.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-3 rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-5 text-center text-sm text-slate-500">
+                    Todavia no hay solicitudes geolocalizadas para mostrar en el mapa.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="hidden">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Mapa cliente</p>
                   <h2 className="mt-1 text-lg font-semibold text-slate-900">Solicitudes de presupuesto</h2>
                   <p className="mt-1 text-sm text-slate-500">
-                    Visualiza las direcciones cargadas y las respuestas de tecnicos asociadas a cada solicitud.
+                    Visualiza las direcciones cargadas y las respuestas de técnicos asociadas a cada solicitud.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -2509,6 +3521,7 @@ export default function ClientRequestsHub() {
                   </button>
                 </div>
               </div>
+              {requestsLoadError && <p className="mt-3 text-xs text-rose-600">{requestsLoadError}</p>}
 
               <div className="mt-4 grid gap-4 lg:grid-cols-[0.92fr_1.08fr]">
                 <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 lg:order-1">
@@ -2549,7 +3562,7 @@ export default function ClientRequestsHub() {
                             {item.category} · {item.city || 'Sin ciudad'}
                           </p>
                           <p className={`mt-1 text-xs ${isSelected ? 'text-white/80' : 'text-slate-500'}`}>
-                            {item.address || 'Sin direccion'}
+                            {item.address || 'Sin dirección'}
                           </p>
                           <div className={`mt-2 flex flex-wrap gap-2 text-[11px] font-semibold ${isSelected ? 'text-white/90' : 'text-slate-600'}`}>
                             <span>Pin {index + 1}</span>
@@ -2562,7 +3575,7 @@ export default function ClientRequestsHub() {
                   </div>
                 </div>
                 <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 lg:order-2">
-                  {clientMapView.url ? (
+                  {false && clientMapView.url ? (
                     <iframe
                       title="Mapa de solicitudes UrbanFix"
                       src={clientMapView.url}
@@ -2571,7 +3584,7 @@ export default function ClientRequestsHub() {
                     />
                   ) : (
                     <div className="flex h-[360px] items-center justify-center px-6 text-center text-sm text-slate-500">
-                      No hay puntos geolocalizados todavia. Valida una direccion al cargar tu proxima solicitud.
+                      No hay puntos geolocalizados todavía. Valida una dirección al cargar tu próxima solicitud.
                     </div>
                   )}
                   <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-4 py-3 text-xs">
@@ -2625,7 +3638,7 @@ export default function ClientRequestsHub() {
             <div className="bg-slate-50 px-4 py-5 sm:px-6 lg:px-8">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Tus solicitudes</p>
-                <h3 className="mt-1 text-base font-semibold text-slate-950">Seguimiento por direccion</h3>
+                <h3 className="mt-1 text-base font-semibold text-slate-950">Seguimiento por dirección</h3>
               </div>
 
             {loadingRequests && requests.length === 0 ? (
@@ -2636,7 +3649,7 @@ export default function ClientRequestsHub() {
               </div>
             ) : requestsWithMap.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-                  Tus solicitudes todavia no tienen punto confirmado. Valida una direccion al cargar la proxima solicitud.
+                  Tus solicitudes todavía no tienen punto confirmado. Valida una dirección al cargar la próxima solicitud.
               </div>
             ) : (
               <>
@@ -2696,7 +3709,7 @@ export default function ClientRequestsHub() {
                           <p className="mt-1 text-sm text-slate-600">
                             {selectedMapResponses.length > 0
                               ? 'Revisa disponibilidad, mensaje y contacto antes de elegir.'
-                              : 'Todavia no hay tecnicos postulados.'}
+                              : 'Todavía no hay técnicos postulados.'}
                           </p>
                         </div>
                         {selectedMapResponses.length > 0 && (
@@ -2770,7 +3783,7 @@ export default function ClientRequestsHub() {
                                     disabled={isRejected || isAccepted || clientResponseActionId.startsWith(actionBaseId)}
                                     className={clientPanelPrimaryButtonClass}
                                   >
-                                    {clientResponseActionId === `${actionBaseId}:select` ? 'Guardando...' : isAccepted ? 'Elegida' : 'Elegir tecnico'}
+                                    {clientResponseActionId === `${actionBaseId}:select` ? 'Guardando...' : isAccepted ? 'Elegida' : 'Elegir técnico'}
                                   </button>
                                   {!isRejected && !isAccepted && (
                                     <button
@@ -2838,9 +3851,9 @@ export default function ClientRequestsHub() {
             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Vidriera cliente</p>
-                <h2 className="mt-1 text-xl font-semibold text-slate-950">Tecnicos para tu zona</h2>
+                <h2 className="mt-1 text-xl font-semibold text-slate-950">Técnicos para tu zona</h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Vista privada del cliente. Usa tu ciudad, direccion y radio para mostrar perfiles disponibles.
+                  Vista privada del cliente. Usa tu ciudad, dirección y radio para mostrar perfiles disponibles.
                 </p>
               </div>
               <button
@@ -2864,10 +3877,10 @@ export default function ClientRequestsHub() {
             </div>
 
             {nearbyLoading ? (
-              <p className="mt-4 text-sm text-slate-500">Cargando tecnicos...</p>
+              <p className="mt-4 text-sm text-slate-500">Cargando técnicos...</p>
             ) : nearbyTechnicians.length === 0 ? (
               <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-                No hay tecnicos visibles para esta zona. Completa el perfil o amplia el radio desde la solicitud.
+                No hay técnicos visibles para esta zona. Completa el perfil o amplía el radio desde la solicitud.
               </div>
             ) : (
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -2979,6 +3992,10 @@ export default function ClientRequestsHub() {
 
               {loadingRequests ? (
                 <p className="mt-4 text-sm text-slate-500">Cargando solicitudes...</p>
+              ) : requestsLoadError ? (
+                <div className="mt-4 rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm text-rose-700">
+                  {requestsLoadError}
+                </div>
               ) : requests.length === 0 ? (
                 <div className="mt-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-500">
                   Aún no publicaste solicitudes.

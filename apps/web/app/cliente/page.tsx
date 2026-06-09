@@ -3,7 +3,7 @@ import ClientRequestsHub from './ClientRequestsHub';
 
 export const metadata: Metadata = {
   title: 'Portal cliente | UrbanFix',
-  description: 'Publica solicitudes y recibe tecnicos cercanos en UrbanFix.',
+  description: 'Publica solicitudes y recibe técnicos cercanos en UrbanFix.',
   alternates: {
     canonical: '/cliente',
   },
