@@ -1648,6 +1648,12 @@ const addDays = (date: Date, days: number) => {
 
 const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate());
 
+const startOfAgendaWeek = (date: Date) => {
+  const day = date.getDay();
+  const diffToMonday = day === 0 ? -6 : 1 - day;
+  return startOfDay(addDays(date, diffToMonday));
+};
+
 const isSameDay = (left: Date, right: Date) =>
   left.getFullYear() === right.getFullYear() &&
   left.getMonth() === right.getMonth() &&
@@ -1956,6 +1962,7 @@ export default function TechniciansPage() {
   const [scheduleMessage, setScheduleMessage] = useState('');
   const [agendaSearch, setAgendaSearch] = useState('');
   const [agendaFilter, setAgendaFilter] = useState<'all' | 'pending' | 'scheduled'>('all');
+  const [agendaWeekOffset, setAgendaWeekOffset] = useState(0);
   const activeThemeStyles = themeStyles;
 
   useEffect(() => {
@@ -4331,6 +4338,17 @@ export default function TechniciansPage() {
   const agendaTomorrowKey = formatDateLocal(addDays(agendaBaseDate, 1));
   const agendaTodayTime = agendaBaseDate.getTime();
   const agendaNextWindowEndTime = addDays(agendaBaseDate, 7).getTime();
+  const agendaWeekStart = startOfAgendaWeek(addDays(agendaBaseDate, agendaWeekOffset * 7));
+  const agendaWeekEnd = addDays(agendaWeekStart, 6);
+  const agendaWeekDays = Array.from({ length: 7 }, (_, index) => addDays(agendaWeekStart, index));
+  const agendaWeekLabel = `${agendaWeekStart.toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'short',
+  })} - ${agendaWeekEnd.toLocaleDateString('es-AR', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  })}`;
   const agendaCounts = useMemo(() => {
     const scheduled = approvedJobs.filter((quote) => Boolean(quote.start_date)).length;
     const pending = approvedJobs.length - scheduled;
@@ -4450,6 +4468,26 @@ export default function TechniciansPage() {
         }
       ),
     [agendaJobs, agendaNextWindowEndTime, agendaTodayTime]
+  );
+  const agendaCalendarDays = useMemo(
+    () =>
+      agendaWeekDays.map((day) => {
+        const dayKey = formatDateLocal(day);
+        const dayTime = startOfDay(day).getTime();
+        const items = agendaJobs.filter((quote) => {
+          const start = parseDateLocal(getDatePart(quote.start_date));
+          if (!start) return false;
+          const end = parseDateLocal(getDatePart(quote.end_date)) || start;
+          return startOfDay(start).getTime() <= dayTime && startOfDay(end).getTime() >= dayTime;
+        });
+        return {
+          key: dayKey,
+          date: day,
+          items,
+          isToday: isSameDay(day, agendaBaseDate),
+        };
+      }),
+    [agendaBaseDate, agendaJobs, agendaWeekDays]
   );
   const filteredQuotes = useMemo(() => {
     if (quoteFilter === 'all') return quotes;
@@ -9010,6 +9048,314 @@ export default function TechniciansPage() {
               })()}
 
             {activeTab === 'agenda' && (
+              <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_22px_58px_-46px_rgba(15,23,42,0.42)]">
+                <div className="flex flex-col gap-4 border-b border-slate-200 bg-white p-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Agenda</p>
+                    <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-bold text-[#180f24]`}>
+                      Calendario semanal
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">{agendaWeekLabel}</p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 lg:items-end">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAgendaWeekOffset((prev) => prev - 1)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                        aria-label="Semana anterior"
+                      >
+                        <ArrowLeft className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAgendaWeekOffset(0)}
+                        className="h-9 rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                      >
+                        Hoy
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAgendaWeekOffset((prev) => prev + 1)}
+                        className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                        aria-label="Semana siguiente"
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        { key: 'all' as const, label: `Todos ${agendaCounts.all}` },
+                        { key: 'pending' as const, label: `Sin fecha ${agendaCounts.pending}` },
+                        { key: 'scheduled' as const, label: `Programados ${agendaCounts.scheduled}` },
+                      ].map((item) => (
+                        <button
+                          key={item.key}
+                          type="button"
+                          onClick={() => setAgendaFilter(item.key)}
+                          className={`h-9 rounded-full px-3 text-xs font-semibold transition ${
+                            agendaFilter === item.key
+                              ? 'bg-[#020617] text-white'
+                              : 'border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-0 bg-slate-100 lg:grid-cols-[300px_minmax(0,1fr)]">
+                  <aside className="border-b border-slate-200 bg-white p-4 lg:border-b-0 lg:border-r">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                      <input
+                        value={agendaSearch}
+                        onChange={(event) => setAgendaSearch(event.target.value)}
+                        placeholder="Buscar cliente o dirección"
+                        className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#020617]"
+                      />
+                    </div>
+
+                    {scheduleMessage && (
+                      <p className="mt-3 rounded-[14px] bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-600">
+                        {scheduleMessage}
+                      </p>
+                    )}
+
+                    <div className="mt-4 rounded-[18px] border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Sin fecha</p>
+                          <p className="mt-1 text-sm font-bold text-slate-900">{agendaSections.unscheduled.length} pendientes</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 space-y-2">
+                        {agendaSections.unscheduled.length === 0 && (
+                          <p className="rounded-[14px] bg-white px-3 py-3 text-xs text-slate-500">
+                            No hay trabajos pendientes de fecha.
+                          </p>
+                        )}
+                        {agendaSections.unscheduled.map((quote) => {
+                          const startValue = getDatePart(quote.start_date);
+                          const isSaving = scheduleSavingId === quote.id;
+
+                          return (
+                            <div key={quote.id} className="rounded-[16px] border border-slate-200 bg-white p-3">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-bold text-slate-900">
+                                    {quote.client_name || 'Presupuesto'}
+                                  </p>
+                                  <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
+                                    {getQuoteAddress(quote) || 'Sin dirección'}
+                                  </p>
+                                </div>
+                                <p className="shrink-0 text-xs font-bold text-slate-900">
+                                  {formatCompactDashboardMoney(toAmountValue(quote.total_amount))}
+                                </p>
+                              </div>
+                              <div className="mt-3 grid grid-cols-2 gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => commitQuoteSchedule(quote.id, agendaTodayKey, agendaTodayKey)}
+                                  disabled={isSaving}
+                                  className="h-8 rounded-full bg-[#020617] px-3 text-[11px] font-semibold text-white transition hover:bg-[#111827] disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Hoy
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => commitQuoteSchedule(quote.id, agendaTomorrowKey, agendaTomorrowKey)}
+                                  disabled={isSaving}
+                                  className="h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                  Mañana
+                                </button>
+                                <input
+                                  type="date"
+                                  value={startValue}
+                                  disabled={isSaving}
+                                  onChange={(event) => {
+                                    const value = event.target.value;
+                                    if (!value) {
+                                      commitQuoteSchedule(quote.id, null, null);
+                                      return;
+                                    }
+                                    commitQuoteSchedule(quote.id, value, value);
+                                  }}
+                                  className="col-span-2 h-9 rounded-[12px] border border-slate-200 bg-white px-3 text-xs text-slate-600 outline-none focus:border-[#020617] disabled:bg-slate-50 disabled:text-slate-400"
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </aside>
+
+                  <div className="min-w-0 p-3 lg:p-4">
+                    <div className="overflow-x-auto rounded-[18px] border border-slate-200 bg-white">
+                      <div className="grid min-w-[980px] grid-cols-7 border-b border-slate-200 bg-white">
+                        {agendaCalendarDays.map((day) => (
+                          <div
+                            key={day.key}
+                            className={`border-r border-slate-200 px-3 py-3 last:border-r-0 ${
+                              day.isToday ? 'bg-[#fff7ed]' : ''
+                            }`}
+                          >
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              {day.date.toLocaleDateString('es-AR', { weekday: 'short' })}
+                            </p>
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <p className={`${spaceGrotesk.className} text-2xl font-bold text-[#180f24]`}>
+                                {day.date.getDate()}
+                              </p>
+                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                                {day.items.length}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid min-h-[620px] min-w-[980px] grid-cols-7 bg-slate-100">
+                        {agendaCalendarDays.map((day) => (
+                          <div
+                            key={day.key}
+                            className={`min-h-[620px] border-r border-slate-200 p-2 last:border-r-0 ${
+                              day.isToday ? 'bg-[#fff7ed]' : 'bg-white'
+                            }`}
+                          >
+                            <div className="space-y-2">
+                              {day.items.length === 0 && (
+                                <div className="rounded-[14px] border border-dashed border-slate-200 bg-slate-50 px-3 py-4 text-center text-xs text-slate-400">
+                                  Libre
+                                </div>
+                              )}
+                              {day.items.map((quote) => {
+                                const startValue = getDatePart(quote.start_date);
+                                const endValue = getDatePart(quote.end_date);
+                                const statusInfo = getQuoteStatusInfo(quote.status);
+                                const isSaving = scheduleSavingId === quote.id;
+
+                                return (
+                                  <div
+                                    key={`${day.key}-${quote.id}`}
+                                    className="rounded-[16px] border border-slate-200 bg-white p-3 shadow-sm shadow-slate-100"
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <div className="min-w-0">
+                                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusInfo.className}`}>
+                                          {statusInfo.label}
+                                        </span>
+                                        <p className="mt-2 line-clamp-2 text-sm font-bold leading-5 text-slate-900">
+                                          {quote.client_name || 'Presupuesto'}
+                                        </p>
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleViewQuote(quote)}
+                                        className="shrink-0 rounded-full bg-slate-900 px-2.5 py-1 text-[10px] font-semibold text-white"
+                                      >
+                                        Ver
+                                      </button>
+                                    </div>
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {getQuoteAddress(quote) || 'Sin dirección'}
+                                    </p>
+                                    <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500">
+                                      <span className="rounded-full bg-slate-100 px-2 py-1">
+                                        {formatCompactDashboardMoney(toAmountValue(quote.total_amount))}
+                                      </span>
+                                      <span className="rounded-full bg-slate-100 px-2 py-1">
+                                        {formatAgendaRangeLabel(startValue, endValue)}
+                                      </span>
+                                    </div>
+                                    <div className="mt-3 grid grid-cols-2 gap-2">
+                                      <input
+                                        type="date"
+                                        value={startValue}
+                                        disabled={isSaving}
+                                        onChange={(event) => {
+                                          const value = event.target.value;
+                                          if (!value) {
+                                            commitQuoteSchedule(quote.id, null, null);
+                                            return;
+                                          }
+
+                                          const nextStartDate = parseDateLocal(value);
+                                          const prevStartDate = parseDateLocal(startValue);
+                                          const prevEndDate = parseDateLocal(endValue);
+                                          if (!nextStartDate) return;
+
+                                          const duration =
+                                            prevStartDate && prevEndDate
+                                              ? Math.max(0, diffCalendarDays(prevStartDate, prevEndDate))
+                                              : 0;
+                                          const nextEndDate = prevEndDate ? addDays(nextStartDate, duration) : null;
+
+                                          commitQuoteSchedule(
+                                            quote.id,
+                                            formatDateLocal(nextStartDate),
+                                            nextEndDate ? formatDateLocal(nextEndDate) : null
+                                          );
+                                        }}
+                                        className="h-8 rounded-[10px] border border-slate-200 px-2 text-[11px] text-slate-600 outline-none focus:border-[#020617] disabled:bg-slate-50"
+                                      />
+                                      <input
+                                        type="date"
+                                        value={endValue}
+                                        min={startValue || undefined}
+                                        disabled={isSaving || !startValue}
+                                        onChange={(event) => {
+                                          if (!startValue) return;
+                                          const value = event.target.value;
+                                          if (!value) {
+                                            commitQuoteSchedule(quote.id, startValue, null);
+                                            return;
+                                          }
+
+                                          const currentStartDate = parseDateLocal(startValue);
+                                          const nextEndDate = parseDateLocal(value);
+                                          if (!currentStartDate || !nextEndDate) return;
+
+                                          const safeEndDate =
+                                            nextEndDate.getTime() < currentStartDate.getTime()
+                                              ? currentStartDate
+                                              : nextEndDate;
+
+                                          commitQuoteSchedule(quote.id, startValue, formatDateLocal(safeEndDate));
+                                        }}
+                                        className="h-8 rounded-[10px] border border-slate-200 px-2 text-[11px] text-slate-600 outline-none focus:border-[#020617] disabled:bg-slate-50"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => commitQuoteSchedule(quote.id, null, null)}
+                                        disabled={isSaving || (!quote.start_date && !quote.end_date)}
+                                        className="col-span-2 h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        Quitar del calendario
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {false && activeTab === 'agenda' && (
               <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
                 <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Agenda</p>
                 <div className="mt-1 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
