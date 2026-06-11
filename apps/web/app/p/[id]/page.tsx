@@ -404,34 +404,39 @@ export default function QuotePage() {
     calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
+  const isScheduled = ['scheduled', 'programado', 'agendado'].includes(statusNormalized);
+  const isInProgress = ['in_progress', 'in-progress', 'en_curso', 'en curso'].includes(statusNormalized);
   const isPresented = ['presented', 'pending', 'pendiente', 'sent'].includes(statusNormalized);
   const isCompleted = ['completed', 'completado', 'finalizado', 'finalizados'].includes(statusNormalized);
   const isPaid = ['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged'].includes(statusNormalized);
   const isRejected = ['rejected', 'rechazado'].includes(statusNormalized);
+  const isDiscarded = ['discarded', 'desestimado', 'desestimada'].includes(statusNormalized);
+  const isCancelled = ['cancelled', 'canceled', 'cancelado', 'cancelada'].includes(statusNormalized);
+  const isManuallyExpired = ['expired', 'vencido', 'vencida'].includes(statusNormalized);
   const isClosedForEditing = isCompleted || isPaid;
   const createdAt = quote?.created_at ? new Date(quote.created_at) : null;
   const validityDays = 15;
   const expiresAt = createdAt
     ? new Date(createdAt.getTime() + validityDays * 24 * 60 * 60 * 1000)
     : null;
-  const isAccepted = isApproved || isCompleted || isPaid;
+  const isAccepted = isApproved || isScheduled || isInProgress || isCompleted || isPaid;
   const canCollectFeedback = false;
-  const isExpired = Boolean(expiresAt && Date.now() > expiresAt.getTime() && !isAccepted && !isRejected);
-  const statusLabel = isExpired
-    ? 'Presupuesto desestimado'
-    : isRejected
-      ? 'Rechazado'
-      : isPaid
-        ? 'Cobrado'
-        : isCompleted
-          ? 'Finalizado'
-          : isApproved
-            ? 'Aprobado'
-            : isPresented
-              ? 'Presentado'
-              : 'Pendiente';
+  const isExpired = isManuallyExpired || Boolean(expiresAt && Date.now() > expiresAt.getTime() && !isAccepted && !isRejected && !isDiscarded && !isCancelled);
+  const statusLabel = (() => {
+    if (isExpired) return 'Presupuesto vencido';
+    if (isDiscarded) return 'Desestimado';
+    if (isCancelled) return 'Cancelado';
+    if (isRejected) return 'Rechazado';
+    if (isPaid) return 'Cobrado';
+    if (isCompleted) return 'Finalizado';
+    if (isInProgress) return 'En curso';
+    if (isScheduled) return 'Programado';
+    if (isApproved) return 'Aprobado';
+    if (isPresented) return 'Presentado';
+    return 'Pendiente';
+  })();
   const statusPillClass =
-    isExpired || isRejected
+    isExpired || isRejected || isDiscarded || isCancelled
       ? 'bg-rose-500/15 text-rose-200 border-rose-500/30'
       : isAccepted
         ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
@@ -439,7 +444,7 @@ export default function QuotePage() {
           ? 'bg-blue-500/10 text-blue-100 border-blue-500/30'
           : 'bg-amber-500/15 text-amber-300 border-amber-500/30';
   const statusIconClass =
-    isExpired || isRejected
+    isExpired || isRejected || isDiscarded || isCancelled
       ? 'bg-rose-500 text-white'
       : isAccepted
         ? 'bg-emerald-500 text-white'

@@ -374,6 +374,8 @@ const clientLoadingThemeStyles = {
 const CLIENT_AUTH_FORM_VALIDATION_MESSAGES = [
   'Ingresa correo y contraseña.',
   'Ingresa un correo válido.',
+  'Ingresa un correo real para crear la cuenta.',
+  'No pudimos validar el dominio del correo. Usa una cuenta real.',
   'La contraseña debe tener al menos 6 caracteres.',
   'Ingresa tu WhatsApp para crear tu perfil de cliente.',
   'Ingresa un WhatsApp argentino válido.',
@@ -1388,6 +1390,15 @@ export default function ClientRequestsHub() {
         });
         if (error) throw error;
       } else {
+        const emailValidationResponse = await fetch('/api/auth/validate-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: safeEmail }),
+        });
+        const emailValidationPayload = await emailValidationResponse.json();
+        if (!emailValidationResponse.ok || emailValidationPayload?.valid !== true) {
+          throw new Error(emailValidationPayload?.error || 'Ingresa un correo real para crear la cuenta.');
+        }
         const phoneValidation = getArgentinaWhatsappValidation(clientProfileForm.phone);
         if (phoneValidation.isEmpty) {
           throw new Error('Ingresa tu WhatsApp para crear tu perfil de cliente.');

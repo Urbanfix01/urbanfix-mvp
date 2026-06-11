@@ -16,6 +16,13 @@ const PUBLIC_QUOTE_STATUSES = new Set([
   'approved',
   'accepted',
   'aprobado',
+  'scheduled',
+  'programado',
+  'agendado',
+  'in_progress',
+  'in-progress',
+  'en_curso',
+  'en curso',
   'completed',
   'completado',
   'finalizado',
@@ -31,6 +38,10 @@ const PUBLIC_QUOTE_STATUSES = new Set([
   'expired',
   'vencido',
   'desestimado',
+  'discarded',
+  'cancelled',
+  'canceled',
+  'cancelado',
 ]);
 
 const isPublicQuoteStatus = (value: unknown) => PUBLIC_QUOTE_STATUSES.has(normalizeStatus(value));

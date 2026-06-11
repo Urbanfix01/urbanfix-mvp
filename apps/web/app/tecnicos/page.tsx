@@ -573,7 +573,19 @@ type RequestOfferDraft = {
 const DEFAULT_REQUEST_APPLICATION_MESSAGE = 'Estoy disponible para realizar este trabajo.';
 
 type FinanceTimelineMode = 'weekly' | 'monthly' | 'yearly';
-type QuoteFilter = 'all' | 'pending' | 'approved' | 'draft' | 'completed' | 'paid';
+type QuoteFilter =
+  | 'all'
+  | 'pending'
+  | 'approved'
+  | 'draft'
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'paid'
+  | 'rejected'
+  | 'discarded'
+  | 'cancelled'
+  | 'expired';
 
 type DashboardMapPoint = {
   id: string;
@@ -701,6 +713,8 @@ const authOptionButtonClass =
 const AUTH_FORM_VALIDATION_MESSAGES = [
   'Ingresa correo y contraseña.',
   'Ingresa un correo válido.',
+  'Ingresa un correo real para crear la cuenta.',
+  'No pudimos validar el dominio del correo. Usa una cuenta real.',
   'La contraseña debe tener al menos 6 caracteres.',
   'Ingresa al menos tu nombre para crear la cuenta.',
 ] as const;
@@ -886,15 +900,20 @@ const extractQuoteId = (value: string) => {
 };
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Computo', className: 'bg-slate-100 text-slate-600' },
+  draft: { label: 'Cómputo', className: 'bg-slate-100 text-slate-600' },
   sent: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   presented: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   approved: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-700' },
   accepted: { label: 'Aceptado', className: 'bg-emerald-100 text-emerald-700' },
+  scheduled: { label: 'Programado', className: 'bg-teal-100 text-teal-700' },
+  in_progress: { label: 'En curso', className: 'bg-blue-100 text-blue-700' },
   pending: { label: 'Pendiente', className: 'bg-amber-100 text-amber-700' },
   paid: { label: 'Cobrado', className: 'bg-emerald-50 text-emerald-700' },
   cobrado: { label: 'Cobrado', className: 'bg-emerald-50 text-emerald-700' },
   rejected: { label: 'Rechazado', className: 'bg-rose-100 text-rose-700' },
+  discarded: { label: 'Desestimado', className: 'bg-zinc-100 text-zinc-700' },
+  cancelled: { label: 'Cancelado', className: 'bg-orange-100 text-orange-700' },
+  expired: { label: 'Vencido', className: 'bg-stone-100 text-stone-700' },
   locked: { label: 'Bloqueado', className: 'bg-slate-200 text-slate-600' },
   completed: { label: 'Finalizado', className: 'bg-indigo-100 text-indigo-700' },
   finalizado: { label: 'Finalizado', className: 'bg-indigo-100 text-indigo-700' },
@@ -902,9 +921,15 @@ const statusMap: Record<string, { label: string; className: string }> = {
 
 const pendingStatuses = new Set(['pending', 'sent', 'presented']);
 const approvedStatuses = new Set(['approved', 'accepted']);
+const scheduledStatuses = new Set(['scheduled', 'programado', 'agendado']);
+const inProgressStatuses = new Set(['in_progress', 'in-progress', 'en_curso', 'en curso', 'enproceso', 'en_proceso']);
 const draftStatuses = new Set(['draft', 'borrador']);
 const completedStatuses = new Set(['completed', 'completado', 'finalizado', 'finalizados']);
 const paidStatuses = new Set(['paid', 'cobrado', 'cobrados', 'pagado', 'pagados', 'charged']);
+const rejectedStatuses = new Set(['rejected', 'rechazado', 'rechazada']);
+const discardedStatuses = new Set(['discarded', 'desestimado', 'desestimada']);
+const cancelledStatuses = new Set(['cancelled', 'canceled', 'cancelado', 'cancelada']);
+const expiredStatuses = new Set(['expired', 'vencido', 'vencida']);
 
 const normalizeStatusValue = (status?: string | null) => {
   const normalized = (status || '').toLowerCase();
@@ -915,24 +940,58 @@ const normalizeStatusValue = (status?: string | null) => {
   if (normalized === 'cobrado' || normalized === 'cobrados' || normalized === 'pagado' || normalized === 'pagados')
     return 'paid';
   if (normalized === 'presented' || normalized === 'pending') return normalized;
-  if (normalized === 'approved' || normalized === 'completed' || normalized === 'paid' || normalized === 'draft')
+  if (
+    normalized === 'approved' ||
+    normalized === 'scheduled' ||
+    normalized === 'in_progress' ||
+    normalized === 'completed' ||
+    normalized === 'paid' ||
+    normalized === 'rejected' ||
+    normalized === 'discarded' ||
+    normalized === 'cancelled' ||
+    normalized === 'expired' ||
+    normalized === 'draft'
+  )
     return normalized;
   if (draftStatuses.has(normalized)) return 'draft';
   if (pendingStatuses.has(normalized)) return 'pending';
   if (approvedStatuses.has(normalized)) return 'approved';
+  if (scheduledStatuses.has(normalized)) return 'scheduled';
+  if (inProgressStatuses.has(normalized)) return 'in_progress';
   if (completedStatuses.has(normalized)) return 'completed';
   if (paidStatuses.has(normalized)) return 'paid';
+  if (rejectedStatuses.has(normalized)) return 'rejected';
+  if (discardedStatuses.has(normalized)) return 'discarded';
+  if (cancelledStatuses.has(normalized)) return 'cancelled';
+  if (expiredStatuses.has(normalized)) return 'expired';
   return 'draft';
 };
 
-type QuoteStatusGroup = 'draft' | 'pending' | 'approved' | 'completed' | 'paid';
+type QuoteStatusGroup =
+  | 'draft'
+  | 'pending'
+  | 'approved'
+  | 'scheduled'
+  | 'in_progress'
+  | 'completed'
+  | 'paid'
+  | 'rejected'
+  | 'discarded'
+  | 'cancelled'
+  | 'expired';
 
 const canonicalQuoteStatusGroups: Record<QuoteStatusGroup, Set<string>> = {
   draft: new Set(['draft']),
   pending: new Set(['pending', 'presented']),
   approved: new Set(['approved']),
+  scheduled: new Set(['scheduled']),
+  in_progress: new Set(['in_progress']),
   completed: new Set(['completed']),
   paid: new Set(['paid']),
+  rejected: new Set(['rejected']),
+  discarded: new Set(['discarded']),
+  cancelled: new Set(['cancelled']),
+  expired: new Set(['expired']),
 };
 
 const quoteHasStatusGroup = (status: string | null | undefined, group: QuoteStatusGroup) =>
@@ -943,6 +1002,8 @@ const quoteNeedsFollowUp = (status: string | null | undefined) =>
 
 const quoteIsBillable = (status: string | null | undefined) =>
   quoteHasStatusGroup(status, 'approved') ||
+  quoteHasStatusGroup(status, 'scheduled') ||
+  quoteHasStatusGroup(status, 'in_progress') ||
   quoteHasStatusGroup(status, 'completed') ||
   quoteHasStatusGroup(status, 'paid');
 
@@ -1876,7 +1937,7 @@ export default function TechniciansPage() {
     | 'precios'
     | 'historial'
     | 'notificaciones'
-  >('operativo');
+  >('lobby');
   const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('editor');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -2114,8 +2175,8 @@ export default function TechniciansPage() {
   }, [geoSelected]);
 
   const navItems: NavItem[] = [
-    { key: 'operativo', label: 'Mapa operativo', hint: 'Solicitudes por zona', short: 'MP', icon: Search },
     { key: 'lobby', label: 'Panel de control', hint: 'Resumen general', short: 'PC', icon: Home },
+    { key: 'operativo', label: 'Mapa operativo', hint: 'Solicitudes por zona', short: 'MP', icon: Search },
     { key: 'presupuestos', label: 'Presupuestos', hint: 'Ver estado', short: 'PR', icon: FileText },
     { key: 'visualizador', label: 'Visualizador', hint: 'Ver presupuesto', short: 'VI', icon: Eye },
     { key: 'agenda', label: 'Agenda', hint: 'Planificacion', short: 'AG', icon: Calendar },
@@ -2153,20 +2214,32 @@ export default function TechniciansPage() {
   }, [activeSupportUserId, isBetaAdmin, profile?.business_name, session?.user?.email, supportUsers]);
 
   const statusOptions = [
-    { value: 'draft', label: 'Computo' },
+    { value: 'draft', label: 'Cómputo' },
     { value: 'pending', label: 'Pendiente' },
     { value: 'presented', label: 'Presentado' },
     { value: 'approved', label: 'Aprobado' },
+    { value: 'scheduled', label: 'Programado' },
+    { value: 'in_progress', label: 'En curso' },
     { value: 'completed', label: 'Finalizado' },
     { value: 'paid', label: 'Cobrado' },
+    { value: 'rejected', label: 'Rechazado' },
+    { value: 'discarded', label: 'Desestimado' },
+    { value: 'cancelled', label: 'Cancelado' },
+    { value: 'expired', label: 'Vencido' },
   ];
   const quoteFilterOptions: Array<{ key: QuoteFilter; label: string }> = [
     { key: 'all', label: 'Todos' },
-    { key: 'draft', label: 'Computo' },
+    { key: 'draft', label: 'Cómputo' },
     { key: 'pending', label: 'Pendientes' },
     { key: 'approved', label: 'Aprobados' },
+    { key: 'scheduled', label: 'Programados' },
+    { key: 'in_progress', label: 'En curso' },
     { key: 'completed', label: 'Finalizados' },
     { key: 'paid', label: 'Cobrados' },
+    { key: 'rejected', label: 'Rechazados' },
+    { key: 'discarded', label: 'Desestimados' },
+    { key: 'cancelled', label: 'Cancelados' },
+    { key: 'expired', label: 'Vencidos' },
   ];
   const activeQuoteFilterLabel = quoteFilterOptions.find((option) => option.key === quoteFilter)?.label || 'Todos';
 
@@ -3574,21 +3647,47 @@ export default function TechniciansPage() {
         if (status === 'draft') acc.draft += 1;
         if (quoteHasStatusGroup(status, 'pending')) acc.pending += 1;
         if (quoteHasStatusGroup(status, 'approved')) acc.approved += 1;
+        if (quoteHasStatusGroup(status, 'scheduled')) acc.scheduled += 1;
+        if (quoteHasStatusGroup(status, 'in_progress')) acc.in_progress += 1;
+        if (quoteHasStatusGroup(status, 'completed')) acc.completed += 1;
         if (quoteHasStatusGroup(status, 'paid')) {
           acc.paid += 1;
           acc.paidAmount += amount;
           acc.profitAmount += getLaborAmount(quote);
         }
+        if (quoteHasStatusGroup(status, 'rejected')) acc.rejected += 1;
+        if (quoteHasStatusGroup(status, 'discarded')) acc.discarded += 1;
+        if (quoteHasStatusGroup(status, 'cancelled')) acc.cancelled += 1;
+        if (quoteHasStatusGroup(status, 'expired')) acc.expired += 1;
         acc.amount += amount;
         return acc;
       },
-      { draft: 0, pending: 0, approved: 0, paid: 0, amount: 0, paidAmount: 0, profitAmount: 0 }
+      {
+        draft: 0,
+        pending: 0,
+        approved: 0,
+        scheduled: 0,
+        in_progress: 0,
+        completed: 0,
+        paid: 0,
+        rejected: 0,
+        discarded: 0,
+        cancelled: 0,
+        expired: 0,
+        amount: 0,
+        paidAmount: 0,
+        profitAmount: 0,
+      }
     );
     return {
       total: quotes.length,
       ...totals,
     };
   }, [quotes]);
+  const getQuoteFilterCount = (key: QuoteFilter) => {
+    if (key === 'all') return quoteStats.total;
+    return quoteStats[key];
+  };
   const clientHistory = useMemo(() => {
     const grouped = new Map<
       string,
@@ -3786,6 +3885,13 @@ export default function TechniciansPage() {
     () => (activeQuoteId ? quotes.find((quote) => quote.id === activeQuoteId) || null : null),
     [quotes, activeQuoteId]
   );
+  const activeQuoteIndex = useMemo(
+    () => (activeQuoteId ? quotes.findIndex((quote) => quote.id === activeQuoteId) : -1),
+    [quotes, activeQuoteId]
+  );
+  const previousViewerQuote = activeQuoteIndex > 0 ? quotes[activeQuoteIndex - 1] : null;
+  const nextViewerQuote =
+    activeQuoteIndex >= 0 && activeQuoteIndex < quotes.length - 1 ? quotes[activeQuoteIndex + 1] : null;
   const financeSeries = useMemo(() => {
     const now = new Date();
     const currentPeriod = startOfFinancePeriod(now, financeTimelineMode);
@@ -4059,7 +4165,13 @@ export default function TechniciansPage() {
     });
   }, [masterItems, masterSearch, masterCategory]);
   const approvedJobs = useMemo(
-    () => quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'approved')),
+    () =>
+      quotes.filter(
+        (quote) =>
+          quoteHasStatusGroup(quote.status, 'approved') ||
+          quoteHasStatusGroup(quote.status, 'scheduled') ||
+          quoteHasStatusGroup(quote.status, 'in_progress')
+      ),
     [quotes]
   );
   const dashboardJobPoints = useMemo(() => {
@@ -4340,22 +4452,8 @@ export default function TechniciansPage() {
     [agendaJobs, agendaNextWindowEndTime, agendaTodayTime]
   );
   const filteredQuotes = useMemo(() => {
-    if (quoteFilter === 'pending') {
-      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'pending'));
-    }
-    if (quoteFilter === 'approved') {
-      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'approved'));
-    }
-    if (quoteFilter === 'draft') {
-      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'draft'));
-    }
-    if (quoteFilter === 'completed') {
-      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'completed'));
-    }
-    if (quoteFilter === 'paid') {
-      return quotes.filter((quote) => quoteHasStatusGroup(quote.status, 'paid'));
-    }
-    return quotes;
+    if (quoteFilter === 'all') return quotes;
+    return quotes.filter((quote) => quoteHasStatusGroup(quote.status, quoteFilter));
   }, [quotes, quoteFilter]);
 
   const handleOpenViewer = () => {
@@ -4377,6 +4475,15 @@ export default function TechniciansPage() {
     setViewerUrl(nextUrl);
     setViewerError('');
     setActiveTab('visualizador');
+  };
+
+  const handleViewerQuoteNavigation = (quote: QuoteRow | null) => {
+    if (!quote) return;
+    const nextUrl = buildQuoteLink(quote.id);
+    setActiveQuoteId(quote.id);
+    setViewerInput(nextUrl);
+    setViewerUrl(nextUrl);
+    setViewerError('');
   };
 
   const handleShowQuotes = (filter: QuoteFilter) => {
@@ -5304,6 +5411,15 @@ export default function TechniciansPage() {
         const { error } = await supabase.auth.signInWithPassword({ email: safeEmail, password });
         if (error) throw error;
       } else {
+        const emailValidationResponse = await fetch('/api/auth/validate-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: safeEmail }),
+        });
+        const emailValidationPayload = await emailValidationResponse.json();
+        if (!emailValidationResponse.ok || emailValidationPayload?.valid !== true) {
+          throw new Error(emailValidationPayload?.error || 'Ingresa un correo real para crear la cuenta.');
+        }
         const normalizedFullName = fullName.trim() || 'Técnico UrbanFix';
         const normalizedBusinessName = businessName.trim() || normalizedFullName;
         const { data: signUpData, error } = await supabase.auth.signUp({
@@ -8584,228 +8700,314 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'presupuestos' && (
-              <section className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h2 className="text-lg font-semibold text-slate-900">Presupuestos</h2>
-                    <p className="text-xs text-slate-500">Listado y estado actual de tus presupuestos.</p>
+              <section className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-[0_22px_58px_-46px_rgba(15,23,42,0.42)] sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Presupuestos</p>
+                    <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-bold leading-tight text-[#180f24]`}>
+                      Seguimiento
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {filteredQuotes.length} de {quoteStats.total} en vista
+                      {quoteFilter !== 'all' ? ` · ${activeQuoteFilterLabel}` : ''}
+                    </p>
                   </div>
-                <div className="flex items-center gap-2">
-                  {quoteFilter !== 'all' && (
-                    <span className="rounded-full bg-slate-900 px-3 py-1 text-[10px] font-semibold text-white">
-                      {activeQuoteFilterLabel}
-                    </span>
-                  )}
                   <button
                     type="button"
                     onClick={startNewQuote}
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-sm font-semibold text-slate-700 transition hover:bg-slate-200"
-                    title="Nuevo presupuesto"
+                    className="inline-flex items-center justify-center gap-2 rounded-full bg-[#020617] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#111827]"
                   >
-                    +
+                    <FilePlus className="h-4 w-4" />
+                    Nuevo
                   </button>
-                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600">
-                    {filteredQuotes.length} en vista
-                  </span>
                 </div>
-                </div>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  {quoteFilterOptions.map((filter) => (
-                    <button
-                      key={filter.key}
-                      type="button"
-                      onClick={() => setQuoteFilter(filter.key)}
-                      className={`rounded-full border px-3 py-1 text-[11px] font-semibold transition ${
-                        quoteFilter === filter.key
-                          ? 'border-slate-900 bg-slate-900 text-white'
-                          : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
-                      }`}
-                    >
-                      {filter.label}
-                    </button>
+
+                <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-[18px] border border-slate-200 bg-slate-200 md:grid-cols-4">
+                  {[
+                    { label: 'Total', value: formatCompactDashboardMoney(quoteStats.amount), hint: `${quoteStats.total} cargados` },
+                    { label: 'Pendientes', value: quoteStats.pending, hint: 'por responder' },
+                    { label: 'Aprobados', value: quoteStats.approved + quoteStats.scheduled + quoteStats.in_progress, hint: 'activos' },
+                    { label: 'Cobrados', value: formatCompactDashboardMoney(quoteStats.paidAmount), hint: `${quoteStats.paid} cerrados` },
+                  ].map((item) => (
+                    <div key={item.label} className="bg-white px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{item.label}</p>
+                      <p className={`${spaceGrotesk.className} mt-1 truncate text-xl font-bold text-[#180f24]`}>{item.value}</p>
+                      <p className="mt-0.5 truncate text-xs text-slate-500">{item.hint}</p>
+                    </div>
                   ))}
                 </div>
-                <div className="mt-5 space-y-3">
+
+                <div className="mt-4 flex flex-col gap-1 sm:max-w-[320px]">
+                  <label className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                    Filtrar por estado
+                  </label>
+                  <select
+                    value={quoteFilter}
+                    onChange={(event) => setQuoteFilter(event.target.value as QuoteFilter)}
+                    className="h-11 rounded-[14px] border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 outline-none transition hover:border-slate-300 focus:border-[#020617]"
+                  >
+                    {quoteFilterOptions.map((filter) => (
+                      <option key={filter.key} value={filter.key}>
+                        {filter.label} ({getQuoteFilterCount(filter.key)})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mt-4 overflow-hidden rounded-[18px] border border-slate-200">
                   {filteredQuotes.length === 0 && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                      Aun no tienes presupuestos. Crea el primero desde el panel.
+                    <div className="bg-slate-50 p-8 text-center">
+                      <p className={`${spaceGrotesk.className} text-lg font-bold text-slate-900`}>Sin presupuestos</p>
+                      <p className="mt-1 text-sm text-slate-500">Cambia el filtro o crea uno nuevo.</p>
+                      <button
+                        type="button"
+                        onClick={startNewQuote}
+                        className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-[#020617] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#111827]"
+                      >
+                        <FilePlus className="h-4 w-4" />
+                        Crear presupuesto
+                      </button>
                     </div>
                   )}
                   {filteredQuotes.map((quote) => {
                     const info = getQuoteStatusInfo(quote.status);
                     const canShareFeedbackLink = canShareQuoteFeedback(quote.status);
+                    const quoteAddress = getQuoteAddress(quote);
+                    const clientInitial = (quote.client_name || 'P').trim().slice(0, 1).toUpperCase() || 'P';
                     return (
-                        <div
-                          key={quote.id}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => handleViewQuote(quote)}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter' || event.key === ' ') {
-                              event.preventDefault();
-                              handleViewQuote(quote);
-                            }
-                          }}
-                          className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                            activeQuoteId === quote.id
-                              ? 'border-slate-300 bg-slate-50 shadow-sm'
-                              : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <p className="text-sm font-semibold text-slate-900">
-                              {quote.client_name || 'Presupuesto'}
-                            </p>
-                            <div className="flex items-center gap-2">
-                              <span className={`rounded-full px-3 py-1 text-[10px] font-semibold ${info.className}`}>
-                                {info.label}
-                              </span>
-                              {canShareFeedbackLink && (
-                                <button
-                                  type="button"
-                                  onClick={(event) => {
-                                    event.stopPropagation();
-                                    handleCopyFeedbackLink(quote.id);
-                                  }}
-                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[10px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
-                                >
-                                  Calificacion
-                                </button>
-                              )}
-                              <select
-                                value={normalizeStatusValue(quote.status)}
-                                onClick={(event) => event.stopPropagation()}
-                                onChange={(event) => handleStatusChange(quote.id, event.target.value)}
-                                className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-semibold text-slate-600 outline-none hover:bg-slate-200"
-                              >
-                                {statusOptions.map((option) => (
-                                  <option key={option.value} value={option.value}>
-                                    {option.label}
-                                  </option>
-                                ))}
-                              </select>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  startEditQuote(quote);
-                                }}
-                                className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-semibold text-slate-600 transition hover:bg-slate-200"
-                              >
-                                Editar
-                              </button>
-                              <button
-                                type="button"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  handleDeleteQuote(quote);
-                                }}
-                                disabled={deletingQuoteId === quote.id}
-                                className={`rounded-full px-3 py-1 text-[10px] font-semibold transition ${
-                                  deletingQuoteId === quote.id
-                                    ? 'bg-rose-50 text-rose-300 cursor-not-allowed'
-                                    : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
-                                }`}
-                              >
-                                {deletingQuoteId === quote.id ? 'Eliminando...' : 'Eliminar'}
-                              </button>
+                      <article
+                        key={quote.id}
+                        className={`border-b border-slate-200 bg-white p-3 transition last:border-b-0 hover:bg-slate-50 sm:p-4 ${
+                          activeQuoteId === quote.id ? 'bg-[#fffaf4]' : ''
+                        }`}
+                      >
+                        <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_160px_230px] lg:items-center">
+                          <div className="flex min-w-0 gap-3">
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#180f24] text-xs font-black text-white">
+                              {clientInitial}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  {getQuoteDisplayNumber(quote)}
+                                </p>
+                                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${info.className}`}>
+                                  {info.label}
+                                </span>
+                              </div>
+                              <h3 className={`${spaceGrotesk.className} mt-1 truncate text-base font-bold text-[#180f24]`}>
+                                {quote.client_name || 'Presupuesto sin cliente'}
+                              </h3>
+                              <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500">
+                                {quoteAddress || 'Sin dirección confirmada'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                              </p>
                             </div>
                           </div>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {getQuoteAddress(quote) || 'Sin dirección'} ·{' '}
-                          {new Date(quote.created_at).toLocaleDateString('es-AR')}
-                        </p>
-                        <p className="mt-3 text-sm font-semibold text-slate-900">
-                          ${(quote.total_amount || 0).toLocaleString('es-AR')}
-                        </p>
-                      </div>
+
+                          <div className="flex items-center justify-between gap-3 lg:block lg:text-right">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">Total</p>
+                            <p className={`${spaceGrotesk.className} text-lg font-bold text-slate-900`}>
+                              {formatCurrency(toAmountValue(quote.total_amount))}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-2 lg:w-[230px]">
+                            <select
+                              value={normalizeStatusValue(quote.status)}
+                              onChange={(event) => handleStatusChange(quote.id, event.target.value)}
+                              className="col-span-2 h-9 w-full rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 outline-none transition hover:border-slate-300"
+                            >
+                              {statusOptions.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => handleViewQuote(quote)}
+                              className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-full bg-slate-900 px-3 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Abrir
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditQuote(quote)}
+                              className="h-9 w-full rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              Editar
+                            </button>
+                            {canShareFeedbackLink && (
+                              <button
+                                type="button"
+                                onClick={() => handleCopyFeedbackLink(quote.id)}
+                                className="h-9 w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                              >
+                                Calificación
+                              </button>
+                            )}
+                            {!canShareFeedbackLink && <span aria-hidden="true" className="hidden lg:block" />}
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteQuote(quote)}
+                              disabled={deletingQuoteId === quote.id}
+                              className={`h-9 w-full rounded-full px-3 text-[11px] font-semibold transition ${
+                                deletingQuoteId === quote.id
+                                  ? 'cursor-not-allowed bg-rose-50 text-rose-300'
+                                  : 'bg-rose-50 text-rose-600 hover:bg-rose-100'
+                              }`}
+                            >
+                              {deletingQuoteId === quote.id ? 'Eliminando...' : 'Eliminar'}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
                     );
                   })}
                 </div>
               </section>
             )}
 
-            {activeTab === 'visualizador' && (
-              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Visualizador</p>
-                    <h2 className="text-xl font-semibold text-slate-900">Presupuesto publico</h2>
-                    <p className="text-sm text-slate-500">
-                      Pega el link o el ID para ver el presupuesto tal como lo ve el cliente.
-                    </p>
-                  </div>
-                  {activeQuoteId && (
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const nextUrl = buildQuoteLink(activeQuoteId);
-                          setViewerInput(nextUrl);
-                          setViewerUrl(nextUrl);
-                          setViewerError('');
-                        }}
-                        className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                      >
-                        Usar presupuesto activo
-                      </button>
-                      {activeQuote && canShareQuoteFeedback(activeQuote.status) && (
+            {activeTab === 'visualizador' &&
+              (() => {
+                const previewUrl = viewerUrl || (activeQuoteId ? buildQuoteLink(activeQuoteId) : '');
+                const activeQuoteInfo = activeQuote ? getQuoteStatusInfo(activeQuote.status) : null;
+                const activeQuoteInitial =
+                  (activeQuote?.client_name || 'P').trim().slice(0, 1).toUpperCase() || 'P';
+
+                return (
+                  <section className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-[0_22px_58px_-46px_rgba(15,23,42,0.42)]">
+                    <div className="flex flex-col gap-3 border-b border-slate-200 bg-white p-3 lg:flex-row lg:items-center lg:justify-between lg:px-4">
+                      <div className="flex min-w-0 items-center gap-3">
                         <button
                           type="button"
-                          onClick={() => handleCopyFeedbackLink(activeQuote.id)}
-                          className="rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                          onClick={() => setActiveTab('presupuestos')}
+                          className="shrink-0 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-50"
                         >
-                          Copiar link de calificacion
+                          Volver
                         </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => handleViewerQuoteNavigation(previousViewerQuote)}
+                            disabled={!previousViewerQuote}
+                            aria-label="Presupuesto anterior"
+                            className={`flex h-9 w-9 items-center justify-center rounded-full border text-slate-700 transition ${
+                              previousViewerQuote
+                                ? 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                                : 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                            }`}
+                          >
+                            <ArrowLeft className="h-4 w-4" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleViewerQuoteNavigation(nextViewerQuote)}
+                            disabled={!nextViewerQuote}
+                            aria-label="Presupuesto siguiente"
+                            className={`flex h-9 w-9 items-center justify-center rounded-full border text-slate-700 transition ${
+                              nextViewerQuote
+                                ? 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                                : 'cursor-not-allowed border-slate-100 bg-slate-50 text-slate-300'
+                            }`}
+                          >
+                            <ArrowRight className="h-4 w-4" />
+                          </button>
+                        </div>
+                        {activeQuote ? (
+                          <>
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] bg-[#180f24] text-xs font-black text-white">
+                              {activeQuoteInitial}
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  {getQuoteDisplayNumber(activeQuote)}
+                                </p>
+                                {activeQuoteInfo && (
+                                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${activeQuoteInfo.className}`}>
+                                    {activeQuoteInfo.label}
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`${spaceGrotesk.className} truncate text-base font-bold text-[#180f24]`}>
+                                {activeQuote.client_name || 'Presupuesto sin cliente'} · {formatCurrency(toAmountValue(activeQuote.total_amount))}
+                              </p>
+                            </div>
+                          </>
+                        ) : (
+                          <p className="text-sm font-semibold text-slate-500">Selecciona un presupuesto desde el listado</p>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 lg:justify-end">
+                        {previewUrl && (
+                          <button
+                            type="button"
+                            onClick={() => window.open(previewUrl, '_blank', 'noopener,noreferrer')}
+                            className="h-9 rounded-full bg-[#020617] px-3 text-xs font-semibold text-white transition hover:bg-[#111827]"
+                          >
+                            Abrir
+                          </button>
+                        )}
+                        {activeQuoteId && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(activeQuoteId)}
+                            className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                          >
+                            Copiar link
+                          </button>
+                        )}
+                        {activeQuote && (
+                          <button
+                            type="button"
+                            onClick={() => startEditQuote(activeQuote)}
+                            className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                          >
+                            Editar
+                          </button>
+                        )}
+                        {activeQuote && canShareQuoteFeedback(activeQuote.status) && (
+                          <button
+                            type="button"
+                            onClick={() => handleCopyFeedbackLink(activeQuote.id)}
+                            className="h-9 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
+                          >
+                            Calificación
+                          </button>
+                        )}
+                        {infoMessage && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 text-xs font-semibold text-emerald-700">
+                            {infoMessage}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-100 p-3 lg:p-4">
+                      {previewUrl ? (
+                        <div className="h-full min-h-[720px] overflow-hidden rounded-[18px] border border-slate-200 bg-white">
+                          <iframe title="Visualizador de presupuesto" src={previewUrl} className="h-full min-h-[720px] w-full" />
+                        </div>
+                      ) : (
+                        <div className="flex min-h-[720px] items-center justify-center rounded-[18px] border border-dashed border-slate-300 bg-white text-center">
+                          <div className="max-w-sm px-6">
+                            <Eye className="mx-auto h-8 w-8 text-slate-300" />
+                            <p className={`${spaceGrotesk.className} mt-3 text-lg font-bold text-slate-900`}>
+                              Elige un presupuesto
+                            </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-500">
+                              Abre uno desde Presupuestos para revisar la vista del cliente.
+                            </p>
+                          </div>
+                        </div>
                       )}
                     </div>
-                  )}
-                  {activeQuote && (
-                    <button
-                      type="button"
-                      onClick={() => startEditQuote(activeQuote)}
-                      className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                    >
-                      Editar presupuesto
-                    </button>
-                  )}
-                </div>
-
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <input
-                    value={viewerInput}
-                    onChange={(event) => {
-                      setViewerInput(event.target.value);
-                      if (viewerError) setViewerError('');
-                    }}
-                    placeholder="Pega el link o ID del presupuesto"
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleOpenViewer}
-                    className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
-                  >
-                    Visualizar
-                  </button>
-                  {viewerUrl && (
-                    <button
-                      type="button"
-                      onClick={() => window.open(viewerUrl, '_blank', 'noopener,noreferrer')}
-                      className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                    >
-                      Abrir en pestaña
-                    </button>
-                  )}
-                </div>
-                {viewerError && <p className="mt-3 text-xs text-amber-600">{viewerError}</p>}
-                {viewerUrl && (
-                  <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
-                    <iframe title="Visualizador de presupuesto" src={viewerUrl} className="h-[720px] w-full" />
-                  </div>
-                )}
-              </div>
-            )}
+                  </section>
+                );
+              })()}
 
             {activeTab === 'agenda' && (
               <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
