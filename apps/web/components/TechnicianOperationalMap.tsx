@@ -5,7 +5,7 @@ import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 
 export type TechnicianOperationalMapPoint = {
   id: string;
-  kind: 'job' | 'request';
+  kind: 'job' | 'request' | 'technician';
   title: string;
   subtitle: string;
   meta: string;
@@ -205,7 +205,9 @@ export default function TechnicianOperationalMap({ points, selectedPointId = '',
 
         if (cluster.points.length > 1) {
           const requestCount = cluster.points.filter((point) => point.kind === 'request').length;
-          const displayCount = requestCount || cluster.points.length;
+          const technicianCount = cluster.points.filter((point) => point.kind === 'technician').length;
+          const displayCount = requestCount || technicianCount || cluster.points.length;
+          const clusterLabel = technicianCount && !requestCount ? 'tecnicos cercanos' : 'solicitudes cercanas';
           const marker = L.marker([cluster.lat, cluster.lon], {
             icon: L.divIcon({
               html: buildClusterHtml(displayCount, selected),
@@ -213,7 +215,7 @@ export default function TechnicianOperationalMap({ points, selectedPointId = '',
               iconSize: [44, 44],
               iconAnchor: [22, 22],
             }),
-            title: `${displayCount} solicitudes cercanas`,
+            title: `${displayCount} ${clusterLabel}`,
           });
 
           marker.on('click', () => {

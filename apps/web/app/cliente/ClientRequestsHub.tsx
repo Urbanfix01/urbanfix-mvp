@@ -106,6 +106,8 @@ type NearbyTechnician = {
   zoneLabel: string | null;
   rating: number | null;
   distanceKm: number;
+  mapLat: number | null;
+  mapLng: number | null;
   availableNow: boolean;
   workingHoursLabel: string;
 };
@@ -709,6 +711,8 @@ export default function ClientRequestsHub() {
   const [nearbyError, setNearbyError] = useState('');
   const [nearbyWarning, setNearbyWarning] = useState('');
   const [nearbyCenterLabel, setNearbyCenterLabel] = useState('');
+  const [nearbyCenter, setNearbyCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [selectedNearbyTechnicianId, setSelectedNearbyTechnicianId] = useState('');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const clientRequestDraftStorageKey = session?.user?.id ? getClientRequestDraftStorageKey(session.user.id) : '';
   const clientWhatsappValidation = useMemo(
@@ -821,6 +825,12 @@ export default function ClientRequestsHub() {
         preferredWindow: nextStart && nextEnd ? `${nextStart} - ${nextEnd}` : '',
       };
     });
+  };
+
+  const showNearbyTechnicianAt = (index: number) => {
+    if (!nearbyTechnicians.length) return;
+    const normalizedIndex = ((index % nearbyTechnicians.length) + nearbyTechnicians.length) % nearbyTechnicians.length;
+    setSelectedNearbyTechnicianId(nearbyTechnicians[normalizedIndex].id);
   };
 
   const normalizeClientPhoneField = () => {
@@ -1154,6 +1164,16 @@ export default function ClientRequestsHub() {
       if (locationLat !== null && locationLng !== null) {
         params.set('locationLat', String(locationLat));
         params.set('locationLng', String(locationLng));
+      } else {
+        const requestCenter =
+          requests.find((item) => item.id === selectedClientRequestId && item.locationLat !== null && item.locationLng !== null) ||
+          requests.find((item) => item.locationLat !== null && item.locationLng !== null);
+        if (requestCenter && requestCenter.locationLat !== null && requestCenter.locationLng !== null) {
+          params.set('locationLat', String(requestCenter.locationLat));
+          params.set('locationLng', String(requestCenter.locationLng));
+          if (!params.has('address') && requestCenter.address) params.set('address', requestCenter.address);
+          if (!params.has('city') && requestCenter.city) params.set('city', requestCenter.city);
+        }
       }
 
       const response = await fetch(`/api/client/technicians/nearby?${params.toString()}`, {
@@ -1173,16 +1193,28 @@ export default function ClientRequestsHub() {
             zoneLabel: row?.zone_label ? String(row.zone_label) : null,
             rating: Number.isFinite(Number(row?.rating)) ? Number(row.rating) : null,
             distanceKm: Number.isFinite(Number(row?.distance_km)) ? Number(row.distance_km) : 0,
+            mapLat: Number.isFinite(Number(row?.map_lat)) ? Number(row.map_lat) : null,
+            mapLng: Number.isFinite(Number(row?.map_lng)) ? Number(row.map_lng) : null,
             availableNow: Boolean(row?.available_now),
             workingHoursLabel: String(row?.working_hours_label || ''),
           }))
         : [];
       setNearbyTechnicians(normalized);
+      setSelectedNearbyTechnicianId((current) =>
+        current && normalized.some((tech) => tech.id === current) ? current : normalized[0]?.id || ''
+      );
       setNearbyCenterLabel(String(payload?.center_label || '').trim());
+      setNearbyCenter(
+        Number.isFinite(Number(payload?.center?.lat)) && Number.isFinite(Number(payload?.center?.lng))
+          ? { lat: Number(payload.center.lat), lng: Number(payload.center.lng) }
+          : null
+      );
       setNearbyWarning(String(payload?.warning || '').trim());
     } catch (error: any) {
       setNearbyTechnicians([]);
       setNearbyCenterLabel('');
+      setNearbyCenter(null);
+      setSelectedNearbyTechnicianId('');
       setNearbyWarning('');
       setNearbyError(error?.message || 'No se pudieron cargar técnicos por zona.');
     } finally {
@@ -1207,6 +1239,8 @@ export default function ClientRequestsHub() {
       setNearbyError('');
       setNearbyWarning('');
       setNearbyCenterLabel('');
+      setNearbyCenter(null);
+      setSelectedNearbyTechnicianId('');
       return;
     }
     fetchClientProfile(session.user.id);
@@ -1643,6 +1677,43 @@ export default function ClientRequestsHub() {
     () => nearbyTechnicians.find((item) => item.id === form.targetTechnicianId) || null,
     [nearbyTechnicians, form.targetTechnicianId]
   );
+  const selectedShowcaseTechnician = useMemo(
+    () =>
+      nearbyTechnicians.find((item) => item.id === selectedNearbyTechnicianId) ||
+      nearbyTechnicians[0] ||
+      null,
+    [nearbyTechnicians, selectedNearbyTechnicianId]
+  );
+  const activeNearbyTechnicianIndex = useMemo(() => {
+    if (!nearbyTechnicians.length) return -1;
+    const index = nearbyTechnicians.findIndex((item) => item.id === (selectedShowcaseTechnician?.id || ''));
+    return index >= 0 ? index : 0;
+  }, [nearbyTechnicians, selectedShowcaseTechnician?.id]);
+  const nearbyTechnicianMapPoints = useMemo(
+    () =>
+      nearbyTechnicians
+        .filter((tech) => tech.mapLat !== null && tech.mapLng !== null)
+        .map((tech) => ({
+          id: tech.id,
+          kind: 'technician' as const,
+          title: tech.name,
+          subtitle: `${tech.specialty} · ${tech.city || 'Zona sin ciudad'}`,
+          meta: `${tech.distanceKm.toFixed(1)} km · ${tech.availableNow ? 'Disponible' : 'Consultar'}`,
+          lat: tech.mapLat as number,
+          lon: tech.mapLng as number,
+        })),
+    [nearbyTechnicians]
+  );
+  const nearbyTechnicianMapCenter = useMemo(() => {
+    if (
+      selectedShowcaseTechnician &&
+      selectedShowcaseTechnician.mapLat !== null &&
+      selectedShowcaseTechnician.mapLng !== null
+    ) {
+      return { lat: selectedShowcaseTechnician.mapLat, lon: selectedShowcaseTechnician.mapLng };
+    }
+    return nearbyCenter ? { lat: nearbyCenter.lat, lon: nearbyCenter.lng } : null;
+  }, [nearbyCenter, selectedShowcaseTechnician]);
   const currentRequestMapLinks = useMemo(
     () =>
       buildMapLinks({
@@ -2531,7 +2602,7 @@ export default function ClientRequestsHub() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className={activeClientView === 'map' ? 'w-full space-y-0' : 'mx-auto w-full max-w-2xl space-y-4'}>
+            <div className={activeClientView === 'map' || activeClientView === 'showcase' ? 'w-full space-y-0' : 'mx-auto w-full max-w-2xl space-y-4'}>
         <header className="hidden">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -3847,90 +3918,201 @@ export default function ClientRequestsHub() {
             </div>
           </article>
 
-          <article id="vidriera-cliente" className={activeClientView === 'showcase' ? clientPanelCardClass : 'hidden'}>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Vidriera cliente</p>
-                <h2 className="mt-1 text-xl font-semibold text-slate-950">Técnicos para tu zona</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                  Vista privada del cliente. Usa tu ciudad, dirección y radio para mostrar perfiles disponibles.
-                </p>
+          <article id="vidriera-cliente" className={activeClientView === 'showcase' ? 'relative min-h-[calc(100dvh-57px)] overflow-hidden bg-slate-950' : 'hidden'}>
+            <div className="absolute left-3 right-3 top-3 z-30 rounded-[20px] border border-white/80 bg-white/92 px-3 py-2 shadow-[0_22px_58px_-42px_rgba(15,23,42,0.75)] backdrop-blur-xl sm:left-5 sm:right-5 sm:top-5 sm:px-4 xl:left-6 xl:right-6">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                <div className="mr-auto min-w-[10rem]">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Mapa cliente</p>
+                  <p className="text-sm font-bold text-slate-900">{nearbyTechnicians.length} técnicos visibles</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1 rounded-full bg-slate-100 p-1">
+                  <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                    Técnicos {nearbyTechnicians.length}
+                  </span>
+                  <span className="rounded-full px-3 py-1 text-xs font-semibold text-slate-600">
+                    Radio {form.radiusKm} km
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => loadNearbyTechnicians(form.radiusKm)}
+                  disabled={nearbyLoading}
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {nearbyLoading ? 'Actualizando...' : 'Actualizar'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveClientView('request');
+                    setRequestStep(1);
+                    window.setTimeout(() => {
+                      document.getElementById('nueva-solicitud-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      requestTitleInputRef.current?.focus();
+                    }, 120);
+                  }}
+                  className="rounded-full bg-[#ff8f1f] px-3 py-1.5 text-xs font-semibold text-[#1b0a24] transition hover:bg-[#ff9d35]"
+                >
+                  Nueva solicitud
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => loadNearbyTechnicians(form.radiusKm)}
-                disabled={nearbyLoading}
-                className={clientPanelSecondaryButtonClass + ' disabled:cursor-not-allowed disabled:opacity-60'}
-              >
-                {nearbyLoading ? 'Actualizando...' : 'Actualizar'}
-              </button>
+              {nearbyCenterLabel && (
+                <p className="mt-2 line-clamp-1 text-[11px] font-semibold text-slate-500">Referencia: {nearbyCenterLabel}</p>
+              )}
+              {nearbyWarning && <p className="mt-2 text-[11px] font-semibold text-amber-700">{nearbyWarning}</p>}
+              {nearbyError && <p className="mt-2 text-[11px] font-semibold text-rose-600">{nearbyError}</p>}
             </div>
 
-            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-3">
-              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
-                <span className="font-semibold text-slate-900">{nearbyTechnicians.length} visibles</span>
-                {nearbyCenterLabel && <span>Zona: {nearbyCenterLabel}</span>}
-                <span>Radio: {form.radiusKm} km</span>
+            <div className="relative h-[calc(100dvh-57px)] min-h-[680px]">
+              <div className="absolute inset-0 overflow-hidden bg-slate-900">
+                {nearbyTechnicianMapPoints.length > 0 || nearbyTechnicianMapCenter ? (
+                  <TechnicianOperationalMap
+                    points={nearbyTechnicianMapPoints}
+                    selectedPointId={selectedShowcaseTechnician?.id || ''}
+                    fallbackCenter={nearbyTechnicianMapCenter}
+                    onSelectPoint={setSelectedNearbyTechnicianId}
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center px-6 text-center text-sm text-slate-300">
+                    Publica una solicitud con ubicación confirmada para ver técnicos cercanos en el mapa.
+                  </div>
+                )}
               </div>
-              {nearbyWarning && <p className="mt-2 text-xs text-amber-700">{nearbyWarning}</p>}
-              {nearbyError && <p className="mt-2 text-xs text-rose-600">{nearbyError}</p>}
-            </div>
 
-            {nearbyLoading ? (
-              <p className="mt-4 text-sm text-slate-500">Cargando técnicos...</p>
-            ) : nearbyTechnicians.length === 0 ? (
-              <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
-                No hay técnicos visibles para esta zona. Completa el perfil o amplía el radio desde la solicitud.
-              </div>
-            ) : (
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                {nearbyTechnicians.slice(0, 12).map((tech) => (
-                  <div key={tech.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-slate-950">{tech.name}</p>
-                        <p className="mt-1 text-xs text-slate-600">{tech.specialty}</p>
-                      </div>
-                      <span
-                        className={`shrink-0 rounded-xl px-2.5 py-1 text-[11px] font-semibold ${
-                          tech.availableNow ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        {tech.availableNow ? 'Disponible' : 'Consultar'}
-                      </span>
-                    </div>
-                    <div className="mt-3 space-y-1 text-xs text-slate-500">
-                      <p>{tech.city || 'Zona sin ciudad'}{tech.zoneLabel ? ` | ${tech.zoneLabel}` : ''}</p>
-                      <p>{tech.distanceKm.toFixed(1)} km{tech.rating !== null ? ` | ${tech.rating.toFixed(1)} / 5` : ''}</p>
-                      {tech.workingHoursLabel && <p>{tech.workingHoursLabel}</p>}
-                    </div>
+              {nearbyLoading && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-slate-950/30 text-sm font-semibold text-white backdrop-blur-[2px]">
+                  Buscando técnicos...
+                </div>
+              )}
+
+              <div className="absolute bottom-4 left-3 right-3 z-40 max-h-[54dvh] overflow-y-auto rounded-[24px] border border-white/80 bg-white/92 p-3 shadow-[0_24px_70px_-42px_rgba(15,23,42,0.78)] backdrop-blur-xl sm:left-5 sm:right-5 xl:bottom-5 xl:left-6 xl:right-6">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Técnico</p>
+                    <p className="text-sm font-bold text-slate-900">
+                      {selectedShowcaseTechnician ? `${activeNearbyTechnicianIndex + 1} de ${nearbyTechnicians.length}` : 'Sin técnicos'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => {
-                        setForm((prev) => ({
-                          ...prev,
-                          mode: 'direct',
-                          targetTechnicianId: tech.id,
-                          targetTechnicianName: tech.name,
-                          targetTechnicianPhone: tech.phone,
-                          category: prev.category || tech.specialty,
-                          city: prev.city || tech.city,
-                        }));
-                        setActiveClientView('request');
-                        setRequestStep(1);
-                        window.setTimeout(() => {
-                          document.getElementById('nueva-solicitud-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          requestTitleInputRef.current?.focus();
-                        }, 120);
-                      }}
-                      className={clientPanelPrimaryButtonClass + ' mt-4 w-full'}
+                      aria-label="Técnico anterior"
+                      onClick={() => showNearbyTechnicianAt(activeNearbyTechnicianIndex - 1)}
+                      disabled={nearbyTechnicians.length <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
-                      Pedir presupuesto
+                      <ArrowLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="Técnico siguiente"
+                      onClick={() => showNearbyTechnicianAt(activeNearbyTechnicianIndex + 1)}
+                      disabled={nearbyTechnicians.length <= 1}
+                      className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowRight className="h-4 w-4" />
                     </button>
                   </div>
-                ))}
+                </div>
+
+                {selectedShowcaseTechnician ? (
+                  (() => {
+                    const tech = selectedShowcaseTechnician;
+                    const phoneDigits = tech.phone.replace(/\D/g, '');
+                    const initials = tech.name
+                      .split(' ')
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part.slice(0, 1).toUpperCase())
+                      .join('') || 'UF';
+
+                    return (
+                      <div className="mt-3 grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 text-slate-700 transition xl:grid-cols-[minmax(0,1fr)_minmax(18rem,24rem)]">
+                        <div className="min-w-0">
+                          <div className="mb-3 flex items-center gap-2.5">
+                            <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-xs font-bold text-white ring-2 ring-white shadow-sm">
+                              {initials}
+                            </span>
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-bold text-slate-900">{tech.name}</span>
+                              <span className="block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                Técnico UrbanFix
+                              </span>
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <p className="min-w-0 flex-1 text-base font-bold leading-5 text-slate-900">{tech.specialty}</p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                                tech.availableNow ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                              }`}
+                            >
+                              {tech.availableNow ? 'Disponible' : 'Consultar'}
+                            </span>
+                          </div>
+                          <p className="mt-2 text-xs font-semibold text-slate-500">
+                            {tech.city || 'Zona sin ciudad'}{tech.zoneLabel ? ` · ${tech.zoneLabel}` : ''} · {tech.distanceKm.toFixed(1)} km aprox.
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-semibold text-slate-600">
+                            <span>Ubicación de trabajo aproximada</span>
+                            {tech.rating !== null && <span>Valoración: {tech.rating.toFixed(1)} / 5</span>}
+                            {tech.workingHoursLabel && <span>{tech.workingHoursLabel}</span>}
+                          </div>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Acciones
+                          </p>
+                          <p className="mt-2 rounded-lg bg-white px-2 py-1.5 text-[11px] font-semibold leading-5 text-slate-700">
+                            Podés enviar una solicitud directa a este técnico o abrir WhatsApp si tiene contacto cargado.
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setForm((prev) => ({
+                                  ...prev,
+                                  mode: 'direct',
+                                  targetTechnicianId: tech.id,
+                                  targetTechnicianName: tech.name,
+                                  targetTechnicianPhone: tech.phone,
+                                  category: prev.category || tech.specialty,
+                                  city: prev.city || tech.city,
+                                }));
+                                setActiveClientView('request');
+                                setRequestStep(1);
+                                window.setTimeout(() => {
+                                  document.getElementById('nueva-solicitud-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                  requestTitleInputRef.current?.focus();
+                                }, 120);
+                              }}
+                              className="rounded-full bg-slate-900 px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+                            >
+                              Pedir presupuesto
+                            </button>
+                            {phoneDigits && (
+                              <a
+                                href={`https://wa.me/${phoneDigits}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                              >
+                                WhatsApp
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()
+                ) : (
+                  <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white px-3 py-4 text-xs text-slate-500">
+                    No hay técnicos cercanos para mostrar. Probá publicar una solicitud con dirección validada o actualizar el mapa.
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </article>
 
           <div className="hidden">

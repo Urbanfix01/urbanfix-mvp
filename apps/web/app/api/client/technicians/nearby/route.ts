@@ -54,13 +54,44 @@ export async function GET(request: NextRequest) {
   const profileGeocodeQuery = [profileAddress, profileCity].filter(Boolean).join(', ');
 
   const hasExactRequestCenter = requestLat !== null && requestLng !== null;
-  const geocodeQuery = requestedGeocodeQuery || profileGeocodeQuery;
+  let latestRequestCenter: { lat: number; lng: number; displayName: string } | null = null;
 
-  if (!hasExactRequestCenter && !geocodeQuery) {
+  if (!hasExactRequestCenter && !requestedGeocodeQuery) {
+    const { data: latestRequest } = await supabase
+      .from('client_requests')
+      .select('title, city, province, location_lat, location_lng, created_at')
+      .eq('client_id', user.id)
+      .not('location_lat', 'is', null)
+      .not('location_lng', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const latestLat = toFiniteNumber((latestRequest as any)?.location_lat);
+    const latestLng = toFiniteNumber((latestRequest as any)?.location_lng);
+    if (latestLat !== null && latestLng !== null) {
+      const latestLabel = [
+        toText((latestRequest as any)?.title),
+        toText((latestRequest as any)?.city),
+        toText((latestRequest as any)?.province),
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      latestRequestCenter = {
+        lat: latestLat,
+        lng: latestLng,
+        displayName: latestLabel || 'Última solicitud publicada',
+      };
+    }
+  }
+
+  const geocodeQuery = requestedGeocodeQuery || (!latestRequestCenter ? profileGeocodeQuery : '');
+
+  if (!hasExactRequestCenter && !geocodeQuery && !latestRequestCenter) {
     return NextResponse.json({
       technicians: [],
       center_label: '',
-      warning: 'Completa ciudad y direccion en tu perfil para ver tecnicos por zona.',
+      warning: 'Publica una solicitud con dirección o completa una zona para ver técnicos cercanos.',
       stats: {
         loaded: 0,
         visible: 0,
@@ -74,14 +105,14 @@ export async function GET(request: NextRequest) {
     ? {
         lat: requestLat!,
         lng: requestLng!,
-        displayName: requestedGeocodeQuery || 'Ubicacion actual de la solicitud',
+        displayName: requestedGeocodeQuery || 'Ubicación actual de la solicitud',
       }
-    : await geocodeFirstResult(geocodeQuery);
+    : latestRequestCenter || (await geocodeFirstResult(geocodeQuery));
   if (!centerGeo) {
     return NextResponse.json({
       technicians: [],
       center_label: geocodeQuery,
-      warning: 'No pudimos geolocalizar tu zona base. Revisa direccion/ciudad e intenta de nuevo.',
+      warning: 'No pudimos geolocalizar tu zona base. Revisá dirección/ciudad e intentá de nuevo.',
       stats: {
         loaded: 0,
         visible: 0,
@@ -101,7 +132,7 @@ export async function GET(request: NextRequest) {
     .limit(700);
 
   if (techniciansError) {
-    return NextResponse.json({ error: techniciansError.message || 'No se pudieron cargar tecnicos.' }, { status: 500 });
+    return NextResponse.json({ error: techniciansError.message || 'No se pudieron cargar técnicos.' }, { status: 500 });
   }
 
   let skippedByMissingGeo = 0;
@@ -124,7 +155,7 @@ export async function GET(request: NextRequest) {
       }
 
       const workingHoursConfig = parseWorkingHoursConfig(String(row.working_hours || ''));
-      const name = toText(row.business_name) || toText(row.full_name) || 'Tecnico UrbanFix';
+      const name = toText(row.business_name) || toText(row.full_name) || 'Técnico UrbanFix';
       const city = toText(row.service_city) || toText(row.city);
       const zoneLabel = [toText(row.service_district), toText(row.service_province)].filter(Boolean).join(', ');
 
@@ -137,6 +168,8 @@ export async function GET(request: NextRequest) {
         zone_label: zoneLabel || null,
         rating: Number.isFinite(Number(row.public_rating)) ? Number(row.public_rating) : null,
         distance_km: Number(distanceKm.toFixed(1)),
+        map_lat: Number(techLat.toFixed(6)),
+        map_lng: Number(techLng.toFixed(6)),
         available_now: isNowWithinWorkingHours(workingHoursConfig, now),
         working_hours_label: formatWorkingHoursLabel(workingHoursConfig),
       };
@@ -153,11 +186,11 @@ export async function GET(request: NextRequest) {
   let warning = '';
   if (!technicians.length) {
     if ((techniciansRows || []).length === 0) {
-      warning = 'Todavia no hay tecnicos disponibles para mostrar en esta zona.';
+      warning = 'Todavía no hay técnicos disponibles para mostrar en esta zona.';
     } else if (skippedByRadius > 0) {
-      warning = `No hay tecnicos dentro de ${radiusKm} km. Amplia el radio para ver mas opciones.`;
+      warning = `No hay técnicos dentro de ${radiusKm} km. Ampliá el radio para ver más opciones.`;
     } else if (skippedByMissingGeo > 0) {
-      warning = 'Hay tecnicos sin geolocalizacion completa. Pideles completar su zona de trabajo.';
+      warning = 'Hay técnicos sin geolocalización completa. Pediles completar su zona de trabajo.';
     }
   }
 
