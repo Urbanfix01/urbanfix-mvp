@@ -127,7 +127,7 @@ type AddressCandidate = {
 const getAddressCandidateKey = (candidate: AddressCandidate) =>
   `${candidate.lat.toFixed(6)}:${candidate.lng.toFixed(6)}:${candidate.displayName}`;
 
-type ClientWorkspaceView = 'request' | 'profile' | 'showcase' | 'map';
+type ClientWorkspaceView = 'request' | 'profile' | 'messages' | 'showcase' | 'map';
 
 const defaultForm: CreateRequestForm = {
   title: '',
@@ -683,6 +683,7 @@ export default function ClientRequestsHub() {
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requestsLoadError, setRequestsLoadError] = useState('');
   const [selectedClientRequestId, setSelectedClientRequestId] = useState('');
+  const [selectedClientMessageRequestId, setSelectedClientMessageRequestId] = useState('');
   const [clientMapShowAll, setClientMapShowAll] = useState(true);
   const [clientResponseActionId, setClientResponseActionId] = useState('');
   const [clientResponseActionError, setClientResponseActionError] = useState('');
@@ -1046,6 +1047,14 @@ export default function ClientRequestsHub() {
     setClientMapShowAll(true);
     setActiveClientView('map');
     document.getElementById('mapa-solicitudes-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const openClientMessages = () => {
+    if (typeof window === 'undefined') return;
+    const firstWithResponses = requests.find((item) => visibleResponseCount(item.responses) > 0);
+    setSelectedClientMessageRequestId((current) => current || firstWithResponses?.id || requests[0]?.id || '');
+    setActiveClientView('messages');
+    document.getElementById('mensajes-solicitudes-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   const clientSidebarAccountLabel = clientProfileForm.fullName.trim() || session?.user?.email || 'Tu cuenta';
@@ -1741,6 +1750,24 @@ export default function ClientRequestsHub() {
     () => requests.reduce((total, item) => total + visibleResponseCount(item.responses), 0),
     [requests]
   );
+  const clientSubmittedResponseTotal = useMemo(
+    () =>
+      requests.reduce(
+        (total, item) =>
+          total + item.responses.filter((responseItem) => String(responseItem.quoteStatus || '').toLowerCase() === 'submitted').length,
+        0
+      ),
+    [requests]
+  );
+  const clientAcceptedResponseTotal = useMemo(
+    () =>
+      requests.reduce(
+        (total, item) =>
+          total + item.responses.filter((responseItem) => String(responseItem.quoteStatus || '').toLowerCase() === 'accepted').length,
+        0
+      ),
+    [requests]
+  );
   const clientRequestsWithoutMapCount = requests.length - requestsWithMap.length;
   const selectedMapRequest = useMemo(
     () =>
@@ -1773,6 +1800,35 @@ export default function ClientRequestsHub() {
         }),
     [selectedMapRequest]
   );
+  const clientMessageRequests = useMemo(
+    () =>
+      [...requests].sort((a, b) => {
+        const responseDiff = visibleResponseCount(b.responses) - visibleResponseCount(a.responses);
+        if (responseDiff !== 0) return responseDiff;
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      }),
+    [requests]
+  );
+  const selectedMessageRequest = useMemo(
+    () =>
+      clientMessageRequests.find((item) => item.id === selectedClientMessageRequestId) ||
+      clientMessageRequests[0] ||
+      null,
+    [clientMessageRequests, selectedClientMessageRequestId]
+  );
+  const selectedMessageResponses = useMemo(
+    () =>
+      (selectedMessageRequest?.responses || [])
+        .filter((item) => String(item.quoteStatus || '').toLowerCase() !== 'pending')
+        .sort((a, b) => {
+          const weight = (status: string) => (status === 'accepted' ? 0 : status === 'submitted' ? 1 : 2);
+          return weight(String(a.quoteStatus).toLowerCase()) - weight(String(b.quoteStatus).toLowerCase());
+        }),
+    [selectedMessageRequest]
+  );
+  const selectedMessageSubmittedCount = selectedMessageResponses.filter(
+    (item) => String(item.quoteStatus || '').toLowerCase() === 'submitted'
+  ).length;
   const clientMapPoints = useMemo(() => {
     return requestsWithMap
       .map((item) => {
@@ -1855,6 +1911,19 @@ export default function ClientRequestsHub() {
     );
   }, [requestsWithMap]);
 
+  useEffect(() => {
+    if (clientMessageRequests.length === 0) {
+      setSelectedClientMessageRequestId('');
+      return;
+    }
+
+    setSelectedClientMessageRequestId((current) =>
+      current && clientMessageRequests.some((item) => item.id === current)
+        ? current
+        : clientMessageRequests[0].id
+    );
+  }, [clientMessageRequests]);
+
   const showClientMapRequestAt = (index: number) => {
     if (requestsWithMap.length === 0) return;
     const nextIndex = (index + requestsWithMap.length) % requestsWithMap.length;
@@ -1910,6 +1979,7 @@ export default function ClientRequestsHub() {
         await fetchRequests();
       }
       setSelectedClientRequestId(requestItem.id);
+      setSelectedClientMessageRequestId(requestItem.id);
       setClientResponseActionNotice(
         intent === 'reject'
           ? 'Respuesta rechazada.'
@@ -2477,6 +2547,24 @@ export default function ClientRequestsHub() {
 
                   <button
                     type="button"
+                    title={!isDesktopNavExpanded ? 'Mensajes' : undefined}
+                    onClick={openClientMessages}
+                    className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                    } ${activeClientView === 'messages' ? 'text-white' : 'text-white/[0.72]'}`}
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
+                      activeClientView === 'messages' ? 'bg-[#ff8f1f] text-[#2a0338]' : 'bg-white/[0.055]'
+                    }`}>
+                      <MessageCircle className="h-4 w-4" />
+                    </span>
+                    {isDesktopNavExpanded && (
+                      <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Mensajes</span>
+                    )}
+                  </button>
+
+                  <button
+                    type="button"
                     title={!isDesktopNavExpanded ? 'Técnicos' : undefined}
                     onClick={openClientShowcase}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
@@ -2602,7 +2690,15 @@ export default function ClientRequestsHub() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <div className={activeClientView === 'map' || activeClientView === 'showcase' ? 'w-full space-y-0' : 'mx-auto w-full max-w-2xl space-y-4'}>
+            <div
+              className={
+                activeClientView === 'map' || activeClientView === 'showcase'
+                  ? 'w-full space-y-0'
+                  : activeClientView === 'messages'
+                    ? 'mx-auto w-full max-w-6xl space-y-4'
+                    : 'mx-auto w-full max-w-2xl space-y-4'
+              }
+            >
         <header className="hidden">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -3915,6 +4011,309 @@ export default function ClientRequestsHub() {
                 </div>
               </>
             )}
+            </div>
+          </article>
+
+          <article
+            id="mensajes-solicitudes-cliente"
+            className={activeClientView === 'messages' ? 'space-y-5' : 'hidden'}
+          >
+            <div className="overflow-hidden rounded-[32px] border border-slate-200 bg-white shadow-[0_28px_80px_-56px_rgba(15,23,42,0.62)]">
+              <div className="flex flex-col gap-4 border-b border-slate-100 p-4 sm:p-5 lg:flex-row lg:items-center lg:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Centro de propuestas</p>
+                  <h2 className="mt-1 text-2xl font-semibold text-slate-950">Mensajes por solicitud</h2>
+                  <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                    Bandeja para comparar técnicos, revisar mensajes y elegir con claridad.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleRefreshWorkspace}
+                    disabled={loadingRequests}
+                    className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {loadingRequests ? 'Actualizando...' : 'Actualizar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openRequestSection}
+                    className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-[0_18px_36px_-24px_rgba(15,23,42,0.9)] transition hover:bg-slate-800"
+                  >
+                    Nueva solicitud
+                  </button>
+                </div>
+              </div>
+              <div className="grid gap-2 bg-slate-50/80 p-3 sm:grid-cols-3 sm:p-4">
+                <div className="rounded-[22px] border border-white bg-white px-4 py-3 shadow-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Total propuestas</p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-950">{clientVisibleResponseTotal}</p>
+                </div>
+                <div className="rounded-[22px] border border-emerald-100 bg-white px-4 py-3 shadow-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-500">Sin revisar</p>
+                  <p className="mt-1 text-2xl font-semibold text-emerald-700">{clientSubmittedResponseTotal}</p>
+                </div>
+                <div className="rounded-[22px] border border-orange-100 bg-white px-4 py-3 shadow-sm">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-orange-500">Elegidas</p>
+                  <p className="mt-1 text-2xl font-semibold text-orange-700">{clientAcceptedResponseTotal}</p>
+                </div>
+              </div>
+              {requestsLoadError && <p className="mt-3 text-xs text-rose-600">{requestsLoadError}</p>}
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-[0.39fr_0.61fr]">
+              <div className="rounded-[30px] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.6)] sm:p-3">
+                <div className="flex items-center justify-between gap-3 px-2 py-2">
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Solicitudes</p>
+                    <h3 className="mt-1 text-lg font-semibold text-slate-950">Tus trabajos</h3>
+                  </div>
+                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                    {requests.length}
+                  </span>
+                </div>
+
+                <div className="mt-2 max-h-[68dvh] space-y-2 overflow-y-auto pr-1">
+                  {loadingRequests && requests.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
+                      Cargando solicitudes...
+                    </div>
+                  ) : clientMessageRequests.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-600">
+                      Todavía no publicaste solicitudes.
+                    </div>
+                  ) : (
+                    clientMessageRequests.map((item) => {
+                      const responseCount = visibleResponseCount(item.responses);
+                      const pendingCount = item.responses.filter(
+                        (responseItem) => String(responseItem.quoteStatus || '').toLowerCase() === 'submitted'
+                      ).length;
+                      const acceptedCount = item.responses.filter(
+                        (responseItem) => String(responseItem.quoteStatus || '').toLowerCase() === 'accepted'
+                      ).length;
+                      const isSelected = selectedMessageRequest?.id === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setSelectedClientMessageRequestId(item.id)}
+                          className={`relative w-full overflow-hidden rounded-[22px] border p-3 text-left transition ${
+                            isSelected
+                              ? 'border-slate-950 bg-slate-950 text-white shadow-[0_22px_42px_-28px_rgba(15,23,42,0.9)]'
+                              : 'border-slate-200 bg-white text-slate-800 hover:border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          {isSelected && <span className="absolute bottom-0 left-0 top-0 w-1 bg-[#ff8f1f]" />}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className={`truncate text-sm font-semibold ${isSelected ? 'text-white' : 'text-slate-950'}`}>{item.title}</p>
+                              <p className={`mt-1 text-xs ${isSelected ? 'text-white/66' : 'text-slate-600'}`}>
+                                {item.category} · {item.city || 'Sin ciudad'}
+                              </p>
+                            </div>
+                            <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${
+                              isSelected ? 'bg-white/10 text-white' : badgeByStatus(item.status)
+                            }`}>
+                              {item.status}
+                            </span>
+                          </div>
+                          <p className={`mt-2 line-clamp-2 text-xs leading-5 ${isSelected ? 'text-white/64' : 'text-slate-500'}`}>
+                            {item.description || item.address || 'Solicitud sin detalle cargado.'}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                              isSelected ? 'bg-white/10 text-white' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {responseCount} {responseCount === 1 ? 'propuesta' : 'propuestas'}
+                            </span>
+                            {pendingCount > 0 && (
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                                isSelected ? 'bg-emerald-400/18 text-emerald-100' : 'bg-emerald-50 text-emerald-700'
+                              }`}>
+                                {pendingCount} nuevas
+                              </span>
+                            )}
+                            {acceptedCount > 0 && (
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                                isSelected ? 'bg-orange-400/18 text-orange-100' : 'bg-orange-50 text-orange-700'
+                              }`}>
+                                Técnico elegido
+                              </span>
+                            )}
+                          </div>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+
+              <div className="rounded-[30px] border border-slate-200 bg-white p-2 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.6)] sm:p-3">
+                {selectedMessageRequest ? (
+                  <>
+                    <div className="rounded-[26px] bg-slate-950 p-4 text-white shadow-[0_24px_58px_-38px_rgba(15,23,42,0.95)] sm:p-5">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/42">Solicitud activa</p>
+                        <h3 className="mt-1 text-xl font-semibold text-white">{selectedMessageRequest.title}</h3>
+                        <p className="mt-1 text-sm text-white/68">
+                          {selectedMessageRequest.category} · {selectedMessageRequest.city || 'Zona sin ciudad'}
+                        </p>
+                        <p className="mt-3 line-clamp-2 max-w-3xl text-sm leading-6 text-white/62">
+                          {selectedMessageRequest.description || 'Sin descripción cargada.'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap gap-2">
+                        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                          {selectedMessageRequest.urgency}
+                        </span>
+                        <span className="rounded-full bg-[#ff8f1f] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#1b0a24]">
+                          {selectedMessageRequest.status}
+                        </span>
+                      </div>
+                    </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 px-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Propuestas recibidas</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {selectedMessageResponses.length > 0
+                            ? `${selectedMessageResponses.length} para revisar · ${selectedMessageSubmittedCount} nuevas`
+                            : 'Todavía no hay técnicos postulados para este trabajo.'}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMessageRequest.locationLat !== null && selectedMessageRequest.locationLng !== null && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedClientRequestId(selectedMessageRequest.id);
+                              setClientMapShowAll(false);
+                              setActiveClientView('map');
+                              document.getElementById('mapa-solicitudes-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }}
+                            className={clientPanelSecondaryButtonClass}
+                          >
+                            Ver en mapa
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {clientResponseActionError && <p className="mt-3 text-xs text-rose-600">{clientResponseActionError}</p>}
+                    {clientResponseActionNotice && <p className="mt-3 text-xs text-emerald-600">{clientResponseActionNotice}</p>}
+
+                    {selectedMessageResponses.length === 0 ? (
+                      <div className="mt-4 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
+                        Cuando un técnico se postule o mande una cotización, aparecerá acá con su mensaje, disponibilidad y contacto.
+                      </div>
+                    ) : (
+                      <div className="mt-4 space-y-3">
+                        {selectedMessageResponses.map((responseItem) => {
+                          const statusMeta = responseStatusMeta(responseItem.quoteStatus, responseItem.responseType);
+                          const actionBaseId = `${selectedMessageRequest.id}:${responseItem.id}`;
+                          const isRejected = String(responseItem.quoteStatus).toLowerCase() === 'rejected';
+                          const isAccepted = String(responseItem.quoteStatus).toLowerCase() === 'accepted';
+                          const isDirectQuote = responseItem.responseType === 'direct_quote';
+                          const phoneDigits = responseItem.phone.replace(/\D/g, '');
+                          const initials =
+                            (responseItem.businessName || responseItem.technicianName)
+                              .split(' ')
+                              .filter(Boolean)
+                              .slice(0, 2)
+                              .map((part) => part.slice(0, 1).toUpperCase())
+                              .join('') || 'UF';
+                          return (
+                            <div key={responseItem.id} className="rounded-[26px] border border-slate-200 bg-white p-3 shadow-[0_18px_48px_-42px_rgba(15,23,42,0.72)]">
+                              <div className="rounded-[22px] border border-slate-100 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_100%)] p-3">
+                                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                                  <div className="flex min-w-0 gap-3">
+                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-xs font-bold text-white shadow-[0_16px_28px_-20px_rgba(15,23,42,0.9)] ring-4 ring-white">
+                                      {initials}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <div className="flex flex-wrap items-center gap-2">
+                                        <p className="text-base font-semibold text-slate-950">
+                                          {responseItem.businessName || responseItem.technicianName}
+                                        </p>
+                                        <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] ${statusMeta.className}`}>
+                                          {statusMeta.label}
+                                        </span>
+                                      </div>
+                                      <p className="mt-1 text-xs text-slate-600">
+                                        {responseItem.specialty}
+                                        {responseItem.city ? ` · ${responseItem.city}` : ''}
+                                        {responseItem.rating !== null ? ` · ${responseItem.rating.toFixed(1)} / 5` : ''}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="rounded-[18px] border border-slate-200 bg-white px-4 py-3 text-left shadow-sm sm:min-w-[12rem] sm:text-right">
+                                    <p className="text-base font-semibold text-slate-950">
+                                      {isDirectQuote ? formatArs(responseItem.priceArs) : 'Postulación'}
+                                    </p>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {isDirectQuote
+                                        ? `ETA ${Math.round(Number(responseItem.etaHours || 0)) || '-'} h`
+                                        : `Puede coordinar en ${Math.round(Number(responseItem.visitEtaHours || 0)) || '-'} h`}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div className="mt-3 rounded-[20px] border border-slate-200 bg-white px-4 py-3 shadow-sm">
+                                  <div className="flex items-center gap-2">
+                                    <MessageCircle className="h-4 w-4 text-slate-400" />
+                                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Mensaje</p>
+                                  </div>
+                                  <p className="mt-2 text-sm leading-6 text-slate-700">
+                                    {responseItem.responseMessage || 'El técnico todavía no dejó un mensaje.'}
+                                  </p>
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center gap-2">
+                                  {phoneDigits && (
+                                    <a
+                                      href={`https://wa.me/${phoneDigits}`}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                                    >
+                                      WhatsApp
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleClientResponseAction(selectedMessageRequest, responseItem, 'select')}
+                                    disabled={isRejected || isAccepted || clientResponseActionId.startsWith(actionBaseId)}
+                                    className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-[0_18px_36px_-24px_rgba(15,23,42,0.9)] transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                  >
+                                    {clientResponseActionId === `${actionBaseId}:select` ? 'Guardando...' : isAccepted ? 'Elegida' : 'Elegir técnico'}
+                                  </button>
+                                  {!isRejected && !isAccepted && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleClientResponseAction(selectedMessageRequest, responseItem, 'reject')}
+                                      disabled={clientResponseActionId.startsWith(actionBaseId)}
+                                      className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                                    >
+                                      {clientResponseActionId === `${actionBaseId}:reject` ? 'Rechazando...' : 'Rechazar'}
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-600">
+                    Todavía no hay solicitudes para administrar.
+                  </div>
+                )}
+              </div>
             </div>
           </article>
 
