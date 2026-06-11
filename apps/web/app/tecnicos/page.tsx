@@ -41,6 +41,7 @@ import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supa
 import AuthHashHandler from '../../components/AuthHashHandler';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
+import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
 import UrbanFixBrandLoader from '../../components/UrbanFixBrandLoader';
 import {
@@ -385,6 +386,40 @@ const parseDelimitedValues = (value: string | null | undefined) => {
 };
 
 const serializeDelimitedValues = (values: string[]) => values.join(', ');
+
+const splitProfileTextLines = (value: string | null | undefined) =>
+  String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const parseProfileBadges = (value: unknown) => {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => String(item || '').trim()).filter(Boolean);
+};
+
+const buildProfileWhatsappLink = (phone: string | null | undefined) => {
+  const raw = String(phone || '').replace(/\D/g, '');
+  if (!raw) return '';
+  let normalized = raw;
+  if (normalized.startsWith('00')) normalized = normalized.slice(2);
+  if (!normalized.startsWith('54')) {
+    if (normalized.startsWith('0')) normalized = normalized.slice(1);
+    if (normalized.length === 11 && normalized.slice(2, 4) === '15') {
+      normalized = `${normalized.slice(0, 2)}${normalized.slice(4)}`;
+    }
+    normalized = `54${normalized}`;
+  }
+  return `https://wa.me/${normalized}`;
+};
+
+const formatArgentinaTimeLabel = (now = new Date()) =>
+  new Intl.DateTimeFormat('es-AR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'America/Argentina/Buenos_Aires',
+  }).format(now);
 
 const normalizeSocialUrl = (value: string) => {
   const raw = value.trim();
@@ -810,7 +845,7 @@ const AUTH_PROFILE_META = {
     panelLabel: 'Panel técnico',
     heading: 'Ingresa a tu operación técnica con una entrada más clara.',
     description:
-      'Accede a presupuestos, solicitudes cercanas, historial de trabajos y presencia pública sin pasar por una pantalla genérica.',
+      'Accede a presupuestos, solicitudes cercanas, facturación y presencia pública sin pasar por una pantalla genérica.',
     heroCards: [
       {
         eyebrow: 'Cotización',
@@ -1830,6 +1865,7 @@ export default function TechniciansPage() {
   const [supportError, setSupportError] = useState('');
   const supportFileInputRef = useRef<HTMLInputElement | null>(null);
   const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
+  const supportMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const accessTransitionTimerRef = useRef<number | null>(null);
   const [accessVideoMuted, setAccessVideoMuted] = useState(true);
   const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
@@ -1965,7 +2001,7 @@ export default function TechniciansPage() {
     | 'historial'
     | 'notificaciones'
   >('lobby');
-  const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('editor');
+  const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('preview');
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState('');
@@ -2210,7 +2246,7 @@ export default function TechniciansPage() {
     { key: 'agenda', label: 'Agenda', hint: 'Planificacion', short: 'AG', icon: Calendar },
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO', icon: Bell },
     { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH', icon: MessageCircle },
-    { key: 'historial', label: 'Historial', hint: 'Facturacion', short: 'HI', icon: Clock },
+    { key: 'historial', label: 'Facturación', hint: 'Cobros', short: 'FA', icon: Clock },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
   ];
@@ -2218,6 +2254,8 @@ export default function TechniciansPage() {
     profile?.business_name || profile?.full_name || session?.user?.email || 'Tu cuenta';
 
   const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
+  const isFullBleedContent =
+    activeTab === 'operativo' || (activeTab === 'perfil' && profilePanelTab === 'preview');
   const mobilePrimaryNavItems = navItems.filter(
     (item) =>
       item.key === 'lobby' ||
@@ -4165,6 +4203,45 @@ export default function TechniciansPage() {
     const average = billingMonthlySeries.length ? total / billingMonthlySeries.length : 0;
     return { total, average };
   }, [billingMonthlySeries]);
+  const billingBestMonth = useMemo(
+    () =>
+      billingMonthlySeries.reduce(
+        (best, item) => (item.total > best.total ? item : best),
+        billingMonthlySeries[0] || { key: '', label: '-', total: 0 }
+      ),
+    [billingMonthlySeries]
+  );
+  const billingLastMonth = billingMonthlySeries[billingMonthlySeries.length - 1] || {
+    key: '',
+    label: '-',
+    total: 0,
+  };
+  const billingOpenQuotes = useMemo(
+    () =>
+      quotes.filter((quote) => {
+        const status = normalizeStatusValue(quote.status);
+        return quoteIsBillable(status) && !quoteHasStatusGroup(status, 'paid');
+      }),
+    [quotes]
+  );
+  const billingOpenAmount = useMemo(
+    () => billingOpenQuotes.reduce((sum, quote) => sum + toAmountValue(quote.total_amount), 0),
+    [billingOpenQuotes]
+  );
+  const billingRecentQuotes = useMemo(
+    () =>
+      quotes
+        .filter((quote) => quoteIsBillable(quote.status))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        .slice(0, 6),
+    [quotes]
+  );
+  const billingProgress = useMemo(() => {
+    const billableTotal = quoteStats.paidAmount + billingOpenAmount;
+    const paidPercent = billableTotal > 0 ? Math.round((quoteStats.paidAmount / billableTotal) * 100) : 0;
+    const openPercent = billableTotal > 0 ? Math.round((billingOpenAmount / billableTotal) * 100) : 0;
+    return { billableTotal, paidPercent, openPercent };
+  }, [billingOpenAmount, quoteStats.paidAmount]);
   const unreadNotifications = useMemo(
     () => notifications.filter((item) => !item.read_at).length,
     [notifications]
@@ -5523,6 +5600,11 @@ export default function TechniciansPage() {
     fetchSupportMessages();
   }, [activeTab, session?.user?.id, isBetaAdmin, activeSupportUserId]);
 
+  useEffect(() => {
+    if (activeTab !== 'soporte') return;
+    supportMessagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [activeTab, supportMessages.length, supportLoading]);
+
   const profileRequiredMissing = useMemo(() => {
     const missing: string[] = [];
     const full = String(profile?.full_name || '').trim();
@@ -5646,7 +5728,7 @@ export default function TechniciansPage() {
       {
         key: 'quotes',
         title: 'Carga tu primer presupuesto',
-        description: 'Empieza a cotizar para construir historial, seguimiento y facturacion.',
+        description: 'Empieza a cotizar para construir facturación, seguimiento y cobros.',
         done: quotes.length > 0,
       },
       {
@@ -5795,6 +5877,15 @@ export default function TechniciansPage() {
     setProfileForm((prev) => ({
       ...prev,
       specialties: toggleSpecialty(prev.specialties, specialty),
+    }));
+  };
+
+  const handleSpecialtySelect = (specialty: string) => {
+    const selected = specialty.trim();
+    if (!selected) return;
+    setProfileForm((prev) => ({
+      ...prev,
+      specialties: upsertSpecialty(prev.specialties, selected),
     }));
   };
 
@@ -5977,6 +6068,139 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return '';
     return `${window.location.origin}/vidriera`;
   }, []);
+  const publicProfilePreview = useMemo(() => {
+    const profileId = session?.user?.id || profile?.id || '';
+    const displayName =
+      String(profileForm.businessName || profileForm.fullName || profile?.business_name || profile?.full_name || 'Técnico UrbanFix').trim() ||
+      'Técnico UrbanFix';
+    const fullName = String(profileForm.fullName || profile?.full_name || '').trim();
+    const displayInitial = displayName.slice(0, 1).toUpperCase() || 'U';
+    const specialties = parseSpecialties(profileForm.specialties).slice(0, 12);
+    const recommendations = splitProfileTextLines(profile?.client_recommendations).slice(0, 5);
+    const badges = parseProfileBadges(profile?.achievement_badges).slice(0, 8);
+    const likesCount = Math.max(0, Number(profile?.public_likes_count || 0));
+    const rating = Number(profile?.public_rating || 0);
+    const reviewsCount = Math.max(0, Number(profile?.public_reviews_count || 0));
+    const completedJobsRaw = Number(profile?.completed_jobs_total);
+    const hasRating = Number.isFinite(rating) && rating > 0;
+    const hasReviews = Number.isFinite(reviewsCount) && reviewsCount > 0;
+    const hasCompletedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0;
+    const completedJobsLabel = hasCompletedJobs ? completedJobsRaw.toString() : 'No informado';
+    const presentationText =
+      String(profile?.references_summary || '').trim() ||
+      String(profileForm.certifications || '').trim() ||
+      '';
+    const heroSummary =
+      presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
+    const profileCode = profileId ? profileId.slice(0, 8).toUpperCase() : 'URBANFIX';
+    const avatarImageUrl = String(profileForm.avatarUrl || profileForm.companyLogoUrl || '').trim();
+    const companyBannerUrl = String(profileForm.bannerUrl || profileForm.companyLogoUrl || profileForm.avatarUrl || '').trim();
+    const whatsappLink = buildProfileWhatsappLink(profileForm.phone);
+    const socialLinks = [
+      { label: 'Facebook', href: toSafeUrl(profileForm.facebookUrl) },
+      { label: 'Instagram', href: toSafeUrl(profileForm.instagramUrl) },
+    ].filter((entry) => Boolean(entry.href));
+    const availabilityLabel = 'A coordinar';
+    const availabilityToneClass = 'bg-white/10 text-white/75 ring-1 ring-white/10';
+    const heroPills = [
+      profileForm.city ? `Zona base: ${profileForm.city}` : '',
+      coverageAreaLabel ? 'Cobertura activa' : '',
+      specialties.length > 0 ? `${specialties.length} rubros cargados` : '',
+    ].filter(Boolean);
+    const metricCards = [
+      {
+        label: 'Reputación',
+        value: hasRating ? rating.toFixed(1) : 'Sin calificar',
+        detail: hasRating ? 'Puntaje promedio' : 'Sin calificaciones',
+        accent: 'from-[#ffb45c]/18 to-[#ff8f1f]/6',
+      },
+      {
+        label: 'Reseñas',
+        value: reviewsCount.toString(),
+        detail: hasReviews ? 'Opiniones de clientes' : 'Sin reseñas',
+        accent: 'from-white/[0.10] to-white/[0.03]',
+      },
+      {
+        label: 'Trabajos',
+        value: completedJobsLabel,
+        detail: hasCompletedJobs ? 'Completados' : 'No informado',
+        accent: 'from-[#8b5cf6]/16 to-[#3b1b62]/10',
+      },
+      {
+        label: 'Me gusta',
+        value: likesCount.toString(),
+        detail: likesCount > 0 ? 'Interacciones' : 'Sin me gusta',
+        accent: 'from-[#f97316]/16 to-[#431407]/10',
+      },
+    ];
+    const profileSignals = [
+      {
+        label: 'Zona de trabajo',
+        value: coverageAreaLabel || profileForm.city || 'Sin zona detallada',
+        note: profileForm.city ? profileForm.city : '',
+      },
+      {
+        label: 'Disponibilidad',
+        value: availabilityLabel,
+        note: `${workingHoursLabel} · ${formatArgentinaTimeLabel()}`,
+      },
+      {
+        label: 'Contacto',
+        value: whatsappLink ? 'WhatsApp disponible' : 'A coordinar',
+        note: socialLinks.length > 0 ? socialLinks.map((entry) => entry.label).join(' · ') : '',
+      },
+    ];
+
+    return {
+      avatarImageUrl,
+      availabilityLabel,
+      availabilityToneClass,
+      badges,
+      companyBannerUrl,
+      displayInitial,
+      displayName,
+      facebookFeedEmbedUrl: buildFacebookTimelineEmbedUrl(profileForm.facebookUrl),
+      fullName,
+      heroPills,
+      heroSummary,
+      instagramPostEmbedUrl: buildInstagramEmbedUrl(profileForm.instagramUrl),
+      likesCount,
+      metricCards,
+      presentationText,
+      profileCode,
+      profileId,
+      profileSignals,
+      recommendations,
+      socialLinks,
+      specialties,
+      whatsappLink,
+    };
+  }, [
+    coverageAreaLabel,
+    profile?.achievement_badges,
+    profile?.business_name,
+    profile?.client_recommendations,
+    profile?.completed_jobs_total,
+    profile?.full_name,
+    profile?.id,
+    profile?.public_likes_count,
+    profile?.public_rating,
+    profile?.public_reviews_count,
+    profile?.references_summary,
+    profileForm.avatarUrl,
+    profileForm.bannerUrl,
+    profileForm.businessName,
+    profileForm.certifications,
+    profileForm.city,
+    profileForm.companyLogoUrl,
+    profileForm.facebookUrl,
+    profileForm.fullName,
+    profileForm.instagramUrl,
+    profileForm.phone,
+    profileForm.specialties,
+    session?.user?.id,
+    workingHoursLabel,
+  ]);
   const autoSaveSignature = useMemo(
     () =>
       JSON.stringify({
@@ -6931,6 +7155,8 @@ export default function TechniciansPage() {
         className={`relative overflow-hidden ${
           activeTab === 'operativo'
             ? 'bg-slate-950'
+            : activeTab === 'perfil' && profilePanelTab === 'preview'
+              ? 'bg-[#21002f]'
             : 'bg-[linear-gradient(180deg,#ebe8df_0%,#f7f6f1_38%,#e9edf0_100%)]'
         }`}
       >
@@ -6941,12 +7167,12 @@ export default function TechniciansPage() {
 
         <div
           className={
-            activeTab === 'operativo'
+            isFullBleedContent
               ? 'relative mx-auto flex w-full max-w-none gap-0 px-0 pb-0 pt-0 lg:pl-[74px]'
               : 'relative mx-auto flex w-full max-w-none gap-6 px-4 pb-36 pt-8 md:px-6 lg:pb-12 lg:pl-[96px]'
           }
         >
-          <div className={activeTab === 'operativo' ? 'contents' : 'hidden w-[74px] shrink-0 lg:block'}>
+          <div className={isFullBleedContent ? 'contents' : 'hidden w-[74px] shrink-0 lg:block'}>
             <aside
               aria-label="Navegación técnica"
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
@@ -7318,7 +7544,7 @@ export default function TechniciansPage() {
               </button>
             </div>
 
-            <main className={activeTab === 'operativo' ? 'relative w-full pt-0' : 'relative pt-6'}>
+            <main className={isFullBleedContent ? 'relative w-full pt-0' : 'relative pt-6'}>
               {isProfileUnderReview && (
                 <section className="mb-5 overflow-hidden rounded-[28px] border border-[#ffcf93]/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,247,237,0.9))] p-4 shadow-[0_22px_62px_-46px_rgba(42,3,56,0.62)] sm:p-5">
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -7355,7 +7581,7 @@ export default function TechniciansPage() {
                   </div>
                 </section>
               )}
-              <section className={activeTab === 'operativo' ? 'space-y-0' : 'space-y-6'}>
+              <section className={isFullBleedContent ? 'space-y-0' : 'space-y-6'}>
             {(activeTab === 'lobby' || activeTab === 'operativo') && (
               <div className={activeTab === 'operativo' ? 'space-y-0' : 'space-y-6'}>
                 {activeTab === 'lobby' && (
@@ -9809,99 +10035,278 @@ export default function TechniciansPage() {
               </div>
             )}
             {activeTab === 'historial' && (
-              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Historial</p>
-                <h2 className="text-xl font-semibold text-slate-900">Historico de facturacion</h2>
-                <p className="text-sm text-slate-500">
-                  Resumen anual y mensual de los presupuestos cobrados o aprobados.
-                </p>
-
-                <div className="mt-6 grid gap-6 lg:grid-cols-[2fr,1fr]">
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Facturacion mensual</p>
-                        <p className="text-xs text-slate-500">Ultimos 12 meses</p>
+              <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-[#f7f9fc] shadow-[0_30px_86px_-58px_rgba(15,23,42,0.62)]">
+                <div className="relative overflow-hidden bg-[#180f24] px-5 py-6 text-white sm:px-6">
+                  <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,143,31,0.34),transparent_50%)]" />
+                  <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
+                        Facturación
+                      </p>
+                      <h2 className={`${spaceGrotesk.className} mt-2 text-3xl font-black tracking-tight sm:text-4xl`}>
+                        Control de caja
+                      </h2>
+                      <p className="mt-2 max-w-2xl text-sm text-white/62">
+                        Cobros, trabajos activos y rendimiento mensual en una sola vista.
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 sm:min-w-[360px]">
+                      <div className="rounded-[22px] border border-white/10 bg-white/10 p-4 backdrop-blur">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                          Cobrado
+                        </p>
+                        <p className={`${spaceGrotesk.className} mt-2 text-2xl font-black`}>
+                          {formatDashboardMoney(quoteStats.paidAmount)}
+                        </p>
+                        <p className="mt-1 text-xs text-white/50">{quoteStats.paid} cerrados</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-500">Total 12 meses</p>
-                        <p className="text-lg font-semibold text-slate-900">
-                          ${billingTotals.total.toLocaleString('es-AR')}
+                      <div className="rounded-[22px] border border-[#ff8f1f]/35 bg-[#ff8f1f] p-4 text-[#180f24] shadow-[0_18px_48px_-30px_rgba(255,143,31,0.9)]">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#180f24]/55">
+                          Por cobrar
+                        </p>
+                        <p className={`${spaceGrotesk.className} mt-2 text-2xl font-black`}>
+                          {formatDashboardMoney(billingOpenAmount)}
+                        </p>
+                        <p className="mt-1 text-xs font-semibold text-[#180f24]/65">
+                          {billingOpenQuotes.length} activos
                         </p>
                       </div>
                     </div>
+                  </div>
+                </div>
 
-                    <div className="mt-4 flex items-end gap-3 overflow-x-auto pb-2">
+                <div className="grid border-b border-slate-200 bg-white sm:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    {
+                      label: 'Total 12 meses',
+                      value: formatDashboardMoney(billingTotals.total),
+                      hint: `${billingRecentQuotes.length} movimientos visibles`,
+                    },
+                    {
+                      label: 'Mes actual',
+                      value: formatDashboardMoney(billingLastMonth.total),
+                      hint: billingLastMonth.label.toUpperCase(),
+                    },
+                    {
+                      label: 'Promedio',
+                      value: formatDashboardMoney(billingTotals.average),
+                      hint: 'mensual',
+                    },
+                    {
+                      label: 'Mejor mes',
+                      value: formatDashboardMoney(billingBestMonth.total),
+                      hint: billingBestMonth.label.toUpperCase(),
+                    },
+                  ].map((item) => (
+                    <div key={item.label} className="border-b border-slate-200 px-5 py-4 last:border-b-0 sm:border-r sm:last:border-r-0 xl:border-b-0">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{item.label}</p>
+                      <p className={`${spaceGrotesk.className} mt-2 truncate text-2xl font-black text-[#180f24]`}>
+                        {item.value}
+                      </p>
+                      <p className="mt-1 text-xs font-semibold text-slate-500">{item.hint}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid gap-4 p-4 lg:grid-cols-[minmax(0,1.7fr)_minmax(320px,0.8fr)] sm:p-5">
+                  <div className="rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                          Rendimiento
+                        </p>
+                        <h3 className={`${spaceGrotesk.className} mt-1 text-xl font-bold text-[#180f24]`}>
+                          Últimos 12 meses
+                        </h3>
+                      </div>
+                      <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
+                        Total {formatDashboardMoney(billingTotals.total)}
+                      </div>
+                    </div>
+
+                    <div className="mt-5 flex h-64 items-end gap-2 overflow-x-auto rounded-[22px] bg-slate-50 px-3 py-4">
                       {billingMonthlySeries.map((item) => {
                         const height = Math.min(
                           100,
-                          Math.max(8, Math.round((item.total / maxMonthlyBilling) * 100))
+                          Math.max(item.total > 0 ? 10 : 4, Math.round((item.total / maxMonthlyBilling) * 100))
                         );
+                        const isBestMonth = item.key === billingBestMonth.key && item.total > 0;
                         return (
-                          <div key={item.key} className="flex min-w-[48px] flex-col items-center gap-2">
-                            <div className="flex h-32 w-4 items-end rounded-full bg-white shadow-sm">
+                          <div key={item.key} className="flex min-w-[52px] flex-1 flex-col items-center justify-end gap-2">
+                            <div className="flex h-44 w-full max-w-[34px] items-end rounded-full bg-white shadow-inner ring-1 ring-slate-100">
                               <div
-                                className="w-full rounded-full bg-emerald-500"
+                                title={`${item.label}: ${formatCurrency(item.total)}`}
+                                className={`w-full rounded-full transition ${
+                                  isBestMonth
+                                    ? 'bg-[#ff8f1f] shadow-[0_0_22px_rgba(255,143,31,0.45)]'
+                                    : item.total > 0
+                                      ? 'bg-[#2a0338]'
+                                      : 'bg-slate-200'
+                                }`}
                                 style={{ height: `${height}%` }}
                               />
                             </div>
-                            <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400">
+                            <span className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
                               {item.label}
                             </span>
                           </div>
                         );
                       })}
                     </div>
-
-                    <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-600">
-                      <span className="rounded-full bg-white px-3 py-1">
-                        Promedio mensual: ${billingTotals.average.toLocaleString('es-AR')}
-                      </span>
-                      <span className="rounded-full bg-white px-3 py-1">
-                        Ultimo mes: $
-                        {(billingMonthlySeries[billingMonthlySeries.length - 1]?.total || 0).toLocaleString('es-AR')}
-                      </span>
-                    </div>
                   </div>
 
-                  <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Resumen anual</p>
-                    <p className="mt-2 text-xs text-slate-500">Total facturado por ano.</p>
-                    <div className="mt-4 space-y-3">
-                      {billingYearSeries.length === 0 && (
-                        <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-xs text-slate-500">
-                          Aun no hay facturacion registrada.
-                        </div>
-                      )}
-                      {billingYearSeries.map((item) => (
-                        <div
-                          key={item.year}
-                          className="flex items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                        >
-                          <span className="text-sm font-semibold text-slate-800">{item.year}</span>
-                          <span className="text-sm font-semibold text-slate-900">
-                            ${item.total.toLocaleString('es-AR')}
-                          </span>
-                        </div>
-                      ))}
+                  <div className="space-y-4">
+                    <div className="rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Estado de cobro
+                      </p>
+                      <div className="mt-4 space-y-4">
+                        {[
+                          {
+                            label: 'Cobrado',
+                            amount: quoteStats.paidAmount,
+                            percent: billingProgress.paidPercent,
+                            color: 'bg-emerald-500',
+                            count: quoteStats.paid,
+                          },
+                          {
+                            label: 'Por cobrar',
+                            amount: billingOpenAmount,
+                            percent: billingProgress.openPercent,
+                            color: 'bg-[#ff8f1f]',
+                            count: billingOpenQuotes.length,
+                          },
+                        ].map((item) => (
+                          <div key={item.label}>
+                            <div className="flex items-center justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-bold text-[#180f24]">{item.label}</p>
+                                <p className="text-xs text-slate-500">{item.count} presupuestos</p>
+                              </div>
+                              <p className={`${spaceGrotesk.className} text-lg font-black text-slate-900`}>
+                                {formatDashboardMoney(item.amount)}
+                              </p>
+                            </div>
+                            <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-slate-100">
+                              <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.percent}%` }} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-[26px] border border-slate-200 bg-white p-4 sm:p-5">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Resumen anual
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {billingYearSeries.length === 0 && (
+                          <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
+                            Aún no hay facturación registrada.
+                          </div>
+                        )}
+                        {billingYearSeries.slice(0, 4).map((item) => (
+                          <div key={item.year} className="flex items-center justify-between rounded-2xl bg-slate-50 px-4 py-3">
+                            <span className="text-sm font-bold text-slate-800">{item.year}</span>
+                            <span className="text-sm font-black text-[#180f24]">
+                              {formatDashboardMoney(item.total)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-5">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Detalle mensual</p>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {billingMonthlySeries.map((item) => (
-                      <div key={item.key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">{item.label}</p>
-                        <p className="mt-2 text-sm font-semibold text-slate-900">
-                          ${item.total.toLocaleString('es-AR')}
+                <div className="border-t border-slate-200 bg-white p-4 sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Movimientos
+                      </p>
+                      <h3 className={`${spaceGrotesk.className} mt-1 text-xl font-bold text-[#180f24]`}>
+                        Presupuestos facturables
+                      </h3>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={startNewQuote}
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-full bg-[#020617] px-4 text-xs font-semibold text-white transition hover:bg-[#111827]"
+                    >
+                      <FilePlus className="h-4 w-4" />
+                      Nuevo presupuesto
+                    </button>
+                  </div>
+
+                  <div className="mt-4 overflow-hidden rounded-[22px] border border-slate-200">
+                    {billingRecentQuotes.length === 0 && (
+                      <div className="bg-slate-50 p-8 text-center">
+                        <p className={`${spaceGrotesk.className} text-lg font-bold text-slate-900`}>
+                          Sin movimientos facturables
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          Los presupuestos aprobados, programados, finalizados o cobrados aparecerán acá.
                         </p>
                       </div>
-                    ))}
+                    )}
+                    {billingRecentQuotes.map((quote) => {
+                      const info = getQuoteStatusInfo(quote.status);
+                      const quoteAddress = getQuoteAddress(quote);
+                      const amount = toAmountValue(quote.total_amount);
+                      return (
+                        <article
+                          key={quote.id}
+                          className="grid gap-3 border-b border-slate-200 bg-white p-4 last:border-b-0 hover:bg-slate-50 lg:grid-cols-[minmax(0,1fr)_150px_180px] lg:items-center"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${info.className}`}>
+                                {info.label}
+                              </span>
+                              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                {getQuoteDisplayNumber(quote)}
+                              </span>
+                            </div>
+                            <h4 className={`${spaceGrotesk.className} mt-2 truncate text-base font-bold text-[#180f24]`}>
+                              {quote.client_name || 'Presupuesto sin cliente'}
+                            </h4>
+                            <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
+                              {quoteAddress || 'Sin dirección'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                            </p>
+                          </div>
+
+                          <div className="lg:text-right">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                              Monto
+                            </p>
+                            <p className={`${spaceGrotesk.className} mt-1 text-lg font-black text-slate-950`}>
+                              {formatCurrency(amount)}
+                            </p>
+                          </div>
+
+                          <div className="flex gap-2 lg:justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleViewQuote(quote)}
+                              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-full bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Abrir
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => startEditQuote(quote)}
+                              className="h-9 rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                            >
+                              Editar
+                            </button>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 </div>
-              </div>
+              </section>
             )}
 
             {activeTab === 'notificaciones' && (
@@ -10060,184 +10465,297 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'soporte' && (
-              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Soporte beta</p>
-                    <h2 className="text-xl font-semibold text-slate-900">Chat interno</h2>
-                    <p className="text-sm text-slate-500">
-                      Usa este canal para reportar problemas o pedir ayuda durante la beta.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (isBetaAdmin) fetchSupportUsers();
-                      fetchSupportMessages();
-                    }}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                  >
-                    Actualizar
-                  </button>
-                </div>
-
+              <div className="overflow-hidden rounded-[30px] border border-white/80 bg-white shadow-[0_34px_90px_-48px_rgba(15,23,42,0.55)]">
                 <div
-                  className={`mt-6 grid gap-6 ${
-                    isBetaAdmin ? 'lg:grid-cols-[280px,1fr]' : 'grid-cols-1'
+                  className={`grid min-h-[640px] ${
+                    isBetaAdmin ? 'lg:grid-cols-[320px,1fr]' : 'grid-cols-1'
                   }`}
                 >
                   {isBetaAdmin && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Conversaciones</p>
-                      {supportUsers.length === 0 && (
-                        <p className="mt-3 text-sm text-slate-500">Aun no hay mensajes.</p>
-                      )}
-                      <div className="mt-3 space-y-2">
+                    <aside className="border-b border-slate-200 bg-slate-950 text-white lg:border-b-0 lg:border-r">
+                      <div className="border-b border-white/10 p-5">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-[10px] uppercase tracking-[0.24em] text-white/40">Soporte</p>
+                            <h2 className="mt-1 text-lg font-semibold">Conversaciones</h2>
+                          </div>
+                          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white">
+                            {supportUsers.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="max-h-[560px] overflow-y-auto p-3">
+                        {supportUsers.length === 0 && (
+                          <div className="rounded-3xl border border-white/10 bg-white/5 p-4 text-sm text-white/65">
+                            Aun no hay mensajes.
+                          </div>
+                        )}
                         {supportUsers.map((user) => (
                           <button
                             key={user.userId}
                             type="button"
                             onClick={() => setActiveSupportUserId(user.userId)}
-                            className={`w-full rounded-2xl border px-3 py-3 text-left text-xs transition ${
+                            className={`flex w-full items-center gap-3 rounded-3xl border p-3 text-left transition ${
                               activeSupportUserId === user.userId
-                                ? 'border-slate-300 bg-white text-slate-900 shadow-sm'
-                                : 'border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-white'
+                                ? 'border-white/25 bg-white text-slate-950 shadow-sm'
+                                : 'border-transparent text-white/70 hover:border-white/10 hover:bg-white/10'
                             }`}
                           >
-                            <p className="text-sm font-semibold">{user.label}</p>
-                            <p className="mt-1 line-clamp-1 text-[11px] text-slate-500">
-                              {user.lastMessage?.body || 'Sin mensajes'}
-                            </p>
+                            <span
+                              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-bold ${
+                                activeSupportUserId === user.userId
+                                  ? 'bg-slate-950 text-white'
+                                  : 'bg-white/10 text-white'
+                              }`}
+                            >
+                              {getClientInitials(user.label)}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold">{user.label}</span>
+                              <span
+                                className={`mt-0.5 block truncate text-xs ${
+                                  activeSupportUserId === user.userId ? 'text-slate-500' : 'text-white/40'
+                                }`}
+                              >
+                                {user.lastMessage?.body || 'Sin mensajes'}
+                              </span>
+                            </span>
+                            <span
+                              className={`text-[10px] font-semibold ${
+                                activeSupportUserId === user.userId ? 'text-slate-400' : 'text-white/40'
+                              }`}
+                            >
+                              {formatNotificationDate(user.lastMessage?.created_at)}
+                            </span>
                           </button>
                         ))}
                       </div>
-                    </div>
+                    </aside>
                   )}
 
-                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                    {isBetaAdmin && (
-                      <p className="text-xs text-slate-500">
-                        Conversacion con:{' '}
-                        <span className="font-semibold text-slate-700">
-                          {supportUsers.find((user) => user.userId === activeSupportUserId)?.label ||
-                            'Selecciona un usuario'}
+                  <div className="flex min-h-[640px] flex-col bg-[#f7f9fc]">
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white/95 px-5 py-4">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#2a0338] text-sm font-bold text-white shadow-sm">
+                          {isBetaAdmin ? getClientInitials(activeSupportLabel) : 'UF'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Soporte beta</p>
+                          <h2 className="truncate text-lg font-semibold text-slate-950">
+                            {isBetaAdmin ? activeSupportLabel : 'UrbanFix'}
+                          </h2>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="hidden rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 ring-1 ring-emerald-100 sm:inline-flex">
+                          Canal activo
                         </span>
-                      </p>
-                    )}
-                    <div className="mt-4 min-h-[320px] max-h-[60vh] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                      {supportLoading && <p className="text-sm text-slate-500">Cargando mensajes...</p>}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isBetaAdmin) fetchSupportUsers();
+                            fetchSupportMessages();
+                          }}
+                          className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                        >
+                          Actualizar
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+                      {supportLoading && (
+                        <div className="flex items-center justify-center py-12 text-sm font-semibold text-slate-400">
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Cargando mensajes
+                        </div>
+                      )}
                       {!supportLoading && supportMessages.length === 0 && (
-                        <p className="text-sm text-slate-500">Todavia no hay mensajes en este chat.</p>
+                        <div className="mx-auto mt-16 max-w-sm rounded-[28px] border border-slate-200 bg-white p-5 text-center shadow-sm">
+                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                            <MessageCircle className="h-5 w-5" />
+                          </div>
+                          <h3 className="mt-3 text-base font-semibold text-slate-950">Sin mensajes</h3>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Escribe abajo y queda registrado en esta conversacion.
+                          </p>
+                        </div>
                       )}
                       {!supportLoading &&
                         supportMessages.map((msg) => {
                           const isOwn = msg.sender_id === session?.user?.id;
+                          const bubbleLabel = isOwn
+                            ? 'Vos'
+                            : isBetaAdmin
+                              ? activeSupportLabel
+                              : 'Soporte UrbanFix';
                           return (
-                            <div key={msg.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                            <div key={msg.id} className={`flex gap-2 ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                              {!isOwn && (
+                                <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-[#2a0338] text-xs font-bold text-white shadow-sm">
+                                  {isBetaAdmin ? getClientInitials(activeSupportLabel) : 'UF'}
+                                </span>
+                              )}
                               <div
-                                className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm shadow-sm ${
-                                  isOwn ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
+                                className={`max-w-[min(720px,82%)] rounded-[24px] px-4 py-3 text-sm shadow-sm ${
+                                  isOwn
+                                    ? 'rounded-br-md bg-slate-950 text-white'
+                                    : 'rounded-bl-md border border-slate-200 bg-white text-slate-700'
                                 }`}
                               >
-                                {msg.body && <p>{msg.body}</p>}
+                                <div className="mb-1 flex items-center justify-between gap-4">
+                                  <span className={`text-[10px] font-bold uppercase tracking-[0.18em] ${isOwn ? 'text-white/40' : 'text-slate-400'}`}>
+                                    {bubbleLabel}
+                                  </span>
+                                  <span className={`text-[10px] ${isOwn ? 'text-white/40' : 'text-slate-400'}`}>
+                                    {formatNotificationDate(msg.created_at)}
+                                  </span>
+                                </div>
+                                {msg.body && <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>}
                                 {Array.isArray(msg.image_urls) && msg.image_urls.length > 0 && (
-                                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
                                     {msg.image_urls.map((url: string, index: number) => (
                                       <a
                                         key={`${msg.id}-img-${index}`}
                                         href={url}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="block overflow-hidden rounded-xl border border-white/20 bg-white/5"
+                                        className="block overflow-hidden rounded-2xl border border-white/20 bg-white/5"
                                       >
                                         <img
                                           src={url}
                                           alt="Adjunto"
-                                          className="h-28 w-full object-cover"
+                                          className="h-36 w-full object-cover"
                                         />
                                       </a>
                                     ))}
                                   </div>
                                 )}
-                                <p className={`mt-1 text-[10px] ${isOwn ? 'text-slate-300' : 'text-slate-400'}`}>
-                                  {msg.created_at ? new Date(msg.created_at).toLocaleString('es-AR') : ''}
-                                </p>
                               </div>
+                              {isOwn && (
+                                <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-white text-xs font-bold text-slate-950 shadow-sm ring-1 ring-slate-200">
+                                  {getClientInitials(profile?.business_name || profile?.full_name || session?.user?.email || 'Yo')}
+                                </span>
+                              )}
                             </div>
                           );
                         })}
+                      <div ref={supportMessagesEndRef} />
                     </div>
 
-                    <div className="mt-4 flex flex-col gap-3 lg:flex-row">
-                      <div className="flex-1 space-y-3">
-                        <textarea
-                          value={supportDraft}
-                          onChange={(event) => setSupportDraft(event.target.value)}
-                          placeholder="Escribe tu mensaje..."
-                          className="min-h-[90px] w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                        />
-                        {supportAttachments.length > 0 && (
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            {supportAttachments.map((item, index) => (
-                              <div
-                                key={`${item.previewUrl}-${index}`}
-                                className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                    <div className="border-t border-slate-200 bg-white px-4 py-4 sm:px-5">
+                      {supportAttachments.length > 0 && (
+                        <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
+                          {supportAttachments.map((item, index) => (
+                            <div
+                              key={`${item.previewUrl}-${index}`}
+                              className="group relative h-20 w-24 shrink-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50"
+                            >
+                              <img src={item.previewUrl} alt="Adjunto" className="h-full w-full object-cover" />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSupportImage(index)}
+                                className="absolute right-1.5 top-1.5 rounded-full bg-white/95 p-1 text-slate-600 shadow-sm transition hover:bg-white"
                               >
-                                <img src={item.previewUrl} alt="Adjunto" className="h-28 w-full object-cover" />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveSupportImage(index)}
-                                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1 text-slate-600 shadow-sm transition hover:bg-white"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        <p className="text-[11px] text-slate-400">
-                          Puedes adjuntar hasta {SUPPORT_MAX_IMAGES} imagenes (max 5 MB c/u).
-                        </p>
-                      </div>
-                      <div className="flex flex-row gap-2 lg:flex-col">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="flex items-end gap-2 rounded-[24px] border border-slate-200 bg-slate-50 p-2 shadow-inner">
                         <button
                           type="button"
                           onClick={() => supportFileInputRef.current?.click()}
-                          className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-300 px-4 py-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                          className="mb-1 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-slate-600 ring-1 ring-slate-200 transition hover:text-slate-950"
+                          aria-label="Adjuntar imagen"
                         >
-                          <ImagePlus className="h-4 w-4" />
-                          Adjuntar
+                          <ImagePlus className="h-5 w-5" />
                         </button>
+                        <textarea
+                          value={supportDraft}
+                          onChange={(event) => setSupportDraft(event.target.value)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' && !event.shiftKey) {
+                              event.preventDefault();
+                              handleSendSupportMessage();
+                            }
+                          }}
+                          placeholder="Escribe tu mensaje"
+                          className="max-h-32 min-h-[48px] flex-1 resize-none border-0 bg-transparent px-2 py-3 text-sm text-slate-800 outline-none placeholder:text-slate-400"
+                        />
                         <button
                           type="button"
                           onClick={handleSendSupportMessage}
-                          disabled={supportLoading}
-                          className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                          disabled={
+                            supportLoading ||
+                            (isBetaAdmin && !activeSupportUserId) ||
+                            (!supportDraft.trim() && supportAttachments.length === 0)
+                          }
+                          className="mb-1 inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                         >
+                          {supportLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                           Enviar
                         </button>
                       </div>
+                      <input
+                        ref={supportFileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handleSupportImageSelect}
+                        className="hidden"
+                      />
+                      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-400">
+                        <span>Hasta {SUPPORT_MAX_IMAGES} imagenes por mensaje.</span>
+                        {supportError && <span className="font-semibold text-rose-500">{supportError}</span>}
+                      </div>
                     </div>
-                    <input
-                      ref={supportFileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handleSupportImageSelect}
-                      className="hidden"
-                    />
-                    {supportError && <p className="mt-3 text-xs text-rose-500">{supportError}</p>}
                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'perfil' && (
-              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil</p>
-                <h2 className="text-xl font-semibold text-slate-900">Perfil del tecnico</h2>
-                <p className="text-sm text-slate-500">Completa la informacion para que tus presupuestos sean mas claros.</p>
-                <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div
+                className={
+                  profilePanelTab === 'preview'
+                    ? 'min-h-[calc(100dvh-57px)] bg-[#21002f]'
+                    : 'rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6'
+                }
+              >
+                {profilePanelTab !== 'preview' && (
+                  <>
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil público</p>
+                    <h2 className="text-2xl font-semibold text-slate-900">Editar perfil</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Ajusta datos, fotos, zona, horarios y datos comerciales.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setProfilePanelTab('preview')}
+                          className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                        >
+                          Ver como cliente
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleProfileSave}
+                          disabled={profileSaving}
+                          className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          {profileSaving ? 'Guardando...' : 'Guardar'}
+                        </button>
+                  </div>
+                </div>
+
+                <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-xs font-semibold text-slate-700">Perfil completo: {profileCompletionPercent}%</p>
                     <span
@@ -10276,143 +10794,310 @@ export default function TechniciansPage() {
                     ))}
                   </div>
                 </div>
-                <div className="mt-4 inline-flex rounded-full border border-slate-200 bg-slate-50 p-1">
-                  <button
-                    type="button"
-                    onClick={() => setProfilePanelTab('editor')}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                      profilePanelTab === 'editor' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Editor de perfil
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setProfilePanelTab('preview')}
-                    className={`rounded-full px-4 py-1.5 text-xs font-semibold transition ${
-                      profilePanelTab === 'preview' ? 'bg-slate-900 text-white' : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    Vista publica
-                  </button>
-                </div>
+                  </>
+                )}
 
                 {profilePanelTab === 'preview' ? (
-                  <div className="mt-6 space-y-4">
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Preview</p>
-                      <h3 className="mt-1 text-lg font-semibold text-slate-900">Asi veran tu perfil los clientes</h3>
-                      <p className="mt-1 text-sm text-slate-500">
-                        Esta vista replica la informacion publica de tu perfil. Puedes volver al editor para ajustar datos.
-                      </p>
-
-                      <div className="mt-4 rounded-3xl border border-slate-200 bg-white p-5">
-                        <div className="flex flex-wrap items-start gap-4">
-                          <div className="h-20 w-20 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
-                            {profileForm.avatarUrl ? (
-                              <img src={profileForm.avatarUrl} alt="Foto tecnico" className="h-full w-full object-cover" />
-                            ) : profileForm.companyLogoUrl ? (
-                              <img src={profileForm.companyLogoUrl} alt="Logo tecnico" className="h-full w-full object-contain p-2" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-xl font-bold text-slate-500">
-                                {(profileForm.businessName || profileForm.fullName || 'U').slice(0, 1).toUpperCase()}
-                              </div>
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="truncate text-lg font-semibold text-slate-900">
-                              {profileForm.businessName || profileForm.fullName || 'Tecnico UrbanFix'}
-                            </p>
-                            <p className="truncate text-sm text-slate-600">{profileForm.fullName || 'Profesional'}</p>
-                            <div className="mt-2 flex flex-wrap gap-2">
-                              {profileForm.city && (
-                                <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700">
-                                  {profileForm.city}
-                                </span>
-                              )}
-                              <span className="rounded-full bg-rose-100 px-3 py-1 text-[11px] font-semibold text-rose-700">
-                                Likes: {Math.max(0, Number(profile?.public_likes_count || 0))}
-                              </span>
-                              {profileForm.profilePublished && (
-                                <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                                  Publicado
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="mt-4 space-y-3">
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                            {coverageAreaLabel || 'Sin zona de cobertura definida'}
-                          </div>
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                            Disponibilidad: {workingHoursLabel}
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            {selectedSpecialties.length > 0 ? (
-                              selectedSpecialties.map((specialty) => (
-                                <span
-                                  key={`preview-specialty-${specialty}`}
-                                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700"
-                                >
-                                  {specialty}
-                                </span>
-                              ))
-                            ) : (
-                              <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-500">
-                                Sin rubros cargados
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                  <div className={`${spaceGrotesk.className} min-h-[calc(100dvh-57px)] overflow-hidden bg-[#21002f] text-white`}>
+                    <div className="sticky top-0 z-30 border-b border-white/10 bg-[#21002f]/88 px-4 py-3 backdrop-blur-xl sm:px-6">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setProfilePanelTab('editor')}
+                            className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-bold text-[#2a0338] transition hover:bg-[#ffa748]"
+                          >
+                            Editar perfil
+                          </button>
                           {publicProfileUrl && (
                             <a
                               href={publicProfileUrl}
                               target="_blank"
                               rel="noreferrer noopener"
-                              className="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                              className="rounded-full border border-white/25 px-4 py-2 text-xs font-bold text-white/88 transition hover:border-white hover:text-white"
                             >
-                              Ver perfil publico real
+                              Abrir link real
                             </a>
                           )}
-                          <button
-                            type="button"
-                            onClick={handleCopyPublicProfileLink}
-                            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                          >
-                            Copiar link
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setProfilePanelTab('editor')}
-                            className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                          >
-                            Volver a editar
-                          </button>
-                        </div>
+                      </div>
+                    </div>
+
+                    <div className="relative overflow-hidden">
+                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_0%,rgba(255,143,31,0.14),transparent_45%),radial-gradient(circle_at_88%_22%,rgba(87,36,128,0.38),transparent_48%)]" />
+                      <div className="relative mx-auto w-full max-w-7xl space-y-6 px-4 py-6 sm:px-6 lg:px-8">
+                        <section className="overflow-hidden rounded-[32px] border border-white/15 bg-white/[0.04] shadow-[0_35px_110px_-70px_rgba(0,0,0,1)]">
+                          <div className="relative h-44 sm:h-56 lg:h-64">
+                            {publicProfilePreview.companyBannerUrl ? (
+                              <>
+                                <img
+                                  src={publicProfilePreview.companyBannerUrl}
+                                  alt={`Banner de ${publicProfilePreview.displayName}`}
+                                  className="h-full w-full object-cover"
+                                />
+                                <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.28)_0%,rgba(33,0,47,0.08)_44%,rgba(33,0,47,0.24)_100%)]" />
+                              </>
+                            ) : (
+                              <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
+                            )}
+                            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.12)_58%,rgba(33,0,47,0.54)_100%)]" />
+                          </div>
+
+                          <div className="relative -mt-16 grid gap-5 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8 lg:grid-cols-[minmax(0,1.18fr)_320px]">
+                            <div className="ufx-tech-card ufx-tech-card--soft space-y-5 p-5 sm:p-6">
+                              <div className="flex flex-wrap items-end gap-4 sm:gap-5">
+                                <div className="h-28 w-28 overflow-hidden rounded-3xl border border-white/35 bg-[#2a0640] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.95)] ring-4 ring-[#ff8f1f]/35 sm:h-36 sm:w-36">
+                                  {publicProfilePreview.avatarImageUrl ? (
+                                    <img
+                                      src={publicProfilePreview.avatarImageUrl}
+                                      alt={`Foto de ${publicProfilePreview.displayName}`}
+                                      className="h-full w-full object-cover"
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-4xl font-bold text-white/90">
+                                      {publicProfilePreview.displayInitial}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="min-w-0 flex-1 space-y-3 pb-1">
+                                  <div className="space-y-1">
+                                    <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">
+                                      {publicProfilePreview.displayName}
+                                    </h1>
+                                    {publicProfilePreview.fullName && publicProfilePreview.fullName !== publicProfilePreview.displayName && (
+                                      <p className="text-sm text-white/80">{publicProfilePreview.fullName}</p>
+                                    )}
+                                  </div>
+
+                                  <div className="flex flex-wrap gap-2 text-xs">
+                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${publicProfilePreview.availabilityToneClass}`}>
+                                      {publicProfilePreview.availabilityLabel}
+                                    </span>
+                                    {publicProfilePreview.heroPills.map((pill) => (
+                                      <span
+                                        key={pill}
+                                        className="rounded-full border border-white/15 bg-black/20 px-3 py-1 text-white/78"
+                                      >
+                                        {pill}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3">
+                                {publicProfilePreview.heroSummary && (
+                                  <p className="max-w-3xl text-base leading-relaxed text-white/88 sm:text-[1.05rem]">
+                                    {publicProfilePreview.heroSummary}
+                                  </p>
+                                )}
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                {publicProfilePreview.specialties.length > 0 ? (
+                                  publicProfilePreview.specialties.slice(0, 8).map((specialty) => (
+                                    <span
+                                      key={specialty}
+                                      className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-medium text-white/85"
+                                    >
+                                      {specialty}
+                                    </span>
+                                  ))
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <aside className="ufx-tech-card ufx-tech-card--accent flex flex-col gap-4 p-5 sm:p-6">
+                              <div className="space-y-3">
+                                {publicProfilePreview.whatsappLink ? (
+                                  <a
+                                    href={publicProfilePreview.whatsappLink}
+                                    target="_blank"
+                                    rel="noreferrer noopener"
+                                    className="inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
+                                  >
+                                    Contactar por WhatsApp
+                                  </a>
+                                ) : null}
+                              </div>
+
+                              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+                                <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
+                                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Likes</p>
+                                  <p className="mt-2 text-2xl font-semibold text-white">{publicProfilePreview.likesCount}</p>
+                                  {publicProfilePreview.profileId && (
+                                    <div className="mt-3">
+                                      <ProfileLikeButton
+                                        profileId={publicProfilePreview.profileId}
+                                        initialCount={publicProfilePreview.likesCount}
+                                        compact
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
+                                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Canales activos</p>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    {publicProfilePreview.socialLinks.length > 0 ? (
+                                      publicProfilePreview.socialLinks.map((entry) => (
+                                        <a
+                                          key={entry.label}
+                                          href={String(entry.href || '')}
+                                          target="_blank"
+                                          rel="noreferrer noopener"
+                                          className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/88 transition hover:border-white hover:text-white"
+                                        >
+                                          {entry.label}
+                                        </a>
+                                      ))
+                                    ) : (
+                                      <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65">
+                                        Sin canales sociales publicados
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </aside>
+                          </div>
+                        </section>
+
+                        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                          {publicProfilePreview.metricCards.map((item) => (
+                            <article key={item.label} className={`ufx-tech-card bg-gradient-to-br p-4 ${item.accent}`}>
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">{item.label}</p>
+                              <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
+                            </article>
+                          ))}
+                        </section>
+
+                        <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
+                          {publicProfilePreview.presentationText && (
+                            <article className="ufx-tech-card p-5 sm:p-6">
+                              <h2 className="text-2xl font-semibold text-white">Presentación</h2>
+                              <p className="mt-4 text-sm leading-8 text-white/84">{publicProfilePreview.presentationText}</p>
+
+                              {publicProfilePreview.recommendations.length > 0 && (
+                                <div className="mt-5 grid gap-3">
+                                  {publicProfilePreview.recommendations.map((item, index) => (
+                                    <article key={`${index}-${item}`} className="rounded-3xl border border-white/10 bg-black/20 p-4">
+                                      <p className="text-[11px] uppercase tracking-[0.16em] text-[#ffd6a6]">Referencia {index + 1}</p>
+                                      <p className="mt-3 text-sm leading-7 text-white/82">{item}</p>
+                                    </article>
+                                  ))}
+                                </div>
+                              )}
+                            </article>
+                          )}
+
+                          <div className="grid gap-4">
+                            {publicProfilePreview.specialties.length > 0 && (
+                              <article className="ufx-tech-card p-5 sm:p-6">
+                                <h2 className="text-2xl font-semibold text-white">Especialidades</h2>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {publicProfilePreview.specialties.map((specialty) => (
+                                    <span
+                                      key={specialty}
+                                      className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-white/85"
+                                    >
+                                      {specialty}
+                                    </span>
+                                  ))}
+                                </div>
+                              </article>
+                            )}
+
+                            {publicProfilePreview.badges.length > 0 && (
+                              <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
+                                <h2 className="text-2xl font-semibold text-white">Insignias</h2>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  {publicProfilePreview.badges.map((badge) => (
+                                    <span
+                                      key={badge}
+                                      className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-3 py-1.5 text-xs font-medium text-[#ffd6a6]"
+                                    >
+                                      {badge}
+                                    </span>
+                                  ))}
+                                </div>
+                              </article>
+                            )}
+                          </div>
+                        </section>
+
+                        <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                          {publicProfilePreview.profileSignals.map((item) => (
+                            <article key={item.label} className="ufx-tech-card p-5 sm:p-6">
+                              <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">{item.label}</p>
+                              <p className="mt-3 text-lg font-semibold leading-7 text-white">{item.value}</p>
+                              {item.note && <p className="mt-3 text-sm leading-6 text-white/70">{item.note}</p>}
+                            </article>
+                          ))}
+                        </section>
+
+                        {(publicProfilePreview.facebookFeedEmbedUrl || publicProfilePreview.instagramPostEmbedUrl) && (
+                          <section className="grid gap-4 xl:grid-cols-2">
+                            {publicProfilePreview.facebookFeedEmbedUrl && (
+                              <article className="ufx-tech-card p-5 sm:p-6">
+                                <h2 className="text-2xl font-semibold text-white">Facebook</h2>
+                                <iframe
+                                  title="Publicaciones Facebook del técnico"
+                                  src={publicProfilePreview.facebookFeedEmbedUrl}
+                                  className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
+                                  loading="lazy"
+                                  allow="encrypted-media"
+                                />
+                              </article>
+                            )}
+
+                            {publicProfilePreview.instagramPostEmbedUrl && (
+                              <article className="ufx-tech-card p-5 sm:p-6">
+                                <h2 className="text-2xl font-semibold text-white">Instagram</h2>
+                                <iframe
+                                  title="Publicaciones Instagram del técnico"
+                                  src={publicProfilePreview.instagramPostEmbedUrl}
+                                  className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
+                                  loading="lazy"
+                                  allow="encrypted-media"
+                                />
+                              </article>
+                            )}
+                          </section>
+                        )}
                       </div>
                     </div>
                   </div>
                 ) : (
                   <>
 
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  {[
+                    { label: 'Identidad', text: 'Nombre, negocio, foto y portada visibles.' },
+                    { label: 'Contacto', text: 'WhatsApp y canales para que te escriban.' },
+                    { label: 'Zona', text: 'Ubicacion base, cobertura y horarios.' },
+                    { label: 'Confianza', text: 'Rubros, certificados y datos comerciales.' },
+                  ].map((section) => (
+                    <div key={section.label} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        {section.label}
+                      </p>
+                      <p className="mt-2 text-xs leading-5 text-slate-600">{section.text}</p>
+                    </div>
+                  ))}
+                </div>
+
                 <div className="mt-6 grid gap-6 lg:grid-cols-2">
                   <div className="lg:col-span-2">
                     <div className="rounded-3xl border border-slate-200 bg-white p-5">
                       <div className="flex flex-wrap items-start justify-between gap-4">
                         <div>
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Marca</p>
-                          <h3 className="mt-1 text-lg font-semibold text-slate-900">Tu identidad profesional</h3>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Perfil visible</p>
+                          <h3 className="mt-1 text-lg font-semibold text-slate-900">Foto, logo y portada</h3>
                           <p className="mt-1 text-sm text-slate-500">
-                            Tu logo y tu foto aparecen en el link publico del presupuesto y en el PDF.
+                            Es lo primero que ve el cliente en tu perfil publico, presupuestos y link compartido.
                           </p>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                            Basico: {Math.max(0, 4 - formRequiredMissing.length)}/4
+                            Campos base: {Math.max(0, 4 - formRequiredMissing.length)}/4
                           </span>
                           {formRequiredMissing.length > 0 && (
                             <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">
@@ -10431,7 +11116,7 @@ export default function TechniciansPage() {
                             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.16)_0%,rgba(2,6,23,0.48)_100%)]" />
                             <div className="absolute inset-x-3 top-3 flex justify-between gap-2">
                               <span className="rounded-full bg-black/35 px-3 py-1.5 text-[11px] font-semibold text-white/90">
-                                Portada publica
+                                Portada del perfil
                               </span>
                               <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white">
                                 <ImagePlus className="h-4 w-4" />
@@ -10496,37 +11181,37 @@ export default function TechniciansPage() {
 
                         <div className="space-y-4">
                           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Consejos de imagen</p>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Que ve el cliente</p>
                             <ul className="mt-3 space-y-2 text-xs text-slate-600">
                               <li className="flex gap-2">
                                 <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Usa un logo simple y legible (ideal: fondo transparente o claro).
+                                Portada: imagen grande de presentacion del negocio.
                               </li>
                               <li className="flex gap-2">
                                 <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Foto: rostro visible, buena luz, fondo limpio (genera confianza).
+                                Foto: rostro o marca que acompaña cada propuesta.
                               </li>
                               <li className="flex gap-2">
                                 <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Mantene el mismo nombre y logo en todos tus canales.
+                                Logo: se usa en presupuestos, perfil y recordacion.
                               </li>
                             </ul>
                           </div>
 
                           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Por que completar</p>
+                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Criterio recomendado</p>
                             <ul className="mt-3 space-y-2 text-xs text-slate-600">
                               <li className="flex gap-2">
                                 <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Aumenta la tasa de aprobacion: tu presupuesto se ve profesional.
+                                Usa una foto clara, sin recortes fuertes.
                               </li>
                               <li className="flex gap-2">
                                 <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Reduce idas y vueltas: el cliente tiene tus datos a mano.
+                                El banner conviene horizontal y simple.
                               </li>
                               <li className="flex gap-2">
                                 <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Mejora recordacion: el cliente vuelve a contactarte mas facil.
+                                Mantene el mismo nombre que usas con clientes.
                               </li>
                             </ul>
                           </div>
@@ -10542,6 +11227,7 @@ export default function TechniciansPage() {
                               placeholder="https://..."
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                             />
+                            <p className="mt-1 text-[11px] text-slate-500">Opcional si preferis pegar una imagen ya alojada.</p>
                             <label className="mt-4 block text-xs font-semibold text-slate-600">URL logo</label>
                             <input
                               value={profileForm.companyLogoUrl}
@@ -10551,6 +11237,7 @@ export default function TechniciansPage() {
                               placeholder="https://..."
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                             />
+                            <p className="mt-1 text-[11px] text-slate-500">Se muestra como marca principal si cargaste logo.</p>
                             <label className="mt-4 block text-xs font-semibold text-slate-600">URL foto de perfil</label>
                             <input
                               value={profileForm.avatarUrl}
@@ -10558,6 +11245,7 @@ export default function TechniciansPage() {
                               placeholder="https://..."
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                             />
+                            <p className="mt-1 text-[11px] text-slate-500">Se usa como avatar visible para clientes.</p>
                           </div>
                         </div>
                       </div>
@@ -10565,10 +11253,13 @@ export default function TechniciansPage() {
                   </div>
                   <div className="space-y-4">
                     <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Informacion del perfil</p>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cuenta</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Datos internos para identificar tu acceso. No hace falta editarlos.
+                      </p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">ID de usuario</p>
+                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">ID interno</p>
                           <p className="mt-2 text-xs font-semibold text-slate-700 break-all">
                             {session?.user?.id || 'No disponible'}
                           </p>
@@ -10582,38 +11273,65 @@ export default function TechniciansPage() {
                       </div>
                     </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos basicos</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Nombre y apellido</label>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos principales</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Estos campos arman el encabezado del perfil publico y las propuestas.
+                      </p>
+                      <label className="mt-3 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        Nombre y apellido
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Visible
+                        </span>
+                      </label>
                       <input
                         value={profileForm.fullName}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Nombre del negocio</label>
+                      <p className="mt-1 text-[11px] text-slate-500">Aparece debajo del nombre comercial.</p>
+                      <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        Nombre del negocio
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Principal
+                        </span>
+                      </label>
                       <input
                         value={profileForm.businessName}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, businessName: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Email</label>
+                      <p className="mt-1 text-[11px] text-slate-500">Es el titulo grande del perfil visible.</p>
+                      <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        Email
+                        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                          Interno
+                        </span>
+                      </label>
                       <input
                         value={profileForm.email}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Telefono</label>
+                      <p className="mt-1 text-[11px] text-slate-500">Se usa para cuenta y presupuestos. El contacto principal es WhatsApp.</p>
+                      <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                        WhatsApp de contacto
+                        <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-emerald-600">
+                          Cliente
+                        </span>
+                      </label>
                       <input
                         value={profileForm.phone}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
-                      <p className="mt-4 text-xs text-slate-500">
-                        Tu logo y tu foto se gestionan en la seccion &quot;Marca&quot; de arriba.
-                      </p>
+                      <p className="mt-1 text-[11px] text-slate-500">Activa el boton de contacto del perfil publico.</p>
                     </div>
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cobertura y horarios</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Define donde apareces, que radio cubris y cuando estas disponible.
+                      </p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2">
                         <div>
                           <label className="block text-xs font-semibold text-slate-600">Pais</label>
@@ -10628,6 +11346,7 @@ export default function TechniciansPage() {
                               </option>
                             ))}
                           </select>
+                          <p className="mt-1 text-[11px] text-slate-500">Base para ordenar provincias y localidades.</p>
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600">{provinceFieldLabel}</label>
@@ -10643,6 +11362,7 @@ export default function TechniciansPage() {
                               </option>
                             ))}
                           </select>
+                          <p className="mt-1 text-[11px] text-slate-500">Ayuda a ubicarte en la vidriera correcta.</p>
                         </div>
                       </div>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Localidad / partido</label>
@@ -10665,7 +11385,7 @@ export default function TechniciansPage() {
                           cityHint={profileForm.city}
                           provinceHint={profileForm.province}
                           label="Direccion base"
-                          description="Elige la localidad arriba. Luego escribe solo calle y altura, busca la direccion y ajusta el pin."
+                          description="Usamos este punto para mostrarte solicitudes cercanas. El cliente no necesita ver tu direccion exacta."
                           required={profileForm.profilePublished}
                           autoSearch={false}
                           error={
@@ -10782,56 +11502,44 @@ export default function TechniciansPage() {
                   <div className="space-y-4">
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Especialidades</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Rubros</label>
-                      <p className="mt-2 text-[11px] text-slate-500">
-                        Selecciona uno o mas rubros para mostrarte mejor frente a clientes.
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Los rubros definen en que busquedas y solicitudes vas a aparecer.
                       </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {TECH_SPECIALTY_OPTIONS.map((specialty) => {
-                          const isSelected = selectedSpecialtiesSet.has(normalizeTextForParsing(specialty));
-                          return (
-                            <button
-                              key={specialty}
-                              type="button"
-                              onClick={() => handleSpecialtyToggle(specialty)}
-                              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                                isSelected
-                                  ? 'bg-slate-900 text-white'
-                                  : 'border border-slate-300 bg-white text-slate-700 hover:border-slate-400'
-                              }`}
-                            >
-                              {specialty}
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Agregar rubro personalizado</label>
-                      <div className="mt-2 flex gap-2">
-                        <input
-                          value={customSpecialtyDraft}
-                          onChange={(event) => setCustomSpecialtyDraft(event.target.value)}
-                          onKeyDown={(event) => {
-                            if (event.key !== 'Enter') return;
-                            event.preventDefault();
-                            handleAddCustomSpecialty();
-                          }}
-                          placeholder="Ej: Durlock"
-                          className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddCustomSpecialty}
-                          className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
-                        >
-                          Agregar
-                        </button>
-                      </div>
-                      <div className="mt-4 rounded-2xl border border-slate-200 bg-white p-3">
-                        <p className="text-[11px] font-semibold text-slate-600">
-                          Rubros seleccionados ({selectedSpecialties.length})
-                        </p>
+                      <label className="mt-3 block text-xs font-semibold text-slate-600">Rubros que ofreces</label>
+                      <p className="mt-2 text-[11px] text-slate-500">
+                        Elegi desde la lista y se agregan abajo.
+                      </p>
+                      <select
+                        value=""
+                        onChange={(event) => handleSpecialtySelect(event.target.value)}
+                        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400"
+                      >
+                        <option value="">Agregar rubro</option>
+                        {TECH_SPECIALTY_OPTIONS.slice()
+                          .sort((a, b) => a.localeCompare(b, 'es'))
+                          .map((specialty) => {
+                            const isSelected = selectedSpecialtiesSet.has(normalizeTextForParsing(specialty));
+                            return (
+                              <option key={specialty} value={specialty} disabled={isSelected}>
+                                {isSelected ? `${specialty} - seleccionado` : specialty}
+                              </option>
+                            );
+                          })}
+                      </select>
+
+                      <div className="mt-3 rounded-2xl border border-slate-200 bg-white p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[11px] font-semibold text-slate-600">
+                            Seleccionados ({selectedSpecialties.length})
+                          </p>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                            Click para quitar
+                          </span>
+                        </div>
                         {selectedSpecialties.length === 0 ? (
-                          <p className="mt-2 text-xs text-slate-500">Aun no seleccionaste rubros.</p>
+                          <p className="mt-3 rounded-xl bg-slate-50 px-3 py-2 text-xs text-slate-500">
+                            Aun no seleccionaste rubros.
+                          </p>
                         ) : (
                           <div className="mt-2 flex flex-wrap gap-2">
                             {selectedSpecialties.map((specialty) => (
@@ -10848,11 +11556,41 @@ export default function TechniciansPage() {
                           </div>
                         )}
                       </div>
+                      <details className="mt-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-semibold text-slate-600">
+                          No encuentro mi rubro
+                        </summary>
+                        <p className="mt-2 text-[11px] text-slate-500">Usalo solo si no existe en la lista principal.</p>
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            value={customSpecialtyDraft}
+                            onChange={(event) => setCustomSpecialtyDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter') return;
+                              event.preventDefault();
+                              handleAddCustomSpecialty();
+                            }}
+                            placeholder="Ej: Durlock"
+                            className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCustomSpecialty}
+                            className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            Agregar
+                          </button>
+                        </div>
+                      </details>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Certificaciones</label>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        Matriculas, cursos, habilitaciones o datos que sumen confianza.
+                      </p>
                       <textarea
                         value={profileForm.certifications}
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, certifications: event.target.value }))}
                         rows={3}
+                        placeholder="Ej: Matricula, cursos, seguro, referencias o habilitaciones."
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
                       <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -10915,6 +11653,9 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Redes y visibilidad</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Canales publicos para mostrar actividad real y facilitar contacto.
+                      </p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
                       <input
                         value={profileForm.facebookUrl}
@@ -10922,6 +11663,7 @@ export default function TechniciansPage() {
                         placeholder="https://www.facebook.com/tu.pagina"
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p className="mt-1 text-[11px] text-slate-500">Se muestra como canal activo si el link es valido.</p>
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Instagram (perfil o post)</label>
                       <input
                         value={profileForm.instagramUrl}
@@ -10929,6 +11671,7 @@ export default function TechniciansPage() {
                         placeholder="https://www.instagram.com/tuusuario o /p/..."
                         className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
                       />
+                      <p className="mt-1 text-[11px] text-slate-500">Ideal para mostrar trabajos, reels o publicaciones recientes.</p>
                       <div className="mt-4 flex flex-wrap items-center gap-2">
                         <button
                           type="button"
@@ -11025,6 +11768,9 @@ export default function TechniciansPage() {
 
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos comerciales</p>
+                      <p className="mt-2 text-xs leading-5 text-slate-500">
+                        Se usan para presupuestos, cobros y facturacion. No todo se muestra publicamente.
+                      </p>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">CUIT / CUIL</label>
                       <input
                         value={formatTaxId(profileForm.taxId)}
@@ -11060,8 +11806,10 @@ export default function TechniciansPage() {
                           </option>
                         ))}
                       </select>
+                      <p className="mt-1 text-[11px] text-slate-500">Ayuda a preparar presupuestos y comprobantes correctamente.</p>
 
                       <label className="mt-4 block text-xs font-semibold text-slate-600">Metodo de pago</label>
+                      <p className="mt-1 text-[11px] text-slate-500">Opciones que podes aceptar cuando el cliente aprueba un trabajo.</p>
                       <div className="mt-2 flex flex-wrap gap-2">
                         {PAYMENT_METHOD_OPTIONS.map((method) => {
                           const isSelected = selectedPaymentMethodsSet.has(normalizeTextForParsing(method));
@@ -11106,6 +11854,7 @@ export default function TechniciansPage() {
                       </p>
 
                       <label className="mt-4 block text-xs font-semibold text-slate-600">CBU / Alias</label>
+                      <p className="mt-1 text-[11px] text-slate-500">Dato privado para coordinar pagos si el trabajo avanza.</p>
                       <div className="mt-2 inline-flex rounded-full border border-slate-300 bg-white p-1">
                         <button
                           type="button"

@@ -457,12 +457,12 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                 {companyBannerUrl ? (
                   <>
                     <img src={companyBannerUrl} alt={`Banner de ${displayName}`} className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.9)_0%,rgba(33,0,47,0.72)_40%,rgba(33,0,47,0.88)_100%)]" />
+                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.28)_0%,rgba(33,0,47,0.08)_44%,rgba(33,0,47,0.24)_100%)]" />
                   </>
                 ) : (
                   <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
                 )}
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0.04)_0%,rgba(33,0,47,0.82)_100%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.12)_58%,rgba(33,0,47,0.54)_100%)]" />
                 <span className="absolute left-5 top-5 rounded-full border border-white/25 bg-black/25 px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-white/90">
                   Perfil verificado: {profileCode}
                 </span>
