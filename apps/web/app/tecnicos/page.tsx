@@ -573,6 +573,7 @@ type RequestOfferDraft = {
 const DEFAULT_REQUEST_APPLICATION_MESSAGE = 'Estoy disponible para realizar este trabajo.';
 
 type FinanceTimelineMode = 'weekly' | 'monthly' | 'yearly';
+type NotificationFilter = 'all' | 'unread' | 'quote' | 'agenda';
 type QuoteFilter =
   | 'all'
   | 'pending'
@@ -1679,6 +1680,25 @@ const formatAgendaRangeLabel = (startValue?: string | null, endValue?: string | 
   return `${formatAgendaDateLabel(startValue)} al ${formatAgendaDateLabel(endValue)}`;
 };
 
+const getNotificationGroup = (notification: Pick<NotificationRow, 'type'>): Exclude<NotificationFilter, 'all' | 'unread'> | 'general' => {
+  const type = String(notification.type || '').toLowerCase();
+  if (type.includes('agenda') || type.includes('schedule')) return 'agenda';
+  if (type.includes('quote') || type.includes('presupuesto')) return 'quote';
+  return 'general';
+};
+
+const formatNotificationDate = (value?: string | null) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleString('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
 const translateProfileError = (message: string) => {
   if (!message) return 'No pudimos guardar los cambios.';
   const lower = message.toLowerCase();
@@ -1917,6 +1937,7 @@ export default function TechniciansPage() {
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [notificationsError, setNotificationsError] = useState('');
+  const [notificationFilter, setNotificationFilter] = useState<NotificationFilter>('all');
   const [masterItems, setMasterItems] = useState<MasterItemRow[]>([]);
   const [loadingMasterItems, setLoadingMasterItems] = useState(false);
   const [masterSearch, setMasterSearch] = useState('');
@@ -4148,6 +4169,20 @@ export default function TechniciansPage() {
     () => notifications.filter((item) => !item.read_at).length,
     [notifications]
   );
+  const notificationStats = useMemo(
+    () => ({
+      all: notifications.length,
+      unread: notifications.filter((item) => !item.read_at).length,
+      quote: notifications.filter((item) => getNotificationGroup(item) === 'quote').length,
+      agenda: notifications.filter((item) => getNotificationGroup(item) === 'agenda').length,
+    }),
+    [notifications]
+  );
+  const filteredNotifications = useMemo(() => {
+    if (notificationFilter === 'all') return notifications;
+    if (notificationFilter === 'unread') return notifications.filter((item) => !item.read_at);
+    return notifications.filter((item) => getNotificationGroup(item) === notificationFilter);
+  }, [notificationFilter, notifications]);
   const masterCategories = useMemo(() => {
     const set = new Set<string>();
     masterItems.forEach((item) => {
@@ -9870,67 +9905,158 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'notificaciones' && (
-              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Notificaciones</p>
-                    <h2 className="text-xl font-semibold text-slate-900">Alertas y movimientos</h2>
-                    <p className="text-sm text-slate-500">Actualizaciones de presupuestos, agenda y revisiones.</p>
+              <section className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_22px_58px_-46px_rgba(15,23,42,0.42)] sm:p-5">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Notificaciones</p>
+                    <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-bold leading-tight text-[#180f24]`}>
+                      Centro de avisos
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      {notificationStats.unread > 0
+                        ? `${notificationStats.unread} pendientes de revisar`
+                        : 'Todo revisado por ahora'}
+                    </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleMarkAllNotificationsRead}
-                    className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                    disabled={notificationStats.unread === 0}
+                    className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    Marcar todo como leido
+                    Marcar todo como leído
                   </button>
                 </div>
 
-                <div className="mt-6 space-y-3">
-                  {loadingNotifications && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                      Cargando notificaciones...
+                <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-[18px] border border-slate-200 bg-slate-200 md:grid-cols-4">
+                  {[
+                    { label: 'Total', value: notificationStats.all, hint: 'avisos' },
+                    { label: 'No leídas', value: notificationStats.unread, hint: 'pendientes' },
+                    { label: 'Presupuestos', value: notificationStats.quote, hint: 'movimientos' },
+                    { label: 'Agenda', value: notificationStats.agenda, hint: 'fechas' },
+                  ].map((item) => (
+                    <div key={item.label} className="bg-white px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">{item.label}</p>
+                      <p className={`${spaceGrotesk.className} mt-1 text-xl font-bold text-[#180f24]`}>{item.value}</p>
+                      <p className="mt-0.5 text-xs text-slate-500">{item.hint}</p>
                     </div>
-                  )}
-                  {!loadingNotifications && notificationsError && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
-                      {notificationsError}
-                    </div>
-                  )}
-                  {!loadingNotifications && !notificationsError && notifications.length === 0 && (
-                    <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                      No hay notificaciones por ahora.
-                    </div>
-                  )}
-                  {notifications.map((notif) => (
+                  ))}
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {[
+                    { key: 'all' as const, label: 'Todas', count: notificationStats.all },
+                    { key: 'unread' as const, label: 'No leídas', count: notificationStats.unread },
+                    { key: 'quote' as const, label: 'Presupuestos', count: notificationStats.quote },
+                    { key: 'agenda' as const, label: 'Agenda', count: notificationStats.agenda },
+                  ].map((item) => (
                     <button
-                      key={notif.id}
+                      key={item.key}
                       type="button"
-                      onClick={() => handleOpenNotification(notif)}
-                      className={`w-full rounded-2xl border px-4 py-3 text-left transition ${
-                        notif.read_at
-                          ? 'border-slate-200 bg-white hover:border-slate-300'
-                          : 'border-amber-200 bg-amber-50 hover:border-amber-300'
+                      onClick={() => setNotificationFilter(item.key)}
+                      className={`inline-flex h-9 items-center gap-2 rounded-full border px-3 text-xs font-semibold transition ${
+                        notificationFilter === item.key
+                          ? 'border-[#020617] bg-[#020617] text-white'
+                          : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
                       }`}
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-semibold text-slate-900">{notif.title}</p>
-                          <p className="mt-1 text-xs text-slate-500">{notif.body}</p>
-                        </div>
-                        <div className="text-xs text-slate-400">
-                          {notif.created_at ? new Date(notif.created_at).toLocaleDateString('es-AR') : ''}
-                        </div>
-                      </div>
-                      {!notif.read_at && (
-                        <span className="mt-3 inline-flex rounded-full bg-amber-500/10 px-2 py-1 text-[10px] font-semibold text-amber-700">
-                          Nueva
-                        </span>
-                      )}
+                      <span>{item.label}</span>
+                      <span className={notificationFilter === item.key ? 'text-white/70' : 'text-slate-400'}>
+                        {item.count}
+                      </span>
                     </button>
                   ))}
                 </div>
-              </div>
+
+                <div className="mt-4 overflow-hidden rounded-[18px] border border-slate-200">
+                  {loadingNotifications && (
+                    <div className="bg-slate-50 p-6 text-sm text-slate-500">Cargando notificaciones...</div>
+                  )}
+                  {!loadingNotifications && notificationsError && (
+                    <div className="bg-amber-50 p-6 text-sm text-amber-700">{notificationsError}</div>
+                  )}
+                  {!loadingNotifications && !notificationsError && notifications.length === 0 && (
+                    <div className="bg-slate-50 p-8 text-center">
+                      <Bell className="mx-auto h-8 w-8 text-slate-300" />
+                      <p className={`${spaceGrotesk.className} mt-3 text-lg font-bold text-slate-900`}>
+                        Sin notificaciones
+                      </p>
+                      <p className="mt-1 text-sm text-slate-500">Los avisos de presupuestos y agenda van a aparecer acá.</p>
+                    </div>
+                  )}
+                  {!loadingNotifications &&
+                    !notificationsError &&
+                    notifications.length > 0 &&
+                    filteredNotifications.length === 0 && (
+                      <div className="bg-slate-50 p-8 text-center">
+                        <p className={`${spaceGrotesk.className} text-lg font-bold text-slate-900`}>Sin avisos en esta vista</p>
+                        <p className="mt-1 text-sm text-slate-500">Cambia el filtro para ver otros movimientos.</p>
+                      </div>
+                    )}
+                  {filteredNotifications.map((notif) => {
+                    const group = getNotificationGroup(notif);
+                    const isUnread = !notif.read_at;
+                    const hasQuoteTarget = Boolean(notif?.data?.quote_id);
+                    const Icon = group === 'agenda' ? Calendar : group === 'quote' ? FileText : Bell;
+                    const toneClass =
+                      group === 'agenda'
+                        ? 'bg-teal-50 text-teal-700'
+                        : group === 'quote'
+                          ? 'bg-sky-50 text-sky-700'
+                          : 'bg-slate-100 text-slate-600';
+
+                    return (
+                      <button
+                        key={notif.id}
+                        type="button"
+                        onClick={() => handleOpenNotification(notif)}
+                        className={`w-full border-b border-slate-200 p-4 text-left transition last:border-b-0 hover:bg-slate-50 ${
+                          isUnread ? 'bg-[#fffaf4]' : 'bg-white'
+                        }`}
+                      >
+                        <div className="flex gap-3">
+                          <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-[14px] ${toneClass}`}>
+                            <Icon className="h-4 w-4" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                <p className={`${spaceGrotesk.className} truncate text-base font-bold text-[#180f24]`}>
+                                  {notif.title || 'Notificación'}
+                                </p>
+                                {isUnread && (
+                                  <span className="rounded-full bg-[#ff8f1f]/15 px-2 py-0.5 text-[10px] font-semibold text-[#b45309]">
+                                    Nueva
+                                  </span>
+                                )}
+                              </div>
+                              <span className="shrink-0 text-xs font-semibold text-slate-400">
+                                {formatNotificationDate(notif.created_at)}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-sm leading-6 text-slate-500">{notif.body}</p>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                                {group === 'agenda' ? 'Agenda' : group === 'quote' ? 'Presupuesto' : 'General'}
+                              </span>
+                              {hasQuoteTarget && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-500 ring-1 ring-slate-200">
+                                  Abrir presupuesto
+                                </span>
+                              )}
+                              {notif.read_at && (
+                                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">
+                                  Leída
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
             )}
 
             {activeTab === 'soporte' && (
