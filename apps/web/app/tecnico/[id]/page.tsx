@@ -463,7 +463,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
                 )}
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.12)_58%,rgba(33,0,47,0.54)_100%)]" />
-                <span className="absolute left-5 top-5 rounded-full border border-white/25 bg-black/25 px-3 py-1 text-[11px] font-semibold tracking-[0.08em] text-white/90">
+                <span className="hidden">
                   Perfil verificado: {profileCode}
                 </span>
               </div>
@@ -488,7 +488,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                         )}
                       </div>
 
-                      <div className="flex flex-wrap gap-2 text-xs">
+                      <div className="hidden">
                         <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 font-semibold text-white/90">
                           Código público: {profileCode}
                         </span>
@@ -560,7 +560,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     </Link>
                   </div>
 
-                  <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
+                  <div className="hidden">
                     <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">URL pública</p>
                     <p className="mt-3 break-all text-sm leading-6 text-white/84">{canonicalUrl}</p>
                   </div>
@@ -642,29 +642,6 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
               </article>
 
               <div className="grid gap-4">
-                <article className="ufx-tech-card p-5 sm:p-6">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Rubros y especialidades</p>
-                  <h2 className="mt-2 text-2xl font-semibold text-white">Especialidades declaradas</h2>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {specialties.length > 0 ? (
-                      specialties.map((specialty) => (
-                        <span
-                          key={specialty}
-                          className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-white/85"
-                        >
-                          {specialty}
-                        </span>
-                      ))
-                    ) : (
-                      <span
-                        className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65"
-                      >
-                        Especialidades no informadas
-                      </span>
-                    )}
-                  </div>
-                </article>
-
                 {badges.length > 0 && (
                   <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Insignias</p>

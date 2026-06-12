@@ -6092,7 +6092,6 @@ export default function TechniciansPage() {
       '';
     const heroSummary =
       presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
-    const profileCode = profileId ? profileId.slice(0, 8).toUpperCase() : 'URBANFIX';
     const avatarImageUrl = String(profileForm.avatarUrl || profileForm.companyLogoUrl || '').trim();
     const companyBannerUrl = String(profileForm.bannerUrl || profileForm.companyLogoUrl || profileForm.avatarUrl || '').trim();
     const whatsappLink = buildProfileWhatsappLink(profileForm.phone);
@@ -6101,12 +6100,6 @@ export default function TechniciansPage() {
       { label: 'Instagram', href: toSafeUrl(profileForm.instagramUrl) },
     ].filter((entry) => Boolean(entry.href));
     const availabilityLabel = 'A coordinar';
-    const availabilityToneClass = 'bg-white/10 text-white/75 ring-1 ring-white/10';
-    const heroPills = [
-      profileForm.city ? `Zona base: ${profileForm.city}` : '',
-      coverageAreaLabel ? 'Cobertura activa' : '',
-      specialties.length > 0 ? `${specialties.length} rubros cargados` : '',
-    ].filter(Boolean);
     const metricCards = [
       {
         label: 'Reputación',
@@ -6154,20 +6147,17 @@ export default function TechniciansPage() {
     return {
       avatarImageUrl,
       availabilityLabel,
-      availabilityToneClass,
       badges,
       companyBannerUrl,
       displayInitial,
       displayName,
       facebookFeedEmbedUrl: buildFacebookTimelineEmbedUrl(profileForm.facebookUrl),
       fullName,
-      heroPills,
       heroSummary,
       instagramPostEmbedUrl: buildInstagramEmbedUrl(profileForm.instagramUrl),
       likesCount,
       metricCards,
       presentationText,
-      profileCode,
       profileId,
       profileSignals,
       recommendations,
@@ -10867,19 +10857,6 @@ export default function TechniciansPage() {
                                     )}
                                   </div>
 
-                                  <div className="flex flex-wrap gap-2 text-xs">
-                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${publicProfilePreview.availabilityToneClass}`}>
-                                      {publicProfilePreview.availabilityLabel}
-                                    </span>
-                                    {publicProfilePreview.heroPills.map((pill) => (
-                                      <span
-                                        key={pill}
-                                        className="rounded-full border border-white/15 bg-black/20 px-3 py-1 text-white/78"
-                                      >
-                                        {pill}
-                                      </span>
-                                    ))}
-                                  </div>
                                 </div>
                               </div>
 
@@ -10989,22 +10966,6 @@ export default function TechniciansPage() {
                           )}
 
                           <div className="grid gap-4">
-                            {publicProfilePreview.specialties.length > 0 && (
-                              <article className="ufx-tech-card p-5 sm:p-6">
-                                <h2 className="text-2xl font-semibold text-white">Especialidades</h2>
-                                <div className="mt-4 flex flex-wrap gap-2">
-                                  {publicProfilePreview.specialties.map((specialty) => (
-                                    <span
-                                      key={specialty}
-                                      className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs font-medium text-white/85"
-                                    >
-                                      {specialty}
-                                    </span>
-                                  ))}
-                                </div>
-                              </article>
-                            )}
-
                             {publicProfilePreview.badges.length > 0 && (
                               <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
                                 <h2 className="text-2xl font-semibold text-white">Insignias</h2>
@@ -11181,42 +11142,6 @@ export default function TechniciansPage() {
 
                         <div className="space-y-4">
                           <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Que ve el cliente</p>
-                            <ul className="mt-3 space-y-2 text-xs text-slate-600">
-                              <li className="flex gap-2">
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Portada: imagen grande de presentacion del negocio.
-                              </li>
-                              <li className="flex gap-2">
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Foto: rostro o marca que acompaña cada propuesta.
-                              </li>
-                              <li className="flex gap-2">
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Logo: se usa en presupuestos, perfil y recordacion.
-                              </li>
-                            </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Criterio recomendado</p>
-                            <ul className="mt-3 space-y-2 text-xs text-slate-600">
-                              <li className="flex gap-2">
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Usa una foto clara, sin recortes fuertes.
-                              </li>
-                              <li className="flex gap-2">
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                El banner conviene horizontal y simple.
-                              </li>
-                              <li className="flex gap-2">
-                                <span className="mt-1.5 h-2 w-2 rounded-full bg-slate-900" />
-                                Mantene el mismo nombre que usas con clientes.
-                              </li>
-                            </ul>
-                          </div>
-
-                          <div className="rounded-2xl border border-slate-200 bg-white p-4">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">URLs (opcional)</p>
                             <label className="mt-3 block text-xs font-semibold text-slate-600">URL banner</label>
                             <input
@@ -11252,26 +11177,6 @@ export default function TechniciansPage() {
                     </div>
                   </div>
                   <div className="space-y-4">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cuenta</p>
-                      <p className="mt-2 text-xs leading-5 text-slate-500">
-                        Datos internos para identificar tu acceso. No hace falta editarlos.
-                      </p>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">ID interno</p>
-                          <p className="mt-2 text-xs font-semibold text-slate-700 break-all">
-                            {session?.user?.id || 'No disponible'}
-                          </p>
-                        </div>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-                          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Email autenticado</p>
-                          <p className="mt-2 text-xs font-semibold text-slate-700 break-all">
-                            {session?.user?.email || 'No disponible'}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                       <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Datos principales</p>
                       <p className="mt-2 text-xs leading-5 text-slate-500">
