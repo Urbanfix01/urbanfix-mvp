@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { HelpCircle, MapPin, Search, X } from 'lucide-react';
+import { MapPin, Search, X } from 'lucide-react';
 import { DEFAULT_COUNTRY_NAME, isCoordinateWithinCountry } from '../lib/location-catalog';
 
 export interface LocationPickerResult {
@@ -92,7 +92,7 @@ const geocodeAddress = async (
   if (trimmed.length < 3) return { results: [] };
 
   try {
-    const params = new URLSearchParams({ query: trimmed, limit: '12' });
+    const params = new URLSearchParams({ query: trimmed, limit: '6', quick: '1' });
     if (countryHint?.trim()) {
       params.set('country', countryHint.trim());
     }
@@ -122,6 +122,7 @@ const geocodeAddress = async (
       rateLimited?: boolean;
     };
     const data = Array.isArray(payload.results) ? payload.results : [];
+    const seenResults = new Set<string>();
     const results = data
       .map((item): LocationPickerResult => ({
         lat: Number(item.lat),
@@ -136,7 +137,13 @@ const geocodeAddress = async (
         isValid: isCoordinateWithinCountry(Number(item.lat), Number(item.lon), countryHint || DEFAULT_COUNTRY_NAME),
         precision: item.precision === 'exact' ? 'exact' : 'approx',
       }))
-      .filter((item) => item.isValid);
+      .filter((item) => {
+        if (!item.isValid) return false;
+        const key = `${item.primaryLabel || item.displayName}|${item.secondaryLabel || ''}`.toLowerCase();
+        if (seenResults.has(key)) return false;
+        seenResults.add(key);
+        return true;
+      });
     return { results, error: payload.error, rateLimited: Boolean(payload.rateLimited) };
   } catch {
     return { results: [], error: 'No pudimos buscar direcciones en este momento.' };
@@ -279,6 +286,13 @@ export default function TechnicianLocationPicker({
     }
 
     const trimmed = input.trim();
+    if (value?.isValid && normalizeSpacing(trimmed) === normalizeSpacing(value.displayName)) {
+      setSuggestions([]);
+      setLoading(false);
+      setSearchError('');
+      return;
+    }
+
     if (trimmed.length === 0 || trimmed.length < 3) {
       setSuggestions([]);
       setLoading(false);
@@ -298,12 +312,12 @@ export default function TechnicianLocationPicker({
 
     const timer = window.setTimeout(async () => {
       await runAddressSearch(trimmed);
-    }, 1200);
+    }, 320);
 
     return () => {
       window.clearTimeout(timer);
     };
-  }, [autoSearch, input, runAddressSearch]);
+  }, [autoSearch, input, runAddressSearch, value?.displayName, value?.isValid]);
 
   const handleSearch = (query: string) => {
     setInput(query);
@@ -330,10 +344,10 @@ export default function TechnicianLocationPicker({
 
   // Select suggestion
   const handleSelectSuggestion = (result: LocationPickerResult) => {
-    const structuredQuery = composeStructuredAddress(addressFields);
+    const confirmedQuery = normalizeSpacing(result.displayName || result.primaryLabel || input);
     onChange(result);
-    setInput(structuredQuery || result.displayName);
-    onQueryChange?.(structuredQuery || result.displayName);
+    setInput(confirmedQuery);
+    onQueryChange?.(confirmedQuery);
     setSuggestions([]);
     setSearchError('');
     setShowMap(true);
@@ -542,53 +556,22 @@ export default function TechnicianLocationPicker({
     `${suggestion.lat.toFixed(4)}, ${suggestion.lng.toFixed(4)}`;
   const effectiveLocality = normalizeSpacing(cityHint || addressFields.locality);
   const composedAddressQuery = composeStructuredAddress({ ...addressFields, locality: effectiveLocality });
-  const hasStreet = Boolean(addressFields.street.trim());
-  const hasNumber = Boolean(addressFields.number.trim()) && hasAddressHeight(addressFields.number);
-  const addressStepReady = hasStreet && hasNumber;
-  const mapStepReady = Boolean(value?.isValid && value.precision === 'exact');
+  const searchQuery = normalizeSpacing(input);
+  const canOpenMapManually = searchQuery.length >= 3 && hasAddressHeight(searchQuery);
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-slate-700">
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <label className="text-sm font-semibold text-slate-700">
           {label}
           {required && <span className="text-red-500">*</span>}
         </label>
-        <div
-          className="group relative inline-flex cursor-help"
-          title={description}
-        >
-          <HelpCircle className="h-4 w-4 text-slate-400" />
-          <div className="pointer-events-none absolute bottom-full left-1/2 mb-2 w-48 -translate-x-1/2 rounded-lg bg-slate-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus:opacity-100 whitespace-normal">
-            {description}
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-slate-500">{description}</p>
-
-      <div className="grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-[0.12em]">
-        {[
-          { label: 'Distrito', done: Boolean(effectiveLocality) },
-          { label: 'Altura', done: addressStepReady },
-          { label: 'Pin', done: mapStepReady },
-        ].map((step) => (
-          <span
-            key={step.label}
-            className={`rounded-full border px-2 py-1 text-center ${
-              step.done
-                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                : 'border-slate-200 bg-white text-slate-400'
-            }`}
-          >
-            {step.label}
-          </span>
-        ))}
+        <p className="text-xs text-slate-500">{description}</p>
       </div>
 
       {/* Input y Búsqueda */}
       <div className="space-y-2">
-        <div className="space-y-2 rounded-2xl border border-slate-200 bg-white/70 p-3">
+        <div className="hidden">
           <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -629,28 +612,29 @@ export default function TechnicianLocationPicker({
           </p>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="hidden">
+        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex flex-col gap-2 lg:flex-row">
+          <div className="relative min-w-0 flex-1">
             <input
               type="text"
               value={input}
-              onChange={(e) => handleSearch(e.target.value)}
+              onChange={(event) => handleSearch(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   event.preventDefault();
-                  void runAddressSearch(input, { force: true });
+                  void runAddressSearch(searchQuery, { force: true });
                 }
               }}
-              placeholder="Calle y altura, ej: Husares 564, Quilmes"
+              placeholder="Calle y altura. Ej: Husares 564"
               disabled={disabled}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none disabled:bg-slate-50"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 pr-10 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white disabled:bg-slate-50"
             />
             {loading && (
               <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
               </div>
             )}
-            {value?.isValid && (
+            {value?.isValid && !loading && (
               <button
                 type="button"
                 onClick={handleClear}
@@ -663,38 +647,39 @@ export default function TechnicianLocationPicker({
           </div>
           <button
             type="button"
-            onClick={() => void runAddressSearch(composedAddressQuery, { force: true })}
+            onClick={() => void runAddressSearch(searchQuery, { force: true })}
             disabled={disabled || loading}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <Search className="mr-1 inline h-4 w-4" />
+            <Search className="mr-1 h-4 w-4" />
             {loading ? 'Buscando' : 'Buscar'}
           </button>
           <button
             type="button"
             onClick={() => {
-              if (!value?.isValid) {
-                if (addressStepReady) {
-                  setShowMap(!showMap);
-                  setSearchError('Si la direccion no aparece, ubica el pin manualmente en el mapa.');
-                  return;
-                }
-                setSearchError('Primero completa calle y altura; despues busca o ubica el pin en el mapa.');
+              if (!value?.isValid && !canOpenMapManually) {
+                setSearchError('Escribi calle y altura antes de ajustar el punto en el mapa.');
                 return;
+              }
+              if (!value?.isValid) {
+                setSearchError('Ubica el pin manualmente si la direccion no aparece en la busqueda.');
               }
               setShowMap(!showMap);
             }}
             disabled={disabled}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium hover:bg-slate-50 disabled:opacity-50"
+            className="inline-flex items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:opacity-50"
           >
-            <MapPin className="h-4 w-4 inline mr-1" />
-            {value?.isValid ? 'Ajustar pin' : 'Mapa'}
+            <MapPin className="mr-1 h-4 w-4" />
+            {value?.isValid ? 'Ajustar' : 'Mapa'}
           </button>
         </div>
 
-        {!cityHint?.trim() && (
-          <p className="text-[11px] text-amber-700">Primero elige una ciudad o localidad para mejorar la precision.</p>
-        )}
+          {!cityHint?.trim() && (
+            <p className="mt-2 text-[11px] text-amber-700">
+              Elegi una localidad para mejorar la precision.
+            </p>
+          )}
+        </div>
 
         {/* Sugerencias */}
         {suggestions.length > 0 && (

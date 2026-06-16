@@ -2,8 +2,17 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
 import { Sora } from 'next/font/google';
+import { MapPinned, Star } from 'lucide-react';
 import PublicTopNav from '../../../components/PublicTopNav';
+import {
+  FacebookBrandIcon,
+  InstagramBrandIcon,
+  WhatsAppBrandIcon,
+} from '../../../components/profile/SocialContactIcons';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
+import ProfileReviewComments from '../../../components/profile/ProfileReviewComments';
+import ProfileShareActions from '../../../components/profile/ProfileShareActions';
+import ProfileVisitCounter from '../../../components/profile/ProfileVisitCounter';
 import { getServiceRoleClient } from '../../../lib/supabase/server';
 import { buildTechnicianPath, extractProfileId, isUuid } from '../../../lib/seo/technician-profile';
 import {
@@ -50,6 +59,16 @@ type PublicTechnicianProfile = {
   public_likes_count?: number | null;
 };
 
+type PublicProfileReview = {
+  id: string;
+  source: 'verified' | 'profile';
+  clientName: string;
+  rating: number;
+  comment: string;
+  location: string;
+  submittedAt: string;
+};
+
 const parseDelimitedValues = (value: string | null | undefined) =>
   String(value || '')
     .split(/[\n,;|/]+/)
@@ -60,12 +79,6 @@ const parseBadgeArray = (value: string[] | null | undefined) => {
   if (!Array.isArray(value)) return [];
   return value.map((item) => String(item || '').trim()).filter(Boolean);
 };
-
-const splitTextLines = (value: string | null | undefined) =>
-  String(value || '')
-    .split('\n')
-    .map((item) => item.trim())
-    .filter(Boolean);
 
 const formatArgentinaTimeLabel = (now = new Date()) =>
   new Intl.DateTimeFormat('es-AR', {
@@ -185,6 +198,210 @@ const fetchPublicProfile = async (profileId: string) => {
   return {
     data: (response.data || null) as PublicTechnicianProfile | null,
     error: response.error?.message || '',
+  };
+};
+
+const fetchTechnicianQuoteCount = async (profileId: string) => {
+  const supabase = getSupabase();
+  if (!supabase) return 0;
+
+  const { count, error } = await supabase
+    .from('quotes')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', profileId);
+
+  if (error) {
+    console.error('Error loading public quote count:', error);
+    return 0;
+  }
+
+  return Math.max(0, Number(count || 0));
+};
+
+const normalizeQuoteWorkStatus = (status?: string | null) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (!normalized) return '';
+  if (normalized === 'accepted' || normalized === 'aprobado' || normalized === 'aprobada' || normalized === 'aprobados')
+    return 'approved';
+  if (normalized === 'programado' || normalized === 'programada' || normalized === 'agendado' || normalized === 'agendada')
+    return 'scheduled';
+  if (
+    normalized === 'en_curso' ||
+    normalized === 'en curso' ||
+    normalized === 'en-proceso' ||
+    normalized === 'en_proceso' ||
+    normalized === 'en proceso'
+  ) {
+    return 'in_progress';
+  }
+  if (
+    normalized === 'finalizado' ||
+    normalized === 'finalizados' ||
+    normalized === 'completado' ||
+    normalized === 'completados'
+  ) {
+    return 'completed';
+  }
+  if (
+    normalized === 'cobrado' ||
+    normalized === 'cobrados' ||
+    normalized === 'pagado' ||
+    normalized === 'pagados' ||
+    normalized === 'charged'
+  ) {
+    return 'paid';
+  }
+  return normalized;
+};
+
+const isAcceptedQuoteWorkStatus = (status?: string | null) => {
+  const normalized = normalizeQuoteWorkStatus(status);
+  return (
+    normalized === 'approved' ||
+    normalized === 'scheduled' ||
+    normalized === 'in_progress' ||
+    normalized === 'completed' ||
+    normalized === 'paid'
+  );
+};
+
+const fetchTechnicianAcceptedQuoteCount = async (profileId: string) => {
+  const supabase = getSupabase();
+  if (!supabase) return 0;
+
+  const { data, error } = await supabase.from('quotes').select('id, status').eq('user_id', profileId);
+
+  if (error) {
+    console.error('Error loading accepted quote count:', error);
+    return 0;
+  }
+
+  return (data || []).filter((quote) => isAcceptedQuoteWorkStatus(quote.status)).length;
+};
+
+const isMissingReviewsSource = (message: string) => {
+  const lower = String(message || '').toLowerCase();
+  return (
+    lower.includes('quote_feedback_reviews') ||
+    lower.includes('profile_public_reviews') ||
+    lower.includes('does not exist') ||
+    lower.includes('schema cache')
+  );
+};
+
+const isBroadReviewLocationPart = (value: string) => {
+  const normalized = value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return (
+    normalized === 'argentina' ||
+    normalized === 'buenos aires' ||
+    normalized === 'provincia de buenos aires' ||
+    normalized === 'ciudad autonoma de buenos aires' ||
+    normalized === 'caba'
+  );
+};
+
+const resolveReviewLocationLabel = (address?: string | null, fallback?: string | null) => {
+  const fallbackLabel = String(fallback || '').trim();
+  const parts = String(address || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const localParts = (parts.length > 1 ? parts.slice(1) : parts).filter((part) => !/\d/.test(part) && !isBroadReviewLocationPart(part));
+  return localParts[0] || fallbackLabel;
+};
+
+const normalizePublicReview = (row: any, source: 'verified' | 'profile', fallbackLocation = ''): PublicProfileReview => ({
+  id: `${source}:${String(row?.id || crypto.randomUUID())}`,
+  source,
+  clientName: String(row?.client_name || row?.visitor_name || '').trim() || 'Cliente UrbanFix',
+  rating: Math.max(1, Math.min(5, Math.round(Number(row?.rating || 5)))),
+  comment: String(row?.comment || '').trim(),
+  location: String(row?.location_label || fallbackLocation || '').trim(),
+  submittedAt: String(row?.submitted_at || row?.updated_at || ''),
+});
+
+const fetchTechnicianPublicReviews = async (profileId: string, fallbackLocation = '') => {
+  const supabase = getSupabase();
+  if (!supabase) {
+    return {
+      reviews: [] as PublicProfileReview[],
+      rating: null as number | null,
+      reviewsCount: 0,
+      hasAggregate: false,
+    };
+  }
+
+  const verifiedResult = await supabase
+    .from('quote_feedback_reviews')
+    .select('id, quote_id, client_name, rating, comment, submitted_at, updated_at')
+    .eq('technician_id', profileId)
+    .eq('is_public', true)
+    .order('submitted_at', { ascending: false })
+    .limit(50);
+
+  const profileResult = await supabase
+    .from('profile_public_reviews')
+    .select('id, visitor_name, rating, comment, submitted_at, updated_at')
+    .eq('technician_id', profileId)
+    .eq('is_public', true)
+    .order('submitted_at', { ascending: false })
+    .limit(50);
+
+  if (verifiedResult.error && !isMissingReviewsSource(verifiedResult.error.message || '')) {
+    console.error('Error loading verified profile reviews:', verifiedResult.error);
+  }
+  if (profileResult.error && !isMissingReviewsSource(profileResult.error.message || '')) {
+    console.error('Error loading direct profile reviews:', profileResult.error);
+  }
+
+  const verifiedRows = verifiedResult.error ? [] : verifiedResult.data || [];
+  const profileRows = profileResult.error ? [] : profileResult.data || [];
+  const quoteIds = verifiedRows.map((row) => String(row?.quote_id || '').trim()).filter(Boolean);
+  const quoteLocationMap = new Map<string, string>();
+
+  if (quoteIds.length > 0) {
+    const quotesResult = await supabase
+      .from('quotes')
+      .select('id, client_address, location_address')
+      .in('id', quoteIds);
+
+    if (quotesResult.error) {
+      console.error('Error loading review quote locations:', quotesResult.error);
+    } else {
+      (quotesResult.data || []).forEach((quote) => {
+        quoteLocationMap.set(
+          String(quote.id),
+          resolveReviewLocationLabel(quote.location_address || quote.client_address, fallbackLocation)
+        );
+      });
+    }
+  }
+
+  const allReviews = [
+    ...verifiedRows.map((row) => normalizePublicReview(row, 'verified', quoteLocationMap.get(String(row?.quote_id || '')) || fallbackLocation)),
+    ...profileRows.map((row) => normalizePublicReview(row, 'profile', fallbackLocation)),
+  ].filter((review) => Number.isFinite(review.rating) && review.rating >= 1);
+
+  const reviewsCount = allReviews.length;
+  const rating =
+    reviewsCount > 0
+      ? Number((allReviews.reduce((sum, review) => sum + review.rating, 0) / reviewsCount).toFixed(1))
+      : null;
+  const visibleReviews = allReviews
+    .filter((review) => review.comment)
+    .sort((a, b) => new Date(b.submittedAt || 0).getTime() - new Date(a.submittedAt || 0).getTime())
+    .slice(0, 6);
+
+  return {
+    reviews: visibleReviews,
+    rating,
+    reviewsCount,
+    hasAggregate: reviewsCount > 0,
   };
 };
 
@@ -321,16 +538,21 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const displayName = profile.business_name || profile.full_name || 'Técnico UrbanFix';
   const displayInitial = displayName.slice(0, 1).toUpperCase();
   const specialties = parseDelimitedValues(profile.specialties).slice(0, 12);
-  const recommendations = splitTextLines(profile.client_recommendations).slice(0, 5);
   const badges = parseBadgeArray(profile.achievement_badges).slice(0, 8);
   const likesCount = Math.max(0, Number(profile.public_likes_count || 0));
-  const rating = Number(profile.public_rating || 0);
-  const reviewsCount = Math.max(0, Number(profile.public_reviews_count || 0));
+  const publicReviewState = await fetchTechnicianPublicReviews(profile.id, profile.city || profile.coverage_area || '');
+  const storedRating = Number(profile.public_rating || 0);
+  const rating = publicReviewState.hasAggregate ? Number(publicReviewState.rating || 0) : storedRating;
+  const reviewsCount = publicReviewState.hasAggregate
+    ? publicReviewState.reviewsCount
+    : Math.max(0, Number(profile.public_reviews_count || 0));
+  const publicReviews = publicReviewState.reviews;
   const completedJobsRaw = Number(profile.completed_jobs_total);
   const hasRating = Number.isFinite(rating) && rating > 0;
-  const hasReviews = Number.isFinite(reviewsCount) && reviewsCount > 0;
   const hasCompletedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0;
-  const completedJobsLabel = hasCompletedJobs ? completedJobsRaw.toString() : 'No informado';
+  const quoteCount = await fetchTechnicianQuoteCount(profile.id);
+  const acceptedQuoteCount = await fetchTechnicianAcceptedQuoteCount(profile.id);
+  const completedJobsCount = Math.max(hasCompletedJobs ? Math.floor(completedJobsRaw) : 0, acceptedQuoteCount);
   const hasWorkingHoursConfigured = Boolean(String(profile.working_hours || '').trim());
   const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
   const workingHoursLabel = hasWorkingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Horario a coordinar';
@@ -342,12 +564,15 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     : 'A coordinar';
   const argentinaTimeLabel = formatArgentinaTimeLabel();
   const whatsappLink = buildWhatsappLink(profile.phone);
-  const presentationText =
-    String(profile.references_summary || '').trim() ||
-    'Perfil público de UrbanFix. Este profesional aún no cargó una presentación detallada.';
+  const coverageHeroLabel = profile.city || profile.coverage_area || '';
+  const availabilityToneClass = hasWorkingHoursConfigured
+    ? isWithinWorkingHours
+      ? 'border-emerald-300/35 bg-emerald-400/15 text-emerald-100'
+      : 'border-amber-300/35 bg-amber-400/15 text-amber-100'
+    : 'border-white/15 bg-white/[0.06] text-white/72';
+  const presentationText = String(profile.references_summary || '').trim();
   const heroSummary =
     presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
-  const profileCode = profile.id.slice(0, 8).toUpperCase();
   const canonicalPath = buildTechnicianPath(profile.id, displayName);
   const canonicalSegment = canonicalPath.split('/').pop() || '';
   if (requestedSegment.toLowerCase() !== canonicalSegment.toLowerCase()) {
@@ -357,64 +582,33 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const companyBannerUrl = toOptionalAbsoluteUrl(profile.banner_url || profile.company_logo_url || profile.avatar_url);
   const canonicalUrl = buildTechnicianUrl(profile.id, displayName);
   const socialLinks = [
-    { label: 'Facebook', href: profile.facebook_url },
-    { label: 'Instagram', href: profile.instagram_url },
+    { label: 'Facebook', href: toSafeSocialUrl(profile.facebook_url), icon: 'facebook' },
+    { label: 'Instagram', href: toSafeSocialUrl(profile.instagram_url), icon: 'instagram' },
   ].filter((entry) => Boolean(entry.href));
   const facebookFeedEmbedUrl = buildFacebookTimelineEmbedUrl(profile.facebook_url);
   const instagramPostEmbedUrl = buildInstagramEmbedUrl(profile.instagram_url);
   const sameAs = socialLinks.map((entry) => String(entry.href || '').trim()).filter(Boolean);
-  const ratingLabel = hasRating ? rating.toFixed(1) : 'Sin calificar';
-  const availabilityToneClass = hasWorkingHoursConfigured
-    ? isWithinWorkingHours
-      ? 'bg-emerald-500/20 text-emerald-100 ring-1 ring-emerald-300/25'
-      : 'bg-amber-500/20 text-amber-100 ring-1 ring-amber-300/25'
-    : 'bg-white/10 text-white/75 ring-1 ring-white/10';
-  const heroPills = [
-    profile.city ? `Zona base: ${profile.city}` : '',
-    profile.coverage_area ? `Cobertura activa` : '',
-    specialties.length > 0 ? `${specialties.length} rubros cargados` : '',
-  ].filter(Boolean);
   const metricCards = [
     {
-      label: 'Reputacion',
-      value: ratingLabel,
-      detail: hasRating ? 'Puntaje promedio visible al público' : 'Aún sin calificación pública registrada',
-      accent: 'from-[#ffb45c]/18 to-[#ff8f1f]/6',
+      label: 'Reputaci\u00f3n',
+      value: hasRating ? rating.toFixed(1) : '0.0',
+      suffix: '/5',
     },
     {
-      label: 'Reseñas',
+      label: 'Rese\u00f1as',
       value: reviewsCount.toString(),
-      detail: hasReviews ? 'Opiniones visibles de clientes' : 'Aún no hay reseñas públicas',
-      accent: 'from-white/[0.10] to-white/[0.03]',
     },
     {
       label: 'Trabajos',
-      value: completedJobsLabel,
-      detail: hasCompletedJobs ? 'Trabajos completados informados en el perfil' : 'Este perfil todavía no informa trabajos completados',
-      accent: 'from-[#8b5cf6]/16 to-[#3b1b62]/10',
+      value: completedJobsCount.toString(),
+    },
+    {
+      label: 'Presupuestos',
+      value: quoteCount.toString(),
     },
     {
       label: 'Me gusta',
       value: likesCount.toString(),
-      detail: likesCount > 0 ? 'Interacciones públicas registradas' : 'Aún no hay me gusta registrados',
-      accent: 'from-[#f97316]/16 to-[#431407]/10',
-    },
-  ];
-  const profileSignals = [
-    {
-      label: 'Zona de trabajo',
-      value: profile.coverage_area || profile.city || 'Sin zona detallada',
-      note: profile.city ? `Ciudad base: ${profile.city}` : 'Conviene completar zona y ciudad para mejorar alcance.',
-    },
-    {
-      label: 'Disponibilidad',
-      value: availabilityLabel,
-      note: `${workingHoursLabel}. Hora local Argentina: ${argentinaTimeLabel}`,
-    },
-    {
-      label: 'Canales publicos',
-      value: socialLinks.length > 0 ? `${socialLinks.length} canal(es) activos` : 'Sin canales sociales publicados',
-      note: whatsappLink ? 'Tiene WhatsApp visible para contacto rápido.' : 'No hay un canal directo publicado por el momento.',
     },
   ];
   const personJsonLd = {
@@ -434,7 +628,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     telephone: profile.phone || undefined,
     knowsAbout: specialties.length > 0 ? specialties : undefined,
     sameAs: sameAs.length > 0 ? sameAs : undefined,
-    description: presentationText,
+    description: presentationText || `${displayName} en UrbanFix.`,
   };
 
   return (
@@ -463,13 +657,19 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                   <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
                 )}
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.12)_58%,rgba(33,0,47,0.54)_100%)]" />
-                <span className="hidden">
-                  Perfil verificado: {profileCode}
-                </span>
               </div>
 
-              <div className="relative -mt-16 grid gap-5 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8 lg:grid-cols-[minmax(0,1.18fr)_320px]">
-                <div className="ufx-tech-card ufx-tech-card--soft space-y-5 p-5 sm:p-6">
+              <div className="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
+                <div className="ufx-tech-card ufx-tech-card--soft relative min-h-[340px] space-y-5 p-5 pb-20 pt-16 sm:p-6 sm:pb-20 sm:pt-6 lg:min-h-[360px]">
+                  <ProfileVisitCounter
+                    profileId={profile.id}
+                    className="!absolute !right-4 !top-4 !z-10 max-w-[calc(100%-2rem)] bg-black/[0.24] sm:!right-6 sm:!top-6"
+                  />
+                  <div className="!absolute !bottom-4 !right-4 !z-10 flex max-w-[calc(100%-2rem)] items-center gap-2.5 sm:!bottom-6 sm:!right-6">
+                    <ProfileLikeButton profileId={profile.id} initialCount={likesCount} iconOnly />
+                    <ProfileReviewComments profileId={profile.id} initialCount={reviewsCount} />
+                    <ProfileShareActions profileId={profile.id} shareUrl={canonicalUrl} title={displayName} />
+                  </div>
                   <div className="flex flex-wrap items-end gap-4 sm:gap-5">
                     <div className="h-28 w-28 overflow-hidden rounded-3xl border border-white/35 bg-[#2a0640] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.95)] ring-4 ring-[#ff8f1f]/35 sm:h-36 sm:w-36">
                       {avatarImageUrl ? (
@@ -482,37 +682,67 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     </div>
                     <div className="min-w-0 flex-1 space-y-3 pb-1">
                       <div className="space-y-1">
-                        <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
+                          {coverageHeroLabel && (
+                            <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/72">
+                              <MapPinned className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                              {coverageHeroLabel}
+                            </span>
+                          )}
+                        </div>
                         {profile.full_name && profile.full_name !== displayName && (
                           <p className="text-sm text-white/80">{profile.full_name}</p>
                         )}
-                      </div>
-
-                      <div className="hidden">
-                        <span className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 font-semibold text-white/90">
-                          Código público: {profileCode}
-                        </span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${availabilityToneClass}`}>
-                          {availabilityLabel}
-                        </span>
-                        {heroPills.map((pill) => (
-                          <span
-                            key={pill}
-                            className="rounded-full border border-white/15 bg-black/20 px-3 py-1 text-white/78"
-                          >
-                            {pill}
+                        <div className="flex flex-wrap items-center gap-2 pt-2">
+                          <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${availabilityToneClass}`}>
+                            {availabilityLabel}
                           </span>
-                        ))}
+                          <span className="text-xs leading-5 text-white/62">
+                            {workingHoursLabel} · {argentinaTimeLabel}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 pt-2">
+                          {whatsappLink ? (
+                            <a
+                              href={whatsappLink}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              aria-label="Contactar por WhatsApp"
+                              title="WhatsApp"
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:scale-105 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+                            >
+                              <WhatsAppBrandIcon className="h-8 w-8" />
+                            </a>
+                          ) : null}
+                          {socialLinks.map((entry) => (
+                            <a
+                              key={entry.label}
+                              href={String(entry.href)}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              aria-label={`Abrir ${entry.label}`}
+                              title={entry.label}
+                              className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:scale-105 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+                            >
+                              {entry.icon === 'facebook' ? (
+                                <FacebookBrandIcon className="h-8 w-8" />
+                              ) : (
+                                <InstagramBrandIcon className="h-8 w-8" />
+                              )}
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <p className="max-w-3xl text-base leading-relaxed text-white/88 sm:text-[1.05rem]">{heroSummary}</p>
-                    <p className="max-w-3xl text-sm leading-7 text-white/66">
-                      Perfil público de UrbanFix con datos de contacto, zona de trabajo y especialidades declaradas por el profesional.
-                    </p>
-                  </div>
+                  {heroSummary && (
+                    <div className="rounded-3xl border border-white/12 bg-black/18 p-4 sm:p-5">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Bio</p>
+                      <p className="mt-3 max-w-3xl text-sm leading-7 text-white/82 sm:text-base">{heroSummary}</p>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2">
                     {specialties.length > 0 ? (
@@ -530,146 +760,137 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       </span>
                     )}
                   </div>
+
+                  {publicReviews.length > 0 && (
+                    <div className="grid gap-3 pt-1 lg:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
+                      <div className="rounded-[24px] border border-[#ff8f1f]/25 bg-[#ff8f1f]/10 p-4">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-[#ffd6a6]">Reseñas</p>
+                        <div className="mt-2 flex items-end gap-2">
+                          <span className="text-4xl font-black text-white">{hasRating ? rating.toFixed(1) : '0.0'}</span>
+                          <span className="pb-1 text-sm font-bold text-white/50">/5</span>
+                        </div>
+                        <p className="mt-1 text-sm font-semibold text-white/66">{reviewsCount} comentarios de clientes</p>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {publicReviews.slice(0, 2).map((review) => (
+                          <article key={`hero-${review.id}`} className="rounded-[24px] border border-white/12 bg-black/18 p-4">
+                            <div className="flex items-center justify-between gap-3">
+                              <p className="truncate text-sm font-black text-white">{review.clientName}</p>
+                              <span className="inline-flex shrink-0 items-center gap-1 text-xs font-black text-[#ffd37a]">
+                                <Star className="h-3.5 w-3.5 fill-current" />
+                                {review.rating}
+                              </span>
+                            </div>
+                            {review.location ? (
+                              <p className="mt-1 inline-flex max-w-full items-center gap-1.5 text-xs font-semibold text-white/52">
+                                <MapPinned className="h-3.5 w-3.5 shrink-0 text-[#ff8f1f]" />
+                                <span className="truncate">{review.location}</span>
+                              </p>
+                            ) : null}
+                            <p className="mt-2 max-h-12 overflow-hidden text-sm leading-6 text-white/72">{review.comment}</p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <aside className="ufx-tech-card ufx-tech-card--accent flex flex-col gap-4 p-5 sm:p-6">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-[#ffd6a6]">Contacto rápido</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">Listo para coordinar</h2>
-                    <p className="mt-2 text-sm leading-6 text-white/72">
-                      Canal directo para consultar disponibilidad, pedir presupuesto o iniciar una visita.
-                    </p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {whatsappLink ? (
-                      <a
-                        href={whatsappLink}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="inline-flex w-full items-center justify-center rounded-full bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-                      >
-                        Contactar por WhatsApp
-                      </a>
-                    ) : null}
-                    <Link
-                      href="/vidriera"
-                      className="inline-flex w-full items-center justify-center rounded-full border border-white/30 px-4 py-3 text-sm font-semibold text-white/90 transition hover:border-white hover:text-white"
-                    >
-                      Volver a la vidriera
-                    </Link>
-                  </div>
-
-                  <div className="hidden">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">URL pública</p>
-                    <p className="mt-3 break-all text-sm leading-6 text-white/84">{canonicalUrl}</p>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-                    <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Likes</p>
-                      <p className="mt-2 text-2xl font-semibold text-white">{likesCount}</p>
-                      <div className="mt-3">
-                        <ProfileLikeButton profileId={profile.id} initialCount={likesCount} compact />
-                      </div>
-                    </div>
-                    <div className="rounded-3xl border border-white/12 bg-black/20 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Canales activos</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {socialLinks.length > 0 ? (
-                          socialLinks.map((entry) => (
-                            <a
-                              key={entry.label}
-                              href={String(entry.href || '')}
-                              target="_blank"
-                              rel="noreferrer noopener"
-                              className="rounded-full border border-white/20 px-3 py-1.5 text-xs font-semibold text-white/88 transition hover:border-white hover:text-white"
-                            >
-                              {entry.label}
-                            </a>
-                          ))
-                        ) : (
-                          <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1.5 text-xs text-white/65">
-                            Sin canales sociales publicados
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </aside>
               </div>
             </section>
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              {metricCards.map((item) => (
-                <article
-                  key={item.label}
-                  className={`ufx-tech-card p-4 bg-gradient-to-br ${item.accent}`}
-                >
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">{item.label}</p>
-                  <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
-                  <p className="mt-2 text-sm leading-6 text-white/70">{item.detail}</p>
-                </article>
-              ))}
+            <section>
+              <article className="ufx-tech-card overflow-hidden">
+                <div className="grid lg:grid-cols-[minmax(180px,0.38fr)_minmax(0,1.62fr)]">
+                  <div className="border-b border-white/10 p-5 sm:p-6 lg:border-b-0 lg:border-r">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Resumen</p>
+                    <h2 className="mt-2 text-2xl font-semibold text-white">Indicadores</h2>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-5 sm:divide-x sm:divide-white/10">
+                    {metricCards.map((item) => (
+                      <div key={item.label} className="border-b border-white/10 p-5 last:border-b-0 sm:border-b-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                          {item.label}
+                        </p>
+                        <p className="mt-3 flex items-baseline gap-1 text-3xl font-black text-white sm:text-4xl">
+                          <span>{item.value}</span>
+                          {'suffix' in item && item.suffix ? (
+                            <span className="text-xs font-semibold text-white/45">{item.suffix}</span>
+                          ) : null}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </article>
             </section>
 
-            <section className="grid gap-4 xl:grid-cols-[1.08fr_0.92fr]">
-              <article className="ufx-tech-card p-5 sm:p-6">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Carta de presentacion</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">Presentacion del perfil</h2>
+            {publicReviews.length > 0 && (
+              <section>
+                <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Comentarios</p>
+                      <h2 className="mt-2 text-2xl font-semibold text-white">Rese&ntilde;as de clientes</h2>
+                    </div>
+                    <div className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/35 bg-[#ff8f1f]/12 px-3 py-1.5 text-sm font-black text-white">
+                      <Star className="h-4 w-4 fill-[#ffbf4d] text-[#ffbf4d]" />
+                      <span>{hasRating ? rating.toFixed(1) : '0.0'}</span>
+                      <span className="text-xs font-semibold text-white/55">/5</span>
+                    </div>
                   </div>
-                  <span className="rounded-full border border-white/12 bg-black/20 px-3 py-1 text-xs font-semibold text-white/75">
-                    Perfil publico UrbanFix
-                  </span>
-                </div>
-                <p className="mt-4 text-sm leading-8 text-white/84">{presentationText}</p>
-
-                {recommendations.length > 0 && (
-                  <div className="mt-5 grid gap-3">
-                    {recommendations.map((item, index) => (
+                  <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                    {publicReviews.map((review) => (
                       <article
-                        key={`${index}-${item}`}
-                        className="rounded-3xl border border-white/10 bg-black/20 p-4"
+                        key={review.id}
+                        className="rounded-[24px] border border-white/12 bg-black/18 p-4 shadow-[0_18px_50px_-42px_rgba(0,0,0,0.9)]"
                       >
-                        <p className="text-[11px] uppercase tracking-[0.16em] text-[#ffd6a6]">Referencia {index + 1}</p>
-                        <p className="mt-3 text-sm leading-7 text-white/82">{item}</p>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-white">{review.clientName}</p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/40">
+                                {review.source === 'verified' ? 'Trabajo verificado' : 'Perfil publico'}
+                              </span>
+                              {review.location ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/52">
+                                  <MapPinned className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                                  {review.location}
+                                </span>
+                              ) : null}
+                            </div>
+                          </div>
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-white/10 px-2.5 py-1 text-xs font-black text-[#ffd37a]">
+                            <Star className="h-3.5 w-3.5 fill-current" />
+                            {review.rating}
+                          </span>
+                        </div>
+                        <p className="mt-4 text-sm leading-6 text-white/78">{review.comment}</p>
                       </article>
                     ))}
                   </div>
-                )}
-              </article>
-
-              <div className="grid gap-4">
-                {badges.length > 0 && (
-                  <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Insignias</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">Senales de confianza</h2>
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {badges.map((badge) => (
-                        <span
-                          key={badge}
-                          className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-3 py-1.5 text-xs font-medium text-[#ffd6a6]"
-                        >
-                          {badge}
-                        </span>
-                      ))}
-                    </div>
-                  </article>
-                )}
-              </div>
-            </section>
-
-            <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {profileSignals.map((item) => (
-                <article key={item.label} className="ufx-tech-card p-5 sm:p-6">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">{item.label}</p>
-                  <p className="mt-3 text-lg font-semibold leading-7 text-white">{item.value}</p>
-                  <p className="mt-3 text-sm leading-6 text-white/70">{item.note}</p>
                 </article>
-              ))}
-            </section>
+              </section>
+            )}
+
+            {badges.length > 0 && (
+              <section className="grid gap-4">
+                <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Insignias</p>
+                  <h2 className="mt-2 text-2xl font-semibold text-white">Senales de confianza</h2>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {badges.map((badge) => (
+                      <span
+                        key={badge}
+                        className="rounded-full border border-[#ff8f1f]/55 bg-[#ff8f1f]/12 px-3 py-1.5 text-xs font-medium text-[#ffd6a6]"
+                      >
+                        {badge}
+                      </span>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            )}
 
             <section className="grid gap-4 xl:grid-cols-2">
               <article className="ufx-tech-card p-5 sm:p-6">

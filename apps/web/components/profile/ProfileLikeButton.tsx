@@ -9,6 +9,7 @@ type ProfileLikeButtonProps = {
   initialCount?: number;
   className?: string;
   compact?: boolean;
+  iconOnly?: boolean;
 };
 
 type LikeApiPayload = {
@@ -39,6 +40,7 @@ export default function ProfileLikeButton({
   initialCount = 0,
   className = '',
   compact = false,
+  iconOnly = false,
 }: ProfileLikeButtonProps) {
   const [likesCount, setLikesCount] = useState<number>(Math.max(0, Number(initialCount || 0)));
   const [liked, setLiked] = useState(false);
@@ -102,6 +104,26 @@ export default function ProfileLikeButton({
       setLoading(false);
     }
   };
+
+  if (iconOnly) {
+    return (
+      <div className={`inline-flex items-center gap-2 ${className}`}>
+        <button
+          type="button"
+          onClick={handleToggleLike}
+          disabled={loading || unavailable}
+          title={unavailable ? 'Me gusta no disponible' : liked ? 'Quitar Me gusta' : 'Me gusta'}
+          aria-label={unavailable ? 'Me gusta no disponible' : liked ? 'Quitar Me gusta' : 'Me gusta'}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/88 transition hover:scale-105 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          <Heart className={`h-7 w-7 stroke-[2.15] ${liked ? 'fill-rose-500 text-rose-400' : ''}`} />
+        </button>
+        <span className="min-w-4 text-center text-xs font-black text-white/82">
+          {unavailable ? '-' : likesCount}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className={className}>
