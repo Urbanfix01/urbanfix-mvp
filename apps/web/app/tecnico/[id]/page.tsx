@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound, permanentRedirect } from 'next/navigation';
-import { Sora } from 'next/font/google';
+import { Sora, Space_Grotesk } from 'next/font/google';
 import { MapPinned, Star } from 'lucide-react';
 import PublicTopNav from '../../../components/PublicTopNav';
 import {
@@ -30,6 +30,11 @@ import {
 const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
+});
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ['latin'],
+  weight: ['500', '600', '700'],
 });
 
 const SITE_ORIGIN = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.urbanfix.com.ar').replace(/\/+$/, '');
@@ -573,6 +578,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   const presentationText = String(profile.references_summary || '').trim();
   const heroSummary =
     presentationText.length > 150 ? `${presentationText.slice(0, 147).trimEnd()}...` : presentationText;
+  const visibleSpecialties = specialties.slice(0, 8);
+  const hiddenSpecialtiesCount = Math.max(0, specialties.length - visibleSpecialties.length);
   const canonicalPath = buildTechnicianPath(profile.id, displayName);
   const canonicalSegment = canonicalPath.split('/').pop() || '';
   if (requestedSegment.toLowerCase() !== canonicalSegment.toLowerCase()) {
@@ -710,9 +717,10 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                               rel="noreferrer noopener"
                               aria-label="Contactar por WhatsApp"
                               title="WhatsApp"
-                              className="inline-flex h-9 w-9 items-center justify-center rounded-full transition hover:scale-105 hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+                              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#25d366] px-4 text-xs font-black text-[#052513] shadow-[0_18px_36px_-26px_rgba(37,211,102,0.9)] transition hover:-translate-y-0.5 hover:bg-[#31e477] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
                             >
-                              <WhatsAppBrandIcon className="h-8 w-8" />
+                              <WhatsAppBrandIcon className="h-6 w-6" />
+                              Consultar disponibilidad
                             </a>
                           ) : null}
                           {socialLinks.map((entry) => (
@@ -737,23 +745,30 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     </div>
                   </div>
 
-                  {heroSummary && (
+                  {heroSummary ? (
                     <div className="rounded-3xl border border-white/12 bg-black/18 p-4 sm:p-5">
                       <p className="text-[11px] uppercase tracking-[0.18em] text-white/52">Bio</p>
                       <p className="mt-3 max-w-3xl text-sm leading-7 text-white/82 sm:text-base">{heroSummary}</p>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="flex flex-wrap gap-2">
                     {specialties.length > 0 ? (
-                      specialties.slice(0, 8).map((specialty) => (
-                        <span
-                          key={specialty}
-                          className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-medium text-white/85"
-                        >
-                          {specialty}
-                        </span>
-                      ))
+                      <>
+                        {visibleSpecialties.map((specialty) => (
+                          <span
+                            key={specialty}
+                            className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs font-medium text-white/85"
+                          >
+                            {specialty}
+                          </span>
+                        ))}
+                        {hiddenSpecialtiesCount > 0 ? (
+                          <span className="rounded-full border border-[#ff8f1f]/25 bg-[#ff8f1f]/10 px-3 py-1 text-xs font-black text-[#ffd6a6]">
+                            +{hiddenSpecialtiesCount} rubros
+                          </span>
+                        ) : null}
+                      </>
                     ) : (
                       <span className="rounded-full border border-white/15 bg-white/[0.06] px-3 py-1 text-xs text-white/65">
                         Especialidades no informadas
@@ -799,25 +814,40 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
             </section>
 
             <section>
-              <article className="ufx-tech-card overflow-hidden">
+              <article className="ufx-tech-card overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,143,31,0.08)_48%,rgba(255,255,255,0.03))]">
                 <div className="grid lg:grid-cols-[minmax(180px,0.38fr)_minmax(0,1.62fr)]">
                   <div className="border-b border-white/10 p-5 sm:p-6 lg:border-b-0 lg:border-r">
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Resumen</p>
-                    <h2 className="mt-2 text-2xl font-semibold text-white">Indicadores</h2>
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Perfil</p>
+                    <h2 className={`${spaceGrotesk.className} mt-2 text-3xl font-bold text-white`}>Confianza</h2>
+                    <p className="mt-2 text-sm leading-6 text-white/55">Se&ntilde;ales simples para decidir si contactar.</p>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-5 sm:divide-x sm:divide-white/10">
                     {metricCards.map((item) => (
                       <div key={item.label} className="border-b border-white/10 p-5 last:border-b-0 sm:border-b-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                        <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/48">
                           {item.label}
                         </p>
-                        <p className="mt-3 flex items-baseline gap-1 text-3xl font-black text-white sm:text-4xl">
+                        <p className={`${spaceGrotesk.className} mt-3 flex items-baseline gap-1 text-4xl font-bold text-white sm:text-5xl`}>
                           <span>{item.value}</span>
                           {'suffix' in item && item.suffix ? (
-                            <span className="text-xs font-semibold text-white/45">{item.suffix}</span>
+                            <span className="text-sm font-bold text-white/45">{item.suffix}</span>
                           ) : null}
                         </p>
+                        {item.label === 'Reputaci\u00f3n' ? (
+                          <div className="mt-3 flex items-center gap-1">
+                            {Array.from({ length: 5 }, (_, index) => (
+                              <Star
+                                key={index}
+                                className={`h-4 w-4 ${
+                                  index < Math.round(rating)
+                                    ? 'fill-[#ffbf4d] text-[#ffbf4d]'
+                                    : 'fill-white/10 text-white/20'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
                     ))}
                   </div>
