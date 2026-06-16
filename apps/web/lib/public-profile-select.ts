@@ -58,6 +58,7 @@ export const PUBLISHED_TECHNICIANS_SELECT_RICH = [
   'banner_url',
   'facebook_url',
   'instagram_url',
+  'references_summary',
   'public_likes_count',
   'public_rating',
   'public_reviews_count',

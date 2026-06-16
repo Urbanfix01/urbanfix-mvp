@@ -5,9 +5,12 @@ import { Sora } from 'next/font/google';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../../components/public/PublicTechniciansMap';
 import ProfileLikeButton from '../../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../../components/PublicTopNav';
-import { createAnonClient } from '../../../lib/supabase/server';
+import { createAnonClient, getServiceRoleClient } from '../../../lib/supabase/server';
 import {
   DEFAULT_MATCH_RADIUS_KM,
+  formatWorkingHoursLabel,
+  isNowWithinWorkingHours,
+  parseWorkingHoursConfig,
 } from '../../api/_shared/marketplace';
 import {
   getArgentinaZoneSearchOptions,
@@ -16,6 +19,7 @@ import {
   toFiniteCoordinate,
 } from '../../../lib/geo/argentina-zone-presets';
 import { buildTechnicianPath } from '../../../lib/seo/technician-profile';
+import { fetchPublicReviewStatsByProfileIds } from '../../../lib/public-profile-reviews';
 import {
   PUBLISHED_TECHNICIANS_SELECT_FALLBACK,
   PUBLISHED_TECHNICIANS_SELECT_RICH,
@@ -87,10 +91,12 @@ type PublishedProfileRow = {
   avatar_url?: string | null;
   facebook_url?: string | null;
   instagram_url?: string | null;
+  references_summary?: string | null;
   public_likes_count?: number | null;
   public_rating?: number | null;
   public_reviews_count?: number | null;
   completed_jobs_total?: number | null;
+  comments_count?: number | null;
   created_at?: string | null;
 };
 
@@ -213,6 +219,10 @@ export default async function VidrieraZonaPage({
     if (specialtyQuery && !profileMatchesSpecialtyQuery(profile.specialties, specialtyQuery)) return false;
     return true;
   });
+  const reviewStatsByProfile = await fetchPublicReviewStatsByProfileIds(
+    getServiceRoleClient() || supabase,
+    filteredProfiles.map((profile) => profile.id)
+  );
   const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = getArgentinaZoneSearchOptions();
   const mapPoints = filteredProfiles
@@ -230,25 +240,37 @@ export default async function VidrieraZonaPage({
       const displayName = profile.business_name || profile.full_name || 'Tecnico UrbanFix';
       const specialties = parseDelimitedValues(profile.specialties).slice(0, 6);
       const hasExactLocation = exactLat !== null && exactLng !== null;
+      const workingHoursConfigured = Boolean(String(profile.working_hours || '').trim());
+      const workingHoursConfig = parseWorkingHoursConfig(profile.working_hours || '');
+      const openNow = workingHoursConfigured ? isNowWithinWorkingHours(workingHoursConfig) : false;
+      const socialLabels = [
+        profile.facebook_url ? 'Facebook' : '',
+        profile.instagram_url ? 'Instagram' : '',
+      ].filter(Boolean);
+      const reviewStats = reviewStatsByProfile.get(profile.id);
 
       const mapPoint: PublicTechnicianMapPoint = {
         id: profile.id,
         name: displayName,
+        ownerName: String(profile.full_name || '').trim(),
         profileHref: buildTechnicianPath(profile.id, displayName),
         whatsappHref: buildWhatsappLink(profile.phone),
         city: String(profile.city || fallbackCoords?.label || '').trim(),
         coverageArea: String(profile.coverage_area || '').trim(),
+        profileSummary: String(profile.references_summary || '').trim(),
+        socialLabels,
         specialties,
         lat,
         lng,
         radiusKm: Math.max(1, Math.round(Number(profile.service_radius_km || DEFAULT_MATCH_RADIUS_KM))),
         precision: hasExactLocation ? 'exact' : 'approx',
-        openNow: false,
-        availabilityStatus: 'unspecified',
-        workingHoursLabel: 'Disponibilidad a coordinar',
+        openNow,
+        availabilityStatus: workingHoursConfigured ? (openNow ? 'open' : 'closed') : 'unspecified',
+        workingHoursLabel: workingHoursConfigured ? formatWorkingHoursLabel(workingHoursConfig) : 'Horario a coordinar',
         likesCount: Math.max(0, Number(profile.public_likes_count || 0)),
-        rating: Number.isFinite(Number(profile.public_rating)) ? Number(profile.public_rating) : null,
-        reviewsCount: Math.max(0, Number(profile.public_reviews_count || 0)),
+        rating: reviewStats?.rating ?? (Number.isFinite(Number(profile.public_rating)) ? Number(profile.public_rating) : null),
+        reviewsCount: Math.max(0, Number(reviewStats?.reviewsCount || profile.public_reviews_count || 0)),
+        commentsCount: Math.max(0, Number(reviewStats?.commentsCount || 0)),
         completedJobsTotal: Math.max(0, Number(profile.completed_jobs_total || 0)),
         avatarUrl: String(profile.avatar_url || '').trim(),
         companyLogoUrl: String(profile.company_logo_url || '').trim(),
