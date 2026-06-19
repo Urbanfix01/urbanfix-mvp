@@ -74,9 +74,12 @@ const formatCurrency = (amount: any) => {
 
 const getItemLabel = (item: any) => {
   const description = item?.description || 'Item sin nombre';
+  const workArea = String(item?.metadata?.work_area || item?.metadata?.workArea || '').trim();
   const technicalNotes = String(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || '').trim();
-  if (!technicalNotes) return description;
-  return `${description}\nEspecificacion tecnica: ${technicalNotes}`;
+  const details = [workArea ? `Sector: ${workArea}` : '', technicalNotes ? `Especificacion tecnica: ${technicalNotes}` : '']
+    .filter(Boolean)
+    .join('\n');
+  return details ? `${description}\n${details}` : description;
 };
 
 export const QuoteDocument = ({ quote, items, profile }: Props) => {

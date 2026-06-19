@@ -87,6 +87,7 @@ import type {
   AttachmentRow,
   GeoResult,
   ItemForm,
+  ItemImageForm,
   MasterItemRow,
   NavItem,
   NotificationRow,
@@ -98,6 +99,8 @@ const TAX_RATE = 0.21;
 const SUPPORT_BUCKET = 'beta-support';
 const SUPPORT_MAX_IMAGES = 4;
 const SUPPORT_MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const QUOTE_ITEM_MAX_IMAGES = 6;
+const QUOTE_ITEM_MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const DEFAULT_PUBLIC_WEB_URL = 'https://www.urbanfix.com.ar';
 const UI_THEME = 'light';
@@ -1886,6 +1889,11 @@ const sanitizeFileName = (value: string) => value.replace(/[^a-zA-Z0-9._-]/g, '_
 const buildAttachmentPath = (userId: string, quoteId: string, fileName: string) =>
   `${userId}/quotes/${quoteId}/${Date.now()}-${Math.random().toString(36).slice(2)}-${sanitizeFileName(fileName)}`;
 
+const buildQuoteItemImagePath = (userId: string, itemId: string, fileName: string) =>
+  `${userId}/quote-items/${sanitizeFileName(itemId)}/${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2)}-${sanitizeFileName(fileName)}`;
+
 const isEmailLike = (value: string) => /.+@.+\..+/.test(value);
 
 const resolveLogoPresentation = (ratio: number, shape?: string | null) => {
@@ -1921,6 +1929,36 @@ const getAttachmentStoragePath = (publicUrl?: string | null) => {
   const index = publicUrl.indexOf(marker);
   if (index === -1) return null;
   return publicUrl.slice(index + marker.length);
+};
+
+const normalizeQuoteItemImages = (value: unknown): ItemImageForm[] => {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item): ItemImageForm | null => {
+      if (typeof item === 'string') {
+        return {
+          id: item,
+          url: item,
+          name: 'Imagen del sector',
+          fileType: '',
+          storagePath: getAttachmentStoragePath(item),
+          uploadedAt: '',
+        };
+      }
+      if (!item || typeof item !== 'object') return null;
+      const image = item as Record<string, any>;
+      const url = String(image.url || image.file_url || image.src || '').trim();
+      if (!url) return null;
+      return {
+        id: String(image.id || url),
+        url,
+        name: String(image.name || image.file_name || 'Imagen del sector'),
+        fileType: String(image.fileType || image.file_type || ''),
+        storagePath: image.storagePath || image.storage_path || getAttachmentStoragePath(url),
+        uploadedAt: String(image.uploadedAt || image.uploaded_at || ''),
+      };
+    })
+    .filter((item): item is ItemImageForm => item !== null);
 };
 
 type CertificationFileRow = {
@@ -2029,6 +2067,12 @@ const buildItemsSignature = (items: ItemForm[]) =>
       unitPrice: Number(item.unitPrice) || 0,
       type: item.type,
       workArea: (item.workArea || '').trim(),
+      itemImages: (item.itemImages || []).map((image) => ({
+        id: image.id,
+        url: image.url,
+        name: image.name,
+        storagePath: image.storagePath || '',
+      })),
       technicalNotes: (item.technicalNotes || '').trim(),
       masterItemId: item.masterItemId || '',
       masterItemCategory: item.masterItemCategory || '',
@@ -2455,6 +2499,8 @@ export default function TechniciansPage() {
   const [items, setItems] = useState<ItemForm[]>([]);
   const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
+  const [uploadingItemImageId, setUploadingItemImageId] = useState<string | null>(null);
+  const [deletingItemImageId, setDeletingItemImageId] = useState<string | null>(null);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -3846,6 +3892,7 @@ export default function TechniciansPage() {
         unitPrice: Number(item.unit_price || 0),
         unit: String(item?.metadata?.unit || ''),
         workArea: String(item?.metadata?.work_area || item?.metadata?.workArea || ''),
+        itemImages: normalizeQuoteItemImages(item?.metadata?.item_images || item?.metadata?.itemImages),
         technicalNotes: normalizeTechnicalNotes(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
         masterItemId: String(item?.metadata?.master_item_id || ''),
         masterItemCategory: String(item?.metadata?.master_item_category || ''),
@@ -3873,6 +3920,7 @@ export default function TechniciansPage() {
         unitPrice: Number(item.suggested_price || 0),
         unit: item.unit || '',
         workArea: '',
+        itemImages: [],
         technicalNotes: normalizeTechnicalNotes(item.technical_notes),
         masterItemId: item.id,
         masterItemCategory: item.category || '',
@@ -3893,6 +3941,7 @@ export default function TechniciansPage() {
         unitPrice: 0,
         unit: '',
         workArea: '',
+        itemImages: [],
         technicalNotes: '',
         masterItemId: '',
         masterItemCategory: '',
@@ -4766,6 +4815,106 @@ export default function TechniciansPage() {
     } finally {
       setDeletingAttachmentId(null);
     }
+  };
+
+  const handleItemImageUpload = async (itemId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!files.length) return;
+    if (!session?.user?.id) {
+      setFormError('Inicia sesion para subir imagenes.');
+      return;
+    }
+
+    const targetItem = items.find((item) => item.id === itemId);
+    if (!targetItem) return;
+
+    const currentImages = targetItem.itemImages || [];
+    const availableSlots = Math.max(0, QUOTE_ITEM_MAX_IMAGES - currentImages.length);
+    if (availableSlots <= 0) {
+      setFormError(`Cada item puede tener hasta ${QUOTE_ITEM_MAX_IMAGES} imagenes.`);
+      return;
+    }
+
+    const selectedImages = files
+      .filter((file) => (file.type && file.type.startsWith('image/')) || /\.(png|jpe?g|gif|webp|bmp)$/i.test(file.name))
+      .slice(0, availableSlots);
+
+    if (!selectedImages.length) {
+      setFormError('Solo se permiten imagenes.');
+      return;
+    }
+
+    const oversized = selectedImages.find((file) => file.size > QUOTE_ITEM_MAX_IMAGE_BYTES);
+    if (oversized) {
+      setFormError('Cada imagen debe pesar menos de 8 MB.');
+      return;
+    }
+
+    setUploadingItemImageId(itemId);
+    setFormError('');
+    try {
+      const uploadedImages: ItemImageForm[] = [];
+      for (const file of selectedImages) {
+        const storagePath = buildQuoteItemImagePath(session.user.id, itemId, file.name);
+        const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
+          contentType: file.type || 'application/octet-stream',
+          upsert: false,
+        });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
+        uploadedImages.push({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          url: publicData.publicUrl,
+          name: file.name,
+          fileType: file.type || '',
+          storagePath,
+          uploadedAt: new Date().toISOString(),
+        });
+      }
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.id === itemId
+            ? {
+                ...item,
+                itemImages: [...(item.itemImages || []), ...uploadedImages],
+              }
+            : item
+        )
+      );
+      setInfoMessage('Imagen asignada al item.');
+    } catch (error) {
+      console.error('Error subiendo imagen del item:', error);
+      setFormError('No pudimos subir la imagen del item.');
+    } finally {
+      setUploadingItemImageId(null);
+    }
+  };
+
+  const handleItemImageRemove = async (itemId: string, image: ItemImageForm) => {
+    const deleteKey = `${itemId}:${image.id}`;
+    setDeletingItemImageId(deleteKey);
+    setFormError('');
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              itemImages: (item.itemImages || []).filter((candidate) => candidate.id !== image.id),
+            }
+          : item
+      )
+    );
+
+    const storagePath = image.storagePath || getAttachmentStoragePath(image.url);
+    if (storagePath) {
+      const { error } = await supabase.storage.from('urbanfix-assets').remove([storagePath]);
+      if (error) {
+        setFormError('La imagen se quito del item, pero no pudimos eliminarla del storage.');
+      }
+    }
+    setDeletingItemImageId(null);
   };
 
   const laborSubtotal = useMemo(
@@ -6441,6 +6590,17 @@ export default function TechniciansPage() {
             type: item.type,
             unit: item.unit || null,
             work_area: item.workArea?.trim() || null,
+            item_images:
+              item.itemImages && item.itemImages.length > 0
+                ? item.itemImages.map((image) => ({
+                    id: image.id,
+                    url: image.url,
+                    name: image.name,
+                    file_type: image.fileType || null,
+                    storage_path: image.storagePath || null,
+                    uploaded_at: image.uploadedAt || null,
+                  }))
+                : [],
             technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
             master_item_id: item.masterItemId || null,
             master_item_category: item.masterItemCategory || null,
@@ -10593,6 +10753,8 @@ export default function TechniciansPage() {
                           {items.map((item, index) => {
                             const itemTotal = item.quantity * item.unitPrice;
                             const itemHasPendingPrice = item.type === 'material' && item.unitPrice <= 0;
+                            const itemImages = item.itemImages || [];
+                            const isUploadingItemImages = uploadingItemImageId === item.id;
                             return (
                             <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
@@ -10699,6 +10861,77 @@ export default function TechniciansPage() {
                                     <option value="material">Material</option>
                                   </select>
                                 </div>
+                              </div>
+                              <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-3">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div>
+                                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                      Imagenes del sector
+                                    </p>
+                                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                                      {itemImages.length > 0
+                                        ? `${itemImages.length} imagen(es) asignada(s)`
+                                        : 'Agrega fotos para mostrar donde aplica este item.'}
+                                    </p>
+                                  </div>
+                                  <label
+                                    className={`inline-flex cursor-pointer items-center gap-2 rounded-full px-3 py-2 text-[11px] font-black shadow-sm transition ${
+                                      isUploadingItemImages
+                                        ? 'bg-slate-200 text-slate-500'
+                                        : 'bg-slate-950 text-white hover:bg-slate-800'
+                                    }`}
+                                  >
+                                    {isUploadingItemImages ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <ImagePlus className="h-3.5 w-3.5" />
+                                    )}
+                                    {isUploadingItemImages ? 'Subiendo' : 'Agregar'}
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      multiple
+                                      disabled={isUploadingItemImages}
+                                      onChange={(event) => handleItemImageUpload(item.id, event)}
+                                      className="hidden"
+                                    />
+                                  </label>
+                                </div>
+                                {itemImages.length > 0 && (
+                                  <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
+                                    {itemImages.map((image) => {
+                                      const deleteKey = `${item.id}:${image.id}`;
+                                      return (
+                                        <div
+                                          key={image.id}
+                                          className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                                        >
+                                          <a href={image.url} target="_blank" rel="noreferrer">
+                                            <img
+                                              src={image.url}
+                                              alt={image.name || 'Imagen del sector'}
+                                              className="h-24 w-full object-cover"
+                                            />
+                                          </a>
+                                          <div className="flex items-center justify-between gap-2 px-2 py-2">
+                                            <span className="truncate text-[10px] font-semibold text-slate-500">
+                                              {image.name || 'Sector'}
+                                            </span>
+                                            <button
+                                              type="button"
+                                              onClick={() => void handleItemImageRemove(item.id, image)}
+                                              disabled={deletingItemImageId === deleteKey}
+                                              className="rounded-full bg-rose-50 p-1 text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                              aria-label="Quitar imagen"
+                                            >
+                                              <X className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
                               </div>
                               {item.technicalNotes && (
                                 <details className="group mt-3 rounded-xl bg-white ring-1 ring-slate-100">

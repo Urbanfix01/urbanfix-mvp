@@ -327,6 +327,28 @@ export default function QuotePage() {
     return 'labor';
   };
 
+  const getItemWorkArea = (item: any) =>
+    String(item?.metadata?.work_area || item?.metadata?.workArea || '').trim();
+
+  const getItemImages = (item: any) => {
+    const rawImages = item?.metadata?.item_images || item?.metadata?.itemImages || [];
+    if (!Array.isArray(rawImages)) return [];
+    return rawImages
+      .map((image: any) => {
+        if (typeof image === 'string') {
+          return { id: image, url: image, name: 'Imagen del sector' };
+        }
+        const url = String(image?.url || image?.file_url || image?.src || '').trim();
+        if (!url) return null;
+        return {
+          id: String(image?.id || url),
+          url,
+          name: String(image?.name || image?.file_name || 'Imagen del sector'),
+        };
+      })
+      .filter((image): image is { id: string; url: string; name: string } => Boolean(image));
+  };
+
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -648,6 +670,89 @@ export default function QuotePage() {
             </div>
           </div>
         </div>
+
+        <section className="border-t border-slate-200 bg-white px-5 py-6 sm:px-8 sm:py-8 md:px-10">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Detalle por sector</p>
+              <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Alcance del presupuesto</h2>
+            </div>
+            <p className="text-sm font-semibold text-slate-500">{items.length} items cargados</p>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {items.map((item, index) => {
+              const itemImages = getItemImages(item);
+              const workArea = getItemWorkArea(item);
+              const itemType = normalizeItemType(item);
+              const itemTotal = Number(item.quantity || 0) * Number(item.unit_price || 0);
+              return (
+                <article
+                  key={item.id || `${item.description}-${index}`}
+                  className="overflow-hidden rounded-[24px] border border-slate-200 bg-slate-50 shadow-sm"
+                >
+                  <div className="grid gap-3 bg-white px-4 py-4 md:grid-cols-[minmax(0,1fr)_120px_150px_150px] md:items-center">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="rounded-full bg-slate-950 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-white">
+                          {itemType === 'material' ? 'Material' : 'Mano de obra'}
+                        </span>
+                        {workArea ? (
+                          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-amber-700">
+                            {workArea}
+                          </span>
+                        ) : null}
+                      </div>
+                      <h3 className="mt-2 truncate text-base font-black text-slate-950">
+                        {item.description || 'Item sin descripcion'}
+                      </h3>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Cantidad</p>
+                      <p className="mt-1 font-black text-slate-900">{item.quantity || 1}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Unitario</p>
+                      <p className="mt-1 font-black text-slate-900">{formatCurrency(Number(item.unit_price || 0))}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Total</p>
+                      <p className="mt-1 font-black text-slate-900">{formatCurrency(itemTotal)}</p>
+                    </div>
+                  </div>
+
+                  {itemImages.length > 0 ? (
+                    <div className="border-t border-slate-200 px-4 py-4">
+                      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                        Imagenes del sector
+                      </p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
+                        {itemImages.map((image: any) => (
+                          <a
+                            key={image.id}
+                            href={image.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                          >
+                            <img
+                              src={image.url}
+                              alt={image.name || 'Imagen del sector'}
+                              className="h-32 w-full object-cover transition group-hover:scale-[1.03]"
+                            />
+                            <span className="block truncate px-3 py-2 text-[11px] font-semibold text-slate-500">
+                              {image.name || 'Imagen del sector'}
+                            </span>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+                </article>
+              );
+            })}
+          </div>
+        </section>
 
         {/* FOOTER & ACCIONES */}
         <div className="border-t border-slate-200 bg-[#efe7da] px-5 py-6 sm:px-8 sm:py-8 md:px-10">

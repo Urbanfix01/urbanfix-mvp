@@ -26,10 +26,20 @@ export type ItemForm = {
   type: 'labor' | 'material';
   unit?: string;
   workArea?: string;
+  itemImages?: ItemImageForm[];
   technicalNotes?: string;
   masterItemId?: string;
   masterItemCategory?: string;
   masterItemSourceRef?: string;
+};
+
+export type ItemImageForm = {
+  id: string;
+  url: string;
+  name: string;
+  fileType?: string;
+  storagePath?: string | null;
+  uploadedAt?: string;
 };
 
 export type QuoteItemRow = {
