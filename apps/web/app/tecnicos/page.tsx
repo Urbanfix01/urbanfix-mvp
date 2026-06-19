@@ -11204,8 +11204,7 @@ export default function TechniciansPage() {
                                 </div>
                               ) : (
                                 <div className="space-y-3 p-3">
-                                  {group.items.map((item) => {
-                            const index = Math.max(0, items.findIndex((candidate) => candidate.id === item.id));
+                                  {group.items.map((item, groupItemIndex) => {
                             const itemTotal = item.quantity * item.unitPrice;
                             const itemHasPendingPrice = item.type === 'material' && item.unitPrice <= 0;
                             const itemImages = item.itemImages || [];
@@ -11222,7 +11221,7 @@ export default function TechniciansPage() {
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
                                 <div className="flex min-w-0 items-center gap-3">
                                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-xs font-black text-white">
-                                    {index + 1}
+                                    {groupItemIndex + 1}
                                   </span>
                                   <div className="min-w-0">
                                     <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">

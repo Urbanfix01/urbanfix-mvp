@@ -9,6 +9,7 @@ apps/web/.expo/
 apps/mobile/.env
 apps/web/.next/
 apps/web/.next-codex-dev*/
+apps/web/.next-local-preview/
 tmp/
 urbanfix-main-clean/
 urbanfix-mvp/
@@ -20,3 +21,4 @@ app.json
 !apps/mobile/app.json
 l.includes*
 [{]if*
+urbanfix-web-dev*.log

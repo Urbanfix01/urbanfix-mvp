@@ -349,6 +349,77 @@ export default function QuotePage() {
       .filter((image): image is { id: string; url: string; name: string } => Boolean(image));
   };
 
+  const normalizeMergeKey = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+
+  const getMaterialDisplayName = (item: any) => {
+    const rawDescription = String(item?.description || 'Material sin descripcion').trim();
+    return rawDescription.replace(/\s+para\s+.+$/i, '').trim() || rawDescription;
+  };
+
+  const mergePublicQuoteItems = (rawItems: any[]) => {
+    const laborRows: any[] = [];
+    const materialRows: any[] = [];
+    const materialMap = new Map<string, any>();
+
+    rawItems.forEach((item) => {
+      if (normalizeItemType(item) !== 'material') {
+        laborRows.push(item);
+        return;
+      }
+
+      const materialName = getMaterialDisplayName(item);
+      const unitKey = normalizeMergeKey(String(item?.metadata?.unit || item?.unit || '').trim());
+      const mergeKey = `${normalizeMergeKey(materialName)}|${unitKey}`;
+      const quantity = Number(item?.quantity || 0);
+      const unitPrice = Number(item?.unit_price || 0);
+      const lineTotal = quantity * unitPrice;
+      const existing = materialMap.get(mergeKey);
+
+      if (!existing) {
+        const mergedItem = {
+          ...item,
+          id: `material-${mergeKey}`,
+          description: materialName,
+          quantity,
+          unit_price: unitPrice,
+          metadata: {
+            ...(item?.metadata || {}),
+            type: 'material',
+            merged_count: 1,
+            merged_total: lineTotal,
+          },
+        };
+        materialMap.set(mergeKey, mergedItem);
+        materialRows.push(mergedItem);
+        return;
+      }
+
+      const previousQuantity = Number(existing.quantity || 0);
+      const nextQuantity = previousQuantity + quantity;
+      const previousTotal =
+        Number(existing?.metadata?.merged_total) || previousQuantity * Number(existing.unit_price || 0);
+      const nextTotal = previousTotal + lineTotal;
+
+      existing.quantity = Number(nextQuantity.toFixed(3));
+      existing.unit_price = nextQuantity > 0 ? nextTotal / nextQuantity : 0;
+      existing.metadata = {
+        ...(existing.metadata || {}),
+        merged_count: Number(existing?.metadata?.merged_count || 1) + 1,
+        merged_total: nextTotal,
+      };
+    });
+
+    return [...laborRows, ...materialRows];
+  };
+
+  const publicItems = mergePublicQuoteItems(items);
+
   // --- CÁLCULOS ---
   const normalizeTaxRate = (value: any) => {
     const parsed = typeof value === 'number' ? value : Number(value);
@@ -357,7 +428,7 @@ export default function QuotePage() {
   };
 
   const calculateTotal = () => {
-    if (!items.length)
+    if (!publicItems.length)
       return {
         subtotal: 0,
         tax: 0,
@@ -368,10 +439,10 @@ export default function QuotePage() {
         discountPercent: 0,
         discountAmount: 0,
       };
-    const laborSubtotal = items
+    const laborSubtotal = publicItems
       .filter((item) => normalizeItemType(item) === 'labor')
       .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
-    const materialSubtotal = items
+    const materialSubtotal = publicItems
       .filter((item) => normalizeItemType(item) === 'material')
       .reduce((acc, item) => acc + (item.quantity * item.unit_price), 0);
     const subtotal = laborSubtotal + materialSubtotal;
@@ -530,6 +601,305 @@ export default function QuotePage() {
     Shield: () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l7 4v5c0 5-3.5 8.5-7 9-3.5-.5-7-4-7-9V7l7-4z"/></svg>
   };
 
+  const useMinimalQuoteLayout = process.env.NEXT_PUBLIC_QUOTE_LAYOUT !== 'legacy';
+  if (useMinimalQuoteLayout) {
+    const laborPublicItems = publicItems.filter((item) => normalizeItemType(item) === 'labor');
+    const materialPublicItems = publicItems.filter((item) => normalizeItemType(item) === 'material');
+    const isBlocked = isExpired || isRejected || isDiscarded || isCancelled;
+    const statusClass = isBlocked
+      ? 'border-rose-200 bg-rose-50 text-rose-700'
+      : isAccepted
+        ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+        : 'border-slate-200 bg-white text-slate-700';
+    const actionLabel = isRejected
+      ? 'Presupuesto rechazado'
+      : isExpired
+        ? 'Presupuesto vencido'
+        : isPaid
+          ? 'Trabajo cobrado'
+          : isCompleted
+            ? 'Trabajo finalizado'
+            : isAccepted
+              ? 'Presupuesto aprobado'
+              : 'Aceptar presupuesto';
+    const formatQuantity = (value: any) => {
+      const numberValue = Number(value || 0);
+      if (!Number.isFinite(numberValue)) return '0';
+      return numberValue.toLocaleString('es-AR', { maximumFractionDigits: 3 });
+    };
+    const renderMinimalItem = (item: any, index: number) => {
+      const itemImages = getItemImages(item);
+      const workArea = getItemWorkArea(item);
+      const itemType = normalizeItemType(item);
+      const unitPrice = Number(item.unit_price || 0);
+      const itemTotal = Number(item.quantity || 0) * unitPrice;
+      const hasPrice = unitPrice > 0;
+
+      return (
+        <article key={item.id || `${item.description}-${index}`} className="border-t border-slate-200 py-4 first:border-t-0 sm:py-5">
+          <div className="grid gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:gap-2 sm:text-[11px]">
+                <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-600">{index + 1}</span>
+                <span>{itemType === 'material' ? 'Material' : 'Trabajo'}</span>
+                {workArea ? <span className="min-w-0 truncate normal-case tracking-normal text-slate-500">{workArea}</span> : null}
+              </div>
+              <h3 className="mt-2 text-[15px] font-extrabold leading-snug text-slate-950 sm:text-base">{item.description || 'Item sin descripcion'}</h3>
+              {itemImages.length > 0 ? (
+                <details className="group mt-3 rounded-2xl border border-slate-200 bg-white">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-xs font-extrabold text-slate-700">
+                    <span>Ver fotos del trabajo</span>
+                    <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-500">
+                      {itemImages.length} imagen{itemImages.length === 1 ? '' : 'es'}
+                    </span>
+                  </summary>
+                  <div className="grid gap-2 border-t border-slate-200 bg-slate-50 p-2 sm:grid-cols-3">
+                    {itemImages.map((image: any) => (
+                      <a
+                        key={image.id}
+                        href={image.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="overflow-hidden rounded-xl border border-slate-200 bg-white"
+                      >
+                        <img src={image.url} alt={image.name || 'Imagen del sector'} className="h-24 w-full object-cover sm:h-28" />
+                      </a>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+            </div>
+            <div className="grid grid-cols-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+              <div className="border-r border-slate-200 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:text-[11px]">Cantidad</p>
+                <p className="mt-1 text-sm font-bold text-slate-900">{formatQuantity(item.quantity)}</p>
+              </div>
+              <div className="border-r border-slate-200 px-3 py-2 text-center">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:text-[11px]">Precio</p>
+                <p className="mt-1 text-sm font-bold text-slate-900">{hasPrice ? formatCurrency(unitPrice) : '-'}</p>
+              </div>
+              <div className="px-3 py-2 text-right">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400 sm:text-[11px]">Total</p>
+                <p className="mt-1 text-sm font-extrabold text-slate-950">{hasPrice ? formatCurrency(itemTotal) : 'Pendiente'}</p>
+              </div>
+            </div>
+          </div>
+        </article>
+      );
+    };
+
+    return (
+      <main className={`${manrope.className} min-h-screen bg-slate-50 px-2.5 py-4 text-slate-950 antialiased sm:px-6 sm:py-6 lg:py-10`}>
+        <section className="mx-auto w-full max-w-5xl overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-sm sm:rounded-[22px]">
+          <header className="flex flex-col gap-3 border-b border-slate-200 px-4 py-4 sm:px-7 sm:py-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 sm:h-14 sm:w-14">
+                {(profile?.company_logo_url || profile?.avatar_url) && !imageError ? (
+                  <img
+                    src={profile?.company_logo_url || profile?.avatar_url}
+                    alt={businessLabel}
+                    onError={() => setImageError(true)}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <span className="text-lg font-black">{businessLabel.slice(0, 1)}</span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-base font-black uppercase tracking-tight sm:text-lg">{businessLabel}</p>
+                <p className="truncate text-sm font-semibold text-slate-500">{technicianLabel}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 pl-[60px] sm:pl-0">
+              <span className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-black ${statusClass}`}>
+                {isAccepted ? <Icons.Check /> : <span className="h-2 w-2 rounded-full bg-current" />}
+                {statusLabel}
+              </span>
+              <span className="rounded-full border border-slate-200 px-3 py-1.5 font-mono text-xs font-bold text-slate-500">
+                {quoteReference}
+              </span>
+            </div>
+          </header>
+
+          <section className="border-b border-slate-200 px-4 py-4 sm:px-7 sm:py-6">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+              <div className="min-w-0">
+                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400 sm:text-[11px]">Presupuesto para</p>
+                <div className="mt-2 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                  <h1 className="text-[28px] font-black leading-none tracking-tight text-slate-950 sm:text-4xl">{clientLabel}</h1>
+                </div>
+                <p className="mt-3 max-w-2xl text-sm font-semibold leading-5 text-slate-500 sm:leading-6">{serviceAddress}</p>
+                <div className="mt-4 grid grid-cols-3 overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-[10px] font-bold text-slate-500 sm:text-xs">
+                  <div className="border-r border-slate-200 px-3 py-2">
+                    <p className="uppercase tracking-[0.12em] text-slate-400">Emision</p>
+                    <p className="mt-1 text-slate-700">{createdLabel}</p>
+                  </div>
+                  <div className="border-r border-slate-200 px-3 py-2">
+                    <p className="uppercase tracking-[0.12em] text-slate-400">Vence</p>
+                    <p className="mt-1 text-slate-700">{expiresLabel}</p>
+                  </div>
+                  <div className="px-3 py-2 text-right">
+                    <p className="uppercase tracking-[0.12em] text-slate-400">Items</p>
+                    <p className="mt-1 text-slate-700">{publicItems.length}</p>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="rounded-2xl border border-slate-200 bg-slate-950 p-4 text-white lg:p-5">
+                <div className="flex items-start justify-between gap-4 lg:block">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45 sm:text-[11px]">Total</p>
+                    <p className="mt-1 text-[32px] font-black leading-none tracking-tight sm:mt-2 sm:text-4xl">{formatCurrency(total)}</p>
+                  </div>
+                  <div className="min-w-[112px] space-y-1 text-right text-xs font-semibold text-white/70 lg:mt-4 lg:text-left">
+                    <div className="flex justify-between gap-3">
+                      <span>Trabajo</span>
+                      <span className="text-white">{formatCurrency(laborSubtotal)}</span>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <span>Materiales</span>
+                      <span className="text-white">{formatCurrency(materialSubtotal)}</span>
+                    </div>
+                    {discountAmount > 0 ? (
+                      <div className="flex justify-between gap-3 text-emerald-200">
+                        <span>Desc.</span>
+                        <span>-{formatCurrency(discountAmount)}</span>
+                      </div>
+                    ) : null}
+                    {taxRate > 0 ? (
+                      <div className="flex justify-between gap-3">
+                        <span>IVA</span>
+                        <span className="text-white">{formatCurrency(tax)}</span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </section>
+
+          <section className="px-4 py-5 sm:px-7 sm:py-6">
+            <div className="mb-3 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Detalle</p>
+                <h2 className="mt-1 text-lg font-black sm:text-xl">Trabajo</h2>
+              </div>
+              <span className="text-sm font-bold text-slate-400">{laborPublicItems.length}</span>
+            </div>
+            <div className="rounded-2xl border border-slate-200 px-3 sm:px-4">
+              {laborPublicItems.length > 0 ? laborPublicItems.map(renderMinimalItem) : (
+                <p className="py-5 text-sm font-semibold text-slate-500">Sin mano de obra cargada.</p>
+              )}
+            </div>
+
+            <div className="mb-3 mt-6 flex items-end justify-between gap-4 sm:mt-8">
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Insumos</p>
+                <h2 className="mt-1 text-lg font-black sm:text-xl">Materiales</h2>
+              </div>
+              <span className="text-sm font-bold text-slate-400">{materialPublicItems.length}</span>
+            </div>
+            <div className="rounded-2xl border border-slate-200 px-3 sm:px-4">
+              {materialPublicItems.length > 0 ? materialPublicItems.map(renderMinimalItem) : (
+                <p className="py-5 text-sm font-semibold text-slate-500">Sin materiales cargados.</p>
+              )}
+            </div>
+          </section>
+
+          <footer className="border-t border-slate-200 bg-slate-50 px-4 py-4 sm:px-7 sm:py-5">
+            <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+              <div className="mb-3 flex items-center justify-between gap-4 px-1">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Decision</p>
+                  <p className="mt-0.5 text-sm font-extrabold text-slate-950">Resolver presupuesto</p>
+                </div>
+                <p className="text-right text-sm font-black text-slate-950">{formatCurrency(total)}</p>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_1fr]">
+              {!isAccepted && !isBlocked ? (
+                <button
+                  onClick={handleAccept}
+                  disabled={accepting}
+                  className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl px-5 text-sm font-black text-white transition active:scale-[0.99] ${
+                    accepting ? 'cursor-not-allowed bg-slate-400' : 'bg-slate-950 hover:bg-slate-800'
+                  }`}
+                >
+                  <Icons.Check />
+                  {accepting ? 'Aceptando...' : actionLabel}
+                </button>
+              ) : (
+                <div
+                  className={`inline-flex min-h-12 items-center justify-center rounded-2xl border px-5 text-sm font-black ${
+                    isBlocked ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                  }`}
+                >
+                  {actionLabel}
+                </div>
+              )}
+                <PDFExportButton
+                  quote={quote}
+                  items={publicItems}
+                  profile={profile}
+                  label="Descargar PDF"
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 text-sm font-black text-slate-800 transition hover:bg-slate-50 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+                />
+              </div>
+            </div>
+
+            {canCollectFeedback ? (
+              <div id="feedback-panel" className="mt-4 rounded-2xl border border-slate-200 bg-white p-4">
+                <button type="button" onClick={handleToggleFeedback} className="text-sm font-black text-slate-900">
+                  {feedbackOpen ? 'Cerrar calificacion' : feedbackSaved ? 'Editar calificacion' : 'Calificar trabajo'}
+                </button>
+                {feedbackLoading ? <p className="mt-2 text-xs font-semibold text-slate-500">Cargando calificacion...</p> : null}
+                {feedbackOpen ? (
+                  <div className="mt-3 space-y-3">
+                    <div className="flex items-center gap-1 text-amber-500">
+                      {[1, 2, 3, 4, 5].map((value) => (
+                        <button
+                          key={`feedback-minimal-star-${value}`}
+                          type="button"
+                          onClick={() => setFeedbackDraft((current) => ({ ...current, rating: value }))}
+                          className={value <= feedbackDraft.rating ? 'text-amber-500' : 'text-slate-300'}
+                        >
+                          <Icons.Star filled={value <= feedbackDraft.rating} />
+                        </button>
+                      ))}
+                    </div>
+                    <textarea
+                      value={feedbackDraft.comment}
+                      onChange={(event) => setFeedbackDraft((current) => ({ ...current, comment: event.target.value }))}
+                      rows={3}
+                      className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none focus:border-slate-400"
+                    />
+                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500">
+                      <input
+                        type="checkbox"
+                        checked={feedbackDraft.isPublic}
+                        onChange={(event) => setFeedbackDraft((current) => ({ ...current, isPublic: event.target.checked }))}
+                      />
+                      Publicar reseña
+                    </label>
+                    {feedbackError ? <p className="text-xs font-semibold text-rose-600">{feedbackError}</p> : null}
+                    {feedbackNotice ? <p className="text-xs font-semibold text-emerald-700">{feedbackNotice}</p> : null}
+                    <button
+                      type="button"
+                      onClick={handleSubmitFeedback}
+                      disabled={feedbackSubmitting}
+                      className="rounded-xl bg-slate-950 px-4 py-2 text-xs font-black text-white disabled:opacity-60"
+                    >
+                      {feedbackSubmitting ? 'Guardando...' : 'Guardar'}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </footer>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div
       className={`${manrope.className} min-h-screen bg-[#f4efe7] px-3 py-3 pb-24 sm:px-5 sm:py-8 sm:pb-10 md:px-6 md:py-10 antialiased`}
@@ -620,7 +990,7 @@ export default function QuotePage() {
                 </div>
                 <div className="rounded-[24px] border border-white/10 bg-white/8 px-4 py-4 backdrop-blur-sm">
                   <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white/50">Alcance</p>
-                  <p className="mt-3 text-lg font-bold text-white">{items.length} items</p>
+                  <p className="mt-3 text-lg font-bold text-white">{publicItems.length} items</p>
                   <p className="mt-2 text-sm leading-6 text-slate-300">
                     {attachments.length} adjuntos disponibles y descarga PDF lista para archivo comercial.
                   </p>
@@ -677,11 +1047,11 @@ export default function QuotePage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Detalle por sector</p>
               <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Alcance del presupuesto</h2>
             </div>
-            <p className="text-sm font-semibold text-slate-500">{items.length} items cargados</p>
+            <p className="text-sm font-semibold text-slate-500">{publicItems.length} items cargados</p>
           </div>
 
           <div className="mt-5 space-y-3">
-            {items.map((item, index) => {
+            {publicItems.map((item, index) => {
               const itemImages = getItemImages(item);
               const workArea = getItemWorkArea(item);
               const itemType = normalizeItemType(item);
@@ -777,7 +1147,7 @@ export default function QuotePage() {
                     <p className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-400">Acciones</p>
                     <h3 className="mt-2 text-xl font-black tracking-tight text-slate-900">Resolver presupuesto</h3>
                   </div>
-                  <PDFExportButton quote={quote} items={items} profile={profile} />
+                  <PDFExportButton quote={quote} items={publicItems} profile={profile} />
                 </div>
 
                 <div className="flex w-full flex-col gap-3">
@@ -927,7 +1297,7 @@ export default function QuotePage() {
               </div>
               <div className="mt-2 flex flex-col gap-2">
                 <div className="flex items-center gap-3">
-                  <PDFExportButton quote={quote} items={items} profile={profile} />
+                  <PDFExportButton quote={quote} items={publicItems} profile={profile} />
                   {!isAccepted && !isRejected && !isExpired ? (
                     <button
                       onClick={handleAccept}
