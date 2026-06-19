@@ -133,6 +133,222 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
   sundayTo: '13:00',
 };
 
+type QuoteWorkEstimatorMode = 'manual' | 'revoques' | 'mamposteria';
+type RevoqueWorkTypeKey = 'grueso' | 'fino' | 'grueso-fino' | 'exterior';
+type MamposteriaWorkTypeKey = 'ladrillo-hueco-8' | 'ladrillo-hueco-12' | 'ladrillo-hueco-18' | 'ladrillo-comun' | 'bloque-cemento';
+
+type RevoqueEstimatorForm = {
+  workType: RevoqueWorkTypeKey;
+  surfaceM2: string;
+  linearMeters: string;
+  heightMeters: string;
+  openingsM2: string;
+  laborPrice: string;
+  materialPrice: string;
+  materialWastePercent: string;
+  cementBagPrice: string;
+  limeBagPrice: string;
+  sandM3Price: string;
+  waterproofLiterPrice: string;
+};
+
+type MamposteriaEstimatorForm = {
+  workType: MamposteriaWorkTypeKey;
+  surfaceM2: string;
+  linearMeters: string;
+  heightMeters: string;
+  openingsM2: string;
+  laborPrice: string;
+  materialPrice: string;
+  materialWastePercent: string;
+  brickUnitPrice: string;
+  cementBagPrice: string;
+  limeBagPrice: string;
+  sandM3Price: string;
+};
+
+const REVOQUE_TEMPLATE_SOURCE = 'template:revoques';
+const MAMPOSTERIA_TEMPLATE_SOURCE = 'template:mamposteria';
+
+type RevoqueMaterialPriceField =
+  | 'cementBagPrice'
+  | 'limeBagPrice'
+  | 'sandM3Price'
+  | 'waterproofLiterPrice';
+
+type MamposteriaMaterialPriceField =
+  | 'brickUnitPrice'
+  | 'cementBagPrice'
+  | 'limeBagPrice'
+  | 'sandM3Price';
+
+type MaterialCoefficient<TPriceField extends string> = {
+  key: string;
+  label: string;
+  unit: string;
+  perM2: number;
+  priceField: TPriceField;
+};
+
+const REVOQUE_WORK_TYPES: Array<{
+  key: RevoqueWorkTypeKey;
+  label: string;
+  shortLabel: string;
+  detail: string;
+}> = [
+  {
+    key: 'grueso-fino',
+    label: 'Revoque grueso y fino',
+    shortLabel: 'Grueso + fino',
+    detail: 'Para terminar pared lista para pintura.',
+  },
+  {
+    key: 'grueso',
+    label: 'Revoque grueso',
+    shortLabel: 'Grueso',
+    detail: 'Base, carga y nivelacion.',
+  },
+  {
+    key: 'fino',
+    label: 'Revoque fino',
+    shortLabel: 'Fino',
+    detail: 'Terminacion sobre base existente.',
+  },
+  {
+    key: 'exterior',
+    label: 'Revoque exterior',
+    shortLabel: 'Exterior',
+    detail: 'Trabajo exterior con mayor preparacion.',
+  },
+];
+
+const REVOQUE_MATERIAL_COEFFICIENTS: Record<
+  RevoqueWorkTypeKey,
+  Array<MaterialCoefficient<RevoqueMaterialPriceField>>
+> = {
+  grueso: [
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.09, priceField: 'cementBagPrice' },
+    { key: 'lime', label: 'Cal', unit: 'bolsa', perM2: 0.13, priceField: 'limeBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.035, priceField: 'sandM3Price' },
+  ],
+  fino: [
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.04, priceField: 'cementBagPrice' },
+    { key: 'lime', label: 'Cal', unit: 'bolsa', perM2: 0.08, priceField: 'limeBagPrice' },
+    { key: 'sand', label: 'Arena fina', unit: 'm3', perM2: 0.015, priceField: 'sandM3Price' },
+  ],
+  'grueso-fino': [
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.13, priceField: 'cementBagPrice' },
+    { key: 'lime', label: 'Cal', unit: 'bolsa', perM2: 0.21, priceField: 'limeBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.05, priceField: 'sandM3Price' },
+  ],
+  exterior: [
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.15, priceField: 'cementBagPrice' },
+    { key: 'lime', label: 'Cal', unit: 'bolsa', perM2: 0.16, priceField: 'limeBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.045, priceField: 'sandM3Price' },
+    { key: 'waterproof', label: 'Hidrofugo', unit: 'litro', perM2: 0.08, priceField: 'waterproofLiterPrice' },
+  ],
+};
+
+const DEFAULT_REVOQUE_FORM: RevoqueEstimatorForm = {
+  workType: 'grueso-fino',
+  surfaceM2: '',
+  linearMeters: '',
+  heightMeters: '',
+  openingsM2: '',
+  laborPrice: '',
+  materialPrice: '',
+  materialWastePercent: '10',
+  cementBagPrice: '',
+  limeBagPrice: '',
+  sandM3Price: '',
+  waterproofLiterPrice: '',
+};
+
+const MAMPOSTERIA_WORK_TYPES: Array<{
+  key: MamposteriaWorkTypeKey;
+  label: string;
+  shortLabel: string;
+  detail: string;
+}> = [
+  {
+    key: 'ladrillo-hueco-12',
+    label: 'Muro ladrillo hueco 12',
+    shortLabel: 'Hueco 12',
+    detail: 'Muro interior habitual, buena base para calcular por m2.',
+  },
+  {
+    key: 'ladrillo-hueco-8',
+    label: 'Tabique ladrillo hueco 8',
+    shortLabel: 'Hueco 8',
+    detail: 'Tabique liviano interior.',
+  },
+  {
+    key: 'ladrillo-hueco-18',
+    label: 'Muro ladrillo hueco 18',
+    shortLabel: 'Hueco 18',
+    detail: 'Muro mas robusto, con mayor consumo de material.',
+  },
+  {
+    key: 'ladrillo-comun',
+    label: 'Mamposteria ladrillo comun',
+    shortLabel: 'Ladrillo comun',
+    detail: 'Muro tradicional con mas mano de obra.',
+  },
+  {
+    key: 'bloque-cemento',
+    label: 'Mamposteria bloque de cemento',
+    shortLabel: 'Bloque cemento',
+    detail: 'Muro de bloque, util para cierres y obras exteriores.',
+  },
+];
+
+const MAMPOSTERIA_MATERIAL_COEFFICIENTS: Record<
+  MamposteriaWorkTypeKey,
+  Array<MaterialCoefficient<MamposteriaMaterialPriceField>>
+> = {
+  'ladrillo-hueco-8': [
+    { key: 'brick', label: 'Ladrillo hueco 8', unit: 'unidad', perM2: 16.5, priceField: 'brickUnitPrice' },
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.08, priceField: 'cementBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.025, priceField: 'sandM3Price' },
+  ],
+  'ladrillo-hueco-12': [
+    { key: 'brick', label: 'Ladrillo hueco 12', unit: 'unidad', perM2: 16.5, priceField: 'brickUnitPrice' },
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.09, priceField: 'cementBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.03, priceField: 'sandM3Price' },
+  ],
+  'ladrillo-hueco-18': [
+    { key: 'brick', label: 'Ladrillo hueco 18', unit: 'unidad', perM2: 16.5, priceField: 'brickUnitPrice' },
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.11, priceField: 'cementBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.035, priceField: 'sandM3Price' },
+  ],
+  'ladrillo-comun': [
+    { key: 'brick', label: 'Ladrillo comun', unit: 'unidad', perM2: 60, priceField: 'brickUnitPrice' },
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.11, priceField: 'cementBagPrice' },
+    { key: 'lime', label: 'Cal', unit: 'bolsa', perM2: 0.13, priceField: 'limeBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.04, priceField: 'sandM3Price' },
+  ],
+  'bloque-cemento': [
+    { key: 'block', label: 'Bloque de cemento', unit: 'unidad', perM2: 12.5, priceField: 'brickUnitPrice' },
+    { key: 'cement', label: 'Cemento 50 kg', unit: 'bolsa', perM2: 0.1, priceField: 'cementBagPrice' },
+    { key: 'sand', label: 'Arena', unit: 'm3', perM2: 0.035, priceField: 'sandM3Price' },
+  ],
+};
+
+const DEFAULT_MAMPOSTERIA_FORM: MamposteriaEstimatorForm = {
+  workType: 'ladrillo-hueco-12',
+  surfaceM2: '',
+  linearMeters: '',
+  heightMeters: '',
+  openingsM2: '',
+  laborPrice: '',
+  materialPrice: '',
+  materialWastePercent: '10',
+  brickUnitPrice: '',
+  cementBagPrice: '',
+  limeBagPrice: '',
+  sandM3Price: '',
+};
+
 const isTechnicianDashboardTab = (
   value: string
 ): value is
@@ -1062,6 +1278,41 @@ const toNumber = (value: string) => {
   const parsed = Number.parseFloat(normalized);
   return Number.isFinite(parsed) ? parsed : 0;
 };
+
+const roundMeasure = (value: number) => Math.round(value * 100) / 100;
+const formatMeasureValue = (value: number) =>
+  Number.isInteger(value) ? String(value) : value.toLocaleString('es-AR', { maximumFractionDigits: 2 });
+
+const buildMaterialEstimateLines = <TPriceField extends string>(
+  surfaceM2: number,
+  wastePercent: number,
+  coefficients: Array<MaterialCoefficient<TPriceField>>,
+  getUnitPrice: (field: TPriceField) => number
+) => {
+  const wasteMultiplier = 1 + Math.max(0, wastePercent) / 100;
+  return coefficients
+    .map((material) => {
+      const quantity = roundMeasure(surfaceM2 * material.perM2 * wasteMultiplier);
+      const unitPrice = getUnitPrice(material.priceField);
+      return {
+        ...material,
+        quantity,
+        unitPrice,
+        total: quantity * unitPrice,
+      };
+    })
+    .filter((material) => material.quantity > 0);
+};
+
+const summarizeMaterialEstimateLines = (
+  lines: Array<{ label: string; quantity: number; unit: string; unitPrice: number; total: number }>
+) =>
+  lines
+    .map(
+      (line) =>
+        `${line.label}: ${formatMeasureValue(line.quantity)} ${line.unit} x ${formatCurrency(line.unitPrice)} = ${formatCurrency(line.total)}`
+    )
+    .join('\n');
 
 const parseEtaInput = (value: string) => {
   const normalized = String(value || '').trim().replace(',', '.');
@@ -2016,6 +2267,10 @@ export default function TechniciansPage() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState('');
   const [quoteFilter, setQuoteFilter] = useState<QuoteFilter>('all');
+  const [openQuoteStep, setOpenQuoteStep] = useState<'client' | 'items' | 'settings'>('client');
+  const [quoteWorkEstimatorMode, setQuoteWorkEstimatorMode] = useState<QuoteWorkEstimatorMode>('manual');
+  const [revoqueForm, setRevoqueForm] = useState<RevoqueEstimatorForm>(DEFAULT_REVOQUE_FORM);
+  const [mamposteriaForm, setMamposteriaForm] = useState<MamposteriaEstimatorForm>(DEFAULT_MAMPOSTERIA_FORM);
   const [clientHistoryFilter, setClientHistoryFilter] = useState<'all' | 'located' | 'pending' | 'paid'>('all');
   const [selectedClientKey, setSelectedClientKey] = useState('');
   const [financeTimelineMode, setFinanceTimelineMode] = useState<FinanceTimelineMode>('monthly');
@@ -3226,6 +3481,10 @@ export default function TechniciansPage() {
     setAttachments([]);
     setFormError('');
     setInfoMessage('');
+    setOpenQuoteStep('client');
+    setQuoteWorkEstimatorMode('manual');
+    setRevoqueForm(DEFAULT_REVOQUE_FORM);
+    setMamposteriaForm(DEFAULT_MAMPOSTERIA_FORM);
     lastSavedItemsSignatureRef.current = '';
     lastSavedItemsCountRef.current = 0;
   };
@@ -3250,6 +3509,12 @@ export default function TechniciansPage() {
 
   const loadQuote = async (quote: QuoteRow, targetTab: 'presupuestos' | 'nuevo' = 'presupuestos') => {
     setActiveTab(targetTab);
+    if (targetTab === 'nuevo') {
+      setOpenQuoteStep('client');
+      setQuoteWorkEstimatorMode('manual');
+      setRevoqueForm(DEFAULT_REVOQUE_FORM);
+      setMamposteriaForm(DEFAULT_MAMPOSTERIA_FORM);
+    }
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
     setClientAddress(getQuoteAddress(quote));
@@ -3326,6 +3591,7 @@ export default function TechniciansPage() {
   };
 
   const handleAddItem = () => {
+    setOpenQuoteStep('items');
     setItems((prev) => [
       ...prev,
       {
@@ -3341,6 +3607,254 @@ export default function TechniciansPage() {
         type: 'labor',
       },
     ]);
+  };
+
+  const selectedRevoqueType =
+    REVOQUE_WORK_TYPES.find((option) => option.key === revoqueForm.workType) || REVOQUE_WORK_TYPES[0];
+  const revoqueManualSurface = toNumber(revoqueForm.surfaceM2);
+  const revoqueLinearMeters = toNumber(revoqueForm.linearMeters);
+  const revoqueHeightMeters = toNumber(revoqueForm.heightMeters);
+  const revoqueOpeningsM2 = toNumber(revoqueForm.openingsM2);
+  const revoqueMeasuredSurface = Math.max(0, revoqueLinearMeters * revoqueHeightMeters - revoqueOpeningsM2);
+  const revoqueNetSurface = roundMeasure(revoqueManualSurface > 0 ? revoqueManualSurface : revoqueMeasuredSurface);
+  const revoqueLaborPrice = toNumber(revoqueForm.laborPrice);
+  const revoqueMaterialPrice = toNumber(revoqueForm.materialPrice);
+  const revoqueMaterialWastePercent = toNumber(revoqueForm.materialWastePercent);
+  const revoqueMaterialLines = buildMaterialEstimateLines(
+    revoqueNetSurface,
+    revoqueMaterialWastePercent,
+    REVOQUE_MATERIAL_COEFFICIENTS[revoqueForm.workType],
+    (field) => toNumber(revoqueForm[field])
+  );
+  const revoqueAutoMaterialTotal = revoqueMaterialLines.reduce((sum, material) => sum + material.total, 0);
+  const revoqueUsesAutoMaterials = revoqueMaterialPrice <= 0 && revoqueAutoMaterialTotal > 0;
+  const revoqueEffectiveMaterialPrice =
+    revoqueMaterialPrice > 0
+      ? revoqueMaterialPrice
+      : revoqueNetSurface > 0
+        ? revoqueAutoMaterialTotal / revoqueNetSurface
+        : 0;
+  const revoqueLaborTotal = revoqueNetSurface * revoqueLaborPrice;
+  const revoqueMaterialTotal =
+    revoqueMaterialPrice > 0 ? revoqueNetSurface * revoqueMaterialPrice : revoqueAutoMaterialTotal;
+  const revoqueEstimatedTotal = revoqueLaborTotal + revoqueMaterialTotal;
+  const revoqueReady = revoqueNetSurface > 0 && (revoqueLaborPrice > 0 || revoqueEffectiveMaterialPrice > 0);
+  const revoqueSurfaceSource = revoqueManualSurface > 0 ? 'superficie directa' : 'medidas cargadas';
+
+  const updateRevoqueForm = (patch: Partial<RevoqueEstimatorForm>) => {
+    setRevoqueForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleApplyRevoqueTemplate = () => {
+    if (!revoqueReady) {
+      setFormError('Completa la superficie y al menos un precio por m2.');
+      setInfoMessage('');
+      return;
+    }
+
+    const sourceBase = `${REVOQUE_TEMPLATE_SOURCE}:${selectedRevoqueType.key}`;
+    const measureNotes = [
+      `${selectedRevoqueType.label}.`,
+      `Superficie neta: ${revoqueNetSurface} m2 (${revoqueSurfaceSource}).`,
+      revoqueManualSurface > 0
+        ? ''
+        : `Medidas: ${revoqueLinearMeters || 0} ml x ${revoqueHeightMeters || 0} m - ${revoqueOpeningsM2 || 0} m2 de aberturas.`,
+      revoqueUsesAutoMaterials ? `Desperdicio de materiales: ${revoqueMaterialWastePercent || 0}%.` : '',
+      revoqueUsesAutoMaterials ? `Materiales calculados:\n${summarizeMaterialEstimateLines(revoqueMaterialLines)}` : '',
+      selectedRevoqueType.detail,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const generatedItems: ItemForm[] = [];
+
+    if (revoqueLaborPrice > 0) {
+      generatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-labor`,
+        description: `${selectedRevoqueType.label} - mano de obra`,
+        quantity: revoqueNetSurface,
+        unitPrice: revoqueLaborPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: '',
+        masterItemCategory: 'Revoques',
+        masterItemSourceRef: `${sourceBase}:labor`,
+        type: 'labor',
+      });
+    }
+
+    if (revoqueUsesAutoMaterials) {
+      revoqueMaterialLines
+        .filter((material) => material.unitPrice > 0 && material.total > 0)
+        .forEach((material) => {
+          generatedItems.push({
+            id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-${material.key}`,
+            description: `${material.label} para ${selectedRevoqueType.shortLabel.toLowerCase()}`,
+            quantity: material.quantity,
+            unitPrice: material.unitPrice,
+            unit: material.unit,
+            technicalNotes: measureNotes,
+            masterItemId: '',
+            masterItemCategory: 'Revoques',
+            masterItemSourceRef: `${sourceBase}:material:${material.key}`,
+            type: 'material',
+          });
+        });
+    } else if (revoqueMaterialPrice > 0) {
+      generatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-material`,
+        description: `Materiales para ${selectedRevoqueType.shortLabel.toLowerCase()}`,
+        quantity: revoqueNetSurface,
+        unitPrice: revoqueMaterialPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: '',
+        masterItemCategory: 'Revoques',
+        masterItemSourceRef: `${sourceBase}:material`,
+        type: 'material',
+      });
+    }
+
+    setItems((prev) => {
+      const keptItems = prev.filter(
+        (item) =>
+          item.description.trim() &&
+          !String(item.masterItemSourceRef || '').startsWith(REVOQUE_TEMPLATE_SOURCE)
+      );
+      return [...keptItems, ...generatedItems];
+    });
+    setFormError('');
+    setInfoMessage('Revoque agregado al detalle. Puedes ajustar los items antes de enviar.');
+  };
+
+  const selectedMamposteriaType =
+    MAMPOSTERIA_WORK_TYPES.find((option) => option.key === mamposteriaForm.workType) || MAMPOSTERIA_WORK_TYPES[0];
+  const mamposteriaManualSurface = toNumber(mamposteriaForm.surfaceM2);
+  const mamposteriaLinearMeters = toNumber(mamposteriaForm.linearMeters);
+  const mamposteriaHeightMeters = toNumber(mamposteriaForm.heightMeters);
+  const mamposteriaOpeningsM2 = toNumber(mamposteriaForm.openingsM2);
+  const mamposteriaMeasuredSurface = Math.max(
+    0,
+    mamposteriaLinearMeters * mamposteriaHeightMeters - mamposteriaOpeningsM2
+  );
+  const mamposteriaNetSurface = roundMeasure(
+    mamposteriaManualSurface > 0 ? mamposteriaManualSurface : mamposteriaMeasuredSurface
+  );
+  const mamposteriaLaborPrice = toNumber(mamposteriaForm.laborPrice);
+  const mamposteriaMaterialPrice = toNumber(mamposteriaForm.materialPrice);
+  const mamposteriaMaterialWastePercent = toNumber(mamposteriaForm.materialWastePercent);
+  const mamposteriaMaterialLines = buildMaterialEstimateLines(
+    mamposteriaNetSurface,
+    mamposteriaMaterialWastePercent,
+    MAMPOSTERIA_MATERIAL_COEFFICIENTS[mamposteriaForm.workType],
+    (field) => toNumber(mamposteriaForm[field])
+  );
+  const mamposteriaAutoMaterialTotal = mamposteriaMaterialLines.reduce((sum, material) => sum + material.total, 0);
+  const mamposteriaUsesAutoMaterials = mamposteriaMaterialPrice <= 0 && mamposteriaAutoMaterialTotal > 0;
+  const mamposteriaEffectiveMaterialPrice =
+    mamposteriaMaterialPrice > 0
+      ? mamposteriaMaterialPrice
+      : mamposteriaNetSurface > 0
+        ? mamposteriaAutoMaterialTotal / mamposteriaNetSurface
+        : 0;
+  const mamposteriaLaborTotal = mamposteriaNetSurface * mamposteriaLaborPrice;
+  const mamposteriaMaterialTotal =
+    mamposteriaMaterialPrice > 0
+      ? mamposteriaNetSurface * mamposteriaMaterialPrice
+      : mamposteriaAutoMaterialTotal;
+  const mamposteriaEstimatedTotal = mamposteriaLaborTotal + mamposteriaMaterialTotal;
+  const mamposteriaReady =
+    mamposteriaNetSurface > 0 && (mamposteriaLaborPrice > 0 || mamposteriaEffectiveMaterialPrice > 0);
+  const mamposteriaSurfaceSource = mamposteriaManualSurface > 0 ? 'superficie directa' : 'medidas cargadas';
+
+  const updateMamposteriaForm = (patch: Partial<MamposteriaEstimatorForm>) => {
+    setMamposteriaForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleApplyMamposteriaTemplate = () => {
+    if (!mamposteriaReady) {
+      setFormError('Completa la superficie y al menos un precio por m2.');
+      setInfoMessage('');
+      return;
+    }
+
+    const sourceBase = `${MAMPOSTERIA_TEMPLATE_SOURCE}:${selectedMamposteriaType.key}`;
+    const measureNotes = [
+      `${selectedMamposteriaType.label}.`,
+      `Superficie neta: ${mamposteriaNetSurface} m2 (${mamposteriaSurfaceSource}).`,
+      mamposteriaManualSurface > 0
+        ? ''
+        : `Medidas: ${mamposteriaLinearMeters || 0} ml x ${mamposteriaHeightMeters || 0} m - ${mamposteriaOpeningsM2 || 0} m2 de aberturas.`,
+      mamposteriaUsesAutoMaterials
+        ? `Desperdicio de materiales: ${mamposteriaMaterialWastePercent || 0}%.`
+        : '',
+      mamposteriaUsesAutoMaterials
+        ? `Materiales calculados:\n${summarizeMaterialEstimateLines(mamposteriaMaterialLines)}`
+        : '',
+      selectedMamposteriaType.detail,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const generatedItems: ItemForm[] = [];
+
+    if (mamposteriaLaborPrice > 0) {
+      generatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-mamposteria-labor`,
+        description: `${selectedMamposteriaType.label} - mano de obra`,
+        quantity: mamposteriaNetSurface,
+        unitPrice: mamposteriaLaborPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: '',
+        masterItemCategory: 'Mamposteria',
+        masterItemSourceRef: `${sourceBase}:labor`,
+        type: 'labor',
+      });
+    }
+
+    if (mamposteriaUsesAutoMaterials) {
+      mamposteriaMaterialLines
+        .filter((material) => material.unitPrice > 0 && material.total > 0)
+        .forEach((material) => {
+          generatedItems.push({
+            id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-mamposteria-${material.key}`,
+            description: `${material.label} para ${selectedMamposteriaType.shortLabel.toLowerCase()}`,
+            quantity: material.quantity,
+            unitPrice: material.unitPrice,
+            unit: material.unit,
+            technicalNotes: measureNotes,
+            masterItemId: '',
+            masterItemCategory: 'Mamposteria',
+            masterItemSourceRef: `${sourceBase}:material:${material.key}`,
+            type: 'material',
+          });
+        });
+    } else if (mamposteriaMaterialPrice > 0) {
+      generatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-mamposteria-material`,
+        description: `Materiales para ${selectedMamposteriaType.shortLabel.toLowerCase()}`,
+        quantity: mamposteriaNetSurface,
+        unitPrice: mamposteriaMaterialPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: '',
+        masterItemCategory: 'Mamposteria',
+        masterItemSourceRef: `${sourceBase}:material`,
+        type: 'material',
+      });
+    }
+
+    setItems((prev) => {
+      const keptItems = prev.filter(
+        (item) =>
+          item.description.trim() &&
+          !String(item.masterItemSourceRef || '').startsWith(MAMPOSTERIA_TEMPLATE_SOURCE)
+      );
+      return [...keptItems, ...generatedItems];
+    });
+    setFormError('');
+    setInfoMessage('Mamposteria agregada al detalle. Puedes ajustar los items antes de enviar.');
   };
 
   const laborMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'labor'), [masterItems]);
@@ -3595,7 +4109,10 @@ export default function TechniciansPage() {
       if (!isAuto) setGeoError('Ingresa una direccion para buscar en el mapa.');
       return;
     }
-    if (isAuto && (!/\d/.test(query) || query.length < 5)) return;
+    if (isAuto && query.length < 3) {
+      setGeoLoading(false);
+      return;
+    }
     setGeoLoading(true);
     setGeoError('');
     if (!isAuto) setGeoResults([]);
@@ -3666,14 +4183,18 @@ export default function TechniciansPage() {
       quoteAddressLookupTimerRef.current = null;
     }
     quoteAddressLookupSequenceRef.current += 1;
+    const query = address.trim();
     setGeoError('');
-    if (!/\d/.test(address) || address.trim().length < 5) {
+    if (query.length < 3) {
       setGeoResults([]);
+      setGeoLoading(false);
       return;
     }
+    setGeoResults([]);
+    setGeoLoading(true);
     quoteAddressLookupTimerRef.current = window.setTimeout(() => {
-      void handleGeocodeSearch({ auto: true, query: address });
-    }, 420);
+      void handleGeocodeSearch({ auto: true, query });
+    }, 280);
   };
 
   const handleQuoteAddressChange = (nextValue: string) => {
@@ -3791,6 +4312,14 @@ export default function TechniciansPage() {
   const totalBeforeTax = Math.max(0, subtotal - discountAmount);
   const taxAmount = applyTax ? totalBeforeTax * TAX_RATE : 0;
   const total = totalBeforeTax + taxAmount;
+  const validQuoteItems = useMemo(() => items.filter((item) => item.description.trim()), [items]);
+  const quoteClientReady = Boolean(clientName.trim() && geoSelected);
+  const quoteItemsReady = validQuoteItems.length > 0;
+  const quoteSettingsReady = total > 0;
+  const completedQuoteSteps = [quoteClientReady, quoteItemsReady, quoteSettingsReady].filter(Boolean).length;
+  const quoteProgressPercent = Math.round((completedQuoteSteps / 3) * 100);
+  const quoteReadyToSend = quoteClientReady && quoteItemsReady && total > 0;
+  const averageItemAmount = validQuoteItems.length > 0 ? subtotal / validQuoteItems.length : 0;
   const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
   const quoteStats = useMemo(() => {
     const totals = quotes.reduce(
@@ -8753,37 +9282,90 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'nuevo' && (
-              <section className="rounded-[30px] border border-white/80 bg-white/96 p-4 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-5">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                  <div className="min-w-0">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Presupuestador</p>
-                    <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-bold leading-tight text-[#180f24]`}>
-                      Nuevo presupuesto
-                    </h2>
-                    <p className="mt-1 text-sm text-slate-500">Carga simple por partes, con el total siempre a la vista.</p>
+              <section className="overflow-hidden rounded-[34px] border border-white/80 bg-[#f8fafc] shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)]">
+                <div className="relative overflow-hidden bg-[#120819] px-5 py-5 text-white sm:px-6">
+                  <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,138,24,0.24),transparent_46%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.12),transparent_42%)]" />
+                  <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+                        <FilePlus className="h-3.5 w-3.5 text-[#ff8a18]" />
+                        Presupuestador
+                      </div>
+                      <h2 className={`${spaceGrotesk.className} mt-3 text-3xl font-black leading-tight sm:text-4xl`}>
+                        Nuevo presupuesto
+                      </h2>
+                      <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold">
+                        <span className="rounded-full bg-white/10 px-3 py-1 text-white/75">
+                          {completedQuoteSteps}/3 pasos
+                        </span>
+                        <span className={`rounded-full px-3 py-1 ${quoteClientReady ? 'bg-emerald-400/18 text-emerald-100' : 'bg-white/10 text-white/65'}`}>
+                          {quoteClientReady ? 'Ubicacion lista' : 'Falta ubicacion'}
+                        </span>
+                        <span className={`rounded-full px-3 py-1 ${quoteItemsReady ? 'bg-emerald-400/18 text-emerald-100' : 'bg-white/10 text-white/65'}`}>
+                          {validQuoteItems.length} items
+                        </span>
+                      </div>
+                    </div>
+                    <div className="w-full rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur lg:max-w-[360px]">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Avance</span>
+                        <span className="text-sm font-black text-white">{quoteProgressPercent}%</span>
+                      </div>
+                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/12">
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#ff8a18] via-[#ffd166] to-emerald-300 transition-all"
+                          style={{ width: `${quoteProgressPercent}%` }}
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('presupuestos')}
+                        className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 text-xs font-bold text-white transition hover:bg-white/15"
+                      >
+                        Volver a presupuestos
+                      </button>
+                    </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab('presupuestos')}
-                    className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
-                  >
-                    Volver
-                  </button>
                 </div>
 
-                <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                   <div className="space-y-3">
-                    <details open className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 1</p>
-                          <h3 className="text-base font-bold text-slate-900">Cliente y ubicación</h3>
+                    <details
+                      open={openQuoteStep === 'client'}
+                      className={`group overflow-hidden rounded-[26px] border bg-white shadow-sm transition ${
+                        openQuoteStep === 'client' ? 'border-[#ff8a18]/35 shadow-[0_22px_54px_-42px_rgba(255,138,24,0.9)]' : 'border-slate-200'
+                      }`}
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setOpenQuoteStep('client');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
+                            quoteClientReady ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
+                          }`}>
+                            1
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 1</p>
+                            <h3 className="text-base font-black text-slate-950">Cliente y ubicacion</h3>
+                            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                              {clientName.trim() || clientAddress.trim()
+                                ? `${clientName.trim() || 'Cliente'} - ${geoSelected?.display_name || clientAddress || 'direccion pendiente'}`
+                                : 'Nombre, direccion y punto en mapa.'}
+                            </p>
+                          </div>
                         </div>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                          {geoSelected ? 'Ubicación confirmada' : clientAddress.trim() ? 'Revisar mapa' : 'Pendiente'}
+                        <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${
+                          quoteClientReady ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {geoSelected ? 'Confirmado' : clientAddress.trim() ? 'Revisar' : 'Pendiente'}
                         </span>
                       </summary>
-                      <div className="border-t border-slate-100 px-4 pb-4 pt-1">
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5">
                         <div className="grid gap-3 md:grid-cols-2">
                           <div>
                             <label className="block text-xs font-semibold text-slate-600">Cliente</label>
@@ -8810,27 +9392,21 @@ export default function TechniciansPage() {
                           </div>
                         </div>
 
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => void handleGeocodeSearch()}
-                            disabled={geoLoading}
-                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
-                          >
-                            {geoLoading ? 'Buscando...' : 'Buscar otra vez'}
-                          </button>
-                          {geoSelected && (
-                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                              Punto confirmado
-                            </span>
-                          )}
-                          {!geoSelected && geoLoading && (
-                            <span className="text-[11px] font-semibold text-slate-500">Buscando opciones...</span>
-                          )}
-                        </div>
-                        {geoError && <p className="mt-2 text-xs font-semibold text-rose-500">{geoError}</p>}
-                        {geoResults.length > 0 && (
-                          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                        {!geoSelected && clientAddress.trim().length >= 3 && (
+                          <div className="mt-3 max-h-72 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-[0_18px_42px_-30px_rgba(15,23,42,0.65)]">
+                            <div className="border-b border-slate-100 px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-slate-400">
+                              Selecciona una direccion
+                            </div>
+                            {geoLoading && geoResults.length === 0 && (
+                              <div className="px-4 py-3 text-sm font-semibold text-slate-500">
+                                Buscando direcciones...
+                              </div>
+                            )}
+                            {!geoLoading && geoResults.length === 0 && (
+                              <div className="px-4 py-3 text-sm font-semibold text-slate-500">
+                                No encontramos opciones. Agrega localidad o provincia.
+                              </div>
+                            )}
                             {geoResults.map((result) => (
                               <button
                                 key={`${result.lat}-${result.lon}`}
@@ -8858,6 +9434,26 @@ export default function TechniciansPage() {
                             ))}
                           </div>
                         )}
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleGeocodeSearch()}
+                            disabled={geoLoading}
+                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            {geoLoading ? 'Buscando...' : 'Buscar otra vez'}
+                          </button>
+                          {geoSelected && (
+                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                              Punto confirmado
+                            </span>
+                          )}
+                          {!geoSelected && geoLoading && (
+                            <span className="text-[11px] font-semibold text-slate-500">Buscando opciones...</span>
+                          )}
+                        </div>
+                        {geoError && <p className="mt-2 text-xs font-semibold text-rose-500">{geoError}</p>}
                         {geoSelected && geoMapUrl && (
                           <div className="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
                             <iframe
@@ -8882,48 +9478,557 @@ export default function TechniciansPage() {
                       </div>
                     </details>
 
-                    <details className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 2</p>
-                          <h3 className="text-base font-bold text-slate-900">Detalle del trabajo</h3>
+                    <details
+                      open={openQuoteStep === 'items'}
+                      className={`group overflow-hidden rounded-[26px] border bg-white shadow-sm transition ${
+                        openQuoteStep === 'items' ? 'border-[#ff8a18]/35 shadow-[0_22px_54px_-42px_rgba(255,138,24,0.9)]' : 'border-slate-200'
+                      }`}
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setOpenQuoteStep('items');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
+                            quoteItemsReady ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
+                          }`}>
+                            2
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 2</p>
+                            <h3 className="text-base font-black text-slate-950">Detalle del trabajo</h3>
+                            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                              {quoteItemsReady
+                                ? `${validQuoteItems.length} items - ${formatCurrency(subtotal)} subtotal`
+                                : 'Mano de obra, materiales y cantidades.'}
+                            </p>
+                          </div>
                         </div>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                          {items.filter((item) => item.description.trim()).length} ítems
+                        <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${
+                          quoteItemsReady ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {validQuoteItems.length} items
                         </span>
                       </summary>
-                      <div className="border-t border-slate-100 px-4 pb-4 pt-4">
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                          <p className="text-sm text-slate-500">Mano de obra, materiales y cantidades.</p>
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5">
+                        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                Tipo de carga
+                              </p>
+                              <h4 className="mt-1 text-lg font-black text-slate-950">Elegir como presupuestar</h4>
+                            </div>
+                            <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
+                              {([
+                                { key: 'manual', label: 'Manual' },
+                                { key: 'revoques', label: 'Revoques' },
+                                { key: 'mamposteria', label: 'Mamposteria' },
+                              ] as Array<{ key: QuoteWorkEstimatorMode; label: string }>).map((option) => (
+                                <button
+                                  key={option.key}
+                                  type="button"
+                                  onClick={() => setQuoteWorkEstimatorMode(option.key)}
+                                  className={`rounded-xl px-4 py-2 text-xs font-black transition ${
+                                    quoteWorkEstimatorMode === option.key
+                                      ? 'bg-slate-950 text-white shadow-sm'
+                                      : 'text-slate-500 hover:text-slate-900'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {quoteWorkEstimatorMode === 'revoques' && (
+                            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_280px]">
+                              <div className="rounded-[22px] border border-white bg-white p-4 shadow-sm">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Tipo de revoque
+                                    </label>
+                                    <select
+                                      value={revoqueForm.workType}
+                                      onChange={(event) =>
+                                        updateRevoqueForm({ workType: event.target.value as RevoqueWorkTypeKey })
+                                      }
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                                    >
+                                      {REVOQUE_WORK_TYPES.map((option) => (
+                                        <option key={option.key} value={option.key}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Superficie directa (m2)
+                                    </label>
+                                    <input
+                                      value={revoqueForm.surfaceM2}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateRevoqueForm({ surfaceM2: event.target.value })}
+                                      placeholder="Ej: 42"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Descuento aberturas (m2)
+                                    </label>
+                                    <input
+                                      value={revoqueForm.openingsM2}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateRevoqueForm({ openingsM2: event.target.value })}
+                                      placeholder="Puertas / ventanas"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Metros lineales
+                                    </label>
+                                    <input
+                                      value={revoqueForm.linearMeters}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateRevoqueForm({ linearMeters: event.target.value })}
+                                      placeholder="Si no cargas m2"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Alto promedio
+                                    </label>
+                                    <input
+                                      value={revoqueForm.heightMeters}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateRevoqueForm({ heightMeters: event.target.value })}
+                                      placeholder="Ej: 2,60"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Mano de obra / m2
+                                    </label>
+                                    <input
+                                      value={revoqueForm.laborPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateRevoqueForm({ laborPrice: event.target.value })}
+                                      placeholder="$ por m2"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Materiales / m2 manual
+                                    </label>
+                                    <input
+                                      value={revoqueForm.materialPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateRevoqueForm({ materialPrice: event.target.value })}
+                                      placeholder="Si no usas calculo"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="mt-4 rounded-[20px] border border-slate-200 bg-slate-50 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                        Materiales automaticos
+                                      </p>
+                                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                                        Se calculan por {revoqueNetSurface} m2 y unidad de compra.
+                                      </p>
+                                    </div>
+                                    <label className="block w-24 text-[11px] font-semibold text-slate-500">
+                                      Desp. %
+                                      <input
+                                        value={revoqueForm.materialWastePercent}
+                                        inputMode="decimal"
+                                        onChange={(event) =>
+                                          updateRevoqueForm({ materialWastePercent: event.target.value })
+                                        }
+                                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                      />
+                                    </label>
+                                  </div>
+                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                    {([
+                                      { field: 'cementBagPrice', label: 'Cemento', placeholder: '$ bolsa' },
+                                      { field: 'limeBagPrice', label: 'Cal', placeholder: '$ bolsa' },
+                                      { field: 'sandM3Price', label: 'Arena', placeholder: '$ m3' },
+                                      { field: 'waterproofLiterPrice', label: 'Hidrofugo', placeholder: '$ litro' },
+                                    ] as Array<{
+                                      field: RevoqueMaterialPriceField;
+                                      label: string;
+                                      placeholder: string;
+                                    }>).map((material) => (
+                                      <label key={material.field} className="block text-[11px] font-semibold text-slate-500">
+                                        {material.label}
+                                        <input
+                                          value={revoqueForm[material.field]}
+                                          inputMode="decimal"
+                                          onChange={(event) =>
+                                            updateRevoqueForm({ [material.field]: event.target.value } as Partial<RevoqueEstimatorForm>)
+                                          }
+                                          placeholder={material.placeholder}
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                  Revoques
+                                </p>
+                                <h5 className="mt-1 text-base font-black text-slate-950">
+                                  {selectedRevoqueType.shortLabel}
+                                </h5>
+                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                                  {selectedRevoqueType.detail}
+                                </p>
+                                <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Superficie neta</span>
+                                    <span className="font-black text-slate-950">{revoqueNetSurface} m2</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Mano de obra</span>
+                                    <span className="font-black text-slate-950">{formatCurrency(revoqueLaborTotal)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Materiales</span>
+                                    <span className="font-black text-slate-950">{formatCurrency(revoqueMaterialTotal)}</span>
+                                  </div>
+                                </div>
+                                {revoqueUsesAutoMaterials && (
+                                  <div className="mt-3 space-y-1 rounded-2xl border border-slate-100 bg-white p-3">
+                                    {revoqueMaterialLines
+                                      .filter((material) => material.unitPrice > 0 && material.total > 0)
+                                      .map((material) => (
+                                        <div
+                                          key={`revoque-material-${material.key}`}
+                                          className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-500"
+                                        >
+                                          <span className="truncate">
+                                            {material.label} - {formatMeasureValue(material.quantity)} {material.unit}
+                                          </span>
+                                          <span className="shrink-0 font-black text-slate-900">
+                                            {formatCurrency(material.total)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                                <div className="mt-4 rounded-2xl bg-slate-950 p-3 text-white">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">
+                                    Total estimado
+                                  </p>
+                                  <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black`}>
+                                    {formatCurrency(revoqueEstimatedTotal)}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleApplyRevoqueTemplate}
+                                  disabled={!revoqueReady}
+                                  className="mt-3 w-full rounded-2xl bg-[#ff8a18] px-4 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#ff9d3d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  Agregar al detalle
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {quoteWorkEstimatorMode === 'mamposteria' && (
+                            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_280px]">
+                              <div className="rounded-[22px] border border-white bg-white p-4 shadow-sm">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Tipo de mamposteria
+                                    </label>
+                                    <select
+                                      value={mamposteriaForm.workType}
+                                      onChange={(event) =>
+                                        updateMamposteriaForm({
+                                          workType: event.target.value as MamposteriaWorkTypeKey,
+                                        })
+                                      }
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                                    >
+                                      {MAMPOSTERIA_WORK_TYPES.map((option) => (
+                                        <option key={option.key} value={option.key}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Superficie de muro (m2)
+                                    </label>
+                                    <input
+                                      value={mamposteriaForm.surfaceM2}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateMamposteriaForm({ surfaceM2: event.target.value })}
+                                      placeholder="Ej: 35"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Descuento aberturas (m2)
+                                    </label>
+                                    <input
+                                      value={mamposteriaForm.openingsM2}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateMamposteriaForm({ openingsM2: event.target.value })}
+                                      placeholder="Puertas / ventanas"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Metros lineales
+                                    </label>
+                                    <input
+                                      value={mamposteriaForm.linearMeters}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateMamposteriaForm({ linearMeters: event.target.value })}
+                                      placeholder="Si no cargas m2"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Alto del muro
+                                    </label>
+                                    <input
+                                      value={mamposteriaForm.heightMeters}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateMamposteriaForm({ heightMeters: event.target.value })}
+                                      placeholder="Ej: 2,60"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Mano de obra / m2
+                                    </label>
+                                    <input
+                                      value={mamposteriaForm.laborPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateMamposteriaForm({ laborPrice: event.target.value })}
+                                      placeholder="$ por m2"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Materiales / m2 manual
+                                    </label>
+                                    <input
+                                      value={mamposteriaForm.materialPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updateMamposteriaForm({ materialPrice: event.target.value })}
+                                      placeholder="Si no usas calculo"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </div>
+                                </div>
+                                <div className="mt-4 rounded-[20px] border border-slate-200 bg-slate-50 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                        Materiales automaticos
+                                      </p>
+                                      <p className="mt-1 text-xs font-semibold text-slate-500">
+                                        Se calculan por {mamposteriaNetSurface} m2 y unidad de compra.
+                                      </p>
+                                    </div>
+                                    <label className="block w-24 text-[11px] font-semibold text-slate-500">
+                                      Desp. %
+                                      <input
+                                        value={mamposteriaForm.materialWastePercent}
+                                        inputMode="decimal"
+                                        onChange={(event) =>
+                                          updateMamposteriaForm({ materialWastePercent: event.target.value })
+                                        }
+                                        className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                      />
+                                    </label>
+                                  </div>
+                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                    {([
+                                      { field: 'brickUnitPrice', label: 'Ladrillo / bloque', placeholder: '$ unidad' },
+                                      { field: 'cementBagPrice', label: 'Cemento', placeholder: '$ bolsa' },
+                                      { field: 'limeBagPrice', label: 'Cal', placeholder: '$ bolsa' },
+                                      { field: 'sandM3Price', label: 'Arena', placeholder: '$ m3' },
+                                    ] as Array<{
+                                      field: MamposteriaMaterialPriceField;
+                                      label: string;
+                                      placeholder: string;
+                                    }>).map((material) => (
+                                      <label
+                                        key={material.field}
+                                        className="block text-[11px] font-semibold text-slate-500"
+                                      >
+                                        {material.label}
+                                        <input
+                                          value={mamposteriaForm[material.field]}
+                                          inputMode="decimal"
+                                          onChange={(event) =>
+                                            updateMamposteriaForm({
+                                              [material.field]: event.target.value,
+                                            } as Partial<MamposteriaEstimatorForm>)
+                                          }
+                                          placeholder={material.placeholder}
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </label>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                  Mamposteria
+                                </p>
+                                <h5 className="mt-1 text-base font-black text-slate-950">
+                                  {selectedMamposteriaType.shortLabel}
+                                </h5>
+                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
+                                  {selectedMamposteriaType.detail}
+                                </p>
+                                <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Superficie neta</span>
+                                    <span className="font-black text-slate-950">{mamposteriaNetSurface} m2</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Mano de obra</span>
+                                    <span className="font-black text-slate-950">
+                                      {formatCurrency(mamposteriaLaborTotal)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Materiales</span>
+                                    <span className="font-black text-slate-950">
+                                      {formatCurrency(mamposteriaMaterialTotal)}
+                                    </span>
+                                  </div>
+                                </div>
+                                {mamposteriaUsesAutoMaterials && (
+                                  <div className="mt-3 space-y-1 rounded-2xl border border-slate-100 bg-white p-3">
+                                    {mamposteriaMaterialLines
+                                      .filter((material) => material.unitPrice > 0 && material.total > 0)
+                                      .map((material) => (
+                                        <div
+                                          key={`mamposteria-material-${material.key}`}
+                                          className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-500"
+                                        >
+                                          <span className="truncate">
+                                            {material.label} - {formatMeasureValue(material.quantity)} {material.unit}
+                                          </span>
+                                          <span className="shrink-0 font-black text-slate-900">
+                                            {formatCurrency(material.total)}
+                                          </span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                )}
+                                <div className="mt-4 rounded-2xl bg-slate-950 p-3 text-white">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">
+                                    Total estimado
+                                  </p>
+                                  <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black`}>
+                                    {formatCurrency(mamposteriaEstimatedTotal)}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleApplyMamposteriaTemplate}
+                                  disabled={!mamposteriaReady}
+                                  className="mt-3 w-full rounded-2xl bg-[#ff8a18] px-4 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#ff9d3d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  Agregar al detalle
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">Items del presupuesto</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              Promedio por item: {formatCurrency(averageItemAmount)}
+                            </p>
+                          </div>
                           <button
                             type="button"
                             onClick={handleAddItem}
-                            className="rounded-full bg-slate-950 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+                            className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-slate-800"
                           >
-                            + Agregar ítem
+                            <FilePlus className="h-3.5 w-3.5" />
+                            Agregar item
                           </button>
                         </div>
                         {items.length === 0 && (
-                          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
-                            Agrega el primer ítem para armar el presupuesto.
+                          <div className="mt-4 rounded-[22px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm font-semibold text-slate-500">
+                            Agrega el primer item para armar el presupuesto.
                           </div>
                         )}
                         <div className="mt-4 space-y-3">
-                          {items.map((item) => (
-                            <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
-                                  Ítem
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveItem(item.id)}
-                                  className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-50"
-                                >
-                                  Quitar
-                                </button>
+                          {items.map((item, index) => {
+                            const itemTotal = item.quantity * item.unitPrice;
+                            return (
+                            <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                              <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-xs font-black text-white">
+                                    {index + 1}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                      {item.type === 'material' ? 'Material' : 'Mano de obra'}
+                                    </p>
+                                    <p className="truncate text-sm font-black text-slate-950">
+                                      {item.description.trim() || 'Item sin descripcion'}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex shrink-0 items-center gap-2">
+                                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-900 ring-1 ring-slate-200">
+                                    {formatCurrency(itemTotal)}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveItem(item.id)}
+                                    className="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
+                                  >
+                                    Quitar
+                                  </button>
+                                </div>
                               </div>
-                              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1.6fr)_90px_130px_150px]">
+                              <div className="p-4">
+                              <div className="grid gap-3 md:grid-cols-[minmax(0,1.6fr)_90px_130px_150px]">
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500">Descripción</label>
                                   <input
@@ -8984,8 +10089,10 @@ export default function TechniciansPage() {
                                   <p className="mt-1 whitespace-pre-wrap">{item.technicalNotes}</p>
                                 </div>
                               )}
+                              </div>
                             </div>
-                          ))}
+                            );
+                          })}
                           <datalist id="labor-master-items">
                             {laborMasterItems.map((laborItem) => (
                               <option key={laborItem.id} value={getMasterItemChoiceValue(laborItem)} />
@@ -8995,18 +10102,39 @@ export default function TechniciansPage() {
                       </div>
                     </details>
 
-                    <details className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
-                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 3</p>
-                          <h3 className="text-base font-bold text-slate-900">Ajustes y adjuntos</h3>
+                    <details
+                      open={openQuoteStep === 'settings'}
+                      className={`group overflow-hidden rounded-[26px] border bg-white shadow-sm transition ${
+                        openQuoteStep === 'settings' ? 'border-[#ff8a18]/35 shadow-[0_22px_54px_-42px_rgba(255,138,24,0.9)]' : 'border-slate-200'
+                      }`}
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setOpenQuoteStep('settings');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
+                            quoteSettingsReady ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
+                          }`}>
+                            3
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 3</p>
+                            <h3 className="text-base font-black text-slate-950">Ajustes y adjuntos</h3>
+                            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                              {discountPercent > 0 ? `${discountPercent.toFixed(0)}% descuento` : applyTax ? 'IVA activo' : 'Sin descuentos extra'}
+                            </p>
+                          </div>
                         </div>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                        <span className="shrink-0 rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
                           {applyTax ? 'IVA activo' : 'Sin IVA'}
                         </span>
                       </summary>
-                      <div className="grid gap-4 border-t border-slate-100 px-4 pb-4 pt-4 lg:grid-cols-2">
-                        <div>
+                      <div className="grid gap-4 border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5 lg:grid-cols-2">
+                        <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
                           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Ajustes</p>
                           <label className="mt-3 block text-xs font-semibold text-slate-600">Descuento (%)</label>
                           <input
@@ -9033,7 +10161,7 @@ export default function TechniciansPage() {
                           </label>
                         </div>
 
-                        <div>
+                        <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-4">
                           <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Adjuntos</p>
                           {!activeQuoteId && (
                             <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs font-semibold text-slate-500">
@@ -9098,53 +10226,87 @@ export default function TechniciansPage() {
                   </div>
 
                   <aside className="xl:sticky xl:top-5 xl:self-start">
-                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_22px_62px_-48px_rgba(15,23,42,0.75)]">
-                      <div className="bg-[#180f24] px-5 py-5 text-white">
-                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Total</p>
-                        <p className={`${spaceGrotesk.className} mt-2 text-4xl font-black`}>
-                          ${total.toLocaleString('es-AR')}
-                        </p>
-                        <p className="mt-2 text-xs text-white/55">
+                    <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-[0_28px_76px_-48px_rgba(15,23,42,0.8)]">
+                      <div className="bg-[#120819] px-5 py-5 text-white">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Total final</p>
+                            <p className={`${spaceGrotesk.className} mt-2 text-4xl font-black leading-none`}>
+                              {formatCurrency(total)}
+                            </p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                            quoteReadyToSend ? 'bg-emerald-400/18 text-emerald-100' : 'bg-white/10 text-white/65'
+                          }`}>
+                            {quoteReadyToSend ? 'Listo' : 'Incompleto'}
+                          </span>
+                        </div>
+                        <p className="mt-3 truncate text-xs font-semibold text-white/60">
                           {clientName.trim() || 'Cliente sin cargar'}
                         </p>
+                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/12">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#ff8a18] via-[#ffd166] to-emerald-300 transition-all"
+                            style={{ width: `${quoteProgressPercent}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2 px-5 py-4 text-sm text-slate-600">
+                      <div className="grid grid-cols-3 border-b border-slate-200 text-center">
+                        <div className="px-3 py-4">
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Items</p>
+                          <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{validQuoteItems.length}</p>
+                        </div>
+                        <div className="border-x border-slate-200 px-3 py-4">
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Avance</p>
+                          <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{quoteProgressPercent}%</p>
+                        </div>
+                        <div className="px-3 py-4">
+                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Adjuntos</p>
+                          <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{attachments.length}</p>
+                        </div>
+                      </div>
+                      <div className="space-y-3 px-5 py-4 text-sm text-slate-600">
                         <div className="flex items-center justify-between">
                           <span>Mano de obra</span>
-                          <span className="font-semibold text-slate-900">${laborSubtotal.toLocaleString('es-AR')}</span>
+                          <span className="font-black text-slate-950">{formatCurrency(laborSubtotal)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>Materiales</span>
-                          <span className="font-semibold text-slate-900">${materialSubtotal.toLocaleString('es-AR')}</span>
+                          <span className="font-black text-slate-950">{formatCurrency(materialSubtotal)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>Descuento ({discountPercent.toFixed(0)}%)</span>
-                          <span className="font-semibold text-slate-900">-${discountAmount.toLocaleString('es-AR')}</span>
+                          <span className="font-black text-slate-950">-{formatCurrency(discountAmount)}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>IVA 21%</span>
-                          <span className="font-semibold text-slate-900">${taxAmount.toLocaleString('es-AR')}</span>
+                          <span className="font-black text-slate-950">{formatCurrency(taxAmount)}</span>
                         </div>
                       </div>
                       <div className="border-t border-slate-200 px-5 py-4">
                         <div className="grid gap-2">
                           <button
                             type="button"
-                            onClick={() => handleSave('draft')}
-                            disabled={isSaving}
-                            className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                            onClick={() => handleSave('sent')}
+                            disabled={isSaving || !quoteReadyToSend}
+                            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                           >
-                            Guardar borrador
+                            {isSaving ? 'Guardando...' : 'Enviar al cliente'}
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleSave('sent')}
+                            onClick={() => handleSave('draft')}
                             disabled={isSaving}
-                            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                            className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400"
                           >
-                            Enviar al cliente
+                            Guardar borrador
                           </button>
                         </div>
+                        {!quoteReadyToSend && (
+                          <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                            Completa cliente, ubicacion y al menos un item con importe para enviar.
+                          </p>
+                        )}
                         {formError && <p className="mt-3 text-xs font-semibold text-rose-500">{formError}</p>}
                         {infoMessage && <p className="mt-3 text-xs font-semibold text-emerald-600">{infoMessage}</p>}
                       </div>
