@@ -2414,6 +2414,7 @@ export default function TechniciansPage() {
   const [viewerError, setViewerError] = useState('');
   const [quoteFilter, setQuoteFilter] = useState<QuoteFilter>('all');
   const [openQuoteStep, setOpenQuoteStep] = useState<'client' | 'items' | 'settings'>('client');
+  const [showQuoteDraftPrompt, setShowQuoteDraftPrompt] = useState(false);
   const [quoteWorkEstimatorMode, setQuoteWorkEstimatorMode] = useState<QuoteWorkEstimatorMode>('manual');
   const [revoqueForm, setRevoqueForm] = useState<RevoqueEstimatorForm>(DEFAULT_REVOQUE_FORM);
   const [mamposteriaForm, setMamposteriaForm] = useState<MamposteriaEstimatorForm>(DEFAULT_MAMPOSTERIA_FORM);
@@ -3628,6 +3629,7 @@ export default function TechniciansPage() {
     setFormError('');
     setInfoMessage('');
     setOpenQuoteStep('client');
+    setShowQuoteDraftPrompt(false);
     setQuoteWorkEstimatorMode('manual');
     setRevoqueForm(DEFAULT_REVOQUE_FORM);
     setMamposteriaForm(DEFAULT_MAMPOSTERIA_FORM);
@@ -3637,15 +3639,7 @@ export default function TechniciansPage() {
 
   const startNewQuote = () => {
     resetForm();
-    setItems([
-      {
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        description: '',
-        quantity: 1,
-        unitPrice: 0,
-        type: 'labor',
-      },
-    ]);
+    setShowQuoteDraftPrompt(draftQuotes.length > 0);
     setActiveTab('nuevo');
   };
 
@@ -3655,6 +3649,7 @@ export default function TechniciansPage() {
 
   const loadQuote = async (quote: QuoteRow, targetTab: 'presupuestos' | 'nuevo' = 'presupuestos') => {
     setActiveTab(targetTab);
+    setShowQuoteDraftPrompt(false);
     if (targetTab === 'nuevo') {
       setOpenQuoteStep('client');
       setQuoteWorkEstimatorMode('manual');
@@ -4559,6 +4554,13 @@ export default function TechniciansPage() {
       ...totals,
     };
   }, [quotes]);
+  const draftQuotes = useMemo(
+    () =>
+      quotes
+        .filter((quote) => normalizeStatusValue(quote.status) === 'draft')
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()),
+    [quotes]
+  );
   const getQuoteFilterCount = (key: QuoteFilter) => {
     if (key === 'all') return quoteStats.total;
     return quoteStats[key];
@@ -8551,7 +8553,7 @@ export default function TechniciansPage() {
                         <button
                           type="button"
                           aria-label="Nuevo presupuesto"
-                          onClick={() => setActiveTab('nuevo')}
+                          onClick={startNewQuote}
                           className="group relative flex min-h-[148px] w-full items-start justify-center text-center focus:outline-none"
                         >
                           <span className="relative z-10 flex aspect-square w-[104px] items-center justify-center overflow-visible rounded-full border border-[#ffbd73] bg-[radial-gradient(circle_at_32%_26%,rgba(255,255,255,0.38),rgba(255,255,255,0)_28%),linear-gradient(145deg,#ffad56_0%,#ff8f1f_52%,#e77700_100%)] text-[#2a0338] shadow-[0_22px_42px_-24px_rgba(255,143,31,0.95),inset_0_1px_0_rgba(255,255,255,0.52),inset_0_-14px_26px_rgba(138,74,7,0.13)] transition duration-300 ease-out group-hover:-translate-y-1 group-hover:scale-[1.04] group-hover:shadow-[0_30px_60px_-30px_rgba(255,143,31,0.95),inset_0_1px_0_rgba(255,255,255,0.58),inset_0_-14px_26px_rgba(138,74,7,0.16)] group-hover:ring-8 group-hover:ring-[#ff8f1f]/10 group-focus-visible:ring-4 group-focus-visible:ring-[#ffcf93]/55 sm:w-[116px]">
@@ -9523,6 +9525,53 @@ export default function TechniciansPage() {
 
                 <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                   <div className="space-y-3">
+                    {showQuoteDraftPrompt && draftQuotes.length > 0 && !activeQuoteId && (
+                      <div className="rounded-[26px] border border-amber-200 bg-amber-50/80 p-4 shadow-sm">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                          <div className="min-w-0">
+                            <div className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-amber-700 ring-1 ring-amber-100">
+                              <FileText className="h-3.5 w-3.5" />
+                              Borradores guardados
+                            </div>
+                            <h3 className={`${spaceGrotesk.className} mt-3 text-xl font-black text-slate-950`}>
+                              Queres retomar uno?
+                            </h3>
+                            <p className="mt-1 max-w-xl text-sm font-semibold leading-6 text-slate-600">
+                              Abrimos un presupuesto limpio. Si alguno de estos borradores corresponde, podes retomarlo.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowQuoteDraftPrompt(false)}
+                            className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-amber-200 bg-white px-4 text-xs font-black text-slate-700 transition hover:border-amber-300 hover:text-slate-950"
+                          >
+                            Seguir nuevo
+                          </button>
+                        </div>
+                        <div className="mt-4 grid gap-2">
+                          {draftQuotes.slice(0, 3).map((draft) => (
+                            <button
+                              key={draft.id}
+                              type="button"
+                              onClick={() => void loadQuote(draft, 'nuevo')}
+                              className="flex w-full flex-col gap-2 rounded-[18px] border border-white bg-white px-4 py-3 text-left shadow-sm transition hover:border-amber-300 hover:shadow-md sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-black text-slate-950">
+                                  {draft.client_name || 'Cliente sin nombre'}
+                                </span>
+                                <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
+                                  {getQuoteAddress(draft) || 'Sin direccion'} · {formatCurrency(toAmountValue(draft.total_amount))}
+                                </span>
+                              </span>
+                              <span className="shrink-0 rounded-full bg-slate-950 px-3 py-1.5 text-[11px] font-black text-white">
+                                Retomar
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <details
                       open={openQuoteStep === 'client'}
                       className={`group overflow-hidden rounded-[26px] border bg-white shadow-sm transition ${
