@@ -1943,6 +1943,8 @@ const normalizeQuoteItemImages = (value: unknown): ItemImageForm[] => {
           fileType: '',
           storagePath: getAttachmentStoragePath(item),
           uploadedAt: '',
+          source: 'item-upload',
+          sourceAttachmentId: null,
         };
       }
       if (!item || typeof item !== 'object') return null;
@@ -1956,6 +1958,13 @@ const normalizeQuoteItemImages = (value: unknown): ItemImageForm[] => {
         fileType: String(image.fileType || image.file_type || ''),
         storagePath: image.storagePath || image.storage_path || getAttachmentStoragePath(url),
         uploadedAt: String(image.uploadedAt || image.uploaded_at || ''),
+        source:
+          image.source === 'quote-attachment' || image.source === 'item-upload'
+            ? image.source
+            : image.source_attachment_id || image.sourceAttachmentId
+              ? 'quote-attachment'
+              : 'item-upload',
+        sourceAttachmentId: image.sourceAttachmentId || image.source_attachment_id || null,
       };
     })
     .filter((item): item is ItemImageForm => item !== null);
@@ -2072,6 +2081,8 @@ const buildItemsSignature = (items: ItemForm[]) =>
         url: image.url,
         name: image.name,
         storagePath: image.storagePath || '',
+        source: image.source || '',
+        sourceAttachmentId: image.sourceAttachmentId || '',
       })),
       technicalNotes: (item.technicalNotes || '').trim(),
       masterItemId: item.masterItemId || '',
@@ -4809,6 +4820,14 @@ export default function TechniciansPage() {
       const { error: deleteError } = await supabase.from('quote_attachments').delete().eq('id', attachment.id);
       if (deleteError) throw deleteError;
       setAttachments((prev) => prev.filter((file) => file.id !== attachment.id));
+      setItems((prev) =>
+        prev.map((item) => ({
+          ...item,
+          itemImages: (item.itemImages || []).filter(
+            (image) => image.sourceAttachmentId !== attachment.id && image.url !== attachment.file_url
+          ),
+        }))
+      );
     } catch (error) {
       console.error('Error eliminando adjunto:', error);
       setFormError('No pudimos eliminar el adjunto.');
@@ -4892,6 +4911,49 @@ export default function TechniciansPage() {
     }
   };
 
+  const handleAssignAttachmentToItem = (itemId: string, attachment: AttachmentRow) => {
+    const targetItem = items.find((item) => item.id === itemId);
+    if (!targetItem) return;
+
+    const currentImages = targetItem.itemImages || [];
+    if (currentImages.length >= QUOTE_ITEM_MAX_IMAGES) {
+      setFormError(`Cada item puede tener hasta ${QUOTE_ITEM_MAX_IMAGES} imagenes.`);
+      return;
+    }
+
+    const alreadyAssigned = currentImages.some(
+      (image) => image.sourceAttachmentId === attachment.id || image.url === attachment.file_url
+    );
+    if (alreadyAssigned) {
+      setInfoMessage('Esa foto ya esta asignada al item.');
+      return;
+    }
+
+    const linkedImage: ItemImageForm = {
+      id: `attachment-${attachment.id}`,
+      url: attachment.file_url,
+      name: attachment.file_name || 'Foto adjunta',
+      fileType: attachment.file_type || '',
+      storagePath: null,
+      uploadedAt: attachment.created_at || new Date().toISOString(),
+      source: 'quote-attachment',
+      sourceAttachmentId: attachment.id,
+    };
+
+    setFormError('');
+    setItems((prev) =>
+      prev.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              itemImages: [...(item.itemImages || []), linkedImage],
+            }
+          : item
+      )
+    );
+    setInfoMessage('Foto adjunta asignada al item.');
+  };
+
   const handleItemImageRemove = async (itemId: string, image: ItemImageForm) => {
     const deleteKey = `${itemId}:${image.id}`;
     setDeletingItemImageId(deleteKey);
@@ -4907,7 +4969,8 @@ export default function TechniciansPage() {
       )
     );
 
-    const storagePath = image.storagePath || getAttachmentStoragePath(image.url);
+    const shouldDeleteStorage = image.source !== 'quote-attachment' && !image.sourceAttachmentId;
+    const storagePath = shouldDeleteStorage ? image.storagePath || getAttachmentStoragePath(image.url) : null;
     if (storagePath) {
       const { error } = await supabase.storage.from('urbanfix-assets').remove([storagePath]);
       if (error) {
@@ -4927,6 +4990,7 @@ export default function TechniciansPage() {
   );
   const laborItems = useMemo(() => items.filter((item) => item.type === 'labor'), [items]);
   const materialItems = useMemo(() => items.filter((item) => item.type === 'material'), [items]);
+  const quoteImageAttachments = useMemo(() => attachments.filter(isImageAttachment), [attachments]);
   const subtotal = useMemo(
     () => items.reduce((acc, item) => acc + item.quantity * item.unitPrice, 0),
     [items]
@@ -6601,6 +6665,8 @@ export default function TechniciansPage() {
                     file_type: image.fileType || null,
                     storage_path: image.storagePath || null,
                     uploaded_at: image.uploadedAt || null,
+                    source: image.source || 'item-upload',
+                    source_attachment_id: image.sourceAttachmentId || null,
                   }))
                 : [],
             technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
@@ -10807,6 +10873,13 @@ export default function TechniciansPage() {
                             const itemHasPendingPrice = item.type === 'material' && item.unitPrice <= 0;
                             const itemImages = item.itemImages || [];
                             const isUploadingItemImages = uploadingItemImageId === item.id;
+                            const itemCanReceiveImages = itemImages.length < QUOTE_ITEM_MAX_IMAGES;
+                            const reusableQuoteImages = quoteImageAttachments.filter(
+                              (file) =>
+                                !itemImages.some(
+                                  (image) => image.sourceAttachmentId === file.id || image.url === file.file_url
+                                )
+                            );
                             return (
                             <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
@@ -10949,6 +11022,53 @@ export default function TechniciansPage() {
                                     />
                                   </label>
                                 </div>
+                                {quoteImageAttachments.length > 0 && (
+                                  <details className="group mt-3 rounded-2xl border border-slate-200 bg-white">
+                                    <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-slate-500">
+                                      <span>Usar fotos adjuntas</span>
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-1 text-[10px] tracking-normal text-slate-500">
+                                        {reusableQuoteImages.length} disponibles
+                                        <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+                                      </span>
+                                    </summary>
+                                    <div className="border-t border-slate-100 p-3">
+                                      {!itemCanReceiveImages ? (
+                                        <p className="text-xs font-semibold text-slate-500">
+                                          Este item ya tiene el maximo de imagenes.
+                                        </p>
+                                      ) : reusableQuoteImages.length === 0 ? (
+                                        <p className="text-xs font-semibold text-slate-500">
+                                          Todas las fotos adjuntas ya estan asignadas a este item.
+                                        </p>
+                                      ) : (
+                                        <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-5">
+                                          {reusableQuoteImages.map((file) => (
+                                            <button
+                                              key={file.id}
+                                              type="button"
+                                              onClick={() => handleAssignAttachmentToItem(item.id, file)}
+                                              className="group/attachment overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 text-left shadow-sm transition hover:border-slate-300 hover:bg-white"
+                                            >
+                                              <img
+                                                src={file.file_url}
+                                                alt={file.file_name || 'Foto adjunta'}
+                                                className="h-20 w-full object-cover"
+                                              />
+                                              <div className="flex items-center justify-between gap-2 px-2 py-2">
+                                                <span className="truncate text-[10px] font-semibold text-slate-500">
+                                                  {file.file_name || 'Foto'}
+                                                </span>
+                                                <span className="rounded-full bg-slate-950 px-2 py-1 text-[10px] font-black text-white">
+                                                  Asignar
+                                                </span>
+                                              </div>
+                                            </button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </details>
+                                )}
                                 {itemImages.length > 0 && (
                                   <div className="mt-3 grid gap-2 sm:grid-cols-3 lg:grid-cols-4">
                                     {itemImages.map((image) => {

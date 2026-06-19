@@ -40,6 +40,8 @@ export type ItemImageForm = {
   fileType?: string;
   storagePath?: string | null;
   uploadedAt?: string;
+  source?: 'item-upload' | 'quote-attachment';
+  sourceAttachmentId?: string | null;
 };
 
 export type QuoteItemRow = {
