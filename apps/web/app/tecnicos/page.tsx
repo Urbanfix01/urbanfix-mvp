@@ -1858,6 +1858,8 @@ export default function TechniciansPage() {
   const [geoSelected, setGeoSelected] = useState<GeoResult | null>(null);
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState('');
+  const quoteAddressLookupTimerRef = useRef<number | null>(null);
+  const quoteAddressLookupSequenceRef = useRef(0);
   const [supportMessages, setSupportMessages] = useState<any[]>([]);
   const [supportUsers, setSupportUsers] = useState<any[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
@@ -2005,6 +2007,11 @@ export default function TechniciansPage() {
     | 'notificaciones'
   >('lobby');
   const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('preview');
+  const [publicProfileReviewStats, setPublicProfileReviewStats] = useState({
+    rating: null as number | null,
+    reviewsCount: 0,
+    commentsCount: 0,
+  });
   const [viewerInput, setViewerInput] = useState('');
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState('');
@@ -2107,6 +2114,15 @@ export default function TechniciansPage() {
     if (isTechnicianDashboardTab(incomingTab)) {
       setActiveTab(incomingTab);
     }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (quoteAddressLookupTimerRef.current) {
+        window.clearTimeout(quoteAddressLookupTimerRef.current);
+        quoteAddressLookupTimerRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -3570,43 +3586,110 @@ export default function TechniciansPage() {
     setProfilePersistTick((prev) => prev + 1);
   };
 
-  const handleGeocodeSearch = async () => {
-    const query = clientAddress.trim();
+  const handleGeocodeSearch = async (options: { auto?: boolean; query?: string } = {}) => {
+    const isAuto = Boolean(options.auto);
+    const query = (options.query ?? clientAddress).trim();
+    const lookupSequence = quoteAddressLookupSequenceRef.current + 1;
+    quoteAddressLookupSequenceRef.current = lookupSequence;
     if (!query) {
-      setGeoError('Ingresa una direccion para buscar en el mapa.');
+      if (!isAuto) setGeoError('Ingresa una direccion para buscar en el mapa.');
       return;
     }
+    if (isAuto && (!/\d/.test(query) || query.length < 5)) return;
     setGeoLoading(true);
     setGeoError('');
-    setGeoResults([]);
+    if (!isAuto) setGeoResults([]);
     try {
-      const response = await fetch(`/api/geocode/search?query=${encodeURIComponent(query)}&limit=5`, {
-        cache: 'no-store',
-      });
-      const payload = (await response.json()) as {
-        results?: Array<{ display_name: string; lat: number; lon: number }>;
-        error?: string;
+      const fetchGeocodePayload = async (quickSearch: boolean) => {
+        const params = new URLSearchParams({
+          query,
+          limit: quickSearch ? '6' : '10',
+          country: profileForm.country || DEFAULT_COUNTRY_NAME,
+        });
+        if (quickSearch) params.set('quick', '1');
+        const response = await fetch(`/api/geocode/search?${params.toString()}`, {
+          cache: 'no-store',
+        });
+        return (await response.json()) as {
+          results?: Array<GeoResult>;
+          error?: string;
+        };
       };
-      const data = Array.isArray(payload.results) ? payload.results : [];
+
+      let payload = await fetchGeocodePayload(isAuto);
+      if (lookupSequence !== quoteAddressLookupSequenceRef.current) return;
+      let data = Array.isArray(payload.results) ? payload.results : [];
+      if (isAuto && data.length === 0) {
+        payload = await fetchGeocodePayload(false);
+        if (lookupSequence !== quoteAddressLookupSequenceRef.current) return;
+        data = Array.isArray(payload.results) ? payload.results : [];
+      }
+      const seen = new Set<string>();
       const mapped = data
         .map((item) => ({
-          display_name: item.display_name,
+          display_name: String(item.display_name || '').trim(),
+          full_display_name: String(item.full_display_name || '').trim(),
+          primary_label: String(item.primary_label || item.display_name || '').trim(),
+          secondary_label: String(item.secondary_label || '').trim(),
+          detail_label: String(item.detail_label || '').trim(),
+          accuracy_label: String(item.accuracy_label || '').trim(),
+          locality: String(item.locality || '').trim(),
+          province: String(item.province || '').trim(),
+          precision: item.precision === 'exact' ? 'exact' as const : 'approx' as const,
           lat: Number(item.lat),
           lon: Number(item.lon),
         }))
-        .filter((item) => Number.isFinite(item.lat) && Number.isFinite(item.lon));
+        .filter((item) => {
+          if (!item.display_name || !Number.isFinite(item.lat) || !Number.isFinite(item.lon)) return false;
+          const key = `${item.primary_label || item.display_name}|${item.secondary_label}`.toLowerCase();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
       if (mapped.length === 0) {
-        setGeoError(payload.error || 'No encontramos esa direccion. Prueba con mas detalles.');
+        if (!isAuto) setGeoError(payload.error || 'No encontramos esa direccion. Prueba con mas detalles.');
       }
       setGeoResults(mapped);
     } catch {
-      setGeoError('No pudimos buscar la direccion. Intenta nuevamente.');
+      if (lookupSequence !== quoteAddressLookupSequenceRef.current) return;
+      if (!isAuto) setGeoError('No pudimos buscar la direccion. Intenta nuevamente.');
     } finally {
-      setGeoLoading(false);
+      if (lookupSequence === quoteAddressLookupSequenceRef.current) {
+        setGeoLoading(false);
+      }
     }
   };
 
+  const scheduleQuoteAddressLookup = (address: string) => {
+    if (quoteAddressLookupTimerRef.current) {
+      window.clearTimeout(quoteAddressLookupTimerRef.current);
+      quoteAddressLookupTimerRef.current = null;
+    }
+    quoteAddressLookupSequenceRef.current += 1;
+    setGeoError('');
+    if (!/\d/.test(address) || address.trim().length < 5) {
+      setGeoResults([]);
+      return;
+    }
+    quoteAddressLookupTimerRef.current = window.setTimeout(() => {
+      void handleGeocodeSearch({ auto: true, query: address });
+    }, 420);
+  };
+
+  const handleQuoteAddressChange = (nextValue: string) => {
+    setClientAddress(nextValue);
+    if (geoSelected && nextValue !== geoSelected.display_name) {
+      setGeoSelected(null);
+    }
+    scheduleQuoteAddressLookup(nextValue);
+  };
+
   const handleSelectGeo = (result: GeoResult) => {
+    if (quoteAddressLookupTimerRef.current) {
+      window.clearTimeout(quoteAddressLookupTimerRef.current);
+      quoteAddressLookupTimerRef.current = null;
+    }
+    quoteAddressLookupSequenceRef.current += 1;
     setGeoSelected(result);
     setGeoResults([]);
     setGeoError('');
@@ -6073,6 +6156,44 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return '';
     return `${window.location.origin}/vidriera`;
   }, []);
+
+  useEffect(() => {
+    const profileId = session?.user?.id || profile?.id || '';
+    if (!profileId) {
+      setPublicProfileReviewStats({ rating: null, reviewsCount: 0, commentsCount: 0 });
+      return;
+    }
+    if (activeTab !== 'perfil' || profilePanelTab !== 'preview') return;
+
+    let cancelled = false;
+    const loadPublicReviewStats = async () => {
+      try {
+        const response = await fetch(`/api/tecnicos/${profileId}/comments`, {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+        if (!response.ok) return;
+        const payload = await response.json();
+        if (cancelled) return;
+        const reviews = Array.isArray(payload?.reviews) ? payload.reviews : [];
+        const ratingValue = Number(payload?.rating);
+        setPublicProfileReviewStats({
+          rating: Number.isFinite(ratingValue) && ratingValue > 0 ? ratingValue : null,
+          reviewsCount: Math.max(0, Number(payload?.reviewsCount || 0)),
+          commentsCount: reviews.filter((review: { comment?: unknown }) => String(review?.comment || '').trim()).length,
+        });
+      } catch {
+        // Keep saved counters visible if the comments endpoint is temporarily unavailable.
+      }
+    };
+
+    loadPublicReviewStats();
+    return () => {
+      cancelled = true;
+    };
+  }, [activeTab, profile?.id, profilePanelTab, session?.user?.id]);
+
   const publicProfilePreview = useMemo(() => {
     const profileId = session?.user?.id || profile?.id || '';
     const displayName =
@@ -6083,8 +6204,11 @@ export default function TechniciansPage() {
     const specialties = parseSpecialties(profileForm.specialties).slice(0, 12);
     const badges = parseProfileBadges(profile?.achievement_badges).slice(0, 8);
     const likesCount = Math.max(0, Number(profile?.public_likes_count || 0));
-    const rating = Number(profile?.public_rating || 0);
-    const reviewsCount = Math.max(0, Number(profile?.public_reviews_count || 0));
+    const savedRating = Number(profile?.public_rating || 0);
+    const liveRating = Number(publicProfileReviewStats.rating || 0);
+    const rating = liveRating > 0 ? liveRating : savedRating;
+    const reviewsCount = Math.max(0, Number(publicProfileReviewStats.reviewsCount || profile?.public_reviews_count || 0));
+    const commentsCount = Math.max(0, Number(publicProfileReviewStats.commentsCount || 0));
     const completedJobsRaw = Number(profile?.completed_jobs_total);
     const hasRating = Number.isFinite(rating) && rating > 0;
     const hasCompletedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0;
@@ -6116,6 +6240,10 @@ export default function TechniciansPage() {
         value: reviewsCount.toString(),
       },
       {
+        label: 'Comentarios',
+        value: commentsCount.toString(),
+      },
+      {
         label: 'Trabajos',
         value: completedJobsCount.toString(),
       },
@@ -6144,6 +6272,7 @@ export default function TechniciansPage() {
       likesCount,
       metricCards,
       profileId,
+      commentsCount,
       reviewsCount,
       shareUrl: publicProfileUrl,
       socialLinks,
@@ -6162,6 +6291,9 @@ export default function TechniciansPage() {
     profile?.public_rating,
     profile?.public_reviews_count,
     profile?.references_summary,
+    publicProfileReviewStats.commentsCount,
+    publicProfileReviewStats.rating,
+    publicProfileReviewStats.reviewsCount,
     quotes,
     quoteStats.total,
     profileForm.avatarUrl,
@@ -7448,7 +7580,7 @@ export default function TechniciansPage() {
 
                     <div className="mt-2 border-t border-white/[0.08] pt-2">
                       <a
-                        href={session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil'}
+                        href={publicProfileUrl || (session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil')}
                         onClick={() => setIsMobileFloatingMenuOpen(false)}
                         className="flex min-h-11 items-center gap-2.5 rounded-[16px] px-3 text-[13px] font-semibold text-white/[0.78] transition hover:bg-white/[0.075] hover:text-white"
                       >
@@ -8621,343 +8753,403 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'nuevo' && (
-              <section className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Job config</p>
-                    <h2 className="text-xl font-semibold text-slate-900">Nuevo presupuesto</h2>
-                    <p className="text-sm text-slate-500">Completa los datos para crear un presupuesto nuevo.</p>
+              <section className="rounded-[30px] border border-white/80 bg-white/96 p-4 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Presupuestador</p>
+                    <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-bold leading-tight text-[#180f24]`}>
+                      Nuevo presupuesto
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-500">Carga simple por partes, con el total siempre a la vista.</p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setActiveTab('presupuestos')}
-                      className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
-                    >
-                      Volver
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('presupuestos')}
+                    className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                  >
+                    Volver
+                  </button>
                 </div>
 
-                <div className="mt-6 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Cliente</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Nombre del cliente</label>
-                      <input
-                        value={clientName}
-                        onChange={(event) => setClientName(event.target.value)}
-                        placeholder="Nombre y apellido"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Direccion del trabajo</label>
-                      <input
-                        value={clientAddress}
-                        onChange={(event) => {
-                          const nextValue = event.target.value;
-                          setClientAddress(nextValue);
-                          if (geoSelected && nextValue !== geoSelected.display_name) {
-                            setGeoSelected(null);
-                          }
-                          if (geoResults.length) setGeoResults([]);
-                          if (geoError) setGeoError('');
-                        }}
-                        placeholder="Direccion completa"
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={handleGeocodeSearch}
-                          disabled={geoLoading}
-                          className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:bg-slate-100/60 disabled:text-slate-400"
-                        >
-                          {geoLoading ? 'Buscando...' : 'Buscar en mapa'}
-                        </button>
-                        {geoSelected && (
-                          <span className="text-[11px] font-semibold text-emerald-600">Ubicacion seleccionada</span>
+                <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+                  <div className="space-y-3">
+                    <details open className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 1</p>
+                          <h3 className="text-base font-bold text-slate-900">Cliente y ubicación</h3>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {geoSelected ? 'Ubicación confirmada' : clientAddress.trim() ? 'Revisar mapa' : 'Pendiente'}
+                        </span>
+                      </summary>
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-1">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600">Cliente</label>
+                            <input
+                              value={clientName}
+                              onChange={(event) => setClientName(event.target.value)}
+                              placeholder="Nombre y apellido"
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-600">Dirección del trabajo</label>
+                            <input
+                              value={clientAddress}
+                              onChange={(event) => handleQuoteAddressChange(event.target.value)}
+                              onFocus={() => {
+                                if (geoResults.length > 0 && !geoSelected) {
+                                  setGeoError('');
+                                }
+                              }}
+                              placeholder="Calle, número y localidad. Ej: Coronel Bogado 2556"
+                              className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => void handleGeocodeSearch()}
+                            disabled={geoLoading}
+                            className="rounded-full border border-slate-200 bg-white px-4 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            {geoLoading ? 'Buscando...' : 'Buscar otra vez'}
+                          </button>
+                          {geoSelected && (
+                            <span className="rounded-full bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
+                              Punto confirmado
+                            </span>
+                          )}
+                          {!geoSelected && geoLoading && (
+                            <span className="text-[11px] font-semibold text-slate-500">Buscando opciones...</span>
+                          )}
+                        </div>
+                        {geoError && <p className="mt-2 text-xs font-semibold text-rose-500">{geoError}</p>}
+                        {geoResults.length > 0 && (
+                          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                            {geoResults.map((result) => (
+                              <button
+                                key={`${result.lat}-${result.lon}`}
+                                type="button"
+                                onClick={() => handleSelectGeo(result)}
+                                className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left transition last:border-b-0 hover:bg-emerald-50"
+                              >
+                                <span className="min-w-0">
+                                  <span className="block truncate text-sm font-bold text-slate-900">
+                                    {result.primary_label || result.display_name}
+                                  </span>
+                                  <span className="mt-0.5 block truncate text-xs text-slate-500">
+                                    {result.secondary_label || result.full_display_name || result.display_name}
+                                  </span>
+                                  {result.detail_label ? (
+                                    <span className="mt-0.5 block truncate text-[11px] text-slate-400">
+                                      {result.detail_label}
+                                    </span>
+                                  ) : null}
+                                </span>
+                                <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-600">
+                                  {result.accuracy_label || 'Usar'}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {geoSelected && geoMapUrl && (
+                          <div className="mt-4 overflow-hidden rounded-[22px] border border-slate-200 bg-white">
+                            <iframe
+                              title="Mapa de ubicacion"
+                              src={geoMapUrl}
+                              className="h-56 w-full border-0"
+                              loading="lazy"
+                            />
+                            <div className="flex items-center justify-between gap-2 px-4 py-3 text-xs text-slate-500">
+                              <span className="truncate">Vista previa de la ubicación</span>
+                              <a
+                                href={buildOsmLink(geoSelected.lat, geoSelected.lon)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="shrink-0 font-semibold text-slate-700 transition hover:text-slate-900"
+                              >
+                                Abrir mapa
+                              </a>
+                            </div>
+                          </div>
                         )}
                       </div>
-                      {geoError && <p className="mt-2 text-xs text-rose-500">{geoError}</p>}
-                      {geoResults.length > 0 && (
-                        <div className="mt-3 space-y-2">
-                          {geoResults.map((result) => (
-                            <button
-                              key={`${result.lat}-${result.lon}`}
-                              type="button"
-                              onClick={() => handleSelectGeo(result)}
-                              className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2 text-left text-xs text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
-                            >
-                              {result.display_name}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      {geoSelected && geoMapUrl && (
-                        <div className="mt-4 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                          <iframe
-                            title="Mapa de ubicacion"
-                            src={geoMapUrl}
-                            className="h-64 w-full border-0"
-                            loading="lazy"
-                          />
-                          <div className="flex items-center justify-between gap-2 px-4 py-3 text-xs text-slate-500">
-                            <span>Vista previa de la ubicacion</span>
-                            <a
-                              href={buildOsmLink(geoSelected.lat, geoSelected.lon)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="font-semibold text-slate-700 transition hover:text-slate-900"
-                            >
-                              Abrir mapa
-                            </a>
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    </details>
 
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Items</p>
-                          <p className="text-xs text-slate-500">Detalle de materiales y mano de obra.</p>
+                    <details className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 2</p>
+                          <h3 className="text-base font-bold text-slate-900">Detalle del trabajo</h3>
                         </div>
-                        <button
-                          type="button"
-                          onClick={handleAddItem}
-                          className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-200"
-                        >
-                          + Agregar item
-                        </button>
-                      </div>
-                      {items.length === 0 && (
-                        <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
-                          Agrega el primer item para armar el presupuesto.
-                        </div>
-                      )}
-                      <div className="mt-4 space-y-3">
-                        {items.map((item) => (
-                          <div
-                            key={item.id}
-                            className="rounded-2xl border border-slate-200 bg-white p-3"
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {items.filter((item) => item.description.trim()).length} ítems
+                        </span>
+                      </summary>
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="text-sm text-slate-500">Mano de obra, materiales y cantidades.</p>
+                          <button
+                            type="button"
+                            onClick={handleAddItem}
+                            className="rounded-full bg-slate-950 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
                           >
-                            <div className="grid gap-2 sm:grid-cols-[2fr_0.7fr_0.9fr_1fr_auto]">
-                              <input
-                                value={item.description}
-                                onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
-                                placeholder="Descripcion"
-                                list={item.type === 'labor' ? 'labor-master-items' : undefined}
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
-                              />
-                              <input
-                                type="number"
-                                min={0}
-                                step="1"
-                                value={item.quantity}
-                                onFocus={(event) => event.currentTarget.select()}
-                                onClick={(event) => event.currentTarget.select()}
-                                onChange={(event) =>
-                                  handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
-                                }
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
-                              />
-                              <input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={item.unitPrice}
-                                onFocus={(event) => event.currentTarget.select()}
-                                onClick={(event) => event.currentTarget.select()}
-                                onChange={(event) =>
-                                  handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
-                                }
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none focus:border-slate-400"
-                              />
-                              <select
-                                value={item.type}
-                                onChange={(event) =>
-                                  handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
-                                }
-                                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600 outline-none focus:border-slate-400"
-                              >
-                                <option value="labor">Mano de obra</option>
-                                <option value="material">Material</option>
-                              </select>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveItem(item.id)}
-                                className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] font-semibold text-rose-600 transition hover:border-rose-300 hover:text-rose-700"
-                              >
-                                Quitar
-                              </button>
-                            </div>
-                            {item.technicalNotes && (
-                              <div className="mt-2 rounded-xl bg-slate-50 px-3 py-2 text-[11px] leading-5 text-slate-600">
-                                <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Especificacion tecnica</p>
-                                <p className="mt-1 whitespace-pre-wrap">{item.technicalNotes}</p>
-                              </div>
-                            )}
+                            + Agregar ítem
+                          </button>
+                        </div>
+                        {items.length === 0 && (
+                          <div className="mt-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-500">
+                            Agrega el primer ítem para armar el presupuesto.
                           </div>
-                        ))}
-                        <datalist id="labor-master-items">
-                          {laborMasterItems.map((laborItem) => (
-                            <option key={laborItem.id} value={getMasterItemChoiceValue(laborItem)} />
+                        )}
+                        <div className="mt-4 space-y-3">
+                          {items.map((item) => (
+                            <div key={item.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                  Ítem
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveItem(item.id)}
+                                  className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-50"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                              <div className="mt-3 grid gap-3 md:grid-cols-[minmax(0,1.6fr)_90px_130px_150px]">
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Descripción</label>
+                                  <input
+                                    value={item.description}
+                                    onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
+                                    placeholder="Ej: Reparación de pérdida"
+                                    list={item.type === 'labor' ? 'labor-master-items' : undefined}
+                                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Cant.</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="1"
+                                    value={item.quantity}
+                                    onFocus={(event) => event.currentTarget.select()}
+                                    onClick={(event) => event.currentTarget.select()}
+                                    onChange={(event) =>
+                                      handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
+                                    }
+                                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Precio unit.</label>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={item.unitPrice}
+                                    onFocus={(event) => event.currentTarget.select()}
+                                    onClick={(event) => event.currentTarget.select()}
+                                    onChange={(event) =>
+                                      handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
+                                    }
+                                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Tipo</label>
+                                  <select
+                                    value={item.type}
+                                    onChange={(event) =>
+                                      handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
+                                    }
+                                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none focus:border-slate-400"
+                                  >
+                                    <option value="labor">Mano de obra</option>
+                                    <option value="material">Material</option>
+                                  </select>
+                                </div>
+                              </div>
+                              {item.technicalNotes && (
+                                <div className="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] leading-5 text-slate-600 ring-1 ring-slate-100">
+                                  <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Especificación técnica</p>
+                                  <p className="mt-1 whitespace-pre-wrap">{item.technicalNotes}</p>
+                                </div>
+                              )}
+                            </div>
                           ))}
-                        </datalist>
+                          <datalist id="labor-master-items">
+                            {laborMasterItems.map((laborItem) => (
+                              <option key={laborItem.id} value={getMasterItemChoiceValue(laborItem)} />
+                            ))}
+                          </datalist>
+                        </div>
                       </div>
-                    </div>
+                    </details>
+
+                    <details className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4">
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 3</p>
+                          <h3 className="text-base font-bold text-slate-900">Ajustes y adjuntos</h3>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                          {applyTax ? 'IVA activo' : 'Sin IVA'}
+                        </span>
+                      </summary>
+                      <div className="grid gap-4 border-t border-slate-100 px-4 pb-4 pt-4 lg:grid-cols-2">
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Ajustes</p>
+                          <label className="mt-3 block text-xs font-semibold text-slate-600">Descuento (%)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            step="0.01"
+                            value={discount}
+                            onFocus={(event) => event.currentTarget.select()}
+                            onClick={(event) => event.currentTarget.select()}
+                            onChange={(event) =>
+                              setDiscount(Math.min(100, Math.max(0, toNumber(event.target.value))))
+                            }
+                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                          />
+                          <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                            <input
+                              type="checkbox"
+                              checked={applyTax}
+                              onChange={(event) => setApplyTax(event.target.checked)}
+                              className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                            />
+                            Aplicar IVA 21%
+                          </label>
+                        </div>
+
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Adjuntos</p>
+                          {!activeQuoteId && (
+                            <p className="mt-3 rounded-2xl bg-slate-50 p-3 text-xs font-semibold text-slate-500">
+                              Guarda el presupuesto para adjuntar fotos o documentos.
+                            </p>
+                          )}
+                          {activeQuoteId && (
+                            <div className="mt-3 space-y-3">
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={handleAttachmentUpload}
+                                disabled={uploadingAttachments}
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500"
+                              />
+                              {attachments.length === 0 && (
+                                <p className="text-xs text-slate-500">Aún no hay fotos adjuntas.</p>
+                              )}
+                              {attachments.length > 0 && (
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                  {attachments.map((file) => {
+                                    const isImage = isImageAttachment(file);
+                                    return (
+                                      <div key={file.id} className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                                        <a href={file.file_url} target="_blank" rel="noreferrer">
+                                          {isImage ? (
+                                            <img
+                                              src={file.file_url}
+                                              alt={file.file_name || 'Adjunto'}
+                                              className="h-28 w-full object-cover"
+                                            />
+                                          ) : (
+                                            <div className="flex h-28 items-center justify-center bg-slate-50 text-xs text-slate-500">
+                                              Ver archivo
+                                            </div>
+                                          )}
+                                        </a>
+                                        <div className="flex items-center justify-between gap-2 px-3 py-2">
+                                          <span className="truncate text-[11px] text-slate-600">
+                                            {file.file_name || 'Adjunto'}
+                                          </span>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleAttachmentRemove(file)}
+                                            disabled={deletingAttachmentId === file.id}
+                                            className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
+                                          >
+                                            {deletingAttachmentId === file.id ? 'Eliminando' : 'Eliminar'}
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </details>
                   </div>
 
-                  <div className="space-y-4">
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Resumen</p>
-                      <div className="mt-3 space-y-2 text-sm text-slate-600">
+                  <aside className="xl:sticky xl:top-5 xl:self-start">
+                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_22px_62px_-48px_rgba(15,23,42,0.75)]">
+                      <div className="bg-[#180f24] px-5 py-5 text-white">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/45">Total</p>
+                        <p className={`${spaceGrotesk.className} mt-2 text-4xl font-black`}>
+                          ${total.toLocaleString('es-AR')}
+                        </p>
+                        <p className="mt-2 text-xs text-white/55">
+                          {clientName.trim() || 'Cliente sin cargar'}
+                        </p>
+                      </div>
+                      <div className="space-y-2 px-5 py-4 text-sm text-slate-600">
                         <div className="flex items-center justify-between">
                           <span>Mano de obra</span>
-                          <span className="font-semibold text-slate-900">
-                            ${laborSubtotal.toLocaleString('es-AR')}
-                          </span>
+                          <span className="font-semibold text-slate-900">${laborSubtotal.toLocaleString('es-AR')}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>Materiales</span>
-                          <span className="font-semibold text-slate-900">
-                            ${materialSubtotal.toLocaleString('es-AR')}
-                          </span>
+                          <span className="font-semibold text-slate-900">${materialSubtotal.toLocaleString('es-AR')}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>Descuento ({discountPercent.toFixed(0)}%)</span>
-                          <span className="font-semibold text-slate-900">
-                            -${discountAmount.toLocaleString('es-AR')}
-                          </span>
+                          <span className="font-semibold text-slate-900">-${discountAmount.toLocaleString('es-AR')}</span>
                         </div>
                         <div className="flex items-center justify-between">
                           <span>IVA 21%</span>
                           <span className="font-semibold text-slate-900">${taxAmount.toLocaleString('es-AR')}</span>
                         </div>
                       </div>
-                      <div className="mt-4 border-t border-slate-200 pt-4">
-                        <div className="flex items-center justify-between text-lg font-semibold text-slate-900">
-                          <span>Total</span>
-                          <span>${total.toLocaleString('es-AR')}</span>
+                      <div className="border-t border-slate-200 px-5 py-4">
+                        <div className="grid gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSave('draft')}
+                            disabled={isSaving}
+                            className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
+                          >
+                            Guardar borrador
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSave('sent')}
+                            disabled={isSaving}
+                            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                          >
+                            Enviar al cliente
+                          </button>
                         </div>
+                        {formError && <p className="mt-3 text-xs font-semibold text-rose-500">{formError}</p>}
+                        {infoMessage && <p className="mt-3 text-xs font-semibold text-emerald-600">{infoMessage}</p>}
                       </div>
                     </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Ajustes</p>
-                      <label className="mt-3 block text-xs font-semibold text-slate-600">Descuento (%)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step="0.01"
-                        value={discount}
-                        onFocus={(event) => event.currentTarget.select()}
-                        onClick={(event) => event.currentTarget.select()}
-                        onChange={(event) =>
-                          setDiscount(Math.min(100, Math.max(0, toNumber(event.target.value))))
-                        }
-                        className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-                      />
-                      <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                        <input
-                          type="checkbox"
-                          checked={applyTax}
-                          onChange={(event) => setApplyTax(event.target.checked)}
-                          className="h-4 w-4 rounded border-slate-300 text-slate-900"
-                        />
-                        Aplicar IVA 21%
-                      </label>
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acciones</p>
-                      <div className="mt-3 grid gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleSave('draft')}
-                          disabled={isSaving}
-                          className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:text-slate-400"
-                        >
-                          Guardar borrador
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSave('sent')}
-                          disabled={isSaving}
-                          className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                        >
-                          Enviar al cliente
-                        </button>
-                      </div>
-                      {formError && <p className="mt-3 text-xs text-rose-500">{formError}</p>}
-                      {infoMessage && <p className="mt-3 text-xs text-emerald-600">{infoMessage}</p>}
-                    </div>
-
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                      <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Adjuntos</p>
-                      {!activeQuoteId && (
-                        <p className="mt-2 text-xs text-slate-500">
-                          Guarda el presupuesto para adjuntar fotos o documentos.
-                        </p>
-                      )}
-                      {activeQuoteId && (
-                        <div className="mt-3 space-y-2">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={handleAttachmentUpload}
-                            disabled={uploadingAttachments}
-                            className="w-full text-xs text-slate-500"
-                          />
-                          {attachments.length === 0 && (
-                            <p className="text-xs text-slate-500">Aun no hay fotos adjuntas.</p>
-                          )}
-                          {attachments.length > 0 && (
-                            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                              {attachments.map((file) => {
-                                const isImage = isImageAttachment(file);
-                                return (
-                                  <div
-                                    key={file.id}
-                                    className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
-                                  >
-                                    <a href={file.file_url} target="_blank" rel="noreferrer">
-                                      {isImage ? (
-                                        <img
-                                          src={file.file_url}
-                                          alt={file.file_name || 'Adjunto'}
-                                          className="h-28 w-full object-cover"
-                                        />
-                                      ) : (
-                                        <div className="flex h-28 items-center justify-center bg-slate-50 text-xs text-slate-500">
-                                          Ver archivo
-                                        </div>
-                                      )}
-                                    </a>
-                                    <div className="flex items-center justify-between gap-2 px-3 py-2">
-                                      <span className="truncate text-[11px] text-slate-600">
-                                        {file.file_name || 'Adjunto'}
-                                      </span>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleAttachmentRemove(file)}
-                                        disabled={deletingAttachmentId === file.id}
-                                        className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-semibold text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60"
-                                      >
-                                        {deletingAttachmentId === file.id ? 'Eliminando' : 'Eliminar'}
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  </aside>
                 </div>
               </section>
             )}
@@ -10784,7 +10976,7 @@ export default function TechniciansPage() {
                                 />
                                 <ProfileReviewComments
                                   profileId={publicProfilePreview.profileId}
-                                  initialCount={publicProfilePreview.reviewsCount}
+                                  initialCount={publicProfilePreview.commentsCount}
                                 />
                                 <ProfileShareActions
                                   profileId={publicProfilePreview.profileId}
@@ -10902,7 +11094,7 @@ export default function TechniciansPage() {
                                 <h2 className="mt-2 text-2xl font-semibold text-white">Indicadores</h2>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-5 sm:divide-x sm:divide-white/10">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 sm:divide-x sm:divide-white/10">
                                 {publicProfilePreview.metricCards.map((item) => (
                                   <div key={item.label} className="border-b border-white/10 p-5 last:border-b-0 sm:border-b-0">
                                     <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/45">

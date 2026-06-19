@@ -193,6 +193,8 @@ const extractAddressNumber = (value: string) =>
 const expandCommonAddressAbbreviations = (value: string) =>
   String(value || '')
     .trim()
+    .replace(/\bcnel\.?\b/gi, 'Coronel')
+    .replace(/\bcnl\.?\b/gi, 'Coronel')
     .replace(/\bing\.?\b/gi, 'Ingeniero')
     .replace(/\bgral\.?\b/gi, 'General')
     .replace(/\bav\.?\b/gi, 'Avenida')
@@ -600,7 +602,7 @@ export async function GET(request: NextRequest) {
     );
     const fallbackVariants = buildStreetFallbackVariants(query, cityHint, provinceHint, countryHint).slice(
       0,
-      quick ? 0 : cityHint ? 3 : provinceHint ? 2 : 0
+      quick ? 0 : cityHint ? 3 : provinceHint ? 2 : 2
     );
     const [argentinaAddressResult, primaryResult] = await Promise.all([
       countryHint === 'Argentina'

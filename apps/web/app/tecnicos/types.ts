@@ -74,6 +74,14 @@ export type MasterItemRow = {
 
 export type GeoResult = {
   display_name: string;
+  full_display_name?: string;
+  primary_label?: string;
+  secondary_label?: string;
+  detail_label?: string;
+  accuracy_label?: string;
+  locality?: string;
+  province?: string;
+  precision?: 'exact' | 'approx';
   lat: number;
   lon: number;
 };
