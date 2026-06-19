@@ -1495,7 +1495,9 @@ const summarizeMaterialEstimateLines = (
   lines
     .map(
       (line) =>
-        `${line.label}: ${formatMeasureValue(line.quantity)} ${line.unit} x ${formatCurrency(line.unitPrice)} = ${formatCurrency(line.total)}`
+        line.unitPrice > 0
+          ? `${line.label}: ${formatMeasureValue(line.quantity)} ${line.unit} x ${formatCurrency(line.unitPrice)} = ${formatCurrency(line.total)}`
+          : `${line.label}: ${formatMeasureValue(line.quantity)} ${line.unit} (precio pendiente)`
     )
     .join('\n');
 
@@ -3720,7 +3722,7 @@ export default function TechniciansPage() {
         let query = supabase
           .from('master_items')
           .select(buildSelectFields(variant.includeActive, variant.includeTechnicalNotes, variant.includeUnit))
-          .in('type', ['labor', 'material']);
+          .in('type', ['labor', 'material', 'consumable']);
         if (variant.includeActive) {
           query = query.eq('active', true).order('active', { ascending: false });
         }
@@ -3894,7 +3896,10 @@ export default function TechniciansPage() {
     ]);
   };
 
-  const materialMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'material'), [masterItems]);
+  const materialMasterItems = useMemo(
+    () => masterItems.filter((item) => ['material', 'consumable'].includes(String(item.type))),
+    [masterItems]
+  );
   const revoqueMaterialMasterItems = useMemo<Record<RevoqueMaterialPriceField, MasterItemRow | null>>(
     () => ({
       cementBagPrice: resolveTemplateMaterialMasterItem(
@@ -3988,7 +3993,8 @@ export default function TechniciansPage() {
     getRevoqueMaterialUnitPrice
   );
   const revoqueAutoMaterialTotal = revoqueMaterialLines.reduce((sum, material) => sum + material.total, 0);
-  const revoqueUsesAutoMaterials = revoqueMaterialPrice <= 0 && revoqueAutoMaterialTotal > 0;
+  const revoqueUsesAutoMaterials =
+    revoqueMaterialPrice <= 0 && revoqueNetSurface > 0 && revoqueMaterialLines.length > 0;
   const revoqueEffectiveMaterialPrice =
     revoqueMaterialPrice > 0
       ? revoqueMaterialPrice
@@ -4049,7 +4055,7 @@ export default function TechniciansPage() {
 
     if (revoqueUsesAutoMaterials) {
       revoqueMaterialLines
-        .filter((material) => material.unitPrice > 0 && material.total > 0)
+        .filter((material) => material.quantity > 0)
         .forEach((material) => {
           const materialMasterItem = revoqueMaterialMasterItems[material.priceField];
           generatedItems.push({
@@ -4115,7 +4121,8 @@ export default function TechniciansPage() {
     getMamposteriaMaterialUnitPrice
   );
   const mamposteriaAutoMaterialTotal = mamposteriaMaterialLines.reduce((sum, material) => sum + material.total, 0);
-  const mamposteriaUsesAutoMaterials = mamposteriaMaterialPrice <= 0 && mamposteriaAutoMaterialTotal > 0;
+  const mamposteriaUsesAutoMaterials =
+    mamposteriaMaterialPrice <= 0 && mamposteriaNetSurface > 0 && mamposteriaMaterialLines.length > 0;
   const mamposteriaEffectiveMaterialPrice =
     mamposteriaMaterialPrice > 0
       ? mamposteriaMaterialPrice
@@ -4183,7 +4190,7 @@ export default function TechniciansPage() {
 
     if (mamposteriaUsesAutoMaterials) {
       mamposteriaMaterialLines
-        .filter((material) => material.unitPrice > 0 && material.total > 0)
+        .filter((material) => material.quantity > 0)
         .forEach((material) => {
           const materialMasterItem = mamposteriaMaterialMasterItems[material.priceField];
           generatedItems.push({
@@ -10236,7 +10243,7 @@ export default function TechniciansPage() {
                                 {revoqueUsesAutoMaterials && (
                                   <div className="mt-3 space-y-1 rounded-2xl border border-slate-100 bg-white p-3">
                                     {revoqueMaterialLines
-                                      .filter((material) => material.unitPrice > 0 && material.total > 0)
+                                      .filter((material) => material.quantity > 0)
                                       .map((material) => (
                                         <div
                                           key={`revoque-material-${material.key}`}
@@ -10246,7 +10253,7 @@ export default function TechniciansPage() {
                                             {material.label} - {formatMeasureValue(material.quantity)} {material.unit}
                                           </span>
                                           <span className="shrink-0 font-black text-slate-900">
-                                            {formatCurrency(material.total)}
+                                            {material.unitPrice > 0 ? formatCurrency(material.total) : 'Precio pendiente'}
                                           </span>
                                         </div>
                                       ))}
@@ -10496,7 +10503,7 @@ export default function TechniciansPage() {
                                 {mamposteriaUsesAutoMaterials && (
                                   <div className="mt-3 space-y-1 rounded-2xl border border-slate-100 bg-white p-3">
                                     {mamposteriaMaterialLines
-                                      .filter((material) => material.unitPrice > 0 && material.total > 0)
+                                      .filter((material) => material.quantity > 0)
                                       .map((material) => (
                                         <div
                                           key={`mamposteria-material-${material.key}`}
@@ -10506,7 +10513,7 @@ export default function TechniciansPage() {
                                             {material.label} - {formatMeasureValue(material.quantity)} {material.unit}
                                           </span>
                                           <span className="shrink-0 font-black text-slate-900">
-                                            {formatCurrency(material.total)}
+                                            {material.unitPrice > 0 ? formatCurrency(material.total) : 'Precio pendiente'}
                                           </span>
                                         </div>
                                       ))}
