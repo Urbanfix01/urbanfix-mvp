@@ -2414,6 +2414,7 @@ export default function TechniciansPage() {
   const supportAttachmentsRef = useRef<{ previewUrl: string }[]>([]);
   const supportMessagesEndRef = useRef<HTMLDivElement | null>(null);
   const accessTransitionTimerRef = useRef<number | null>(null);
+  const quoteItemsEditorRef = useRef<HTMLDivElement | null>(null);
   const [accessVideoMuted, setAccessVideoMuted] = useState(true);
   const [accessVideoAvailable, setAccessVideoAvailable] = useState(Boolean(ACCESS_VIDEO_URL));
   const [dashboardVideoAvailable, setDashboardVideoAvailable] = useState(Boolean(DASHBOARD_VIDEO_URL));
@@ -3896,6 +3897,12 @@ export default function TechniciansPage() {
     ]);
   };
 
+  const focusQuoteItemsEditor = () => {
+    window.setTimeout(() => {
+      quoteItemsEditorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
   const materialMasterItems = useMemo(
     () => masterItems.filter((item) => ['material', 'consumable'].includes(String(item.type))),
     [masterItems]
@@ -3992,9 +3999,10 @@ export default function TechniciansPage() {
     REVOQUE_MATERIAL_COEFFICIENTS[revoqueForm.workType],
     getRevoqueMaterialUnitPrice
   );
+  const revoqueHasAutoMaterialQuantities = revoqueMaterialLines.some((material) => material.quantity > 0);
   const revoqueAutoMaterialTotal = revoqueMaterialLines.reduce((sum, material) => sum + material.total, 0);
   const revoqueUsesAutoMaterials =
-    revoqueMaterialPrice <= 0 && revoqueNetSurface > 0 && revoqueMaterialLines.length > 0;
+    revoqueMaterialPrice <= 0 && revoqueNetSurface > 0 && revoqueHasAutoMaterialQuantities;
   const revoqueEffectiveMaterialPrice =
     revoqueMaterialPrice > 0
       ? revoqueMaterialPrice
@@ -4005,7 +4013,9 @@ export default function TechniciansPage() {
   const revoqueMaterialTotal =
     revoqueMaterialPrice > 0 ? revoqueNetSurface * revoqueMaterialPrice : revoqueAutoMaterialTotal;
   const revoqueEstimatedTotal = revoqueLaborTotal + revoqueMaterialTotal;
-  const revoqueReady = revoqueNetSurface > 0 && (revoqueLaborPrice > 0 || revoqueEffectiveMaterialPrice > 0);
+  const revoqueReady =
+    revoqueNetSurface > 0 &&
+    (revoqueLaborPrice > 0 || revoqueEffectiveMaterialPrice > 0 || revoqueHasAutoMaterialQuantities);
   const revoqueSurfaceSource = revoqueManualSurface > 0 ? 'superficie directa' : 'medidas cargadas';
 
   const updateRevoqueForm = (patch: Partial<RevoqueEstimatorForm>) => {
@@ -4014,7 +4024,7 @@ export default function TechniciansPage() {
 
   const handleApplyRevoqueTemplate = () => {
     if (!revoqueReady) {
-      setFormError('Completa la superficie y al menos un precio por m2.');
+      setFormError('Completa la superficie o las medidas del trabajo.');
       setInfoMessage('');
       return;
     }
@@ -4094,8 +4104,12 @@ export default function TechniciansPage() {
       );
       return [...keptItems, ...generatedItems];
     });
+    setOpenQuoteStep('items');
+    focusQuoteItemsEditor();
     setFormError('');
-    setInfoMessage('Revoque agregado al detalle. Puedes ajustar los items antes de enviar.');
+    setInfoMessage(
+      `Revoque agregado al detalle con ${generatedItems.length} items. Puedes ajustar precios y cantidades antes de enviar.`
+    );
   };
 
   const selectedMamposteriaType =
@@ -4120,9 +4134,10 @@ export default function TechniciansPage() {
     MAMPOSTERIA_MATERIAL_COEFFICIENTS[mamposteriaForm.workType],
     getMamposteriaMaterialUnitPrice
   );
+  const mamposteriaHasAutoMaterialQuantities = mamposteriaMaterialLines.some((material) => material.quantity > 0);
   const mamposteriaAutoMaterialTotal = mamposteriaMaterialLines.reduce((sum, material) => sum + material.total, 0);
   const mamposteriaUsesAutoMaterials =
-    mamposteriaMaterialPrice <= 0 && mamposteriaNetSurface > 0 && mamposteriaMaterialLines.length > 0;
+    mamposteriaMaterialPrice <= 0 && mamposteriaNetSurface > 0 && mamposteriaHasAutoMaterialQuantities;
   const mamposteriaEffectiveMaterialPrice =
     mamposteriaMaterialPrice > 0
       ? mamposteriaMaterialPrice
@@ -4136,7 +4151,10 @@ export default function TechniciansPage() {
       : mamposteriaAutoMaterialTotal;
   const mamposteriaEstimatedTotal = mamposteriaLaborTotal + mamposteriaMaterialTotal;
   const mamposteriaReady =
-    mamposteriaNetSurface > 0 && (mamposteriaLaborPrice > 0 || mamposteriaEffectiveMaterialPrice > 0);
+    mamposteriaNetSurface > 0 &&
+    (mamposteriaLaborPrice > 0 ||
+      mamposteriaEffectiveMaterialPrice > 0 ||
+      mamposteriaHasAutoMaterialQuantities);
   const mamposteriaSurfaceSource = mamposteriaManualSurface > 0 ? 'superficie directa' : 'medidas cargadas';
 
   const updateMamposteriaForm = (patch: Partial<MamposteriaEstimatorForm>) => {
@@ -4145,7 +4163,7 @@ export default function TechniciansPage() {
 
   const handleApplyMamposteriaTemplate = () => {
     if (!mamposteriaReady) {
-      setFormError('Completa la superficie y al menos un precio por m2.');
+      setFormError('Completa la superficie o las medidas del trabajo.');
       setInfoMessage('');
       return;
     }
@@ -4229,8 +4247,12 @@ export default function TechniciansPage() {
       );
       return [...keptItems, ...generatedItems];
     });
+    setOpenQuoteStep('items');
+    focusQuoteItemsEditor();
     setFormError('');
-    setInfoMessage('Mamposteria agregada al detalle. Puedes ajustar los items antes de enviar.');
+    setInfoMessage(
+      `Mamposteria agregada al detalle con ${generatedItems.length} items. Puedes ajustar precios y cantidades antes de enviar.`
+    );
   };
 
   const laborMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'labor'), [masterItems]);
@@ -10540,7 +10562,7 @@ export default function TechniciansPage() {
                           )}
                         </div>
 
-                        <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                        <div ref={quoteItemsEditorRef} className="mt-4 flex flex-wrap items-center justify-between gap-3">
                           <div>
                             <p className="text-sm font-bold text-slate-900">Items del presupuesto</p>
                             <p className="mt-1 text-xs font-semibold text-slate-500">
@@ -10564,6 +10586,7 @@ export default function TechniciansPage() {
                         <div className="mt-4 space-y-3">
                           {items.map((item, index) => {
                             const itemTotal = item.quantity * item.unitPrice;
+                            const itemHasPendingPrice = item.type === 'material' && item.unitPrice <= 0;
                             return (
                             <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
                               <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
@@ -10581,8 +10604,14 @@ export default function TechniciansPage() {
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
-                                  <span className="rounded-full bg-white px-3 py-1 text-xs font-black text-slate-900 ring-1 ring-slate-200">
-                                    {formatCurrency(itemTotal)}
+                                  <span
+                                    className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${
+                                      itemHasPendingPrice
+                                        ? 'bg-amber-50 text-amber-700 ring-amber-100'
+                                        : 'bg-white text-slate-900 ring-slate-200'
+                                    }`}
+                                  >
+                                    {itemHasPendingPrice ? 'Precio pendiente' : formatCurrency(itemTotal)}
                                   </span>
                                   <button
                                     type="button"
