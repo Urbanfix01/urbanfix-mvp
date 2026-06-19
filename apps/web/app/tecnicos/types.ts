@@ -31,6 +31,10 @@ export type ItemForm = {
   masterItemId?: string;
   masterItemCategory?: string;
   masterItemSourceRef?: string;
+  syncGroupId?: string;
+  syncRole?: 'driver' | 'dependent';
+  syncDriverId?: string;
+  syncQuantityPerUnit?: number;
 };
 
 export type ItemImageForm = {

@@ -2088,6 +2088,10 @@ const buildItemsSignature = (items: ItemForm[]) =>
       masterItemId: item.masterItemId || '',
       masterItemCategory: item.masterItemCategory || '',
       masterItemSourceRef: item.masterItemSourceRef || '',
+      syncGroupId: item.syncGroupId || '',
+      syncRole: item.syncRole || '',
+      syncDriverId: item.syncDriverId || '',
+      syncQuantityPerUnit: Number(item.syncQuantityPerUnit) || 0,
     }))
   );
 
@@ -3896,6 +3900,12 @@ export default function TechniciansPage() {
     const mapped = (itemsData || []).map((item: QuoteItemRow) => {
       const rawType = (item?.metadata?.type || item?.metadata?.category || 'labor').toString().toLowerCase();
       const normalizedType = rawType === 'material' || rawType === 'consumable' ? 'material' : 'labor';
+      const syncRole: ItemForm['syncRole'] =
+        item?.metadata?.sync_role === 'driver' || item?.metadata?.syncRole === 'driver'
+          ? 'driver'
+          : item?.metadata?.sync_role === 'dependent' || item?.metadata?.syncRole === 'dependent'
+            ? 'dependent'
+            : undefined;
       return {
         id: item.id?.toString() || `item-${Math.random().toString(36).slice(2)}`,
         description: item.description || '',
@@ -3908,6 +3918,12 @@ export default function TechniciansPage() {
         masterItemId: String(item?.metadata?.master_item_id || ''),
         masterItemCategory: String(item?.metadata?.master_item_category || ''),
         masterItemSourceRef: String(item?.metadata?.master_item_source_ref || ''),
+        syncGroupId: String(item?.metadata?.sync_group_id || item?.metadata?.syncGroupId || ''),
+        syncRole,
+        syncDriverId: String(item?.metadata?.sync_driver_id || item?.metadata?.syncDriverId || ''),
+        syncQuantityPerUnit: toAmountValue(
+          item?.metadata?.sync_quantity_per_unit ?? item?.metadata?.syncQuantityPerUnit ?? 0
+        ),
         type: normalizedType as 'labor' | 'material',
       };
     });
@@ -4095,6 +4111,8 @@ export default function TechniciansPage() {
     }
 
     const sourceBase = `${REVOQUE_TEMPLATE_SOURCE}:${selectedRevoqueType.key}`;
+    const syncGroupId = `${sourceBase}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const laborItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}-labor`;
     const measureNotes = [
       `${selectedRevoqueType.label}.`,
       `Superficie neta: ${revoqueNetSurface} m2 (${revoqueSurfaceSource}).`,
@@ -4115,7 +4133,7 @@ export default function TechniciansPage() {
 
     if (revoqueLaborPrice > 0) {
       generatedItems.push({
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-labor`,
+        id: laborItemId,
         description: `${selectedRevoqueType.label} - mano de obra`,
         quantity: revoqueNetSurface,
         unitPrice: revoqueLaborPrice,
@@ -4124,6 +4142,8 @@ export default function TechniciansPage() {
         masterItemId: revoqueLaborMasterItem?.id || '',
         masterItemCategory: revoqueLaborMasterItem?.category || 'Revoques',
         masterItemSourceRef: revoqueLaborMasterItem?.source_ref || `${sourceBase}:labor`,
+        syncGroupId,
+        syncRole: 'driver',
         type: 'labor',
       });
     }
@@ -4143,6 +4163,13 @@ export default function TechniciansPage() {
             masterItemId: materialMasterItem?.id || '',
             masterItemCategory: materialMasterItem?.category || 'Revoques',
             masterItemSourceRef: materialMasterItem?.source_ref || `${sourceBase}:material:${material.key}`,
+            syncGroupId,
+            syncRole: 'dependent',
+            syncDriverId: laborItemId,
+            syncQuantityPerUnit:
+              revoqueNetSurface > 0
+                ? material.quantity / revoqueNetSurface
+                : material.perM2 * (1 + Math.max(0, revoqueMaterialWastePercent) / 100),
             type: 'material',
           });
         });
@@ -4157,6 +4184,10 @@ export default function TechniciansPage() {
         masterItemId: '',
         masterItemCategory: 'Revoques',
         masterItemSourceRef: `${sourceBase}:material`,
+        syncGroupId,
+        syncRole: 'dependent',
+        syncDriverId: laborItemId,
+        syncQuantityPerUnit: 1,
         type: 'material',
       });
     }
@@ -4234,6 +4265,8 @@ export default function TechniciansPage() {
     }
 
     const sourceBase = `${MAMPOSTERIA_TEMPLATE_SOURCE}:${selectedMamposteriaType.key}`;
+    const syncGroupId = `${sourceBase}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const laborItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}-mamposteria-labor`;
     const measureNotes = [
       `${selectedMamposteriaType.label}.`,
       `Superficie neta: ${mamposteriaNetSurface} m2 (${mamposteriaSurfaceSource}).`,
@@ -4258,7 +4291,7 @@ export default function TechniciansPage() {
 
     if (mamposteriaLaborPrice > 0) {
       generatedItems.push({
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-mamposteria-labor`,
+        id: laborItemId,
         description: `${selectedMamposteriaType.label} - mano de obra`,
         quantity: mamposteriaNetSurface,
         unitPrice: mamposteriaLaborPrice,
@@ -4267,6 +4300,8 @@ export default function TechniciansPage() {
         masterItemId: mamposteriaLaborMasterItem?.id || '',
         masterItemCategory: mamposteriaLaborMasterItem?.category || 'Mamposteria',
         masterItemSourceRef: mamposteriaLaborMasterItem?.source_ref || `${sourceBase}:labor`,
+        syncGroupId,
+        syncRole: 'driver',
         type: 'labor',
       });
     }
@@ -4286,6 +4321,13 @@ export default function TechniciansPage() {
             masterItemId: materialMasterItem?.id || '',
             masterItemCategory: materialMasterItem?.category || 'Mamposteria',
             masterItemSourceRef: materialMasterItem?.source_ref || `${sourceBase}:material:${material.key}`,
+            syncGroupId,
+            syncRole: 'dependent',
+            syncDriverId: laborItemId,
+            syncQuantityPerUnit:
+              mamposteriaNetSurface > 0
+                ? material.quantity / mamposteriaNetSurface
+                : material.perM2 * (1 + Math.max(0, mamposteriaMaterialWastePercent) / 100),
             type: 'material',
           });
         });
@@ -4300,6 +4342,10 @@ export default function TechniciansPage() {
         masterItemId: '',
         masterItemCategory: 'Mamposteria',
         masterItemSourceRef: `${sourceBase}:material`,
+        syncGroupId,
+        syncRole: 'dependent',
+        syncDriverId: laborItemId,
+        syncQuantityPerUnit: 1,
         type: 'material',
       });
     }
@@ -4508,8 +4554,29 @@ export default function TechniciansPage() {
   };
 
   const handleItemUpdate = (id: string, patch: Partial<ItemForm>) => {
-    setItems((prev) =>
-      prev.map((item) => {
+    setItems((prev) => {
+      const originalItem = prev.find((item) => item.id === id) || null;
+      const originalQuantity = Math.max(0, Number(originalItem?.quantity || 0));
+      const shouldSyncMaterials =
+        patch.quantity !== undefined && originalItem?.type === 'labor' && originalQuantity > 0;
+      const targetIndex = prev.findIndex((item) => item.id === id);
+      const legacySyncGroupId =
+        shouldSyncMaterials && !originalItem?.syncGroupId
+          ? `legacy-sync-${id}`
+          : originalItem?.syncGroupId || '';
+      const legacyDependentIds = new Set<string>();
+
+      if (shouldSyncMaterials && targetIndex >= 0 && !originalItem?.syncGroupId) {
+        for (let index = targetIndex + 1; index < prev.length; index += 1) {
+          const candidate = prev[index];
+          if (candidate.type === 'labor') break;
+          if (candidate.type === 'material' && !candidate.syncRole) {
+            legacyDependentIds.add(candidate.id);
+          }
+        }
+      }
+
+      const nextItems = prev.map((item) => {
         if (item.id !== id) return item;
         const next = { ...item, ...patch };
         if ((patch.description !== undefined || patch.type !== undefined) && next.type === 'labor') {
@@ -4538,10 +4605,54 @@ export default function TechniciansPage() {
           next.masterItemId = '';
           next.masterItemCategory = '';
           next.masterItemSourceRef = '';
+          next.syncGroupId = '';
+          next.syncRole = undefined;
+          next.syncDriverId = '';
+          next.syncQuantityPerUnit = undefined;
+        }
+        if (shouldSyncMaterials && legacyDependentIds.size > 0) {
+          next.syncGroupId = legacySyncGroupId;
+          next.syncRole = 'driver';
         }
         return next;
-      })
-    );
+      });
+
+      if (!shouldSyncMaterials) return nextItems;
+
+      const updatedDriver = nextItems.find((item) => item.id === id);
+      const nextQuantity = Math.max(0, Number(updatedDriver?.quantity || 0));
+      if (!updatedDriver || nextQuantity === originalQuantity) return nextItems;
+
+      return nextItems.map((item) => {
+        if (item.id === id) return item;
+
+        const isSyncedDependent =
+          item.type === 'material' &&
+          item.syncRole === 'dependent' &&
+          (item.syncDriverId === id || (!!updatedDriver.syncGroupId && item.syncGroupId === updatedDriver.syncGroupId));
+        const isLegacyDependent = legacyDependentIds.has(item.id);
+
+        if (!isSyncedDependent && !isLegacyDependent) return item;
+
+        const quantityPerUnit =
+          item.syncQuantityPerUnit && item.syncQuantityPerUnit > 0
+            ? item.syncQuantityPerUnit
+            : originalQuantity > 0
+              ? item.quantity / originalQuantity
+              : 0;
+
+        if (quantityPerUnit <= 0) return item;
+
+        return {
+          ...item,
+          quantity: roundMeasure(nextQuantity * quantityPerUnit),
+          syncGroupId: item.syncGroupId || updatedDriver.syncGroupId || legacySyncGroupId,
+          syncRole: 'dependent',
+          syncDriverId: item.syncDriverId || id,
+          syncQuantityPerUnit: quantityPerUnit,
+        };
+      });
+    });
   };
 
   useEffect(() => {
@@ -6673,6 +6784,10 @@ export default function TechniciansPage() {
             master_item_id: item.masterItemId || null,
             master_item_category: item.masterItemCategory || null,
             master_item_source_ref: item.masterItemSourceRef || null,
+            sync_group_id: item.syncGroupId || null,
+            sync_role: item.syncRole || null,
+            sync_driver_id: item.syncDriverId || null,
+            sync_quantity_per_unit: item.syncQuantityPerUnit || null,
           },
         }));
         const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
