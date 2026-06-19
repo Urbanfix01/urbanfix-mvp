@@ -25,6 +25,7 @@ export type ItemForm = {
   unitPrice: number;
   type: 'labor' | 'material';
   unit?: string;
+  workArea?: string;
   technicalNotes?: string;
   masterItemId?: string;
   masterItemCategory?: string;

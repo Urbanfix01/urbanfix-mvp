@@ -8,6 +8,7 @@ import {
   Bell,
   Building2,
   Calendar,
+  ChevronDown,
   Clock,
   CreditCard,
   Eye,
@@ -2027,6 +2028,7 @@ const buildItemsSignature = (items: ItemForm[]) =>
       quantity: Number(item.quantity) || 0,
       unitPrice: Number(item.unitPrice) || 0,
       type: item.type,
+      workArea: (item.workArea || '').trim(),
       technicalNotes: (item.technicalNotes || '').trim(),
       masterItemId: item.masterItemId || '',
       masterItemCategory: item.masterItemCategory || '',
@@ -3843,6 +3845,7 @@ export default function TechniciansPage() {
         quantity: Number(item.quantity || 1),
         unitPrice: Number(item.unit_price || 0),
         unit: String(item?.metadata?.unit || ''),
+        workArea: String(item?.metadata?.work_area || item?.metadata?.workArea || ''),
         technicalNotes: normalizeTechnicalNotes(item?.metadata?.technical_notes || item?.metadata?.technicalNotes || ''),
         masterItemId: String(item?.metadata?.master_item_id || ''),
         masterItemCategory: String(item?.metadata?.master_item_category || ''),
@@ -3869,6 +3872,7 @@ export default function TechniciansPage() {
         quantity: 1,
         unitPrice: Number(item.suggested_price || 0),
         unit: item.unit || '',
+        workArea: '',
         technicalNotes: normalizeTechnicalNotes(item.technical_notes),
         masterItemId: item.id,
         masterItemCategory: item.category || '',
@@ -3888,6 +3892,7 @@ export default function TechniciansPage() {
         quantity: 1,
         unitPrice: 0,
         unit: '',
+        workArea: '',
         technicalNotes: '',
         masterItemId: '',
         masterItemCategory: '',
@@ -6435,6 +6440,7 @@ export default function TechniciansPage() {
           metadata: {
             type: item.type,
             unit: item.unit || null,
+            work_area: item.workArea?.trim() || null,
             technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
             master_item_id: item.masterItemId || null,
             master_item_category: item.masterItemCategory || null,
@@ -10601,6 +10607,11 @@ export default function TechniciansPage() {
                                     <p className="truncate text-sm font-black text-slate-950">
                                       {item.description.trim() || 'Item sin descripcion'}
                                     </p>
+                                    {item.workArea?.trim() && (
+                                      <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                                        {item.workArea.trim()}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
@@ -10623,14 +10634,25 @@ export default function TechniciansPage() {
                                 </div>
                               </div>
                               <div className="p-4">
-                              <div className="grid gap-3 md:grid-cols-[minmax(0,1.6fr)_90px_130px_150px]">
+                              <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_90px_130px_150px]">
                                 <div>
-                                  <label className="block text-[11px] font-semibold text-slate-500">Descripción</label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Ítem</label>
                                   <input
                                     value={item.description}
                                     onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
                                     placeholder="Ej: Reparación de pérdida"
                                     list={item.type === 'labor' ? 'labor-master-items' : undefined}
+                                    className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Descripción / sector
+                                  </label>
+                                  <input
+                                    value={item.workArea || ''}
+                                    onChange={(event) => handleItemUpdate(item.id, { workArea: event.target.value })}
+                                    placeholder="Pared 1, escalera, baño"
                                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                   />
                                 </div>
@@ -10679,10 +10701,15 @@ export default function TechniciansPage() {
                                 </div>
                               </div>
                               {item.technicalNotes && (
-                                <div className="mt-3 rounded-xl bg-white px-3 py-2 text-[11px] leading-5 text-slate-600 ring-1 ring-slate-100">
-                                  <p className="font-semibold uppercase tracking-[0.18em] text-slate-500">Especificación técnica</p>
-                                  <p className="mt-1 whitespace-pre-wrap">{item.technicalNotes}</p>
-                                </div>
+                                <details className="group mt-3 rounded-xl bg-white ring-1 ring-slate-100">
+                                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                    <span>Especificación técnica</span>
+                                    <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+                                  </summary>
+                                  <div className="border-t border-slate-100 px-3 py-2 text-[11px] leading-5 text-slate-600">
+                                    <p className="whitespace-pre-wrap">{item.technicalNotes}</p>
+                                  </div>
+                                </details>
                               )}
                               </div>
                             </div>
