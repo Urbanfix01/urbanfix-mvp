@@ -2108,6 +2108,106 @@ const normalizeText = (value: string) =>
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
 
+const getQuoteMaterialBaseDescription = (value: string) => {
+  const description = value.trim();
+  if (!description) return '';
+  return description.replace(/\s+para\s+.+$/i, '').trim() || description;
+};
+
+const getQuoteMaterialMergeKey = (item: ItemForm) => {
+  if (item.type !== 'material') return '';
+  const baseDescription = getQuoteMaterialBaseDescription(item.description);
+  const descriptionKey = normalizeText(baseDescription).trim();
+  if (!descriptionKey) return '';
+  const identityKey = item.masterItemId ? `master:${item.masterItemId}` : `label:${descriptionKey}`;
+  const unitKey = canonicalizeMasterItemUnit(item.unit || '') || normalizeText(item.unit || '').trim();
+  const scopeKey = item.syncGroupId ? `sync:${item.syncGroupId}` : 'manual';
+  return `${scopeKey}|${identityKey}|unit:${unitKey}`;
+};
+
+const mergeUniqueItemImages = (base: ItemImageForm[] = [], extra: ItemImageForm[] = []) => {
+  const seen = new Set<string>();
+  return [...base, ...extra].filter((image) => {
+    const key = image.sourceAttachmentId || image.url || image.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const mergeUniqueText = (values: Array<string | undefined>, separator: string) => {
+  const seen = new Set<string>();
+  return values
+    .map((value) => (value || '').trim())
+    .filter((value) => {
+      if (!value) return false;
+      const key = normalizeText(value);
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .join(separator);
+};
+
+const mergeQuoteMaterialItems = (quoteItems: ItemForm[]) => {
+  const mergedItems: ItemForm[] = [];
+  const materialIndexByKey = new Map<string, number>();
+
+  for (const item of quoteItems) {
+    const mergeKey = getQuoteMaterialMergeKey(item);
+    if (!mergeKey) {
+      mergedItems.push(item);
+      continue;
+    }
+
+    const existingIndex = materialIndexByKey.get(mergeKey);
+    if (existingIndex === undefined) {
+      materialIndexByKey.set(mergeKey, mergedItems.length);
+      mergedItems.push({
+        ...item,
+        description: getQuoteMaterialBaseDescription(item.description) || item.description,
+      });
+      continue;
+    }
+
+    const existing = mergedItems[existingIndex];
+    const nextQuantity = roundMeasure((Number(existing.quantity) || 0) + (Number(item.quantity) || 0));
+    const existingTotal = (Number(existing.quantity) || 0) * (Number(existing.unitPrice) || 0);
+    const itemTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
+    const nextUnitPrice = nextQuantity > 0 ? Math.round(((existingTotal + itemTotal) / nextQuantity) * 100) / 100 : 0;
+    const nextSyncQuantityPerUnit =
+      existing.syncRole === 'dependent' || item.syncRole === 'dependent'
+        ? roundMeasure((Number(existing.syncQuantityPerUnit) || 0) + (Number(item.syncQuantityPerUnit) || 0))
+        : undefined;
+
+    mergedItems[existingIndex] = {
+      ...existing,
+      description: getQuoteMaterialBaseDescription(existing.description) || existing.description,
+      quantity: nextQuantity,
+      unitPrice: nextUnitPrice,
+      unit: existing.unit || item.unit || '',
+      workArea: mergeUniqueText([existing.workArea, item.workArea], ' / '),
+      itemImages: mergeUniqueItemImages(existing.itemImages, item.itemImages),
+      technicalNotes: mergeUniqueText([existing.technicalNotes, item.technicalNotes], '\n\n'),
+      masterItemId: existing.masterItemId === item.masterItemId ? existing.masterItemId : existing.masterItemId || '',
+      masterItemCategory:
+        existing.masterItemCategory === item.masterItemCategory
+          ? existing.masterItemCategory
+          : existing.masterItemCategory || item.masterItemCategory || '',
+      masterItemSourceRef:
+        existing.masterItemSourceRef === item.masterItemSourceRef
+          ? existing.masterItemSourceRef
+          : existing.masterItemSourceRef || item.masterItemSourceRef || '',
+      syncGroupId: existing.syncGroupId || item.syncGroupId || '',
+      syncRole: existing.syncRole || item.syncRole,
+      syncDriverId: existing.syncDriverId || item.syncDriverId || '',
+      syncQuantityPerUnit: nextSyncQuantityPerUnit,
+    };
+  }
+
+  return mergedItems;
+};
+
 const normalizeTechnicalNotes = (value: string | null | undefined) => normalizeTechnicalNotesText(value);
 
 const buildOsmEmbedUrl = (lat: number, lon: number) => {
@@ -3927,7 +4027,9 @@ export default function TechniciansPage() {
         type: normalizedType as 'labor' | 'material',
       };
     });
-    const hydratedItems = mapped.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }));
+    const hydratedItems = mergeQuoteMaterialItems(
+      mapped.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }))
+    );
     setItems(hydratedItems);
     lastSavedItemsSignatureRef.current = buildItemsSignature(
       hydratedItems.filter((item) => item.description.trim())
@@ -3938,23 +4040,25 @@ export default function TechniciansPage() {
 
   const addMasterItemToQuote = (item: MasterItemRow) => {
     setActiveTab('nuevo');
-    setItems((prev) => [
-      ...prev,
-      {
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-        description: item.name,
-        quantity: 1,
-        unitPrice: Number(item.suggested_price || 0),
-        unit: item.unit || '',
-        workArea: '',
-        itemImages: [],
-        technicalNotes: normalizeTechnicalNotes(item.technical_notes),
-        masterItemId: item.id,
-        masterItemCategory: item.category || '',
-        masterItemSourceRef: item.source_ref || '',
-        type: item.type === 'material' ? 'material' : 'labor',
-      },
-    ]);
+    setItems((prev) =>
+      mergeQuoteMaterialItems([
+        ...prev,
+        {
+          id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          description: item.name,
+          quantity: 1,
+          unitPrice: Number(item.suggested_price || 0),
+          unit: item.unit || '',
+          workArea: '',
+          itemImages: [],
+          technicalNotes: normalizeTechnicalNotes(item.technical_notes),
+          masterItemId: item.id,
+          masterItemCategory: item.category || '',
+          masterItemSourceRef: item.source_ref || '',
+          type: item.type === 'material' ? 'material' : 'labor',
+        },
+      ])
+    );
   };
 
   const handleAddItem = (type: 'labor' | 'material' = 'labor') => {
@@ -4198,7 +4302,7 @@ export default function TechniciansPage() {
           item.description.trim() &&
           !String(item.masterItemSourceRef || '').startsWith(REVOQUE_TEMPLATE_SOURCE)
       );
-      return [...keptItems, ...generatedItems];
+      return mergeQuoteMaterialItems([...keptItems, ...generatedItems]);
     });
     setOpenQuoteStep('items');
     focusQuoteItemsEditor();
@@ -4356,7 +4460,7 @@ export default function TechniciansPage() {
           item.description.trim() &&
           !String(item.masterItemSourceRef || '').startsWith(MAMPOSTERIA_TEMPLATE_SOURCE)
       );
-      return [...keptItems, ...generatedItems];
+      return mergeQuoteMaterialItems([...keptItems, ...generatedItems]);
     });
     setOpenQuoteStep('items');
     focusQuoteItemsEditor();
@@ -4517,14 +4621,7 @@ export default function TechniciansPage() {
 
   const mergeItemWithMasterItem = (item: ItemForm, options?: { fillNotesFromMaster?: boolean }) => {
     if (item.type !== 'labor') {
-      return {
-        ...item,
-        unit: '',
-        technicalNotes: '',
-        masterItemId: '',
-        masterItemCategory: '',
-        masterItemSourceRef: '',
-      };
+      return item;
     }
 
     const match = resolveLaborMasterItem(item);
@@ -4617,13 +4714,13 @@ export default function TechniciansPage() {
         return next;
       });
 
-      if (!shouldSyncMaterials) return nextItems;
+      if (!shouldSyncMaterials) return mergeQuoteMaterialItems(nextItems);
 
       const updatedDriver = nextItems.find((item) => item.id === id);
       const nextQuantity = Math.max(0, Number(updatedDriver?.quantity || 0));
-      if (!updatedDriver || nextQuantity === originalQuantity) return nextItems;
+      if (!updatedDriver || nextQuantity === originalQuantity) return mergeQuoteMaterialItems(nextItems);
 
-      return nextItems.map((item) => {
+      return mergeQuoteMaterialItems(nextItems.map((item) => {
         if (item.id === id) return item;
 
         const isSyncedDependent =
@@ -4651,7 +4748,7 @@ export default function TechniciansPage() {
           syncDriverId: item.syncDriverId || id,
           syncQuantityPerUnit: quantityPerUnit,
         };
-      });
+      }));
     });
   };
 
@@ -6697,7 +6794,9 @@ export default function TechniciansPage() {
       savingRef.current = false;
       return;
     }
-    const preparedItems = items.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }));
+    const preparedItems = mergeQuoteMaterialItems(
+      items.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }))
+    );
     const cleanedItems = preparedItems.filter((item) => item.description.trim());
     if (cleanedItems.length === 0) {
       setFormError('Agrega al menos un item.');
