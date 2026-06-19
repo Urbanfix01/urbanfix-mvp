@@ -91,6 +91,7 @@ import type {
   MasterItemRow,
   NavItem,
   NotificationRow,
+  QuoteItemSyncSource,
   QuoteRow,
   QuoteItemRow,
 } from './types';
@@ -2092,6 +2093,11 @@ const buildItemsSignature = (items: ItemForm[]) =>
       syncRole: item.syncRole || '',
       syncDriverId: item.syncDriverId || '',
       syncQuantityPerUnit: Number(item.syncQuantityPerUnit) || 0,
+      syncSources: normalizeQuoteItemSyncSources(item.syncSources || []).map((source) => ({
+        syncGroupId: source.syncGroupId || '',
+        syncDriverId: source.syncDriverId,
+        syncQuantityPerUnit: Number(source.syncQuantityPerUnit) || 0,
+      })),
     }))
   );
 
@@ -2121,8 +2127,7 @@ const getQuoteMaterialMergeKey = (item: ItemForm) => {
   if (!descriptionKey) return '';
   const identityKey = item.masterItemId ? `master:${item.masterItemId}` : `label:${descriptionKey}`;
   const unitKey = canonicalizeMasterItemUnit(item.unit || '') || normalizeText(item.unit || '').trim();
-  const scopeKey = item.syncGroupId ? `sync:${item.syncGroupId}` : 'manual';
-  return `${scopeKey}|${identityKey}|unit:${unitKey}`;
+  return `${identityKey}|unit:${unitKey}`;
 };
 
 const mergeUniqueItemImages = (base: ItemImageForm[] = [], extra: ItemImageForm[] = []) => {
@@ -2149,6 +2154,43 @@ const mergeUniqueText = (values: Array<string | undefined>, separator: string) =
     .join(separator);
 };
 
+const normalizeQuoteItemSyncSources = (sources: unknown): QuoteItemSyncSource[] => {
+  if (!Array.isArray(sources)) return [];
+  const merged = new Map<string, QuoteItemSyncSource>();
+  sources.forEach((source) => {
+    if (!source || typeof source !== 'object') return;
+    const item = source as Record<string, any>;
+    const syncDriverId = String(item.syncDriverId || item.sync_driver_id || '').trim();
+    const syncGroupId = String(item.syncGroupId || item.sync_group_id || '').trim();
+    const syncQuantityPerUnit = toAmountValue(item.syncQuantityPerUnit ?? item.sync_quantity_per_unit ?? 0);
+    if (!syncDriverId || syncQuantityPerUnit <= 0) return;
+    const key = `${syncGroupId || 'no-group'}:${syncDriverId}`;
+    const current = merged.get(key);
+    merged.set(key, {
+      syncGroupId,
+      syncDriverId,
+      syncQuantityPerUnit: roundMeasure((current?.syncQuantityPerUnit || 0) + syncQuantityPerUnit),
+    });
+  });
+  return Array.from(merged.values());
+};
+
+const getQuoteItemSyncSources = (item: ItemForm): QuoteItemSyncSource[] => {
+  const existingSources = normalizeQuoteItemSyncSources(item.syncSources || []);
+  if (existingSources.length > 0) return existingSources;
+  if (item.syncRole !== 'dependent' || !item.syncDriverId || !item.syncQuantityPerUnit) return [];
+  return [
+    {
+      syncGroupId: item.syncGroupId || '',
+      syncDriverId: item.syncDriverId,
+      syncQuantityPerUnit: item.syncQuantityPerUnit,
+    },
+  ];
+};
+
+const mergeQuoteItemSyncSources = (...items: ItemForm[]) =>
+  normalizeQuoteItemSyncSources(items.flatMap((item) => getQuoteItemSyncSources(item)));
+
 const mergeQuoteMaterialItems = (quoteItems: ItemForm[]) => {
   const mergedItems: ItemForm[] = [];
   const materialIndexByKey = new Map<string, number>();
@@ -2162,10 +2204,12 @@ const mergeQuoteMaterialItems = (quoteItems: ItemForm[]) => {
 
     const existingIndex = materialIndexByKey.get(mergeKey);
     if (existingIndex === undefined) {
+      const syncSources = getQuoteItemSyncSources(item);
       materialIndexByKey.set(mergeKey, mergedItems.length);
       mergedItems.push({
         ...item,
         description: getQuoteMaterialBaseDescription(item.description) || item.description,
+        syncSources,
       });
       continue;
     }
@@ -2175,9 +2219,10 @@ const mergeQuoteMaterialItems = (quoteItems: ItemForm[]) => {
     const existingTotal = (Number(existing.quantity) || 0) * (Number(existing.unitPrice) || 0);
     const itemTotal = (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0);
     const nextUnitPrice = nextQuantity > 0 ? Math.round(((existingTotal + itemTotal) / nextQuantity) * 100) / 100 : 0;
+    const nextSyncSources = mergeQuoteItemSyncSources(existing, item);
     const nextSyncQuantityPerUnit =
-      existing.syncRole === 'dependent' || item.syncRole === 'dependent'
-        ? roundMeasure((Number(existing.syncQuantityPerUnit) || 0) + (Number(item.syncQuantityPerUnit) || 0))
+      nextSyncSources.length > 0
+        ? roundMeasure(nextSyncSources.reduce((sum, source) => sum + source.syncQuantityPerUnit, 0))
         : undefined;
 
     mergedItems[existingIndex] = {
@@ -2199,9 +2244,15 @@ const mergeQuoteMaterialItems = (quoteItems: ItemForm[]) => {
           ? existing.masterItemSourceRef
           : existing.masterItemSourceRef || item.masterItemSourceRef || '',
       syncGroupId: existing.syncGroupId || item.syncGroupId || '',
-      syncRole: existing.syncRole || item.syncRole,
-      syncDriverId: existing.syncDriverId || item.syncDriverId || '',
+      syncRole: nextSyncSources.length > 0 ? 'dependent' : existing.syncRole || item.syncRole,
+      syncDriverId:
+        nextSyncSources.length === 1
+          ? nextSyncSources[0].syncDriverId
+          : existing.syncDriverId === item.syncDriverId
+            ? existing.syncDriverId
+            : '',
       syncQuantityPerUnit: nextSyncQuantityPerUnit,
+      syncSources: nextSyncSources,
     };
   }
 
@@ -4024,6 +4075,7 @@ export default function TechniciansPage() {
         syncQuantityPerUnit: toAmountValue(
           item?.metadata?.sync_quantity_per_unit ?? item?.metadata?.syncQuantityPerUnit ?? 0
         ),
+        syncSources: normalizeQuoteItemSyncSources(item?.metadata?.sync_sources || item?.metadata?.syncSources || []),
         type: normalizedType as 'labor' | 'material',
       };
     });
@@ -4274,6 +4326,16 @@ export default function TechniciansPage() {
               revoqueNetSurface > 0
                 ? material.quantity / revoqueNetSurface
                 : material.perM2 * (1 + Math.max(0, revoqueMaterialWastePercent) / 100),
+            syncSources: [
+              {
+                syncGroupId,
+                syncDriverId: laborItemId,
+                syncQuantityPerUnit:
+                  revoqueNetSurface > 0
+                    ? material.quantity / revoqueNetSurface
+                    : material.perM2 * (1 + Math.max(0, revoqueMaterialWastePercent) / 100),
+              },
+            ],
             type: 'material',
           });
         });
@@ -4292,6 +4354,13 @@ export default function TechniciansPage() {
         syncRole: 'dependent',
         syncDriverId: laborItemId,
         syncQuantityPerUnit: 1,
+        syncSources: [
+          {
+            syncGroupId,
+            syncDriverId: laborItemId,
+            syncQuantityPerUnit: 1,
+          },
+        ],
         type: 'material',
       });
     }
@@ -4432,6 +4501,16 @@ export default function TechniciansPage() {
               mamposteriaNetSurface > 0
                 ? material.quantity / mamposteriaNetSurface
                 : material.perM2 * (1 + Math.max(0, mamposteriaMaterialWastePercent) / 100),
+            syncSources: [
+              {
+                syncGroupId,
+                syncDriverId: laborItemId,
+                syncQuantityPerUnit:
+                  mamposteriaNetSurface > 0
+                    ? material.quantity / mamposteriaNetSurface
+                    : material.perM2 * (1 + Math.max(0, mamposteriaMaterialWastePercent) / 100),
+              },
+            ],
             type: 'material',
           });
         });
@@ -4450,6 +4529,13 @@ export default function TechniciansPage() {
         syncRole: 'dependent',
         syncDriverId: laborItemId,
         syncQuantityPerUnit: 1,
+        syncSources: [
+          {
+            syncGroupId,
+            syncDriverId: laborItemId,
+            syncQuantityPerUnit: 1,
+          },
+        ],
         type: 'material',
       });
     }
@@ -4719,34 +4805,66 @@ export default function TechniciansPage() {
       const updatedDriver = nextItems.find((item) => item.id === id);
       const nextQuantity = Math.max(0, Number(updatedDriver?.quantity || 0));
       if (!updatedDriver || nextQuantity === originalQuantity) return mergeQuoteMaterialItems(nextItems);
+      const driverQuantityById = new Map(
+        nextItems
+          .filter((item) => item.type === 'labor')
+          .map((item) => [item.id, Math.max(0, Number(item.quantity || 0))])
+      );
 
       return mergeQuoteMaterialItems(nextItems.map((item) => {
         if (item.id === id) return item;
 
+        const currentSources = getQuoteItemSyncSources(item);
+        const sourceMatchesDriver = currentSources.some(
+          (source) =>
+            source.syncDriverId === id ||
+            (!!updatedDriver.syncGroupId && source.syncGroupId === updatedDriver.syncGroupId)
+        );
         const isSyncedDependent =
           item.type === 'material' &&
           item.syncRole === 'dependent' &&
-          (item.syncDriverId === id || (!!updatedDriver.syncGroupId && item.syncGroupId === updatedDriver.syncGroupId));
+          (sourceMatchesDriver ||
+            item.syncDriverId === id ||
+            (!!updatedDriver.syncGroupId && item.syncGroupId === updatedDriver.syncGroupId));
         const isLegacyDependent = legacyDependentIds.has(item.id);
 
         if (!isSyncedDependent && !isLegacyDependent) return item;
 
-        const quantityPerUnit =
-          item.syncQuantityPerUnit && item.syncQuantityPerUnit > 0
-            ? item.syncQuantityPerUnit
-            : originalQuantity > 0
-              ? item.quantity / originalQuantity
-              : 0;
-
-        if (quantityPerUnit <= 0) return item;
+        const nextSources =
+          currentSources.length > 0
+            ? currentSources
+            : [
+                {
+                  syncGroupId: item.syncGroupId || updatedDriver.syncGroupId || legacySyncGroupId,
+                  syncDriverId: item.syncDriverId || id,
+                  syncQuantityPerUnit:
+                    item.syncQuantityPerUnit && item.syncQuantityPerUnit > 0
+                      ? item.syncQuantityPerUnit
+                      : originalQuantity > 0
+                        ? item.quantity / originalQuantity
+                        : 0,
+                },
+              ];
+        const normalizedSources = normalizeQuoteItemSyncSources(nextSources);
+        if (normalizedSources.length === 0) return item;
+        const nextMaterialQuantity = roundMeasure(
+          normalizedSources.reduce((sum, source) => {
+            const driverQuantity =
+              source.syncDriverId === id ? nextQuantity : driverQuantityById.get(source.syncDriverId) || 0;
+            return sum + driverQuantity * source.syncQuantityPerUnit;
+          }, 0)
+        );
 
         return {
           ...item,
-          quantity: roundMeasure(nextQuantity * quantityPerUnit),
+          quantity: nextMaterialQuantity,
           syncGroupId: item.syncGroupId || updatedDriver.syncGroupId || legacySyncGroupId,
           syncRole: 'dependent',
-          syncDriverId: item.syncDriverId || id,
-          syncQuantityPerUnit: quantityPerUnit,
+          syncDriverId: normalizedSources.length === 1 ? normalizedSources[0].syncDriverId : '',
+          syncQuantityPerUnit: roundMeasure(
+            normalizedSources.reduce((sum, source) => sum + source.syncQuantityPerUnit, 0)
+          ),
+          syncSources: normalizedSources,
         };
       }));
     });
@@ -6887,6 +7005,11 @@ export default function TechniciansPage() {
             sync_role: item.syncRole || null,
             sync_driver_id: item.syncDriverId || null,
             sync_quantity_per_unit: item.syncQuantityPerUnit || null,
+            sync_sources: normalizeQuoteItemSyncSources(item.syncSources || []).map((source) => ({
+              sync_group_id: source.syncGroupId || null,
+              sync_driver_id: source.syncDriverId,
+              sync_quantity_per_unit: source.syncQuantityPerUnit,
+            })),
           },
         }));
         const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);

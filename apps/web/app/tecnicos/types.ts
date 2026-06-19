@@ -35,6 +35,13 @@ export type ItemForm = {
   syncRole?: 'driver' | 'dependent';
   syncDriverId?: string;
   syncQuantityPerUnit?: number;
+  syncSources?: QuoteItemSyncSource[];
+};
+
+export type QuoteItemSyncSource = {
+  syncGroupId?: string;
+  syncDriverId: string;
+  syncQuantityPerUnit: number;
 };
 
 export type ItemImageForm = {
