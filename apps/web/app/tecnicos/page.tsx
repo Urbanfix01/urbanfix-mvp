@@ -196,6 +196,107 @@ type LaborTemplateLookup = {
   preferredUnit: string;
 };
 
+type MaterialTemplateLookup = LaborTemplateLookup;
+
+const REVOQUE_MATERIAL_PRICE_FIELDS: RevoqueMaterialPriceField[] = [
+  'cementBagPrice',
+  'limeBagPrice',
+  'sandM3Price',
+  'waterproofLiterPrice',
+];
+
+const MAMPOSTERIA_MATERIAL_PRICE_FIELDS: MamposteriaMaterialPriceField[] = [
+  'brickUnitPrice',
+  'cementBagPrice',
+  'limeBagPrice',
+  'sandM3Price',
+];
+
+const SHARED_MATERIAL_LOOKUPS: Record<
+  'cementBagPrice' | 'limeBagPrice' | 'sandM3Price',
+  MaterialTemplateLookup
+> = {
+  cementBagPrice: {
+    categories: ['Materiales', 'Construccion', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['cemento', '50'],
+      ['cemento'],
+    ],
+    preferredUnit: 'bolsa',
+  },
+  limeBagPrice: {
+    categories: ['Materiales', 'Construccion', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['cal'],
+      ['cal', 'hidratada'],
+    ],
+    preferredUnit: 'bolsa',
+  },
+  sandM3Price: {
+    categories: ['Materiales', 'Construccion', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['arena'],
+      ['arena', 'm3'],
+    ],
+    preferredUnit: 'm3',
+  },
+};
+
+const REVOQUE_MATERIAL_PRICE_LOOKUPS: Record<RevoqueMaterialPriceField, MaterialTemplateLookup> = {
+  ...SHARED_MATERIAL_LOOKUPS,
+  waterproofLiterPrice: {
+    categories: ['Materiales', 'Construccion', 'Revoques', 'Impermeabilizacion'],
+    termGroups: [
+      ['hidrofugo'],
+      ['impermeabilizante'],
+    ],
+    preferredUnit: 'litro',
+  },
+};
+
+const MAMPOSTERIA_BRICK_PRICE_LOOKUPS: Record<MamposteriaWorkTypeKey, MaterialTemplateLookup> = {
+  'ladrillo-hueco-8': {
+    categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['ladrillo', 'hueco', '8'],
+      ['ladrillo', 'hueco'],
+    ],
+    preferredUnit: 'unidad',
+  },
+  'ladrillo-hueco-12': {
+    categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['ladrillo', 'hueco', '12'],
+      ['ladrillo', 'hueco'],
+    ],
+    preferredUnit: 'unidad',
+  },
+  'ladrillo-hueco-18': {
+    categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['ladrillo', 'hueco', '18'],
+      ['ladrillo', 'hueco'],
+    ],
+    preferredUnit: 'unidad',
+  },
+  'ladrillo-comun': {
+    categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['ladrillo', 'comun'],
+      ['ladrillo'],
+    ],
+    preferredUnit: 'unidad',
+  },
+  'bloque-cemento': {
+    categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
+    termGroups: [
+      ['bloque', 'cemento'],
+      ['bloque'],
+    ],
+    preferredUnit: 'unidad',
+  },
+};
+
 const REVOQUE_WORK_TYPES: Array<{
   key: RevoqueWorkTypeKey;
   label: string;
@@ -1458,6 +1559,49 @@ const resolveTemplateLaborMasterItem = (items: MasterItemRow[], lookup: LaborTem
         getMasterItemSuggestedPrice(b.item) - getMasterItemSuggestedPrice(a.item) ||
         String(a.item.name || '').localeCompare(String(b.item.name || ''))
     )[0]?.item || null;
+};
+
+const resolveTemplateMaterialMasterItem = (items: MasterItemRow[], lookup: MaterialTemplateLookup) => {
+  const categoryTerms = lookup.categories.map(normalizeLaborLookupText).filter(Boolean);
+  const termGroups = lookup.termGroups
+    .map((group) => group.map(normalizeLaborLookupText).filter(Boolean))
+    .filter((group) => group.length > 0);
+  const preferredUnit = canonicalizeMasterItemUnit(lookup.preferredUnit);
+
+  return (
+    items
+      .map((item) => {
+        const suggestedPrice = getMasterItemSuggestedPrice(item);
+        if (!suggestedPrice) return null;
+
+        const name = normalizeLaborLookupText(item.name);
+        const category = normalizeLaborLookupText(item.category);
+        const notes = normalizeLaborLookupText(item.technical_notes);
+        const source = normalizeLaborLookupText(item.source_ref);
+        const combined = `${name} ${category} ${notes} ${source}`.trim();
+        const matchedGroupIndex = termGroups.findIndex((terms) => terms.every((term) => combined.includes(term)));
+        if (matchedGroupIndex < 0) return null;
+
+        const itemUnit = canonicalizeMasterItemUnit(item.unit || '');
+        let score = 100 - matchedGroupIndex * 8;
+        if (preferredUnit && itemUnit === preferredUnit) score += 40;
+        else if (!itemUnit) score += 4;
+        else score -= 24;
+
+        if (categoryTerms.some((term) => category.includes(term))) score += 16;
+        if (termGroups[matchedGroupIndex]?.every((term) => name.includes(term))) score += 18;
+        if (notes) score += 2;
+
+        return { item, score };
+      })
+      .filter((entry): entry is { item: MasterItemRow; score: number } => Boolean(entry))
+      .sort(
+        (a, b) =>
+          b.score - a.score ||
+          getMasterItemSuggestedPrice(b.item) - getMasterItemSuggestedPrice(a.item) ||
+          String(a.item.name || '').localeCompare(String(b.item.name || ''))
+      )[0]?.item || null
+  );
 };
 
 const parseEtaInput = (value: string) => {
@@ -3576,7 +3720,7 @@ export default function TechniciansPage() {
         let query = supabase
           .from('master_items')
           .select(buildSelectFields(variant.includeActive, variant.includeTechnicalNotes, variant.includeUnit))
-          .eq('type', 'labor');
+          .in('type', ['labor', 'material']);
         if (variant.includeActive) {
           query = query.eq('active', true).order('active', { ascending: false });
         }
@@ -3750,6 +3894,82 @@ export default function TechniciansPage() {
     ]);
   };
 
+  const materialMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'material'), [masterItems]);
+  const revoqueMaterialMasterItems = useMemo<Record<RevoqueMaterialPriceField, MasterItemRow | null>>(
+    () => ({
+      cementBagPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        REVOQUE_MATERIAL_PRICE_LOOKUPS.cementBagPrice
+      ),
+      limeBagPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        REVOQUE_MATERIAL_PRICE_LOOKUPS.limeBagPrice
+      ),
+      sandM3Price: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        REVOQUE_MATERIAL_PRICE_LOOKUPS.sandM3Price
+      ),
+      waterproofLiterPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        REVOQUE_MATERIAL_PRICE_LOOKUPS.waterproofLiterPrice
+      ),
+    }),
+    [materialMasterItems]
+  );
+  const mamposteriaMaterialMasterItems = useMemo<Record<MamposteriaMaterialPriceField, MasterItemRow | null>>(
+    () => ({
+      brickUnitPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        MAMPOSTERIA_BRICK_PRICE_LOOKUPS[mamposteriaForm.workType]
+      ),
+      cementBagPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        SHARED_MATERIAL_LOOKUPS.cementBagPrice
+      ),
+      limeBagPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        SHARED_MATERIAL_LOOKUPS.limeBagPrice
+      ),
+      sandM3Price: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        SHARED_MATERIAL_LOOKUPS.sandM3Price
+      ),
+    }),
+    [materialMasterItems, mamposteriaForm.workType]
+  );
+  const revoqueSuggestedMaterialInputs = useMemo<Record<RevoqueMaterialPriceField, string>>(
+    () => ({
+      cementBagPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(revoqueMaterialMasterItems.cementBagPrice)),
+      limeBagPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(revoqueMaterialMasterItems.limeBagPrice)),
+      sandM3Price: formatSuggestedPriceInput(getMasterItemSuggestedPrice(revoqueMaterialMasterItems.sandM3Price)),
+      waterproofLiterPrice: formatSuggestedPriceInput(
+        getMasterItemSuggestedPrice(revoqueMaterialMasterItems.waterproofLiterPrice)
+      ),
+    }),
+    [revoqueMaterialMasterItems]
+  );
+  const mamposteriaSuggestedMaterialInputs = useMemo<Record<MamposteriaMaterialPriceField, string>>(
+    () => ({
+      brickUnitPrice: formatSuggestedPriceInput(
+        getMasterItemSuggestedPrice(mamposteriaMaterialMasterItems.brickUnitPrice)
+      ),
+      cementBagPrice: formatSuggestedPriceInput(
+        getMasterItemSuggestedPrice(mamposteriaMaterialMasterItems.cementBagPrice)
+      ),
+      limeBagPrice: formatSuggestedPriceInput(
+        getMasterItemSuggestedPrice(mamposteriaMaterialMasterItems.limeBagPrice)
+      ),
+      sandM3Price: formatSuggestedPriceInput(
+        getMasterItemSuggestedPrice(mamposteriaMaterialMasterItems.sandM3Price)
+      ),
+    }),
+    [mamposteriaMaterialMasterItems]
+  );
+  const getRevoqueMaterialUnitPrice = (field: RevoqueMaterialPriceField) =>
+    toNumber(revoqueForm[field]) || getMasterItemSuggestedPrice(revoqueMaterialMasterItems[field]);
+  const getMamposteriaMaterialUnitPrice = (field: MamposteriaMaterialPriceField) =>
+    toNumber(mamposteriaForm[field]) || getMasterItemSuggestedPrice(mamposteriaMaterialMasterItems[field]);
+
   const selectedRevoqueType =
     REVOQUE_WORK_TYPES.find((option) => option.key === revoqueForm.workType) || REVOQUE_WORK_TYPES[0];
   const revoqueManualSurface = toNumber(revoqueForm.surfaceM2);
@@ -3765,7 +3985,7 @@ export default function TechniciansPage() {
     revoqueNetSurface,
     revoqueMaterialWastePercent,
     REVOQUE_MATERIAL_COEFFICIENTS[revoqueForm.workType],
-    (field) => toNumber(revoqueForm[field])
+    getRevoqueMaterialUnitPrice
   );
   const revoqueAutoMaterialTotal = revoqueMaterialLines.reduce((sum, material) => sum + material.total, 0);
   const revoqueUsesAutoMaterials = revoqueMaterialPrice <= 0 && revoqueAutoMaterialTotal > 0;
@@ -3831,6 +4051,7 @@ export default function TechniciansPage() {
       revoqueMaterialLines
         .filter((material) => material.unitPrice > 0 && material.total > 0)
         .forEach((material) => {
+          const materialMasterItem = revoqueMaterialMasterItems[material.priceField];
           generatedItems.push({
             id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-${material.key}`,
             description: `${material.label} para ${selectedRevoqueType.shortLabel.toLowerCase()}`,
@@ -3838,9 +4059,9 @@ export default function TechniciansPage() {
             unitPrice: material.unitPrice,
             unit: material.unit,
             technicalNotes: measureNotes,
-            masterItemId: '',
-            masterItemCategory: 'Revoques',
-            masterItemSourceRef: `${sourceBase}:material:${material.key}`,
+            masterItemId: materialMasterItem?.id || '',
+            masterItemCategory: materialMasterItem?.category || 'Revoques',
+            masterItemSourceRef: materialMasterItem?.source_ref || `${sourceBase}:material:${material.key}`,
             type: 'material',
           });
         });
@@ -3891,7 +4112,7 @@ export default function TechniciansPage() {
     mamposteriaNetSurface,
     mamposteriaMaterialWastePercent,
     MAMPOSTERIA_MATERIAL_COEFFICIENTS[mamposteriaForm.workType],
-    (field) => toNumber(mamposteriaForm[field])
+    getMamposteriaMaterialUnitPrice
   );
   const mamposteriaAutoMaterialTotal = mamposteriaMaterialLines.reduce((sum, material) => sum + material.total, 0);
   const mamposteriaUsesAutoMaterials = mamposteriaMaterialPrice <= 0 && mamposteriaAutoMaterialTotal > 0;
@@ -3964,6 +4185,7 @@ export default function TechniciansPage() {
       mamposteriaMaterialLines
         .filter((material) => material.unitPrice > 0 && material.total > 0)
         .forEach((material) => {
+          const materialMasterItem = mamposteriaMaterialMasterItems[material.priceField];
           generatedItems.push({
             id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-mamposteria-${material.key}`,
             description: `${material.label} para ${selectedMamposteriaType.shortLabel.toLowerCase()}`,
@@ -3971,9 +4193,9 @@ export default function TechniciansPage() {
             unitPrice: material.unitPrice,
             unit: material.unit,
             technicalNotes: measureNotes,
-            masterItemId: '',
-            masterItemCategory: 'Mamposteria',
-            masterItemSourceRef: `${sourceBase}:material:${material.key}`,
+            masterItemId: materialMasterItem?.id || '',
+            masterItemCategory: materialMasterItem?.category || 'Mamposteria',
+            masterItemSourceRef: materialMasterItem?.source_ref || `${sourceBase}:material:${material.key}`,
             type: 'material',
           });
         });
@@ -4046,30 +4268,59 @@ export default function TechniciansPage() {
   const revoqueSuggestedLaborInput = formatSuggestedPriceInput(revoqueSuggestedLaborPrice);
   const mamposteriaSuggestedLaborInput = formatSuggestedPriceInput(mamposteriaSuggestedLaborPrice);
 
+  const applySuggestedRevoqueEstimatorPrices = (form: RevoqueEstimatorForm) => {
+    let changed = false;
+    const next: RevoqueEstimatorForm = { ...form };
+    if (!next.laborPrice && revoqueSuggestedLaborInput) {
+      next.laborPrice = revoqueSuggestedLaborInput;
+      changed = true;
+    }
+    REVOQUE_MATERIAL_PRICE_FIELDS.forEach((field) => {
+      const suggested = revoqueSuggestedMaterialInputs[field];
+      if (!next[field] && suggested) {
+        next[field] = suggested;
+        changed = true;
+      }
+    });
+    return changed ? next : form;
+  };
+
+  const applySuggestedMamposteriaEstimatorPrices = (form: MamposteriaEstimatorForm) => {
+    let changed = false;
+    const next: MamposteriaEstimatorForm = { ...form };
+    if (!next.laborPrice && mamposteriaSuggestedLaborInput) {
+      next.laborPrice = mamposteriaSuggestedLaborInput;
+      changed = true;
+    }
+    MAMPOSTERIA_MATERIAL_PRICE_FIELDS.forEach((field) => {
+      const suggested = mamposteriaSuggestedMaterialInputs[field];
+      if (!next[field] && suggested) {
+        next[field] = suggested;
+        changed = true;
+      }
+    });
+    return changed ? next : form;
+  };
+
   const handleQuoteWorkEstimatorModeChange = (mode: QuoteWorkEstimatorMode) => {
     setQuoteWorkEstimatorMode(mode);
-    if (mode === 'revoques' && revoqueSuggestedLaborInput) {
-      setRevoqueForm((prev) => ({ ...prev, laborPrice: prev.laborPrice || revoqueSuggestedLaborInput }));
+    if (mode === 'revoques') {
+      setRevoqueForm((prev) => applySuggestedRevoqueEstimatorPrices(prev));
     }
-    if (mode === 'mamposteria' && mamposteriaSuggestedLaborInput) {
-      setMamposteriaForm((prev) => ({
-        ...prev,
-        laborPrice: prev.laborPrice || mamposteriaSuggestedLaborInput,
-      }));
+    if (mode === 'mamposteria') {
+      setMamposteriaForm((prev) => applySuggestedMamposteriaEstimatorPrices(prev));
     }
   };
 
   useEffect(() => {
-    if (quoteWorkEstimatorMode !== 'revoques' || !revoqueSuggestedLaborInput) return;
-    setRevoqueForm((prev) => (prev.laborPrice ? prev : { ...prev, laborPrice: revoqueSuggestedLaborInput }));
-  }, [quoteWorkEstimatorMode, revoqueSuggestedLaborInput]);
+    if (quoteWorkEstimatorMode !== 'revoques') return;
+    setRevoqueForm((prev) => applySuggestedRevoqueEstimatorPrices(prev));
+  }, [quoteWorkEstimatorMode, revoqueSuggestedLaborInput, revoqueSuggestedMaterialInputs]);
 
   useEffect(() => {
-    if (quoteWorkEstimatorMode !== 'mamposteria' || !mamposteriaSuggestedLaborInput) return;
-    setMamposteriaForm((prev) =>
-      prev.laborPrice ? prev : { ...prev, laborPrice: mamposteriaSuggestedLaborInput }
-    );
-  }, [quoteWorkEstimatorMode, mamposteriaSuggestedLaborInput]);
+    if (quoteWorkEstimatorMode !== 'mamposteria') return;
+    setMamposteriaForm((prev) => applySuggestedMamposteriaEstimatorPrices(prev));
+  }, [quoteWorkEstimatorMode, mamposteriaSuggestedLaborInput, mamposteriaSuggestedMaterialInputs]);
 
   const isSameLaborSelection = (description: string, item: MasterItemRow) => {
     const normalizedDescription = normalizeText(description || '').trim();
@@ -9942,9 +10193,16 @@ export default function TechniciansPage() {
                                           onChange={(event) =>
                                             updateRevoqueForm({ [material.field]: event.target.value } as Partial<RevoqueEstimatorForm>)
                                           }
-                                          placeholder={material.placeholder}
+                                          placeholder={revoqueSuggestedMaterialInputs[material.field] || material.placeholder}
                                           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                         />
+                                        <span className="mt-1 block min-h-4 text-[10px] font-semibold text-slate-400">
+                                          {revoqueMaterialMasterItems[material.field]
+                                            ? `Base: ${revoqueMaterialMasterItems[material.field]?.name}`
+                                            : loadingMasterItems
+                                              ? 'Buscando en base...'
+                                              : ''}
+                                        </span>
                                       </label>
                                     ))}
                                   </div>
@@ -10034,9 +10292,23 @@ export default function TechniciansPage() {
                                             )
                                           )
                                         );
+                                        const suggestedBrick = formatSuggestedPriceInput(
+                                          getMasterItemSuggestedPrice(
+                                            resolveTemplateMaterialMasterItem(
+                                              materialMasterItems,
+                                              MAMPOSTERIA_BRICK_PRICE_LOOKUPS[workType]
+                                            )
+                                          )
+                                        );
+                                        const shouldReplaceBrickPrice =
+                                          !mamposteriaForm.brickUnitPrice ||
+                                          mamposteriaForm.brickUnitPrice === mamposteriaSuggestedMaterialInputs.brickUnitPrice;
                                         updateMamposteriaForm({
                                           workType,
                                           laborPrice: suggested || mamposteriaForm.laborPrice,
+                                          brickUnitPrice: shouldReplaceBrickPrice
+                                            ? suggestedBrick || mamposteriaForm.brickUnitPrice
+                                            : mamposteriaForm.brickUnitPrice,
                                         });
                                       }}
                                       className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
@@ -10175,9 +10447,18 @@ export default function TechniciansPage() {
                                               [material.field]: event.target.value,
                                             } as Partial<MamposteriaEstimatorForm>)
                                           }
-                                          placeholder={material.placeholder}
+                                          placeholder={
+                                            mamposteriaSuggestedMaterialInputs[material.field] || material.placeholder
+                                          }
                                           className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                         />
+                                        <span className="mt-1 block min-h-4 text-[10px] font-semibold text-slate-400">
+                                          {mamposteriaMaterialMasterItems[material.field]
+                                            ? `Base: ${mamposteriaMaterialMasterItems[material.field]?.name}`
+                                            : loadingMasterItems
+                                              ? 'Buscando en base...'
+                                              : ''}
+                                        </span>
                                       </label>
                                     ))}
                                   </div>
