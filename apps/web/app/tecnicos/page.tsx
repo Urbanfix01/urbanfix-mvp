@@ -363,34 +363,31 @@ const REVOQUE_MATERIAL_COEFFICIENTS: Record<
 
 const REVOQUE_LABOR_LOOKUPS: Record<RevoqueWorkTypeKey, LaborTemplateLookup> = {
   grueso: {
-    categories: ['Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
+    categories: ['Revoques (Trad.)', 'Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
     termGroups: [
-      ['revoque', 'grueso'],
-      ['grueso', 'm2'],
+      ['grueso', 'comun'],
     ],
     preferredUnit: 'm2',
   },
   fino: {
-    categories: ['Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
+    categories: ['Revoques (Trad.)', 'Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
     termGroups: [
-      ['revoque', 'fino'],
-      ['fino', 'm2'],
+      ['fino', 'cal'],
     ],
     preferredUnit: 'm2',
   },
   'grueso-fino': {
-    categories: ['Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
+    categories: ['Revoques (Trad.)', 'Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
     termGroups: [
-      ['revoque', 'grueso', 'fino'],
-      ['grueso', 'fino', 'm2'],
+      ['interior', 'cal', 'comun', 'completo'],
     ],
     preferredUnit: 'm2',
   },
   exterior: {
-    categories: ['Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
+    categories: ['Revoques (Trad.)', 'Revoques', 'Albanileria', 'Construccion', 'Estructura y Obra Gruesa'],
     termGroups: [
-      ['revoque', 'exterior'],
-      ['revoque', 'impermeable'],
+      ['exterior', 'cal', 'comun', 'completo'],
+      ['exterior', 'completo'],
     ],
     preferredUnit: 'm2',
   },
@@ -1527,6 +1524,20 @@ const formatSuggestedPriceInput = (price: number) => {
   return Number.isInteger(price) ? String(price) : String(Math.round(price * 100) / 100).replace('.', ',');
 };
 
+const lookupTextHasTerm = (text: string, term: string) => {
+  if (!term) return true;
+  if (/^\d+$/.test(term)) {
+    return new RegExp(`(^|\\s)${term}(\\s|$)`).test(text);
+  }
+  return text.includes(term);
+};
+
+const lookupTextHasEveryTerm = (text: string, terms: string[]) =>
+  terms.every((term) => lookupTextHasTerm(text, term));
+
+const shouldReplaceSuggestedPriceInput = (currentValue: string, previousSuggestedValue: string) =>
+  !currentValue || currentValue === previousSuggestedValue;
+
 const resolveTemplateLaborMasterItem = (items: MasterItemRow[], lookup: LaborTemplateLookup) => {
   const categoryTerms = lookup.categories.map(normalizeLaborLookupText).filter(Boolean);
   const termGroups = lookup.termGroups
@@ -1544,17 +1555,19 @@ const resolveTemplateLaborMasterItem = (items: MasterItemRow[], lookup: LaborTem
       const notes = normalizeLaborLookupText(item.technical_notes);
       const source = normalizeLaborLookupText(item.source_ref);
       const combined = `${name} ${category} ${notes} ${source}`.trim();
-      const matchedGroupIndex = termGroups.findIndex((terms) => terms.every((term) => combined.includes(term)));
+      const matchedGroupIndex = termGroups.findIndex((terms) => lookupTextHasEveryTerm(combined, terms));
       if (matchedGroupIndex < 0) return null;
 
       const itemUnit = canonicalizeMasterItemUnit(item.unit || '');
+      if (preferredUnit && itemUnit && itemUnit !== preferredUnit) return null;
+
       let score = 100 - matchedGroupIndex * 6;
       if (preferredUnit && itemUnit === preferredUnit) score += 35;
       else if (!itemUnit) score += 5;
       else score -= 30;
 
       if (categoryTerms.some((term) => category.includes(term))) score += 18;
-      if (termGroups[matchedGroupIndex]?.every((term) => name.includes(term))) score += 14;
+      if (lookupTextHasEveryTerm(name, termGroups[matchedGroupIndex] || [])) score += 14;
       if (notes) score += 2;
 
       return { item, score };
@@ -1586,17 +1599,19 @@ const resolveTemplateMaterialMasterItem = (items: MasterItemRow[], lookup: Mater
         const notes = normalizeLaborLookupText(item.technical_notes);
         const source = normalizeLaborLookupText(item.source_ref);
         const combined = `${name} ${category} ${notes} ${source}`.trim();
-        const matchedGroupIndex = termGroups.findIndex((terms) => terms.every((term) => combined.includes(term)));
+        const matchedGroupIndex = termGroups.findIndex((terms) => lookupTextHasEveryTerm(combined, terms));
         if (matchedGroupIndex < 0) return null;
 
         const itemUnit = canonicalizeMasterItemUnit(item.unit || '');
+        if (preferredUnit && itemUnit && itemUnit !== preferredUnit) return null;
+
         let score = 100 - matchedGroupIndex * 8;
         if (preferredUnit && itemUnit === preferredUnit) score += 40;
         else if (!itemUnit) score += 4;
         else score -= 24;
 
         if (categoryTerms.some((term) => category.includes(term))) score += 16;
-        if (termGroups[matchedGroupIndex]?.every((term) => name.includes(term))) score += 18;
+        if (lookupTextHasEveryTerm(name, termGroups[matchedGroupIndex] || [])) score += 18;
         if (notes) score += 2;
 
         return { item, score };
@@ -4728,6 +4743,7 @@ export default function TechniciansPage() {
 
     return {
       ...item,
+      unitPrice: item.unitPrice > 0 ? item.unitPrice : getMasterItemSuggestedPrice(match),
       unit: match.unit || '',
       masterItemId: match.id,
       masterItemCategory: match.category || '',
@@ -4878,6 +4894,7 @@ export default function TechniciansPage() {
         const merged = mergeItemWithMasterItem(item, { fillNotesFromMaster: true });
         if (
           merged.technicalNotes !== item.technicalNotes ||
+          merged.unitPrice !== item.unitPrice ||
           merged.masterItemId !== item.masterItemId ||
           merged.masterItemCategory !== item.masterItemCategory ||
           merged.masterItemSourceRef !== item.masterItemSourceRef
@@ -10657,9 +10674,15 @@ export default function TechniciansPage() {
                                             )
                                           )
                                         );
+                                        const shouldReplaceLaborPrice = shouldReplaceSuggestedPriceInput(
+                                          revoqueForm.laborPrice,
+                                          revoqueSuggestedLaborInput
+                                        );
                                         updateRevoqueForm({
                                           workType,
-                                          laborPrice: suggested || revoqueForm.laborPrice,
+                                          laborPrice: shouldReplaceLaborPrice
+                                            ? suggested
+                                            : revoqueForm.laborPrice,
                                         });
                                       }}
                                       className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
@@ -10903,9 +10926,15 @@ export default function TechniciansPage() {
                                         const shouldReplaceBrickPrice =
                                           !mamposteriaForm.brickUnitPrice ||
                                           mamposteriaForm.brickUnitPrice === mamposteriaSuggestedMaterialInputs.brickUnitPrice;
+                                        const shouldReplaceLaborPrice = shouldReplaceSuggestedPriceInput(
+                                          mamposteriaForm.laborPrice,
+                                          mamposteriaSuggestedLaborInput
+                                        );
                                         updateMamposteriaForm({
                                           workType,
-                                          laborPrice: suggested || mamposteriaForm.laborPrice,
+                                          laborPrice: shouldReplaceLaborPrice
+                                            ? suggested
+                                            : mamposteriaForm.laborPrice,
                                           brickUnitPrice: shouldReplaceBrickPrice
                                             ? suggestedBrick || mamposteriaForm.brickUnitPrice
                                             : mamposteriaForm.brickUnitPrice,
