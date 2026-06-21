@@ -55,11 +55,13 @@ import TechnicianOperationalMap from '../../components/TechnicianOperationalMap'
 import UrbanFixBrandLoader from '../../components/UrbanFixBrandLoader';
 import {
   clearAuthAccessProfileIntent,
+  getAuthUserProfileFromMetadata,
   getAuthAccessProfileIntent,
   POST_AUTH_REDIRECT_KEY,
   PRICE_ACCESS_INTENT,
   sanitizeNextPath,
   setAuthAccessProfileIntent,
+  syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
 import {
   buildMasterItemChoiceLabel,
@@ -2622,6 +2624,7 @@ export default function TechniciansPage() {
   const [recoveryError, setRecoveryError] = useState('');
   const [recoveryMessage, setRecoveryMessage] = useState('');
   const [updatingRecovery, setUpdatingRecovery] = useState(false);
+  const authProfileMetadataSyncedRef = useRef('');
   const [isBetaAdmin, setIsBetaAdmin] = useState(false);
   const [adminGateStatus, setAdminGateStatus] = useState<'idle' | 'checking' | 'done'>('idle');
   const [geoResults, setGeoResults] = useState<GeoResult[]>([]);
@@ -2914,15 +2917,67 @@ export default function TechniciansPage() {
 
   useEffect(() => {
     if (typeof window === 'undefined' || !session?.user) return;
-    const accountType = String(
-      session.user.user_metadata?.user_type || session.user.user_metadata?.profile || ''
-    ).toLowerCase();
+    const accountType = getAuthUserProfileFromMetadata(session.user.user_metadata);
     if (accountType !== 'cliente') return;
-    const params = new URLSearchParams(window.location.search);
-    const requestedProfile = String(params.get('perfil') || params.get('audience') || '').toLowerCase();
-    if (requestedProfile === 'tecnico' || requestedProfile === 'empresa') return;
+    clearAuthAccessProfileIntent();
     window.location.replace('/cliente');
   }, [session?.user?.id, session?.user?.user_metadata?.profile, session?.user?.user_metadata?.user_type]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const user = session?.user;
+    if (!user?.id) {
+      authProfileMetadataSyncedRef.current = '';
+      return;
+    }
+
+    const currentProfile = getAuthUserProfileFromMetadata(user.user_metadata);
+    if (currentProfile === 'cliente') return;
+
+    const intendedProfile = getAuthAccessProfileIntent();
+    const nextProfile =
+      currentProfile === 'tecnico' || currentProfile === 'empresa'
+        ? currentProfile
+        : intendedProfile === 'tecnico' || intendedProfile === 'empresa'
+          ? intendedProfile
+          : selectedAccessProfile === 'tecnico' || selectedAccessProfile === 'empresa'
+            ? selectedAccessProfile
+            : null;
+
+    if (!nextProfile) return;
+
+    setSelectedAccessProfile(nextProfile);
+    if (currentProfile === nextProfile) {
+      clearAuthAccessProfileIntent();
+      authProfileMetadataSyncedRef.current = '';
+      return;
+    }
+
+    const syncKey = `${user.id}:${nextProfile}`;
+    if (authProfileMetadataSyncedRef.current === syncKey) return;
+    authProfileMetadataSyncedRef.current = syncKey;
+
+    supabase.auth
+      .updateUser({
+        data: {
+          user_type: nextProfile,
+          profile: nextProfile,
+        },
+      })
+      .then(({ error }) => {
+        if (error) {
+          authProfileMetadataSyncedRef.current = '';
+          return;
+        }
+        clearAuthAccessProfileIntent();
+      });
+  }, [
+    selectedAccessProfile,
+    session?.user?.id,
+    session?.user?.user_metadata,
+    session?.user?.user_metadata?.profile,
+    session?.user?.user_metadata?.user_type,
+  ]);
 
   useEffect(() => {
     if (!quickRegisterMode || recoveryMode || session || loadingSession || autoGoogleStarted || !selectedAccessProfile)
@@ -3153,6 +3208,7 @@ export default function TechniciansPage() {
     }
     supabase.auth.getSession().then(({ data: { session } }) => {
       sessionUserIdRef.current = session?.user?.id ?? null;
+      void syncAuthAccessTokenCookie(session?.access_token);
       setSession(session);
       setLoadingProfile(Boolean(session?.user));
       setLoadingSession(false);
@@ -3161,6 +3217,7 @@ export default function TechniciansPage() {
       const previousUserId = sessionUserIdRef.current;
       const nextUserId = nextSession?.user?.id ?? null;
       sessionUserIdRef.current = nextUserId;
+      void syncAuthAccessTokenCookie(nextSession?.access_token);
       setSession(nextSession);
       if (previousUserId !== nextUserId) {
         setLoadingProfile(Boolean(nextSession?.user));
@@ -7097,6 +7154,7 @@ export default function TechniciansPage() {
   const handleLogout = async () => {
     clearAuthAccessProfileIntent();
     await supabase.auth.signOut();
+    void syncAuthAccessTokenCookie(null);
     setSession(null);
     setLoadingProfile(false);
     setProfile(null);
@@ -7252,10 +7310,18 @@ export default function TechniciansPage() {
         }
         const normalizedFullName = fullName.trim() || 'Técnico UrbanFix';
         const normalizedBusinessName = businessName.trim() || normalizedFullName;
+        const accessProfile = selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico';
         const { data: signUpData, error } = await supabase.auth.signUp({
           email: safeEmail,
           password,
-          options: { data: { full_name: normalizedFullName, business_name: normalizedBusinessName } },
+          options: {
+            data: {
+              full_name: normalizedFullName,
+              business_name: normalizedBusinessName,
+              user_type: accessProfile,
+              profile: accessProfile,
+            },
+          },
         });
         if (error) throw error;
         setAuthNotice(

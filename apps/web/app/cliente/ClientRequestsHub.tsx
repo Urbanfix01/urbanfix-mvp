@@ -8,7 +8,12 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, ImagePlus, 
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
-import { clearAuthAccessProfileIntent, setAuthAccessProfileIntent } from '../../lib/auth/post-auth';
+import {
+  clearAuthAccessProfileIntent,
+  getAuthUserProfileFromMetadata,
+  setAuthAccessProfileIntent,
+  syncAuthAccessTokenCookie,
+} from '../../lib/auth/post-auth';
 import { buildMapLinks, buildOpenStreetMapEmbedUrl } from '../../lib/map-links';
 import { gremiosCatalog } from '../../lib/seo/gremios-data';
 
@@ -849,10 +854,12 @@ export default function ClientRequestsHub() {
       return;
     }
     supabase.auth.getSession().then(({ data: { session } }) => {
+      void syncAuthAccessTokenCookie(session?.access_token);
       setSession(session);
       setLoadingSession(false);
     });
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void syncAuthAccessTokenCookie(nextSession?.access_token);
       setSession(nextSession);
       setLoadingSession(false);
     });
@@ -924,6 +931,13 @@ export default function ClientRequestsHub() {
     }
 
     const metadata = (user.user_metadata || {}) as Record<string, any>;
+    const accountProfile = getAuthUserProfileFromMetadata(metadata);
+    if (accountProfile === 'tecnico' || accountProfile === 'empresa') {
+      clearAuthAccessProfileIntent();
+      window.location.replace(`/tecnicos?perfil=${accountProfile}`);
+      return;
+    }
+
     const seed = getClientAuthProfileSeed(session);
     const nextData: Record<string, string> = {
       user_type: 'cliente',
@@ -1012,6 +1026,7 @@ export default function ClientRequestsHub() {
   const handleLogout = async () => {
     clearAuthAccessProfileIntent();
     await supabase.auth.signOut();
+    void syncAuthAccessTokenCookie(null);
   };
 
   const openClientProfileSection = (focusField = false) => {

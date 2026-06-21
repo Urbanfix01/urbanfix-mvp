@@ -66,6 +66,32 @@ export const buildAuthRedirectPath = (nextPath: string) => {
 export const isAuthAccessProfile = (value: string | null | undefined): value is AuthAccessProfile =>
   value === 'tecnico' || value === 'empresa' || value === 'cliente';
 
+export const getAuthUserProfileFromMetadata = (metadata: unknown): AuthAccessProfile | null => {
+  const record = (metadata || {}) as Record<string, unknown>;
+  const userType = String(record.user_type || '').toLowerCase();
+  if (isAuthAccessProfile(userType)) return userType;
+
+  const profile = String(record.profile || '').toLowerCase();
+  if (isAuthAccessProfile(profile)) return profile;
+
+  return null;
+};
+
+export const syncAuthAccessTokenCookie = async (accessToken: string | null | undefined) => {
+  if (typeof window === 'undefined') return;
+
+  try {
+    await fetch('/api/auth/session', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accessToken: accessToken || null }),
+    });
+  } catch {
+    // Client-side Supabase auth remains the source of truth if the cookie sync fails.
+  }
+};
+
 const getBrowserStorageValue = (storage: Storage | null, key: string) => {
   if (!storage) return null;
   try {
