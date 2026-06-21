@@ -9,6 +9,7 @@ apps/web/.expo/
 apps/mobile/.env
 apps/web/.next/
 apps/web/.next-codex-dev*/
+apps/web/.next-build-check/
 apps/web/.next-local-preview/
 tmp/
 urbanfix-main-clean/
