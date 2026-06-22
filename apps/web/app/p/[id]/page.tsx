@@ -496,6 +496,7 @@ export default function QuotePage() {
   const { subtotal, tax, total, taxRate, laborSubtotal, materialSubtotal, discountPercent, discountAmount } =
     calculateTotal();
   const statusNormalized = (quote.status || '').toLowerCase();
+  const isDraft = ['draft', 'borrador'].includes(statusNormalized);
   const isApproved = ['approved', 'aprobado', 'accepted'].includes(statusNormalized);
   const isScheduled = ['scheduled', 'programado', 'agendado'].includes(statusNormalized);
   const isInProgress = ['in_progress', 'in-progress', 'en_curso', 'en curso'].includes(statusNormalized);
@@ -515,7 +516,10 @@ export default function QuotePage() {
   const isAccepted = isApproved || isScheduled || isInProgress || isCompleted || isPaid;
   const canCollectFeedback = false;
   const isExpired = isManuallyExpired || Boolean(expiresAt && Date.now() > expiresAt.getTime() && !isAccepted && !isRejected && !isDiscarded && !isCancelled);
+  const isBlockedForAccept = isExpired || isRejected || isDiscarded || isCancelled;
+  const canAcceptQuote = !isDraft && !isAccepted && !isBlockedForAccept;
   const statusLabel = (() => {
+    if (isDraft) return 'Vista previa';
     if (isExpired) return 'Presupuesto vencido';
     if (isDiscarded) return 'Desestimado';
     if (isCancelled) return 'Cancelado';
@@ -566,22 +570,26 @@ export default function QuotePage() {
   const formatCurrency = (value: number) => `$${value.toLocaleString('es-AR')}`;
   const actionTitle = isRejected
     ? 'Este presupuesto fue rechazado'
-    : isExpired
-      ? 'La propuesta vencio'
-      : canCollectFeedback
-        ? 'Trabajo listo para cerrar'
-        : isAccepted
-          ? 'Presupuesto ya aprobado'
-          : 'Listo para tomar una decision';
+    : isDraft
+      ? 'Vista previa del presupuesto'
+      : isExpired
+        ? 'La propuesta vencio'
+        : canCollectFeedback
+          ? 'Trabajo listo para cerrar'
+          : isAccepted
+            ? 'Presupuesto ya aprobado'
+            : 'Listo para tomar una decision';
   const actionDescription = isRejected
     ? 'El cliente decidio no avanzar con esta propuesta. El detalle permanece disponible como respaldo.'
-    : isExpired
-      ? 'La validez del presupuesto termino. Si quieren continuar, el tecnico debe emitir una nueva version.'
-      : canCollectFeedback
-        ? 'Cuando el trabajo queda finalizado o cobrado, la edicion se bloquea y el cliente puede dejar una calificacion con estrellas.'
-        : isAccepted
-          ? 'La contratacion ya fue confirmada y el presupuesto queda disponible como respaldo.'
-          : 'Descarga el PDF si queres archivarlo y, cuando estes listo, confirma la propuesta.';
+    : isDraft
+      ? 'Este link sirve para revisar el presupuesto antes de enviarlo. La aprobacion queda bloqueada hasta que el tecnico lo envie al cliente.'
+      : isExpired
+        ? 'La validez del presupuesto termino. Si quieren continuar, el tecnico debe emitir una nueva version.'
+        : canCollectFeedback
+          ? 'Cuando el trabajo queda finalizado o cobrado, la edicion se bloquea y el cliente puede dejar una calificacion con estrellas.'
+          : isAccepted
+            ? 'La contratacion ya fue confirmada y el presupuesto queda disponible como respaldo.'
+            : 'Descarga el PDF si queres archivarlo y, cuando estes listo, confirma la propuesta.';
 
   // --- ICONOS SVG ---
   const Icons = {
@@ -1245,7 +1253,7 @@ export default function QuotePage() {
                     </div>
                   ) : null}
                   {/* 2. BOTÓN ACEPTAR */}
-                  {!isAccepted && !isRejected && !isExpired ? (
+                  {canAcceptQuote ? (
                     <button 
                       onClick={handleAccept}
                       disabled={accepting}
@@ -1263,13 +1271,15 @@ export default function QuotePage() {
                     <div className={`flex-1 lg:flex-none flex items-center justify-center gap-3 px-6 sm:px-10 py-3.5 sm:py-4 rounded-xl cursor-default shadow-inner w-full sm:w-auto ${
                       isRejected || isExpired
                         ? 'bg-rose-100 text-rose-800 border border-rose-200'
-                        : 'bg-green-100 text-green-800 border border-green-200'
+                        : isDraft
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                          : 'bg-green-100 text-green-800 border border-green-200'
                     }`}>
-                      <div className={`rounded-full p-1 text-white ${isRejected || isExpired ? 'bg-rose-600' : 'bg-green-600'}`}>
-                          <Icons.Check />
+                      <div className={`rounded-full p-1 text-white ${isRejected || isExpired ? 'bg-rose-600' : isDraft ? 'bg-amber-500' : 'bg-green-600'}`}>
+                          {isDraft ? <div className="h-3 w-3 rounded-full bg-current" /> : <Icons.Check />}
                       </div>
                       <span className="tracking-wide text-base sm:text-lg font-black">
-                        {isRejected ? 'PRESUPUESTO RECHAZADO' : isExpired ? 'PRESUPUESTO VENCIDO' : isPaid ? 'TRABAJO COBRADO' : isCompleted ? 'TRABAJO FINALIZADO' : 'PRESUPUESTO APROBADO'}
+                        {isDraft ? 'VISTA PREVIA' : isRejected ? 'PRESUPUESTO RECHAZADO' : isExpired ? 'PRESUPUESTO VENCIDO' : isDiscarded ? 'PRESUPUESTO DESESTIMADO' : isCancelled ? 'PRESUPUESTO CANCELADO' : isPaid ? 'TRABAJO COBRADO' : isCompleted ? 'TRABAJO FINALIZADO' : 'PRESUPUESTO APROBADO'}
                       </span>
                     </div>
                   )}
@@ -1298,7 +1308,7 @@ export default function QuotePage() {
               <div className="mt-2 flex flex-col gap-2">
                 <div className="flex items-center gap-3">
                   <PDFExportButton quote={quote} items={publicItems} profile={profile} />
-                  {!isAccepted && !isRejected && !isExpired ? (
+                  {canAcceptQuote ? (
                     <button
                       onClick={handleAccept}
                       disabled={accepting}
@@ -1314,12 +1324,14 @@ export default function QuotePage() {
                     <div className={`flex-1 flex items-center justify-center gap-2 rounded-xl px-4 py-3.5 text-sm font-semibold shadow-inner ${
                       isRejected || isExpired
                         ? 'border border-rose-200 bg-rose-100 text-rose-800'
-                        : 'border border-green-200 bg-green-100 text-green-800'
+                        : isDraft
+                          ? 'border border-amber-200 bg-amber-50 text-amber-800'
+                          : 'border border-green-200 bg-green-100 text-green-800'
                     }`}>
-                      <div className={`rounded-full p-1 text-white ${isRejected || isExpired ? 'bg-rose-600' : 'bg-green-600'}`}>
-                        <Icons.Check />
+                      <div className={`rounded-full p-1 text-white ${isRejected || isExpired ? 'bg-rose-600' : isDraft ? 'bg-amber-500' : 'bg-green-600'}`}>
+                        {isDraft ? <div className="h-3 w-3 rounded-full bg-current" /> : <Icons.Check />}
                       </div>
-                      <span className="tracking-wide">{isRejected ? 'RECHAZADO' : isExpired ? 'VENCIDO' : isPaid ? 'COBRADO' : isCompleted ? 'FINALIZADO' : 'APROBADO'}</span>
+                      <span className="tracking-wide">{isDraft ? 'VISTA PREVIA' : isRejected ? 'RECHAZADO' : isExpired ? 'VENCIDO' : isDiscarded ? 'DESESTIMADO' : isCancelled ? 'CANCELADO' : isPaid ? 'COBRADO' : isCompleted ? 'FINALIZADO' : 'APROBADO'}</span>
                     </div>
                   )}
                 </div>

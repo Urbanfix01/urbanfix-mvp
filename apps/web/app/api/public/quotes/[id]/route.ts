@@ -9,6 +9,8 @@ const isUuid = (value: string) =>
 const normalizeStatus = (value: unknown) => String(value || '').trim().toLowerCase();
 
 const PUBLIC_QUOTE_STATUSES = new Set([
+  'draft',
+  'borrador',
   'sent',
   'presented',
   'pending',
