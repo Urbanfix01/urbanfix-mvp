@@ -4,7 +4,7 @@ import PublicTopNav from '../../components/PublicTopNav';
 import { requireRegisteredUser } from '../../lib/auth/require-registered-user';
 import { laborPriceIndex } from '../../lib/labor-price-index';
 import { getRubroTwemojiByName } from '../../lib/seo/rubro-icons';
-import { formatArs, getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
+import { getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -78,10 +78,9 @@ export default async function RubrosPage() {
 
           <section className="mt-6 overflow-hidden rounded-3xl border border-white/15 bg-white/[0.03]">
             {rubrosList.length > 0 && (
-              <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3 border-b border-white/10 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45 sm:grid-cols-[minmax(0,1fr)_130px_120px] md:grid-cols-[minmax(0,1fr)_130px_160px_120px]">
+              <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3 border-b border-white/10 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45 sm:grid-cols-[minmax(0,1fr)_130px_120px]">
                 <span>Rubro</span>
                 <span className="hidden text-right sm:block">Valores activos</span>
-                <span className="hidden text-right md:block">Precio vigente</span>
                 <span className="text-right">Accion</span>
               </div>
             )}
@@ -89,12 +88,11 @@ export default async function RubrosPage() {
             <div className="divide-y divide-white/10">
               {rubrosList.map((rubro) => {
                 const twemojiCode = getRubroTwemojiByName(rubro.label);
-                const currentReference = rubro.currentReference > 0 ? formatArs(rubro.currentReference) : 'Sin precio';
                 return (
                   <a
                     key={rubro.slug}
                     href={`/rubros/${rubro.slug}`}
-                    className="group grid gap-3 px-5 py-4 transition hover:bg-white/[0.05] sm:grid-cols-[minmax(0,1fr)_130px_120px] md:grid-cols-[minmax(0,1fr)_130px_160px_120px] md:items-center"
+                    className="group grid gap-3 px-5 py-4 transition hover:bg-white/[0.05] sm:grid-cols-[minmax(0,1fr)_130px_120px] sm:items-center"
                   >
                     <div className="flex min-w-0 items-center gap-4">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_10px_22px_rgba(10,5,20,0.18)]">
@@ -111,7 +109,7 @@ export default async function RubrosPage() {
                           {rubro.label}
                         </p>
                         <p className="mt-1 text-xs text-white/55 sm:hidden">
-                          {rubro.itemCount} valores activos | vigente {currentReference}
+                          {rubro.itemCount} valores activos
                         </p>
                       </div>
                     </div>
@@ -119,13 +117,6 @@ export default async function RubrosPage() {
                     <div className="hidden text-right sm:block">
                       <p className="text-sm font-semibold text-white">{rubro.itemCount}</p>
                       <p className="text-[10px] uppercase tracking-[0.12em] text-white/35">valores</p>
-                    </div>
-
-                    <div className="hidden text-right md:block">
-                      <p className="text-sm font-semibold text-white">{currentReference}</p>
-                      <p className="text-[10px] uppercase tracking-[0.12em] text-[#ffbf7a]">
-                        {laborPriceIndex.activeLabel}
-                      </p>
                     </div>
 
                     <div className="text-right">
