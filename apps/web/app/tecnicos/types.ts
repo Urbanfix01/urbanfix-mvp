@@ -88,12 +88,14 @@ export type NotificationRow = {
 export type MasterItemRow = {
   id: string;
   name: string;
-  type: 'labor' | 'material';
+  type: 'labor' | 'material' | 'consumable';
   suggested_price: number | null;
   category: string | null;
   source_ref?: string | null;
   technical_notes?: string | null;
   unit?: string | null;
+  active?: boolean | null;
+  created_at?: string | null;
 };
 
 export type GeoResult = {

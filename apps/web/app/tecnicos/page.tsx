@@ -84,6 +84,7 @@ import LocalitySelect from '../../components/LocalitySelect';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import TechnicianClientHistoryMap from '../../components/TechnicianClientHistoryMap';
 import { parseTechnicianLocation } from '../../lib/technician-location';
+import { rubroCatalog } from '../../lib/seo/rubro-catalog';
 import type {
   AccessProfile,
   AttachmentRow,
@@ -140,9 +141,12 @@ const DEFAULT_WORKING_HOURS_CONFIG: WorkingHoursConfig = {
   sundayTo: '13:00',
 };
 
-type QuoteWorkEstimatorMode = 'manual' | 'revoques' | 'mamposteria';
+type QuoteWorkEstimatorMode = 'manual' | 'revoques' | 'mamposteria' | 'pisos' | 'pintura';
+type QuoteLaborLoadMode = 'calculator' | 'catalog';
 type RevoqueWorkTypeKey = 'grueso' | 'fino' | 'grueso-fino' | 'exterior';
 type MamposteriaWorkTypeKey = 'ladrillo-hueco-8' | 'ladrillo-hueco-12' | 'ladrillo-hueco-18' | 'ladrillo-comun' | 'bloque-cemento';
+type PisoWorkTypeKey = 'ceramico' | 'porcelanato' | 'revestimiento';
+type PinturaWorkTypeKey = 'interior' | 'exterior' | 'cielorraso';
 
 type RevoqueEstimatorForm = {
   workType: RevoqueWorkTypeKey;
@@ -174,8 +178,35 @@ type MamposteriaEstimatorForm = {
   sandM3Price: string;
 };
 
+type PisoEstimatorForm = {
+  workType: PisoWorkTypeKey;
+  surfaceM2: string;
+  laborPrice: string;
+  materialPrice: string;
+  materialWastePercent: string;
+  tileM2Price: string;
+  adhesiveBagPrice: string;
+  groutKgPrice: string;
+};
+
+type PinturaEstimatorForm = {
+  workType: PinturaWorkTypeKey;
+  surfaceM2: string;
+  coats: string;
+  laborPrice: string;
+  materialPrice: string;
+  materialWastePercent: string;
+  paintLiterPrice: string;
+  primerLiterPrice: string;
+  puttyKgPrice: string;
+  includePrimer: boolean;
+  includePutty: boolean;
+};
+
 const REVOQUE_TEMPLATE_SOURCE = 'template:revoques';
 const MAMPOSTERIA_TEMPLATE_SOURCE = 'template:mamposteria';
+const PISO_TEMPLATE_SOURCE = 'template:pisos';
+const PINTURA_TEMPLATE_SOURCE = 'template:pintura';
 
 type RevoqueMaterialPriceField =
   | 'cementBagPrice'
@@ -189,12 +220,40 @@ type MamposteriaMaterialPriceField =
   | 'limeBagPrice'
   | 'sandM3Price';
 
+type PisoMaterialPriceField =
+  | 'tileM2Price'
+  | 'adhesiveBagPrice'
+  | 'groutKgPrice';
+
+type PinturaMaterialPriceField =
+  | 'paintLiterPrice'
+  | 'primerLiterPrice'
+  | 'puttyKgPrice';
+
 type MaterialCoefficient<TPriceField extends string> = {
   key: string;
   label: string;
   unit: string;
   perM2: number;
   priceField: TPriceField;
+};
+
+type EstimatorCatalogCheckField = {
+  label: string;
+  kind: 'labor' | 'material';
+  item: MasterItemRow | null | undefined;
+  value: string;
+};
+
+type EstimatorCatalogCheck = {
+  status: 'loading' | 'ready' | 'partial' | 'manual' | 'missing';
+  label: string;
+  detail: string;
+  sourceLabel: string;
+  updatedAtLabel: string;
+  manualCount: number;
+  missingCount: number;
+  totalCount: number;
 };
 
 type LaborTemplateLookup = {
@@ -204,6 +263,15 @@ type LaborTemplateLookup = {
 };
 
 type MaterialTemplateLookup = LaborTemplateLookup;
+
+const QUOTE_ESTIMATOR_OPTIONS: Array<{ key: QuoteWorkEstimatorMode; label: string }> = [
+  { key: 'revoques', label: 'Cómputo: Revoques' },
+  { key: 'mamposteria', label: 'Cómputo: Mampostería' },
+  { key: 'pisos', label: 'Cómputo: Pisos' },
+  { key: 'pintura', label: 'Cómputo: Pintura' },
+];
+
+const DEFAULT_QUOTE_ESTIMATOR_MODE: QuoteWorkEstimatorMode = QUOTE_ESTIMATOR_OPTIONS[0]?.key || 'manual';
 
 const REVOQUE_MATERIAL_PRICE_FIELDS: RevoqueMaterialPriceField[] = [
   'cementBagPrice',
@@ -219,6 +287,18 @@ const MAMPOSTERIA_MATERIAL_PRICE_FIELDS: MamposteriaMaterialPriceField[] = [
   'sandM3Price',
 ];
 
+const PISO_MATERIAL_PRICE_FIELDS: PisoMaterialPriceField[] = [
+  'tileM2Price',
+  'adhesiveBagPrice',
+  'groutKgPrice',
+];
+
+const PINTURA_MATERIAL_PRICE_FIELDS: PinturaMaterialPriceField[] = [
+  'paintLiterPrice',
+  'primerLiterPrice',
+  'puttyKgPrice',
+];
+
 const SHARED_MATERIAL_LOOKUPS: Record<
   'cementBagPrice' | 'limeBagPrice' | 'sandM3Price',
   MaterialTemplateLookup
@@ -227,6 +307,7 @@ const SHARED_MATERIAL_LOOKUPS: Record<
     categories: ['Materiales', 'Construccion', 'Albanileria', 'Estructura y Obra Gruesa'],
     termGroups: [
       ['cemento', '50'],
+      ['cemento', 'portland'],
       ['cemento'],
     ],
     preferredUnit: 'bolsa',
@@ -234,16 +315,18 @@ const SHARED_MATERIAL_LOOKUPS: Record<
   limeBagPrice: {
     categories: ['Materiales', 'Construccion', 'Albanileria', 'Estructura y Obra Gruesa'],
     termGroups: [
-      ['cal'],
       ['cal', 'hidratada'],
+      ['cal', 'aerea'],
+      ['cal'],
     ],
     preferredUnit: 'bolsa',
   },
   sandM3Price: {
     categories: ['Materiales', 'Construccion', 'Albanileria', 'Estructura y Obra Gruesa'],
     termGroups: [
-      ['arena'],
       ['arena', 'm3'],
+      ['arena', 'gruesa'],
+      ['arena'],
     ],
     preferredUnit: 'm3',
   },
@@ -265,7 +348,9 @@ const MAMPOSTERIA_BRICK_PRICE_LOOKUPS: Record<MamposteriaWorkTypeKey, MaterialTe
   'ladrillo-hueco-8': {
     categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
     termGroups: [
+      ['ladrillo', 'ceramico', 'hueco', '8'],
       ['ladrillo', 'hueco', '8'],
+      ['hueco', '8'],
       ['ladrillo', 'hueco'],
     ],
     preferredUnit: 'unidad',
@@ -273,7 +358,9 @@ const MAMPOSTERIA_BRICK_PRICE_LOOKUPS: Record<MamposteriaWorkTypeKey, MaterialTe
   'ladrillo-hueco-12': {
     categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
     termGroups: [
+      ['ladrillo', 'ceramico', 'hueco', '12'],
       ['ladrillo', 'hueco', '12'],
+      ['hueco', '12'],
       ['ladrillo', 'hueco'],
     ],
     preferredUnit: 'unidad',
@@ -281,7 +368,9 @@ const MAMPOSTERIA_BRICK_PRICE_LOOKUPS: Record<MamposteriaWorkTypeKey, MaterialTe
   'ladrillo-hueco-18': {
     categories: ['Materiales', 'Mamposteria', 'Albanileria', 'Estructura y Obra Gruesa'],
     termGroups: [
+      ['ladrillo', 'ceramico', 'hueco', '18'],
       ['ladrillo', 'hueco', '18'],
+      ['hueco', '18'],
       ['ladrillo', 'hueco'],
     ],
     preferredUnit: 'unidad',
@@ -536,6 +625,216 @@ const DEFAULT_MAMPOSTERIA_FORM: MamposteriaEstimatorForm = {
   cementBagPrice: '',
   limeBagPrice: '',
   sandM3Price: '',
+};
+
+const PISO_WORK_TYPES: Array<{
+  key: PisoWorkTypeKey;
+  label: string;
+  shortLabel: string;
+  detail: string;
+}> = [
+  {
+    key: 'ceramico',
+    label: 'Colocacion de piso ceramico',
+    shortLabel: 'Ceramico',
+    detail: 'Calcula piezas por m2, adhesivo, pastina y colocacion.',
+  },
+  {
+    key: 'porcelanato',
+    label: 'Colocacion de porcelanato',
+    shortLabel: 'Porcelanato',
+    detail: 'Mayor cuidado de nivelacion y terminacion.',
+  },
+  {
+    key: 'revestimiento',
+    label: 'Colocacion de revestimiento',
+    shortLabel: 'Revestimiento',
+    detail: 'Para paredes de bano, cocina o frentes interiores.',
+  },
+];
+
+const PISO_LABOR_LOOKUPS: Record<PisoWorkTypeKey, LaborTemplateLookup> = {
+  ceramico: {
+    categories: ['Pisos y revestimientos', 'Revestimientos y Pisos', 'Albanileria'],
+    termGroups: [
+      ['colocacion', 'ceramico'],
+      ['piso', 'ceramico'],
+    ],
+    preferredUnit: 'm2',
+  },
+  porcelanato: {
+    categories: ['Pisos y revestimientos', 'Revestimientos y Pisos', 'Albanileria'],
+    termGroups: [
+      ['colocacion', 'porcelanato'],
+      ['piso', 'porcelanato'],
+    ],
+    preferredUnit: 'm2',
+  },
+  revestimiento: {
+    categories: ['Pisos y revestimientos', 'Revestimientos y Pisos', 'Albanileria'],
+    termGroups: [
+      ['colocacion', 'revestimiento'],
+      ['revestimiento'],
+    ],
+    preferredUnit: 'm2',
+  },
+};
+
+const PISO_MATERIAL_PRICE_LOOKUPS: Record<PisoMaterialPriceField, MaterialTemplateLookup> = {
+  tileM2Price: {
+    categories: ['Materiales', 'Pisos y revestimientos', 'Revestimientos y Pisos'],
+    termGroups: [
+      ['ceramico'],
+      ['porcelanato'],
+      ['revestimiento'],
+    ],
+    preferredUnit: 'm2',
+  },
+  adhesiveBagPrice: {
+    categories: ['Materiales', 'Pisos y revestimientos', 'Revestimientos y Pisos'],
+    termGroups: [
+      ['adhesivo', 'cementicio'],
+      ['pegamento'],
+      ['adhesivo'],
+    ],
+    preferredUnit: 'bolsa',
+  },
+  groutKgPrice: {
+    categories: ['Materiales', 'Pisos y revestimientos', 'Revestimientos y Pisos'],
+    termGroups: [
+      ['pastina'],
+      ['fragua'],
+      ['fragüe'],
+      ['frague'],
+    ],
+    preferredUnit: 'kg',
+  },
+};
+
+const PISO_MATERIAL_COEFFICIENTS: Record<PisoWorkTypeKey, Array<MaterialCoefficient<PisoMaterialPriceField>>> = {
+  ceramico: [
+    { key: 'tile', label: 'Piso ceramico', unit: 'm2', perM2: 1, priceField: 'tileM2Price' },
+    { key: 'adhesive', label: 'Pegamento', unit: 'bolsa', perM2: 0.2, priceField: 'adhesiveBagPrice' },
+    { key: 'grout', label: 'Pastina', unit: 'kg', perM2: 0.25, priceField: 'groutKgPrice' },
+  ],
+  porcelanato: [
+    { key: 'tile', label: 'Porcelanato', unit: 'm2', perM2: 1, priceField: 'tileM2Price' },
+    { key: 'adhesive', label: 'Pegamento porcelanato', unit: 'bolsa', perM2: 0.25, priceField: 'adhesiveBagPrice' },
+    { key: 'grout', label: 'Pastina', unit: 'kg', perM2: 0.28, priceField: 'groutKgPrice' },
+  ],
+  revestimiento: [
+    { key: 'tile', label: 'Revestimiento', unit: 'm2', perM2: 1, priceField: 'tileM2Price' },
+    { key: 'adhesive', label: 'Pegamento', unit: 'bolsa', perM2: 0.18, priceField: 'adhesiveBagPrice' },
+    { key: 'grout', label: 'Pastina', unit: 'kg', perM2: 0.22, priceField: 'groutKgPrice' },
+  ],
+};
+
+const DEFAULT_PISO_FORM: PisoEstimatorForm = {
+  workType: 'ceramico',
+  surfaceM2: '',
+  laborPrice: '',
+  materialPrice: '',
+  materialWastePercent: '10',
+  tileM2Price: '',
+  adhesiveBagPrice: '',
+  groutKgPrice: '',
+};
+
+const PINTURA_WORK_TYPES: Array<{
+  key: PinturaWorkTypeKey;
+  label: string;
+  shortLabel: string;
+  detail: string;
+}> = [
+  {
+    key: 'interior',
+    label: 'Pintura interior',
+    shortLabel: 'Interior',
+    detail: 'Paredes interiores, calculo por m2 y cantidad de manos.',
+  },
+  {
+    key: 'exterior',
+    label: 'Pintura exterior',
+    shortLabel: 'Exterior',
+    detail: 'Incluye mayor preparacion y consumo por superficie.',
+  },
+  {
+    key: 'cielorraso',
+    label: 'Pintura de cielorraso',
+    shortLabel: 'Cielorraso',
+    detail: 'Para techos interiores y superficies horizontales.',
+  },
+];
+
+const PINTURA_LABOR_LOOKUPS: Record<PinturaWorkTypeKey, LaborTemplateLookup> = {
+  interior: {
+    categories: ['Pintura', 'Terminaciones'],
+    termGroups: [
+      ['pintura', 'interior'],
+      ['pintura'],
+    ],
+    preferredUnit: 'm2',
+  },
+  exterior: {
+    categories: ['Pintura', 'Terminaciones'],
+    termGroups: [
+      ['pintura', 'exterior'],
+      ['exterior'],
+    ],
+    preferredUnit: 'm2',
+  },
+  cielorraso: {
+    categories: ['Pintura', 'Terminaciones'],
+    termGroups: [
+      ['pintura', 'cielorraso'],
+      ['cielorraso'],
+    ],
+    preferredUnit: 'm2',
+  },
+};
+
+const PINTURA_MATERIAL_PRICE_LOOKUPS: Record<PinturaMaterialPriceField, MaterialTemplateLookup> = {
+  paintLiterPrice: {
+    categories: ['Materiales', 'Pintura', 'Terminaciones'],
+    termGroups: [
+      ['latex', 'interior'],
+      ['latex', 'exterior'],
+      ['pintura', 'latex'],
+      ['latex'],
+      ['pintura'],
+    ],
+    preferredUnit: 'litro',
+  },
+  primerLiterPrice: {
+    categories: ['Materiales', 'Pintura', 'Terminaciones'],
+    termGroups: [
+      ['fijador'],
+      ['sellador'],
+    ],
+    preferredUnit: 'litro',
+  },
+  puttyKgPrice: {
+    categories: ['Materiales', 'Pintura', 'Terminaciones'],
+    termGroups: [
+      ['enduido'],
+      ['masilla'],
+    ],
+    preferredUnit: 'kg',
+  },
+};
+
+const DEFAULT_PINTURA_FORM: PinturaEstimatorForm = {
+  workType: 'interior',
+  surfaceM2: '',
+  coats: '2',
+  laborPrice: '',
+  materialPrice: '',
+  materialWastePercent: '10',
+  paintLiterPrice: '',
+  primerLiterPrice: '',
+  puttyKgPrice: '',
+  includePrimer: true,
+  includePutty: false,
 };
 
 const isTechnicianDashboardTab = (
@@ -1526,6 +1825,143 @@ const formatSuggestedPriceInput = (price: number) => {
   return Number.isInteger(price) ? String(price) : String(Math.round(price * 100) / 100).replace('.', ',');
 };
 
+const pricesAreEquivalent = (left: number, right: number) => Math.abs(left - right) < 0.01;
+
+const formatCatalogSourceLabel = (source: string | null | undefined) => {
+  const value = String(source || '').trim();
+  if (!value) return 'sin fuente';
+  const knownLabels: Record<string, string> = {
+    mo_rubro_mamposteria_tabiqueria: 'MO mamposteria',
+    mo_rubro_revoques: 'MO revoques',
+  };
+  return knownLabels[value] || value.replace(/^mo[_-]?rubro?s?[_-]?/i, 'MO ').replace(/[_-]+/g, ' ').trim();
+};
+
+const formatCatalogDateLabel = (value: string | null | undefined) => {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+};
+
+const buildEstimatorCatalogCheck = (
+  fields: EstimatorCatalogCheckField[],
+  loading: boolean
+): EstimatorCatalogCheck => {
+  const activeFields = fields.filter((field) => field.item);
+  const laborFields = fields.filter((field) => field.kind === 'labor');
+  if (loading) {
+    return {
+      status: 'loading',
+      label: 'Validando catalogo',
+      detail: 'Buscando la base de precios activa.',
+      sourceLabel: '',
+      updatedAtLabel: '',
+      manualCount: 0,
+      missingCount: 0,
+      totalCount: fields.length,
+    };
+  }
+
+  const sourceCounts = new Map<string, number>();
+  let newestCreatedAt = '';
+  let manualCount = 0;
+  let missingCount = 0;
+  let missingLaborCount = 0;
+  let missingMaterialCount = 0;
+
+  fields.forEach((field) => {
+    const suggestedPrice = getMasterItemSuggestedPrice(field.item);
+    if (!field.item || suggestedPrice <= 0) {
+      missingCount += 1;
+      if (field.kind === 'labor') missingLaborCount += 1;
+      if (field.kind === 'material') missingMaterialCount += 1;
+      return;
+    }
+
+    const source = String(field.item.source_ref || '').trim() || 'sin fuente';
+    sourceCounts.set(source, (sourceCounts.get(source) || 0) + 1);
+
+    const createdAt = String(field.item.created_at || '');
+    if (createdAt && (!newestCreatedAt || new Date(createdAt).getTime() > new Date(newestCreatedAt).getTime())) {
+      newestCreatedAt = createdAt;
+    }
+
+    const currentPrice = toNumber(field.value);
+    if (field.value.trim() && currentPrice > 0 && !pricesAreEquivalent(currentPrice, suggestedPrice)) {
+      manualCount += 1;
+    }
+  });
+
+  const sources = Array.from(sourceCounts.entries()).sort((a, b) => b[1] - a[1]);
+  const sourceLabel =
+    sources.length === 0
+      ? 'sin fuente'
+      : sources.length === 1
+        ? formatCatalogSourceLabel(sources[0][0])
+        : `${formatCatalogSourceLabel(sources[0][0])} + ${sources.length - 1} fuente${sources.length > 2 ? 's' : ''}`;
+  const updatedAtLabel = formatCatalogDateLabel(newestCreatedAt);
+
+  if (missingLaborCount > 0) {
+    return {
+      status: 'missing',
+      label: 'Falta mano de obra',
+      detail: 'No encontramos el valor principal en el catalogo activo.',
+      sourceLabel,
+      updatedAtLabel,
+      manualCount,
+      missingCount,
+      totalCount: fields.length,
+    };
+  }
+
+  if (missingMaterialCount > 0) {
+    const laborReadyCount = laborFields.length - missingLaborCount;
+    return {
+      status: 'partial',
+      label: laborReadyCount > 0 ? 'Mano de obra al dia' : 'Materiales pendientes',
+      detail: `${missingMaterialCount} material${missingMaterialCount === 1 ? '' : 'es'} quedan con precio pendiente.`,
+      sourceLabel,
+      updatedAtLabel,
+      manualCount,
+      missingCount,
+      totalCount: fields.length,
+    };
+  }
+
+  if (manualCount > 0) {
+    return {
+      status: 'manual',
+      label: 'Valores modificados',
+      detail: `${manualCount} de ${fields.length} valores no coinciden con el catalogo vigente.`,
+      sourceLabel,
+      updatedAtLabel,
+      manualCount,
+      missingCount,
+      totalCount: fields.length,
+    };
+  }
+
+  return {
+    status: 'ready',
+    label: 'Catalogo al dia',
+    detail: `${activeFields.length} valores tomados de la base vigente.`,
+    sourceLabel,
+    updatedAtLabel,
+    manualCount,
+    missingCount,
+    totalCount: fields.length,
+  };
+};
+
+const getEstimatorCatalogCheckClass = (status: EstimatorCatalogCheck['status']) => {
+  if (status === 'ready') return 'border-emerald-200 bg-emerald-50 text-emerald-900';
+  if (status === 'partial') return 'border-amber-200 bg-amber-50 text-amber-900';
+  if (status === 'manual') return 'border-amber-200 bg-amber-50 text-amber-900';
+  if (status === 'missing') return 'border-rose-200 bg-rose-50 text-rose-900';
+  return 'border-slate-200 bg-slate-50 text-slate-700';
+};
+
 const lookupTextHasTerm = (text: string, term: string) => {
   if (!term) return true;
   if (/^\d+$/.test(term)) {
@@ -2404,6 +2840,30 @@ const RUBRO_TOKEN_RULES: Array<{ key: string; tokens: string[] }> = [
   { key: 'estructuras metalicas', tokens: ['estructura metal', 'perfil metal', 'ipn', 'upn'] },
 ];
 
+const CATALOG_RUBRO_SOURCE_MAP = new Map<string, string>();
+const CATALOG_RUBRO_LABELS = new Map<string, string>();
+const CATALOG_RUBRO_ORDER = new Map<string, number>();
+
+rubroCatalog.forEach((rubro, index) => {
+  CATALOG_RUBRO_LABELS.set(rubro.slug, rubro.label);
+  CATALOG_RUBRO_ORDER.set(rubro.slug, index);
+  rubro.sources.forEach((source) => {
+    CATALOG_RUBRO_SOURCE_MAP.set(String(source || '').trim().toLowerCase(), rubro.slug);
+  });
+});
+
+const resolveCatalogRubroFromSource = (sourceRef: string | null | undefined) => {
+  const source = String(sourceRef || '').trim().toLowerCase();
+  return CATALOG_RUBRO_SOURCE_MAP.get(source) || '';
+};
+
+const compareRubroValues = (left: string, right: string) => {
+  const leftOrder = CATALOG_RUBRO_ORDER.has(left) ? CATALOG_RUBRO_ORDER.get(left)! : Number.MAX_SAFE_INTEGER;
+  const rightOrder = CATALOG_RUBRO_ORDER.has(right) ? CATALOG_RUBRO_ORDER.get(right)! : Number.MAX_SAFE_INTEGER;
+  if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+  return formatRubroLabel(left).localeCompare(formatRubroLabel(right));
+};
+
 const resolveKnownRubro = (normalized: string) => {
   for (const rule of RUBRO_TOKEN_RULES) {
     if (rule.tokens.some((token) => normalized.includes(token))) return rule.key;
@@ -2417,6 +2877,9 @@ const normalizeRawRubro = (value: string | null | undefined) =>
     .trim();
 
 const resolveMasterRubro = (item: MasterItemRow) => {
+  const catalogRubro = resolveCatalogRubroFromSource(item.source_ref);
+  if (catalogRubro) return catalogRubro;
+
   const primaryRaw = normalizeRawRubro(item.category || item.source_ref);
   const primaryNormalized = normalizeText(primaryRaw);
   const knownFromPrimary = resolveKnownRubro(primaryNormalized);
@@ -2432,6 +2895,8 @@ const resolveMasterRubro = (item: MasterItemRow) => {
 
 const formatRubroLabel = (value: string) => {
   const trimmed = value.trim();
+  const catalogLabel = CATALOG_RUBRO_LABELS.get(trimmed);
+  if (catalogLabel) return catalogLabel;
   return RUBRO_LABELS[trimmed] || trimmed;
 };
 
@@ -2759,6 +3224,8 @@ export default function TechniciansPage() {
   const [loadingMasterItems, setLoadingMasterItems] = useState(false);
   const [masterSearch, setMasterSearch] = useState('');
   const [masterCategory, setMasterCategory] = useState('all');
+  const [quoteCatalogSearch, setQuoteCatalogSearch] = useState('');
+  const [quoteCatalogCategory, setQuoteCatalogCategory] = useState('all');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
   const [isMobileFloatingMenuOpen, setIsMobileFloatingMenuOpen] = useState(false);
@@ -2792,11 +3259,17 @@ export default function TechniciansPage() {
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerError, setViewerError] = useState('');
   const [quoteFilter, setQuoteFilter] = useState<QuoteFilter>('all');
-  const [openQuoteStep, setOpenQuoteStep] = useState<'client' | 'items' | 'settings'>('client');
+  const [openQuoteStep, setOpenQuoteStep] = useState<'client' | 'items' | 'materials' | 'settings'>('client');
+  const [editingQuoteItemId, setEditingQuoteItemId] = useState('');
   const [showQuoteDraftPrompt, setShowQuoteDraftPrompt] = useState(false);
-  const [quoteWorkEstimatorMode, setQuoteWorkEstimatorMode] = useState<QuoteWorkEstimatorMode>('manual');
+  const [quoteLaborLoadMode, setQuoteLaborLoadMode] = useState<QuoteLaborLoadMode>('catalog');
+  const [quoteWorkEstimatorMode, setQuoteWorkEstimatorMode] = useState<QuoteWorkEstimatorMode>(
+    DEFAULT_QUOTE_ESTIMATOR_MODE
+  );
   const [revoqueForm, setRevoqueForm] = useState<RevoqueEstimatorForm>(DEFAULT_REVOQUE_FORM);
   const [mamposteriaForm, setMamposteriaForm] = useState<MamposteriaEstimatorForm>(DEFAULT_MAMPOSTERIA_FORM);
+  const [pisoForm, setPisoForm] = useState<PisoEstimatorForm>(DEFAULT_PISO_FORM);
+  const [pinturaForm, setPinturaForm] = useState<PinturaEstimatorForm>(DEFAULT_PINTURA_FORM);
   const [clientHistoryFilter, setClientHistoryFilter] = useState<'all' | 'located' | 'pending' | 'paid'>('all');
   const [selectedClientKey, setSelectedClientKey] = useState('');
   const [financeTimelineMode, setFinanceTimelineMode] = useState<FinanceTimelineMode>('monthly');
@@ -3990,6 +4463,7 @@ export default function TechniciansPage() {
         includeTechnicalNotes ? 'technical_notes' : null,
         includeUnit ? 'unit' : null,
         includeActive ? 'active' : null,
+        'created_at',
       ]
         .filter(Boolean)
         .join(',');
@@ -4063,9 +4537,12 @@ export default function TechniciansPage() {
     setInfoMessage('');
     setOpenQuoteStep('client');
     setShowQuoteDraftPrompt(false);
-    setQuoteWorkEstimatorMode('manual');
+    setQuoteLaborLoadMode('catalog');
+    setQuoteWorkEstimatorMode(DEFAULT_QUOTE_ESTIMATOR_MODE);
     setRevoqueForm(DEFAULT_REVOQUE_FORM);
     setMamposteriaForm(DEFAULT_MAMPOSTERIA_FORM);
+    setPisoForm(DEFAULT_PISO_FORM);
+    setPinturaForm(DEFAULT_PINTURA_FORM);
     lastSavedItemsSignatureRef.current = '';
     lastSavedItemsCountRef.current = 0;
   };
@@ -4085,9 +4562,12 @@ export default function TechniciansPage() {
     setShowQuoteDraftPrompt(false);
     if (targetTab === 'nuevo') {
       setOpenQuoteStep('client');
-      setQuoteWorkEstimatorMode('manual');
+      setQuoteLaborLoadMode('catalog');
+      setQuoteWorkEstimatorMode(DEFAULT_QUOTE_ESTIMATOR_MODE);
       setRevoqueForm(DEFAULT_REVOQUE_FORM);
       setMamposteriaForm(DEFAULT_MAMPOSTERIA_FORM);
+      setPisoForm(DEFAULT_PISO_FORM);
+      setPinturaForm(DEFAULT_PINTURA_FORM);
     }
     setActiveQuoteId(quote.id);
     setClientName(quote.client_name || '');
@@ -4155,6 +4635,7 @@ export default function TechniciansPage() {
       mapped.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }))
     );
     setItems(hydratedItems);
+    setEditingQuoteItemId('');
     lastSavedItemsSignatureRef.current = buildItemsSignature(
       hydratedItems.filter((item) => item.description.trim())
     );
@@ -4163,12 +4644,14 @@ export default function TechniciansPage() {
   };
 
   const addMasterItemToQuote = (item: MasterItemRow) => {
+    const nextItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setActiveTab('nuevo');
+    setOpenQuoteStep(item.type === 'labor' ? 'items' : 'materials');
     setItems((prev) =>
       mergeQuoteMaterialItems([
         ...prev,
         {
-          id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          id: nextItemId,
           description: item.name,
           quantity: 1,
           unitPrice: Number(item.suggested_price || 0),
@@ -4179,22 +4662,25 @@ export default function TechniciansPage() {
           masterItemId: item.id,
           masterItemCategory: item.category || '',
           masterItemSourceRef: item.source_ref || '',
-          type: item.type === 'material' ? 'material' : 'labor',
+          type: item.type === 'labor' ? 'labor' : 'material',
         },
       ])
     );
+    setEditingQuoteItemId(nextItemId);
+    focusQuoteItemsEditor();
   };
 
   const handleAddItem = (type: 'labor' | 'material' = 'labor') => {
-    setOpenQuoteStep('items');
+    const nextItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    setOpenQuoteStep(type === 'material' ? 'materials' : 'items');
     setItems((prev) => [
       ...prev,
       {
-        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        id: nextItemId,
         description: '',
         quantity: 1,
         unitPrice: 0,
-        unit: '',
+        unit: type === 'labor' ? 'm2' : '',
         workArea: '',
         itemImages: [],
         technicalNotes: '',
@@ -4204,6 +4690,7 @@ export default function TechniciansPage() {
         type,
       },
     ]);
+    setEditingQuoteItemId(nextItemId);
   };
 
   const focusQuoteItemsEditor = () => {
@@ -4258,6 +4745,40 @@ export default function TechniciansPage() {
     }),
     [materialMasterItems, mamposteriaForm.workType]
   );
+  const pisoMaterialMasterItems = useMemo<Record<PisoMaterialPriceField, MasterItemRow | null>>(
+    () => ({
+      tileM2Price: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        PISO_MATERIAL_PRICE_LOOKUPS.tileM2Price
+      ),
+      adhesiveBagPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        PISO_MATERIAL_PRICE_LOOKUPS.adhesiveBagPrice
+      ),
+      groutKgPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        PISO_MATERIAL_PRICE_LOOKUPS.groutKgPrice
+      ),
+    }),
+    [materialMasterItems]
+  );
+  const pinturaMaterialMasterItems = useMemo<Record<PinturaMaterialPriceField, MasterItemRow | null>>(
+    () => ({
+      paintLiterPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        PINTURA_MATERIAL_PRICE_LOOKUPS.paintLiterPrice
+      ),
+      primerLiterPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        PINTURA_MATERIAL_PRICE_LOOKUPS.primerLiterPrice
+      ),
+      puttyKgPrice: resolveTemplateMaterialMasterItem(
+        materialMasterItems,
+        PINTURA_MATERIAL_PRICE_LOOKUPS.puttyKgPrice
+      ),
+    }),
+    [materialMasterItems]
+  );
   const revoqueSuggestedMaterialInputs = useMemo<Record<RevoqueMaterialPriceField, string>>(
     () => ({
       cementBagPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(revoqueMaterialMasterItems.cementBagPrice)),
@@ -4286,10 +4807,30 @@ export default function TechniciansPage() {
     }),
     [mamposteriaMaterialMasterItems]
   );
+  const pisoSuggestedMaterialInputs = useMemo<Record<PisoMaterialPriceField, string>>(
+    () => ({
+      tileM2Price: formatSuggestedPriceInput(getMasterItemSuggestedPrice(pisoMaterialMasterItems.tileM2Price)),
+      adhesiveBagPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(pisoMaterialMasterItems.adhesiveBagPrice)),
+      groutKgPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(pisoMaterialMasterItems.groutKgPrice)),
+    }),
+    [pisoMaterialMasterItems]
+  );
+  const pinturaSuggestedMaterialInputs = useMemo<Record<PinturaMaterialPriceField, string>>(
+    () => ({
+      paintLiterPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(pinturaMaterialMasterItems.paintLiterPrice)),
+      primerLiterPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(pinturaMaterialMasterItems.primerLiterPrice)),
+      puttyKgPrice: formatSuggestedPriceInput(getMasterItemSuggestedPrice(pinturaMaterialMasterItems.puttyKgPrice)),
+    }),
+    [pinturaMaterialMasterItems]
+  );
   const getRevoqueMaterialUnitPrice = (field: RevoqueMaterialPriceField) =>
     toNumber(revoqueForm[field]) || getMasterItemSuggestedPrice(revoqueMaterialMasterItems[field]);
   const getMamposteriaMaterialUnitPrice = (field: MamposteriaMaterialPriceField) =>
     toNumber(mamposteriaForm[field]) || getMasterItemSuggestedPrice(mamposteriaMaterialMasterItems[field]);
+  const getPisoMaterialUnitPrice = (field: PisoMaterialPriceField) =>
+    toNumber(pisoForm[field]) || getMasterItemSuggestedPrice(pisoMaterialMasterItems[field]);
+  const getPinturaMaterialUnitPrice = (field: PinturaMaterialPriceField) =>
+    toNumber(pinturaForm[field]) || getMasterItemSuggestedPrice(pinturaMaterialMasterItems[field]);
 
   const selectedRevoqueType =
     REVOQUE_WORK_TYPES.find((option) => option.key === revoqueForm.workType) || REVOQUE_WORK_TYPES[0];
@@ -4628,7 +5169,350 @@ export default function TechniciansPage() {
     );
   };
 
+  const selectedPisoType =
+    PISO_WORK_TYPES.find((option) => option.key === pisoForm.workType) || PISO_WORK_TYPES[0];
+  const pisoSurface = roundMeasure(toNumber(pisoForm.surfaceM2));
+  const pisoLaborPrice = toNumber(pisoForm.laborPrice);
+  const pisoMaterialPrice = toNumber(pisoForm.materialPrice);
+  const pisoMaterialWastePercent = toNumber(pisoForm.materialWastePercent);
+  const pisoMaterialLines = buildMaterialEstimateLines(
+    pisoSurface,
+    pisoMaterialWastePercent,
+    PISO_MATERIAL_COEFFICIENTS[pisoForm.workType],
+    getPisoMaterialUnitPrice
+  );
+  const pisoHasAutoMaterialQuantities = pisoMaterialLines.some((material) => material.quantity > 0);
+  const pisoAutoMaterialTotal = pisoMaterialLines.reduce((sum, material) => sum + material.total, 0);
+  const pisoUsesAutoMaterials =
+    pisoMaterialPrice <= 0 && pisoSurface > 0 && pisoHasAutoMaterialQuantities;
+  const pisoEffectiveMaterialPrice =
+    pisoMaterialPrice > 0 ? pisoMaterialPrice : pisoSurface > 0 ? pisoAutoMaterialTotal / pisoSurface : 0;
+  const pisoLaborTotal = pisoSurface * pisoLaborPrice;
+  const pisoMaterialTotal = pisoMaterialPrice > 0 ? pisoSurface * pisoMaterialPrice : pisoAutoMaterialTotal;
+  const pisoEstimatedTotal = pisoLaborTotal + pisoMaterialTotal;
+  const pisoReady =
+    pisoSurface > 0 && (pisoLaborPrice > 0 || pisoEffectiveMaterialPrice > 0 || pisoHasAutoMaterialQuantities);
+
+  const updatePisoForm = (patch: Partial<PisoEstimatorForm>) => {
+    setPisoForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleApplyPisoTemplate = () => {
+    if (!pisoReady) {
+      setFormError('Completa la superficie del trabajo.');
+      setInfoMessage('');
+      return;
+    }
+
+    const sourceBase = `${PISO_TEMPLATE_SOURCE}:${selectedPisoType.key}`;
+    const syncGroupId = `${sourceBase}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const laborItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}-piso-labor`;
+    const measureNotes = [
+      `${selectedPisoType.label}.`,
+      `Superficie: ${pisoSurface} m2.`,
+      pisoUsesAutoMaterials ? `Desperdicio de materiales: ${pisoMaterialWastePercent || 0}%.` : '',
+      pisoUsesAutoMaterials ? `Materiales calculados:\n${summarizeMaterialEstimateLines(pisoMaterialLines)}` : '',
+      pisoLaborMasterItem ? `Mano de obra tomada de base de precios: ${pisoLaborMasterItem.name}.` : '',
+      selectedPisoType.detail,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const generatedItems: ItemForm[] = [];
+
+    if (pisoLaborPrice > 0) {
+      generatedItems.push({
+        id: laborItemId,
+        description: `${selectedPisoType.label} - mano de obra`,
+        quantity: pisoSurface,
+        unitPrice: pisoLaborPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: pisoLaborMasterItem?.id || '',
+        masterItemCategory: pisoLaborMasterItem?.category || 'Pisos y revestimientos',
+        masterItemSourceRef: pisoLaborMasterItem?.source_ref || `${sourceBase}:labor`,
+        syncGroupId,
+        syncRole: 'driver',
+        type: 'labor',
+      });
+    }
+
+    if (pisoUsesAutoMaterials) {
+      pisoMaterialLines
+        .filter((material) => material.quantity > 0)
+        .forEach((material) => {
+          const materialMasterItem = pisoMaterialMasterItems[material.priceField];
+          generatedItems.push({
+            id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-piso-${material.key}`,
+            description: `${material.label} para ${selectedPisoType.shortLabel.toLowerCase()}`,
+            quantity: material.quantity,
+            unitPrice: material.unitPrice,
+            unit: material.unit,
+            technicalNotes: measureNotes,
+            masterItemId: materialMasterItem?.id || '',
+            masterItemCategory: materialMasterItem?.category || 'Pisos y revestimientos',
+            masterItemSourceRef: materialMasterItem?.source_ref || `${sourceBase}:material:${material.key}`,
+            syncGroupId,
+            syncRole: 'dependent',
+            syncDriverId: laborItemId,
+            syncQuantityPerUnit:
+              pisoSurface > 0
+                ? material.quantity / pisoSurface
+                : material.perM2 * (1 + Math.max(0, pisoMaterialWastePercent) / 100),
+            syncSources: [
+              {
+                syncGroupId,
+                syncDriverId: laborItemId,
+                syncQuantityPerUnit:
+                  pisoSurface > 0
+                    ? material.quantity / pisoSurface
+                    : material.perM2 * (1 + Math.max(0, pisoMaterialWastePercent) / 100),
+              },
+            ],
+            type: 'material',
+          });
+        });
+    } else if (pisoMaterialPrice > 0) {
+      generatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-piso-material`,
+        description: `Materiales para ${selectedPisoType.shortLabel.toLowerCase()}`,
+        quantity: pisoSurface,
+        unitPrice: pisoMaterialPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: '',
+        masterItemCategory: 'Pisos y revestimientos',
+        masterItemSourceRef: `${sourceBase}:material`,
+        syncGroupId,
+        syncRole: 'dependent',
+        syncDriverId: laborItemId,
+        syncQuantityPerUnit: 1,
+        syncSources: [{ syncGroupId, syncDriverId: laborItemId, syncQuantityPerUnit: 1 }],
+        type: 'material',
+      });
+    }
+
+    setItems((prev) => {
+      const keptItems = prev.filter(
+        (item) =>
+          item.description.trim() &&
+          !String(item.masterItemSourceRef || '').startsWith(PISO_TEMPLATE_SOURCE)
+      );
+      return mergeQuoteMaterialItems([...keptItems, ...generatedItems]);
+    });
+    setOpenQuoteStep('items');
+    focusQuoteItemsEditor();
+    setFormError('');
+    setInfoMessage(`Pisos agregados al detalle con ${generatedItems.length} items.`);
+  };
+
+  const selectedPinturaType =
+    PINTURA_WORK_TYPES.find((option) => option.key === pinturaForm.workType) || PINTURA_WORK_TYPES[0];
+  const pinturaSurface = roundMeasure(toNumber(pinturaForm.surfaceM2));
+  const pinturaCoats = Math.max(1, toNumber(pinturaForm.coats) || 1);
+  const pinturaLaborPrice = toNumber(pinturaForm.laborPrice);
+  const pinturaMaterialPrice = toNumber(pinturaForm.materialPrice);
+  const pinturaMaterialWastePercent = toNumber(pinturaForm.materialWastePercent);
+  const pinturaMaterialCoefficients: Array<MaterialCoefficient<PinturaMaterialPriceField>> = [
+    {
+      key: 'paint',
+      label: `Pintura ${selectedPinturaType.shortLabel.toLowerCase()}`,
+      unit: 'litro',
+      perM2: pinturaCoats / (selectedPinturaType.key === 'exterior' ? 8 : 10),
+      priceField: 'paintLiterPrice',
+    },
+    ...(pinturaForm.includePrimer
+      ? [
+          {
+            key: 'primer',
+            label: 'Fijador / sellador',
+            unit: 'litro',
+            perM2: 0.1,
+            priceField: 'primerLiterPrice' as const,
+          },
+        ]
+      : []),
+    ...(pinturaForm.includePutty
+      ? [
+          {
+            key: 'putty',
+            label: 'Enduido',
+            unit: 'kg',
+            perM2: 0.25,
+            priceField: 'puttyKgPrice' as const,
+          },
+        ]
+      : []),
+  ];
+  const pinturaMaterialLines = buildMaterialEstimateLines(
+    pinturaSurface,
+    pinturaMaterialWastePercent,
+    pinturaMaterialCoefficients,
+    getPinturaMaterialUnitPrice
+  );
+  const pinturaHasAutoMaterialQuantities = pinturaMaterialLines.some((material) => material.quantity > 0);
+  const pinturaAutoMaterialTotal = pinturaMaterialLines.reduce((sum, material) => sum + material.total, 0);
+  const pinturaUsesAutoMaterials =
+    pinturaMaterialPrice <= 0 && pinturaSurface > 0 && pinturaHasAutoMaterialQuantities;
+  const pinturaEffectiveMaterialPrice =
+    pinturaMaterialPrice > 0 ? pinturaMaterialPrice : pinturaSurface > 0 ? pinturaAutoMaterialTotal / pinturaSurface : 0;
+  const pinturaLaborTotal = pinturaSurface * pinturaLaborPrice;
+  const pinturaMaterialTotal =
+    pinturaMaterialPrice > 0 ? pinturaSurface * pinturaMaterialPrice : pinturaAutoMaterialTotal;
+  const pinturaEstimatedTotal = pinturaLaborTotal + pinturaMaterialTotal;
+  const pinturaReady =
+    pinturaSurface > 0 &&
+    (pinturaLaborPrice > 0 || pinturaEffectiveMaterialPrice > 0 || pinturaHasAutoMaterialQuantities);
+
+  const updatePinturaForm = (patch: Partial<PinturaEstimatorForm>) => {
+    setPinturaForm((prev) => ({ ...prev, ...patch }));
+  };
+
+  const handleApplyPinturaTemplate = () => {
+    if (!pinturaReady) {
+      setFormError('Completa la superficie del trabajo.');
+      setInfoMessage('');
+      return;
+    }
+
+    const sourceBase = `${PINTURA_TEMPLATE_SOURCE}:${selectedPinturaType.key}`;
+    const syncGroupId = `${sourceBase}:${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const laborItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2)}-pintura-labor`;
+    const measureNotes = [
+      `${selectedPinturaType.label}.`,
+      `Superficie: ${pinturaSurface} m2.`,
+      `Manos: ${formatMeasureValue(pinturaCoats)}.`,
+      pinturaUsesAutoMaterials ? `Desperdicio de materiales: ${pinturaMaterialWastePercent || 0}%.` : '',
+      pinturaUsesAutoMaterials ? `Materiales calculados:\n${summarizeMaterialEstimateLines(pinturaMaterialLines)}` : '',
+      pinturaLaborMasterItem ? `Mano de obra tomada de base de precios: ${pinturaLaborMasterItem.name}.` : '',
+      selectedPinturaType.detail,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const generatedItems: ItemForm[] = [];
+
+    if (pinturaLaborPrice > 0) {
+      generatedItems.push({
+        id: laborItemId,
+        description: `${selectedPinturaType.label} - mano de obra`,
+        quantity: pinturaSurface,
+        unitPrice: pinturaLaborPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: pinturaLaborMasterItem?.id || '',
+        masterItemCategory: pinturaLaborMasterItem?.category || 'Pintura',
+        masterItemSourceRef: pinturaLaborMasterItem?.source_ref || `${sourceBase}:labor`,
+        syncGroupId,
+        syncRole: 'driver',
+        type: 'labor',
+      });
+    }
+
+    if (pinturaUsesAutoMaterials) {
+      pinturaMaterialLines
+        .filter((material) => material.quantity > 0)
+        .forEach((material) => {
+          const materialMasterItem = pinturaMaterialMasterItems[material.priceField];
+          generatedItems.push({
+            id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-pintura-${material.key}`,
+            description: `${material.label} para ${selectedPinturaType.shortLabel.toLowerCase()}`,
+            quantity: material.quantity,
+            unitPrice: material.unitPrice,
+            unit: material.unit,
+            technicalNotes: measureNotes,
+            masterItemId: materialMasterItem?.id || '',
+            masterItemCategory: materialMasterItem?.category || 'Pintura',
+            masterItemSourceRef: materialMasterItem?.source_ref || `${sourceBase}:material:${material.key}`,
+            syncGroupId,
+            syncRole: 'dependent',
+            syncDriverId: laborItemId,
+            syncQuantityPerUnit:
+              pinturaSurface > 0
+                ? material.quantity / pinturaSurface
+                : material.perM2 * (1 + Math.max(0, pinturaMaterialWastePercent) / 100),
+            syncSources: [
+              {
+                syncGroupId,
+                syncDriverId: laborItemId,
+                syncQuantityPerUnit:
+                  pinturaSurface > 0
+                    ? material.quantity / pinturaSurface
+                    : material.perM2 * (1 + Math.max(0, pinturaMaterialWastePercent) / 100),
+              },
+            ],
+            type: 'material',
+          });
+        });
+    } else if (pinturaMaterialPrice > 0) {
+      generatedItems.push({
+        id: `item-${Date.now()}-${Math.random().toString(36).slice(2)}-pintura-material`,
+        description: `Materiales para ${selectedPinturaType.shortLabel.toLowerCase()}`,
+        quantity: pinturaSurface,
+        unitPrice: pinturaMaterialPrice,
+        unit: 'm2',
+        technicalNotes: measureNotes,
+        masterItemId: '',
+        masterItemCategory: 'Pintura',
+        masterItemSourceRef: `${sourceBase}:material`,
+        syncGroupId,
+        syncRole: 'dependent',
+        syncDriverId: laborItemId,
+        syncQuantityPerUnit: 1,
+        syncSources: [{ syncGroupId, syncDriverId: laborItemId, syncQuantityPerUnit: 1 }],
+        type: 'material',
+      });
+    }
+
+    setItems((prev) => {
+      const keptItems = prev.filter(
+        (item) =>
+          item.description.trim() &&
+          !String(item.masterItemSourceRef || '').startsWith(PINTURA_TEMPLATE_SOURCE)
+      );
+      return mergeQuoteMaterialItems([...keptItems, ...generatedItems]);
+    });
+    setOpenQuoteStep('items');
+    focusQuoteItemsEditor();
+    setFormError('');
+    setInfoMessage(`Pintura agregada al detalle con ${generatedItems.length} items.`);
+  };
+
   const laborMasterItems = useMemo(() => masterItems.filter((item) => item.type === 'labor'), [masterItems]);
+  const quoteLaborCatalogCategories = useMemo(() => {
+    const categories = new Set<string>();
+    laborMasterItems.forEach((item) => {
+      categories.add(resolveMasterRubro(item));
+    });
+    return Array.from(categories).sort(compareRubroValues);
+  }, [laborMasterItems]);
+  const filteredQuoteLaborCatalogItems = useMemo(() => {
+    const search = normalizeLaborLookupText(quoteCatalogSearch);
+    return laborMasterItems
+      .filter((item) => {
+        const rubro = resolveMasterRubro(item);
+        if (quoteCatalogCategory !== 'all' && rubro !== quoteCatalogCategory) return false;
+        if (!search) return true;
+
+        const text = normalizeLaborLookupText(
+          [
+            item.name,
+            item.category,
+            item.source_ref,
+            item.technical_notes,
+            formatRubroLabel(rubro),
+          ]
+            .filter(Boolean)
+            .join(' ')
+        );
+        return search.split(' ').every((term) => lookupTextHasTerm(text, term));
+      })
+      .sort((a, b) => {
+        const categoryCompare = compareRubroValues(resolveMasterRubro(a), resolveMasterRubro(b));
+        if (categoryCompare !== 0) return categoryCompare;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+  }, [laborMasterItems, quoteCatalogCategory, quoteCatalogSearch]);
   const laborMasterById = useMemo(() => {
     const map = new Map<string, MasterItemRow>();
     laborMasterItems.forEach((item) => {
@@ -4665,21 +5549,142 @@ export default function TechniciansPage() {
       ),
     [laborMasterItems, mamposteriaForm.workType]
   );
+  const pisoLaborMasterItem = useMemo(
+    () => resolveTemplateLaborMasterItem(laborMasterItems, PISO_LABOR_LOOKUPS[pisoForm.workType]),
+    [laborMasterItems, pisoForm.workType]
+  );
+  const pinturaLaborMasterItem = useMemo(
+    () => resolveTemplateLaborMasterItem(laborMasterItems, PINTURA_LABOR_LOOKUPS[pinturaForm.workType]),
+    [laborMasterItems, pinturaForm.workType]
+  );
   const revoqueSuggestedLaborPrice = getMasterItemSuggestedPrice(revoqueLaborMasterItem);
   const mamposteriaSuggestedLaborPrice = getMasterItemSuggestedPrice(mamposteriaLaborMasterItem);
+  const pisoSuggestedLaborPrice = getMasterItemSuggestedPrice(pisoLaborMasterItem);
+  const pinturaSuggestedLaborPrice = getMasterItemSuggestedPrice(pinturaLaborMasterItem);
   const revoqueSuggestedLaborInput = formatSuggestedPriceInput(revoqueSuggestedLaborPrice);
   const mamposteriaSuggestedLaborInput = formatSuggestedPriceInput(mamposteriaSuggestedLaborPrice);
+  const pisoSuggestedLaborInput = formatSuggestedPriceInput(pisoSuggestedLaborPrice);
+  const pinturaSuggestedLaborInput = formatSuggestedPriceInput(pinturaSuggestedLaborPrice);
 
-  const applySuggestedRevoqueEstimatorPrices = (form: RevoqueEstimatorForm) => {
+  const revoqueCatalogCheck = useMemo(
+    () =>
+      buildEstimatorCatalogCheck(
+        [
+          { label: 'Mano de obra', kind: 'labor', item: revoqueLaborMasterItem, value: revoqueForm.laborPrice },
+          {
+            label: 'Cemento',
+            kind: 'material',
+            item: revoqueMaterialMasterItems.cementBagPrice,
+            value: revoqueForm.cementBagPrice,
+          },
+          { label: 'Cal', kind: 'material', item: revoqueMaterialMasterItems.limeBagPrice, value: revoqueForm.limeBagPrice },
+          { label: 'Arena', kind: 'material', item: revoqueMaterialMasterItems.sandM3Price, value: revoqueForm.sandM3Price },
+          {
+            label: 'Hidrofugo',
+            kind: 'material',
+            item: revoqueMaterialMasterItems.waterproofLiterPrice,
+            value: revoqueForm.waterproofLiterPrice,
+          },
+        ],
+        loadingMasterItems
+      ),
+    [
+      loadingMasterItems,
+      revoqueForm.cementBagPrice,
+      revoqueForm.laborPrice,
+      revoqueForm.limeBagPrice,
+      revoqueForm.sandM3Price,
+      revoqueForm.waterproofLiterPrice,
+      revoqueLaborMasterItem,
+      revoqueMaterialMasterItems,
+    ]
+  );
+  const mamposteriaCatalogCheck = useMemo(
+    () =>
+      buildEstimatorCatalogCheck(
+        [
+          { label: 'Mano de obra', kind: 'labor', item: mamposteriaLaborMasterItem, value: mamposteriaForm.laborPrice },
+          {
+            label: 'Ladrillo / bloque',
+            kind: 'material',
+            item: mamposteriaMaterialMasterItems.brickUnitPrice,
+            value: mamposteriaForm.brickUnitPrice,
+          },
+          {
+            label: 'Cemento',
+            kind: 'material',
+            item: mamposteriaMaterialMasterItems.cementBagPrice,
+            value: mamposteriaForm.cementBagPrice,
+          },
+          { label: 'Cal', kind: 'material', item: mamposteriaMaterialMasterItems.limeBagPrice, value: mamposteriaForm.limeBagPrice },
+          { label: 'Arena', kind: 'material', item: mamposteriaMaterialMasterItems.sandM3Price, value: mamposteriaForm.sandM3Price },
+        ],
+        loadingMasterItems
+      ),
+    [
+      loadingMasterItems,
+      mamposteriaForm.brickUnitPrice,
+      mamposteriaForm.cementBagPrice,
+      mamposteriaForm.laborPrice,
+      mamposteriaForm.limeBagPrice,
+      mamposteriaForm.sandM3Price,
+      mamposteriaLaborMasterItem,
+      mamposteriaMaterialMasterItems,
+    ]
+  );
+  const pisoCatalogCheck = useMemo(
+    () =>
+      buildEstimatorCatalogCheck(
+        [
+          { label: 'Mano de obra', kind: 'labor', item: pisoLaborMasterItem, value: pisoForm.laborPrice },
+          { label: 'Piso / revestimiento', kind: 'material', item: pisoMaterialMasterItems.tileM2Price, value: pisoForm.tileM2Price },
+          { label: 'Pegamento', kind: 'material', item: pisoMaterialMasterItems.adhesiveBagPrice, value: pisoForm.adhesiveBagPrice },
+          { label: 'Pastina', kind: 'material', item: pisoMaterialMasterItems.groutKgPrice, value: pisoForm.groutKgPrice },
+        ],
+        loadingMasterItems
+      ),
+    [
+      loadingMasterItems,
+      pisoForm.adhesiveBagPrice,
+      pisoForm.groutKgPrice,
+      pisoForm.laborPrice,
+      pisoForm.tileM2Price,
+      pisoLaborMasterItem,
+      pisoMaterialMasterItems,
+    ]
+  );
+  const pinturaCatalogCheck = useMemo(
+    () =>
+      buildEstimatorCatalogCheck(
+        [
+          { label: 'Mano de obra', kind: 'labor', item: pinturaLaborMasterItem, value: pinturaForm.laborPrice },
+          { label: 'Pintura', kind: 'material', item: pinturaMaterialMasterItems.paintLiterPrice, value: pinturaForm.paintLiterPrice },
+          { label: 'Fijador', kind: 'material', item: pinturaMaterialMasterItems.primerLiterPrice, value: pinturaForm.primerLiterPrice },
+          { label: 'Enduido', kind: 'material', item: pinturaMaterialMasterItems.puttyKgPrice, value: pinturaForm.puttyKgPrice },
+        ],
+        loadingMasterItems
+      ),
+    [
+      loadingMasterItems,
+      pinturaForm.laborPrice,
+      pinturaForm.paintLiterPrice,
+      pinturaForm.primerLiterPrice,
+      pinturaForm.puttyKgPrice,
+      pinturaLaborMasterItem,
+      pinturaMaterialMasterItems,
+    ]
+  );
+
+  const applySuggestedRevoqueEstimatorPrices = (form: RevoqueEstimatorForm, force = false) => {
     let changed = false;
     const next: RevoqueEstimatorForm = { ...form };
-    if (!next.laborPrice && revoqueSuggestedLaborInput) {
+    if ((force || !next.laborPrice) && revoqueSuggestedLaborInput) {
       next.laborPrice = revoqueSuggestedLaborInput;
       changed = true;
     }
     REVOQUE_MATERIAL_PRICE_FIELDS.forEach((field) => {
       const suggested = revoqueSuggestedMaterialInputs[field];
-      if (!next[field] && suggested) {
+      if ((force || !next[field]) && suggested) {
         next[field] = suggested;
         changed = true;
       }
@@ -4687,16 +5692,50 @@ export default function TechniciansPage() {
     return changed ? next : form;
   };
 
-  const applySuggestedMamposteriaEstimatorPrices = (form: MamposteriaEstimatorForm) => {
+  const applySuggestedMamposteriaEstimatorPrices = (form: MamposteriaEstimatorForm, force = false) => {
     let changed = false;
     const next: MamposteriaEstimatorForm = { ...form };
-    if (!next.laborPrice && mamposteriaSuggestedLaborInput) {
+    if ((force || !next.laborPrice) && mamposteriaSuggestedLaborInput) {
       next.laborPrice = mamposteriaSuggestedLaborInput;
       changed = true;
     }
     MAMPOSTERIA_MATERIAL_PRICE_FIELDS.forEach((field) => {
       const suggested = mamposteriaSuggestedMaterialInputs[field];
-      if (!next[field] && suggested) {
+      if ((force || !next[field]) && suggested) {
+        next[field] = suggested;
+        changed = true;
+      }
+    });
+    return changed ? next : form;
+  };
+
+  const applySuggestedPisoEstimatorPrices = (form: PisoEstimatorForm, force = false) => {
+    let changed = false;
+    const next: PisoEstimatorForm = { ...form };
+    if ((force || !next.laborPrice) && pisoSuggestedLaborInput) {
+      next.laborPrice = pisoSuggestedLaborInput;
+      changed = true;
+    }
+    PISO_MATERIAL_PRICE_FIELDS.forEach((field) => {
+      const suggested = pisoSuggestedMaterialInputs[field];
+      if ((force || !next[field]) && suggested) {
+        next[field] = suggested;
+        changed = true;
+      }
+    });
+    return changed ? next : form;
+  };
+
+  const applySuggestedPinturaEstimatorPrices = (form: PinturaEstimatorForm, force = false) => {
+    let changed = false;
+    const next: PinturaEstimatorForm = { ...form };
+    if ((force || !next.laborPrice) && pinturaSuggestedLaborInput) {
+      next.laborPrice = pinturaSuggestedLaborInput;
+      changed = true;
+    }
+    PINTURA_MATERIAL_PRICE_FIELDS.forEach((field) => {
+      const suggested = pinturaSuggestedMaterialInputs[field];
+      if ((force || !next[field]) && suggested) {
         next[field] = suggested;
         changed = true;
       }
@@ -4707,11 +5746,33 @@ export default function TechniciansPage() {
   const handleQuoteWorkEstimatorModeChange = (mode: QuoteWorkEstimatorMode) => {
     setQuoteWorkEstimatorMode(mode);
     if (mode === 'revoques') {
-      setRevoqueForm((prev) => applySuggestedRevoqueEstimatorPrices(prev));
+      setRevoqueForm((prev) => applySuggestedRevoqueEstimatorPrices(prev, true));
     }
     if (mode === 'mamposteria') {
-      setMamposteriaForm((prev) => applySuggestedMamposteriaEstimatorPrices(prev));
+      setMamposteriaForm((prev) => applySuggestedMamposteriaEstimatorPrices(prev, true));
     }
+    if (mode === 'pisos') {
+      setPisoForm((prev) => applySuggestedPisoEstimatorPrices(prev, true));
+    }
+    if (mode === 'pintura') {
+      setPinturaForm((prev) => applySuggestedPinturaEstimatorPrices(prev, true));
+    }
+  };
+
+  const handleRefreshRevoqueCatalogPrices = () => {
+    setRevoqueForm((prev) => applySuggestedRevoqueEstimatorPrices(prev, true));
+  };
+
+  const handleRefreshMamposteriaCatalogPrices = () => {
+    setMamposteriaForm((prev) => applySuggestedMamposteriaEstimatorPrices(prev, true));
+  };
+
+  const handleRefreshPisoCatalogPrices = () => {
+    setPisoForm((prev) => applySuggestedPisoEstimatorPrices(prev, true));
+  };
+
+  const handleRefreshPinturaCatalogPrices = () => {
+    setPinturaForm((prev) => applySuggestedPinturaEstimatorPrices(prev, true));
   };
 
   useEffect(() => {
@@ -4723,6 +5784,16 @@ export default function TechniciansPage() {
     if (quoteWorkEstimatorMode !== 'mamposteria') return;
     setMamposteriaForm((prev) => applySuggestedMamposteriaEstimatorPrices(prev));
   }, [quoteWorkEstimatorMode, mamposteriaSuggestedLaborInput, mamposteriaSuggestedMaterialInputs]);
+
+  useEffect(() => {
+    if (quoteWorkEstimatorMode !== 'pisos') return;
+    setPisoForm((prev) => applySuggestedPisoEstimatorPrices(prev));
+  }, [quoteWorkEstimatorMode, pisoSuggestedLaborInput, pisoSuggestedMaterialInputs]);
+
+  useEffect(() => {
+    if (quoteWorkEstimatorMode !== 'pintura') return;
+    setPinturaForm((prev) => applySuggestedPinturaEstimatorPrices(prev));
+  }, [quoteWorkEstimatorMode, pinturaSuggestedLaborInput, pinturaSuggestedMaterialInputs]);
 
   const isSameLaborSelection = (description: string, item: MasterItemRow) => {
     const normalizedDescription = normalizeText(description || '').trim();
@@ -4966,6 +6037,7 @@ export default function TechniciansPage() {
   }, [laborMasterItems, laborMasterById, laborMasterChoiceMap, laborMasterNameMap]);
 
   const handleRemoveItem = (id: string) => {
+    setEditingQuoteItemId((currentId) => (currentId === id ? '' : currentId));
     setItems((prev) => prev.filter((item) => item.id !== id));
   };
 
@@ -5403,11 +6475,10 @@ export default function TechniciansPage() {
   const validQuoteItems = useMemo(() => items.filter((item) => item.description.trim()), [items]);
   const quoteClientReady = Boolean(clientName.trim() && geoSelected);
   const quoteItemsReady = validQuoteItems.length > 0;
+  const quoteMaterialsReady = materialItems.length > 0 || quoteItemsReady;
   const quoteSettingsReady = total > 0;
-  const completedQuoteSteps = [quoteClientReady, quoteItemsReady, quoteSettingsReady].filter(Boolean).length;
-  const quoteProgressPercent = Math.round((completedQuoteSteps / 3) * 100);
+  const completedQuoteSteps = [quoteClientReady, quoteItemsReady, quoteMaterialsReady, quoteSettingsReady].filter(Boolean).length;
   const quoteReadyToSend = quoteClientReady && quoteItemsReady && total > 0;
-  const averageItemAmount = validQuoteItems.length > 0 ? subtotal / validQuoteItems.length : 0;
   const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
   const quoteStats = useMemo(() => {
     const totals = quotes.reduce(
@@ -5976,14 +7047,7 @@ export default function TechniciansPage() {
     masterItems.forEach((item) => {
       set.add(resolveMasterRubro(item));
     });
-    return Array.from(set).sort((a, b) => {
-      const aIndex = RUBRO_ORDER.indexOf(a);
-      const bIndex = RUBRO_ORDER.indexOf(b);
-      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
+    return Array.from(set).sort(compareRubroValues);
   }, [masterItems]);
   const filteredMasterItems = useMemo(() => {
     const search = masterSearch.trim().toLowerCase();
@@ -10411,53 +11475,46 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'nuevo' && (
-              <section className="overflow-hidden rounded-[34px] border border-white/80 bg-[#f8fafc] shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)]">
-                <div className="relative overflow-hidden bg-[#120819] px-5 py-5 text-white sm:px-6">
-                  <div className="absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,138,24,0.24),transparent_46%),radial-gradient(circle_at_bottom,rgba(255,255,255,0.12),transparent_42%)]" />
-                  <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <section className="space-y-5">
+                <div className="flex flex-col gap-4 px-1 sm:px-0 lg:flex-row lg:items-end lg:justify-between">
                     <div className="min-w-0">
-                      <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-white/60">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 shadow-sm">
                         <FilePlus className="h-3.5 w-3.5 text-[#ff8a18]" />
                         Presupuestador
                       </div>
-                      <h2 className={`${spaceGrotesk.className} mt-3 text-3xl font-black leading-tight sm:text-4xl`}>
+                    <h2 className={`${spaceGrotesk.className} mt-3 text-3xl font-black leading-tight text-slate-950 sm:text-4xl`}>
                         Nuevo presupuesto
                       </h2>
                       <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-semibold">
-                        <span className="rounded-full bg-white/10 px-3 py-1 text-white/75">
-                          {completedQuoteSteps}/3 pasos
+                      <span className="rounded-full bg-white px-3 py-1 text-slate-600 shadow-sm ring-1 ring-slate-200">
+                          {completedQuoteSteps}/4 pasos
                         </span>
-                        <span className={`rounded-full px-3 py-1 ${quoteClientReady ? 'bg-emerald-400/18 text-emerald-100' : 'bg-white/10 text-white/65'}`}>
+                      <span className={`rounded-full px-3 py-1 shadow-sm ring-1 ${
+                        quoteClientReady
+                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                          : 'bg-white text-slate-500 ring-slate-200'
+                      }`}>
                           {quoteClientReady ? 'Ubicacion lista' : 'Falta ubicacion'}
                         </span>
-                        <span className={`rounded-full px-3 py-1 ${quoteItemsReady ? 'bg-emerald-400/18 text-emerald-100' : 'bg-white/10 text-white/65'}`}>
+                      <span className={`rounded-full px-3 py-1 shadow-sm ring-1 ${
+                        quoteItemsReady
+                          ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+                          : 'bg-white text-slate-500 ring-slate-200'
+                      }`}>
                           {validQuoteItems.length} items
                         </span>
                       </div>
                     </div>
-                    <div className="w-full rounded-[24px] border border-white/10 bg-white/8 p-4 backdrop-blur lg:max-w-[360px]">
-                      <div className="flex items-center justify-between gap-3">
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Avance</span>
-                        <span className="text-sm font-black text-white">{quoteProgressPercent}%</span>
-                      </div>
-                      <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/12">
-                        <div
-                          className="h-full rounded-full bg-gradient-to-r from-[#ff8a18] via-[#ffd166] to-emerald-300 transition-all"
-                          style={{ width: `${quoteProgressPercent}%` }}
-                        />
-                      </div>
                       <button
                         type="button"
                         onClick={() => setActiveTab('presupuestos')}
-                        className="mt-4 inline-flex h-10 w-full items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 text-xs font-bold text-white transition hover:bg-white/15"
+                    className="inline-flex h-11 w-full items-center justify-center rounded-full border border-slate-200 bg-white px-5 text-xs font-black text-slate-700 shadow-sm transition hover:border-slate-300 hover:text-slate-950 lg:w-auto"
                       >
                         Volver a presupuestos
                       </button>
-                    </div>
-                  </div>
                 </div>
 
-                <div className="grid gap-5 p-4 sm:p-5 xl:grid-cols-[minmax(0,1fr)_360px]">
+                <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
                   <div className="space-y-3">
                     {showQuoteDraftPrompt && draftQuotes.length > 0 && !activeQuoteId && (
                       <div className="rounded-[26px] border border-amber-200 bg-amber-50/80 p-4 shadow-sm">
@@ -10669,59 +11726,87 @@ export default function TechniciansPage() {
                       >
                         <div className="flex min-w-0 items-center gap-3">
                           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
-                            quoteItemsReady ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
+                            laborItems.length > 0 ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
                           }`}>
                             2
                           </span>
                           <div className="min-w-0">
                             <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 2</p>
-                            <h3 className="text-base font-black text-slate-950">Detalle del trabajo</h3>
+                            <h3 className="text-base font-black text-slate-950">Mano de obra</h3>
                             <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
-                              {quoteItemsReady
-                                ? `${validQuoteItems.length} items - ${formatCurrency(subtotal)} subtotal`
-                                : 'Mano de obra, materiales y cantidades.'}
+                              {laborItems.length > 0
+                                ? `${laborItems.length} items - ${formatCurrency(laborSubtotal)}`
+                                : 'Trabajo, medidas y cómputo.'}
                             </p>
                           </div>
                         </div>
-                        <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${
-                          quoteItemsReady ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {validQuoteItems.length} items
-                        </span>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span className={`rounded-full px-3 py-1 text-[11px] font-black ${
+                            laborItems.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {laborItems.length} items
+                          </span>
+                        </div>
                       </summary>
-                      <div className="border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5">
-                        <div className="rounded-[24px] border border-slate-200 bg-slate-50 p-4">
-                          <div className="flex flex-wrap items-center justify-between gap-3">
-                            <div>
-                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                Tipo de carga
+                      <div className="space-y-3 border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5">
+                        <div className="flex flex-col gap-3">
+                        <div className="overflow-hidden rounded-[22px] border border-slate-200 bg-white shadow-sm">
+                          <div className="px-3 py-3">
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-black text-slate-950">Elegí cómo cargar</h4>
+                              <p className="mt-0.5 text-xs font-semibold text-slate-500">
+                                Calculá por medidas, buscá un precio o agregá una tarea simple.
                               </p>
-                              <h4 className="mt-1 text-lg font-black text-slate-950">Elegir como presupuestar</h4>
                             </div>
-                            <div className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
-                              {([
-                                { key: 'manual', label: 'Manual' },
-                                { key: 'revoques', label: 'Revoques' },
-                                { key: 'mamposteria', label: 'Mamposteria' },
-                              ] as Array<{ key: QuoteWorkEstimatorMode; label: string }>).map((option) => (
-                                <button
-                                  key={option.key}
-                                  type="button"
-                                  onClick={() => handleQuoteWorkEstimatorModeChange(option.key)}
-                                  className={`rounded-xl px-4 py-2 text-xs font-black transition ${
-                                    quoteWorkEstimatorMode === option.key
-                                      ? 'bg-slate-950 text-white shadow-sm'
-                                      : 'text-slate-500 hover:text-slate-900'
-                                  }`}
-                                >
-                                  {option.label}
-                                </button>
-                              ))}
+                            <div className="grid gap-2 sm:grid-cols-2 lg:w-auto">
+                              <button
+                                type="button"
+                                onClick={() => setQuoteLaborLoadMode('catalog')}
+                                className={`rounded-2xl px-4 py-2 text-xs font-black transition ${
+                                  quoteLaborLoadMode === 'catalog'
+                                    ? 'bg-slate-950 text-white shadow-sm'
+                                    : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-white'
+                                }`}
+                              >
+                                Catálogo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setQuoteLaborLoadMode('calculator')}
+                                className={`rounded-2xl px-4 py-2 text-xs font-black transition ${
+                                  quoteLaborLoadMode === 'calculator'
+                                    ? 'bg-slate-950 text-white shadow-sm'
+                                    : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-white'
+                                }`}
+                              >
+                                Calculadora x m
+                              </button>
                             </div>
                           </div>
 
-                          {quoteWorkEstimatorMode === 'revoques' && (
-                            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_280px]">
+                          {quoteLaborLoadMode === 'calculator' && (
+                            <label className="mt-3 block max-w-md text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                              Tipo de cálculo
+                              <select
+                                value={quoteWorkEstimatorMode}
+                                onChange={(event) =>
+                                  handleQuoteWorkEstimatorModeChange(event.target.value as QuoteWorkEstimatorMode)
+                                }
+                                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-950 px-3 py-2 text-xs font-black text-white shadow-sm outline-none transition hover:bg-slate-800 focus:border-slate-400"
+                              >
+                                {QUOTE_ESTIMATOR_OPTIONS.map((option) => (
+                                  <option key={option.key} value={option.key}>
+                                    {option.label}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                          </div>
+
+                          {quoteLaborLoadMode === 'calculator' && quoteWorkEstimatorMode === 'revoques' && (
+                            <div className="grid gap-4 border-t border-slate-100 p-3 lg:grid-cols-[minmax(0,1.45fr)_280px]">
                               <div className="rounded-[22px] border border-white bg-white p-4 shadow-sm">
                                 <div className="grid gap-3 md:grid-cols-2">
                                   <div className="md:col-span-2">
@@ -10749,6 +11834,12 @@ export default function TechniciansPage() {
                                           laborPrice: shouldReplaceLaborPrice
                                             ? suggested
                                             : revoqueForm.laborPrice,
+                                          cementBagPrice: revoqueSuggestedMaterialInputs.cementBagPrice || revoqueForm.cementBagPrice,
+                                          limeBagPrice: revoqueSuggestedMaterialInputs.limeBagPrice || revoqueForm.limeBagPrice,
+                                          sandM3Price: revoqueSuggestedMaterialInputs.sandM3Price || revoqueForm.sandM3Price,
+                                          waterproofLiterPrice:
+                                            revoqueSuggestedMaterialInputs.waterproofLiterPrice ||
+                                            revoqueForm.waterproofLiterPrice,
                                         });
                                       }}
                                       className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
@@ -10863,7 +11954,7 @@ export default function TechniciansPage() {
                                       />
                                     </label>
                                   </div>
-                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                  <div className="mt-3 space-y-2">
                                     {([
                                       { field: 'cementBagPrice', label: 'Cemento', placeholder: '$ bolsa' },
                                       { field: 'limeBagPrice', label: 'Cal', placeholder: '$ bolsa' },
@@ -10873,27 +11964,41 @@ export default function TechniciansPage() {
                                       field: RevoqueMaterialPriceField;
                                       label: string;
                                       placeholder: string;
-                                    }>).map((material) => (
-                                      <label key={material.field} className="block text-[11px] font-semibold text-slate-500">
-                                        {material.label}
-                                        <input
-                                          value={revoqueForm[material.field]}
-                                          inputMode="decimal"
-                                          onChange={(event) =>
-                                            updateRevoqueForm({ [material.field]: event.target.value } as Partial<RevoqueEstimatorForm>)
-                                          }
-                                          placeholder={revoqueSuggestedMaterialInputs[material.field] || material.placeholder}
-                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-                                        />
-                                        <span className="mt-1 block min-h-4 text-[10px] font-semibold text-slate-400">
-                                          {revoqueMaterialMasterItems[material.field]
-                                            ? `Base: ${revoqueMaterialMasterItems[material.field]?.name}`
-                                            : loadingMasterItems
-                                              ? 'Buscando en base...'
-                                              : ''}
-                                        </span>
-                                      </label>
-                                    ))}
+                                    }>).map((material) => {
+                                      const estimateLine = revoqueMaterialLines.find(
+                                        (line) => line.priceField === material.field
+                                      );
+                                      const quantityLabel =
+                                        estimateLine && estimateLine.quantity > 0
+                                          ? `${formatMeasureValue(estimateLine.quantity)} ${estimateLine.unit}`
+                                          : 'Sin cantidad';
+                                      const unitPrice = toNumber(revoqueForm[material.field]);
+                                      return (
+                                        <label
+                                          key={material.field}
+                                          className="grid gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-500 sm:grid-cols-[minmax(0,1fr)_118px] sm:items-center"
+                                        >
+                                          <span className="min-w-0">
+                                            <span className="block truncate text-sm font-black text-slate-950">
+                                              {material.label}
+                                            </span>
+                                            <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
+                                              {quantityLabel}
+                                              {unitPrice > 0 ? ` · ${formatCurrency(unitPrice)}` : ' · pendiente'}
+                                            </span>
+                                          </span>
+                                          <input
+                                            value={revoqueForm[material.field]}
+                                            inputMode="decimal"
+                                            onChange={(event) =>
+                                              updateRevoqueForm({ [material.field]: event.target.value } as Partial<RevoqueEstimatorForm>)
+                                            }
+                                            placeholder={revoqueSuggestedMaterialInputs[material.field] || material.placeholder}
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right text-sm text-slate-700 outline-none focus:border-slate-400"
+                                          />
+                                        </label>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               </div>
@@ -10908,6 +12013,32 @@ export default function TechniciansPage() {
                                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
                                   {selectedRevoqueType.detail}
                                 </p>
+                                <div className={`mt-4 rounded-2xl border px-3 py-3 ${getEstimatorCatalogCheckClass(revoqueCatalogCheck.status)}`}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-60">
+                                        Base de precios
+                                      </p>
+                                      <p className="mt-1 text-sm font-black">{revoqueCatalogCheck.label}</p>
+                                      <p className="mt-1 text-[11px] font-semibold opacity-75">{revoqueCatalogCheck.detail}</p>
+                                      {revoqueCatalogCheck.sourceLabel && (
+                                        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
+                                          {revoqueCatalogCheck.sourceLabel}
+                                          {revoqueCatalogCheck.updatedAtLabel ? ` · ${revoqueCatalogCheck.updatedAtLabel}` : ''}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {revoqueCatalogCheck.status === 'manual' && (
+                                      <button
+                                        type="button"
+                                        onClick={handleRefreshRevoqueCatalogPrices}
+                                        className="shrink-0 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black text-slate-900 ring-1 ring-black/5 transition hover:bg-white"
+                                      >
+                                        Actualizar
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
                                 <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
                                   <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
                                     <span>Superficie neta</span>
@@ -10961,8 +12092,8 @@ export default function TechniciansPage() {
                             </div>
                           )}
 
-                          {quoteWorkEstimatorMode === 'mamposteria' && (
-                            <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1.45fr)_280px]">
+                          {quoteLaborLoadMode === 'calculator' && quoteWorkEstimatorMode === 'mamposteria' && (
+                            <div className="grid gap-4 border-t border-slate-100 p-3 lg:grid-cols-[minmax(0,1.45fr)_280px]">
                               <div className="rounded-[22px] border border-white bg-white p-4 shadow-sm">
                                 <div className="grid gap-3 md:grid-cols-2">
                                   <div className="md:col-span-2">
@@ -11004,6 +12135,15 @@ export default function TechniciansPage() {
                                           brickUnitPrice: shouldReplaceBrickPrice
                                             ? suggestedBrick || mamposteriaForm.brickUnitPrice
                                             : mamposteriaForm.brickUnitPrice,
+                                          cementBagPrice:
+                                            mamposteriaSuggestedMaterialInputs.cementBagPrice ||
+                                            mamposteriaForm.cementBagPrice,
+                                          limeBagPrice:
+                                            mamposteriaSuggestedMaterialInputs.limeBagPrice ||
+                                            mamposteriaForm.limeBagPrice,
+                                          sandM3Price:
+                                            mamposteriaSuggestedMaterialInputs.sandM3Price ||
+                                            mamposteriaForm.sandM3Price,
                                         });
                                       }}
                                       className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
@@ -11118,7 +12258,7 @@ export default function TechniciansPage() {
                                       />
                                     </label>
                                   </div>
-                                  <div className="mt-3 grid gap-2 md:grid-cols-2">
+                                  <div className="mt-3 space-y-2">
                                     {([
                                       { field: 'brickUnitPrice', label: 'Ladrillo / bloque', placeholder: '$ unidad' },
                                       { field: 'cementBagPrice', label: 'Cemento', placeholder: '$ bolsa' },
@@ -11128,34 +12268,45 @@ export default function TechniciansPage() {
                                       field: MamposteriaMaterialPriceField;
                                       label: string;
                                       placeholder: string;
-                                    }>).map((material) => (
-                                      <label
-                                        key={material.field}
-                                        className="block text-[11px] font-semibold text-slate-500"
-                                      >
-                                        {material.label}
-                                        <input
-                                          value={mamposteriaForm[material.field]}
-                                          inputMode="decimal"
-                                          onChange={(event) =>
-                                            updateMamposteriaForm({
-                                              [material.field]: event.target.value,
-                                            } as Partial<MamposteriaEstimatorForm>)
-                                          }
-                                          placeholder={
-                                            mamposteriaSuggestedMaterialInputs[material.field] || material.placeholder
-                                          }
-                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
-                                        />
-                                        <span className="mt-1 block min-h-4 text-[10px] font-semibold text-slate-400">
-                                          {mamposteriaMaterialMasterItems[material.field]
-                                            ? `Base: ${mamposteriaMaterialMasterItems[material.field]?.name}`
-                                            : loadingMasterItems
-                                              ? 'Buscando en base...'
-                                              : ''}
-                                        </span>
-                                      </label>
-                                    ))}
+                                    }>).map((material) => {
+                                      const estimateLine = mamposteriaMaterialLines.find(
+                                        (line) => line.priceField === material.field
+                                      );
+                                      const quantityLabel =
+                                        estimateLine && estimateLine.quantity > 0
+                                          ? `${formatMeasureValue(estimateLine.quantity)} ${estimateLine.unit}`
+                                          : 'Sin cantidad';
+                                      const unitPrice = toNumber(mamposteriaForm[material.field]);
+                                      return (
+                                        <label
+                                          key={material.field}
+                                          className="grid gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-500 sm:grid-cols-[minmax(0,1fr)_118px] sm:items-center"
+                                        >
+                                          <span className="min-w-0">
+                                            <span className="block truncate text-sm font-black text-slate-950">
+                                              {material.label}
+                                            </span>
+                                            <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
+                                              {quantityLabel}
+                                              {unitPrice > 0 ? ` · ${formatCurrency(unitPrice)}` : ' · pendiente'}
+                                            </span>
+                                          </span>
+                                          <input
+                                            value={mamposteriaForm[material.field]}
+                                            inputMode="decimal"
+                                            onChange={(event) =>
+                                              updateMamposteriaForm({
+                                                [material.field]: event.target.value,
+                                              } as Partial<MamposteriaEstimatorForm>)
+                                            }
+                                            placeholder={
+                                              mamposteriaSuggestedMaterialInputs[material.field] || material.placeholder
+                                            }
+                                            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-right text-sm text-slate-700 outline-none focus:border-slate-400"
+                                          />
+                                        </label>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               </div>
@@ -11170,6 +12321,34 @@ export default function TechniciansPage() {
                                 <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">
                                   {selectedMamposteriaType.detail}
                                 </p>
+                                <div className={`mt-4 rounded-2xl border px-3 py-3 ${getEstimatorCatalogCheckClass(mamposteriaCatalogCheck.status)}`}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-60">
+                                        Base de precios
+                                      </p>
+                                      <p className="mt-1 text-sm font-black">{mamposteriaCatalogCheck.label}</p>
+                                      <p className="mt-1 text-[11px] font-semibold opacity-75">{mamposteriaCatalogCheck.detail}</p>
+                                      {mamposteriaCatalogCheck.sourceLabel && (
+                                        <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
+                                          {mamposteriaCatalogCheck.sourceLabel}
+                                          {mamposteriaCatalogCheck.updatedAtLabel
+                                            ? ` · ${mamposteriaCatalogCheck.updatedAtLabel}`
+                                            : ''}
+                                        </p>
+                                      )}
+                                    </div>
+                                    {mamposteriaCatalogCheck.status === 'manual' && (
+                                      <button
+                                        type="button"
+                                        onClick={handleRefreshMamposteriaCatalogPrices}
+                                        className="shrink-0 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black text-slate-900 ring-1 ring-black/5 transition hover:bg-white"
+                                      >
+                                        Actualizar
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
                                 <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
                                   <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
                                     <span>Superficie neta</span>
@@ -11226,13 +12405,460 @@ export default function TechniciansPage() {
                               </div>
                             </div>
                           )}
+
+                          {quoteLaborLoadMode === 'calculator' && quoteWorkEstimatorMode === 'pisos' && (
+                            <div className="grid gap-4 border-t border-slate-100 p-3 lg:grid-cols-[minmax(0,1.45fr)_280px]">
+                              <div className="rounded-[22px] border border-white bg-white p-4 shadow-sm">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-[11px] font-semibold text-slate-500">
+                                      Tipo de piso
+                                    </label>
+                                    <select
+                                      value={pisoForm.workType}
+                                      onChange={(event) => {
+                                        const workType = event.target.value as PisoWorkTypeKey;
+                                        const suggested = formatSuggestedPriceInput(
+                                          getMasterItemSuggestedPrice(
+                                            resolveTemplateLaborMasterItem(laborMasterItems, PISO_LABOR_LOOKUPS[workType])
+                                          )
+                                        );
+                                        updatePisoForm({
+                                          workType,
+                                          laborPrice: shouldReplaceSuggestedPriceInput(
+                                            pisoForm.laborPrice,
+                                            pisoSuggestedLaborInput
+                                          )
+                                            ? suggested
+                                            : pisoForm.laborPrice,
+                                          tileM2Price: pisoSuggestedMaterialInputs.tileM2Price || pisoForm.tileM2Price,
+                                          adhesiveBagPrice:
+                                            pisoSuggestedMaterialInputs.adhesiveBagPrice || pisoForm.adhesiveBagPrice,
+                                          groutKgPrice: pisoSuggestedMaterialInputs.groutKgPrice || pisoForm.groutKgPrice,
+                                        });
+                                      }}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                                    >
+                                      {PISO_WORK_TYPES.map((option) => (
+                                        <option key={option.key} value={option.key}>
+                                          {option.label}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Superficie (m2)
+                                    <input
+                                      value={pisoForm.surfaceM2}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePisoForm({ surfaceM2: event.target.value })}
+                                      placeholder="Ej: 24"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Mano de obra / m2
+                                    <input
+                                      value={pisoForm.laborPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePisoForm({ laborPrice: event.target.value })}
+                                      placeholder={pisoSuggestedLaborInput || '$ por m2'}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Materiales / m2 manual
+                                    <input
+                                      value={pisoForm.materialPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePisoForm({ materialPrice: event.target.value })}
+                                      placeholder="Si no usas calculo"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Desperdicio %
+                                    <input
+                                      value={pisoForm.materialWastePercent}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePisoForm({ materialWastePercent: event.target.value })}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="mt-4 grid gap-2 md:grid-cols-3">
+                                  {([
+                                    { field: 'tileM2Price', label: 'Piso / revestimiento', placeholder: '$ m2' },
+                                    { field: 'adhesiveBagPrice', label: 'Pegamento', placeholder: '$ bolsa' },
+                                    { field: 'groutKgPrice', label: 'Pastina', placeholder: '$ kg' },
+                                  ] as Array<{ field: PisoMaterialPriceField; label: string; placeholder: string }>).map(
+                                    (material) => (
+                                      <label key={material.field} className="block text-[11px] font-semibold text-slate-500">
+                                        {material.label}
+                                        <input
+                                          value={pisoForm[material.field]}
+                                          inputMode="decimal"
+                                          onChange={(event) =>
+                                            updatePisoForm({ [material.field]: event.target.value } as Partial<PisoEstimatorForm>)
+                                          }
+                                          placeholder={pisoSuggestedMaterialInputs[material.field] || material.placeholder}
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </label>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Pisos</p>
+                                <h5 className="mt-1 text-base font-black text-slate-950">{selectedPisoType.shortLabel}</h5>
+                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{selectedPisoType.detail}</p>
+                                <div className={`mt-4 rounded-2xl border px-3 py-3 ${getEstimatorCatalogCheckClass(pisoCatalogCheck.status)}`}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-60">Base de precios</p>
+                                      <p className="mt-1 text-sm font-black">{pisoCatalogCheck.label}</p>
+                                      <p className="mt-1 text-[11px] font-semibold opacity-75">{pisoCatalogCheck.detail}</p>
+                                    </div>
+                                    {pisoCatalogCheck.status === 'manual' && (
+                                      <button
+                                        type="button"
+                                        onClick={handleRefreshPisoCatalogPrices}
+                                        className="shrink-0 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black text-slate-900 ring-1 ring-black/5 transition hover:bg-white"
+                                      >
+                                        Actualizar
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Superficie</span>
+                                    <span className="font-black text-slate-950">{pisoSurface} m2</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Mano de obra</span>
+                                    <span className="font-black text-slate-950">{formatCurrency(pisoLaborTotal)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Materiales</span>
+                                    <span className="font-black text-slate-950">{formatCurrency(pisoMaterialTotal)}</span>
+                                  </div>
+                                </div>
+                                {pisoUsesAutoMaterials && (
+                                  <div className="mt-3 space-y-1 rounded-2xl border border-slate-100 bg-white p-3">
+                                    {pisoMaterialLines.map((material) => (
+                                      <div key={`piso-material-${material.key}`} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-500">
+                                        <span className="truncate">{material.label} - {formatMeasureValue(material.quantity)} {material.unit}</span>
+                                        <span className="shrink-0 font-black text-slate-900">
+                                          {material.unitPrice > 0 ? formatCurrency(material.total) : 'Precio pendiente'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="mt-4 rounded-2xl bg-slate-950 p-3 text-white">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Total estimado</p>
+                                  <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black`}>{formatCurrency(pisoEstimatedTotal)}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleApplyPisoTemplate}
+                                  disabled={!pisoReady}
+                                  className="mt-3 w-full rounded-2xl bg-[#ff8a18] px-4 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#ff9d3d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  Agregar al detalle
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {quoteLaborLoadMode === 'calculator' && quoteWorkEstimatorMode === 'pintura' && (
+                            <div className="grid gap-4 border-t border-slate-100 p-3 lg:grid-cols-[minmax(0,1.45fr)_280px]">
+                              <div className="rounded-[22px] border border-white bg-white p-4 shadow-sm">
+                                <div className="grid gap-3 md:grid-cols-2">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-[11px] font-semibold text-slate-500">Tipo de pintura</label>
+                                    <select
+                                      value={pinturaForm.workType}
+                                      onChange={(event) => {
+                                        const workType = event.target.value as PinturaWorkTypeKey;
+                                        const suggested = formatSuggestedPriceInput(
+                                          getMasterItemSuggestedPrice(
+                                            resolveTemplateLaborMasterItem(laborMasterItems, PINTURA_LABOR_LOOKUPS[workType])
+                                          )
+                                        );
+                                        updatePinturaForm({
+                                          workType,
+                                          laborPrice: shouldReplaceSuggestedPriceInput(
+                                            pinturaForm.laborPrice,
+                                            pinturaSuggestedLaborInput
+                                          )
+                                            ? suggested
+                                            : pinturaForm.laborPrice,
+                                          paintLiterPrice:
+                                            pinturaSuggestedMaterialInputs.paintLiterPrice || pinturaForm.paintLiterPrice,
+                                          primerLiterPrice:
+                                            pinturaSuggestedMaterialInputs.primerLiterPrice || pinturaForm.primerLiterPrice,
+                                          puttyKgPrice:
+                                            pinturaSuggestedMaterialInputs.puttyKgPrice || pinturaForm.puttyKgPrice,
+                                        });
+                                      }}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus:border-slate-400"
+                                    >
+                                      {PINTURA_WORK_TYPES.map((option) => (
+                                        <option key={option.key} value={option.key}>{option.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Superficie (m2)
+                                    <input
+                                      value={pinturaForm.surfaceM2}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePinturaForm({ surfaceM2: event.target.value })}
+                                      placeholder="Ej: 60"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Cantidad de manos
+                                    <input
+                                      value={pinturaForm.coats}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePinturaForm({ coats: event.target.value })}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Mano de obra / m2
+                                    <input
+                                      value={pinturaForm.laborPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePinturaForm({ laborPrice: event.target.value })}
+                                      placeholder={pinturaSuggestedLaborInput || '$ por m2'}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Materiales / m2 manual
+                                    <input
+                                      value={pinturaForm.materialPrice}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePinturaForm({ materialPrice: event.target.value })}
+                                      placeholder="Si no usas calculo"
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">
+                                    Desperdicio %
+                                    <input
+                                      value={pinturaForm.materialWastePercent}
+                                      inputMode="decimal"
+                                      onChange={(event) => updatePinturaForm({ materialWastePercent: event.target.value })}
+                                      className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                    />
+                                  </label>
+                                </div>
+                                <div className="mt-4 flex flex-wrap gap-2">
+                                  <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-black text-slate-600">
+                                    <input
+                                      type="checkbox"
+                                      checked={pinturaForm.includePrimer}
+                                      onChange={(event) => updatePinturaForm({ includePrimer: event.target.checked })}
+                                    />
+                                    Fijador
+                                  </label>
+                                  <label className="inline-flex items-center gap-2 rounded-full border border-slate-200 px-3 py-2 text-xs font-black text-slate-600">
+                                    <input
+                                      type="checkbox"
+                                      checked={pinturaForm.includePutty}
+                                      onChange={(event) => updatePinturaForm({ includePutty: event.target.checked })}
+                                    />
+                                    Enduido
+                                  </label>
+                                </div>
+                                <div className="mt-4 grid gap-2 md:grid-cols-3">
+                                  {([
+                                    { field: 'paintLiterPrice', label: 'Pintura', placeholder: '$ litro' },
+                                    { field: 'primerLiterPrice', label: 'Fijador', placeholder: '$ litro' },
+                                    { field: 'puttyKgPrice', label: 'Enduido', placeholder: '$ kg' },
+                                  ] as Array<{ field: PinturaMaterialPriceField; label: string; placeholder: string }>).map(
+                                    (material) => (
+                                      <label key={material.field} className="block text-[11px] font-semibold text-slate-500">
+                                        {material.label}
+                                        <input
+                                          value={pinturaForm[material.field]}
+                                          inputMode="decimal"
+                                          onChange={(event) =>
+                                            updatePinturaForm({ [material.field]: event.target.value } as Partial<PinturaEstimatorForm>)
+                                          }
+                                          placeholder={pinturaSuggestedMaterialInputs[material.field] || material.placeholder}
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </label>
+                                    )
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="rounded-[22px] border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Pintura</p>
+                                <h5 className="mt-1 text-base font-black text-slate-950">{selectedPinturaType.shortLabel}</h5>
+                                <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{selectedPinturaType.detail}</p>
+                                <div className={`mt-4 rounded-2xl border px-3 py-3 ${getEstimatorCatalogCheckClass(pinturaCatalogCheck.status)}`}>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                      <p className="text-[10px] font-black uppercase tracking-[0.16em] opacity-60">Base de precios</p>
+                                      <p className="mt-1 text-sm font-black">{pinturaCatalogCheck.label}</p>
+                                      <p className="mt-1 text-[11px] font-semibold opacity-75">{pinturaCatalogCheck.detail}</p>
+                                    </div>
+                                    {pinturaCatalogCheck.status === 'manual' && (
+                                      <button
+                                        type="button"
+                                        onClick={handleRefreshPinturaCatalogPrices}
+                                        className="shrink-0 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-black text-slate-900 ring-1 ring-black/5 transition hover:bg-white"
+                                      >
+                                        Actualizar
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="mt-4 space-y-2 text-xs font-semibold text-slate-600">
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Superficie</span>
+                                    <span className="font-black text-slate-950">{pinturaSurface} m2</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Mano de obra</span>
+                                    <span className="font-black text-slate-950">{formatCurrency(pinturaLaborTotal)}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 px-3 py-2">
+                                    <span>Materiales</span>
+                                    <span className="font-black text-slate-950">{formatCurrency(pinturaMaterialTotal)}</span>
+                                  </div>
+                                </div>
+                                {pinturaUsesAutoMaterials && (
+                                  <div className="mt-3 space-y-1 rounded-2xl border border-slate-100 bg-white p-3">
+                                    {pinturaMaterialLines.map((material) => (
+                                      <div key={`pintura-material-${material.key}`} className="flex items-center justify-between gap-2 text-[11px] font-semibold text-slate-500">
+                                        <span className="truncate">{material.label} - {formatMeasureValue(material.quantity)} {material.unit}</span>
+                                        <span className="shrink-0 font-black text-slate-900">
+                                          {material.unitPrice > 0 ? formatCurrency(material.total) : 'Precio pendiente'}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                                <div className="mt-4 rounded-2xl bg-slate-950 p-3 text-white">
+                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/45">Total estimado</p>
+                                  <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black`}>{formatCurrency(pinturaEstimatedTotal)}</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={handleApplyPinturaTemplate}
+                                  disabled={!pinturaReady}
+                                  className="mt-3 w-full rounded-2xl bg-[#ff8a18] px-4 py-3 text-sm font-black text-slate-950 shadow-sm transition hover:bg-[#ff9d3d] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-500"
+                                >
+                                  Agregar al detalle
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                        {quoteLaborLoadMode === 'catalog' && (
+                        <div className="border-t border-slate-100">
+                          <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+                            <div className="min-w-0">
+                              <h4 className="text-sm font-black text-slate-950">Valores de MO</h4>
+                              <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                                {laborMasterItems.length} valores activos.
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">
+                                {laborMasterItems.length} valores
+                              </span>
+                            </div>
+                          </div>
+                          <div className="grid gap-3 border-t border-slate-100 p-4 md:grid-cols-[minmax(0,1fr)_240px]">
+                            <label className="relative block">
+                              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                              <input
+                                value={quoteCatalogSearch}
+                                onChange={(event) => setQuoteCatalogSearch(event.target.value)}
+                                placeholder="Buscar tarea o rubro"
+                                className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3 pl-9 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                              />
+                            </label>
+                            <select
+                              value={quoteCatalogCategory}
+                              onChange={(event) => setQuoteCatalogCategory(event.target.value)}
+                              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-black text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                            >
+                              <option value="all">Todos los rubros</option>
+                              {quoteLaborCatalogCategories.map((category) => (
+                                <option key={category} value={category}>
+                                  {formatRubroLabel(category)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="max-h-80 overflow-y-auto border-t border-slate-100">
+                            {loadingMasterItems && (
+                              <div className="flex items-center gap-2 px-4 py-4 text-sm font-semibold text-slate-500">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Actualizando valores...
+                              </div>
+                            )}
+                            {!loadingMasterItems && filteredQuoteLaborCatalogItems.length === 0 && (
+                              <div className="px-4 py-4 text-sm font-semibold text-slate-500">
+                                No hay valores de MO para esa medicion.
+                              </div>
+                            )}
+                            {!loadingMasterItems &&
+                              filteredQuoteLaborCatalogItems.map((item) => {
+                                const rubro = resolveMasterRubro(item);
+                                return (
+                                  <button
+                                    key={item.id}
+                                    type="button"
+                                    onClick={() => addMasterItemToQuote(item)}
+                                    className="grid w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_120px_90px]"
+                                  >
+                                    <span className="min-w-0">
+                                      <span className="block truncate text-sm font-black text-slate-950">
+                                        {item.name}
+                                      </span>
+                                      <span className="mt-1 block truncate text-[11px] font-semibold text-slate-500">
+                                        {formatRubroLabel(rubro)}
+                                        {item.unit ? ` - ${item.unit}` : ''}
+                                        {item.source_ref ? ` - ${formatCatalogSourceLabel(item.source_ref)}` : ''}
+                                      </span>
+                                    </span>
+                                    <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-center text-[11px] font-black text-slate-600">
+                                      {item.unit || 'unidad'}
+                                    </span>
+                                    <span className="self-center rounded-full bg-slate-950 px-3 py-1 text-center text-[11px] font-black text-white">
+                                      {formatCurrency(Number(item.suggested_price || 0))}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                          </div>
+                        </div>
+                        )}
+
                         </div>
 
-                        <div ref={quoteItemsEditorRef} className="mt-4 flex flex-wrap items-center justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-bold text-slate-900">Items del presupuesto</p>
-                            <p className="mt-1 text-xs font-semibold text-slate-500">
-                              Promedio por item: {formatCurrency(averageItemAmount)}
+                        <div ref={quoteItemsEditorRef} className="hidden">
+                          <div className="min-w-0">
+                            <p className="text-sm font-black text-slate-900">Mano de obra cargada</p>
+                            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                              {laborItems.length > 0
+                                ? `${laborItems.length} tareas - ${formatCurrency(laborSubtotal)}`
+                                : 'Agrega la primera tarea.'}
                             </p>
                           </div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -11242,47 +12868,31 @@ export default function TechniciansPage() {
                               className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-slate-800"
                             >
                               <FilePlus className="h-3.5 w-3.5" />
-                              Mano de obra
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleAddItem('material')}
-                              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-[11px] font-black text-slate-700 ring-1 ring-slate-200 shadow-sm transition hover:bg-slate-50"
-                            >
-                              <FilePlus className="h-3.5 w-3.5" />
-                              Material
+                              Agregar
                             </button>
                           </div>
                         </div>
-                        <div className="mt-4 space-y-4">
+                        </div>
+                        {laborItems.length > 0 && (
+                        <div className="space-y-3">
                           {([
                             {
                               key: 'labor',
-                              title: 'Mano de obra',
-                              label: 'Trabajo',
                               items: laborItems,
                               subtotal: laborSubtotal,
-                              empty: 'Agrega tareas, jornadas o precios de mano de obra.',
-                            },
-                            {
-                              key: 'material',
-                              title: 'Materiales',
-                              label: 'Insumos',
-                              items: materialItems,
-                              subtotal: materialSubtotal,
-                              empty: 'Agrega materiales manuales o desde el calculador automatico.',
+                              empty: 'Agrega una tarea o elige un precio del catalogo.',
                             },
                           ] as const).map((group) => (
                             <section
                               key={group.key}
-                              className="overflow-hidden rounded-[26px] border border-slate-200 bg-slate-50/70 shadow-sm"
+                              className="space-y-3"
                             >
-                              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+                              <div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border border-slate-200 bg-white px-4 py-2.5 shadow-sm">
                                 <div>
-                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
-                                    {group.label}
-                                  </p>
-                                  <h4 className="text-sm font-black text-slate-950">{group.title}</h4>
+                                  <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Detalle</p>
+                                  <h4 className="text-sm font-black text-slate-950">
+                                    {group.items.length > 0 ? 'Tareas' : 'Sin tareas cargadas'}
+                                  </h4>
                                 </div>
                                 <div className="flex items-center gap-2">
                                   <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
@@ -11294,14 +12904,22 @@ export default function TechniciansPage() {
                                 </div>
                               </div>
                               {group.items.length === 0 ? (
-                                <div className="m-3 rounded-[20px] border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
+                                <div className="rounded-[20px] border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
                                   {group.empty}
                                 </div>
                               ) : (
-                                <div className="space-y-3 p-3">
+                                <div className="space-y-3">
                                   {group.items.map((item, groupItemIndex) => {
                             const itemTotal = item.quantity * item.unitPrice;
                             const itemHasPendingPrice = item.type === 'material' && item.unitPrice <= 0;
+                            const isEditingItem = editingQuoteItemId === item.id;
+                            const itemSummary = [
+                              item.workArea?.trim(),
+                              `${formatMeasureValue(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`,
+                              itemHasPendingPrice ? 'Precio pendiente' : formatCurrency(item.unitPrice),
+                            ]
+                              .filter(Boolean)
+                              .join(' - ');
                             const itemImages = item.itemImages || [];
                             const isUploadingItemImages = uploadingItemImageId === item.id;
                             const itemCanReceiveImages = itemImages.length < QUOTE_ITEM_MAX_IMAGES;
@@ -11325,11 +12943,9 @@ export default function TechniciansPage() {
                                     <p className="truncate text-sm font-black text-slate-950">
                                       {item.description.trim() || 'Item sin descripcion'}
                                     </p>
-                                    {item.workArea?.trim() && (
-                                      <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
-                                        {item.workArea.trim()}
-                                      </p>
-                                    )}
+                                    <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                                      {itemSummary}
+                                    </p>
                                   </div>
                                 </div>
                                 <div className="flex shrink-0 items-center gap-2">
@@ -11344,6 +12960,17 @@ export default function TechniciansPage() {
                                   </span>
                                   <button
                                     type="button"
+                                    onClick={() => setEditingQuoteItemId(isEditingItem ? '' : item.id)}
+                                    className={`rounded-full px-3 py-1 text-[11px] font-black ring-1 transition ${
+                                      isEditingItem
+                                        ? 'bg-slate-950 text-white ring-slate-950'
+                                        : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50'
+                                    }`}
+                                  >
+                                    {isEditingItem ? 'Listo' : 'Editar'}
+                                  </button>
+                                  <button
+                                    type="button"
                                     onClick={() => handleRemoveItem(item.id)}
                                     className="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
                                   >
@@ -11351,6 +12978,7 @@ export default function TechniciansPage() {
                                   </button>
                                 </div>
                               </div>
+                              {isEditingItem && (
                               <div className="p-4">
                               <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_90px_130px_150px]">
                                 <div>
@@ -11536,18 +13164,23 @@ export default function TechniciansPage() {
                                   </div>
                                 )}
                               </div>
-                              {item.technicalNotes && (
-                                <details className="group mt-3 rounded-xl bg-white ring-1 ring-slate-100">
+                              <details className="group mt-3 rounded-xl bg-white ring-1 ring-slate-100">
                                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
                                     <span>Especificación técnica</span>
                                     <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
                                   </summary>
-                                  <div className="border-t border-slate-100 px-3 py-2 text-[11px] leading-5 text-slate-600">
-                                    <p className="whitespace-pre-wrap">{item.technicalNotes}</p>
+                                  <div className="border-t border-slate-100 p-3">
+                                    <textarea
+                                      value={item.technicalNotes || ''}
+                                      onChange={(event) => handleItemUpdate(item.id, { technicalNotes: event.target.value })}
+                                      placeholder="Detalle técnico, criterio de medición, preparación o terminación."
+                                      rows={4}
+                                      className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                                    />
                                   </div>
                                 </details>
-                              )}
                               </div>
+                              )}
                             </div>
                             );
                                   })}
@@ -11561,6 +13194,236 @@ export default function TechniciansPage() {
                             ))}
                           </datalist>
                         </div>
+                        )}
+                      </div>
+                    </details>
+
+                    <details
+                      open={openQuoteStep === 'materials'}
+                      className={`group overflow-hidden rounded-[26px] border bg-white shadow-sm transition ${
+                        openQuoteStep === 'materials' ? 'border-[#ff8a18]/35 shadow-[0_22px_54px_-42px_rgba(255,138,24,0.9)]' : 'border-slate-200'
+                      }`}
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          setOpenQuoteStep('materials');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-4 px-4 py-4 sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
+                            quoteMaterialsReady ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
+                          }`}>
+                            3
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 3</p>
+                            <h3 className="text-base font-black text-slate-950">Materiales</h3>
+                            <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                              {materialItems.length > 0
+                                ? `${materialItems.length} items - ${formatCurrency(materialSubtotal)}`
+                                : 'Insumos manuales o calculados.'}
+                            </p>
+                          </div>
+                        </div>
+                        <span className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-black ${
+                          materialItems.length > 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                        }`}>
+                          {materialItems.length} items
+                        </span>
+                      </summary>
+                      <div className="border-t border-slate-100 px-4 pb-4 pt-4 sm:px-5">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-bold text-slate-900">Items de materiales</p>
+                            <p className="mt-1 text-xs font-semibold text-slate-500">
+                              Total materiales: {formatCurrency(materialSubtotal)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleAddItem('material')}
+                            className="inline-flex items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-slate-800"
+                          >
+                            <FilePlus className="h-3.5 w-3.5" />
+                            Material
+                          </button>
+                        </div>
+
+                        <section className="mt-4 overflow-hidden rounded-[26px] border border-slate-200 bg-slate-50/70 shadow-sm">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
+                            <div>
+                              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                Insumos
+                              </p>
+                              <h4 className="text-sm font-black text-slate-950">Materiales</h4>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-600">
+                                {materialItems.length} item{materialItems.length === 1 ? '' : 's'}
+                              </span>
+                              <span className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-black text-white">
+                                {formatCurrency(materialSubtotal)}
+                              </span>
+                            </div>
+                          </div>
+                          {materialItems.length === 0 ? (
+                            <div className="m-3 rounded-[20px] border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
+                              Agrega materiales manuales o desde el cómputo automático.
+                            </div>
+                          ) : (
+                            <div className="space-y-3 p-3">
+                              {materialItems.map((item, materialIndex) => {
+                                const itemTotal = item.quantity * item.unitPrice;
+                                const itemHasPendingPrice = item.unitPrice <= 0;
+                                const isEditingItem = editingQuoteItemId === item.id;
+                                const itemSummary = [
+                                  item.workArea?.trim(),
+                                  `${formatMeasureValue(item.quantity)}${item.unit ? ` ${item.unit}` : ''}`,
+                                  itemHasPendingPrice ? 'Precio pendiente' : formatCurrency(item.unitPrice),
+                                ]
+                                  .filter(Boolean)
+                                  .join(' - ');
+                                return (
+                                  <div key={item.id} className="overflow-hidden rounded-[24px] border border-slate-200 bg-white shadow-sm">
+                                    <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                                      <div className="flex min-w-0 items-center gap-3">
+                                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-950 text-xs font-black text-white">
+                                          {materialIndex + 1}
+                                        </span>
+                                        <div className="min-w-0">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                                            Material
+                                          </p>
+                                          <p className="truncate text-sm font-black text-slate-950">
+                                            {item.description.trim() || 'Material sin descripcion'}
+                                          </p>
+                                          <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
+                                            {itemSummary}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="flex shrink-0 items-center gap-2">
+                                        <span
+                                          className={`rounded-full px-3 py-1 text-xs font-black ring-1 ${
+                                            itemHasPendingPrice
+                                              ? 'bg-amber-50 text-amber-700 ring-amber-100'
+                                              : 'bg-white text-slate-900 ring-slate-200'
+                                          }`}
+                                        >
+                                          {itemHasPendingPrice ? 'Precio pendiente' : formatCurrency(itemTotal)}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditingQuoteItemId(isEditingItem ? '' : item.id)}
+                                          className={`rounded-full px-3 py-1 text-[11px] font-black ring-1 transition ${
+                                            isEditingItem
+                                              ? 'bg-slate-950 text-white ring-slate-950'
+                                              : 'bg-white text-slate-700 ring-slate-200 hover:bg-slate-50'
+                                          }`}
+                                        >
+                                          {isEditingItem ? 'Listo' : 'Editar'}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveItem(item.id)}
+                                          className="rounded-full bg-rose-50 px-3 py-1 text-[11px] font-black text-rose-600 ring-1 ring-rose-100 transition hover:bg-rose-100"
+                                        >
+                                          Quitar
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {isEditingItem && (
+                                    <div className="grid gap-3 p-4 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_90px_130px_150px]">
+                                      <div>
+                                        <label className="block text-[11px] font-semibold text-slate-500">Item</label>
+                                        <input
+                                          value={item.description}
+                                          onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
+                                          placeholder="Ej: Cemento 50 kg"
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-semibold text-slate-500">
+                                          Descripcion / sector
+                                        </label>
+                                        <input
+                                          value={item.workArea || ''}
+                                          onChange={(event) => handleItemUpdate(item.id, { workArea: event.target.value })}
+                                          placeholder="Pared 1, escalera, bano"
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-semibold text-slate-500">Cant.</label>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="1"
+                                          value={item.quantity}
+                                          onFocus={(event) => event.currentTarget.select()}
+                                          onClick={(event) => event.currentTarget.select()}
+                                          onChange={(event) =>
+                                            handleItemUpdate(item.id, { quantity: Math.max(0, toNumber(event.target.value)) })
+                                          }
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-semibold text-slate-500">Precio unit.</label>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="0.01"
+                                          value={item.unitPrice}
+                                          onFocus={(event) => event.currentTarget.select()}
+                                          onClick={(event) => event.currentTarget.select()}
+                                          onChange={(event) =>
+                                            handleItemUpdate(item.id, { unitPrice: Math.max(0, toNumber(event.target.value)) })
+                                          }
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[11px] font-semibold text-slate-500">Tipo</label>
+                                        <select
+                                          value={item.type}
+                                          onChange={(event) =>
+                                            handleItemUpdate(item.id, { type: event.target.value as 'labor' | 'material' })
+                                          }
+                                          className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-600 outline-none focus:border-slate-400"
+                                        >
+                                          <option value="labor">Mano de obra</option>
+                                          <option value="material">Material</option>
+                                        </select>
+                                      </div>
+                                    </div>
+                                    )}
+                                    {isEditingItem && (
+                                      <details className="group mx-4 mb-4 rounded-xl bg-white ring-1 ring-slate-100">
+                                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                          <span>Especificación técnica</span>
+                                          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+                                        </summary>
+                                        <div className="border-t border-slate-100 p-3">
+                                          <textarea
+                                            value={item.technicalNotes || ''}
+                                            onChange={(event) => handleItemUpdate(item.id, { technicalNotes: event.target.value })}
+                                            placeholder="Detalle técnico, criterio de medición, preparación o terminación."
+                                            rows={4}
+                                            className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
+                                          />
+                                        </div>
+                                      </details>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </section>
                       </div>
                     </details>
 
@@ -11581,10 +13444,10 @@ export default function TechniciansPage() {
                           <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-sm font-black ${
                             quoteSettingsReady ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100' : 'bg-slate-950 text-white'
                           }`}>
-                            3
+                            4
                           </span>
                           <div className="min-w-0">
-                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 3</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Paso 4</p>
                             <h3 className="text-base font-black text-slate-950">Ajustes y adjuntos</h3>
                             <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                               {discountPercent > 0 ? `${discountPercent.toFixed(0)}% descuento` : applyTax ? 'IVA activo' : 'Sin descuentos extra'}
@@ -11706,23 +13569,13 @@ export default function TechniciansPage() {
                         <p className="mt-3 truncate text-xs font-semibold text-white/60">
                           {clientName.trim() || 'Cliente sin cargar'}
                         </p>
-                        <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/12">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#ff8a18] via-[#ffd166] to-emerald-300 transition-all"
-                            style={{ width: `${quoteProgressPercent}%` }}
-                          />
-                        </div>
                       </div>
-                      <div className="grid grid-cols-3 border-b border-slate-200 text-center">
+                      <div className="grid grid-cols-2 border-b border-slate-200 text-center">
                         <div className="px-3 py-4">
                           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Items</p>
                           <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{validQuoteItems.length}</p>
                         </div>
-                        <div className="border-x border-slate-200 px-3 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Avance</p>
-                          <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{quoteProgressPercent}%</p>
-                        </div>
-                        <div className="px-3 py-4">
+                        <div className="border-l border-slate-200 px-3 py-4">
                           <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Adjuntos</p>
                           <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{attachments.length}</p>
                         </div>
