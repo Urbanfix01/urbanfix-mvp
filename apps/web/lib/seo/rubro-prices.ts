@@ -4,6 +4,7 @@ import {
   formatMasterItemUnitLabel,
   normalizeTechnicalNotesText,
 } from '../master-items';
+import { getUpdatedLaborPrice, laborPriceIndex } from '../labor-price-index';
 import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
 import { getCatalogRubroBySlug, rubroCatalog, type RubroCatalogItem } from './rubro-catalog';
@@ -47,6 +48,9 @@ export type CatalogRubroOverview = {
   label: string;
   itemCount: number;
   lastUpdatedAt: string | null;
+  baseReference: number;
+  currentReference: number;
+  movementPercent: number;
 };
 
 const SEO_PRICE_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -217,6 +221,14 @@ const getLatestDate = (rows: MasterItemRow[]) => {
   return new Date(Math.max(...dates)).toISOString();
 };
 
+const getAverageSuggestedPrice = (rows: MasterItemRow[]) => {
+  const prices = rows
+    .map((row) => Number(row.suggested_price || 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  if (!prices.length) return 0;
+  return Math.round(prices.reduce((sum, value) => sum + value, 0) / prices.length);
+};
+
 const resolveUnit = (row: Pick<MasterItemRow, 'name' | 'unit'>) => {
   const explicitUnit = canonicalizeMasterItemUnit(row.unit);
   if (explicitUnit) return formatMasterItemUnitLabel(explicitUnit);
@@ -228,7 +240,7 @@ const toRubroPriceReference = (row: MasterItemRow): RubroPriceReference => ({
   label: cleanText(row.name),
   technicalNotes: normalizeTechnicalNotesText(row.technical_notes),
   unit: resolveUnit(row),
-  reference: Number(row.suggested_price || 0),
+  reference: getUpdatedLaborPrice(Number(row.suggested_price || 0)),
   source: formatSource(row.source_ref, row.category),
   updatedAt: row.created_at || null,
 });
@@ -431,11 +443,16 @@ const getCatalogRows = async (rubro: RubroCatalogItem) => {
 export const getCatalogRubrosOverview = cache(async (): Promise<CatalogRubroOverview[]> => {
   return Promise.all(rubroCatalog.map(async (rubro) => {
     const selected = await getCatalogRows(rubro);
+    const baseReference = getAverageSuggestedPrice(selected);
+    const currentReference = getUpdatedLaborPrice(baseReference);
     return {
       slug: rubro.slug,
       label: rubro.label,
       itemCount: selected.length,
       lastUpdatedAt: getLatestDate(selected),
+      baseReference,
+      currentReference,
+      movementPercent: baseReference > 0 ? laborPriceIndex.accumulatedPercent : 0,
     };
   }));
 });

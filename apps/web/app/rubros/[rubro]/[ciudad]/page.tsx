@@ -3,13 +3,14 @@ import { notFound, permanentRedirect } from 'next/navigation';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../../../components/PublicTopNav';
 import { requireRegisteredUser } from '../../../../lib/auth/require-registered-user';
+import { laborPriceIndex } from '../../../../lib/labor-price-index';
 import {
   ciudades,
   ciudadSlugs,
   type CiudadKey,
 } from '../../../../lib/seo/urbanfix-data';
 import { getRubroTwemojiByName } from '../../../../lib/seo/rubro-icons';
-import { formatArs, formatDateAr, getCatalogRubroPriceReferences } from '../../../../lib/seo/rubro-prices';
+import { formatArs, getCatalogRubroPriceReferences } from '../../../../lib/seo/rubro-prices';
 import {
   getCatalogRubroBySlug,
   resolveCatalogRubroSlug,
@@ -116,10 +117,10 @@ export default async function RubroCiudadPage({
           <section className="mt-6 rounded-3xl border border-white/15 bg-white/[0.03] p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">
-                Precios reales de base en {ciudadData.name}
+                Precios vigentes en {ciudadData.name}
               </p>
               <span className="rounded-full border border-white/25 bg-white/[0.03] px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
-                Actualizado: {formatDateAr(priceData.lastUpdatedAt)}
+                {laborPriceIndex.activeLabel}
               </span>
             </div>
             <div className="mt-4 overflow-x-auto">
@@ -128,7 +129,7 @@ export default async function RubroCiudadPage({
                   <tr className="border-b border-white/15 text-[11px] uppercase tracking-[0.1em] text-white/60">
                     <th className="pb-3 pr-4">Item</th>
                     <th className="pb-3 pr-4">Unidad</th>
-                    <th className="pb-3 pr-4">Precio ARS</th>
+                    <th className="pb-3 pr-4">Precio vigente ARS</th>
                     <th className="pb-3">Fuente</th>
                   </tr>
                 </thead>
@@ -160,7 +161,7 @@ export default async function RubroCiudadPage({
               </table>
             </div>
             <p className="mt-4 text-xs text-white/65">
-              Esta vista usa los valores reales disponibles en la base de datos para este rubro.
+              Esta vista usa los valores vigentes de UrbanFix para este rubro.
             </p>
           </section>
 

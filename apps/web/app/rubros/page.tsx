@@ -2,8 +2,9 @@ import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
 import { requireRegisteredUser } from '../../lib/auth/require-registered-user';
+import { laborPriceIndex } from '../../lib/labor-price-index';
 import { getRubroTwemojiByName } from '../../lib/seo/rubro-icons';
-import { formatDateAr, getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
+import { formatArs, getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -30,77 +31,115 @@ export default async function RubrosPage() {
         <PublicTopNav activeHref="/rubros" sticky />
 
         <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-          <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 sm:p-8">
-            <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Rubros UrbanFix</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white sm:text-4xl">
-              Gestion de presupuestos y mano de obra por rubro
-            </h1>
-            <p className="mt-4 text-sm text-white/80">
-              Elegi el rubro y accede a una estructura de trabajo clara para presupuestar, ordenar clientes y mantener
-              referencias de precios siempre disponibles.
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <a
-                href="/precios-mano-de-obra"
-                className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-              >
-                Ver guia de precios
-              </a>
-              <a
-                href="/gremios"
-                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-              >
-                Ver gremios
-              </a>
-              <a
-                href="/ciudades"
-                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-              >
-                Ver ciudades
-              </a>
-              <a
-                href="/guias-precios"
-                className="rounded-full border border-white/35 px-4 py-2 text-xs font-semibold text-white/90 transition hover:border-white hover:text-white"
-              >
-                Ver guias y precios
-              </a>
+          <section className="rounded-3xl border border-white/15 bg-white/[0.03] px-5 py-4">
+            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_auto_auto] md:items-center">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#ffbf7a]">
+                  Indice de aumento INDEC
+                </p>
+                <h1 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
+                  Mano de obra actualizada por {laborPriceIndex.sourceLabel}
+                </h1>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap md:justify-end">
+                <div className="rounded-2xl border border-white/12 bg-black/20 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Variacion mensual</p>
+                  <p className="mt-1 text-xl font-semibold text-white">
+                    +{laborPriceIndex.monthlyPercent.toLocaleString('es-AR')}%
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-[#ff8f1f]/40 bg-[#ff8f1f]/12 px-4 py-3">
+                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Ajuste aplicado</p>
+                  <p className="mt-1 text-xl font-semibold text-[#ffbf7a]">
+                    +{laborPriceIndex.accumulatedPercent.toLocaleString('es-AR')}%
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white/75">
+                <p>
+                  Periodo: <span className="font-semibold text-white">{laborPriceIndex.periodLabel}</span>
+                </p>
+                <p>
+                  Actualizado: <span className="font-semibold text-white">{laborPriceIndex.publishedAtLabel}</span>
+                </p>
+                <a
+                  href={laborPriceIndex.sourceUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 inline-flex text-xs font-semibold text-[#ffbf7a] transition hover:text-white"
+                >
+                  Fuente INDEC
+                </a>
+              </div>
             </div>
           </section>
 
-          <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {rubrosList.map((rubro) => {
-              const twemojiCode = getRubroTwemojiByName(rubro.label);
-              return (
-                <a
-                  key={rubro.slug}
-                  href={`/rubros/${rubro.slug}`}
-                  className="group flex min-h-[138px] items-start gap-4 rounded-3xl border border-white/15 bg-white/[0.03] p-6 transition hover:-translate-y-1 hover:border-white/30 hover:bg-white/[0.05]"
-                >
-                  <div className="mt-0.5 flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_14px_28px_rgba(10,5,20,0.22)]">
-                    <img
-                      src={`/twemoji/${twemojiCode}.svg`}
-                      alt={`Icono ${rubro.label}`}
-                      loading="lazy"
-                      decoding="async"
-                      className="h-10 w-10 object-contain transition-transform duration-200 group-hover:scale-105"
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-lg font-semibold tracking-[0.01em] text-white">{rubro.label}</p>
-                    <p className="mt-2 text-sm leading-6 text-white/72">
-                      {rubro.itemCount} precios activos en base de datos. Ultima actualizacion:{' '}
-                      {formatDateAr(rubro.lastUpdatedAt)}.
-                    </p>
-                    <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a]">
-                      Click para ver precios
-                    </p>
-                  </div>
-                </a>
-              );
-            })}
+          <section className="mt-6 overflow-hidden rounded-3xl border border-white/15 bg-white/[0.03]">
+            {rubrosList.length > 0 && (
+              <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3 border-b border-white/10 px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45 sm:grid-cols-[minmax(0,1fr)_130px_120px] md:grid-cols-[minmax(0,1fr)_130px_160px_120px]">
+                <span>Rubro</span>
+                <span className="hidden text-right sm:block">Valores activos</span>
+                <span className="hidden text-right md:block">Precio vigente</span>
+                <span className="text-right">Accion</span>
+              </div>
+            )}
+
+            <div className="divide-y divide-white/10">
+              {rubrosList.map((rubro) => {
+                const twemojiCode = getRubroTwemojiByName(rubro.label);
+                const currentReference = rubro.currentReference > 0 ? formatArs(rubro.currentReference) : 'Sin precio';
+                return (
+                  <a
+                    key={rubro.slug}
+                    href={`/rubros/${rubro.slug}`}
+                    className="group grid gap-3 px-5 py-4 transition hover:bg-white/[0.05] sm:grid-cols-[minmax(0,1fr)_130px_120px] md:grid-cols-[minmax(0,1fr)_130px_160px_120px] md:items-center"
+                  >
+                    <div className="flex min-w-0 items-center gap-4">
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_10px_22px_rgba(10,5,20,0.18)]">
+                        <img
+                          src={`/twemoji/${twemojiCode}.svg`}
+                          alt={`Icono ${rubro.label}`}
+                          loading="lazy"
+                          decoding="async"
+                          className="h-8 w-8 object-contain transition-transform duration-200 group-hover:scale-105"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-base font-semibold tracking-[0.01em] text-white">
+                          {rubro.label}
+                        </p>
+                        <p className="mt-1 text-xs text-white/55 sm:hidden">
+                          {rubro.itemCount} valores activos | vigente {currentReference}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="hidden text-right sm:block">
+                      <p className="text-sm font-semibold text-white">{rubro.itemCount}</p>
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-white/35">valores</p>
+                    </div>
+
+                    <div className="hidden text-right md:block">
+                      <p className="text-sm font-semibold text-white">{currentReference}</p>
+                      <p className="text-[10px] uppercase tracking-[0.12em] text-[#ffbf7a]">
+                        {laborPriceIndex.activeLabel}
+                      </p>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="inline-flex rounded-full border border-[#ff8f1f]/50 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#ffbf7a] transition group-hover:bg-[#ff8f1f] group-hover:text-[#2a0338]">
+                        Ver precios
+                      </span>
+                    </div>
+                  </a>
+                );
+              })}
+            </div>
 
             {rubrosList.length === 0 && (
-              <div className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-sm text-white/70 sm:col-span-2 lg:col-span-3">
+              <div className="p-6 text-sm text-white/70">
                 No hay rubros activos cargados en la base de datos.
               </div>
             )}

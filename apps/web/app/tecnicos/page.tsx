@@ -26,7 +26,10 @@ import {
   Menu,
   MessageCircle,
   MoreVertical,
+  RefreshCw,
+  Save,
   Search,
+  Send,
   Settings,
   ShieldCheck,
   Store,
@@ -83,6 +86,11 @@ import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import LocalitySelect from '../../components/LocalitySelect';
 import TechnicianLocationPicker, { type LocationPickerResult } from '../../components/TechnicianLocationPicker';
 import TechnicianClientHistoryMap from '../../components/TechnicianClientHistoryMap';
+import {
+  getLaborPriceUpdatePercentLabel,
+  getUpdatedLaborPrice,
+  laborPriceIndex,
+} from '../../lib/labor-price-index';
 import { parseTechnicianLocation } from '../../lib/technician-location';
 import { rubroCatalog } from '../../lib/seo/rubro-catalog';
 import type {
@@ -1815,9 +1823,15 @@ const normalizeLaborLookupText = (value: string | null | undefined) =>
     .replace(/\s+/g, ' ')
     .trim();
 
-const getMasterItemSuggestedPrice = (item: MasterItemRow | null | undefined) => {
+const getMasterItemBasePrice = (item: MasterItemRow | null | undefined) => {
   const price = Number(item?.suggested_price || 0);
   return Number.isFinite(price) && price > 0 ? price : 0;
+};
+
+const getMasterItemSuggestedPrice = (item: MasterItemRow | null | undefined) => {
+  const basePrice = getMasterItemBasePrice(item);
+  if (!basePrice) return 0;
+  return item?.type === 'labor' ? getUpdatedLaborPrice(basePrice) : basePrice;
 };
 
 const formatSuggestedPriceInput = (price: number) => {
@@ -1973,8 +1987,33 @@ const lookupTextHasTerm = (text: string, term: string) => {
 const lookupTextHasEveryTerm = (text: string, terms: string[]) =>
   terms.every((term) => lookupTextHasTerm(text, term));
 
-const shouldReplaceSuggestedPriceInput = (currentValue: string, previousSuggestedValue: string) =>
-  !currentValue || currentValue === previousSuggestedValue;
+const shouldReplaceSuggestedPriceInput = (
+  currentValue: string,
+  previousSuggestedValue: string,
+  sourceItem?: MasterItemRow | null
+) => {
+  const trimmedValue = String(currentValue || '').trim();
+  if (!trimmedValue) return true;
+
+  const currentPrice = toNumber(trimmedValue);
+  const suggestedPrice = toNumber(previousSuggestedValue);
+  if (suggestedPrice > 0 && pricesAreEquivalent(currentPrice, suggestedPrice)) return true;
+
+  const basePrice = getMasterItemBasePrice(sourceItem);
+  return basePrice > 0 && pricesAreEquivalent(currentPrice, basePrice);
+};
+
+const shouldSyncMasterItemPrice = (item: ItemForm, match: MasterItemRow) => {
+  const suggestedPrice = getMasterItemSuggestedPrice(match);
+  if (suggestedPrice <= 0) return false;
+
+  const currentPrice = Number(item.unitPrice || 0);
+  if (!Number.isFinite(currentPrice) || currentPrice <= 0) return true;
+  if (pricesAreEquivalent(currentPrice, suggestedPrice)) return true;
+
+  const basePrice = getMasterItemBasePrice(match);
+  return match.type === 'labor' && basePrice > 0 && pricesAreEquivalent(currentPrice, basePrice);
+};
 
 const resolveTemplateLaborMasterItem = (items: MasterItemRow[], lookup: LaborTemplateLookup) => {
   const categoryTerms = lookup.categories.map(normalizeLaborLookupText).filter(Boolean);
@@ -2234,6 +2273,18 @@ const PREVIEW_TECHNICIAN_QUOTES: QuoteRow[] = [
 
 const formatCurrency = (value: number) =>
   `$${Number(value || 0).toLocaleString('es-AR')}`;
+
+const buildLaborPriceUpdateNote = (item: MasterItemRow | null | undefined) => {
+  if (item?.type !== 'labor') return '';
+  const basePrice = getMasterItemBasePrice(item);
+  const updatedPrice = getMasterItemSuggestedPrice(item);
+  if (!basePrice || !updatedPrice || pricesAreEquivalent(basePrice, updatedPrice)) return '';
+  return [
+    `Precio de mano de obra actualizado: ${formatCurrency(basePrice)} (${laborPriceIndex.baseLabel})`,
+    `${getLaborPriceUpdatePercentLabel()} ${laborPriceIndex.sourceLabel}`,
+    `= ${formatCurrency(updatedPrice)} (${laborPriceIndex.activeLabel}).`,
+  ].join(' ');
+};
 
 const formatDashboardMoney = (value: number) => {
   const amount = Number(value || 0);
@@ -3154,6 +3205,7 @@ export default function TechniciansPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
+  const [quoteActionsOpen, setQuoteActionsOpen] = useState(false);
   const [profileForm, setProfileForm] = useState({
     fullName: '',
     businessName: '',
@@ -4489,8 +4541,9 @@ export default function TechniciansPage() {
         }
         const { data, error } = await query.order('category', { ascending: true }).order('name', { ascending: true });
         if (!error) {
-          setMasterItems(((data as unknown) as MasterItemRow[]) || []);
-          return;
+          const rows = ((data as unknown) as MasterItemRow[]) || [];
+          setMasterItems(rows);
+          return rows;
         }
         lastError = error;
       }
@@ -4498,6 +4551,7 @@ export default function TechniciansPage() {
       throw lastError || new Error('No se pudo cargar master_items.');
     } catch (error) {
       console.error('Error cargando master items:', error);
+      return [];
     } finally {
       setLoadingMasterItems(false);
     }
@@ -4654,11 +4708,14 @@ export default function TechniciansPage() {
           id: nextItemId,
           description: item.name,
           quantity: 1,
-          unitPrice: Number(item.suggested_price || 0),
+          unitPrice: getMasterItemSuggestedPrice(item),
           unit: item.unit || '',
           workArea: '',
           itemImages: [],
-          technicalNotes: normalizeTechnicalNotes(item.technical_notes),
+          technicalNotes: mergeUniqueText(
+            [normalizeTechnicalNotes(item.technical_notes), buildLaborPriceUpdateNote(item)],
+            '\n\n'
+          ),
           masterItemId: item.id,
           masterItemCategory: item.category || '',
           masterItemSourceRef: item.source_ref || '',
@@ -5678,13 +5735,19 @@ export default function TechniciansPage() {
   const applySuggestedRevoqueEstimatorPrices = (form: RevoqueEstimatorForm, force = false) => {
     let changed = false;
     const next: RevoqueEstimatorForm = { ...form };
-    if ((force || !next.laborPrice) && revoqueSuggestedLaborInput) {
+    if (
+      (force || shouldReplaceSuggestedPriceInput(next.laborPrice, revoqueSuggestedLaborInput, revoqueLaborMasterItem)) &&
+      revoqueSuggestedLaborInput
+    ) {
       next.laborPrice = revoqueSuggestedLaborInput;
       changed = true;
     }
     REVOQUE_MATERIAL_PRICE_FIELDS.forEach((field) => {
       const suggested = revoqueSuggestedMaterialInputs[field];
-      if ((force || !next[field]) && suggested) {
+      if (
+        (force || shouldReplaceSuggestedPriceInput(next[field], suggested, revoqueMaterialMasterItems[field])) &&
+        suggested
+      ) {
         next[field] = suggested;
         changed = true;
       }
@@ -5695,13 +5758,24 @@ export default function TechniciansPage() {
   const applySuggestedMamposteriaEstimatorPrices = (form: MamposteriaEstimatorForm, force = false) => {
     let changed = false;
     const next: MamposteriaEstimatorForm = { ...form };
-    if ((force || !next.laborPrice) && mamposteriaSuggestedLaborInput) {
+    if (
+      (force ||
+        shouldReplaceSuggestedPriceInput(
+          next.laborPrice,
+          mamposteriaSuggestedLaborInput,
+          mamposteriaLaborMasterItem
+        )) &&
+      mamposteriaSuggestedLaborInput
+    ) {
       next.laborPrice = mamposteriaSuggestedLaborInput;
       changed = true;
     }
     MAMPOSTERIA_MATERIAL_PRICE_FIELDS.forEach((field) => {
       const suggested = mamposteriaSuggestedMaterialInputs[field];
-      if ((force || !next[field]) && suggested) {
+      if (
+        (force || shouldReplaceSuggestedPriceInput(next[field], suggested, mamposteriaMaterialMasterItems[field])) &&
+        suggested
+      ) {
         next[field] = suggested;
         changed = true;
       }
@@ -5712,13 +5786,19 @@ export default function TechniciansPage() {
   const applySuggestedPisoEstimatorPrices = (form: PisoEstimatorForm, force = false) => {
     let changed = false;
     const next: PisoEstimatorForm = { ...form };
-    if ((force || !next.laborPrice) && pisoSuggestedLaborInput) {
+    if (
+      (force || shouldReplaceSuggestedPriceInput(next.laborPrice, pisoSuggestedLaborInput, pisoLaborMasterItem)) &&
+      pisoSuggestedLaborInput
+    ) {
       next.laborPrice = pisoSuggestedLaborInput;
       changed = true;
     }
     PISO_MATERIAL_PRICE_FIELDS.forEach((field) => {
       const suggested = pisoSuggestedMaterialInputs[field];
-      if ((force || !next[field]) && suggested) {
+      if (
+        (force || shouldReplaceSuggestedPriceInput(next[field], suggested, pisoMaterialMasterItems[field])) &&
+        suggested
+      ) {
         next[field] = suggested;
         changed = true;
       }
@@ -5729,13 +5809,19 @@ export default function TechniciansPage() {
   const applySuggestedPinturaEstimatorPrices = (form: PinturaEstimatorForm, force = false) => {
     let changed = false;
     const next: PinturaEstimatorForm = { ...form };
-    if ((force || !next.laborPrice) && pinturaSuggestedLaborInput) {
+    if (
+      (force || shouldReplaceSuggestedPriceInput(next.laborPrice, pinturaSuggestedLaborInput, pinturaLaborMasterItem)) &&
+      pinturaSuggestedLaborInput
+    ) {
       next.laborPrice = pinturaSuggestedLaborInput;
       changed = true;
     }
     PINTURA_MATERIAL_PRICE_FIELDS.forEach((field) => {
       const suggested = pinturaSuggestedMaterialInputs[field];
-      if ((force || !next[field]) && suggested) {
+      if (
+        (force || shouldReplaceSuggestedPriceInput(next[field], suggested, pinturaMaterialMasterItems[field])) &&
+        suggested
+      ) {
         next[field] = suggested;
         changed = true;
       }
@@ -5866,18 +5952,107 @@ export default function TechniciansPage() {
 
     const nextTechnicalNotes =
       options?.fillNotesFromMaster && !normalizeTechnicalNotes(item.technicalNotes)
-        ? normalizeTechnicalNotes(match.technical_notes)
+        ? mergeUniqueText([normalizeTechnicalNotes(match.technical_notes), buildLaborPriceUpdateNote(match)], '\n\n')
         : normalizeTechnicalNotes(item.technicalNotes);
 
     return {
       ...item,
-      unitPrice: item.unitPrice > 0 ? item.unitPrice : getMasterItemSuggestedPrice(match),
+      unitPrice: shouldSyncMasterItemPrice(item, match) ? getMasterItemSuggestedPrice(match) : item.unitPrice,
       unit: match.unit || '',
       masterItemId: match.id,
       masterItemCategory: match.category || '',
       masterItemSourceRef: match.source_ref || '',
       technicalNotes: nextTechnicalNotes,
     };
+  };
+
+  const resolveLinkedMasterItemFromCatalog = (item: ItemForm, catalogItems: MasterItemRow[]) => {
+    if (!item.masterItemId && !item.masterItemSourceRef) return null;
+    const allowedTypes =
+      item.type === 'labor'
+        ? new Set(['labor'])
+        : new Set(['material', 'consumable']);
+    const candidates = catalogItems.filter((candidate) => allowedTypes.has(String(candidate.type)));
+
+    if (item.masterItemId) {
+      const byId = candidates.find((candidate) => candidate.id === item.masterItemId) || null;
+      if (byId) return byId;
+    }
+
+    const sourceKey = normalizeText(item.masterItemSourceRef || '');
+    if (sourceKey) {
+      const bySource =
+        candidates.find((candidate) => normalizeText(candidate.source_ref || '') === sourceKey) || null;
+      if (bySource) return bySource;
+    }
+
+    return null;
+  };
+
+  const applyCatalogValueToQuoteItem = (item: ItemForm, catalogItems: MasterItemRow[]) => {
+    const match = resolveLinkedMasterItemFromCatalog(item, catalogItems);
+    if (!match) return { item, changed: false, linked: false };
+
+    const suggestedPrice = getMasterItemSuggestedPrice(match);
+    if (suggestedPrice <= 0) return { item, changed: false, linked: true };
+
+    const nextItem: ItemForm = {
+      ...item,
+      unitPrice: suggestedPrice,
+      unit: match.unit || item.unit || '',
+      masterItemId: match.id,
+      masterItemCategory: match.category || item.masterItemCategory || '',
+      masterItemSourceRef: match.source_ref || item.masterItemSourceRef || '',
+    };
+
+    const changed =
+      !pricesAreEquivalent(item.unitPrice, nextItem.unitPrice) ||
+      item.unit !== nextItem.unit ||
+      item.masterItemId !== nextItem.masterItemId ||
+      item.masterItemCategory !== nextItem.masterItemCategory ||
+      item.masterItemSourceRef !== nextItem.masterItemSourceRef;
+
+    return { item: nextItem, changed, linked: true };
+  };
+
+  const handleRefreshQuoteValues = async () => {
+    if (loadingMasterItems) return;
+    setQuoteActionsOpen(false);
+    setFormError('');
+    setInfoMessage('Actualizando valores...');
+
+    const latestMasterItems = await fetchMasterItems();
+    const catalogItems = latestMasterItems.length > 0 ? latestMasterItems : masterItems;
+    if (catalogItems.length === 0) {
+      setInfoMessage('');
+      setFormError('No pudimos cargar los valores del catalogo.');
+      return;
+    }
+
+    let linkedCount = 0;
+    let updatedCount = 0;
+    const nextItems = mergeQuoteMaterialItems(
+      items.map((item) => {
+        const result = applyCatalogValueToQuoteItem(item, catalogItems);
+        if (result.linked) linkedCount += 1;
+        if (result.changed) updatedCount += 1;
+        return result.item;
+      })
+    );
+
+    if (linkedCount === 0) {
+      setInfoMessage('');
+      setFormError('No hay items vinculados al catalogo para actualizar.');
+      return;
+    }
+
+    if (updatedCount === 0) {
+      setInfoMessage('Los valores ya estaban actualizados.');
+      return;
+    }
+
+    setItems(nextItems);
+    setInfoMessage(`${updatedCount} valor${updatedCount === 1 ? '' : 'es'} actualizado${updatedCount === 1 ? '' : 's'} desde catalogo.`);
   };
 
   const handleItemUpdate = (id: string, patch: Partial<ItemForm>) => {
@@ -5912,9 +6087,12 @@ export default function TechniciansPage() {
             if (patch.description !== undefined) {
               next.description = match.name;
             }
-            next.unitPrice = Number(match.suggested_price || 0);
+            next.unitPrice = getMasterItemSuggestedPrice(match);
             next.unit = match.unit || '';
-            next.technicalNotes = normalizeTechnicalNotes(match.technical_notes);
+            next.technicalNotes = mergeUniqueText(
+              [normalizeTechnicalNotes(match.technical_notes), buildLaborPriceUpdateNote(match)],
+              '\n\n'
+            );
             next.masterItemId = match.id;
             next.masterItemCategory = match.category || '';
             next.masterItemSourceRef = match.source_ref || '';
@@ -6479,7 +6657,6 @@ export default function TechniciansPage() {
   const quoteSettingsReady = total > 0;
   const completedQuoteSteps = [quoteClientReady, quoteItemsReady, quoteMaterialsReady, quoteSettingsReady].filter(Boolean).length;
   const quoteReadyToSend = quoteClientReady && quoteItemsReady && total > 0;
-  const quoteLink = activeQuoteId ? buildQuoteLink(activeQuoteId) : '';
   const quoteStats = useMemo(() => {
     const totals = quotes.reduce(
       (acc, quote) => {
@@ -8033,31 +8210,37 @@ export default function TechniciansPage() {
   };
 
   const handleSave = async (nextStatus: 'draft' | 'sent') => {
-    if (savingRef.current || isSaving) return;
+    if (savingRef.current || isSaving) return null;
     savingRef.current = true;
     if (!session?.user?.id) {
       setFormError('Inicia sesion para guardar el presupuesto.');
       savingRef.current = false;
-      return;
-    }
-    if (!clientName.trim()) {
-      setFormError('Ingresa el nombre del cliente.');
-      savingRef.current = false;
-      return;
-    }
-    if (!clientAddress.trim()) {
-      setFormError('Ingresa la direccion del trabajo.');
-      savingRef.current = false;
-      return;
+      return null;
     }
     const preparedItems = mergeQuoteMaterialItems(
       items.map((item) => mergeItemWithMasterItem(item, { fillNotesFromMaster: true }))
     );
     const cleanedItems = preparedItems.filter((item) => item.description.trim());
-    if (cleanedItems.length === 0) {
-      setFormError('Agrega al menos un item.');
-      savingRef.current = false;
-      return;
+    const isDraft = nextStatus === 'draft';
+    if (!isDraft) {
+      if (!clientName.trim()) {
+        setFormError('Ingresa el nombre del cliente.');
+        setOpenQuoteStep('client');
+        savingRef.current = false;
+        return null;
+      }
+      if (!geoSelected) {
+        setFormError('Confirma la ubicacion en el mapa.');
+        setOpenQuoteStep('client');
+        savingRef.current = false;
+        return null;
+      }
+      if (cleanedItems.length === 0 || total <= 0) {
+        setFormError('Agrega al menos un item con importe.');
+        setOpenQuoteStep('items');
+        savingRef.current = false;
+        return null;
+      }
     }
     const itemsSignature = buildItemsSignature(cleanedItems);
     const shouldSyncItems = !activeQuoteId || itemsSignature !== lastSavedItemsSignatureRef.current;
@@ -8067,8 +8250,8 @@ export default function TechniciansPage() {
     setInfoMessage('');
     try {
       const quotePayload = {
-        client_name: clientName,
-        client_address: clientAddress,
+        client_name: clientName.trim() || null,
+        client_address: clientAddress.trim() || geoSelected?.display_name || null,
         location_address: geoSelected?.display_name || null,
         location_lat: geoSelected?.lat ?? null,
         location_lng: geoSelected?.lon ?? null,
@@ -8113,45 +8296,47 @@ export default function TechniciansPage() {
           }
         }
 
-        const itemsPayload = cleanedItems.map((item) => ({
-          quote_id: quoteId,
-          description: item.description,
-          unit_price: item.unitPrice,
-          quantity: item.quantity,
-          metadata: {
-            type: item.type,
-            unit: item.unit || null,
-            work_area: item.workArea?.trim() || null,
-            item_images:
-              item.itemImages && item.itemImages.length > 0
-                ? item.itemImages.map((image) => ({
-                    id: image.id,
-                    url: image.url,
-                    name: image.name,
-                    file_type: image.fileType || null,
-                    storage_path: image.storagePath || null,
-                    uploaded_at: image.uploadedAt || null,
-                    source: image.source || 'item-upload',
-                    source_attachment_id: image.sourceAttachmentId || null,
-                  }))
-                : [],
-            technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
-            master_item_id: item.masterItemId || null,
-            master_item_category: item.masterItemCategory || null,
-            master_item_source_ref: item.masterItemSourceRef || null,
-            sync_group_id: item.syncGroupId || null,
-            sync_role: item.syncRole || null,
-            sync_driver_id: item.syncDriverId || null,
-            sync_quantity_per_unit: item.syncQuantityPerUnit || null,
-            sync_sources: normalizeQuoteItemSyncSources(item.syncSources || []).map((source) => ({
-              sync_group_id: source.syncGroupId || null,
-              sync_driver_id: source.syncDriverId,
-              sync_quantity_per_unit: source.syncQuantityPerUnit,
-            })),
-          },
-        }));
-        const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
-        if (itemsError) throw itemsError;
+        if (cleanedItems.length > 0) {
+          const itemsPayload = cleanedItems.map((item) => ({
+            quote_id: quoteId,
+            description: item.description,
+            unit_price: item.unitPrice,
+            quantity: item.quantity,
+            metadata: {
+              type: item.type,
+              unit: item.unit || null,
+              work_area: item.workArea?.trim() || null,
+              item_images:
+                item.itemImages && item.itemImages.length > 0
+                  ? item.itemImages.map((image) => ({
+                      id: image.id,
+                      url: image.url,
+                      name: image.name,
+                      file_type: image.fileType || null,
+                      storage_path: image.storagePath || null,
+                      uploaded_at: image.uploadedAt || null,
+                      source: image.source || 'item-upload',
+                      source_attachment_id: image.sourceAttachmentId || null,
+                    }))
+                  : [],
+              technical_notes: normalizeTechnicalNotes(item.technicalNotes) || null,
+              master_item_id: item.masterItemId || null,
+              master_item_category: item.masterItemCategory || null,
+              master_item_source_ref: item.masterItemSourceRef || null,
+              sync_group_id: item.syncGroupId || null,
+              sync_role: item.syncRole || null,
+              sync_driver_id: item.syncDriverId || null,
+              sync_quantity_per_unit: item.syncQuantityPerUnit || null,
+              sync_sources: normalizeQuoteItemSyncSources(item.syncSources || []).map((source) => ({
+                sync_group_id: source.syncGroupId || null,
+                sync_driver_id: source.syncDriverId,
+                sync_quantity_per_unit: source.syncQuantityPerUnit,
+              })),
+            },
+          }));
+          const { error: itemsError } = await supabase.from('quote_items').insert(itemsPayload);
+          if (itemsError) throw itemsError;
+        }
       }
 
       let postSaveMessage = nextStatus === 'sent' ? 'Presupuesto enviado.' : 'Borrador guardado.';
@@ -8169,12 +8354,27 @@ export default function TechniciansPage() {
       setInfoMessage(postSaveMessage);
       lastSavedItemsSignatureRef.current = itemsSignature;
       lastSavedItemsCountRef.current = cleanedItems.length;
+      return quoteId || null;
     } catch (error: any) {
       setFormError(error?.message || 'No pudimos guardar el presupuesto.');
+      return null;
     } finally {
       setIsSaving(false);
       savingRef.current = false;
     }
+  };
+
+  const handleReviewQuote = async () => {
+    setFormError('');
+    setInfoMessage('');
+    const quoteId = await handleSave('draft');
+    if (!quoteId) return;
+    const url = buildQuoteLink(quoteId);
+    const windowRef = window.open(url, 'quoteWindow', 'popup=yes,width=1200,height=800,noopener,noreferrer');
+    if (windowRef) {
+      windowRef.focus();
+    }
+    setInfoMessage(`Link del cliente: ${url}`);
   };
 
   const handleCopyLink = async (quoteId?: string) => {
@@ -11827,7 +12027,8 @@ export default function TechniciansPage() {
                                         );
                                         const shouldReplaceLaborPrice = shouldReplaceSuggestedPriceInput(
                                           revoqueForm.laborPrice,
-                                          revoqueSuggestedLaborInput
+                                          revoqueSuggestedLaborInput,
+                                          revoqueLaborMasterItem
                                         );
                                         updateRevoqueForm({
                                           workType,
@@ -12121,11 +12322,15 @@ export default function TechniciansPage() {
                                           )
                                         );
                                         const shouldReplaceBrickPrice =
-                                          !mamposteriaForm.brickUnitPrice ||
-                                          mamposteriaForm.brickUnitPrice === mamposteriaSuggestedMaterialInputs.brickUnitPrice;
+                                          shouldReplaceSuggestedPriceInput(
+                                            mamposteriaForm.brickUnitPrice,
+                                            mamposteriaSuggestedMaterialInputs.brickUnitPrice,
+                                            mamposteriaMaterialMasterItems.brickUnitPrice
+                                          );
                                         const shouldReplaceLaborPrice = shouldReplaceSuggestedPriceInput(
                                           mamposteriaForm.laborPrice,
-                                          mamposteriaSuggestedLaborInput
+                                          mamposteriaSuggestedLaborInput,
+                                          mamposteriaLaborMasterItem
                                         );
                                         updateMamposteriaForm({
                                           workType,
@@ -12427,7 +12632,8 @@ export default function TechniciansPage() {
                                           workType,
                                           laborPrice: shouldReplaceSuggestedPriceInput(
                                             pisoForm.laborPrice,
-                                            pisoSuggestedLaborInput
+                                            pisoSuggestedLaborInput,
+                                            pisoLaborMasterItem
                                           )
                                             ? suggested
                                             : pisoForm.laborPrice,
@@ -12593,7 +12799,8 @@ export default function TechniciansPage() {
                                           workType,
                                           laborPrice: shouldReplaceSuggestedPriceInput(
                                             pinturaForm.laborPrice,
-                                            pinturaSuggestedLaborInput
+                                            pinturaSuggestedLaborInput,
+                                            pinturaLaborMasterItem
                                           )
                                             ? suggested
                                             : pinturaForm.laborPrice,
@@ -12820,12 +13027,16 @@ export default function TechniciansPage() {
                             {!loadingMasterItems &&
                               filteredQuoteLaborCatalogItems.map((item) => {
                                 const rubro = resolveMasterRubro(item);
+                                const basePrice = getMasterItemBasePrice(item);
+                                const activePrice = getMasterItemSuggestedPrice(item);
+                                const hasLaborUpdate =
+                                  item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
                                 return (
                                   <button
                                     key={item.id}
                                     type="button"
                                     onClick={() => addMasterItemToQuote(item)}
-                                    className="grid w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_120px_90px]"
+                                    className="grid w-full gap-3 border-b border-slate-100 px-4 py-3 text-left transition hover:bg-slate-50 md:grid-cols-[minmax(0,1fr)_120px_130px]"
                                   >
                                     <span className="min-w-0">
                                       <span className="block truncate text-sm font-black text-slate-950">
@@ -12840,8 +13051,13 @@ export default function TechniciansPage() {
                                     <span className="self-center rounded-full bg-slate-100 px-3 py-1 text-center text-[11px] font-black text-slate-600">
                                       {item.unit || 'unidad'}
                                     </span>
-                                    <span className="self-center rounded-full bg-slate-950 px-3 py-1 text-center text-[11px] font-black text-white">
-                                      {formatCurrency(Number(item.suggested_price || 0))}
+                                    <span className="self-center rounded-2xl bg-slate-950 px-3 py-1.5 text-center text-[11px] font-black text-white">
+                                      <span className="block">{formatCurrency(activePrice)}</span>
+                                      {hasLaborUpdate && (
+                                        <span className="mt-0.5 block text-[9px] font-semibold text-white/55">
+                                          base {formatCurrency(basePrice)}
+                                        </span>
+                                      )}
                                     </span>
                                   </button>
                                 );
@@ -13570,16 +13786,6 @@ export default function TechniciansPage() {
                           {clientName.trim() || 'Cliente sin cargar'}
                         </p>
                       </div>
-                      <div className="grid grid-cols-2 border-b border-slate-200 text-center">
-                        <div className="px-3 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Items</p>
-                          <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{validQuoteItems.length}</p>
-                        </div>
-                        <div className="border-l border-slate-200 px-3 py-4">
-                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Adjuntos</p>
-                          <p className={`${spaceGrotesk.className} mt-1 text-2xl font-black text-slate-950`}>{attachments.length}</p>
-                        </div>
-                      </div>
                       <div className="space-y-3 px-5 py-4 text-sm text-slate-600">
                         <div className="flex items-center justify-between">
                           <span>Mano de obra</span>
@@ -13599,27 +13805,67 @@ export default function TechniciansPage() {
                         </div>
                       </div>
                       <div className="border-t border-slate-200 px-5 py-4">
-                        <div className="grid gap-2">
+                        <div className="grid grid-cols-4 gap-2">
                           <button
                             type="button"
-                            onClick={() => handleSave('sent')}
-                            disabled={isSaving || !quoteReadyToSend}
-                            className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-black text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                            onClick={handleReviewQuote}
+                            disabled={isSaving}
+                            aria-label="Ver presupuesto"
+                            title="Ver presupuesto"
+                            className="inline-flex h-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                           >
-                            {isSaving ? 'Guardando...' : 'Enviar al cliente'}
+                            <Eye className="h-4 w-4" />
                           </button>
                           <button
                             type="button"
                             onClick={() => handleSave('draft')}
                             disabled={isSaving}
-                            className="rounded-2xl border border-slate-300 px-4 py-3 text-sm font-black text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400"
+                            aria-label="Guardar borrador"
+                            title="Guardar borrador"
+                            className="inline-flex h-12 items-center justify-center rounded-2xl border border-slate-300 bg-white text-slate-800 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:text-slate-400"
                           >
-                            Guardar borrador
+                            <Save className="h-4 w-4" />
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => handleSave('sent')}
+                            disabled={isSaving || !quoteReadyToSend}
+                            aria-label="Enviar al cliente"
+                            title="Enviar al cliente"
+                            className="inline-flex h-12 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                          >
+                            <Send className="h-4 w-4" />
+                          </button>
+                          <div className="relative">
+                            <button
+                              type="button"
+                              onClick={() => setQuoteActionsOpen((open) => !open)}
+                              aria-label="Mas acciones"
+                              title="Mas acciones"
+                              className={`inline-flex h-12 w-full items-center justify-center rounded-2xl border text-slate-800 transition hover:border-slate-400 hover:text-slate-950 ${
+                                quoteActionsOpen ? 'border-slate-400 bg-slate-100' : 'border-slate-300 bg-white'
+                              }`}
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                            {quoteActionsOpen && (
+                              <div className="absolute bottom-full right-0 z-20 mb-2 w-56 overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-[0_18px_44px_-24px_rgba(15,23,42,0.65)]">
+                                <button
+                                  type="button"
+                                  onClick={handleRefreshQuoteValues}
+                                  disabled={loadingMasterItems}
+                                  className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-black text-slate-800 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                                >
+                                  <RefreshCw className={`h-4 w-4 ${loadingMasterItems ? 'animate-spin' : ''}`} />
+                                  Actualizar valores
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                         {!quoteReadyToSend && (
-                          <p className="mt-3 rounded-2xl bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-                            Completa cliente, ubicacion y al menos un item con importe para enviar.
+                          <p className="mt-3 text-xs font-semibold leading-5 text-slate-500">
+                            El borrador se puede guardar ahora. Para enviar, revisa los puntos pendientes.
                           </p>
                         )}
                         {formError && <p className="mt-3 text-xs font-semibold text-rose-500">{formError}</p>}
@@ -17108,7 +17354,12 @@ export default function TechniciansPage() {
                       No encontramos items con esos filtros.
                     </div>
                   )}
-                  {filteredMasterItems.map((item) => (
+                  {filteredMasterItems.map((item) => {
+                    const basePrice = getMasterItemBasePrice(item);
+                    const activePrice = getMasterItemSuggestedPrice(item);
+                    const hasLaborUpdate =
+                      item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
+                    return (
                     <div
                       key={item.id}
                       className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
@@ -17135,8 +17386,13 @@ export default function TechniciansPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-slate-900">
-                          ${Number(item.suggested_price || 0).toLocaleString('es-AR')}
+                        <span className="text-right text-sm font-semibold text-slate-900">
+                          {formatCurrency(activePrice)}
+                          {hasLaborUpdate && (
+                            <span className="block text-[10px] font-semibold text-slate-400">
+                              base {formatCurrency(basePrice)}
+                            </span>
+                          )}
                         </span>
                         <button
                           type="button"
@@ -17147,7 +17403,8 @@ export default function TechniciansPage() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
