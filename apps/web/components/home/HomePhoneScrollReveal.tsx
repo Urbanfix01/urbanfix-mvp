@@ -6,6 +6,16 @@ export default function HomePhoneScrollReveal() {
         <span />
         <span />
       </div>
+      <div className="home-phone-scroll__promo">
+        <img
+          src="/hero/home-notebook-summary.png"
+          alt="UrbanFix para ordenar presupuestos y cotizar en el momento"
+          className="home-phone-scroll__promo-image"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+      <div className="home-phone-scroll__soon">Proximamente</div>
       <div className="home-phone-scroll__visual">
         <img
           src="/hero/home-scroll-phone.png"
@@ -15,7 +25,6 @@ export default function HomePhoneScrollReveal() {
           decoding="async"
         />
       </div>
-      <div className="home-phone-scroll__soon">Proximamente</div>
     </section>
   );
 }

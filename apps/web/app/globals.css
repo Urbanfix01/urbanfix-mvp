@@ -564,7 +564,7 @@ header .header-view-option {
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: min(82svh, 54rem);
+  min-height: min(118svh, 78rem);
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -584,8 +584,8 @@ header .header-view-option {
   filter: drop-shadow(0 42px 58px rgba(0, 0, 0, 0.5));
   transform: translate3d(12vw, 5rem, 0) scale(0.92) rotate(0.001deg);
   transition:
-    opacity 900ms cubic-bezier(0.16, 1, 0.3, 1),
-    transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
+    opacity 900ms cubic-bezier(0.16, 1, 0.3, 1) 520ms,
+    transform 1000ms cubic-bezier(0.16, 1, 0.3, 1) 520ms;
 }
 
 .home-phone-scroll.is-visible .home-phone-scroll__visual {
@@ -612,13 +612,36 @@ header .header-view-option {
   opacity: 0;
   transform: translate3d(0, 1rem, 0);
   transition:
-    opacity 720ms cubic-bezier(0.16, 1, 0.3, 1) 260ms,
-    transform 720ms cubic-bezier(0.16, 1, 0.3, 1) 260ms;
+    opacity 720ms cubic-bezier(0.16, 1, 0.3, 1) 300ms,
+    transform 720ms cubic-bezier(0.16, 1, 0.3, 1) 300ms;
 }
 
 .home-phone-scroll.is-visible .home-phone-scroll__soon {
   opacity: 1;
   transform: translate3d(0, 0, 0);
+}
+
+.home-phone-scroll__promo {
+  position: relative;
+  z-index: 2;
+  width: min(86rem, 94vw);
+  margin-top: 0;
+  opacity: 0;
+  transform: translate3d(0, 2.25rem, 0) scale(0.97);
+  transition:
+    opacity 820ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 920ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.home-phone-scroll.is-visible .home-phone-scroll__promo {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.home-phone-scroll__promo-image {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .home-phone-scroll__network {
@@ -673,12 +696,18 @@ header .header-view-option {
 
 @media (max-width: 720px) {
   .home-phone-scroll {
-    min-height: 72svh;
+    min-height: 98svh;
+    padding-block: clamp(3.25rem, 7vh, 5rem) clamp(2rem, 5vh, 3rem);
   }
 
   .home-phone-scroll__visual {
     width: min(28rem, 92vw);
     transform: translate3d(18vw, 4rem, 0) scale(0.92) rotate(0.001deg);
+  }
+
+  .home-phone-scroll__promo {
+    width: 112vw;
+    max-width: none;
   }
 
   .home-phone-scroll__network {
@@ -691,6 +720,7 @@ header .header-view-option {
   .home-phone-scroll,
   .home-phone-scroll__visual,
   .home-phone-scroll__soon,
+  .home-phone-scroll__promo,
   .home-phone-scroll__network span {
     opacity: 1 !important;
     transform: none !important;
