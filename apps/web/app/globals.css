@@ -472,7 +472,7 @@ header .header-view-option {
   }
 
   .home-animation-hero__title {
-    font-size: clamp(3.75rem, 15vw, 7.5rem);
+    font-size: clamp(3.35rem, 9.5vw, 6.2rem);
   }
 
   .home-animation-hero__app-row {
@@ -480,12 +480,17 @@ header .header-view-option {
   }
 
   .home-animation-hero__brand-row {
-    gap: clamp(0.65rem, 2vw, 1rem);
-    flex-wrap: wrap;
+    gap: clamp(0.55rem, 1.45vw, 0.95rem);
+    flex-wrap: nowrap;
+  }
+
+  .home-animation-hero__tool-icons {
+    flex-shrink: 0;
+    gap: clamp(0.35rem, 0.9vw, 0.75rem);
   }
 
   .home-animation-hero__tool-icon {
-    width: clamp(3.45rem, 9.6vw, 4.95rem);
+    width: clamp(2.35rem, 5vw, 4rem);
   }
 
   .home-animation-hero__network {
@@ -497,8 +502,16 @@ header .header-view-option {
 }
 
 @media (max-width: 560px) {
+  .home-animation-hero {
+    padding-inline: clamp(0.95rem, 4vw, 1.25rem);
+  }
+
   .home-animation-hero__title {
-    font-size: clamp(3.25rem, 14vw, 4.7rem);
+    font-size: clamp(2.35rem, 10.5vw, 3.35rem);
+  }
+
+  .home-animation-hero__brand-row {
+    gap: clamp(0.35rem, 2vw, 0.55rem);
   }
 
   .home-animation-hero__network {
@@ -507,11 +520,11 @@ header .header-view-option {
   }
 
   .home-animation-hero__tool-icons {
-    gap: 0.82rem;
+    gap: clamp(0.22rem, 1.2vw, 0.38rem);
   }
 
   .home-animation-hero__tool-icon {
-    width: clamp(2.75rem, 12.4vw, 3.6rem);
+    width: clamp(1.55rem, 7.8vw, 2.2rem);
   }
 }
 
