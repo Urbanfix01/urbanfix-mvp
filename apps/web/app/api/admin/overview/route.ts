@@ -16,6 +16,13 @@ type GeoZoneBucket = GeoBucket & {
   latitude: number;
   longitude: number;
 };
+type AnalyticsAccountBucket = {
+  userId: string;
+  sessions: Set<string>;
+  views: number;
+  lastSeenAt: string | null;
+  lastPath: string;
+};
 
 const cleanGeoNumber = (value: any) => {
   const parsed = Number(value);
@@ -297,8 +304,19 @@ export async function GET(request: NextRequest) {
     let analyticsGeo = {
       rangeDays: 30,
       totalSessions: 0,
+      accountSessions: 0,
+      guestSessions: 0,
       knownSessions: 0,
       unknownSessions: 0,
+      accountUsers: [] as {
+        userId: string;
+        label: string;
+        email: string;
+        sessions: number;
+        views: number;
+        lastSeenAt: string | null;
+        lastPath: string;
+      }[],
       countries: [] as { label: string; views: number; uniqueSessions: number }[],
       cities: [] as { label: string; views: number; uniqueSessions: number }[],
       zones: [] as {
@@ -312,10 +330,11 @@ export async function GET(request: NextRequest) {
         uniqueSessions: number;
       }[],
     };
+    const analyticsAccountMap = new Map<string, AnalyticsAccountBucket>();
 
     const analyticsGeoRes = await supabase
       .from('analytics_events')
-      .select('session_id,event_context')
+      .select('session_id,user_id,path,created_at,event_context')
       .eq('event_type', 'page_view')
       .gte('created_at', analyticsSince30.toISOString())
       .order('created_at', { ascending: false })
@@ -331,11 +350,32 @@ export async function GET(request: NextRequest) {
       const cityMap = new Map<string, { label: string; views: number; sessions: Set<string> }>();
       const zoneMap = new Map<string, GeoZoneBucket>();
       const allSessions = new Set<string>();
+      const accountSessions = new Set<string>();
       const knownSessions = new Set<string>();
 
       (analyticsGeoRes.data || []).forEach((row: any) => {
         const sessionId = cleanGeoText(row?.session_id);
+        const userId = cleanGeoText(row?.user_id);
         if (sessionId) allSessions.add(sessionId);
+        if (sessionId && userId) accountSessions.add(sessionId);
+        if (userId) {
+          const current =
+            analyticsAccountMap.get(userId) ||
+            {
+              userId,
+              sessions: new Set<string>(),
+              views: 0,
+              lastSeenAt: null,
+              lastPath: '',
+            };
+          current.views += 1;
+          if (sessionId) current.sessions.add(sessionId);
+          if (!current.lastSeenAt) {
+            current.lastSeenAt = cleanGeoText(row?.created_at) || null;
+            current.lastPath = cleanGeoText(row?.path);
+          }
+          analyticsAccountMap.set(userId, current);
+        }
 
         const geo = row?.event_context?.geo || {};
         const country = cleanGeoText(geo.country).toUpperCase();
@@ -372,8 +412,11 @@ export async function GET(request: NextRequest) {
       analyticsGeo = {
         rangeDays: 30,
         totalSessions: allSessions.size,
+        accountSessions: accountSessions.size,
+        guestSessions: Math.max(0, allSessions.size - accountSessions.size),
         knownSessions: knownSessions.size,
         unknownSessions: Math.max(0, allSessions.size - knownSessions.size),
+        accountUsers: [],
         countries: serializeGeoBuckets(countryMap),
         cities: serializeGeoBuckets(cityMap),
         zones: serializeGeoZones(zoneMap),
@@ -421,6 +464,7 @@ export async function GET(request: NextRequest) {
       if (user?.id) userIds.add(user.id);
     });
     revenueUserIds.forEach((id) => userIds.add(id));
+    analyticsAccountMap.forEach((item) => userIds.add(item.userId));
 
     let profiles: Record<string, any> = {};
     if (userIds.size) {
@@ -434,6 +478,32 @@ export async function GET(request: NextRequest) {
         return acc;
       }, {});
     }
+
+    analyticsGeo.accountUsers = Array.from(analyticsAccountMap.values())
+      .map((item) => {
+        const profile = profiles[item.userId] || {};
+        const label =
+          [profile.business_name, profile.full_name].find((value) => cleanGeoText(value)) ||
+          cleanGeoText(profile.email) ||
+          item.userId;
+
+        return {
+          userId: item.userId,
+          label,
+          email: cleanGeoText(profile.email),
+          sessions: item.sessions.size,
+          views: item.views,
+          lastSeenAt: item.lastSeenAt,
+          lastPath: item.lastPath,
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.sessions - a.sessions ||
+          b.views - a.views ||
+          new Date(b.lastSeenAt || 0).getTime() - new Date(a.lastSeenAt || 0).getTime()
+      )
+      .slice(0, 10);
 
     let subscriptionsByUser: Record<string, any> = {};
     if (userIds.size) {

@@ -349,8 +349,19 @@ type AdminOverview = {
     analyticsGeo?: {
       rangeDays: number;
       totalSessions: number;
+      accountSessions: number;
+      guestSessions: number;
       knownSessions: number;
       unknownSessions: number;
+      accountUsers?: {
+        userId: string;
+        label: string;
+        email: string;
+        sessions: number;
+        views: number;
+        lastSeenAt: string | null;
+        lastPath: string;
+      }[];
       countries: { label: string; views: number; uniqueSessions: number }[];
       cities: { label: string; views: number; uniqueSessions: number }[];
       zones?: AnalyticsGeoZone[];
@@ -489,7 +500,7 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
 
   return (
     <div className="mt-5 rounded-[26px] border border-slate-100 bg-[#f8fafc] p-3">
-      <div className="relative h-64 overflow-hidden rounded-[22px] border border-slate-200 bg-[#e8eef6]">
+      <div className="relative h-[360px] overflow-hidden rounded-[22px] border border-slate-200 bg-[#e8eef6] lg:h-[440px]">
         <div ref={mapHostRef} className="h-full w-full" />
         {(!mapReady || zones.length === 0) && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/72 px-6 text-center text-sm text-slate-500 backdrop-blur-[1px]">
@@ -5612,6 +5623,10 @@ export default function AdminPage() {
   const summaryGeoCoverage = summaryGeo?.totalSessions
     ? Math.round((summaryGeo.knownSessions / summaryGeo.totalSessions) * 100)
     : 0;
+  const summaryAccountCoverage = summaryGeo?.totalSessions
+    ? Math.round(((summaryGeo.accountSessions || 0) / summaryGeo.totalSessions) * 100)
+    : 0;
+  const summaryAccountUsers = summaryGeo?.accountUsers || [];
   const summaryGeoZones = summaryGeo?.zones || [];
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
@@ -6849,33 +6864,31 @@ export default function AdminPage() {
                       </span>
                     </div>
 
-                    <div className="mt-5 rounded-[28px] border border-[#eadff0] bg-white px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_14px_30px_rgba(31,10,46,0.06)]">
-                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                        <div>
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">Accesos únicos</p>
-                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{formatNumber(summaryGeo?.totalSessions || 0)}</p>
-                          <p className="mt-1 text-[11px] text-[#6c6177]">Últimos {summaryGeo?.rangeDays || 30} días</p>
-                        </div>
-                        <div className="border-t border-[#eadff0] pt-4 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#047857]">Con ubicación</p>
-                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{formatNumber(summaryGeo?.knownSessions || 0)}</p>
-                        </div>
-                        <div className="border-t border-[#eadff0] pt-4 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Sin ubicación</p>
-                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{formatNumber(summaryGeo?.unknownSessions || 0)}</p>
-                        </div>
-                        <div className="border-t border-[#eadff0] pt-4 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#a8651a]">Cobertura</p>
-                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{summaryGeoCoverage}%</p>
-                        </div>
+                    <div className="mt-4 rounded-[24px] border border-[#eadff0] bg-white px-3 py-3 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
+                      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                        {[
+                          { label: 'Accesos', value: formatNumber(summaryGeo?.totalSessions || 0), tone: 'text-[#180f24]' },
+                          { label: 'Con cuenta', value: formatNumber(summaryGeo?.accountSessions || 0), tone: 'text-[#047857]' },
+                          { label: 'Sin cuenta', value: formatNumber(summaryGeo?.guestSessions || 0), tone: 'text-slate-600' },
+                          { label: 'Con ubicación', value: formatNumber(summaryGeo?.knownSessions || 0), tone: 'text-[#047857]' },
+                          { label: 'Sin ubicación', value: formatNumber(summaryGeo?.unknownSessions || 0), tone: 'text-slate-600' },
+                          { label: 'Cobertura', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
+                        ].map((item) => (
+                          <div key={item.label} className="rounded-2xl bg-[#faf8fb] px-3 py-2">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">{item.label}</p>
+                            <p className={`mt-1 text-lg font-semibold ${item.tone}`}>{item.value}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
-                    <p className="mt-4 text-xs leading-6 text-[#6c6177]">
+                    <p className="mt-3 text-xs leading-6 text-[#6c6177]">
+                      {`${formatNumber(summaryGeo?.accountSessions || 0)} sesión(es) ingresaron con cuenta de UrbanFix y ${formatNumber(summaryGeo?.guestSessions || 0)} como visitantes sin cuenta. `}
                       {summaryGeo?.knownSessions
                         ? `${formatNumber(summaryGeo.unknownSessions)} sesión(es) de los últimos ${summaryGeo.rangeDays} días todavía no tienen ubicación.`
                         : 'Todavía no hay sesiones con ubicación guardada. Se completará con las próximas visitas reales.'}
                     </p>
+
                     <div className="mt-6 border-t border-[#eadff0] pt-6">
                     <div className="flex items-center justify-between gap-3">
                       <div>
@@ -6886,6 +6899,40 @@ export default function AdminPage() {
                     </div>
 
                     <AdminGeoMap zones={summaryGeoZones} />
+
+                    <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Cuentas identificadas</p>
+                          <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Usuarios con sesión iniciada</h4>
+                        </div>
+                        <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
+                          {formatNumber(summaryAccountUsers.length)} cuenta(s)
+                        </span>
+                      </div>
+
+                      <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                        {summaryAccountUsers.length === 0 && (
+                          <p className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                            Todavía no hay cuentas identificadas en los últimos {summaryGeo?.rangeDays || 30} días.
+                          </p>
+                        )}
+                        {summaryAccountUsers.map((account) => (
+                          <div key={account.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
+                              <p className="mt-0.5 truncate text-xs text-slate-500">{account.email || 'Sin email visible'}</p>
+                              {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
+                            </div>
+                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-[11px] text-slate-500">
+                              <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{formatNumber(account.sessions)} sesión(es)</span>
+                              <span>{formatNumber(account.views)} vista(s)</span>
+                              <span>{formatDateTime(account.lastSeenAt)}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                       <div>
