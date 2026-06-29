@@ -36,8 +36,8 @@ type TechnicianProfile = {
   updated_at: string | null;
 };
 
-type FilterStatus = 'all' | 'ready' | 'review' | 'approved' | 'incomplete';
-type ReviewAction = 'approve' | 'correction' | 'reject';
+type FilterStatus = 'all' | 'ready' | 'review' | 'approved' | 'hidden' | 'incomplete';
+type ReviewAction = 'approve' | 'correction' | 'reject' | 'publish';
 
 const toText = (value: unknown) => String(value || '').trim();
 
@@ -92,6 +92,12 @@ const isPendingReview = (profile: TechnicianProfile) =>
 const isApprovalReady = (profile: TechnicianProfile) =>
   profile.access_granted !== true && getApprovalMissingLabels(profile).length === 0;
 
+const isApprovedHidden = (profile: TechnicianProfile) =>
+  profile.access_granted === true && profile.profile_published === false;
+
+const isApprovedVisible = (profile: TechnicianProfile) =>
+  profile.access_granted === true && profile.profile_published !== false;
+
 const getProfileLabel = (profile: TechnicianProfile) =>
   toText(profile.business_name) || toText(profile.full_name) || toText(profile.email) || 'Tecnico sin nombre';
 
@@ -112,8 +118,14 @@ const formatDateTime = (value: string | null | undefined) => {
 
 const statusBadge = (profile: TechnicianProfile) => {
   if (profile.access_granted === true) {
+    if (profile.profile_published === false) {
+      return {
+        label: 'Aprobado oculto',
+        className: 'border-amber-200 bg-amber-50 text-amber-700',
+      };
+    }
     return {
-      label: profile.profile_published === false ? 'Aprobado oculto' : 'Aprobado',
+      label: 'Aprobado',
       className: 'border-emerald-200 bg-emerald-50 text-emerald-700',
     };
   }
@@ -134,6 +146,9 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ready');
   const [actionLoadingId, setActionLoadingId] = useState('');
+  const [deleteCandidate, setDeleteCandidate] = useState<TechnicianProfile | null>(null);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId) || null,
@@ -145,7 +160,8 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
       total: profiles.length,
       ready: profiles.filter(isApprovalReady).length,
       review: profiles.filter((profile) => profile.access_granted !== true && isPendingReview(profile)).length,
-      approved: profiles.filter((profile) => profile.access_granted === true).length,
+      approved: profiles.filter(isApprovedVisible).length,
+      hidden: profiles.filter(isApprovedHidden).length,
       incomplete: profiles.filter(
         (profile) => profile.access_granted !== true && !isApprovalReady(profile) && !isPendingReview(profile)
       ).length,
@@ -159,7 +175,8 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
       .filter((profile) => {
         if (filterStatus === 'ready') return isApprovalReady(profile);
         if (filterStatus === 'review') return profile.access_granted !== true && isPendingReview(profile);
-        if (filterStatus === 'approved') return profile.access_granted === true;
+        if (filterStatus === 'approved') return isApprovedVisible(profile);
+        if (filterStatus === 'hidden') return isApprovedHidden(profile);
         if (filterStatus === 'incomplete') {
           return profile.access_granted !== true && !isApprovalReady(profile) && !isPendingReview(profile);
         }
@@ -226,7 +243,7 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     if (!accessToken || actionLoadingId) return;
 
     const missing = getApprovalMissingLabels(profile);
-    if (action === 'approve' && missing.length > 0) {
+    if ((action === 'approve' || action === 'publish') && missing.length > 0) {
       setMessage(`Falta completar antes de aprobar: ${missing.join(', ')}.`);
       return;
     }
@@ -258,14 +275,16 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
         },
         body: JSON.stringify({
           userId: profile.id,
-          accessGranted: action === 'approve',
-          profilePublished: action === 'approve',
-          reviewStatus: action === 'approve' ? 'resolved' : action === 'correction' ? 'pending' : 'dismissed',
+          accessGranted: action === 'approve' || action === 'publish',
+          profilePublished: action === 'approve' || action === 'publish',
+          reviewStatus: action === 'approve' || action === 'publish' ? 'resolved' : action === 'correction' ? 'pending' : 'dismissed',
           reviewReason,
         }),
       });
 
-      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; supportMessageCreated?: boolean; supportMessageError?: string | null }
+        | null;
       if (!response.ok) {
         throw new Error(payload?.error || 'No se pudo actualizar el perfil.');
       }
@@ -273,8 +292,12 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
       setMessage(
         action === 'approve'
           ? 'Tecnico aprobado y publicado.'
+          : action === 'publish'
+            ? 'Perfil publicado nuevamente.'
           : action === 'correction'
-            ? 'Perfil marcado para correccion.'
+            ? payload?.supportMessageCreated
+              ? 'Perfil marcado para correccion y solicitud enviada al chat interno.'
+              : `Perfil marcado para correccion. ${payload?.supportMessageError || 'No se pudo crear el mensaje de chat automaticamente.'}`
             : profile.access_granted === true
               ? 'Acceso retirado.'
               : 'Perfil rechazado.'
@@ -289,16 +312,91 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     }
   };
 
+  const openDeleteDialog = (profile: TechnicianProfile) => {
+    if (actionLoadingId) return;
+    setMessage('');
+    setDeleteCandidate(profile);
+    setDeleteConfirmStep(1);
+    setDeleteConfirmText('');
+  };
+
+  const closeDeleteDialog = () => {
+    if (actionLoadingId.endsWith(':delete')) return;
+    setDeleteCandidate(null);
+    setDeleteConfirmStep(1);
+    setDeleteConfirmText('');
+  };
+
+  const runDeleteProfile = async () => {
+    if (!accessToken || !deleteCandidate || actionLoadingId) return;
+    const typedConfirmation = deleteConfirmText.trim().toUpperCase();
+    if (typedConfirmation !== 'ELIMINAR') {
+      setMessage('Para eliminar definitivamente, escribi ELIMINAR.');
+      return;
+    }
+
+    const deletedLabel = getProfileLabel(deleteCandidate);
+    setActionLoadingId(`${deleteCandidate.id}:delete`);
+    setMessage('');
+
+    try {
+      const response = await fetch(`/api/admin/access/technicians/${encodeURIComponent(deleteCandidate.id)}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          userId: deleteCandidate.id,
+          confirmation: 'ELIMINAR',
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudo eliminar el perfil.');
+      }
+
+      if (selectedId === deleteCandidate.id) {
+        setSelectedId('');
+      }
+      setDeleteCandidate(null);
+      setDeleteConfirmStep(1);
+      setDeleteConfirmText('');
+      await loadProfiles();
+      setMessage(`Perfil eliminado definitivamente: ${deletedLabel}.`);
+    } catch (error) {
+      console.error('Error eliminando perfil tecnico:', error);
+      setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el perfil.');
+    } finally {
+      setActionLoadingId('');
+    }
+  };
+
   const renderActionButtons = (profile: TechnicianProfile) => {
     const loadingApprove = actionLoadingId === `${profile.id}:approve`;
     const loadingCorrection = actionLoadingId === `${profile.id}:correction`;
     const loadingReject = actionLoadingId === `${profile.id}:reject`;
+    const loadingPublish = actionLoadingId === `${profile.id}:publish`;
+    const loadingDelete = actionLoadingId === `${profile.id}:delete`;
     const missing = getApprovalMissingLabels(profile);
     const canApprove = profile.access_granted !== true && missing.length === 0;
     const isApproved = profile.access_granted === true;
+    const hiddenApproved = isApprovedHidden(profile);
+    const canPublish = hiddenApproved && missing.length === 0;
 
     return (
       <div className="flex flex-wrap gap-2">
+        {hiddenApproved && (
+          <button
+            type="button"
+            onClick={() => runReviewAction(profile, 'publish')}
+            disabled={!canPublish || Boolean(actionLoadingId)}
+            className="rounded-full bg-[#157a55] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#106043] disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {loadingPublish ? 'Publicando...' : 'Publicar perfil'}
+          </button>
+        )}
         <button
           type="button"
           onClick={() => runReviewAction(profile, 'approve')}
@@ -322,6 +420,14 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
           className="rounded-full border border-rose-200 bg-white px-3 py-2 text-xs font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {loadingReject ? 'Actualizando...' : isApproved ? 'Retirar acceso' : 'Rechazar'}
+        </button>
+        <button
+          type="button"
+          onClick={() => openDeleteDialog(profile)}
+          disabled={Boolean(actionLoadingId)}
+          className="rounded-full border border-rose-300 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-800 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {loadingDelete ? 'Eliminando...' : 'Eliminar perfil'}
         </button>
       </div>
     );
@@ -363,11 +469,12 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-6">
         {[
           { key: 'ready', label: 'Listos', value: stats.ready, className: 'border-[#b8d8ff] bg-[#eef6ff] text-[#155391]' },
           { key: 'review', label: 'Correccion', value: stats.review, className: 'border-amber-200 bg-amber-50 text-amber-800' },
           { key: 'approved', label: 'Aprobados', value: stats.approved, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
+          { key: 'hidden', label: 'Ocultos', value: stats.hidden, className: 'border-orange-200 bg-orange-50 text-orange-800' },
           { key: 'incomplete', label: 'Incompletos', value: stats.incomplete, className: 'border-slate-200 bg-slate-50 text-slate-700' },
           { key: 'all', label: 'Total', value: stats.total, className: 'border-slate-200 bg-white text-slate-900' },
         ].map((item) => (
@@ -444,6 +551,11 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
                         <p className="mt-2 text-xs font-medium text-slate-500">
                           {missing.length === 0 ? 'Datos clave completos.' : `Falta: ${missing.join(', ')}.`}
                         </p>
+                        {isApprovedHidden(profile) && (
+                          <p className="mt-1 text-xs font-semibold text-amber-700">
+                            Oculto: aprobado, pero no publicado en la vidriera ni en el perfil publico.
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
@@ -584,6 +696,101 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
             <div className="mt-5 flex flex-wrap justify-end gap-2">
               {renderActionButtons(selectedProfile)}
             </div>
+          </div>
+        </div>
+      )}
+
+      {deleteCandidate && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-technician-delete-title"
+            className="w-full max-w-lg rounded-[28px] border border-rose-200 bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-rose-600">
+                  Eliminacion definitiva
+                </p>
+                <h4 id="admin-technician-delete-title" className="mt-1 text-xl font-bold text-slate-950">
+                  {getProfileLabel(deleteCandidate)}
+                </h4>
+                <p className="mt-1 text-sm text-slate-600">
+                  {deleteCandidate.email || deleteCandidate.phone || 'Sin contacto visible'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeDeleteDialog}
+                disabled={actionLoadingId.endsWith(':delete')}
+                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            {deleteConfirmStep === 1 ? (
+              <div className="mt-5 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+                <p className="text-sm font-semibold text-rose-900">
+                  Esto elimina el perfil y la cuenta de acceso vinculada.
+                </p>
+                <p className="mt-2 text-sm leading-6 text-rose-800">
+                  El tecnico deja de aparecer en administracion, en la vidriera publica y no podra ingresar con esta cuenta.
+                </p>
+                <div className="mt-5 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={closeDeleteDialog}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteConfirmStep(2)}
+                    className="min-w-[170px] rounded-full border border-[#9f1239] bg-[#be123c] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#9f1239]"
+                  >
+                    Entiendo, continuar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-5 rounded-2xl border border-rose-200 bg-white p-4">
+                <label className="text-sm font-semibold text-slate-900" htmlFor="delete-technician-confirmation">
+                  Escribi ELIMINAR para confirmar
+                </label>
+                <input
+                  id="delete-technician-confirmation"
+                  value={deleteConfirmText}
+                  onChange={(event) => setDeleteConfirmText(event.target.value)}
+                  placeholder="ELIMINAR"
+                  className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-900 outline-none transition focus:border-rose-400"
+                  autoFocus
+                />
+                <div className="mt-5 flex flex-wrap justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDeleteConfirmStep(1);
+                      setDeleteConfirmText('');
+                    }}
+                    disabled={actionLoadingId.endsWith(':delete')}
+                    className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={runDeleteProfile}
+                    disabled={deleteConfirmText.trim().toUpperCase() !== 'ELIMINAR' || actionLoadingId.endsWith(':delete')}
+                    className="min-w-[190px] rounded-full border border-[#9f1239] bg-[#be123c] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#9f1239] disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+                  >
+                    {actionLoadingId.endsWith(':delete') ? 'Eliminando...' : 'Eliminar definitivamente'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -70,6 +70,40 @@ const insertAccessNotification = async ({
   }
 };
 
+const buildCorrectionSupportMessage = (missingFields: string[], fallbackReason: string) => {
+  const missingList = missingFields.length
+    ? missingFields.map((field) => `- ${field}`).join('\n')
+    : `- ${fallbackReason || 'revision manual pendiente'}`;
+
+  return [
+    'Solicitud de revision de perfil',
+    '',
+    'Para poder aprobar y publicar tu perfil en UrbanFix necesitamos que completes:',
+    missingList,
+    '',
+    'Cuando actualices esos datos, responde por este chat para que podamos revisarlo nuevamente.',
+  ].join('\n');
+};
+
+const insertSupportMessage = async ({
+  userId,
+  senderId,
+  body,
+}: {
+  userId: string;
+  senderId: string;
+  body: string;
+}) => {
+  if (!supabase) return { ok: false, error: 'Servicio no disponible.' };
+  const { error } = await supabase.from('beta_support_messages').insert({
+    user_id: userId,
+    sender_id: senderId,
+    body,
+  });
+  if (error) return { ok: false, error: error.message || 'No se pudo crear el mensaje interno.' };
+  return { ok: true, error: '' };
+};
+
 export async function POST(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
@@ -100,6 +134,7 @@ export async function POST(request: NextRequest) {
   const profilePublished = typeof body?.profilePublished === 'boolean' ? body.profilePublished : undefined;
   const reviewStatus = normalizeReviewStatus(body?.reviewStatus);
   const reviewReason = toText(body?.reviewReason).slice(0, 700);
+  let correctionMissingFields: string[] = [];
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
@@ -123,6 +158,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+  } else if (reviewStatus === 'pending' && profile) {
+    correctionMissingFields = getMissingApprovalFields(profile as ProfileAccessRow);
   }
 
   const now = new Date().toISOString();
@@ -157,6 +194,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
+  let supportMessageResult: { ok: boolean; error: string } | null = null;
+
   if (accessGranted) {
     await insertAccessNotification({
       userId: targetUserId,
@@ -173,6 +212,11 @@ export async function POST(request: NextRequest) {
       body: reviewReason || 'Necesitamos que revises algunos datos de tu perfil tecnico.',
       data: { review_status: reviewStatus },
     });
+    supportMessageResult = await insertSupportMessage({
+      userId: targetUserId,
+      senderId: user.id,
+      body: buildCorrectionSupportMessage(correctionMissingFields, reviewReason),
+    });
   } else if (reviewStatus === 'dismissed') {
     await insertAccessNotification({
       userId: targetUserId,
@@ -188,5 +232,7 @@ export async function POST(request: NextRequest) {
     accessGranted,
     profilePublished: typeof profilePublished === 'boolean' ? profilePublished : null,
     reviewStatus: accessGranted ? 'resolved' : reviewStatus,
+    supportMessageCreated: supportMessageResult?.ok ?? false,
+    supportMessageError: supportMessageResult?.error || null,
   });
 }

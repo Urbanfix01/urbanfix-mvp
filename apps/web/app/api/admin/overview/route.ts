@@ -19,9 +19,28 @@ type GeoZoneBucket = GeoBucket & {
 type AnalyticsAccountBucket = {
   userId: string;
   sessions: Set<string>;
+  deviceSessions: Map<AnalyticsDeviceType, Set<string>>;
   views: number;
   lastSeenAt: string | null;
   lastPath: string;
+};
+type AnalyticsDeviceType = 'mobile' | 'tablet' | 'desktop' | 'bot' | 'unknown';
+
+const ANALYTICS_DEVICE_LABELS: Record<AnalyticsDeviceType, string> = {
+  mobile: 'Teléfono',
+  tablet: 'Tablet',
+  desktop: 'Computadora',
+  bot: 'Bot',
+  unknown: 'Sin identificar',
+};
+
+const getAnalyticsDeviceType = (userAgent?: any): AnalyticsDeviceType => {
+  const ua = cleanGeoText(userAgent).toLowerCase();
+  if (!ua) return 'unknown';
+  if (/bot|crawl|spider|slurp|bingpreview|facebookexternalhit/i.test(ua)) return 'bot';
+  if (/ipad|tablet|kindle|silk|playbook/i.test(ua) || (/android/i.test(ua) && !/mobile/i.test(ua))) return 'tablet';
+  if (/mobi|iphone|ipod|android.*mobile|windows phone|blackberry/i.test(ua)) return 'mobile';
+  return 'desktop';
 };
 
 const cleanGeoNumber = (value: any) => {
@@ -316,6 +335,10 @@ export async function GET(request: NextRequest) {
         views: number;
         lastSeenAt: string | null;
         lastPath: string;
+        deviceType: AnalyticsDeviceType;
+        deviceLabel: string;
+        deviceSessions: number;
+        devices: { type: AnalyticsDeviceType; label: string; sessions: number }[];
       }[],
       countries: [] as { label: string; views: number; uniqueSessions: number }[],
       cities: [] as { label: string; views: number; uniqueSessions: number }[],
@@ -334,7 +357,7 @@ export async function GET(request: NextRequest) {
 
     const analyticsGeoRes = await supabase
       .from('analytics_events')
-      .select('session_id,user_id,path,created_at,event_context')
+      .select('session_id,user_id,path,created_at,event_context,user_agent')
       .eq('event_type', 'page_view')
       .gte('created_at', analyticsSince30.toISOString())
       .order('created_at', { ascending: false })
@@ -364,10 +387,16 @@ export async function GET(request: NextRequest) {
             {
               userId,
               sessions: new Set<string>(),
+              deviceSessions: new Map<AnalyticsDeviceType, Set<string>>(),
               views: 0,
               lastSeenAt: null,
               lastPath: '',
             };
+          const deviceType = getAnalyticsDeviceType(row?.user_agent);
+          const deviceSessionKey = sessionId || `${userId}:${cleanGeoText(row?.created_at) || current.views + 1}`;
+          const currentDeviceSessions = current.deviceSessions.get(deviceType) || new Set<string>();
+          currentDeviceSessions.add(deviceSessionKey);
+          current.deviceSessions.set(deviceType, currentDeviceSessions);
           current.views += 1;
           if (sessionId) current.sessions.add(sessionId);
           if (!current.lastSeenAt) {
@@ -486,6 +515,21 @@ export async function GET(request: NextRequest) {
           [profile.business_name, profile.full_name].find((value) => cleanGeoText(value)) ||
           cleanGeoText(profile.email) ||
           item.userId;
+        const devices = Array.from(item.deviceSessions.entries())
+          .map(([type, sessions]) => ({
+            type,
+            label: ANALYTICS_DEVICE_LABELS[type],
+            sessions: sessions.size,
+          }))
+          .filter((device) => device.sessions > 0)
+          .sort((a, b) => b.sessions - a.sessions || a.label.localeCompare(b.label));
+        const primaryDevice =
+          devices[0] ||
+          ({
+            type: 'unknown' as AnalyticsDeviceType,
+            label: ANALYTICS_DEVICE_LABELS.unknown,
+            sessions: 0,
+          });
 
         return {
           userId: item.userId,
@@ -495,6 +539,10 @@ export async function GET(request: NextRequest) {
           views: item.views,
           lastSeenAt: item.lastSeenAt,
           lastPath: item.lastPath,
+          deviceType: primaryDevice.type,
+          deviceLabel: primaryDevice.label,
+          deviceSessions: primaryDevice.sessions,
+          devices,
         };
       })
       .sort(

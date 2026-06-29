@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BarChart3,
   CheckCircle2,
+  CircleHelp,
   ClipboardList,
   CreditCard,
   FileCheck2,
@@ -19,9 +20,12 @@ import {
   Mail,
   MapPin,
   MessageSquareMore,
+  Monitor,
   Settings,
   ShieldCheck,
   Sparkles,
+  Smartphone,
+  Tablet,
   User,
   Users,
   Workflow,
@@ -67,7 +71,6 @@ type AdminTabKey =
   | 'facturacion'
   | 'roadmap'
   | 'mensajes'
-  | 'accesos'
   | 'actividad'
   | 'mano_obra'
   | 'solicitudes'
@@ -318,6 +321,14 @@ type AnalyticsGeoZone = {
   uniqueSessions: number;
 };
 
+type AnalyticsDeviceType = 'mobile' | 'tablet' | 'desktop' | 'bot' | 'unknown';
+
+type AnalyticsAccountDevice = {
+  type: AnalyticsDeviceType;
+  label: string;
+  sessions: number;
+};
+
 type AdminOverview = {
   kpis: {
     totalUsers: number;
@@ -361,6 +372,10 @@ type AdminOverview = {
         views: number;
         lastSeenAt: string | null;
         lastPath: string;
+        deviceType?: AnalyticsDeviceType;
+        deviceLabel?: string;
+        deviceSessions?: number;
+        devices?: AnalyticsAccountDevice[];
       }[];
       countries: { label: string; views: number; uniqueSessions: number }[];
       cities: { label: string; views: number; uniqueSessions: number }[];
@@ -393,6 +408,44 @@ const themeStyles = {
   '--ui-accent': '#2A0338',
   '--ui-accent-soft': '#FF8F1F',
 } as React.CSSProperties;
+
+const ACCOUNT_DEVICE_META: Record<
+  AnalyticsDeviceType,
+  {
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    className: string;
+  }
+> = {
+  mobile: {
+    label: 'Teléfono',
+    icon: Smartphone,
+    className: 'border-emerald-100 bg-emerald-50 text-emerald-700',
+  },
+  tablet: {
+    label: 'Tablet',
+    icon: Tablet,
+    className: 'border-sky-100 bg-sky-50 text-sky-700',
+  },
+  desktop: {
+    label: 'Computadora',
+    icon: Monitor,
+    className: 'border-violet-100 bg-violet-50 text-violet-700',
+  },
+  bot: {
+    label: 'Bot',
+    icon: CircleHelp,
+    className: 'border-amber-100 bg-amber-50 text-amber-700',
+  },
+  unknown: {
+    label: 'Sin dispositivo',
+    icon: CircleHelp,
+    className: 'border-slate-100 bg-white text-slate-500',
+  },
+};
+
+const getAccountDeviceMeta = (type?: AnalyticsDeviceType | null) =>
+  ACCOUNT_DEVICE_META[type || 'unknown'] || ACCOUNT_DEVICE_META.unknown;
 
 const formatNumber = (value?: number | null) => `${Number(value || 0).toLocaleString('es-AR')}`;
 const formatCurrency = (value?: number | null) => `$${Number(value || 0).toLocaleString('es-AR')}`;
@@ -1808,7 +1861,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     flowLabel: ['Cola', 'aprobacion'],
     preview: '/illustrations/dashboard.svg',
     highlights: ['Listos', 'En revision', 'Incompletos'],
-    target: { type: 'admin', tab: 'accesos' },
+    target: { type: 'admin', tab: 'tecnicos' },
   },
   {
     id: 'admin_decision',
@@ -1824,7 +1877,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     flowLabel: ['Admin', 'aprueba?'],
     preview: '/illustrations/viewer.svg',
     highlights: ['Aprobar', 'Correccion', 'Rechazar'],
-    target: { type: 'admin', tab: 'accesos' },
+    target: { type: 'admin', tab: 'tecnicos' },
   },
   {
     id: 'admin_correction',
@@ -1840,7 +1893,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     flowLabel: ['Correccion', 'rechazo'],
     preview: '/illustrations/notifications.svg',
     highlights: ['Observacion', 'Notificacion', 'Sin publicar'],
-    target: { type: 'admin', tab: 'accesos' },
+    target: { type: 'admin', tab: 'tecnicos' },
   },
   {
     id: 'admin_approve',
@@ -1856,7 +1909,7 @@ const APP_WEB_FLOW_NODES: AppWebFlowNode[] = [
     flowLabel: ['Aprobar', 'publicar'],
     preview: '/illustrations/dashboard.svg',
     highlights: ['Access granted', 'Vidriera publica', 'Mapa cliente'],
-    target: { type: 'admin', tab: 'accesos' },
+    target: { type: 'admin', tab: 'tecnicos' },
   },
   {
     id: 'public_market',
@@ -2390,7 +2443,6 @@ const ADMIN_TAB_ICONS: Record<AdminTabKey, React.ComponentType<{ className?: str
   facturacion: CreditCard,
   roadmap: GitBranch,
   mensajes: MessageSquareMore,
-  accesos: ShieldCheck,
   actividad: Activity,
   mano_obra: Hammer,
   solicitudes: ClipboardList,
@@ -2424,7 +2476,6 @@ export default function AdminPage() {
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [accessUpdatingId, setAccessUpdatingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
@@ -2435,7 +2486,6 @@ export default function AdminPage() {
   const [supportError, setSupportError] = useState('');
   const [supportDraft, setSupportDraft] = useState('');
   const [supportSending, setSupportSending] = useState(false);
-  const [userSearch, setUserSearch] = useState('');
   const [messageSearch, setMessageSearch] = useState('');
   const [billingRange, setBillingRange] = useState<BillingRange>('30d');
   const [billingExportType, setBillingExportType] = useState<BillingExportType>('subscriptions');
@@ -4288,43 +4338,6 @@ export default function AdminPage() {
     }
   };
 
-  const handleSetAccess = async (userId: string, accessGranted: boolean) => {
-    if (!session?.access_token) {
-      setOverviewError('Tu sesion admin no esta disponible. Recarga antes de actualizar accesos.');
-      return;
-    }
-    if (!String(userId || '').trim()) {
-      setOverviewError('No pudimos identificar al usuario para actualizar el acceso.');
-      return;
-    }
-    if (accessUpdatingId) return;
-    if (!accessGranted) {
-      const confirmed = window.confirm('Vas a revocar el acceso de este usuario. Podra dejar de operar en la plataforma.');
-      if (!confirmed) return;
-    }
-    setOverviewError('');
-    setAccessUpdatingId(userId);
-    try {
-      const response = await fetch('/api/admin/access', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId, accessGranted }),
-      });
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data?.error || (accessGranted ? 'No se pudo habilitar el acceso.' : 'No se pudo revocar el acceso.'));
-      }
-      await loadOverview(session.access_token);
-    } catch (error: any) {
-      setOverviewError(error?.message || (accessGranted ? 'No se pudo habilitar el acceso.' : 'No se pudo revocar el acceso.'));
-    } finally {
-      setAccessUpdatingId(null);
-    }
-  };
-
   const handleBillingExport = () => {
     if (!billingExportConfig.rows.length) {
       setBillingMessage('No hay datos disponibles para exportar con la fuente seleccionada.');
@@ -4355,17 +4368,17 @@ export default function AdminPage() {
     return [
       {
         key: 'access',
-        label: 'Accesos pendientes',
+        label: 'Tecnicos pendientes',
         value: formatNumber(overview.kpis.pendingAccess),
         helper:
           overview.kpis.pendingAccess > 0
             ? `Pendientes: ${pendingAccessLabels || 'revisión manual'}`
-            : `${formatNumber(overview.kpis.accessGranted)} usuarios con acceso habilitado`,
+            : `${formatNumber(overview.kpis.accessGranted)} tecnicos con acceso habilitado`,
         deltaText: `${Math.round(
           overview.kpis.totalUsers ? (overview.kpis.accessGranted / overview.kpis.totalUsers) * 100 : 0
         )}% del padrón ya puede operar`,
         deltaTone: 'text-[#6c6177]',
-        icon: ShieldCheck,
+        icon: Wrench,
         cardClass: 'border-[#eadff0] bg-white/96 text-[#180f24]',
         iconClass: 'bg-[#efe6f5] text-[#5b3a6e]',
       },
@@ -4548,16 +4561,16 @@ export default function AdminPage() {
 
     if (overview.kpis.pendingAccess > 0) {
       stableQueue.push({
-        label: 'Revisar accesos',
+        label: 'Revisar tecnicos',
         value: `${formatNumber(overview.kpis.pendingAccess)} pendientes`,
         detail: overview.lists.pendingAccess
           .slice(0, 2)
           .map((user) => getProfileLabel(user.profile || user))
           .filter(Boolean)
-          .join(' · ') || 'Hay usuarios esperando habilitación.',
+          .join(' · ') || 'Hay tecnicos esperando revision.',
         tone: 'text-[#6c6177]',
-        cta: 'Ir a accesos',
-        tab: 'accesos' as AdminTabKey,
+        cta: 'Ir a tecnicos',
+        tab: 'tecnicos' as AdminTabKey,
       });
     }
 
@@ -4621,8 +4634,8 @@ export default function AdminPage() {
         helper: `${formatNumber(pendingDecisionCount)} foco(s) esperando decisión admin`,
         badgeClass: 'border-[#ffbe76] bg-[#fff4e4] text-[#9a4d00]',
         surfaceClass: 'border-[#ffcf97] bg-[linear-gradient(135deg,#fff8ef_0%,#fffdf8_100%)]',
-        ctaLabel: overview.kpis.pendingAccess > 0 ? 'Revisar accesos' : supportUsers.length > 0 ? 'Responder soporte' : 'Ver roadmap',
-        ctaTab: overview.kpis.pendingAccess > 0 ? 'accesos' : supportUsers.length > 0 ? 'mensajes' : 'roadmap',
+        ctaLabel: overview.kpis.pendingAccess > 0 ? 'Revisar tecnicos' : supportUsers.length > 0 ? 'Responder soporte' : 'Ver roadmap',
+        ctaTab: overview.kpis.pendingAccess > 0 ? 'tecnicos' : supportUsers.length > 0 ? 'mensajes' : 'roadmap',
         pendingDecisionCount,
         accessRatio,
         paidRatio,
@@ -5227,7 +5240,6 @@ export default function AdminPage() {
     { key: 'flujo', label: 'Flujo App/Web' },
     { key: 'roadmap', label: 'Roadmap' },
     { key: 'mensajes', label: 'Mensajes' },
-    { key: 'accesos', label: 'Accesos' },
     { key: 'actividad', label: 'Actividad' },
   ] as const;
 
@@ -5455,28 +5467,7 @@ export default function AdminPage() {
     });
   }, [flowBranchNodeMap]);
 
-  const filteredRecentUsers = useMemo(() => {
-    if (!overview) return [];
-    const query = normalizeText(userSearch);
-    if (!query) return overview.lists.recentUsers;
-    return overview.lists.recentUsers.filter((user) => {
-      const name = normalizeText(user.profile?.business_name || user.profile?.full_name || user.email);
-      const email = normalizeText(user.email);
-      const plan = normalizeText(user.subscription?.plan?.name || '');
-      return name.includes(query) || email.includes(query) || plan.includes(query);
-    });
-  }, [overview, userSearch]);
-
-  const filteredPendingAccess = useMemo(() => {
-    if (!overview) return [];
-    const query = normalizeText(userSearch);
-    if (!query) return overview.lists.pendingAccess;
-    return overview.lists.pendingAccess.filter((user) => {
-      const name = normalizeText(user.profile?.business_name || user.profile?.full_name || user.email);
-      const email = normalizeText(user.email || user.profile?.email || '');
-      return name.includes(query) || email.includes(query);
-    });
-  }, [overview, userSearch]);
+  const filteredPendingAccess = overview?.lists.pendingAccess || [];
 
   const filteredSupportUsers = useMemo(() => {
     const query = normalizeText(messageSearch);
@@ -5644,7 +5635,7 @@ export default function AdminPage() {
             ? roadmapOpenCount
             : tab.key === 'mensajes'
               ? supportUsers.length
-              : tab.key === 'accesos'
+              : tab.key === 'tecnicos'
                 ? filteredPendingAccess.length
                 : 0,
       })),
@@ -5704,8 +5695,8 @@ export default function AdminPage() {
             ? 'border-amber-200 bg-amber-50 text-amber-800'
             : 'border-emerald-200 bg-emerald-50 text-emerald-700',
         detail: 'Validar login, datos clave, ubicación exacta, WhatsApp y acceso aprobado antes de abrir usuarios reales.',
-        nextAction: 'Abrir Accesos',
-        tab: 'accesos' as AdminTabKey,
+        nextAction: 'Abrir Tecnicos',
+        tab: 'tecnicos' as AdminTabKey,
         nodeIds: ['auth_session', 'profile_setup', 'review_gate', 'admin_queue', 'admin_decision', 'admin_approve'],
       },
       {
@@ -6917,7 +6908,12 @@ export default function AdminPage() {
                             Todavía no hay cuentas identificadas en los últimos {summaryGeo?.rangeDays || 30} días.
                           </p>
                         )}
-                        {summaryAccountUsers.map((account) => (
+                        {summaryAccountUsers.map((account) => {
+                          const deviceMeta = getAccountDeviceMeta(account.deviceType);
+                          const DeviceIcon = deviceMeta.icon;
+                          const deviceLabel = account.deviceLabel || deviceMeta.label;
+
+                          return (
                           <div key={account.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
@@ -6925,12 +6921,20 @@ export default function AdminPage() {
                               {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
                             </div>
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-[11px] text-slate-500">
+                              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${deviceMeta.className}`}>
+                                <DeviceIcon className="h-3.5 w-3.5" />
+                                <span>{deviceLabel}</span>
+                                {account.deviceSessions ? (
+                                  <span className="text-[10px] font-semibold opacity-70">{formatNumber(account.deviceSessions)} ses.</span>
+                                ) : null}
+                              </span>
                               <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{formatNumber(account.sessions)} sesión(es)</span>
                               <span>{formatNumber(account.views)} vista(s)</span>
                               <span>{formatDateTime(account.lastSeenAt)}</span>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
 
@@ -9869,7 +9873,7 @@ export default function AdminPage() {
                                 isOwn ? 'bg-slate-900 text-white' : 'bg-white text-slate-700'
                               }`}
                             >
-                              {msg.body && <p>{msg.body}</p>}
+                              {msg.body && <p className="whitespace-pre-wrap leading-relaxed">{msg.body}</p>}
                               <p className="mt-1 text-[10px] text-slate-400">
                                 {formatDateTime(msg.created_at)}
                               </p>
@@ -9903,103 +9907,6 @@ export default function AdminPage() {
                   )}
 
                   {supportError && <p className="mt-3 text-xs text-rose-500">{supportError}</p>}
-                </div>
-              </div>
-            </section>
-          )}
-          {activeTab === 'accesos' && (
-            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14px_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-900">Gestion de accesos</h3>
-                  <p className="text-xs text-slate-400">Ultimos 12 usuarios recientes y pendientes</p>
-                </div>
-                <input
-                  value={userSearch}
-                  onChange={(event) => setUserSearch(event.target.value)}
-                  placeholder="Buscar usuario..."
-                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-xs"
-                />
-              </div>
-              <div className="mt-4 space-y-3">
-                {filteredPendingAccess.length === 0 && (
-                  <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
-                )}
-                {filteredPendingAccess.map((user) => (
-                  <div
-                    key={user.id}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{getProfileLabel(user.profile || user)}</p>
-                      <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleSetAccess(user.id, true)}
-                      disabled={Boolean(accessUpdatingId) || !session?.access_token || !user.id}
-                      className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                    >
-                      {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-
-              <div className="mt-8">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-base font-semibold text-slate-900">Usuarios recientes</h4>
-                    <p className="text-xs text-slate-400">Control rapido para habilitar o revocar acceso</p>
-                  </div>
-                  <span className="text-xs text-slate-400">{filteredRecentUsers.length} resultado(s)</span>
-                </div>
-                <div className="mt-4 space-y-3">
-                  {filteredRecentUsers.length === 0 && (
-                    <p className="text-sm text-slate-500">No hay usuarios recientes para mostrar.</p>
-                  )}
-                  {filteredRecentUsers.map((user) => {
-                    const hasAccess = user.profile?.access_granted === true;
-                    const busy = accessUpdatingId === user.id;
-
-                    return (
-                      <div
-                        key={user.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-semibold text-slate-800">
-                              {getProfileLabel(user.profile || { email: user.email })}
-                            </p>
-                            <span
-                              className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
-                                hasAccess
-                                  ? 'border border-emerald-200 bg-emerald-50 text-emerald-700'
-                                  : 'border border-amber-200 bg-amber-50 text-amber-700'
-                              }`}
-                            >
-                              {hasAccess ? 'Acceso habilitado' : 'Pendiente'}
-                            </span>
-                          </div>
-                          <p className="mt-1 text-xs text-slate-500">{user.email || user.profile?.email || 'Sin email'}</p>
-                          <p className="mt-1 text-[11px] text-slate-400">Alta: {formatDateTime(user.created_at)}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSetAccess(user.id, !hasAccess)}
-                          disabled={Boolean(accessUpdatingId) || !session?.access_token || !user.id || busy}
-                          className={`rounded-full px-3 py-1 text-[11px] font-semibold shadow-sm transition disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-white ${
-                            hasAccess
-                              ? 'bg-rose-50 text-rose-700 hover:bg-rose-100'
-                              : 'bg-slate-900 text-white hover:bg-slate-800'
-                          }`}
-                        >
-                          {busy ? 'Actualizando...' : hasAccess ? 'Revocar acceso' : 'Habilitar acceso'}
-                        </button>
-                      </div>
-                    );
-                  })}
                 </div>
               </div>
             </section>
