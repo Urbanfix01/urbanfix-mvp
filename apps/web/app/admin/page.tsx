@@ -6974,139 +6974,6 @@ export default function AdminPage() {
                 </section>
               )}
 
-          {activeTab === 'tecnicos' && (
-            <>
-              <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-1 flex-wrap items-center gap-3">
-                  <input
-                    value={userSearch}
-                    onChange={(event) => setUserSearch(event.target.value)}
-                    placeholder="Buscar por nombre, email o plan..."
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 md:max-w-sm"
-                  />
-                  <span className="text-xs text-slate-400">
-                    {filteredRecentUsers.length} usuarios recientes
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    downloadCsv(
-                      'usuarios_recientes.csv',
-                      filteredRecentUsers.map((user) => ({
-                        nombre: user.profile?.full_name || '',
-                        negocio: user.profile?.business_name || '',
-                        email: user.email || '',
-                        alta: user.created_at || '',
-                        ultimo_ingreso: user.last_sign_in_at || '',
-                        suscripcion_estado: user.subscription?.status || '',
-                        suscripcion_plan: user.subscription?.plan?.name || '',
-                      }))
-                    )
-                  }
-                  className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
-                >
-                  Exportar CSV
-                </button>
-              </div>
-
-              <section className="mt-6 grid gap-4 md:grid-cols-3">
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Usuarios totales</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatNumber(overview.kpis.totalUsers)}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Accesos habilitados</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatNumber(overview.kpis.accessGranted)}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Accesos pendientes</p>
-                  <p className="mt-3 text-2xl font-semibold text-slate-900">
-                    {formatNumber(overview.kpis.pendingAccess)}
-                  </p>
-                </div>
-              </section>
-
-              <section className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-900">Nuevos usuarios</h3>
-                    <span className="text-xs text-slate-400">Últimos 12</span>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {filteredRecentUsers.length === 0 && (
-                      <p className="text-sm text-slate-500">No hay usuarios recientes.</p>
-                    )}
-                    {filteredRecentUsers.map((user) => (
-                      <div
-                        key={user.id}
-                        className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                          <span className="font-semibold text-slate-700">
-                            {getProfileLabel(user.profile || { email: user.email })}
-                          </span>
-                          <span className="text-slate-400">{formatDateTime(user.created_at)}</span>
-                        </div>
-                        <p className="mt-1 text-xs text-slate-500">{user.email || 'Sin email'}</p>
-                        {(user.subscription?.status || user.subscription?.plan?.name) && (
-                          <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] text-slate-500">
-                            {user.subscription?.status && (
-                              <span className="rounded-full bg-white px-2 py-1 font-semibold text-slate-600">
-                                {user.subscription.status}
-                              </span>
-                            )}
-                            {user.subscription?.plan?.name && (
-                              <span className="rounded-full bg-white px-2 py-1 font-semibold text-slate-600">
-                                {user.subscription.plan.name}
-                              </span>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                    <span className="text-xs text-slate-400">Últimos 12</span>
-                  </div>
-                  <div className="mt-4 space-y-3">
-                    {filteredPendingAccess.length === 0 && (
-                      <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
-                    )}
-                    {filteredPendingAccess.map((user) => (
-                      <div
-                        key={user.id}
-                        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3"
-                      >
-                        <div>
-                          <p className="text-sm font-semibold text-slate-800">
-                            {getProfileLabel(user.profile || user)}
-                          </p>
-                          <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleSetAccess(user.id, true)}
-                          disabled={accessUpdatingId === user.id}
-                          className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                        >
-                          {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </section>
-            </>
-          )}
           {activeTab === 'facturacion' && (
             <>
               <div className="mt-6 rounded-[30px] border border-slate-200/80 bg-[linear-gradient(130deg,rgba(248,250,252,0.96)_0%,rgba(240,249,255,0.9)_52%,rgba(255,255,255,0.94)_100%)] p-5 shadow-[0_16px_40px_rgba(15,23,42,0.1)]">
@@ -10685,7 +10552,7 @@ export default function AdminPage() {
           )}
 
           {activeTab === 'tecnicos' && (
-            <section className="mt-6 rounded-3xl border border-slate-200/80 bg-white/95 p-6 shadow-[0_14_34px_rgba(15,23,42,0.1)] backdrop-blur-[2px]">
+            <section className="mt-6">
               <AdminTechniciansUnified accessToken={session?.access_token || null} />
             </section>
           )}

@@ -25,9 +25,8 @@ const hasValidEmail = (value: unknown) => {
 const isLegacyValidProfile = (profile: LegacyCandidateRow) =>
   profile.access_granted !== true &&
   profile.profile_published === true &&
-  hasValidEmail(profile.email) &&
+  (hasValidEmail(profile.email) || Boolean(toText(profile.phone))) &&
   Boolean(toText(profile.business_name)) &&
-  Boolean(toText(profile.phone)) &&
   Boolean(toText(profile.city));
 
 export async function POST(request: NextRequest) {

@@ -23,9 +23,8 @@ const normalizeEmail = (value: unknown) => {
 const hasLegacyValidAccessCandidate = (profile: ReviewCandidateRow) =>
   profile.access_granted !== true &&
   profile.profile_published === true &&
-  Boolean(normalizeEmail(profile.email)) &&
+  Boolean(normalizeEmail(profile.email) || toText(profile.phone)) &&
   Boolean(toText(profile.business_name)) &&
-  Boolean(toText(profile.phone)) &&
   Boolean(toText(profile.city));
 
 const hasProfileSignal = (profile: ReviewCandidateRow) =>
@@ -48,9 +47,8 @@ const buildSignature = (profile: ReviewCandidateRow) =>
 
 const getMissingFieldLabels = (profile: ReviewCandidateRow) => {
   const missing: string[] = [];
-  if (!normalizeEmail(profile.email)) missing.push('email');
+  if (!normalizeEmail(profile.email) && !toText(profile.phone)) missing.push('mail o WhatsApp');
   if (!toText(profile.business_name)) missing.push('negocio');
-  if (!toText(profile.phone)) missing.push('teléfono');
   if (!toText(profile.city)) missing.push('ciudad');
   return missing;
 };

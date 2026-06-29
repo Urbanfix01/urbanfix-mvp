@@ -9,6 +9,7 @@ type ProfileAccessRow = {
   business_name: string | null;
   phone: string | null;
   city: string | null;
+  service_city: string | null;
   service_lat: number | string | null;
   service_lng: number | string | null;
   service_location_precision: string | null;
@@ -25,9 +26,8 @@ const getMissingApprovalFields = (profile: ProfileAccessRow) => {
   const missing: string[] = [];
   if (!toText(profile.full_name)) missing.push('nombre');
   if (!toText(profile.business_name)) missing.push('negocio');
-  if (!toText(profile.email).includes('@')) missing.push('email');
-  if (!toText(profile.phone)) missing.push('WhatsApp');
-  if (!toText(profile.city)) missing.push('localidad');
+  if (!toText(profile.email).includes('@') && !toText(profile.phone)) missing.push('mail o WhatsApp');
+  if (!toText(profile.service_city || profile.city)) missing.push('localidad');
   if (
     toFiniteNumber(profile.service_lat) === null ||
     toFiniteNumber(profile.service_lng) === null ||
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
 
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
-    .select('id,email,full_name,business_name,phone,city,service_lat,service_lng,service_location_precision')
+    .select('id,email,full_name,business_name,phone,city,service_city,service_lat,service_lng,service_location_precision')
     .eq('id', targetUserId)
     .maybeSingle();
 

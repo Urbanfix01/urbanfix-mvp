@@ -3122,6 +3122,7 @@ export default function TechniciansPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
+  const [authWhatsapp, setAuthWhatsapp] = useState('');
   const [quickRegisterMode, setQuickRegisterMode] = useState(false);
   const [autoGoogleStarted, setAutoGoogleStarted] = useState(false);
   const [entryPrompt, setEntryPrompt] = useState('');
@@ -3850,6 +3851,7 @@ export default function TechniciansPage() {
         email: session.user.email || null,
         full_name: session.user.user_metadata?.full_name || '',
         business_name: session.user.user_metadata?.business_name || '',
+        phone: session.user.user_metadata?.phone || '',
         profile_published: false,
         profile_published_at: null,
       };
@@ -8438,6 +8440,7 @@ export default function TechniciansPage() {
     setPassword('');
     setFullName('');
     setBusinessName('');
+    setAuthWhatsapp('');
     resetForm();
   };
 
@@ -8544,6 +8547,8 @@ export default function TechniciansPage() {
     setAuthLoading(true);
     try {
       const safeEmail = email.trim().toLowerCase();
+      const normalizedAuthWhatsapp = authWhatsapp.trim();
+      const hasAuthWhatsapp = normalizedAuthWhatsapp.replace(/\D/g, '').length >= 8;
       if (!safeEmail || !password) {
         throw new Error('Ingresa correo y contraseña.');
       }
@@ -8555,6 +8560,9 @@ export default function TechniciansPage() {
       }
       if (authMode === 'register' && !quickRegisterMode && !fullName.trim()) {
         throw new Error('Ingresa al menos tu nombre para crear la cuenta.');
+      }
+      if (authMode === 'register' && !safeEmail.includes('@') && !hasAuthWhatsapp) {
+        throw new Error('Ingresa un mail o WhatsApp para crear la cuenta.');
       }
       if (selectedAccessProfile) {
         setAuthAccessProfileIntent(selectedAccessProfile);
@@ -8584,6 +8592,7 @@ export default function TechniciansPage() {
             data: {
               full_name: normalizedFullName,
               business_name: normalizedBusinessName,
+              phone: normalizedAuthWhatsapp,
               user_type: accessProfile,
               profile: accessProfile,
             },
@@ -8621,14 +8630,16 @@ export default function TechniciansPage() {
     const missing: string[] = [];
     const full = String(profile?.full_name || '').trim();
     const business = String(profile?.business_name || '').trim();
+    const email = String(profile?.email || session?.user?.email || '').trim();
     const phone = String(profile?.phone || '').trim();
+    const hasContact = email.includes('@') || Boolean(phone);
     const hasExactMapPoint = Boolean(technicianLocationResult?.isValid && technicianLocationResult?.precision === 'exact');
     if (!full) missing.push('Nombre y apellido');
     if (!business) missing.push('Nombre del negocio');
-    if (!phone) missing.push('Telefono / WhatsApp');
+    if (!hasContact) missing.push('Mail o WhatsApp');
     if (!hasExactMapPoint) missing.push('Ubicacion en el mapa');
     return missing;
-  }, [profile?.business_name, profile?.full_name, profile?.phone, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
+  }, [profile?.business_name, profile?.email, profile?.full_name, profile?.phone, session?.user?.email, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
 
   const hasResolvedBaseAddress = useMemo(() => {
     const locationLabel = String(technicianLocationResult?.displayName || '').trim();
@@ -8642,17 +8653,19 @@ export default function TechniciansPage() {
 
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
+    const hasContact = profileForm.email.trim().includes('@') || Boolean(profileForm.phone.trim());
     if (!profileForm.fullName.trim()) missing.push('Nombre y apellido');
     if (!profileForm.businessName.trim()) missing.push('Nombre del negocio');
-    if (!profileForm.phone.trim()) missing.push('Telefono / WhatsApp');
+    if (!hasContact) missing.push('Mail o WhatsApp');
     if (!hasResolvedBaseAddress) missing.push('Ubicacion en el mapa');
     return missing;
-  }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, profileForm.phone]);
+  }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.email, profileForm.fullName, profileForm.phone]);
 
+  const formHasContactChannel = profileForm.email.trim().includes('@') || Boolean(profileForm.phone.trim());
   const canSaveRequiredProfile =
     Boolean(profileForm.fullName.trim()) &&
     Boolean(profileForm.businessName.trim()) &&
-    Boolean(profileForm.phone.trim()) &&
+    formHasContactChannel &&
     hasResolvedBaseAddress;
   const hasWorkZoneForShowcase = hasResolvedBaseAddress;
   const requiredProfileSteps = useMemo(
@@ -8667,8 +8680,8 @@ export default function TechniciansPage() {
       {
         key: 'contact',
         label: 'Contacto',
-        detail: 'WhatsApp visible',
-        done: Boolean(profileForm.phone.trim()),
+        detail: 'Mail o WhatsApp',
+        done: formHasContactChannel,
         icon: MessageCircle,
       },
       {
@@ -8679,7 +8692,7 @@ export default function TechniciansPage() {
         icon: MapPinned,
       },
     ],
-    [hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, profileForm.phone]
+    [formHasContactChannel, hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName]
   );
   const requiredProfileDoneCount = useMemo(
     () => requiredProfileSteps.filter((step) => step.done).length,
@@ -8699,7 +8712,7 @@ export default function TechniciansPage() {
     () => [
       { key: 'fullName', label: 'Nombre y apellido', done: Boolean(profileForm.fullName.trim()) },
       { key: 'businessName', label: 'Nombre del negocio', done: Boolean(profileForm.businessName.trim()) },
-      { key: 'phone', label: 'Telefono / WhatsApp', done: Boolean(profileForm.phone.trim()) },
+      { key: 'contact', label: 'Mail o WhatsApp', done: formHasContactChannel },
       { key: 'zone', label: 'Zona de trabajo', done: Boolean(profileForm.address.trim() || profileForm.city.trim()) },
       { key: 'specialties', label: 'Rubros cargados', done: selectedSpecialties.length > 0 },
       { key: 'branding', label: 'Foto o logo', done: Boolean(profileForm.avatarUrl.trim() || profileForm.companyLogoUrl.trim()) },
@@ -8712,11 +8725,13 @@ export default function TechniciansPage() {
       profileForm.businessName,
       profileForm.city,
       profileForm.companyLogoUrl,
+      profileForm.email,
       profileForm.facebookUrl,
       profileForm.fullName,
       profileForm.instagramUrl,
       profileForm.phone,
       profileForm.profilePublished,
+      formHasContactChannel,
       selectedSpecialties.length,
     ]
   );
@@ -10089,8 +10104,19 @@ export default function TechniciansPage() {
                                 className={authIconInputClass.replace('mt-2 ', '')}
                               />
                             </div>
+                            <div className="relative">
+                              <MessageCircle className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
+                              <input
+                                value={authWhatsapp}
+                                onChange={(event) => setAuthWhatsapp(event.target.value)}
+                                placeholder="WhatsApp de contacto"
+                                inputMode="tel"
+                                autoComplete="tel"
+                                className={authIconInputClass.replace('mt-2 ', '')}
+                              />
+                            </div>
                             <p className="text-[11px] leading-5 text-slate-500">
-                              Luego completas rubros, zona y datos comerciales dentro del panel.
+                              Para el alta debe quedar mail o WhatsApp. Luego completas rubros, zona y datos comerciales dentro del panel.
                             </p>
                           </div>
                         )}
