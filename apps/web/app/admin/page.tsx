@@ -2265,6 +2265,12 @@ export default function AdminPage() {
   const [authError, setAuthError] = useState('');
   const [authNotice, setAuthNotice] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [newAdminPassword, setNewAdminPassword] = useState('');
+  const [confirmAdminPassword, setConfirmAdminPassword] = useState('');
+  const [passwordChangeLoading, setPasswordChangeLoading] = useState(false);
+  const [passwordChangeError, setPasswordChangeError] = useState('');
+  const [passwordChangeMessage, setPasswordChangeMessage] = useState('');
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewError, setOverviewError] = useState('');
@@ -3784,6 +3790,62 @@ export default function AdminPage() {
     }
   };
 
+  const handleOpenPasswordDialog = () => {
+    setNewAdminPassword('');
+    setConfirmAdminPassword('');
+    setPasswordChangeError('');
+    setPasswordChangeMessage('');
+    setPasswordDialogOpen(true);
+  };
+
+  const handleClosePasswordDialog = () => {
+    if (passwordChangeLoading) return;
+    setPasswordDialogOpen(false);
+    setNewAdminPassword('');
+    setConfirmAdminPassword('');
+    setPasswordChangeError('');
+    setPasswordChangeMessage('');
+  };
+
+  const handleChangeAdminPassword = async () => {
+    setPasswordChangeError('');
+    setPasswordChangeMessage('');
+    if (!hasSupabaseConfig) {
+      setPasswordChangeError(supabaseConfigError);
+      return;
+    }
+    if (!session?.user) {
+      setPasswordChangeError('Inicia sesion nuevamente para cambiar tu contrasena.');
+      return;
+    }
+    const nextPassword = newAdminPassword.trim();
+    const confirmPassword = confirmAdminPassword.trim();
+    if (!nextPassword || !confirmPassword) {
+      setPasswordChangeError('Completa la nueva contrasena y su confirmacion.');
+      return;
+    }
+    if (nextPassword.length < 6) {
+      setPasswordChangeError('La contrasena debe tener al menos 6 caracteres.');
+      return;
+    }
+    if (nextPassword !== confirmPassword) {
+      setPasswordChangeError('Las contrasenas no coinciden.');
+      return;
+    }
+    setPasswordChangeLoading(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: nextPassword });
+      if (error) throw error;
+      setNewAdminPassword('');
+      setConfirmAdminPassword('');
+      setPasswordChangeMessage('Contrasena actualizada. Usala en tu proximo ingreso.');
+    } catch (error: any) {
+      setPasswordChangeError(error?.message || 'No pudimos cambiar la contrasena.');
+    } finally {
+      setPasswordChangeLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setSession(null);
@@ -3816,6 +3878,11 @@ export default function AdminPage() {
     setFlowLastSavedAt(null);
     setFlowLastSavedBy(null);
     setFlowCurrentSource('base');
+    setPasswordDialogOpen(false);
+    setNewAdminPassword('');
+    setConfirmAdminPassword('');
+    setPasswordChangeError('');
+    setPasswordChangeMessage('');
   };
 
   const handleOpenFlowNode = (node: AppWebFlowNode) => {
@@ -6329,6 +6396,102 @@ export default function AdminPage() {
       className={`${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
+      {passwordDialogOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-[#12021a]/70 px-4 py-6 backdrop-blur-sm">
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void handleChangeAdminPassword();
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-password-dialog-title"
+            className="w-full max-w-md rounded-[28px] border border-[#eadfce]/80 bg-[#fffdf9] p-5 text-[#180f24] shadow-[0_34px_110px_-62px_rgba(0,0,0,0.9)] sm:p-6"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#9d6b28]">Seguridad</p>
+                <h2 id="admin-password-dialog-title" className="mt-1 text-xl font-bold text-slate-950">
+                  Cambiar contraseña
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Actualiza la clave de acceso de tu usuario administrador.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleClosePasswordDialog}
+                disabled={passwordChangeLoading}
+                aria-label="Cerrar cambio de contraseña"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">Nueva contraseña</span>
+                <div className="relative mt-1.5">
+                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={newAdminPassword}
+                    onChange={(event) => setNewAdminPassword(event.target.value)}
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Nueva contraseña"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                  />
+                </div>
+              </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate-600">Confirmar contraseña</span>
+                <div className="relative mt-1.5">
+                  <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    value={confirmAdminPassword}
+                    onChange={(event) => setConfirmAdminPassword(event.target.value)}
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder="Confirmar contraseña"
+                    className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-700 outline-none transition focus:border-[#ff8f1f] focus:ring-4 focus:ring-[#ff8f1f]/[0.10]"
+                  />
+                </div>
+              </label>
+            </div>
+
+            {passwordChangeMessage && (
+              <p className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs leading-5 text-emerald-700">
+                {passwordChangeMessage}
+              </p>
+            )}
+            {passwordChangeError && (
+              <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                {passwordChangeError}
+              </p>
+            )}
+
+            <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={handleClosePasswordDialog}
+                disabled={passwordChangeLoading}
+                className="inline-flex min-h-[44px] items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={passwordChangeLoading}
+                className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-2 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {passwordChangeLoading ? 'Guardando...' : 'Guardar contraseña'}
+                {!passwordChangeLoading && <ArrowRight className="h-4 w-4" />}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       <PublicTopNav sticky />
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(42,3,56,0.16),_transparent_52%)]" />
@@ -6430,6 +6593,23 @@ export default function AdminPage() {
                     })}
                     <button
                       type="button"
+                      title={!isDesktopNavExpanded ? 'Cambiar contraseña' : undefined}
+                      onClick={handleOpenPasswordDialog}
+                      className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                      }`}
+                    >
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                        <LockKeyhole className="h-4 w-4" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cambiar contraseña</span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
                       title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                       onClick={handleLogout}
                       className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
@@ -6480,6 +6660,16 @@ export default function AdminPage() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                onClick={handleOpenPasswordDialog}
+                className="shrink-0 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/14 hover:text-white sm:text-sm"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <LockKeyhole className="h-4 w-4" />
+                  Cambiar contraseña
+                </span>
+              </button>
               <span className="ml-auto hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-[10px] font-semibold text-white/58 sm:inline-flex">
                 {adminNavItems.length} módulos
               </span>
