@@ -63,6 +63,18 @@ type SupportMessage = {
   sender?: AdminProfile | null;
 };
 
+type SupportUser = {
+  userId: string;
+  label: string;
+  email?: string | null;
+  lastMessage?: {
+    body?: string | null;
+    created_at?: string | null;
+    [key: string]: any;
+  } | null;
+  source?: 'conversation' | 'account';
+};
+
 type RoadmapStatus = 'planned' | 'in_progress' | 'done' | 'blocked';
 type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
 type RoadmapPriority = 'high' | 'medium' | 'low';
@@ -2491,7 +2503,8 @@ export default function AdminPage() {
   const [clientAccountStats, setClientAccountStats] = useState<AudienceAccountStats | null>(null);
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
-  const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
+  const [supportUsers, setSupportUsers] = useState<SupportUser[]>([]);
+  const [supportSeedUsers, setSupportSeedUsers] = useState<SupportUser[]>([]);
   const [activeSupportUserId, setActiveSupportUserId] = useState<string | null>(null);
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [supportLoading, setSupportLoading] = useState(false);
@@ -2895,7 +2908,7 @@ export default function AdminPage() {
         throw new Error(data?.error || 'No se pudieron cargar las conversaciones.');
       }
       const data = await response.json();
-      const list = data?.users || [];
+      const list: SupportUser[] = data?.users || [];
       setSupportUsers(list);
       if (!activeSupportUserId && list[0]) {
         setActiveSupportUserId(list[0].userId);
@@ -2925,6 +2938,36 @@ export default function AdminPage() {
       setSupportError(error?.message || 'No se pudieron cargar los mensajes.');
     } finally {
       setSupportLoading(false);
+    }
+  };
+
+  const openSupportConversationFromAccount = (
+    account: NonNullable<NonNullable<AdminOverview['lists']['analyticsGeo']>['accountUsers']>[number]
+  ) => {
+    const label = account.label || account.email || account.userId;
+    const seedUser: SupportUser = {
+      userId: account.userId,
+      label,
+      email: account.email || null,
+      source: 'account',
+      lastMessage: {
+        body: 'Conversacion iniciada desde Resumen.',
+        created_at: account.lastSeenAt || new Date().toISOString(),
+      },
+    };
+
+    setSupportSeedUsers((current) => {
+      const withoutCurrent = current.filter((user) => user.userId !== account.userId);
+      return [seedUser, ...withoutCurrent];
+    });
+    setActiveSupportUserId(account.userId);
+    setSupportMessages([]);
+    setSupportDraft('');
+    setSupportError('');
+    setMessageSearch('');
+    setActiveTab('mensajes');
+    if (session?.access_token) {
+      loadSupportMessages(session.access_token, account.userId);
     }
   };
 
@@ -4066,6 +4109,7 @@ export default function AdminPage() {
     setPlayError('');
     setPlayLoading(false);
     setSupportUsers([]);
+    setSupportSeedUsers([]);
     setSupportMessages([]);
     setSupportDraft('');
     setActiveSupportUserId(null);
@@ -5495,15 +5539,27 @@ export default function AdminPage() {
     ? `${formatNumber(companyQueueStats.ready)} listas - ${formatNumber(companyQueueStats.review)} correccion - ${formatNumber(companyQueueStats.hidden)} ocultas`
     : '';
 
+  const availableSupportUsers = useMemo(() => {
+    const existingIds = new Set(supportUsers.map((user) => user.userId));
+    const seededUsers = supportSeedUsers.filter((user) => !existingIds.has(user.userId));
+    return [...seededUsers, ...supportUsers];
+  }, [supportSeedUsers, supportUsers]);
+
+  const activeSupportUser = useMemo(
+    () => availableSupportUsers.find((user) => user.userId === activeSupportUserId) || null,
+    [availableSupportUsers, activeSupportUserId]
+  );
+
   const filteredSupportUsers = useMemo(() => {
     const query = normalizeText(messageSearch);
-    if (!query) return supportUsers;
-    return supportUsers.filter((user) => {
+    if (!query) return availableSupportUsers;
+    return availableSupportUsers.filter((user) => {
       const label = normalizeText(user.label);
+      const email = normalizeText(user.email || '');
       const lastBody = normalizeText(user.lastMessage?.body || '');
-      return label.includes(query) || lastBody.includes(query);
+      return label.includes(query) || email.includes(query) || lastBody.includes(query);
     });
-  }, [supportUsers, messageSearch]);
+  }, [availableSupportUsers, messageSearch]);
 
   useEffect(() => {
     if (!overview || summaryBaseline) return;
@@ -6990,6 +7046,14 @@ export default function AdminPage() {
                               <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{formatNumber(account.sessions)} sesión(es)</span>
                               <span>{formatNumber(account.views)} vista(s)</span>
                               <span>{formatDateTime(account.lastSeenAt)}</span>
+                              <button
+                                type="button"
+                                onClick={() => openSupportConversationFromAccount(account)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-[#ffb15a] bg-white px-3 py-1 font-semibold text-[#9b4a00] transition hover:border-[#ff8f1f] hover:bg-[#fff7ed]"
+                              >
+                                <MessageSquareMore className="h-3.5 w-3.5" />
+                                Escribir
+                              </button>
                             </div>
                           </div>
                           );
@@ -9868,7 +9932,7 @@ export default function AdminPage() {
                       downloadCsv(
                         'mensajes_conversacion.csv',
                         supportMessages.map((msg) => ({
-                          usuario: supportUsers.find((item) => item.userId === activeSupportUserId)?.label || '',
+                          usuario: activeSupportUser?.label || '',
                           mensaje: msg.body,
                           fecha: msg.created_at,
                         }))
@@ -9913,8 +9977,7 @@ export default function AdminPage() {
                   <p className="text-xs text-slate-500">
                     Conversación con:{' '}
                     <span className="font-semibold text-slate-700">
-                      {supportUsers.find((user) => user.userId === activeSupportUserId)?.label ||
-                        'Selecciona un usuario'}
+                      {activeSupportUser?.label || 'Selecciona un usuario'}
                     </span>
                   </p>
                   <div className="mt-4 max-h-[420px] space-y-3 overflow-y-auto rounded-2xl border border-slate-100 bg-slate-50 p-4">
@@ -9956,7 +10019,7 @@ export default function AdminPage() {
                       disabled={!canSendSupportMessage}
                       className="rounded-2xl bg-slate-900 px-5 py-3 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
                     >
-                      {supportSending ? 'Enviando...' : 'Responder'}
+                      {supportSending ? 'Enviando...' : 'Enviar'}
                     </button>
                   </div>
 

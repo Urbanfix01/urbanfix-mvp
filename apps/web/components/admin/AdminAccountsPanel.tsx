@@ -193,6 +193,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
   const [selectedId, setSelectedId] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState('');
+  const [convertCandidate, setConvertCandidate] = useState<AccountItem | null>(null);
   const [deleteCandidate, setDeleteCandidate] = useState<AccountItem | null>(null);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
@@ -306,6 +307,57 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
     loadAccounts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accessToken, audience]);
+
+  const openConvertDialog = (account: AccountItem) => {
+    if (actionLoadingId || audience !== 'cliente') return;
+    setMessage('');
+    setConvertCandidate(account);
+  };
+
+  const closeConvertDialog = () => {
+    if (actionLoadingId.endsWith(':convert')) return;
+    setConvertCandidate(null);
+  };
+
+  const runConvertToTechnician = async () => {
+    if (!accessToken || !convertCandidate || actionLoadingId) return;
+
+    const convertedLabel = getProfileLabel(convertCandidate);
+    setActionLoadingId(`${convertCandidate.id}:convert`);
+    setMessage('');
+
+    try {
+      const response = await fetch(`/api/admin/accounts/${encodeURIComponent(convertCandidate.id)}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: 'change_audience',
+          targetAudience: 'tecnico',
+          fromAudience: audience,
+        }),
+      });
+
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No se pudo pasar la cuenta a tecnico.');
+      }
+
+      if (selectedId === convertCandidate.id) {
+        setSelectedId('');
+      }
+      setConvertCandidate(null);
+      await loadAccounts();
+      setMessage(`${convertedLabel} ahora figura en Tecnicos para revision.`);
+    } catch (error) {
+      console.error('Error pasando cuenta a tecnico:', error);
+      setMessage(error instanceof Error ? error.message : 'No se pudo pasar la cuenta a tecnico.');
+    } finally {
+      setActionLoadingId('');
+    }
+  };
 
   const openDeleteDialog = (account: AccountItem) => {
     if (actionLoadingId) return;
@@ -481,6 +533,16 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
                       >
                         Revisar cuenta
                       </button>
+                      {audience === 'cliente' && (
+                        <button
+                          type="button"
+                          onClick={() => openConvertDialog(account)}
+                          disabled={Boolean(actionLoadingId)}
+                          className="rounded-full border border-[#ffb15a] bg-[#fff7ed] px-3 py-2 text-xs font-semibold text-[#9b4a00] transition hover:bg-[#ffedd5] disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          Pasar a tecnico
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => openDeleteDialog(account)}
@@ -583,6 +645,66 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
               <p className="mt-2"><span className="font-semibold text-slate-950">Ultimo ingreso:</span> {formatDateTime(selectedAccount.lastSignInAt)}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Ultima actividad:</span> {formatDateTime(selectedAccount.profile?.last_seen_at)}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Ruta:</span> {selectedAccount.profile?.last_seen_path || '-'}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {convertCandidate && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-account-convert-title"
+            className="w-full max-w-lg rounded-[28px] border border-[#ffcf91] bg-white p-5 shadow-2xl"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#9b4a00]">
+                  Cambio de perfil
+                </p>
+                <h4 id="admin-account-convert-title" className="mt-1 text-xl font-bold text-slate-950">
+                  {getProfileLabel(convertCandidate)}
+                </h4>
+                <p className="mt-1 text-sm text-slate-600">
+                  {getContactEmail(convertCandidate) || getContactPhone(convertCandidate) || 'Sin contacto visible'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeConvertDialog}
+                disabled={actionLoadingId.endsWith(':convert')}
+                className="rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-5 rounded-2xl border border-[#ffcf91] bg-[#fff7ed] p-4">
+              <p className="text-sm font-semibold text-[#7c2d12]">
+                Esta cuenta dejara de figurar como cliente y pasara a Tecnicos.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#9b4a00]">
+                No se aprueba ni se publica automaticamente. Queda pendiente para revisar datos, zona y aprobacion.
+              </p>
+              <div className="mt-5 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={closeConvertDialog}
+                  disabled={actionLoadingId.endsWith(':convert')}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={runConvertToTechnician}
+                  disabled={actionLoadingId.endsWith(':convert')}
+                  className="min-w-[170px] rounded-full border border-[#ff8f1f] bg-[#ff8f1f] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#e9790b] disabled:cursor-not-allowed disabled:border-orange-200 disabled:bg-orange-200 disabled:text-white/80"
+                >
+                  {actionLoadingId.endsWith(':convert') ? 'Cambiando...' : 'Pasar a tecnico'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
