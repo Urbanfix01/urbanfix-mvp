@@ -40,6 +40,7 @@ import AdminDemoRequestsPanel from '../../components/admin/AdminDemoRequestsPane
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import AdminTechniciansUnified from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
+import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
 
 type AdminProfile = {
   id: string;
@@ -491,6 +492,8 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
         maxZoom: 18,
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
+
+      addMalvinasArgentinaLabel(L, map);
 
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;

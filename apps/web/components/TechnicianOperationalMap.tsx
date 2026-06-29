@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
+import { addMalvinasArgentinaLabel } from '../lib/map-overlays';
 
 export type TechnicianOperationalMapPoint = {
   id: string;
@@ -64,8 +65,6 @@ const getClusterDistancePx = (zoom: number) => {
   return 42;
 };
 
-const MALVINAS_LABEL_POSITION: [number, number] = [-51.7963, -59.5236];
-
 export default function TechnicianOperationalMap({ points, selectedPointId = '', fallbackCenter, onSelectPoint }: Props) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
@@ -104,17 +103,7 @@ export default function TechnicianOperationalMap({ points, selectedPointId = '',
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);
 
-      L.marker(MALVINAS_LABEL_POSITION, {
-        interactive: false,
-        keyboard: false,
-        icon: L.divIcon({
-          html: '<div class="ufx-operational-map-malvinas-label">MALVINAS ARGENTINAS</div>',
-          className: 'ufx-operational-map-malvinas-label-shell',
-          iconSize: [168, 28],
-          iconAnchor: [84, 14],
-        }),
-        zIndexOffset: 200,
-      }).addTo(map);
+      addMalvinasArgentinaLabel(L, map);
 
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;

@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, Search, X } from 'lucide-react';
 import { DEFAULT_COUNTRY_NAME, isCoordinateWithinCountry } from '../lib/location-catalog';
+import { addMalvinasArgentinaLabel } from '../lib/map-overlays';
 
 export interface LocationPickerResult {
   lat: number;
@@ -405,6 +406,8 @@ export default function TechnicianLocationPicker({
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map);
+
+        addMalvinasArgentinaLabel(L, map);
 
         mapRef.current = map;
         setMapError('');

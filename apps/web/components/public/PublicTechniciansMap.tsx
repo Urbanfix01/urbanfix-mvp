@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Circle as LeafletCircle, LayerGroup, Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
+import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
 
 export type PublicTechnicianMapPoint = {
   id: string;
@@ -301,6 +302,8 @@ export default function PublicTechniciansMap({
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);
+
+      addMalvinasArgentinaLabel(L, map);
 
       markersLayerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;

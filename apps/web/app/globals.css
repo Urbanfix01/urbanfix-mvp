@@ -1504,28 +1504,30 @@ header .header-view-option {
     0 18px 34px -18px rgba(15, 23, 42, 0.9);
 }
 
-.ufx-operational-map-malvinas-label-shell {
+.ufx-operational-map-malvinas-label-shell,
+.ufx-malvinas-map-label-shell {
   background: transparent !important;
   border: 0 !important;
 }
 
-.ufx-operational-map-malvinas-label {
+.ufx-operational-map-malvinas-label,
+.ufx-malvinas-map-label {
   display: inline-flex;
-  min-width: 164px;
+  min-width: 214px;
   justify-content: center;
-  border: 1px solid rgba(42, 3, 56, 0.18);
+  border: 1px solid rgba(23, 64, 92, 0.32);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.88);
-  padding: 4px 9px;
-  color: #2a0338;
-  font-size: 11px;
+  background: #aad3df;
+  padding: 6px 12px;
+  color: #17405c;
+  font-size: 12px;
   font-weight: 900;
-  line-height: 1;
-  letter-spacing: 0.08em;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
   text-align: center;
-  text-transform: uppercase;
-  box-shadow: 0 12px 28px -20px rgba(15, 23, 42, 0.78);
-  backdrop-filter: blur(8px);
+  box-shadow:
+    0 0 0 10px #aad3df,
+    0 8px 18px -16px rgba(15, 23, 42, 0.72);
 }
 
 .ufx-operational-map-tooltip {

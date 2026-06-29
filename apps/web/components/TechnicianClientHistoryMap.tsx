@@ -3,6 +3,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 import { MapPinned } from 'lucide-react';
+import { addMalvinasArgentinaLabel } from '../lib/map-overlays';
 
 export type TechnicianClientHistoryMapPoint = {
   id: string;
@@ -82,6 +83,8 @@ export default function TechnicianClientHistoryMap({ points, selectedPointId = '
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap contributors',
       }).addTo(map);
+
+      addMalvinasArgentinaLabel(L, map);
 
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
