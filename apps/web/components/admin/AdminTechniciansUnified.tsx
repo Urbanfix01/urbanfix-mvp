@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 
 type AdminTechniciansUnifiedProps = {
   accessToken?: string | null;
+  onQueueStatsChange?: (stats: TechnicianQueueStats) => void;
 };
 
 type TechnicianProfile = {
@@ -36,7 +37,17 @@ type TechnicianProfile = {
   updated_at: string | null;
 };
 
-type FilterStatus = 'all' | 'ready' | 'review' | 'approved' | 'hidden' | 'incomplete';
+export type TechnicianQueueStats = {
+  total: number;
+  attention: number;
+  ready: number;
+  review: number;
+  approved: number;
+  hidden: number;
+  incomplete: number;
+};
+
+type FilterStatus = 'all' | 'attention' | 'ready' | 'review' | 'approved' | 'hidden' | 'incomplete';
 type ReviewAction = 'approve' | 'correction' | 'reject' | 'publish';
 
 const toText = (value: unknown) => String(value || '').trim();
@@ -98,6 +109,15 @@ const isApprovedHidden = (profile: TechnicianProfile) =>
 const isApprovedVisible = (profile: TechnicianProfile) =>
   profile.access_granted === true && profile.profile_published !== false;
 
+const isIncompleteProfile = (profile: TechnicianProfile) =>
+  profile.access_granted !== true && !isApprovalReady(profile) && !isPendingReview(profile);
+
+const needsAdminAttention = (profile: TechnicianProfile) =>
+  isApprovalReady(profile) ||
+  (profile.access_granted !== true && isPendingReview(profile)) ||
+  isApprovedHidden(profile) ||
+  isIncompleteProfile(profile);
+
 const getProfileLabel = (profile: TechnicianProfile) =>
   toText(profile.business_name) || toText(profile.full_name) || toText(profile.email) || 'Tecnico sin nombre';
 
@@ -138,13 +158,16 @@ const statusBadge = (profile: TechnicianProfile) => {
   return { label: 'Incompleto', className: 'border-slate-200 bg-slate-50 text-slate-600' };
 };
 
-export default function AdminTechniciansUnified({ accessToken = null }: AdminTechniciansUnifiedProps) {
+export default function AdminTechniciansUnified({
+  accessToken = null,
+  onQueueStatsChange,
+}: AdminTechniciansUnifiedProps) {
   const [profiles, setProfiles] = useState<TechnicianProfile[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('ready');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('attention');
   const [actionLoadingId, setActionLoadingId] = useState('');
   const [deleteCandidate, setDeleteCandidate] = useState<TechnicianProfile | null>(null);
   const [deleteConfirmStep, setDeleteConfirmStep] = useState<1 | 2>(1);
@@ -155,31 +178,38 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
     [profiles, selectedId]
   );
 
-  const stats = useMemo(
-    () => ({
+  const stats = useMemo<TechnicianQueueStats>(() => {
+    const ready = profiles.filter(isApprovalReady).length;
+    const review = profiles.filter((profile) => profile.access_granted !== true && isPendingReview(profile)).length;
+    const approved = profiles.filter(isApprovedVisible).length;
+    const hidden = profiles.filter(isApprovedHidden).length;
+    const incomplete = profiles.filter(isIncompleteProfile).length;
+
+    return {
       total: profiles.length,
-      ready: profiles.filter(isApprovalReady).length,
-      review: profiles.filter((profile) => profile.access_granted !== true && isPendingReview(profile)).length,
-      approved: profiles.filter(isApprovedVisible).length,
-      hidden: profiles.filter(isApprovedHidden).length,
-      incomplete: profiles.filter(
-        (profile) => profile.access_granted !== true && !isApprovalReady(profile) && !isPendingReview(profile)
-      ).length,
-    }),
-    [profiles]
-  );
+      attention: ready + review + hidden + incomplete,
+      ready,
+      review,
+      approved,
+      hidden,
+      incomplete,
+    };
+  }, [profiles]);
+
+  useEffect(() => {
+    onQueueStatsChange?.(stats);
+  }, [onQueueStatsChange, stats]);
 
   const filteredProfiles = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return profiles
       .filter((profile) => {
+        if (filterStatus === 'attention') return needsAdminAttention(profile);
         if (filterStatus === 'ready') return isApprovalReady(profile);
         if (filterStatus === 'review') return profile.access_granted !== true && isPendingReview(profile);
         if (filterStatus === 'approved') return isApprovedVisible(profile);
         if (filterStatus === 'hidden') return isApprovedHidden(profile);
-        if (filterStatus === 'incomplete') {
-          return profile.access_granted !== true && !isApprovalReady(profile) && !isPendingReview(profile);
-        }
+        if (filterStatus === 'incomplete') return isIncompleteProfile(profile);
         return true;
       })
       .filter((profile) => {
@@ -439,6 +469,42 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
   const selectedWhatsappHref = selectedProfile ? getWhatsappHref(selectedProfile) : '';
   const selectedMailHref = selectedProfile ? getMailHref(selectedProfile) : '';
   const selectedPublicHref = selectedProfile?.access_granted === true ? `/tecnico/${selectedProfile.id}` : '';
+  const attentionBreakdown: Array<{
+    key: FilterStatus;
+    label: string;
+    value: number;
+    helper: string;
+    className: string;
+  }> = [
+    {
+      key: 'ready',
+      label: 'Listos',
+      value: stats.ready,
+      helper: 'Se pueden aprobar ahora.',
+      className: 'border-blue-200 bg-blue-50 text-blue-800',
+    },
+    {
+      key: 'review',
+      label: 'Correccion',
+      value: stats.review,
+      helper: 'Ya se pidio ajuste al tecnico.',
+      className: 'border-amber-200 bg-amber-50 text-amber-800',
+    },
+    {
+      key: 'hidden',
+      label: 'Ocultos',
+      value: stats.hidden,
+      helper: 'Aprobados, pero no publicados.',
+      className: 'border-orange-200 bg-orange-50 text-orange-800',
+    },
+    {
+      key: 'incomplete',
+      label: 'Incompletos',
+      value: stats.incomplete,
+      helper: 'Faltan datos para decidir.',
+      className: 'border-slate-200 bg-slate-50 text-slate-700',
+    },
+  ];
 
   return (
     <div className="space-y-5">
@@ -469,8 +535,54 @@ export default function AdminTechniciansUnified({ accessToken = null }: AdminTec
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-6">
+      <div className="rounded-[24px] border border-amber-200 bg-[#fffaf0] p-4 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
+              Notificaciones de tecnicos
+            </p>
+            <h4 className="mt-1 text-lg font-bold text-slate-950">
+              {stats.attention} perfil(es) requieren gestion
+            </h4>
+            <p className="mt-1 text-sm text-slate-600">
+              El numero del menu se compone de listos, correcciones, ocultos e incompletos.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setFilterStatus('attention')}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              filterStatus === 'attention'
+                ? 'bg-slate-950 text-white'
+                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            Ver alertas
+          </button>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {attentionBreakdown.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => setFilterStatus(item.key)}
+              className={`rounded-2xl border px-3 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${item.className} ${
+                filterStatus === item.key ? 'ring-2 ring-slate-900/10' : ''
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide">{item.label}</p>
+                <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-black">{item.value}</span>
+              </div>
+              <p className="mt-1 text-xs leading-5 opacity-80">{item.helper}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
         {[
+          { key: 'attention', label: 'Atencion', value: stats.attention, className: 'border-amber-300 bg-[#fffaf0] text-amber-900' },
           { key: 'ready', label: 'Listos', value: stats.ready, className: 'border-[#b8d8ff] bg-[#eef6ff] text-[#155391]' },
           { key: 'review', label: 'Correccion', value: stats.review, className: 'border-amber-200 bg-amber-50 text-amber-800' },
           { key: 'approved', label: 'Aprobados', value: stats.approved, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },

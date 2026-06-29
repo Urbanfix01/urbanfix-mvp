@@ -38,7 +38,7 @@ import PublicTopNav from '../../components/PublicTopNav';
 import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
 import AdminDemoRequestsPanel from '../../components/admin/AdminDemoRequestsPanel';
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
-import AdminTechniciansUnified from '../../components/admin/AdminTechniciansUnified';
+import AdminTechniciansUnified, { type TechnicianQueueStats } from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
 
@@ -2480,6 +2480,7 @@ export default function AdminPage() {
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
+  const [technicianQueueStats, setTechnicianQueueStats] = useState<TechnicianQueueStats | null>(null);
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
@@ -5471,6 +5472,10 @@ export default function AdminPage() {
   }, [flowBranchNodeMap]);
 
   const filteredPendingAccess = overview?.lists.pendingAccess || [];
+  const technicianNavBadge = technicianQueueStats?.attention ?? filteredPendingAccess.length;
+  const technicianNavDetail = technicianQueueStats
+    ? `${formatNumber(technicianQueueStats.ready)} listos · ${formatNumber(technicianQueueStats.review)} correccion · ${formatNumber(technicianQueueStats.hidden)} ocultos · ${formatNumber(technicianQueueStats.incomplete)} incompletos`
+    : '';
 
   const filteredSupportUsers = useMemo(() => {
     const query = normalizeText(messageSearch);
@@ -5633,16 +5638,17 @@ export default function AdminPage() {
       tabs.map((tab) => ({
         ...tab,
         icon: ADMIN_TAB_ICONS[tab.key],
+        detail: tab.key === 'tecnicos' ? technicianNavDetail : '',
         badge:
           tab.key === 'roadmap'
             ? roadmapOpenCount
             : tab.key === 'mensajes'
               ? supportUsers.length
               : tab.key === 'tecnicos'
-                ? filteredPendingAccess.length
+                ? technicianNavBadge
                 : 0,
       })),
-    [tabs, roadmapOpenCount, supportUsers.length, filteredPendingAccess.length]
+    [tabs, roadmapOpenCount, supportUsers.length, technicianNavBadge, technicianNavDetail]
   );
   const adminSidebarFooterActions = useMemo(
     () => [
@@ -6675,7 +6681,7 @@ export default function AdminPage() {
                           onClick={() => setActiveTab(item.key)}
                           className={`group relative flex items-center transition ${
                             isDesktopNavExpanded
-                              ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                              ? 'min-h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 py-1.5 text-left'
                               : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
                           } ${
                             isActive
@@ -6693,7 +6699,18 @@ export default function AdminPage() {
                             <Icon className="h-4 w-4" />
                           </span>
                           {isDesktopNavExpanded && (
-                            <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{item.label}</span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-[13px] font-semibold">{item.label}</span>
+                              {item.detail && (
+                                <span
+                                  className={`mt-0.5 block truncate text-[10px] font-semibold ${
+                                    isActive ? 'text-white/85' : 'text-white/55'
+                                  }`}
+                                >
+                                  {item.detail}
+                                </span>
+                              )}
+                            </span>
                           )}
                           {item.badge > 0 && (
                             <span
@@ -10463,7 +10480,10 @@ export default function AdminPage() {
 
           {activeTab === 'tecnicos' && (
             <section className="mt-6">
-              <AdminTechniciansUnified accessToken={session?.access_token || null} />
+              <AdminTechniciansUnified
+                accessToken={session?.access_token || null}
+                onQueueStatsChange={setTechnicianQueueStats}
+              />
             </section>
           )}
 
