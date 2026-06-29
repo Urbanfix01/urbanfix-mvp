@@ -2,8 +2,11 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 
+type TechnicalAudience = 'tecnico' | 'empresa';
+
 type AdminTechniciansUnifiedProps = {
   accessToken?: string | null;
+  audience?: TechnicalAudience;
   onQueueStatsChange?: (stats: TechnicianQueueStats) => void;
 };
 
@@ -49,6 +52,38 @@ export type TechnicianQueueStats = {
 
 type FilterStatus = 'all' | 'attention' | 'ready' | 'review' | 'approved' | 'hidden' | 'incomplete';
 type ReviewAction = 'approve' | 'correction' | 'reject' | 'publish';
+
+const TECHNICAL_AUDIENCE_COPY: Record<
+  TechnicalAudience,
+  {
+    singular: string;
+    plural: string;
+    title: string;
+    subtitle: string;
+    notificationsTitle: string;
+    empty: string;
+    fallbackLabel: string;
+  }
+> = {
+  tecnico: {
+    singular: 'tecnico',
+    plural: 'tecnicos',
+    title: 'Aprobacion de tecnicos',
+    subtitle: 'Revisa contacto, zona de trabajo y ubicacion exacta antes de publicar un tecnico en UrbanFix.',
+    notificationsTitle: 'Notificaciones de tecnicos',
+    empty: 'No hay tecnicos para este filtro.',
+    fallbackLabel: 'Tecnico sin nombre',
+  },
+  empresa: {
+    singular: 'empresa',
+    plural: 'empresas',
+    title: 'Aprobacion de empresas',
+    subtitle: 'Revisa responsable, datos comerciales, zona de trabajo y ubicacion antes de publicar una empresa.',
+    notificationsTitle: 'Notificaciones de empresas',
+    empty: 'No hay empresas para este filtro.',
+    fallbackLabel: 'Empresa sin nombre',
+  },
+};
 
 const toText = (value: unknown) => String(value || '').trim();
 
@@ -118,8 +153,8 @@ const needsAdminAttention = (profile: TechnicianProfile) =>
   isApprovedHidden(profile) ||
   isIncompleteProfile(profile);
 
-const getProfileLabel = (profile: TechnicianProfile) =>
-  toText(profile.business_name) || toText(profile.full_name) || toText(profile.email) || 'Tecnico sin nombre';
+const getProfileLabel = (profile: TechnicianProfile, fallbackLabel = 'Tecnico sin nombre') =>
+  toText(profile.business_name) || toText(profile.full_name) || toText(profile.email) || fallbackLabel;
 
 const getReviewStatusLabel = (value: string | null | undefined) => {
   const normalized = toText(value).toLowerCase();
@@ -160,8 +195,10 @@ const statusBadge = (profile: TechnicianProfile) => {
 
 export default function AdminTechniciansUnified({
   accessToken = null,
+  audience = 'tecnico',
   onQueueStatsChange,
 }: AdminTechniciansUnifiedProps) {
+  const copy = TECHNICAL_AUDIENCE_COPY[audience];
   const [profiles, setProfiles] = useState<TechnicianProfile[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -239,7 +276,7 @@ export default function AdminTechniciansUnified({
     setIsLoading(true);
     setMessage('');
     try {
-      const response = await fetch('/api/admin/access/technicians', {
+      const response = await fetch(`/api/admin/access/technicians?audience=${encodeURIComponent(audience)}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: 'no-store',
       });
@@ -248,7 +285,7 @@ export default function AdminTechniciansUnified({
         | null;
 
       if (!response.ok) {
-        throw new Error(payload?.error || 'No se pudieron cargar tecnicos.');
+        throw new Error(payload?.error || `No se pudieron cargar ${copy.plural}.`);
       }
 
       const nextProfiles = payload?.profiles || [];
@@ -257,8 +294,8 @@ export default function AdminTechniciansUnified({
         setSelectedId('');
       }
     } catch (error) {
-      console.error('Error cargando tecnicos admin:', error);
-      setMessage(error instanceof Error ? error.message : 'No se pudieron cargar tecnicos.');
+      console.error(`Error cargando ${copy.plural} admin:`, error);
+      setMessage(error instanceof Error ? error.message : `No se pudieron cargar ${copy.plural}.`);
     } finally {
       setIsLoading(false);
     }
@@ -279,7 +316,12 @@ export default function AdminTechniciansUnified({
     }
 
     if (action === 'reject') {
-      const label = profile.access_granted === true ? 'retirar el acceso de este tecnico' : 'rechazar este perfil';
+      const label =
+        profile.access_granted === true
+          ? copy.singular === 'empresa'
+            ? 'retirar el acceso de esta empresa'
+            : 'retirar el acceso de este tecnico'
+          : 'rechazar este perfil';
       if (!window.confirm(`Confirmar: vas a ${label}.`)) return;
     }
 
@@ -321,7 +363,9 @@ export default function AdminTechniciansUnified({
 
       setMessage(
         action === 'approve'
-          ? 'Tecnico aprobado y publicado.'
+          ? copy.singular === 'empresa'
+            ? 'Empresa aprobada y publicada.'
+            : 'Tecnico aprobado y publicado.'
           : action === 'publish'
             ? 'Perfil publicado nuevamente.'
           : action === 'correction'
@@ -365,7 +409,7 @@ export default function AdminTechniciansUnified({
       return;
     }
 
-    const deletedLabel = getProfileLabel(deleteCandidate);
+    const deletedLabel = getProfileLabel(deleteCandidate, copy.fallbackLabel);
     setActionLoadingId(`${deleteCandidate.id}:delete`);
     setMessage('');
 
@@ -396,7 +440,7 @@ export default function AdminTechniciansUnified({
       await loadProfiles();
       setMessage(`Perfil eliminado definitivamente: ${deletedLabel}.`);
     } catch (error) {
-      console.error('Error eliminando perfil tecnico:', error);
+      console.error(`Error eliminando perfil ${copy.singular}:`, error);
       setMessage(error instanceof Error ? error.message : 'No se pudo eliminar el perfil.');
     } finally {
       setActionLoadingId('');
@@ -487,7 +531,7 @@ export default function AdminTechniciansUnified({
       key: 'review',
       label: 'Correccion',
       value: stats.review,
-      helper: 'Ya se pidio ajuste al tecnico.',
+      helper: `Ya se pidio ajuste ${copy.singular === 'empresa' ? 'a la empresa' : 'al tecnico'}.`,
       className: 'border-amber-200 bg-amber-50 text-amber-800',
     },
     {
@@ -512,10 +556,8 @@ export default function AdminTechniciansUnified({
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6688]">Revision operativa</p>
-            <h3 className="mt-1 text-2xl font-bold text-slate-950">Aprobacion de tecnicos</h3>
-            <p className="mt-2 max-w-2xl text-sm text-slate-600">
-              Revisa contacto, zona de trabajo y ubicacion exacta antes de publicar un tecnico en UrbanFix.
-            </p>
+            <h3 className="mt-1 text-2xl font-bold text-slate-950">{copy.title}</h3>
+            <p className="mt-2 max-w-2xl text-sm text-slate-600">{copy.subtitle}</p>
             <div className="mt-4 flex flex-wrap gap-2">
               {['1. Revisar datos', '2. Confirmar ubicacion', '3. Aprobar y publicar'].map((step) => (
                 <span key={step} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
@@ -539,7 +581,7 @@ export default function AdminTechniciansUnified({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-              Notificaciones de tecnicos
+              {copy.notificationsTitle}
             </p>
             <h4 className="mt-1 text-lg font-bold text-slate-950">
               {stats.attention} perfil(es) requieren gestion
@@ -625,9 +667,9 @@ export default function AdminTechniciansUnified({
           )}
 
           <div className="mt-4 space-y-3">
-            {isLoading && <p className="py-8 text-center text-sm text-slate-500">Cargando tecnicos...</p>}
+            {isLoading && <p className="py-8 text-center text-sm text-slate-500">Cargando {copy.plural}...</p>}
             {!isLoading && filteredProfiles.length === 0 && (
-              <p className="py-8 text-center text-sm text-slate-500">No hay tecnicos para este filtro.</p>
+              <p className="py-8 text-center text-sm text-slate-500">{copy.empty}</p>
             )}
             {!isLoading &&
               filteredProfiles.map((profile) => {
@@ -643,7 +685,9 @@ export default function AdminTechniciansUnified({
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="min-w-0 flex-1 text-left">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="truncate text-base font-bold text-slate-950">{getProfileLabel(profile)}</h4>
+                          <h4 className="truncate text-base font-bold text-slate-950">
+                            {getProfileLabel(profile, copy.fallbackLabel)}
+                          </h4>
                           <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}>
                             {badge.label}
                           </span>
@@ -700,7 +744,7 @@ export default function AdminTechniciansUnified({
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Detalle de revision</p>
                 <h4 id="admin-technician-review-title" className="mt-1 text-xl font-bold text-slate-950">
-                  {getProfileLabel(selectedProfile)}
+                  {getProfileLabel(selectedProfile, copy.fallbackLabel)}
                 </h4>
                 <p className="mt-1 text-sm text-slate-600">{selectedProfile.email || 'Sin email'}</p>
               </div>
@@ -826,7 +870,7 @@ export default function AdminTechniciansUnified({
                   Eliminacion definitiva
                 </p>
                 <h4 id="admin-technician-delete-title" className="mt-1 text-xl font-bold text-slate-950">
-                  {getProfileLabel(deleteCandidate)}
+                  {getProfileLabel(deleteCandidate, copy.fallbackLabel)}
                 </h4>
                 <p className="mt-1 text-sm text-slate-600">
                   {deleteCandidate.email || deleteCandidate.phone || 'Sin contacto visible'}
@@ -848,7 +892,7 @@ export default function AdminTechniciansUnified({
                   Esto elimina el perfil y la cuenta de acceso vinculada.
                 </p>
                 <p className="mt-2 text-sm leading-6 text-rose-800">
-                  El tecnico deja de aparecer en administracion, en la vidriera publica y no podra ingresar con esta cuenta.
+                  La cuenta deja de aparecer en administracion, en la vidriera publica y no podra ingresar con este usuario.
                 </p>
                 <div className="mt-5 flex flex-wrap justify-end gap-2">
                   <button

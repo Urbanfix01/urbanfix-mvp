@@ -7,6 +7,7 @@ import {
   Activity,
   ArrowRight,
   BarChart3,
+  Building2,
   CheckCircle2,
   CircleHelp,
   ClipboardList,
@@ -38,6 +39,7 @@ import PublicTopNav from '../../components/PublicTopNav';
 import AdminClientRequestsPanel from '../../components/admin/AdminClientRequestsPanel';
 import AdminDemoRequestsPanel from '../../components/admin/AdminDemoRequestsPanel';
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
+import AdminAccountsPanel, { type AudienceAccountStats } from '../../components/admin/AdminAccountsPanel';
 import AdminTechniciansUnified, { type TechnicianQueueStats } from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
@@ -69,6 +71,8 @@ type RoadmapSentiment = 'positive' | 'neutral' | 'negative';
 type AdminTabKey =
   | 'resumen'
   | 'tecnicos'
+  | 'clientes'
+  | 'empresas'
   | 'facturacion'
   | 'roadmap'
   | 'mensajes'
@@ -2443,6 +2447,8 @@ const BILLING_RANGE_OPTIONS: { value: BillingRange; label: string }[] = [
 const ADMIN_TAB_ICONS: Record<AdminTabKey, React.ComponentType<{ className?: string }>> = {
   resumen: BarChart3,
   tecnicos: Wrench,
+  clientes: Users,
+  empresas: Building2,
   facturacion: CreditCard,
   roadmap: GitBranch,
   mensajes: MessageSquareMore,
@@ -2481,6 +2487,8 @@ export default function AdminPage() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
   const [technicianQueueStats, setTechnicianQueueStats] = useState<TechnicianQueueStats | null>(null);
+  const [companyQueueStats, setCompanyQueueStats] = useState<TechnicianQueueStats | null>(null);
+  const [clientAccountStats, setClientAccountStats] = useState<AudienceAccountStats | null>(null);
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
   const [supportUsers, setSupportUsers] = useState<{ userId: string; label: string; lastMessage?: any }[]>([]);
@@ -5236,6 +5244,8 @@ export default function AdminPage() {
   const tabs = [
     { key: 'resumen', label: 'Resumen' },
     { key: 'tecnicos', label: 'Técnicos' },
+    { key: 'clientes', label: 'Clientes' },
+    { key: 'empresas', label: 'Empresas' },
     { key: 'facturacion', label: 'Facturación' },
     { key: 'mano_obra', label: 'Mano de obra' },
     { key: 'solicitudes', label: 'Solicitudes' },
@@ -5476,6 +5486,14 @@ export default function AdminPage() {
   const technicianNavDetail = technicianQueueStats
     ? `${formatNumber(technicianQueueStats.ready)} listos · ${formatNumber(technicianQueueStats.review)} correccion · ${formatNumber(technicianQueueStats.hidden)} ocultos · ${formatNumber(technicianQueueStats.incomplete)} incompletos`
     : '';
+  const clientNavBadge = clientAccountStats?.attention ?? 0;
+  const clientNavDetail = clientAccountStats
+    ? `${formatNumber(clientAccountStats.complete)} completos - ${formatNumber(clientAccountStats.incomplete)} incompletos`
+    : '';
+  const companyNavBadge = companyQueueStats?.attention ?? 0;
+  const companyNavDetail = companyQueueStats
+    ? `${formatNumber(companyQueueStats.ready)} listas - ${formatNumber(companyQueueStats.review)} correccion - ${formatNumber(companyQueueStats.hidden)} ocultas`
+    : '';
 
   const filteredSupportUsers = useMemo(() => {
     const query = normalizeText(messageSearch);
@@ -5638,7 +5656,14 @@ export default function AdminPage() {
       tabs.map((tab) => ({
         ...tab,
         icon: ADMIN_TAB_ICONS[tab.key],
-        detail: tab.key === 'tecnicos' ? technicianNavDetail : '',
+        detail:
+          tab.key === 'tecnicos'
+            ? technicianNavDetail
+            : tab.key === 'clientes'
+              ? clientNavDetail
+              : tab.key === 'empresas'
+                ? companyNavDetail
+                : '',
         badge:
           tab.key === 'roadmap'
             ? roadmapOpenCount
@@ -5646,9 +5671,23 @@ export default function AdminPage() {
               ? supportUsers.length
               : tab.key === 'tecnicos'
                 ? technicianNavBadge
+                : tab.key === 'clientes'
+                  ? clientNavBadge
+                  : tab.key === 'empresas'
+                    ? companyNavBadge
                 : 0,
       })),
-    [tabs, roadmapOpenCount, supportUsers.length, technicianNavBadge, technicianNavDetail]
+    [
+      tabs,
+      roadmapOpenCount,
+      supportUsers.length,
+      technicianNavBadge,
+      technicianNavDetail,
+      clientNavBadge,
+      clientNavDetail,
+      companyNavBadge,
+      companyNavDetail,
+    ]
   );
   const adminSidebarFooterActions = useMemo(
     () => [
@@ -10482,7 +10521,28 @@ export default function AdminPage() {
             <section className="mt-6">
               <AdminTechniciansUnified
                 accessToken={session?.access_token || null}
+                audience="tecnico"
                 onQueueStatsChange={setTechnicianQueueStats}
+              />
+            </section>
+          )}
+
+          {activeTab === 'clientes' && (
+            <section className="mt-6">
+              <AdminAccountsPanel
+                accessToken={session?.access_token || null}
+                audience="cliente"
+                onStatsChange={setClientAccountStats}
+              />
+            </section>
+          )}
+
+          {activeTab === 'empresas' && (
+            <section className="mt-6">
+              <AdminTechniciansUnified
+                accessToken={session?.access_token || null}
+                audience="empresa"
+                onQueueStatsChange={setCompanyQueueStats}
               />
             </section>
           )}
