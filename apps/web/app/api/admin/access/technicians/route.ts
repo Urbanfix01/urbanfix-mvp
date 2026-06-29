@@ -32,6 +32,8 @@ const PROFILE_SELECT = [
   'admin_review_marked_at',
   'created_at',
   'updated_at',
+  'last_seen_at',
+  'last_seen_path',
 ].join(',');
 
 const toText = (value: unknown) => String(value || '').trim();

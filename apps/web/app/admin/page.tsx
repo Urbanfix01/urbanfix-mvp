@@ -472,6 +472,13 @@ const formatDateTime = (value?: string | null) => {
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString('es-AR');
 };
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const isOnlineWithinWindow = (value?: string | null) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return Date.now() - parsed.getTime() <= ONLINE_WINDOW_MS;
+};
 
 const escapeMapText = (value?: string | number | null) =>
   String(value ?? '')
@@ -5528,15 +5535,15 @@ export default function AdminPage() {
   const filteredPendingAccess = overview?.lists.pendingAccess || [];
   const technicianNavBadge = technicianQueueStats?.attention ?? filteredPendingAccess.length;
   const technicianNavDetail = technicianQueueStats
-    ? `${formatNumber(technicianQueueStats.ready)} listos · ${formatNumber(technicianQueueStats.review)} correccion · ${formatNumber(technicianQueueStats.hidden)} ocultos · ${formatNumber(technicianQueueStats.incomplete)} incompletos`
+    ? `${formatNumber(technicianQueueStats.online)} online · ${formatNumber(technicianQueueStats.ready)} listos · ${formatNumber(technicianQueueStats.review)} correccion · ${formatNumber(technicianQueueStats.hidden)} ocultos · ${formatNumber(technicianQueueStats.incomplete)} incompletos`
     : '';
   const clientNavBadge = clientAccountStats?.attention ?? 0;
   const clientNavDetail = clientAccountStats
-    ? `${formatNumber(clientAccountStats.complete)} completos - ${formatNumber(clientAccountStats.incomplete)} incompletos`
+    ? `${formatNumber(clientAccountStats.online)} online - ${formatNumber(clientAccountStats.complete)} completos - ${formatNumber(clientAccountStats.incomplete)} incompletos`
     : '';
   const companyNavBadge = companyQueueStats?.attention ?? 0;
   const companyNavDetail = companyQueueStats
-    ? `${formatNumber(companyQueueStats.ready)} listas - ${formatNumber(companyQueueStats.review)} correccion - ${formatNumber(companyQueueStats.hidden)} ocultas`
+    ? `${formatNumber(companyQueueStats.online)} online - ${formatNumber(companyQueueStats.ready)} listas - ${formatNumber(companyQueueStats.review)} correccion - ${formatNumber(companyQueueStats.hidden)} ocultas`
     : '';
 
   const availableSupportUsers = useMemo(() => {
@@ -7027,11 +7034,20 @@ export default function AdminPage() {
                           const deviceMeta = getAccountDeviceMeta(account.deviceType);
                           const DeviceIcon = deviceMeta.icon;
                           const deviceLabel = account.deviceLabel || deviceMeta.label;
+                          const accountIsOnline = isOnlineWithinWindow(account.lastSeenAt);
 
                           return (
                           <div key={account.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
+                                {accountIsOnline && (
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                    Online
+                                  </span>
+                                )}
+                              </div>
                               <p className="mt-0.5 truncate text-xs text-slate-500">{account.email || 'Sin email visible'}</p>
                               {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
                             </div>

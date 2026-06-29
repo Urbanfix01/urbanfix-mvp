@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type ManagedAudience = 'cliente' | 'empresa';
-type FilterStatus = 'all' | 'complete' | 'incomplete' | 'active' | 'no_profile';
+type FilterStatus = 'all' | 'complete' | 'incomplete' | 'active' | 'online' | 'no_profile';
 
 export type AudienceAccountStats = {
   total: number;
@@ -11,6 +11,7 @@ export type AudienceAccountStats = {
   complete: number;
   incomplete: number;
   active: number;
+  online: number;
   noProfile: number;
 };
 
@@ -96,6 +97,7 @@ const AUDIENCE_COPY: Record<
 };
 
 const toText = (value: unknown) => String(value || '').trim();
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 const normalizeEmail = (value: unknown) => {
   const normalized = toText(value).toLowerCase();
@@ -114,6 +116,13 @@ const isRecent = (value: string | null | undefined) => {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return false;
   return Date.now() - parsed.getTime() <= 30 * 24 * 60 * 60 * 1000;
+};
+
+const isOnline = (value: string | null | undefined) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return Date.now() - parsed.getTime() <= ONLINE_WINDOW_MS;
 };
 
 const getProfileLabel = (account: AccountItem) =>
@@ -207,6 +216,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
     const complete = accounts.filter((account) => getMissingLabels(account, audience).length === 0).length;
     const noProfile = accounts.filter((account) => !account.profile).length;
     const active = accounts.filter((account) => isRecent(account.lastSignInAt || account.profile?.last_seen_at)).length;
+    const online = accounts.filter((account) => isOnline(account.profile?.last_seen_at)).length;
     const incomplete = Math.max(0, accounts.length - complete);
 
     return {
@@ -215,6 +225,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
       complete,
       incomplete,
       active,
+      online,
       noProfile,
     };
   }, [accounts, audience]);
@@ -231,6 +242,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
         if (filterStatus === 'complete') return missing.length === 0;
         if (filterStatus === 'incomplete') return missing.length > 0;
         if (filterStatus === 'active') return isRecent(account.lastSignInAt || account.profile?.last_seen_at);
+        if (filterStatus === 'online') return isOnline(account.profile?.last_seen_at);
         if (filterStatus === 'no_profile') return !account.profile;
         return true;
       })
@@ -442,8 +454,9 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-5">
+      <div className="grid gap-3 md:grid-cols-6">
         {[
+          { key: 'online', label: 'Online', value: stats.online, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
           { key: 'complete', label: 'Completos', value: stats.complete, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
           { key: 'incomplete', label: 'Incompletos', value: stats.incomplete, className: 'border-amber-200 bg-amber-50 text-amber-800' },
           { key: 'active', label: 'Activos 30d', value: stats.active, className: 'border-blue-200 bg-blue-50 text-blue-800' },
@@ -495,6 +508,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
               const email = getContactEmail(account);
               const phone = getContactPhone(account);
               const location = getLocationLabel(account) || getAddressLabel(account);
+              const accountIsOnline = isOnline(account.profile?.last_seen_at);
 
               return (
                 <article
@@ -508,6 +522,12 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
                         <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}>
                           {badge.label}
                         </span>
+                        {accountIsOnline && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            Online
+                          </span>
+                        )}
                         {account.audienceSource === 'inferido' && (
                           <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-semibold text-slate-500">
                             Tipo inferido
@@ -520,6 +540,10 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
                       </p>
                       <p className="mt-1 text-[11px] text-slate-400">
                         Alta: {formatDateTime(account.createdAt)} · Ultimo ingreso: {formatDateTime(account.lastSignInAt)}
+                      </p>
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        Actividad: {accountIsOnline ? 'online ahora' : formatDateTime(account.profile?.last_seen_at)}
+                        {account.profile?.last_seen_path ? ` · ${account.profile.last_seen_path}` : ''}
                       </p>
                       <p className="mt-2 text-xs font-medium text-slate-500">
                         {missing.length === 0 ? 'Datos clave completos.' : `Falta: ${missing.join(', ')}.`}
@@ -641,6 +665,10 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
             <div className="mt-5 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700">
               <p><span className="font-semibold text-slate-950">ID:</span> {selectedAccount.id}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Tipo:</span> {selectedAccount.audience} ({selectedAccount.audienceSource})</p>
+              <p className="mt-2">
+                <span className="font-semibold text-slate-950">Estado:</span>{' '}
+                {isOnline(selectedAccount.profile?.last_seen_at) ? 'Online ahora' : 'Offline'}
+              </p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Alta:</span> {formatDateTime(selectedAccount.createdAt)}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Ultimo ingreso:</span> {formatDateTime(selectedAccount.lastSignInAt)}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Ultima actividad:</span> {formatDateTime(selectedAccount.profile?.last_seen_at)}</p>

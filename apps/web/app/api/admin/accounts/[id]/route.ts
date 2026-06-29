@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
 import { readLimitedJsonBody } from '@/lib/api/read-json-body';
 
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i;
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DELETE_CONFIRMATION = 'ELIMINAR';
 const ACCOUNT_AUDIENCES = new Set(['cliente', 'empresa', 'tecnico']);
 

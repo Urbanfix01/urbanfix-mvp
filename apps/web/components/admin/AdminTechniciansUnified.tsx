@@ -38,6 +38,8 @@ type TechnicianProfile = {
   admin_review_marked_at: string | null;
   created_at: string | null;
   updated_at: string | null;
+  last_seen_at: string | null;
+  last_seen_path: string | null;
 };
 
 export type TechnicianQueueStats = {
@@ -48,9 +50,10 @@ export type TechnicianQueueStats = {
   approved: number;
   hidden: number;
   incomplete: number;
+  online: number;
 };
 
-type FilterStatus = 'all' | 'attention' | 'ready' | 'review' | 'approved' | 'hidden' | 'incomplete';
+type FilterStatus = 'all' | 'attention' | 'ready' | 'review' | 'approved' | 'hidden' | 'incomplete' | 'online';
 type ReviewAction = 'approve' | 'correction' | 'reject' | 'publish';
 
 const TECHNICAL_AUDIENCE_COPY: Record<
@@ -60,7 +63,6 @@ const TECHNICAL_AUDIENCE_COPY: Record<
     plural: string;
     title: string;
     subtitle: string;
-    notificationsTitle: string;
     empty: string;
     fallbackLabel: string;
   }
@@ -70,7 +72,6 @@ const TECHNICAL_AUDIENCE_COPY: Record<
     plural: 'tecnicos',
     title: 'Aprobacion de tecnicos',
     subtitle: 'Revisa contacto, zona de trabajo y ubicacion exacta antes de publicar un tecnico en UrbanFix.',
-    notificationsTitle: 'Notificaciones de tecnicos',
     empty: 'No hay tecnicos para este filtro.',
     fallbackLabel: 'Tecnico sin nombre',
   },
@@ -79,13 +80,13 @@ const TECHNICAL_AUDIENCE_COPY: Record<
     plural: 'empresas',
     title: 'Aprobacion de empresas',
     subtitle: 'Revisa responsable, datos comerciales, zona de trabajo y ubicacion antes de publicar una empresa.',
-    notificationsTitle: 'Notificaciones de empresas',
     empty: 'No hay empresas para este filtro.',
     fallbackLabel: 'Empresa sin nombre',
   },
 };
 
 const toText = (value: unknown) => String(value || '').trim();
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
 
 const normalizeEmail = (value: unknown) => {
   const normalized = toText(value).toLowerCase();
@@ -171,6 +172,13 @@ const formatDateTime = (value: string | null | undefined) => {
   return parsed.toLocaleString('es-AR');
 };
 
+const isOnline = (value: string | null | undefined) => {
+  if (!value) return false;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return false;
+  return Date.now() - parsed.getTime() <= ONLINE_WINDOW_MS;
+};
+
 const statusBadge = (profile: TechnicianProfile) => {
   if (profile.access_granted === true) {
     if (profile.profile_published === false) {
@@ -221,6 +229,7 @@ export default function AdminTechniciansUnified({
     const approved = profiles.filter(isApprovedVisible).length;
     const hidden = profiles.filter(isApprovedHidden).length;
     const incomplete = profiles.filter(isIncompleteProfile).length;
+    const online = profiles.filter((profile) => isOnline(profile.last_seen_at)).length;
 
     return {
       total: profiles.length,
@@ -230,6 +239,7 @@ export default function AdminTechniciansUnified({
       approved,
       hidden,
       incomplete,
+      online,
     };
   }, [profiles]);
 
@@ -247,6 +257,7 @@ export default function AdminTechniciansUnified({
         if (filterStatus === 'approved') return isApprovedVisible(profile);
         if (filterStatus === 'hidden') return isApprovedHidden(profile);
         if (filterStatus === 'incomplete') return isIncompleteProfile(profile);
+        if (filterStatus === 'online') return isOnline(profile.last_seen_at);
         return true;
       })
       .filter((profile) => {
@@ -513,42 +524,6 @@ export default function AdminTechniciansUnified({
   const selectedWhatsappHref = selectedProfile ? getWhatsappHref(selectedProfile) : '';
   const selectedMailHref = selectedProfile ? getMailHref(selectedProfile) : '';
   const selectedPublicHref = selectedProfile?.access_granted === true ? `/tecnico/${selectedProfile.id}` : '';
-  const attentionBreakdown: Array<{
-    key: FilterStatus;
-    label: string;
-    value: number;
-    helper: string;
-    className: string;
-  }> = [
-    {
-      key: 'ready',
-      label: 'Listos',
-      value: stats.ready,
-      helper: 'Se pueden aprobar ahora.',
-      className: 'border-blue-200 bg-blue-50 text-blue-800',
-    },
-    {
-      key: 'review',
-      label: 'Correccion',
-      value: stats.review,
-      helper: `Ya se pidio ajuste ${copy.singular === 'empresa' ? 'a la empresa' : 'al tecnico'}.`,
-      className: 'border-amber-200 bg-amber-50 text-amber-800',
-    },
-    {
-      key: 'hidden',
-      label: 'Ocultos',
-      value: stats.hidden,
-      helper: 'Aprobados, pero no publicados.',
-      className: 'border-orange-200 bg-orange-50 text-orange-800',
-    },
-    {
-      key: 'incomplete',
-      label: 'Incompletos',
-      value: stats.incomplete,
-      helper: 'Faltan datos para decidir.',
-      className: 'border-slate-200 bg-slate-50 text-slate-700',
-    },
-  ];
 
   return (
     <div className="space-y-5">
@@ -577,54 +552,10 @@ export default function AdminTechniciansUnified({
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-amber-200 bg-[#fffaf0] p-4 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">
-              {copy.notificationsTitle}
-            </p>
-            <h4 className="mt-1 text-lg font-bold text-slate-950">
-              {stats.attention} perfil(es) requieren gestion
-            </h4>
-            <p className="mt-1 text-sm text-slate-600">
-              El numero del menu se compone de listos, correcciones, ocultos e incompletos.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setFilterStatus('attention')}
-            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-              filterStatus === 'attention'
-                ? 'bg-slate-950 text-white'
-                : 'border border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-          >
-            Ver alertas
-          </button>
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {attentionBreakdown.map((item) => (
-            <button
-              key={item.key}
-              type="button"
-              onClick={() => setFilterStatus(item.key)}
-              className={`rounded-2xl border px-3 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${item.className} ${
-                filterStatus === item.key ? 'ring-2 ring-slate-900/10' : ''
-              }`}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide">{item.label}</p>
-                <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs font-black">{item.value}</span>
-              </div>
-              <p className="mt-1 text-xs leading-5 opacity-80">{item.helper}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-7">
+      <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
         {[
           { key: 'attention', label: 'Atencion', value: stats.attention, className: 'border-amber-300 bg-[#fffaf0] text-amber-900' },
+          { key: 'online', label: 'Online', value: stats.online, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
           { key: 'ready', label: 'Listos', value: stats.ready, className: 'border-[#b8d8ff] bg-[#eef6ff] text-[#155391]' },
           { key: 'review', label: 'Correccion', value: stats.review, className: 'border-amber-200 bg-amber-50 text-amber-800' },
           { key: 'approved', label: 'Aprobados', value: stats.approved, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
@@ -677,6 +608,7 @@ export default function AdminTechniciansUnified({
                 const missing = getApprovalMissingLabels(profile);
                 const location = getLocationLabel(profile);
                 const address = getAddressLabel(profile);
+                const profileIsOnline = isOnline(profile.last_seen_at);
                 return (
                   <article
                     key={profile.id}
@@ -691,6 +623,12 @@ export default function AdminTechniciansUnified({
                           <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${badge.className}`}>
                             {badge.label}
                           </span>
+                          {profileIsOnline && (
+                            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+                              <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                              Online
+                            </span>
+                          )}
                         </div>
                         <p className="mt-1 text-sm text-slate-600">{profile.email || 'Sin email'}</p>
                         <p className="mt-1 text-xs text-slate-500">
@@ -703,6 +641,10 @@ export default function AdminTechniciansUnified({
                         )}
                         <p className="mt-1 text-[11px] text-slate-400">
                           Registro: {formatDateTime(profile.created_at)}
+                        </p>
+                        <p className="mt-1 text-[11px] text-slate-400">
+                          Actividad: {profileIsOnline ? 'online ahora' : formatDateTime(profile.last_seen_at)}
+                          {profile.last_seen_path ? ` · ${profile.last_seen_path}` : ''}
                         </p>
                         <p className="mt-2 text-xs font-medium text-slate-500">
                           {missing.length === 0 ? 'Datos clave completos.' : `Falta: ${missing.join(', ')}.`}
@@ -841,12 +783,18 @@ export default function AdminTechniciansUnified({
             </div>
 
             <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p>
+                <span className="font-semibold text-slate-950">Estado:</span>{' '}
+                {isOnline(selectedProfile.last_seen_at) ? 'Online ahora' : 'Offline'}
+              </p>
               <p><span className="font-semibold text-slate-950">Base:</span> {selectedAddress || '-'}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Zona:</span> {selectedLocation || '-'}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Cobertura:</span> {selectedProfile.coverage_area || '-'}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Rubros:</span> {selectedProfile.specialties || '-'}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Horario:</span> {selectedProfile.working_hours || '-'}</p>
               <p className="mt-2"><span className="font-semibold text-slate-950">Alta:</span> {formatDateTime(selectedProfile.created_at)}</p>
+              <p className="mt-2"><span className="font-semibold text-slate-950">Ultima actividad:</span> {formatDateTime(selectedProfile.last_seen_at)}</p>
+              <p className="mt-2"><span className="font-semibold text-slate-950">Ruta:</span> {selectedProfile.last_seen_path || '-'}</p>
             </div>
 
             <div className="mt-5 flex flex-wrap justify-end gap-2">
