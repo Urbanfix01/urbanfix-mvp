@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
+import type { LayerGroup, Map as LeafletMap } from 'leaflet';
 import {
   Activity,
   ArrowRight,
@@ -306,6 +307,17 @@ type PendingAccessItem = {
   profile?: AdminProfile | null;
 };
 
+type AnalyticsGeoZone = {
+  label: string;
+  country: string;
+  region: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+  views: number;
+  uniqueSessions: number;
+};
+
 type AdminOverview = {
   kpis: {
     totalUsers: number;
@@ -341,16 +353,7 @@ type AdminOverview = {
       unknownSessions: number;
       countries: { label: string; views: number; uniqueSessions: number }[];
       cities: { label: string; views: number; uniqueSessions: number }[];
-      zones?: {
-        label: string;
-        country: string;
-        region: string;
-        city: string;
-        latitude: number;
-        longitude: number;
-        views: number;
-        uniqueSessions: number;
-      }[];
+      zones?: AnalyticsGeoZone[];
     };
   };
 };
@@ -382,23 +385,127 @@ const themeStyles = {
 
 const formatNumber = (value?: number | null) => `${Number(value || 0).toLocaleString('es-AR')}`;
 const formatCurrency = (value?: number | null) => `$${Number(value || 0).toLocaleString('es-AR')}`;
-const getGeoMapPosition = (latitude?: number | null, longitude?: number | null) => {
-  const lat = Number(latitude);
-  const lon = Number(longitude);
-  const left = Number.isFinite(lon) ? ((lon + 180) / 360) * 100 : 50;
-  const top = Number.isFinite(lat) ? ((90 - lat) / 180) * 100 : 50;
-
-  return {
-    left: `${Math.min(96, Math.max(4, left))}%`,
-    top: `${Math.min(92, Math.max(8, top))}%`,
-  };
-};
 const formatDateTime = (value?: string | null) => {
   if (!value) return 'Sin fecha';
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString('es-AR');
 };
+
+const escapeMapText = (value?: string | number | null) =>
+  String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
+  const mapHostRef = useRef<HTMLDivElement | null>(null);
+  const leafletRef = useRef<typeof import('leaflet') | null>(null);
+  const mapRef = useRef<LeafletMap | null>(null);
+  const layerRef = useRef<LayerGroup | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  useEffect(() => {
+    let disposed = false;
+
+    const setupMap = async () => {
+      if (!mapHostRef.current || mapRef.current) return;
+
+      const L = await import('leaflet');
+      if (disposed || !mapHostRef.current) return;
+
+      leafletRef.current = L;
+      const map = L.map(mapHostRef.current, {
+        zoomControl: true,
+        scrollWheelZoom: false,
+        attributionControl: true,
+      });
+
+      L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(map);
+
+      layerRef.current = L.layerGroup().addTo(map);
+      mapRef.current = map;
+      map.setView([-15, -60], 2);
+      setMapReady(true);
+      window.setTimeout(() => map.invalidateSize(), 120);
+    };
+
+    setupMap();
+
+    return () => {
+      disposed = true;
+      mapRef.current?.remove();
+      mapRef.current = null;
+      layerRef.current = null;
+      leafletRef.current = null;
+      setMapReady(false);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!mapReady || !leafletRef.current || !mapRef.current || !layerRef.current) return;
+
+    const L = leafletRef.current;
+    const map = mapRef.current;
+    const layer = layerRef.current;
+    const validZones = zones.filter((zone) => Number.isFinite(zone.latitude) && Number.isFinite(zone.longitude));
+
+    layer.clearLayers();
+
+    validZones.forEach((zone) => {
+      const radius = Math.min(18, Math.max(7, 6 + zone.uniqueSessions * 2));
+      const marker = L.circleMarker([zone.latitude, zone.longitude], {
+        radius,
+        color: '#ffffff',
+        fillColor: '#ff8f1f',
+        fillOpacity: 0.88,
+        opacity: 1,
+        weight: 2,
+      });
+
+      marker.bindTooltip(
+        `<strong>${escapeMapText(zone.label)}</strong><br>${formatNumber(zone.uniqueSessions)} sesión(es) · ${formatNumber(zone.views)} vista(s)`,
+        { direction: 'top', offset: [0, -8], opacity: 0.95 }
+      );
+      marker.addTo(layer);
+    });
+
+    if (validZones.length > 1) {
+      const bounds = L.latLngBounds(validZones.map((zone) => [zone.latitude, zone.longitude] as [number, number]));
+      map.fitBounds(bounds.pad(0.35), { animate: false, maxZoom: 5, padding: [32, 32] });
+    } else if (validZones.length === 1) {
+      map.setView([validZones[0].latitude, validZones[0].longitude], 4, { animate: false });
+    } else {
+      map.setView([-15, -60], 2, { animate: false });
+    }
+
+    window.setTimeout(() => map.invalidateSize(), 80);
+  }, [zones, mapReady]);
+
+  return (
+    <div className="mt-5 rounded-[26px] border border-slate-100 bg-[#f8fafc] p-3">
+      <div className="relative h-64 overflow-hidden rounded-[22px] border border-slate-200 bg-[#e8eef6]">
+        <div ref={mapHostRef} className="h-full w-full" />
+        {(!mapReady || zones.length === 0) && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/72 px-6 text-center text-sm text-slate-500 backdrop-blur-[1px]">
+            {mapReady
+              ? 'Sin coordenadas suficientes todavía. Se completará con próximas visitas en producción.'
+              : 'Cargando mapa real...'}
+          </div>
+        )}
+      </div>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+        <span>Zonas mapeadas: {formatNumber(zones.length)}</span>
+        <span>Mapa base: OpenStreetMap · ubicación aproximada por infraestructura</span>
+      </div>
+    </div>
+  );
+}
 
 const normalizeText = (value?: string | null) =>
   (value || '')
@@ -6778,38 +6885,7 @@ export default function AdminPage() {
                       <MapPin className="h-5 w-5 text-[#ff8f1f]" />
                     </div>
 
-                    <div className="mt-5 rounded-[26px] border border-slate-100 bg-[#f8fafc] p-3">
-                      <div className="relative h-52 overflow-hidden rounded-[22px] border border-slate-200 bg-[#f3f6fb] [background-image:linear-gradient(rgba(148,163,184,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.16)_1px,transparent_1px)] [background-size:32px_32px]">
-                        <div className="absolute inset-x-4 top-1/2 h-px bg-slate-300/70" />
-                        <div className="absolute inset-y-4 left-1/2 w-px bg-slate-300/70" />
-                        {summaryGeoZones.length === 0 && (
-                          <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-500">
-                            Sin coordenadas suficientes todavía. Se completará con próximas visitas en producción.
-                          </div>
-                        )}
-                        {summaryGeoZones.map((zone) => {
-                          const size = Math.min(22, Math.max(10, 8 + zone.uniqueSessions * 2));
-                          return (
-                            <div
-                              key={`${zone.label}-${zone.latitude}-${zone.longitude}`}
-                              className="absolute -translate-x-1/2 -translate-y-1/2"
-                              style={getGeoMapPosition(zone.latitude, zone.longitude)}
-                              title={`${zone.label}: ${formatNumber(zone.uniqueSessions)} sesión(es)`}
-                            >
-                              <span className="absolute left-1/2 top-1/2 block h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ff8f1f]/15" />
-                              <span
-                                className="relative block rounded-full border-2 border-white bg-[#ff8f1f] shadow-[0_8px_18px_rgba(255,143,31,0.35)]"
-                                style={{ width: size, height: size }}
-                              />
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
-                        <span>Zonas mapeadas: {formatNumber(summaryGeoZones.length)}</span>
-                        <span>Base: ubicación aproximada por infraestructura</span>
-                      </div>
-                    </div>
+                    <AdminGeoMap zones={summaryGeoZones} />
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                       <div>
