@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Manrope } from 'next/font/google';
@@ -11,10 +11,12 @@ import {
   CreditCard,
   FileCheck2,
   GitBranch,
+  Globe2,
   Hammer,
   LockKeyhole,
   LogOut,
   Mail,
+  MapPin,
   MessageSquareMore,
   Settings,
   ShieldCheck,
@@ -332,6 +334,24 @@ type AdminOverview = {
     registeredUsersByZone: RegisteredZoneItem[];
     incomeByZone: IncomeZoneItem[];
     topScreens: ScreenMetric[];
+    analyticsGeo?: {
+      rangeDays: number;
+      totalSessions: number;
+      knownSessions: number;
+      unknownSessions: number;
+      countries: { label: string; views: number; uniqueSessions: number }[];
+      cities: { label: string; views: number; uniqueSessions: number }[];
+      zones?: {
+        label: string;
+        country: string;
+        region: string;
+        city: string;
+        latitude: number;
+        longitude: number;
+        views: number;
+        uniqueSessions: number;
+      }[];
+    };
   };
 };
 
@@ -362,6 +382,17 @@ const themeStyles = {
 
 const formatNumber = (value?: number | null) => `${Number(value || 0).toLocaleString('es-AR')}`;
 const formatCurrency = (value?: number | null) => `$${Number(value || 0).toLocaleString('es-AR')}`;
+const getGeoMapPosition = (latitude?: number | null, longitude?: number | null) => {
+  const lat = Number(latitude);
+  const lon = Number(longitude);
+  const left = Number.isFinite(lon) ? ((lon + 180) / 360) * 100 : 50;
+  const top = Number.isFinite(lat) ? ((90 - lat) / 180) * 100 : 50;
+
+  return {
+    left: `${Math.min(96, Math.max(4, left))}%`,
+    top: `${Math.min(92, Math.max(8, top))}%`,
+  };
+};
 const formatDateTime = (value?: string | null) => {
   if (!value) return 'Sin fecha';
   const parsed = new Date(value);
@@ -5470,6 +5501,11 @@ export default function AdminPage() {
     () => tabs.find((tab) => tab.key === activeTab)?.label || 'Resumen',
     [activeTab, tabs]
   );
+  const summaryGeo = overview?.lists.analyticsGeo || null;
+  const summaryGeoCoverage = summaryGeo?.totalSessions
+    ? Math.round((summaryGeo.knownSessions / summaryGeo.totalSessions) * 100)
+    : 0;
+  const summaryGeoZones = summaryGeo?.zones || [];
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
   const roadmapCurrentCount = useMemo(
@@ -6676,80 +6712,6 @@ export default function AdminPage() {
             </div>
           </div>
 
-          <div className="sticky top-[57px] z-30 mb-4 flex flex-wrap items-start justify-between gap-3 rounded-[24px] border border-white/70 bg-[rgba(250,244,249,0.88)] px-4 py-3 shadow-[0_18px_32px_rgba(31,10,46,0.08)] backdrop-blur">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full border border-[#e0d0e8] bg-white/70 px-3 py-1 text-[11px] font-semibold text-[#432451] shadow-[0_10px_24px_rgba(31,10,46,0.05)]">
-                Vista activa: {activeTabLabel}
-              </span>
-              <span className={`rounded-full px-3 py-1 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
-                {adminExecutionPulse.label}
-              </span>
-              <span className="rounded-full border border-[#eadff0] bg-white/72 px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
-                Roadmap abierto: {roadmapOpenCount}
-              </span>
-              <span className="rounded-full border border-[#eadff0] bg-white/72 px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
-                Online: {presenceData?.onlineCount || 0}
-              </span>
-            </div>
-            <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  loadOverview(session.access_token);
-                  loadPlayMetrics(session.access_token);
-                  if (activeTab === 'roadmap') {
-                    loadRoadmap(session.access_token);
-                  }
-                  if (activeTab === 'flujo') {
-                    loadFlowLayout(session.access_token);
-                  }
-                }}
-                className="rounded-full border border-[#d6c5df] bg-white/75 px-4 py-2 text-xs font-semibold text-[#432451] transition hover:-translate-y-0.5 hover:border-[#bea7ca] hover:bg-white"
-              >
-                Actualizar
-              </button>
-            </div>
-          </div>
-
-          <div className="grid gap-3 md:grid-cols-3">
-            <article className="rounded-[28px] border border-[#2e0b40] bg-[linear-gradient(135deg,#21052f_0%,#341047_100%)] px-5 py-4 shadow-[0_18px_38px_rgba(27,10,41,0.18)] backdrop-blur">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">Foco de trabajo</p>
-                  <p className="mt-2 text-base font-semibold text-white">{activeTabLabel}</p>
-                  <p className="mt-1 text-xs text-white/64">Vista principal para seguimiento operativo.</p>
-                </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 text-white">
-                  <BarChart3 className="h-5 w-5" />
-                </span>
-              </div>
-            </article>
-            <article className="rounded-[28px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.97)_0%,rgba(249,242,248,0.96)_100%)] px-5 py-4 shadow-[0_14px_30px_rgba(31,10,46,0.08)] backdrop-blur">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Pipeline roadmap</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{roadmapOpenCount} pendientes</p>
-                  <p className="mt-1 text-xs text-slate-500">{roadmapTotals.blocked} bloqueados listos para destrabar.</p>
-                </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
-                  <GitBranch className="h-5 w-5" />
-                </span>
-              </div>
-            </article>
-            <article className="rounded-[28px] border border-[#f2d7b6] bg-[linear-gradient(180deg,rgba(255,248,238,0.98)_0%,rgba(255,243,227,0.96)_100%)] px-5 py-4 shadow-[0_14px_30px_rgba(255,143,31,0.10)] backdrop-blur">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-[11px] uppercase tracking-[0.2em] text-[#a8651a]">Monitoreo live</p>
-                  <p className="mt-2 text-base font-semibold text-slate-900">{presenceData?.onlineCount || 0} usuarios online</p>
-                  <p className="mt-1 text-xs text-slate-600">{supportUsers.length} conversaciones en soporte.</p>
-                </div>
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#ffe7c2] text-[#c2410c]">
-                  <Activity className="h-5 w-5" />
-                </span>
-              </div>
-            </article>
-          </div>
-
           {overviewError && (
             <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
               {overviewError}
@@ -6765,419 +6727,130 @@ export default function AdminPage() {
           {!loadingOverview && overview && (
             <>
               {activeTab === 'resumen' && (
-                <>
-                  <section className="mt-6 space-y-6">
-                    <article className="relative overflow-hidden rounded-[34px] border border-[#e5d9ea] bg-[linear-gradient(135deg,#fffdf8_0%,#fbf7fb_46%,#f2edf4_100%)] p-5 shadow-[0_28px_70px_rgba(31,10,46,0.12)] lg:p-6">
-                      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,156,26,0.16),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(67,36,81,0.08),transparent_32%)]" />
-                      <div className="relative z-10 grid gap-6 xl:grid-cols-[1fr_380px]">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold ${summaryExecutiveSignal?.badgeClass || 'border-[#eadff0] bg-white text-[#432451]'}`}>
-                              {summaryExecutiveSignal?.status || 'Resumen admin'}
-                            </span>
-                            <span className={`rounded-full px-3 py-1.5 text-[11px] font-semibold ${adminExecutionPulse.badgeClass}`}>
-                              {adminExecutionPulse.label}
-                            </span>
-                            <span className="rounded-full border border-[#eadff0] bg-white/80 px-3 py-1.5 text-[11px] font-semibold text-[#6c6177]">
-                              Base {formatDateTime(resolvedSummaryBaseline?.setAt || null)}
-                            </span>
-                          </div>
-                          <p className="mt-5 text-[11px] uppercase tracking-[0.24em] text-[#8b7c98]">Resumen Admin</p>
-                          <h3 className="mt-3 max-w-3xl text-[clamp(2rem,3.2vw,3.1rem)] font-semibold leading-[1.02] text-[#180f24]">
-                            Estado real para decidir rápido
-                          </h3>
-                          <p className="mt-4 max-w-2xl text-sm leading-7 text-[#5f526b]">
-                            Una lectura limpia de accesos, caja, soporte y producto. Lo importante queda arriba; el detalle vive en cada módulo.
-                          </p>
-                        </div>
-
-                        <aside className={`rounded-[28px] border p-5 shadow-[0_18px_42px_rgba(31,10,46,0.10)] ${summaryExecutiveSignal?.surfaceClass || 'border-[#eadff0] bg-white'}`}>
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-[#8b7c98]">Próxima acción</p>
-                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">
-                            {summaryExecutiveSignal?.pendingDecisionCount || 0}
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-[#5f526b]">
-                            {summaryExecutiveSignal?.helper || 'Sin lectura disponible todavía.'}
-                          </p>
-                          <button
-                            type="button"
-                            onClick={() => setActiveTab((summaryExecutiveSignal?.ctaTab || 'roadmap') as AdminTabKey)}
-                            className="mt-5 inline-flex items-center gap-2 rounded-full bg-[#2a0338] px-4 py-2 text-xs font-semibold text-white shadow-[0_12px_24px_rgba(42,3,56,0.18)] transition hover:bg-[#3b0b4d]"
-                          >
-                            {summaryExecutiveSignal?.ctaLabel || 'Ver roadmap'}
-                            <ArrowRight className="h-4 w-4" />
-                          </button>
-                        </aside>
+                <section className="mt-6">
+                  <article className="rounded-[30px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Origen de accesos</p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Ubicación aproximada</h3>
+                        <p className="mt-2 text-sm leading-7 text-[#6c6177]">
+                          Datos de país, región y ciudad detectados por infraestructura. No se guarda IP real.
+                        </p>
                       </div>
-
-                      <div className="relative z-10 mt-6 grid gap-3 md:grid-cols-4">
-                        <div className="rounded-[22px] border border-[#eadff0] bg-white/82 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">Acceso</p>
-                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{summaryExecutiveSignal?.accessRatio || 0}%</p>
-                          <p className="mt-1 text-xs text-[#6c6177]">{formatNumber(overview.kpis.accessGranted)} de {formatNumber(overview.kpis.totalUsers)} habilitados</p>
-                        </div>
-                        <div className="rounded-[22px] border border-[#fde1c4] bg-[#fff8ef]/90 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#a8651a]">Caja</p>
-                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{formatCurrency(overview.kpis.paidQuotesTotal)}</p>
-                          <p className="mt-1 text-xs text-[#9a4d00]">{summaryExecutiveSignal?.paidRatio || 0}% de presupuestos cobrados</p>
-                        </div>
-                        <div className="rounded-[22px] border border-[#dbeafe] bg-[#f6faff]/92 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#5f79a5]">MRR</p>
-                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{formatCurrency(overview.kpis.mrr)}</p>
-                          <p className="mt-1 text-xs text-[#64748b]">Facturación recurrente activa</p>
-                        </div>
-                        <div className="rounded-[22px] border border-[#d9f0e6] bg-[#f1fbf6]/92 px-4 py-4 shadow-[0_10px_22px_rgba(31,10,46,0.05)]">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#047857]">Visitas 7d</p>
-                          <p className="mt-3 text-2xl font-semibold text-[#180f24]">{formatNumber(overview.kpis.visitsLast7)}</p>
-                          <p className="mt-1 text-xs text-[#047857]">Pulso reciente del sitio</p>
-                        </div>
-                      </div>
-                    </article>
-
-                    <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                      {summaryPrimaryCards.map((card) => {
-                        const Icon = card.icon;
-                        return (
-                          <article key={card.key} className={`${adminPrimaryCardBaseClass} ${card.cardClass}`}>
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">{card.label}</p>
-                                <p className="mt-3 text-2xl font-semibold text-[#180f24]">{card.value}</p>
-                              </div>
-                              <span className={`flex h-11 w-11 items-center justify-center rounded-2xl ${card.iconClass}`}>
-                                <Icon className="h-5 w-5" />
-                              </span>
-                            </div>
-                            <p className="mt-3 text-xs leading-6 text-[#5f526b]">{card.helper}</p>
-                            <p className={`mt-2 text-[11px] font-semibold ${card.deltaTone}`}>{card.deltaText}</p>
-                          </article>
-                        );
-                      })}
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
+                        <Globe2 className="h-5 w-5" />
+                      </span>
                     </div>
 
-                    <section className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-                      <aside className={adminActionPanelClass}>
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className={adminDashboardEyebrowClass}>Bandeja de acción</p>
-                            <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Lo que conviene resolver ahora</h3>
-                            <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                              Accesos, soporte y bloqueos ordenados por impacto operativo.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
-                            className="rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
-                          >
-                            Reiniciar base
-                          </button>
+                    <div className="mt-5 rounded-[28px] border border-[#eadff0] bg-white px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.8),0_14px_30px_rgba(31,10,46,0.06)]">
+                      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">Accesos únicos</p>
+                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{formatNumber(summaryGeo?.totalSessions || 0)}</p>
+                          <p className="mt-1 text-[11px] text-[#6c6177]">Últimos {summaryGeo?.rangeDays || 30} días</p>
                         </div>
+                        <div className="border-t border-[#eadff0] pt-4 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#047857]">Con ubicación</p>
+                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{formatNumber(summaryGeo?.knownSessions || 0)}</p>
+                        </div>
+                        <div className="border-t border-[#eadff0] pt-4 xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">Sin ubicación</p>
+                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{formatNumber(summaryGeo?.unknownSessions || 0)}</p>
+                        </div>
+                        <div className="border-t border-[#eadff0] pt-4 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+                          <p className="text-[11px] uppercase tracking-[0.18em] text-[#a8651a]">Cobertura</p>
+                          <p className="mt-2 text-xl font-semibold text-[#180f24]">{summaryGeoCoverage}%</p>
+                        </div>
+                      </div>
+                    </div>
 
-                        <div className="mt-5 space-y-3">
-                          {summaryMonitoringRows.map((row, index) => (
+                    <p className="mt-4 text-xs leading-6 text-[#6c6177]">
+                      {summaryGeo?.knownSessions
+                        ? `${formatNumber(summaryGeo.unknownSessions)} sesión(es) de los últimos ${summaryGeo.rangeDays} días todavía no tienen ubicación.`
+                        : 'Todavía no hay sesiones con ubicación guardada. Se completará con las próximas visitas reales.'}
+                    </p>
+                    <div className="mt-6 border-t border-[#eadff0] pt-6">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución</p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Países y ciudades</h3>
+                      </div>
+                      <MapPin className="h-5 w-5 text-[#ff8f1f]" />
+                    </div>
+
+                    <div className="mt-5 rounded-[26px] border border-slate-100 bg-[#f8fafc] p-3">
+                      <div className="relative h-52 overflow-hidden rounded-[22px] border border-slate-200 bg-[#f3f6fb] [background-image:linear-gradient(rgba(148,163,184,0.16)_1px,transparent_1px),linear-gradient(90deg,rgba(148,163,184,0.16)_1px,transparent_1px)] [background-size:32px_32px]">
+                        <div className="absolute inset-x-4 top-1/2 h-px bg-slate-300/70" />
+                        <div className="absolute inset-y-4 left-1/2 w-px bg-slate-300/70" />
+                        {summaryGeoZones.length === 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-slate-500">
+                            Sin coordenadas suficientes todavía. Se completará con próximas visitas en producción.
+                          </div>
+                        )}
+                        {summaryGeoZones.map((zone) => {
+                          const size = Math.min(22, Math.max(10, 8 + zone.uniqueSessions * 2));
+                          return (
                             <div
-                              key={row.label}
-                              className={`${adminActionRowClass} ${index === 0 ? 'border-[#ffcf97] bg-[#fff8ef]' : ''}`}
+                              key={`${zone.label}-${zone.latitude}-${zone.longitude}`}
+                              className="absolute -translate-x-1/2 -translate-y-1/2"
+                              style={getGeoMapPosition(zone.latitude, zone.longitude)}
+                              title={`${zone.label}: ${formatNumber(zone.uniqueSessions)} sesión(es)`}
                             >
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <p className="text-[11px] uppercase tracking-[0.18em] text-[#8b7c98]">{row.label}</p>
-                                  <p className="mt-2 text-lg font-semibold text-[#180f24]">{row.value}</p>
-                                </div>
-                                <span className="rounded-full border border-[#eadff0] bg-white px-2.5 py-1 text-[10px] font-semibold text-[#6c6177]">
-                                  {index + 1}
-                                </span>
-                              </div>
-                              <p className={`mt-2 text-xs leading-6 ${row.tone}`}>{row.detail}</p>
-                              <div className="mt-3 flex justify-end">
-                                {row.tab ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (row.tab) {
-                                        setActiveTab(row.tab);
-                                      }
-                                    }}
-                                    className="inline-flex items-center gap-2 rounded-full border border-[#eadff0] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#432451] transition hover:border-[#cdb7d7] hover:bg-[#faf6fc]"
-                                  >
-                                    {row.cta}
-                                    <ArrowRight className="h-3.5 w-3.5" />
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => setSummaryBaseline(buildSummaryBaseline(overview))}
-                                    className="rounded-full bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] px-3 py-1.5 text-[11px] font-semibold text-[#2a0338] transition hover:brightness-105"
-                                  >
-                                    {row.cta}
-                                  </button>
-                                )}
-                              </div>
+                              <span className="absolute left-1/2 top-1/2 block h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#ff8f1f]/15" />
+                              <span
+                                className="relative block rounded-full border-2 border-white bg-[#ff8f1f] shadow-[0_8px_18px_rgba(255,143,31,0.35)]"
+                                style={{ width: size, height: size }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                        <span>Zonas mapeadas: {formatNumber(summaryGeoZones.length)}</span>
+                        <span>Base: ubicación aproximada por infraestructura</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 grid gap-4 md:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países</p>
+                        <div className="mt-3 space-y-2">
+                          {(summaryGeo?.countries || []).length === 0 && (
+                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                              Sin países detectados todavía.
+                            </p>
+                          )}
+                          {(summaryGeo?.countries || []).map((item) => (
+                            <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                              <span className="text-sm font-semibold text-slate-700">{item.label}</span>
+                              <span className="text-xs text-slate-500">{formatNumber(item.uniqueSessions)} sesión(es)</span>
                             </div>
                           ))}
                         </div>
-                      </aside>
-
-                      <article className="rounded-[30px] border border-[#e8dff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className={adminDashboardEyebrowClass}>Radar ejecutivo</p>
-                            <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Señales de negocio</h3>
-                          </div>
-                          <span className="rounded-full border border-[#eadff0] bg-white px-3 py-1 text-[11px] font-semibold text-[#6c6177]">
-                            {summaryInsightPanels.length} focos
-                          </span>
-                        </div>
-
-                        <div className="mt-5 grid gap-3 md:grid-cols-3 xl:grid-cols-1 2xl:grid-cols-3">
-                          {summaryInsightPanels.map((panel) => {
-                            const Icon = panel.icon;
-                            return (
-                              <article key={panel.title} className={`${adminInsightPanelBaseClass} ${panel.tone}`}>
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <p className="text-[11px] uppercase tracking-[0.18em] opacity-75">{panel.title}</p>
-                                    <p className="mt-3 text-sm font-semibold leading-6">{panel.value}</p>
-                                  </div>
-                                  <span className={`flex h-10 w-10 items-center justify-center rounded-2xl ${panel.iconClass}`}>
-                                    <Icon className="h-5 w-5" />
-                                  </span>
-                                </div>
-                                <p className="mt-3 text-xs leading-6 opacity-80">{panel.detail}</p>
-                                <p className="mt-3 text-[11px] font-semibold opacity-70">{panel.footnote}</p>
-                              </article>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    </section>
-
-                    <section className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className={adminDashboardEyebrowClass}>Google Play</p>
-                            <h3 className="mt-2 text-lg font-semibold text-slate-900">Salud de Android</h3>
-                          </div>
-                          <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[11px] font-semibold text-slate-500">Últimos 14 días</span>
-                        </div>
-
-                        {playLoading && <p className="mt-4 text-sm text-slate-500">Cargando métricas...</p>}
-                        {playError && <p className="mt-4 text-xs text-rose-500">{playError}</p>}
-                        {!playLoading && !playError && !playMetrics && (
-                          <p className="mt-4 text-sm text-slate-500">
-                            Configura GOOGLE_PLAY_SERVICE_ACCOUNT_B64 y GOOGLE_PLAY_PACKAGE_NAME para ver datos.
-                          </p>
-                        )}
-
-                        {!playLoading && !playError && playMetrics && (
-                          <>
-                            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Instalaciones</p>
-                                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(playMetrics.installs?.totalUserInstalls || 0)}</p>
-                                <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
-                              </div>
-                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Desinstalaciones</p>
-                                <p className="mt-2 text-2xl font-semibold text-slate-900">{formatNumber(playMetrics.installs?.totalUserUninstalls || 0)}</p>
-                                <p className="mt-1 text-[11px] text-slate-500">Usuarios (14d)</p>
-                              </div>
-                              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                                <p className="text-[11px] uppercase tracking-[0.18em] text-slate-400">Crashes / ANR</p>
-                                <p className="mt-2 text-lg font-semibold text-slate-900">
-                                  {`${((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}% · ${((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%`}
-                                </p>
-                                <p className="mt-1 text-[11px] text-slate-500">Tasa 7d</p>
-                              </div>
-                            </div>
-
-                            <div className="mt-4 space-y-2">
-                              {(playMetrics.installs?.series || []).slice(-8).map((row) => {
-                                const installs = Number(row.dailyUserInstalls || 0);
-                                const uninstalls = Number(row.dailyUserUninstalls || 0);
-                                const max = Math.max(1, installs + uninstalls);
-
-                                return (
-                                  <div key={row.date || `${installs}-${uninstalls}`} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
-                                    <div className="flex items-center justify-between text-[11px] text-slate-500">
-                                      <span>{row.date || ''}</span>
-                                      <span className="text-slate-600">{installs} / {uninstalls}</span>
-                                    </div>
-                                    <div className="mt-2 flex h-2 w-full overflow-hidden rounded-full bg-white">
-                                      <div className="bg-emerald-500" style={{ width: `${(installs / max) * 100}%` }} title={`${installs} instalaciones`} />
-                                      <div className="bg-rose-400" style={{ width: `${(uninstalls / max) * 100}%` }} title={`${uninstalls} desinstalaciones`} />
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </>
-                        )}
                       </div>
 
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-slate-900">Crashes y ANR</h3>
-                          <span className="text-xs text-slate-400">{playMetrics?.crashes?.lastDate || playMetrics?.anr?.lastDate || 'Últimos 14 días'}</span>
-                        </div>
-                        {playLoading && <p className="mt-3 text-sm text-slate-500">Cargando...</p>}
-                        {!playLoading && !playError && playMetrics && (
-                          <div className="mt-4 space-y-2 text-sm text-slate-600">
-                            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                              <span>Crash rate 7d</span>
-                              <span className="font-semibold text-slate-900">{((playMetrics.crashes?.crashRate7d ?? 0) * 100).toFixed(2)}%</span>
-                            </div>
-                            <div className="flex items-center justify-between rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                              <span>ANR rate 7d</span>
-                              <span className="font-semibold text-slate-900">{((playMetrics.anr?.anrRate7d ?? 0) * 100).toFixed(2)}%</span>
-                            </div>
-                            <div className="text-[11px] text-slate-400">
-                              Datos de Play Developer Reporting. Puede tardar algunas horas tras publicar una versión.
-                            </div>
-                          </div>
-                        )}
-                        {!playLoading && playError && <p className="mt-3 text-xs text-rose-500">{playError}</p>}
-                      </div>
-                    </section>
-                  </section>
-
-                  <section className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.9fr_0.95fr]">
-                    <div className="space-y-6">
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-slate-900">Mensajes recientes</h3>
-                          <span className="text-xs text-slate-400">Últimos 10</span>
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          {overview.lists.supportMessages.length === 0 && (
-                            <p className="text-sm text-slate-500">No hay mensajes todavía.</p>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Ciudades</p>
+                        <div className="mt-3 space-y-2">
+                          {(summaryGeo?.cities || []).length === 0 && (
+                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                              Sin ciudades detectadas todavía.
+                            </p>
                           )}
-                          {overview.lists.supportMessages.map((msg) => (
-                            <div key={msg.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                                <span className="font-semibold text-slate-700">{getProfileLabel(msg.profile)}</span>
-                                <span className="text-slate-400">{formatDateTime(msg.created_at)}</span>
-                              </div>
-                              <p className="mt-2 text-sm text-slate-600">{msg.body}</p>
-                              {!!msg.image_urls?.length && (
-                                <p className="mt-2 text-xs text-slate-400">{msg.image_urls.length} adjunto(s)</p>
-                              )}
+                          {(summaryGeo?.cities || []).map((item) => (
+                            <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                              <span className="text-sm font-semibold text-slate-700">{item.label}</span>
+                              <span className="text-xs text-slate-500">{formatNumber(item.uniqueSessions)} sesión(es)</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     </div>
-
-                    <div className="space-y-6">
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-slate-900">Accesos pendientes</h3>
-                          <span className="text-xs text-slate-400">Últimos 12</span>
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          {overview.lists.pendingAccess.length === 0 && (
-                            <p className="text-sm text-slate-500">No hay accesos pendientes.</p>
-                          )}
-                          {overview.lists.pendingAccess.map((user) => (
-                            <div key={user.id} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-800">{getProfileLabel(user.profile || user)}</p>
-                                <p className="text-xs text-slate-500">{user.email || user.profile?.email || ''}</p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleSetAccess(user.id, true)}
-                                disabled={accessUpdatingId === user.id}
-                                className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                              >
-                                {accessUpdatingId === user.id ? 'Actualizando...' : 'Habilitar acceso'}
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
                     </div>
-
-                    <div className="space-y-6">
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-slate-900">Suscripciones recientes</h3>
-                          <span className="text-xs text-slate-400">Últimas 10</span>
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          {overview.lists.recentSubscriptions.length === 0 && (
-                            <p className="text-sm text-slate-500">No hay suscripciones nuevas.</p>
-                          )}
-                          {overview.lists.recentSubscriptions.map((sub) => (
-                            <div key={sub.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                                <span className="font-semibold text-slate-700">{getProfileLabel(sub.profile)}</span>
-                                <span className="text-slate-400">{formatDateTime(sub.created_at)}</span>
-                              </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">{sub.status || 'sin estado'}</span>
-                                {sub.plan?.name && (
-                                  <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">{sub.plan.name}</span>
-                                )}
-                                {sub.current_period_end && (
-                                  <span className="text-[10px] text-slate-400">Renueva: {formatDateTime(sub.current_period_end)}</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-slate-900">Pagos recientes</h3>
-                          <span className="text-xs text-slate-400">Últimos 10</span>
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          {overview.lists.recentPayments.length === 0 && (
-                            <p className="text-sm text-slate-500">No hay pagos registrados.</p>
-                          )}
-                          {overview.lists.recentPayments.map((payment) => (
-                            <div key={payment.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                                <span className="font-semibold text-slate-700">{getProfileLabel(payment.profile)}</span>
-                                <span className="text-slate-400">{formatDateTime(payment.paid_at || payment.created_at)}</span>
-                              </div>
-                              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                                <span className="rounded-full bg-white px-2 py-1 text-[10px] font-semibold text-slate-600">{payment.status || 'sin estado'}</span>
-                                <span className="text-[11px] font-semibold text-slate-700">{formatCurrency(payment.amount)}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      <div className={premiumPanelClass}>
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-slate-900">Pantallas con más tiempo</h3>
-                          <span className="text-xs text-slate-400">Últimos 30 días</span>
-                        </div>
-                        <div className="mt-4 space-y-3">
-                          {overview.lists.topScreens.length === 0 && (
-                            <p className="text-sm text-slate-500">No hay datos de navegación todavía.</p>
-                          )}
-                          {overview.lists.topScreens.map((screen) => (
-                            <div key={screen.path} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-500">
-                              <div>
-                                <p className="text-sm font-semibold text-slate-700">{screen.path}</p>
-                                <p className="mt-1 text-[11px] text-slate-400">{screen.views} visita(s) • {screen.avg_seconds.toFixed(0)}s promedio</p>
-                              </div>
-                              <span className="text-sm font-semibold text-slate-700">{screen.total_minutes.toFixed(1)} min</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </section>
-                </>
+                  </article>
+                </section>
               )}
+
           {activeTab === 'tecnicos' && (
             <>
               <div className="mt-6 flex flex-wrap items-center justify-between gap-3">

@@ -40,6 +40,40 @@ const sanitizeEventContext = (value: unknown) => {
   return context;
 };
 
+const sanitizeGeoText = (value: string | null) => {
+  const raw = (value || '').toString().trim();
+  if (!raw || raw.toLowerCase() === 'unknown') return '';
+  try {
+    return decodeURIComponent(raw.replace(/\+/g, ' ')).trim().slice(0, 120);
+  } catch {
+    return raw.slice(0, 120);
+  }
+};
+
+const sanitizeGeoNumber = (value: string | null) => {
+  const parsed = Number((value || '').toString().trim());
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const getGeoContext = (request: NextRequest) => {
+  const country = sanitizeGeoText(request.headers.get('x-vercel-ip-country'));
+  const region = sanitizeGeoText(request.headers.get('x-vercel-ip-country-region'));
+  const city = sanitizeGeoText(request.headers.get('x-vercel-ip-city'));
+  const timezone = sanitizeGeoText(request.headers.get('x-vercel-ip-timezone'));
+  const latitude = sanitizeGeoNumber(request.headers.get('x-vercel-ip-latitude'));
+  const longitude = sanitizeGeoNumber(request.headers.get('x-vercel-ip-longitude'));
+  const context: Record<string, string | number> = {};
+
+  if (country) context.country = country;
+  if (region) context.region = region;
+  if (city) context.city = city;
+  if (timezone) context.timezone = timezone;
+  if (latitude !== null) context.latitude = latitude;
+  if (longitude !== null) context.longitude = longitude;
+
+  return context;
+};
+
 const getAuthUser = async (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace('Bearer ', '').trim();
@@ -77,6 +111,11 @@ export async function POST(request: NextRequest) {
   const eventContext = sanitizeEventContext(body?.event_context);
   const referrer = (body?.referrer || '').toString().slice(0, 240);
   const userAgent = (request.headers.get('user-agent') || '').slice(0, 240);
+  const geoContext = getGeoContext(request);
+  const analyticsContext = {
+    ...(eventType === 'funnel' ? eventContext : {}),
+    ...(Object.keys(geoContext).length ? { geo: geoContext } : {}),
+  };
 
   if (!eventType || !path || !sessionId) {
     return NextResponse.json({ error: 'Missing payload' }, { status: 400 });
@@ -101,7 +140,7 @@ export async function POST(request: NextRequest) {
     session_id: sessionId,
     event_type: eventType,
     event_name: eventType === 'funnel' ? eventName : null,
-    event_context: eventType === 'funnel' ? eventContext : {},
+    event_context: analyticsContext,
     path,
     duration_ms: eventType === 'page_duration' ? Math.min(24 * 60 * 60 * 1000, durationMs) : null,
     referrer,

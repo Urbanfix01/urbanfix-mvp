@@ -6,6 +6,91 @@ const parseAmount = (value: any) => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const cleanGeoText = (value: any) => String(value || '').trim();
+
+type GeoBucket = { label: string; views: number; sessions: Set<string> };
+type GeoZoneBucket = GeoBucket & {
+  country: string;
+  region: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+};
+
+const cleanGeoNumber = (value: any) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const addGeoBucket = (
+  map: Map<string, GeoBucket>,
+  key: string,
+  label: string,
+  sessionId?: string | null
+) => {
+  if (!key || !label) return;
+  const current = map.get(key) || { label, views: 0, sessions: new Set<string>() };
+  current.views += 1;
+  if (sessionId) current.sessions.add(sessionId);
+  map.set(key, current);
+};
+
+const addGeoZone = (
+  map: Map<string, GeoZoneBucket>,
+  key: string,
+  zone: {
+    label: string;
+    country: string;
+    region: string;
+    city: string;
+    latitude: number;
+    longitude: number;
+    sessionId?: string | null;
+  }
+) => {
+  if (!key || !zone.label) return;
+  const current =
+    map.get(key) ||
+    {
+      label: zone.label,
+      country: zone.country,
+      region: zone.region,
+      city: zone.city,
+      latitude: zone.latitude,
+      longitude: zone.longitude,
+      views: 0,
+      sessions: new Set<string>(),
+    };
+  current.views += 1;
+  if (zone.sessionId) current.sessions.add(zone.sessionId);
+  map.set(key, current);
+};
+
+const serializeGeoBuckets = (map: Map<string, GeoBucket>) =>
+  Array.from(map.values())
+    .map((item) => ({
+      label: item.label,
+      views: item.views,
+      uniqueSessions: item.sessions.size,
+    }))
+    .sort((a, b) => b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
+    .slice(0, 8);
+
+const serializeGeoZones = (map: Map<string, GeoZoneBucket>) =>
+  Array.from(map.values())
+    .map((item) => ({
+      label: item.label,
+      country: item.country,
+      region: item.region,
+      city: item.city,
+      latitude: item.latitude,
+      longitude: item.longitude,
+      views: item.views,
+      uniqueSessions: item.sessions.size,
+    }))
+    .sort((a, b) => b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
+    .slice(0, 12);
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
@@ -208,6 +293,92 @@ export async function GET(request: NextRequest) {
       }))
       .sort((a, b) => b.total_minutes - a.total_minutes)
       .slice(0, 5);
+
+    let analyticsGeo = {
+      rangeDays: 30,
+      totalSessions: 0,
+      knownSessions: 0,
+      unknownSessions: 0,
+      countries: [] as { label: string; views: number; uniqueSessions: number }[],
+      cities: [] as { label: string; views: number; uniqueSessions: number }[],
+      zones: [] as {
+        label: string;
+        country: string;
+        region: string;
+        city: string;
+        latitude: number;
+        longitude: number;
+        views: number;
+        uniqueSessions: number;
+      }[],
+    };
+
+    const analyticsGeoRes = await supabase
+      .from('analytics_events')
+      .select('session_id,event_context')
+      .eq('event_type', 'page_view')
+      .gte('created_at', analyticsSince30.toISOString())
+      .order('created_at', { ascending: false })
+      .limit(20000);
+
+    if (analyticsGeoRes.error) {
+      const message = String(analyticsGeoRes.error.message || '');
+      if (!/event_context|column.*does not exist|schema cache/i.test(message)) {
+        throw analyticsGeoRes.error;
+      }
+    } else {
+      const countryMap = new Map<string, { label: string; views: number; sessions: Set<string> }>();
+      const cityMap = new Map<string, { label: string; views: number; sessions: Set<string> }>();
+      const zoneMap = new Map<string, GeoZoneBucket>();
+      const allSessions = new Set<string>();
+      const knownSessions = new Set<string>();
+
+      (analyticsGeoRes.data || []).forEach((row: any) => {
+        const sessionId = cleanGeoText(row?.session_id);
+        if (sessionId) allSessions.add(sessionId);
+
+        const geo = row?.event_context?.geo || {};
+        const country = cleanGeoText(geo.country).toUpperCase();
+        const region = cleanGeoText(geo.region);
+        const city = cleanGeoText(geo.city);
+        const latitude = cleanGeoNumber(geo.latitude);
+        const longitude = cleanGeoNumber(geo.longitude);
+
+        if (country || region || city) {
+          if (sessionId) knownSessions.add(sessionId);
+        }
+        if (country) {
+          addGeoBucket(countryMap, country, country, sessionId);
+        }
+        if (city) {
+          const cityLabel = [city, region, country].filter(Boolean).join(', ');
+          addGeoBucket(cityMap, cityLabel.toLowerCase(), cityLabel, sessionId);
+        }
+        if (latitude !== null && longitude !== null) {
+          const zoneLabel = [city, region, country].filter(Boolean).join(', ') || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
+          const zoneKey = `${zoneLabel.toLowerCase()}|${latitude.toFixed(2)}|${longitude.toFixed(2)}`;
+          addGeoZone(zoneMap, zoneKey, {
+            label: zoneLabel,
+            country,
+            region,
+            city,
+            latitude,
+            longitude,
+            sessionId,
+          });
+        }
+      });
+
+      analyticsGeo = {
+        rangeDays: 30,
+        totalSessions: allSessions.size,
+        knownSessions: knownSessions.size,
+        unknownSessions: Math.max(0, allSessions.size - knownSessions.size),
+        countries: serializeGeoBuckets(countryMap),
+        cities: serializeGeoBuckets(cityMap),
+        zones: serializeGeoZones(zoneMap),
+      };
+    }
 
     const activeSubsRows = activeSubsDataRes.data || [];
     const mrr = activeSubsRows.reduce((sum, row: any) => {
@@ -426,6 +597,7 @@ export async function GET(request: NextRequest) {
         registeredUsersByZone,
         incomeByZone,
         topScreens,
+        analyticsGeo,
       },
     });
   } catch (error: any) {
