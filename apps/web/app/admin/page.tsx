@@ -42,7 +42,6 @@ import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import AdminAccountsPanel, { type AudienceAccountStats } from '../../components/admin/AdminAccountsPanel';
 import AdminTechniciansUnified, { type TechnicianQueueStats } from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
-import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
 
 type AdminProfile = {
   id: string;
@@ -515,8 +514,6 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
         maxZoom: 18,
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
-
-      addMalvinasArgentinaLabel(L, map);
 
       layerRef.current = L.layerGroup().addTo(map);
       mapRef.current = map;
