@@ -7598,18 +7598,27 @@ export default function TechniciansPage() {
 
   const handleStatusChange = async (quoteId: string, nextStatus: string) => {
     try {
-      const { data, error } = await supabase.rpc('update_quote_status', {
-        quote_id: quoteId,
-        next_status: nextStatus,
-        mode: 'manual',
-        note: null,
+      if (!session?.access_token) {
+        throw new Error('No autenticado.');
+      }
+
+      const response = await fetch(`/api/tecnico/quotes/${quoteId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ status: nextStatus }),
       });
-      if (error) throw error;
-      if (!data || !data.id) {
+      const payload = (await response.json().catch(() => null)) as { error?: string; quote?: QuoteRow } | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || 'No pudimos actualizar el estado.');
+      }
+      if (!payload?.quote?.id) {
         throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
       }
       setQuotes((prev) =>
-        prev.map((quote) => (quote.id === quoteId ? { ...quote, status: data.status } : quote))
+        prev.map((quote) => (quote.id === quoteId ? normalizeQuoteRow({ ...quote, ...payload.quote }) : quote))
       );
     } catch (error: any) {
       console.error('Error actualizando estado:', error);
@@ -8083,9 +8092,21 @@ export default function TechniciansPage() {
       return;
     }
       try {
+        if (!session?.access_token) {
+          throw new Error('No autenticado.');
+        }
+
         setDeletingQuoteId(quote.id);
-        const { error } = await supabase.rpc('delete_quote', { p_quote_id: quote.id });
-        if (error) throw error;
+        const response = await fetch(`/api/tecnico/quotes/${quote.id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+        if (!response.ok) {
+          throw new Error(payload?.error || 'No pudimos eliminar el presupuesto.');
+        }
 
         setQuotes((prev) => prev.filter((item) => item.id !== quote.id));
         if (activeQuoteId === quote.id) {
