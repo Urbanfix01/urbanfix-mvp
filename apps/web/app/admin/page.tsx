@@ -5531,17 +5531,8 @@ export default function AdminPage() {
 
   const filteredPendingAccess = overview?.lists.pendingAccess || [];
   const technicianNavBadge = technicianQueueStats?.attention ?? filteredPendingAccess.length;
-  const technicianNavDetail = technicianQueueStats
-    ? `${formatNumber(technicianQueueStats.online)} online · ${formatNumber(technicianQueueStats.ready)} listos · ${formatNumber(technicianQueueStats.review)} correccion · ${formatNumber(technicianQueueStats.hidden)} ocultos · ${formatNumber(technicianQueueStats.incomplete)} incompletos`
-    : '';
   const clientNavBadge = clientAccountStats?.attention ?? 0;
-  const clientNavDetail = clientAccountStats
-    ? `${formatNumber(clientAccountStats.online)} online - ${formatNumber(clientAccountStats.complete)} completos - ${formatNumber(clientAccountStats.incomplete)} incompletos`
-    : '';
   const companyNavBadge = companyQueueStats?.attention ?? 0;
-  const companyNavDetail = companyQueueStats
-    ? `${formatNumber(companyQueueStats.online)} online - ${formatNumber(companyQueueStats.ready)} listas - ${formatNumber(companyQueueStats.review)} correccion - ${formatNumber(companyQueueStats.hidden)} ocultas`
-    : '';
 
   const availableSupportUsers = useMemo(() => {
     const existingIds = new Set(supportUsers.map((user) => user.userId));
@@ -5716,14 +5707,7 @@ export default function AdminPage() {
       tabs.map((tab) => ({
         ...tab,
         icon: ADMIN_TAB_ICONS[tab.key],
-        detail:
-          tab.key === 'tecnicos'
-            ? technicianNavDetail
-            : tab.key === 'clientes'
-              ? clientNavDetail
-              : tab.key === 'empresas'
-                ? companyNavDetail
-                : '',
+        detail: '',
         badge:
           tab.key === 'roadmap'
             ? roadmapOpenCount
@@ -5742,11 +5726,8 @@ export default function AdminPage() {
       roadmapOpenCount,
       supportUsers.length,
       technicianNavBadge,
-      technicianNavDetail,
       clientNavBadge,
-      clientNavDetail,
       companyNavBadge,
-      companyNavDetail,
     ]
   );
   const adminSidebarFooterActions = useMemo(
