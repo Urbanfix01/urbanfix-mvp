@@ -43,6 +43,7 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
+import AccessIntroVideoGate from '../../components/AccessIntroVideoGate';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import {
@@ -9471,6 +9472,7 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <PublicTopNav activeHref="/tecnicos" sticky />
+        <AccessIntroVideoGate />
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}

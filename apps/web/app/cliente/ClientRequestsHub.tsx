@@ -5,6 +5,7 @@ import { type Session } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import Link from 'next/link';
 import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, Settings, ShieldCheck, Store, User } from 'lucide-react';
+import AccessIntroVideoGate from '../../components/AccessIntroVideoGate';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
@@ -2293,6 +2294,7 @@ export default function ClientRequestsHub() {
         className="ufx-theme-scope min-h-screen bg-[#16031f] text-white"
       >
         <PublicTopNav activeHref="/cliente" sticky />
+        <AccessIntroVideoGate />
         <div className="relative overflow-hidden">
           <div
             aria-hidden="true"
