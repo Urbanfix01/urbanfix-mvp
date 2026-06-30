@@ -66,6 +66,7 @@ import {
   setAuthAccessProfileIntent,
   syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
+import { getPasswordPolicyError, PASSWORD_POLICY_MESSAGE } from '../../lib/auth/password-policy';
 import {
   buildMasterItemChoiceLabel,
   canonicalizeMasterItemUnit,
@@ -1465,7 +1466,7 @@ const AUTH_FORM_VALIDATION_MESSAGES = [
   'Ingresa un correo válido.',
   'Ingresa un correo real para crear la cuenta.',
   'No pudimos validar el dominio del correo. Usa una cuenta real.',
-  'La contraseña debe tener al menos 6 caracteres.',
+  PASSWORD_POLICY_MESSAGE,
   'Ingresa al menos tu nombre para crear la cuenta.',
 ] as const;
 
@@ -1489,7 +1490,7 @@ const getFriendlyAuthErrorMessage = (
     return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseña.';
   }
   if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
-    return 'La contraseña debe tener al menos 6 caracteres.';
+    return PASSWORD_POLICY_MESSAGE;
   }
   if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
     return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
@@ -8541,6 +8542,11 @@ export default function TechniciansPage() {
       setRecoveryError('Ingresa una nueva contraseña.');
       return;
     }
+    const recoveryPasswordPolicyError = getPasswordPolicyError(nextPassword);
+    if (recoveryPasswordPolicyError) {
+      setRecoveryError(recoveryPasswordPolicyError);
+      return;
+    }
     if (nextPassword !== confirmPassword) {
       setRecoveryError('Las contraseñas no coinciden.');
       return;
@@ -8577,8 +8583,9 @@ export default function TechniciansPage() {
       if (!safeEmail.includes('@')) {
         throw new Error('Ingresa un correo válido.');
       }
-      if (password.trim().length < 6) {
-        throw new Error('La contraseña debe tener al menos 6 caracteres.');
+      const passwordPolicyError = authMode === 'register' ? getPasswordPolicyError(password) : '';
+      if (passwordPolicyError) {
+        throw new Error(passwordPolicyError);
       }
       if (authMode === 'register' && !quickRegisterMode && !fullName.trim()) {
         throw new Error('Ingresa al menos tu nombre para crear la cuenta.');

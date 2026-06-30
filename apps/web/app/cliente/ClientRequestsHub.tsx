@@ -14,6 +14,7 @@ import {
   setAuthAccessProfileIntent,
   syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
+import { getPasswordPolicyError, PASSWORD_POLICY_MESSAGE } from '../../lib/auth/password-policy';
 import { buildMapLinks, buildOpenStreetMapEmbedUrl } from '../../lib/map-links';
 import { gremiosCatalog } from '../../lib/seo/gremios-data';
 
@@ -381,7 +382,7 @@ const CLIENT_AUTH_FORM_VALIDATION_MESSAGES = [
   'Ingresa un correo válido.',
   'Ingresa un correo real para crear la cuenta.',
   'No pudimos validar el dominio del correo. Usa una cuenta real.',
-  'La contraseña debe tener al menos 6 caracteres.',
+  PASSWORD_POLICY_MESSAGE,
   'Ingresa tu WhatsApp para crear tu perfil de cliente.',
   'Ingresa un WhatsApp argentino válido.',
 ] as const;
@@ -455,7 +456,7 @@ const getFriendlyClientAuthErrorMessage = (
     return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseña.';
   }
   if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
-    return 'La contraseña debe tener al menos 6 caracteres.';
+    return PASSWORD_POLICY_MESSAGE;
   }
   if (normalizedMessage.includes('rate limit') || normalizedMessage.includes('too many')) {
     return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
@@ -1394,8 +1395,9 @@ export default function ClientRequestsHub() {
       if (!safeEmail.includes('@')) {
         throw new Error('Ingresa un correo válido.');
       }
-      if (password.trim().length < 6) {
-        throw new Error('La contraseña debe tener al menos 6 caracteres.');
+      const passwordPolicyError = authMode === 'register' ? getPasswordPolicyError(password) : '';
+      if (passwordPolicyError) {
+        throw new Error(passwordPolicyError);
       }
       setAuthAccessProfileIntent('cliente');
       if (authMode === 'login') {

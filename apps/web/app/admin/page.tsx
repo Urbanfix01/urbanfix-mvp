@@ -42,6 +42,7 @@ import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import AdminAccountsPanel, { type AudienceAccountStats } from '../../components/admin/AdminAccountsPanel';
 import AdminTechniciansUnified, { type TechnicianQueueStats } from '../../components/admin/AdminTechniciansUnified';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
+import { getPasswordPolicyError } from '../../lib/auth/password-policy';
 
 type AdminProfile = {
   id: string;
@@ -4082,8 +4083,9 @@ export default function AdminPage() {
       setPasswordChangeError('Completa la nueva contrasena y su confirmacion.');
       return;
     }
-    if (nextPassword.length < 6) {
-      setPasswordChangeError('La contrasena debe tener al menos 6 caracteres.');
+    const passwordPolicyError = getPasswordPolicyError(nextPassword);
+    if (passwordPolicyError) {
+      setPasswordChangeError(passwordPolicyError);
       return;
     }
     if (nextPassword !== confirmPassword) {
