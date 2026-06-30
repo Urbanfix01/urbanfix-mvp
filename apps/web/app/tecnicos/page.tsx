@@ -3119,6 +3119,7 @@ export default function TechniciansPage() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const sessionUserIdRef = useRef<string | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [accessIntroRequested, setAccessIntroRequested] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -3343,6 +3344,8 @@ export default function TechniciansPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
+    const initialMode = params.get('mode');
+    setAccessIntroRequested(initialMode === 'login' || initialMode === 'register');
     const designPreviewEnabled =
       process.env.NODE_ENV !== 'production' &&
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
@@ -3402,7 +3405,7 @@ export default function TechniciansPage() {
     if (isAccessProfile(incomingProfile)) {
       setSelectedAccessProfile(incomingProfile);
     }
-    if (params.get('mode') === 'register') {
+    if (initialMode === 'register') {
       setAuthMode('register');
     }
     if (params.get('quick') === '1') {
@@ -10214,6 +10217,7 @@ export default function TechniciansPage() {
     >
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
+      <AccessIntroVideoGate enabled={accessIntroRequested} />
       <div
         className={`relative overflow-hidden ${
           activeTab === 'operativo'

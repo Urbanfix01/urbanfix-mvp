@@ -668,6 +668,7 @@ export default function ClientRequestsHub() {
   const [session, setSession] = useState<Session | null>(null);
   const [, setLoadingSession] = useState(true);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [accessIntroRequested, setAccessIntroRequested] = useState(false);
   const [createRequestIntent, setCreateRequestIntent] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -871,6 +872,7 @@ export default function ClientRequestsHub() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const mode = (params.get('mode') || '').toLowerCase();
+    setAccessIntroRequested(mode === 'login' || mode === 'register');
     const intent = (params.get('intent') || '').toLowerCase();
     if (mode === 'register') {
       setAuthMode('register');
@@ -2506,6 +2508,7 @@ export default function ClientRequestsHub() {
   return (
     <div className="min-h-screen bg-slate-50">
       <PublicTopNav activeHref="/cliente" sticky />
+      <AccessIntroVideoGate enabled={accessIntroRequested} />
       <div className={activeClientView === 'map' ? 'lg:pl-[74px]' : 'p-4 sm:p-6 lg:p-8 lg:pl-[104px]'}>
         <div className="hidden" />
         <div className="hidden" />
