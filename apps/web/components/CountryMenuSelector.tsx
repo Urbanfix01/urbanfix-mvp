@@ -51,8 +51,10 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
   const pathname = usePathname();
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY_NAME);
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
 
   useEffect(() => {
     setSelectedCountry(getCurrentCountry());
@@ -77,6 +79,19 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
   useEffect(() => {
     if (!isOpen) return;
 
+    const updateMenuPosition = () => {
+      const rect = buttonRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
+      const right = Math.max(12, viewportWidth - rect.right);
+      setMenuPosition({
+        top: Math.round(rect.bottom + 8),
+        right: Math.round(right),
+      });
+    };
+
+    updateMenuPosition();
+
     const closeOnOutsidePress = (event: MouseEvent | TouchEvent) => {
       const target = event.target;
       if (target instanceof Node && containerRef.current?.contains(target)) return;
@@ -90,11 +105,15 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
     document.addEventListener('mousedown', closeOnOutsidePress);
     document.addEventListener('touchstart', closeOnOutsidePress);
     document.addEventListener('keydown', closeOnEscape);
+    window.addEventListener('resize', updateMenuPosition);
+    window.addEventListener('scroll', updateMenuPosition, true);
 
     return () => {
       document.removeEventListener('mousedown', closeOnOutsidePress);
       document.removeEventListener('touchstart', closeOnOutsidePress);
       document.removeEventListener('keydown', closeOnEscape);
+      window.removeEventListener('resize', updateMenuPosition);
+      window.removeEventListener('scroll', updateMenuPosition, true);
     };
   }, [isOpen]);
 
@@ -128,6 +147,7 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
   return (
     <div ref={containerRef} className={`relative inline-flex ${className}`}>
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setIsOpen((current) => !current)}
         aria-haspopup="listbox"
@@ -140,7 +160,10 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
       </button>
 
       {isOpen ? (
-        <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[80] w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl">
+        <div
+          className="fixed z-[9999] w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl"
+          style={{ top: menuPosition.top, right: menuPosition.right }}
+        >
           <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7b6688]">
             Pais de ingreso
           </p>

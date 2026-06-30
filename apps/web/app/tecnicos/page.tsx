@@ -43,7 +43,6 @@ import {
 import { type Session, type AuthChangeEvent } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import AuthHashHandler from '../../components/AuthHashHandler';
-import AccessIntroVideoGate from '../../components/AccessIntroVideoGate';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import {
@@ -3119,7 +3118,6 @@ export default function TechniciansPage() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const sessionUserIdRef = useRef<string | null>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
-  const [accessIntroRequested, setAccessIntroRequested] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -3345,7 +3343,6 @@ export default function TechniciansPage() {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
     const initialMode = params.get('mode');
-    setAccessIntroRequested(initialMode === 'login' || initialMode === 'register');
     const designPreviewEnabled =
       process.env.NODE_ENV !== 'production' &&
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') &&
@@ -9475,7 +9472,6 @@ export default function TechniciansPage() {
       <>
         <AuthHashHandler />
         <PublicTopNav activeHref="/tecnicos" sticky />
-        <AccessIntroVideoGate />
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
@@ -10217,7 +10213,6 @@ export default function TechniciansPage() {
     >
       <AuthHashHandler />
       <PublicTopNav activeHref="/tecnicos" sticky />
-      <AccessIntroVideoGate enabled={accessIntroRequested} />
       <div
         className={`relative overflow-hidden ${
           activeTab === 'operativo'

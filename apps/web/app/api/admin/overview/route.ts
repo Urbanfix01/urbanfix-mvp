@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminSupabase as supabase, ensureAdmin, getAuthUser } from '@/app/api/admin/_shared/auth';
+import {
+  COUNTRY_SELECTION_OPTIONS,
+  getCountryFlagCode,
+  normalizeCountryPreference,
+} from '@/lib/country-preference';
 
 const parseAmount = (value: any) => {
   const parsed = Number(value || 0);
@@ -7,6 +12,93 @@ const parseAmount = (value: any) => {
 };
 
 const cleanGeoText = (value: any) => String(value || '').trim();
+
+const normalizeGeoTextKey = (value: any) =>
+  cleanGeoText(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .toLowerCase();
+
+const COUNTRY_NAME_BY_CODE = new Map<string, string>(
+  COUNTRY_SELECTION_OPTIONS.flatMap((country): [string, string][] => {
+    const code = getCountryFlagCode(country);
+    return code ? [[code, country]] : [];
+  })
+);
+
+const COUNTRY_NAME_ALIASES: Record<string, string> = {
+  usa: 'Estados Unidos',
+  us: 'Estados Unidos',
+  'u s': 'Estados Unidos',
+  'u.s.': 'Estados Unidos',
+  'united states': 'Estados Unidos',
+  'united states of america': 'Estados Unidos',
+  america: 'Estados Unidos',
+  argentina: 'Argentina',
+  ar: 'Argentina',
+  china: 'China',
+  cn: 'China',
+  spain: 'Espana',
+  espana: 'Espana',
+  es: 'Espana',
+};
+
+const REGION_NAMES_BY_COUNTRY: Record<string, Record<string, string>> = {
+  argentina: {
+    A: 'Salta',
+    B: 'Buenos Aires',
+    C: 'Ciudad Autonoma de Buenos Aires',
+    K: 'Catamarca',
+    H: 'Chaco',
+    U: 'Chubut',
+    X: 'Cordoba',
+    W: 'Corrientes',
+    E: 'Entre Rios',
+    P: 'Formosa',
+    Y: 'Jujuy',
+    L: 'La Pampa',
+    F: 'La Rioja',
+    M: 'Mendoza',
+    N: 'Misiones',
+    Q: 'Neuquen',
+    R: 'Rio Negro',
+    J: 'San Juan',
+    D: 'San Luis',
+    Z: 'Santa Cruz',
+    S: 'Santa Fe',
+    G: 'Santiago del Estero',
+    V: 'Tierra del Fuego',
+    T: 'Tucuman',
+  },
+  china: {
+    BJ: 'Beijing',
+  },
+  espana: {
+    CT: 'Cataluna',
+  },
+};
+
+const normalizeAnalyticsCountry = (value: any) => {
+  const raw = cleanGeoText(value);
+  if (!raw) return { label: '', key: '' };
+
+  const upper = raw.toUpperCase();
+  const codeLabel = /^[A-Z]{2}$/.test(upper) ? COUNTRY_NAME_BY_CODE.get(upper) : '';
+  const aliasLabel = COUNTRY_NAME_ALIASES[normalizeGeoTextKey(raw)];
+  const normalizedLabel = codeLabel || aliasLabel || normalizeCountryPreference(raw) || raw;
+  const key = normalizeGeoTextKey(normalizedLabel);
+
+  return { label: normalizedLabel, key };
+};
+
+const normalizeAnalyticsRegion = (value: any, countryKey: string) => {
+  const raw = cleanGeoText(value);
+  if (!raw) return '';
+  const regionMap = REGION_NAMES_BY_COUNTRY[countryKey];
+  if (!regionMap) return raw;
+  return regionMap[raw.toUpperCase()] || raw;
+};
 
 type GeoBucket = { label: string; views: number; sessions: Set<string> };
 type GeoZoneBucket = GeoBucket & {
@@ -407,9 +499,10 @@ export async function GET(request: NextRequest) {
         }
 
         const geo = row?.event_context?.geo || {};
-        const countryRaw = cleanGeoText(geo.country);
-        const country = cleanGeoText(geo.country_source) === 'user_selected' ? countryRaw : countryRaw.toUpperCase();
-        const region = cleanGeoText(geo.region);
+        const countryInfo = normalizeAnalyticsCountry(geo.country);
+        const country = countryInfo.label;
+        const countryKey = countryInfo.key;
+        const region = normalizeAnalyticsRegion(geo.region, countryKey);
         const city = cleanGeoText(geo.city);
         const latitude = cleanGeoNumber(geo.latitude);
         const longitude = cleanGeoNumber(geo.longitude);
@@ -418,15 +511,15 @@ export async function GET(request: NextRequest) {
           if (sessionId) knownSessions.add(sessionId);
         }
         if (country) {
-          addGeoBucket(countryMap, country, country, sessionId);
+          addGeoBucket(countryMap, countryKey || normalizeGeoTextKey(country), country, sessionId);
         }
         if (city) {
           const cityLabel = [city, region, country].filter(Boolean).join(', ');
-          addGeoBucket(cityMap, cityLabel.toLowerCase(), cityLabel, sessionId);
+          addGeoBucket(cityMap, normalizeGeoTextKey(cityLabel), cityLabel, sessionId);
         }
         if (latitude !== null && longitude !== null) {
           const zoneLabel = [city, region, country].filter(Boolean).join(', ') || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
-          const zoneKey = `${zoneLabel.toLowerCase()}|${latitude.toFixed(2)}|${longitude.toFixed(2)}`;
+          const zoneKey = `${normalizeGeoTextKey(zoneLabel)}|${latitude.toFixed(2)}|${longitude.toFixed(2)}`;
           addGeoZone(zoneMap, zoneKey, {
             label: zoneLabel,
             country,
