@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { readLimitedJsonBody } from '@/lib/api/read-json-body';
+import { normalizeCountryPreference } from '@/lib/country-preference';
 import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const supabase = getServiceRoleClient();
@@ -55,7 +56,7 @@ const sanitizeGeoNumber = (value: string | null) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
-const getGeoContext = (request: NextRequest) => {
+const getGeoContext = (request: NextRequest, selectedCountry = '') => {
   const country = sanitizeGeoText(request.headers.get('x-vercel-ip-country'));
   const region = sanitizeGeoText(request.headers.get('x-vercel-ip-country-region'));
   const city = sanitizeGeoText(request.headers.get('x-vercel-ip-city'));
@@ -63,8 +64,16 @@ const getGeoContext = (request: NextRequest) => {
   const latitude = sanitizeGeoNumber(request.headers.get('x-vercel-ip-latitude'));
   const longitude = sanitizeGeoNumber(request.headers.get('x-vercel-ip-longitude'));
   const context: Record<string, string | number> = {};
+  const normalizedSelectedCountry = normalizeCountryPreference(selectedCountry);
 
-  if (country) context.country = country;
+  if (normalizedSelectedCountry) {
+    context.country = normalizedSelectedCountry;
+    context.country_source = 'user_selected';
+    if (country) context.infrastructure_country = country;
+  } else if (country) {
+    context.country = country;
+    context.country_source = 'infrastructure';
+  }
   if (region) context.region = region;
   if (city) context.city = city;
   if (timezone) context.timezone = timezone;
@@ -111,7 +120,8 @@ export async function POST(request: NextRequest) {
   const eventContext = sanitizeEventContext(body?.event_context);
   const referrer = (body?.referrer || '').toString().slice(0, 240);
   const userAgent = (request.headers.get('user-agent') || '').slice(0, 240);
-  const geoContext = getGeoContext(request);
+  const selectedCountry = normalizeCountryPreference(body?.selected_country);
+  const geoContext = getGeoContext(request, selectedCountry);
   const analyticsContext = {
     ...(eventType === 'funnel' ? eventContext : {}),
     ...(Object.keys(geoContext).length ? { geo: geoContext } : {}),

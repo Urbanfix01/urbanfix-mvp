@@ -3,6 +3,8 @@ import Link from 'next/link';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
 import { requireRegisteredUser } from '../../lib/auth/require-registered-user';
+import { getServerCountryPreference } from '../../lib/country-preference-server';
+import { getLaborCountrySettings } from '../../lib/labor-country-config';
 import { rubroCatalog } from '../../lib/seo/rubro-catalog';
 import { ciudades, guias } from '../../lib/seo/urbanfix-data';
 
@@ -168,6 +170,9 @@ export const revalidate = 300;
 
 export default async function PreciosManoDeObraPage() {
   await requireRegisteredUser('/precios-mano-de-obra');
+  const selectedCountry = await getServerCountryPreference();
+  const laborCountry = getLaborCountrySettings(selectedCountry);
+
   return (
     <div className={sora.className}>
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
@@ -180,13 +185,14 @@ export default async function PreciosManoDeObraPage() {
           <section className="rounded-3xl border border-white/15 bg-white/[0.04] p-6 sm:p-8 lg:p-10">
             <p className="text-[11px] uppercase tracking-[0.2em] text-white/60">Busqueda clave UrbanFix</p>
             <h1 className="mt-3 max-w-5xl text-3xl font-semibold text-white sm:text-4xl lg:text-5xl">
-              Precios de mano de obra en Argentina, por rubro, ciudad y referencia tecnica.
+              {laborCountry.laborPricingAvailable
+                ? 'Precios de mano de obra en Argentina, por rubro, ciudad y referencia tecnica.'
+                : `Precios de mano de obra para ${laborCountry.country}: base pendiente.`}
             </h1>
             <p className="mt-4 max-w-4xl text-sm leading-7 text-white/80 sm:text-base">
-              Esta pagina concentra la intencion de busqueda de quienes buscan precios de mano de obra, valores por
-              rubro, referencias para presupuestar y comparacion por ciudad. UrbanFix no muestra una tarifa universal
-              fija: organiza precios por especialidad, unidad de trabajo, zona y especificacion tecnica para que el
-              presupuesto sea mas claro.
+              {laborCountry.laborPricingAvailable
+                ? 'Esta pagina concentra la intencion de busqueda de quienes buscan precios de mano de obra, valores por rubro, referencias para presupuestar y comparacion por ciudad. UrbanFix no muestra una tarifa universal fija: organiza precios por especialidad, unidad de trabajo, zona y especificacion tecnica para que el presupuesto sea mas claro.'
+                : `${laborCountry.pendingLabel} ${laborCountry.operationalLabel}. La estructura queda preparada para que el boton de pais defina rubros, nombres y valores cuando exista una base local.`}
             </p>
 
             <div className="mt-6 flex flex-wrap gap-3">

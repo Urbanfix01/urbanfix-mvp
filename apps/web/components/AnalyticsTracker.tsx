@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId } from '../lib/analytics';
+import { getStoredCountryPreference } from '../lib/country-preference';
 const HEARTBEAT_MS = 60000;
 
 export default function AnalyticsTracker() {
@@ -37,6 +38,7 @@ export default function AnalyticsTracker() {
     const body = {
       session_id: sessionIdRef.current,
       referrer: document.referrer || '',
+      selected_country: getStoredCountryPreference() || undefined,
       ...payload,
     };
     void fetch(ANALYTICS_ENDPOINT, {

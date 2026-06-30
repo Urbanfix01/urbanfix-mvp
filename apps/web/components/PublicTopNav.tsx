@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
+import CountryMenuSelector from './CountryMenuSelector';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
 
 const navLinks = [
@@ -129,7 +130,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
 
   return (
     <header
-      className={`${sticky ? 'sticky top-0 z-50' : ''} overflow-x-clip border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm`}
+      className={`${sticky ? 'sticky top-0 z-50' : ''} overflow-visible border-b border-white/10 bg-[#2a0338]/95 backdrop-blur-sm`}
     >
       <div className="flex w-full items-center justify-between gap-2 px-2 py-2 sm:px-6">
         <a href="/" className="flex min-w-0 items-center gap-2">
@@ -172,6 +173,8 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
             </>
           )}
 
+          <CountryMenuSelector className="hidden md:inline-flex" />
+
           <button
             type="button"
             onClick={() => setMenuOpen((prev) => !prev)}
@@ -193,6 +196,7 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
             {isAuthenticated && (
               <div className="mb-2">{accountChip}</div>
             )}
+            <CountryMenuSelector className="mb-2" onChanged={() => setMenuOpen(false)} />
             {navLinks.map((link) => (
               <a
                 key={link.label}

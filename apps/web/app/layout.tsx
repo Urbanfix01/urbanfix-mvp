@@ -5,6 +5,7 @@ import "./globals.css";
 import AnalyticsTracker from "../components/AnalyticsTracker";
 import AuthHashHandler from "../components/AuthHashHandler";
 import AuthSessionBridge from "../components/AuthSessionBridge";
+import CountryEntryGate from "../components/CountryEntryGate";
 import PageTransition from "../components/PageTransition";
 import PublicFooter from "../components/PublicFooter";
 
@@ -56,6 +57,7 @@ export default function RootLayout({
       <body className={inter.className}>
         <AuthHashHandler />
         <AuthSessionBridge />
+        <CountryEntryGate />
         <AnalyticsTracker />
         <PageTransition>{children}</PageTransition>
         <PublicFooter />

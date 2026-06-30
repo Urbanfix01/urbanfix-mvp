@@ -2,7 +2,9 @@ import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 import PublicTopNav from '../../components/PublicTopNav';
 import { requireRegisteredUser } from '../../lib/auth/require-registered-user';
+import { getServerCountryPreference } from '../../lib/country-preference-server';
 import { laborPriceIndex } from '../../lib/labor-price-index';
+import { getLaborCountrySettings } from '../../lib/labor-country-config';
 import { getRubroTwemojiByName } from '../../lib/seo/rubro-icons';
 import { getCatalogRubrosOverview } from '../../lib/seo/rubro-prices';
 
@@ -23,7 +25,9 @@ export const revalidate = 300;
 
 export default async function RubrosPage() {
   await requireRegisteredUser('/rubros');
-  const rubrosList = await getCatalogRubrosOverview();
+  const selectedCountry = await getServerCountryPreference();
+  const laborCountry = getLaborCountrySettings(selectedCountry);
+  const rubrosList = await getCatalogRubrosOverview(selectedCountry);
 
   return (
     <div className={sora.className}>
@@ -38,40 +42,63 @@ export default async function RubrosPage() {
                   Indice de aumento INDEC
                 </p>
                 <h1 className="mt-1 text-xl font-semibold text-white sm:text-2xl">
-                  Mano de obra actualizada por {laborPriceIndex.sourceLabel}
+                  {laborCountry.laborPricingAvailable
+                    ? `Mano de obra actualizada para ${laborCountry.country} por ${laborPriceIndex.sourceLabel}`
+                    : `Mano de obra pendiente para ${laborCountry.country}`}
                 </h1>
+                <p className="mt-2 text-sm leading-6 text-white/68">
+                  {laborCountry.laborPricingAvailable
+                    ? 'Los rubros y valores vigentes corresponden al pais seleccionado.'
+                    : `${laborCountry.pendingLabel} ${laborCountry.operationalLabel}.`}
+                </p>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap md:justify-end">
-                <div className="rounded-2xl border border-white/12 bg-black/20 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Variacion mensual</p>
-                  <p className="mt-1 text-xl font-semibold text-white">
-                    +{laborPriceIndex.monthlyPercent.toLocaleString('es-AR')}%
-                  </p>
+              {laborCountry.laborPricingAvailable ? (
+                <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap md:justify-end">
+                  <div className="rounded-2xl border border-white/12 bg-black/20 px-4 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Variacion mensual</p>
+                    <p className="mt-1 text-xl font-semibold text-white">
+                      +{laborPriceIndex.monthlyPercent.toLocaleString('es-AR')}%
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-[#ff8f1f]/40 bg-[#ff8f1f]/12 px-4 py-3">
+                    <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Ajuste aplicado</p>
+                    <p className="mt-1 text-xl font-semibold text-[#ffbf7a]">
+                      +{laborPriceIndex.accumulatedPercent.toLocaleString('es-AR')}%
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-2xl border border-[#ff8f1f]/40 bg-[#ff8f1f]/12 px-4 py-3">
-                  <p className="text-[10px] uppercase tracking-[0.14em] text-white/45">Ajuste aplicado</p>
-                  <p className="mt-1 text-xl font-semibold text-[#ffbf7a]">
-                    +{laborPriceIndex.accumulatedPercent.toLocaleString('es-AR')}%
-                  </p>
+              ) : (
+                <div className="rounded-2xl border border-[#ff8f1f]/35 bg-[#ff8f1f]/10 px-4 py-3 text-sm text-white/78">
+                  Cuando carguemos la base de {laborCountry.country}, este selector cambiara rubros, nombres y valores
+                  sin tocar la estructura actual.
                 </div>
-              </div>
+              )}
 
               <div className="rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm text-white/75">
                 <p>
-                  Periodo: <span className="font-semibold text-white">{laborPriceIndex.periodLabel}</span>
+                  Pais: <span className="font-semibold text-white">{laborCountry.country}</span>
                 </p>
-                <p>
-                  Actualizado: <span className="font-semibold text-white">{laborPriceIndex.publishedAtLabel}</span>
-                </p>
-                <a
-                  href={laborPriceIndex.sourceUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-1 inline-flex text-xs font-semibold text-[#ffbf7a] transition hover:text-white"
-                >
-                  Fuente INDEC
-                </a>
+                {laborCountry.laborPricingAvailable ? (
+                  <>
+                    <p>
+                      Periodo: <span className="font-semibold text-white">{laborPriceIndex.periodLabel}</span>
+                    </p>
+                    <p>
+                      Actualizado: <span className="font-semibold text-white">{laborPriceIndex.publishedAtLabel}</span>
+                    </p>
+                    <a
+                      href={laborPriceIndex.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="mt-1 inline-flex text-xs font-semibold text-[#ffbf7a] transition hover:text-white"
+                    >
+                      Fuente INDEC
+                    </a>
+                  </>
+                ) : (
+                  <p className="mt-1 text-xs text-[#ffbf7a]">{laborCountry.operationalLabel}</p>
+                )}
               </div>
             </div>
           </section>
@@ -131,7 +158,9 @@ export default async function RubrosPage() {
 
             {rubrosList.length === 0 && (
               <div className="p-6 text-sm text-white/70">
-                No hay rubros activos cargados en la base de datos.
+                {laborCountry.laborPricingAvailable
+                  ? 'No hay rubros activos cargados en la base de datos.'
+                  : `Todavia no hay rubros ni valores de mano de obra cargados para ${laborCountry.country}.`}
               </div>
             )}
           </section>

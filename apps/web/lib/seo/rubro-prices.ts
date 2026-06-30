@@ -5,6 +5,7 @@ import {
   normalizeTechnicalNotesText,
 } from '../master-items';
 import { getUpdatedLaborPrice, laborPriceIndex } from '../labor-price-index';
+import { formatLaborCurrency, getLaborCountrySettings } from '../labor-country-config';
 import { hasSupabaseConfig, supabase } from '../supabase/supabase';
 import { rubros, type CiudadKey, type RubroKey } from './urbanfix-data';
 import { getCatalogRubroBySlug, rubroCatalog, type RubroCatalogItem } from './rubro-catalog';
@@ -440,7 +441,10 @@ const getCatalogRows = async (rubro: RubroCatalogItem) => {
   );
 };
 
-export const getCatalogRubrosOverview = cache(async (): Promise<CatalogRubroOverview[]> => {
+export const getCatalogRubrosOverview = cache(async (country?: string): Promise<CatalogRubroOverview[]> => {
+  const countrySettings = getLaborCountrySettings(country);
+  if (!countrySettings.rubroCatalogAvailable) return [];
+
   return Promise.all(rubroCatalog.map(async (rubro) => {
     const selected = await getCatalogRows(rubro);
     const baseReference = getAverageSuggestedPrice(selected);
@@ -459,8 +463,18 @@ export const getCatalogRubrosOverview = cache(async (): Promise<CatalogRubroOver
 
 export const getCatalogRubroPriceReferences = async (
   rubroSlug: string,
-  ciudad?: CiudadKey
+  ciudad?: CiudadKey,
+  country?: string
 ): Promise<RubroPriceData> => {
+  const countrySettings = getLaborCountrySettings(country);
+  if (!countrySettings.laborPricingAvailable) {
+    return {
+      items: [],
+      lastUpdatedAt: null,
+      city: ciudad || null,
+    };
+  }
+
   const rubro = getCatalogRubroBySlug(rubroSlug);
   if (!rubro) {
     return {
@@ -481,6 +495,9 @@ export const getCatalogRubroPriceReferences = async (
 };
 
 export const formatArs = (value: number) => `$${value.toLocaleString('es-AR')}`;
+
+export const formatCountryLaborPrice = (value: number, country?: string) =>
+  formatLaborCurrency(value, country);
 
 export const formatDateAr = (isoDate: string | null) => {
   if (!isoDate) return 'Sin fecha';

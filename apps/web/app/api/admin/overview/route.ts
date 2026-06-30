@@ -407,7 +407,8 @@ export async function GET(request: NextRequest) {
         }
 
         const geo = row?.event_context?.geo || {};
-        const country = cleanGeoText(geo.country).toUpperCase();
+        const countryRaw = cleanGeoText(geo.country);
+        const country = cleanGeoText(geo.country_source) === 'user_selected' ? countryRaw : countryRaw.toUpperCase();
         const region = cleanGeoText(geo.region);
         const city = cleanGeoText(geo.city);
         const latitude = cleanGeoNumber(geo.latitude);
