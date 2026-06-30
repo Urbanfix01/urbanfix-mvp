@@ -3,8 +3,6 @@ import { Sora } from 'next/font/google';
 import AuthHashHandler from '../components/AuthHashHandler';
 import FloatingWhatsappChannelButton from '../components/home/FloatingWhatsappChannelButton';
 import HomeAnimatedHero from '../components/home/HomeAnimatedHero';
-import HomePhoneScrollReveal from '../components/home/HomePhoneScrollReveal';
-import HomeScrollShowcase from '../components/home/HomeScrollShowcase';
 import PublicTopNav from '../components/PublicTopNav';
 
 const sora = Sora({
@@ -29,10 +27,6 @@ export default function HomePage() {
         <PublicTopNav activeHref="/" />
 
         <HomeAnimatedHero />
-
-        <HomePhoneScrollReveal />
-
-        <HomeScrollShowcase />
       </main>
       <FloatingWhatsappChannelButton href={WHATSAPP_CHANNEL_URL} />
     </div>
