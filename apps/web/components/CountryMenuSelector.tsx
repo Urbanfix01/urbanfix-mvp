@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { usePathname, useRouter } from 'next/navigation';
 
 import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId } from '../lib/analytics';
@@ -52,6 +53,7 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY_NAME);
   const [isOpen, setIsOpen] = useState(false);
   const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
@@ -95,6 +97,7 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
     const closeOnOutsidePress = (event: MouseEvent | TouchEvent) => {
       const target = event.target;
       if (target instanceof Node && containerRef.current?.contains(target)) return;
+      if (target instanceof Node && menuRef.current?.contains(target)) return;
       setIsOpen(false);
     };
 
@@ -144,6 +147,48 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
     });
   };
 
+  const countryMenu = isOpen ? (
+    <div
+      className="fixed inset-0 z-[10000]"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setIsOpen(false);
+      }}
+    >
+      <div
+        ref={menuRef}
+        className="absolute w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl"
+        style={{ top: menuPosition.top, right: menuPosition.right }}
+      >
+        <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7b6688]">
+          Pais de ingreso
+        </p>
+        <div role="listbox" aria-label="Paises disponibles" className="max-h-[360px] overflow-y-auto p-1">
+          {COUNTRY_SELECTION_OPTIONS.map((country) => {
+            const isSelected = selectedCountry === country;
+
+            return (
+              <button
+                key={country}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => handleCountryChange(country)}
+                className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
+                  isSelected
+                    ? 'bg-[#fff2e4] text-[#2a0338]'
+                    : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
+                }`}
+              >
+                <CountryFlag country={country} compact />
+                <span className="min-w-0 flex-1 truncate">{country}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   return (
     <div ref={containerRef} className={`relative inline-flex ${className}`}>
       <button
@@ -159,39 +204,7 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
         <CountryFlag country={selectedCountry} />
       </button>
 
-      {isOpen ? (
-        <div
-          className="fixed z-[9999] w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl"
-          style={{ top: menuPosition.top, right: menuPosition.right }}
-        >
-          <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7b6688]">
-            Pais de ingreso
-          </p>
-          <div role="listbox" aria-label="Paises disponibles" className="max-h-[360px] overflow-y-auto p-1">
-            {COUNTRY_SELECTION_OPTIONS.map((country) => {
-              const isSelected = selectedCountry === country;
-
-              return (
-                <button
-                  key={country}
-                  type="button"
-                  role="option"
-                  aria-selected={isSelected}
-                  onClick={() => handleCountryChange(country)}
-                  className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-semibold transition ${
-                    isSelected
-                      ? 'bg-[#fff2e4] text-[#2a0338]'
-                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-950'
-                  }`}
-                >
-                  <CountryFlag country={country} compact />
-                  <span className="min-w-0 flex-1 truncate">{country}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
+      {typeof document !== 'undefined' && countryMenu ? createPortal(countryMenu, document.body) : null}
     </div>
   );
 }

@@ -10249,7 +10249,7 @@ export default function TechniciansPage() {
                     className={`flex items-center ${
                       isDesktopNavExpanded
                         ? 'gap-3 rounded-[18px] px-2.5 py-2'
-                        : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                        : 'h-10 w-10 justify-center rounded-[14px]'
                     }`}
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[#ffcf93]/25 bg-[#ff8f1f] text-sm font-black text-[#2a0338] shadow-[0_14px_28px_-22px_rgba(255,143,31,0.9)]">
@@ -10282,7 +10282,7 @@ export default function TechniciansPage() {
                           className={`group relative flex items-center transition duration-200 ${
                             isDesktopNavExpanded
                               ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
-                              : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                              : 'h-10 w-10 justify-center rounded-[14px]'
                           } ${
                             isActive
                               ? 'bg-white/[0.075] text-white'
@@ -10328,7 +10328,7 @@ export default function TechniciansPage() {
                       className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
                           ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
-                          : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                          : 'h-10 w-10 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.055] text-white/[0.68] transition group-hover:bg-white/[0.09] group-hover:text-white">
@@ -10346,7 +10346,7 @@ export default function TechniciansPage() {
                       className={`group relative flex items-center text-white/[0.82] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white ${
                         isDesktopNavExpanded
                           ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
-                          : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                          : 'h-10 w-10 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338] shadow-[0_12px_24px_-18px_rgba(255,140,26,0.9)] transition group-hover:brightness-105">

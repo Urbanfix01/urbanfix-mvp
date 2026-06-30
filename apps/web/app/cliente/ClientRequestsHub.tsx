@@ -2522,7 +2522,7 @@ export default function ClientRequestsHub() {
               <div className={isDesktopNavExpanded ? 'px-3 pb-2 pt-4' : 'px-2 pb-2 pt-4'}>
                 <div
                   className={`flex items-center ${
-                    isDesktopNavExpanded ? 'gap-3 rounded-[18px] px-2.5 py-2' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                    isDesktopNavExpanded ? 'gap-3 rounded-[18px] px-2.5 py-2' : 'h-10 w-10 justify-center rounded-[14px]'
                   }`}
                 >
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] border border-[#ffcf93]/25 bg-[#ff8f1f] text-sm font-black text-[#2a0338] shadow-[0_14px_28px_-22px_rgba(255,143,31,0.9)]">
@@ -2544,7 +2544,7 @@ export default function ClientRequestsHub() {
                     title={!isDesktopNavExpanded ? 'Solicitud' : undefined}
                     onClick={openRequestSection}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
-                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
                     } ${activeClientView === 'request' ? 'text-white' : 'text-white/[0.72]'}`}
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
@@ -2560,7 +2560,7 @@ export default function ClientRequestsHub() {
                     title={!isDesktopNavExpanded ? 'Mapa' : undefined}
                     onClick={openClientRequestsMap}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
-                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
                     } ${activeClientView === 'map' ? 'text-white' : 'text-white/[0.72]'}`}
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
@@ -2576,7 +2576,7 @@ export default function ClientRequestsHub() {
                     title={!isDesktopNavExpanded ? 'Mensajes' : undefined}
                     onClick={openClientMessages}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
-                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
                     } ${activeClientView === 'messages' ? 'text-white' : 'text-white/[0.72]'}`}
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
@@ -2594,7 +2594,7 @@ export default function ClientRequestsHub() {
                     title={!isDesktopNavExpanded ? 'Técnicos' : undefined}
                     onClick={openClientShowcase}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
-                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
                     } ${activeClientView === 'showcase' ? 'text-white' : 'text-white/[0.72]'}`}
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
@@ -2610,7 +2610,7 @@ export default function ClientRequestsHub() {
                     title={!isDesktopNavExpanded ? 'Perfil' : undefined}
                     onClick={() => openClientProfileSection(false)}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
-                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
                     } ${activeClientView === 'profile' ? 'text-white' : 'text-white/[0.72]'}`}
                   >
                     <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
@@ -2629,7 +2629,7 @@ export default function ClientRequestsHub() {
                   title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                   onClick={handleLogout}
                   className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
-                    isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'mx-auto h-10 w-10 justify-center rounded-[14px]'
+                    isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
                   }`}
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338] transition group-hover:brightness-105">
@@ -2665,7 +2665,7 @@ export default function ClientRequestsHub() {
                       className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
                           ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          : 'h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
@@ -2681,7 +2681,7 @@ export default function ClientRequestsHub() {
                       className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
                           ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          : 'h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
@@ -2699,7 +2699,7 @@ export default function ClientRequestsHub() {
                       className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
                           ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          : 'h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">

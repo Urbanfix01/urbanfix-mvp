@@ -6781,7 +6781,7 @@ export default function AdminPage() {
                           className={`group relative flex items-center transition ${
                             isDesktopNavExpanded
                               ? 'min-h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 py-1.5 text-left'
-                              : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                              : 'h-9 w-9 justify-center rounded-[14px]'
                           } ${
                             isActive
                               ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
@@ -6847,7 +6847,7 @@ export default function AdminPage() {
                           className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                             isDesktopNavExpanded
                               ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                              : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                              : 'h-9 w-9 justify-center rounded-[14px]'
                           }`}
                         >
                           <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
@@ -6866,7 +6866,7 @@ export default function AdminPage() {
                       className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
                           ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          : 'h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
@@ -6883,7 +6883,7 @@ export default function AdminPage() {
                       className={`group relative flex items-center text-white transition hover:bg-white/10 hover:text-white ${
                         isDesktopNavExpanded
                           ? 'h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
-                          : 'mx-auto h-9 w-9 justify-center rounded-[14px]'
+                          : 'h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
                       <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-[#2a0338] shadow-[0_16px_28px_-18px_rgba(255,140,26,0.95)] transition group-hover:brightness-105">
