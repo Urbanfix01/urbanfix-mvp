@@ -8,6 +8,7 @@ const WHATSAPP_PHONE_URL = 'https://wa.me/5491170084556';
 
 const platformLinks = [
   { label: 'Servicios', href: '/urbanfix' },
+  { label: 'Comunidad', href: '/comunidad' },
   { label: 'Cliente', href: '/cliente' },
   { label: 'Técnicos', href: '/tecnicos' },
   { label: 'Solicitar demo', href: '/descargar-app' },
