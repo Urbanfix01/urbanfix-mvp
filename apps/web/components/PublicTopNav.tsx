@@ -17,6 +17,7 @@ const navLinks = [
 
 type PublicTopNavProps = {
   activeHref?: string;
+  showNavigationLinks?: boolean;
   sticky?: boolean;
 };
 
@@ -32,7 +33,7 @@ const accountAreaHrefs = new Set(['/tecnicos', '/tecnico-panel', '/cliente']);
 const platformButtonClass =
   'inline-flex rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] transition';
 
-export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNavProps) {
+export default function PublicTopNav({ activeHref, showNavigationLinks = false, sticky = false }: PublicTopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<AuthNavProfile | null>(null);
@@ -143,19 +144,21 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
         </a>
 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
-          <nav className="hidden items-center gap-4 xl:flex">
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                className={`text-xs font-semibold transition hover:text-white ${
-                  activeHref === link.href ? 'text-white' : 'text-white/85'
-                }`}
-              >
-                {link.label}
-              </a>
-            ))}
-          </nav>
+          {showNavigationLinks && (
+            <nav className="hidden items-center gap-4 xl:flex">
+              {navLinks.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  className={`text-xs font-semibold transition hover:text-white ${
+                    activeHref === link.href ? 'text-white' : 'text-white/85'
+                  }`}
+                >
+                  {link.label}
+                </a>
+              ))}
+            </nav>
+          )}
 
           {isAuthenticated ? (
             <div className="hidden xl:block">{accountChip}</div>
@@ -198,18 +201,19 @@ export default function PublicTopNav({ activeHref, sticky = false }: PublicTopNa
               <div className="mb-2">{accountChip}</div>
             )}
             <CountryMenuSelector className="mb-2" onChanged={() => setMenuOpen(false)} />
-            {navLinks.map((link) => (
-              <a
-                key={link.label}
-                href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className={`rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-white/10 ${
-                  activeHref === link.href ? 'bg-white/10 text-white' : 'text-white/90'
-                }`}
-              >
-                {link.label}
-              </a>
-            ))}
+            {showNavigationLinks &&
+              navLinks.map((link) => (
+                <a
+                  key={link.label}
+                  href={link.href}
+                  onClick={() => setMenuOpen(false)}
+                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-white/10 ${
+                    activeHref === link.href ? 'bg-white/10 text-white' : 'text-white/90'
+                  }`}
+                >
+                  {link.label}
+                </a>
+              ))}
             {!isAuthenticated && (
               <>
                 <a

@@ -6732,7 +6732,7 @@ export default function AdminPage() {
           </form>
         </div>
       )}
-      <PublicTopNav sticky />
+      <PublicTopNav sticky showNavigationLinks />
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(42,3,56,0.16),_transparent_52%)]" />
         <div className="absolute inset-0 bg-[linear-gradient(130deg,rgba(255,251,246,0.94)_0%,rgba(247,239,246,0.98)_52%,rgba(241,235,245,0.94)_100%)]" />
