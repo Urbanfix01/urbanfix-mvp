@@ -2401,6 +2401,7 @@ const buildQuoteItemImagePath = (userId: string, itemId: string, fileName: strin
     .slice(2)}-${sanitizeFileName(fileName)}`;
 
 const isEmailLike = (value: string) => /.+@.+\..+/.test(value);
+const isWhatsappLike = (value: string) => value.replace(/\D/g, '').length >= 8;
 
 const resolveLogoPresentation = (ratio: number, shape?: string | null) => {
   const normalized = (shape || 'auto').toLowerCase();
@@ -3887,6 +3888,15 @@ export default function TechniciansPage() {
         }
 
         resolvedProfile = createdProfile || fallback;
+      }
+
+      const sessionEmail = String(session.user.email || '').trim().toLowerCase();
+      if (resolvedProfile && sessionEmail && !String(resolvedProfile.email || '').trim()) {
+        const profileEmailPatch = {
+          email: sessionEmail,
+        };
+        resolvedProfile = { ...resolvedProfile, ...profileEmailPatch };
+        void supabase.from('profiles').update(profileEmailPatch).eq('id', session.user.id);
       }
 
       setProfile(resolvedProfile);
@@ -8576,7 +8586,7 @@ export default function TechniciansPage() {
     try {
       const safeEmail = email.trim().toLowerCase();
       const normalizedAuthWhatsapp = authWhatsapp.trim();
-      const hasAuthWhatsapp = normalizedAuthWhatsapp.replace(/\D/g, '').length >= 8;
+      const hasAuthWhatsapp = isWhatsappLike(normalizedAuthWhatsapp);
       if (!safeEmail || !password) {
         throw new Error('Ingresa correo y contraseña.');
       }
@@ -8661,7 +8671,7 @@ export default function TechniciansPage() {
     const business = String(profile?.business_name || '').trim();
     const email = String(profile?.email || session?.user?.email || '').trim();
     const phone = String(profile?.phone || '').trim();
-    const hasContact = email.includes('@') || Boolean(phone);
+    const hasContact = isEmailLike(email) || isWhatsappLike(phone);
     const hasExactMapPoint = Boolean(technicianLocationResult?.isValid && technicianLocationResult?.precision === 'exact');
     if (!full) missing.push('Nombre y apellido');
     if (!business) missing.push('Nombre del negocio');
@@ -8682,7 +8692,7 @@ export default function TechniciansPage() {
 
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
-    const hasContact = profileForm.email.trim().includes('@') || Boolean(profileForm.phone.trim());
+    const hasContact = isEmailLike(profileForm.email.trim()) || isWhatsappLike(profileForm.phone.trim());
     if (!profileForm.fullName.trim()) missing.push('Nombre y apellido');
     if (!profileForm.businessName.trim()) missing.push('Nombre del negocio');
     if (!hasContact) missing.push('Mail o WhatsApp');
@@ -8690,7 +8700,7 @@ export default function TechniciansPage() {
     return missing;
   }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.email, profileForm.fullName, profileForm.phone]);
 
-  const formHasContactChannel = profileForm.email.trim().includes('@') || Boolean(profileForm.phone.trim());
+  const formHasContactChannel = isEmailLike(profileForm.email.trim()) || isWhatsappLike(profileForm.phone.trim());
   const canSaveRequiredProfile =
     Boolean(profileForm.fullName.trim()) &&
     Boolean(profileForm.businessName.trim()) &&
@@ -9819,15 +9829,27 @@ export default function TechniciansPage() {
                     </div>
                   </div>
 
-                  <div>
-                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">WhatsApp de contacto</label>
-                    <input
-                      value={profileForm.phone}
-                      onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
-                      placeholder="+54 9 ..."
-                      className={authInputClass}
-                    />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Mail de contacto</label>
+                      <input
+                        value={profileForm.email}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                        type="email"
+                        placeholder="tu@email.com"
+                        className={authInputClass}
+                      />
                     </div>
+                    <div>
+                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">WhatsApp de contacto</label>
+                      <input
+                        value={profileForm.phone}
+                        onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                        placeholder="+54 9 ..."
+                        className={authInputClass}
+                      />
+                    </div>
+                  </div>
                   </div>
 
                   <div className="space-y-4 border-t border-slate-200/70 pt-5">

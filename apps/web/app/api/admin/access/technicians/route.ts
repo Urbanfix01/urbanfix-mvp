@@ -73,6 +73,31 @@ const listAllAuthUsers = async () => {
   return users;
 };
 
+const getMetadataText = (metadata: Record<string, unknown>, keys: string[]) => {
+  for (const key of keys) {
+    const value = toText(metadata[key]);
+    if (value) return value;
+  }
+  return '';
+};
+
+const enrichProfileWithAuthUser = (profile: any, authUser: any | undefined) => {
+  if (!authUser) return profile;
+  const metadata = (authUser.user_metadata || {}) as Record<string, unknown>;
+  const authEmail = toText(authUser.email);
+  const fullName = getMetadataText(metadata, ['full_name', 'name']);
+  const businessName = getMetadataText(metadata, ['business_name', 'company_name']);
+  const phone = getMetadataText(metadata, ['phone', 'whatsapp', 'whatsapp_phone']);
+
+  return {
+    ...profile,
+    email: toText(profile.email) || authEmail || null,
+    full_name: toText(profile.full_name) || fullName || null,
+    business_name: toText(profile.business_name) || businessName || null,
+    phone: toText(profile.phone) || phone || null,
+  };
+};
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
@@ -108,7 +133,9 @@ export async function GET(request: NextRequest) {
   try {
     const authUsers = await listAllAuthUsers();
     const audienceByUserId = new Map<string, string>();
+    const authUserById = new Map<string, any>();
     authUsers.forEach((authUser) => {
+      authUserById.set(authUser.id, authUser);
       const explicit = getExplicitAudience((authUser.user_metadata || {}) as Record<string, unknown>);
       if (explicit) audienceByUserId.set(authUser.id, explicit);
     });
@@ -118,7 +145,7 @@ export async function GET(request: NextRequest) {
       if (explicit) return explicit === audience;
       if (audience === 'empresa') return false;
       return profile.access_granted === true || Boolean(toText(profile.specialties)) || Boolean(toText(profile.business_name));
-    });
+    }).map((profile: any) => enrichProfileWithAuthUser(profile, authUserById.get(profile.id)));
 
     return NextResponse.json({ profiles });
   } catch (authError: any) {
