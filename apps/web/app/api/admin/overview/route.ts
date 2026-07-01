@@ -117,6 +117,7 @@ type AnalyticsAccountBucket = {
   lastPath: string;
 };
 type AnalyticsDeviceType = 'mobile' | 'tablet' | 'desktop' | 'bot' | 'unknown';
+type GeoCoordinate = { latitude: number; longitude: number };
 
 const ANALYTICS_DEVICE_LABELS: Record<AnalyticsDeviceType, string> = {
   mobile: 'Teléfono',
@@ -138,6 +139,60 @@ const getAnalyticsDeviceType = (userAgent?: any): AnalyticsDeviceType => {
 const cleanGeoNumber = (value: any) => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const GEO_COORDINATE_FALLBACKS: Record<string, GeoCoordinate> = {
+  argentina: { latitude: -34.6037, longitude: -58.3816 },
+  angola: { latitude: -8.839, longitude: 13.2894 },
+  china: { latitude: 39.9042, longitude: 116.4074 },
+  cuba: { latitude: 21.5218, longitude: -77.7812 },
+  espana: { latitude: 40.4168, longitude: -3.7038 },
+  'estados unidos': { latitude: 39.8283, longitude: -98.5795 },
+  libia: { latitude: 26.3351, longitude: 17.2283 },
+  nicaragua: { latitude: 12.8654, longitude: -85.2072 },
+  uruguay: { latitude: -34.9011, longitude: -56.1645 },
+  'beijing, beijing, china': { latitude: 39.9042, longitude: 116.4074 },
+  'beijing, china': { latitude: 39.9042, longitude: 116.4074 },
+  'cafayate, salta, argentina': { latitude: -26.0731, longitude: -65.9761 },
+  'cafayate, argentina': { latitude: -26.0731, longitude: -65.9761 },
+  'havana, 03, cuba': { latitude: 23.1136, longitude: -82.3666 },
+  'havana, cuba': { latitude: 23.1136, longitude: -82.3666 },
+  'la habana, cuba': { latitude: 23.1136, longitude: -82.3666 },
+  'managua, nicaragua': { latitude: 12.114, longitude: -86.2362 },
+  'mendoza, mendoza, argentina': { latitude: -32.8895, longitude: -68.8458 },
+  'mendoza, argentina': { latitude: -32.8895, longitude: -68.8458 },
+  'ramos mejia, buenos aires, argentina': { latitude: -34.6472, longitude: -58.5634 },
+  'ramos mejia, argentina': { latitude: -34.6472, longitude: -58.5634 },
+  'san jose, ca, estados unidos': { latitude: 37.3382, longitude: -121.8863 },
+  'san jose, estados unidos': { latitude: 37.3382, longitude: -121.8863 },
+  'san salvador de jujuy, jujuy, argentina': { latitude: -24.1858, longitude: -65.2995 },
+  'san salvador de jujuy, argentina': { latitude: -24.1858, longitude: -65.2995 },
+};
+
+const getGeoCoordinateFallback = ({
+  country,
+  region,
+  city,
+}: {
+  country: string;
+  region: string;
+  city: string;
+}) => {
+  const candidates = [
+    [city, region, country].filter(Boolean).join(', '),
+    [city, country].filter(Boolean).join(', '),
+    city,
+    country,
+  ]
+    .map((item) => normalizeGeoTextKey(item))
+    .filter(Boolean);
+
+  for (const key of candidates) {
+    const fallback = GEO_COORDINATE_FALLBACKS[key];
+    if (fallback) return fallback;
+  }
+
+  return null;
 };
 
 const addGeoBucket = (
@@ -506,6 +561,13 @@ export async function GET(request: NextRequest) {
         const city = cleanGeoText(geo.city);
         const latitude = cleanGeoNumber(geo.latitude);
         const longitude = cleanGeoNumber(geo.longitude);
+        const hasRawCoordinate = latitude !== null && longitude !== null;
+        const fallbackCoordinate =
+          !hasRawCoordinate
+            ? getGeoCoordinateFallback({ country, region, city })
+            : null;
+        const zoneLatitude = hasRawCoordinate ? latitude : fallbackCoordinate?.latitude ?? null;
+        const zoneLongitude = hasRawCoordinate ? longitude : fallbackCoordinate?.longitude ?? null;
 
         if (country || region || city) {
           if (sessionId) knownSessions.add(sessionId);
@@ -517,16 +579,16 @@ export async function GET(request: NextRequest) {
           const cityLabel = [city, region, country].filter(Boolean).join(', ');
           addGeoBucket(cityMap, normalizeGeoTextKey(cityLabel), cityLabel, sessionId);
         }
-        if (latitude !== null && longitude !== null) {
-          const zoneLabel = [city, region, country].filter(Boolean).join(', ') || `${latitude.toFixed(2)}, ${longitude.toFixed(2)}`;
-          const zoneKey = `${normalizeGeoTextKey(zoneLabel)}|${latitude.toFixed(2)}|${longitude.toFixed(2)}`;
+        if (zoneLatitude !== null && zoneLongitude !== null) {
+          const zoneLabel = [city, region, country].filter(Boolean).join(', ') || `${zoneLatitude.toFixed(2)}, ${zoneLongitude.toFixed(2)}`;
+          const zoneKey = `${normalizeGeoTextKey(zoneLabel)}|${zoneLatitude.toFixed(2)}|${zoneLongitude.toFixed(2)}`;
           addGeoZone(zoneMap, zoneKey, {
             label: zoneLabel,
             country,
             region,
             city,
-            latitude,
-            longitude,
+            latitude: zoneLatitude,
+            longitude: zoneLongitude,
             sessionId,
           });
         }
