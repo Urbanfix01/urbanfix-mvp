@@ -664,6 +664,7 @@ export default function ClientRequestsHub() {
   const addressLookupTimerRef = useRef<number | null>(null);
   const addressLookupSequenceRef = useRef(0);
   const authClientMetadataSyncedRef = useRef('');
+  const welcomeWhatsAppNoticeInFlightRef = useRef(false);
   const requestDraftRestoredKeyRef = useRef('');
   const [session, setSession] = useState<Session | null>(null);
   const [, setLoadingSession] = useState(true);
@@ -1354,6 +1355,32 @@ export default function ClientRequestsHub() {
     }
   };
 
+  const notifyAccountWelcomeWhatsapp = async (accessToken?: string | null, source = 'client_profile_save') => {
+    const token = accessToken || session?.access_token;
+    if (!token) return false;
+    if (welcomeWhatsAppNoticeInFlightRef.current) return false;
+    welcomeWhatsAppNoticeInFlightRef.current = true;
+
+    try {
+      const response = await fetch('/api/account/welcome-whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ audience: 'cliente', source }),
+      });
+      if (!response.ok) return false;
+      const payload = (await response.json().catch(() => null)) as { sent?: boolean } | null;
+      return payload?.sent === true;
+    } catch (error) {
+      console.warn('No se pudo enviar el WhatsApp de bienvenida al cliente.', error);
+      return false;
+    } finally {
+      welcomeWhatsAppNoticeInFlightRef.current = false;
+    }
+  };
+
   const handlePasswordRecovery = async () => {
     setAuthError('');
     setAuthNotice('');
@@ -1456,9 +1483,14 @@ export default function ClientRequestsHub() {
           });
           if (profileError) throw profileError;
         }
+        const welcomeSent = signUpData?.session?.access_token
+          ? await notifyAccountWelcomeWhatsapp(signUpData.session.access_token, 'client_register')
+          : false;
         setAuthNotice(
           signUpData?.session
-            ? 'Cuenta creada. Tu perfil de cliente ya quedó guardado.'
+            ? welcomeSent
+              ? 'Cuenta creada. Tu perfil de cliente ya quedó guardado y te enviamos un WhatsApp de bienvenida.'
+              : 'Cuenta creada. Tu perfil de cliente ya quedó guardado.'
             : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se completará al iniciar sesión.'
         );
         setPassword('');
@@ -1495,9 +1527,12 @@ export default function ClientRequestsHub() {
       const { error } = await supabase.from('profiles').upsert(payload);
       if (error) throw error;
 
+      const welcomeSent = await notifyAccountWelcomeWhatsapp(session.access_token, 'client_profile_save');
       setClientProfileForm((prev) => ({ ...prev, phone }));
       setSavedClientProfilePhone(phone);
-      setClientProfileNotice('WhatsApp guardado.');
+      setClientProfileNotice(
+        welcomeSent ? 'WhatsApp guardado. Te enviamos un mensaje de bienvenida.' : 'WhatsApp guardado.'
+      );
       await loadNearbyTechnicians(form.radiusKm);
     } catch (error: any) {
       setClientProfileError(error?.message || 'No se pudo guardar tu perfil.');

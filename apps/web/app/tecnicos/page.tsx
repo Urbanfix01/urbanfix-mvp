@@ -3263,6 +3263,7 @@ export default function TechniciansPage() {
   const lastAttemptedProfileSignatureRef = useRef('');
   const profilePersistInFlightRef = useRef(false);
   const registrationWhatsAppNoticeInFlightRef = useRef(false);
+  const welcomeWhatsAppNoticeInFlightRef = useRef(false);
   const autoSaveTimerRef = useRef<number | null>(null);
   const autoSaveMessageTimerRef = useRef<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
@@ -7637,6 +7638,36 @@ export default function TechniciansPage() {
     }
   };
 
+  const notifyAccountWelcomeWhatsapp = async (
+    accessToken?: string | null,
+    audience: 'tecnico' | 'empresa' = selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico',
+    source = 'technical_profile_save'
+  ) => {
+    const token = accessToken || session?.access_token;
+    if (!token) return false;
+    if (welcomeWhatsAppNoticeInFlightRef.current) return false;
+    welcomeWhatsAppNoticeInFlightRef.current = true;
+
+    try {
+      const response = await fetch('/api/account/welcome-whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ audience, source }),
+      });
+      if (!response.ok) return false;
+      const payload = (await response.json().catch(() => null)) as { sent?: boolean } | null;
+      return payload?.sent === true;
+    } catch (error) {
+      console.warn('No se pudo enviar el WhatsApp de bienvenida.', error);
+      return false;
+    } finally {
+      welcomeWhatsAppNoticeInFlightRef.current = false;
+    }
+  };
+
   const notifyTechnicianRegistrationWhatsapp = async () => {
     if (!session?.access_token || !session?.user?.id) return;
     if (registrationWhatsAppNoticeInFlightRef.current) return;
@@ -7849,6 +7880,11 @@ export default function TechniciansPage() {
       }
       if (!silent) {
         await notifyTechnicianRegistrationWhatsapp();
+        await notifyAccountWelcomeWhatsapp(
+          session.access_token,
+          selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico',
+          'technical_profile_save'
+        );
       }
       return true;
     } catch (error: any) {
@@ -8638,9 +8674,14 @@ export default function TechniciansPage() {
           },
         });
         if (error) throw error;
+        const welcomeSent = signUpData?.session?.access_token
+          ? await notifyAccountWelcomeWhatsapp(signUpData.session.access_token, accessProfile, 'technical_register')
+          : false;
         setAuthNotice(
           signUpData?.session
-            ? 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
+            ? welcomeSent
+              ? 'Cuenta creada. Ya puedes completar tu perfil. Te enviamos un WhatsApp de bienvenida.'
+              : 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
             : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se preparará al iniciar sesión.'
         );
         setPassword('');
