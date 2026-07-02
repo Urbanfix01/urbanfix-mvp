@@ -1629,6 +1629,13 @@ const getPublicBaseUrl = () => {
 
 const buildQuoteLink = (quoteId: string) => `${getPublicBaseUrl()}/p/${quoteId}`;
 
+const buildQuotePreviewLink = (quoteId: string) => {
+  if (typeof window !== 'undefined') {
+    return `${window.location.origin}/p/${quoteId}`;
+  }
+  return buildQuoteLink(quoteId);
+};
+
 const canShareQuoteFeedback = (status?: string | null) => {
   const normalized = normalizeStatusValue(status);
   return normalized === 'completed' || normalized === 'paid';
@@ -7581,14 +7588,14 @@ export default function TechniciansPage() {
       return;
     }
     setViewerError('');
-    setViewerUrl(buildQuoteLink(id));
+    setViewerUrl(buildQuotePreviewLink(id));
     setActiveQuoteId(id);
   };
 
   const handleViewQuote = (quote: QuoteRow) => {
-    const nextUrl = buildQuoteLink(quote.id);
+    const nextUrl = buildQuotePreviewLink(quote.id);
     setActiveQuoteId(quote.id);
-    setViewerInput(nextUrl);
+    setViewerInput(buildQuoteLink(quote.id));
     setViewerUrl(nextUrl);
     setViewerError('');
     setActiveTab('visualizador');
@@ -7596,9 +7603,9 @@ export default function TechniciansPage() {
 
   const handleViewerQuoteNavigation = (quote: QuoteRow | null) => {
     if (!quote) return;
-    const nextUrl = buildQuoteLink(quote.id);
+    const nextUrl = buildQuotePreviewLink(quote.id);
     setActiveQuoteId(quote.id);
-    setViewerInput(nextUrl);
+    setViewerInput(buildQuoteLink(quote.id));
     setViewerUrl(nextUrl);
     setViewerError('');
   };
@@ -14169,7 +14176,7 @@ export default function TechniciansPage() {
 
             {activeTab === 'visualizador' &&
               (() => {
-                const previewUrl = viewerUrl || (activeQuoteId ? buildQuoteLink(activeQuoteId) : '');
+                const previewUrl = viewerUrl || (activeQuoteId ? buildQuotePreviewLink(activeQuoteId) : '');
                 const activeQuoteInfo = activeQuote ? getQuoteStatusInfo(activeQuote.status) : null;
                 const activeQuoteInitial =
                   (activeQuote?.client_name || 'P').trim().slice(0, 1).toUpperCase() || 'P';

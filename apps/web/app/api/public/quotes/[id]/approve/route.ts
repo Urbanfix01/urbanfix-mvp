@@ -18,6 +18,7 @@ const isUuid = (value: string) =>
 const normalizeStatus = (value: unknown) => String(value || '').trim().toLowerCase();
 
 const APPROVABLE_QUOTE_STATUSES = new Set(['sent', 'presented', 'pending', 'pendiente']);
+const APPROVABLE_QUOTE_DB_STATUSES = ['sent', 'presented', 'pending'];
 const ALREADY_APPROVED_STATUSES = new Set(['approved', 'accepted', 'aprobado']);
 
 const loadLinkedMatch = async (client: NonNullable<typeof supabase>, quote: Record<string, any>) => {
@@ -205,7 +206,7 @@ export async function POST(
     .from('quotes')
     .update({ status: 'approved', updated_at: new Date().toISOString() })
     .eq('id', quoteId)
-    .in('status', Array.from(APPROVABLE_QUOTE_STATUSES))
+    .in('status', APPROVABLE_QUOTE_DB_STATUSES)
     .select(QUOTE_SELECT)
     .maybeSingle();
 
