@@ -364,6 +364,46 @@ const CLIENT_REQUEST_DRAFT_STORAGE_PREFIX = 'urbanfix:client-request-draft:';
 
 const getClientRequestDraftStorageKey = (userId: string) => `${CLIENT_REQUEST_DRAFT_STORAGE_PREFIX}${userId}`;
 
+const getClientRequestDraftStorage = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+};
+
+const readClientRequestDraft = (key: string) => {
+  const storage = getClientRequestDraftStorage();
+  if (!storage) return null;
+  try {
+    return storage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const storeClientRequestDraft = (key: string, value: string) => {
+  const storage = getClientRequestDraftStorage();
+  if (!storage) return false;
+  try {
+    storage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const removeClientRequestDraft = (key: string) => {
+  const storage = getClientRequestDraftStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(key);
+  } catch {
+    // Ignore storage errors in embedded browsers.
+  }
+};
+
 const clientLoadingThemeStyles = {
   '--ui-bg': '#ECE9E2',
   '--ui-card': '#FFFFFF',
@@ -1000,7 +1040,7 @@ export default function ClientRequestsHub() {
 
   const clearClientRequestDraft = () => {
     if (!clientRequestDraftStorageKey || typeof window === 'undefined') return;
-    window.localStorage.removeItem(clientRequestDraftStorageKey);
+    removeClientRequestDraft(clientRequestDraftStorageKey);
   };
 
   const handleSaveRequestDraft = () => {
@@ -1021,7 +1061,10 @@ export default function ClientRequestsHub() {
       confirmedAddressProvince,
       savedAt: new Date().toISOString(),
     };
-    window.localStorage.setItem(clientRequestDraftStorageKey, JSON.stringify(draft));
+    if (!storeClientRequestDraft(clientRequestDraftStorageKey, JSON.stringify(draft))) {
+      setRequestError('Este navegador no permite guardar borradores. Puedes publicar la solicitud directamente.');
+      return;
+    }
     setRequestNotice('Borrador guardado.');
   };
 
@@ -1282,7 +1325,7 @@ export default function ClientRequestsHub() {
     if (requestDraftRestoredKeyRef.current === clientRequestDraftStorageKey) return;
     requestDraftRestoredKeyRef.current = clientRequestDraftStorageKey;
 
-    const rawDraft = window.localStorage.getItem(clientRequestDraftStorageKey);
+    const rawDraft = readClientRequestDraft(clientRequestDraftStorageKey);
     if (!rawDraft) return;
 
     try {
@@ -1329,7 +1372,7 @@ export default function ClientRequestsHub() {
       setRequestError('');
       setRequestNotice('Borrador recuperado.');
     } catch {
-      window.localStorage.removeItem(clientRequestDraftStorageKey);
+      removeClientRequestDraft(clientRequestDraftStorageKey);
     }
   }, [clientRequestDraftStorageKey]);
 

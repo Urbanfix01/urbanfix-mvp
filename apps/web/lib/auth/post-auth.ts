@@ -121,12 +121,20 @@ const removeBrowserStorageValue = (storage: Storage | null, key: string) => {
 
 const getSessionStorage = () => {
   if (typeof window === 'undefined') return null;
-  return window.sessionStorage;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
 };
 
 const getLocalStorage = () => {
   if (typeof window === 'undefined') return null;
-  return window.localStorage;
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
 };
 
 export const setAuthAccessProfileIntent = (profile: AuthAccessProfile) => {

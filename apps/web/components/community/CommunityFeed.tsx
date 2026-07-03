@@ -150,15 +150,23 @@ const readLocalPosts = (): CommunityPost[] => {
 
 const writeLocalPosts = (posts: CommunityPost[]) => {
   if (typeof window === 'undefined') return;
-  const serializablePosts = posts.slice(0, 40).map((post) => ({
-    ...post,
-    media_items: post.media_items.filter((item) => !item.url.startsWith('blob:')),
-  }));
-  window.localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(serializablePosts));
+  try {
+    const serializablePosts = posts.slice(0, 40).map((post) => ({
+      ...post,
+      media_items: post.media_items.filter((item) => !item.url.startsWith('blob:')),
+    }));
+    window.localStorage.setItem(LOCAL_POSTS_KEY, JSON.stringify(serializablePosts));
+  } catch {
+    // Community posts stay visible for the current session even if storage is blocked.
+  }
 };
 
 const buildId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch {
+    // Fall back below.
+  }
   return `local-${Date.now()}-${Math.round(Math.random() * 100000)}`;
 };
 

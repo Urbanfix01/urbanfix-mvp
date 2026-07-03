@@ -38,9 +38,18 @@ const stripAuthParams = () => {
 const resolvePostAuthRedirect = (cleanedPath: string, isRecovery: boolean) => {
   if (typeof window === 'undefined') return '/tecnicos';
   if (isRecovery) return '/tecnicos?recovery=1';
-  const storedRedirect = sanitizeNextPath(window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY));
+  let storedRedirect: string | null = null;
+  try {
+    storedRedirect = sanitizeNextPath(window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY));
+  } catch {
+    storedRedirect = null;
+  }
   if (storedRedirect) {
-    window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    try {
+      window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    } catch {
+      // Ignore storage errors in embedded browsers.
+    }
     return storedRedirect;
   }
   const safeCleanedPath = sanitizeNextPath(cleanedPath);
