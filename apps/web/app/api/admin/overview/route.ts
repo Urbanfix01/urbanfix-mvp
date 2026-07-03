@@ -286,7 +286,7 @@ export async function GET(request: NextRequest) {
     const analyticsSince1 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const analyticsSince7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const analyticsSince30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const paidQuoteStatuses = ['paid', 'charged', 'completed'];
+    const paidQuoteStatuses = ['paid'];
     const activeSubStatuses = ['authorized', 'active', 'approved'];
     const blockedPaymentStatuses = new Set(['rejected', 'cancelled', 'canceled', 'refunded']);
 
@@ -420,8 +420,6 @@ export async function GET(request: NextRequest) {
       'cobrados',
       'pagado',
       'pagados',
-      'completed',
-      'finalizado',
     ]);
     const paidQuotes = paidQuotesData.filter((quote) =>
       paidStatusSet.has(String(quote.status || '').toLowerCase())

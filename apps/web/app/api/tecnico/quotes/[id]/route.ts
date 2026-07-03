@@ -4,6 +4,8 @@ import { getServiceRoleClient } from '@/lib/supabase/server';
 
 const supabase = getServiceRoleClient();
 
+const toText = (value: unknown) => String(value || '').trim();
+
 const isUuid = (value: string) =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 
@@ -57,6 +59,120 @@ const resolveStatus = (value: unknown) => {
   if (!normalized) return null;
   const canonical = statusAliases[normalized] || normalized;
   return allowedStatuses.has(canonical) ? canonical : null;
+};
+
+const CLIENT_REQUEST_CLOSING_STATUSES = new Set(['completed', 'paid']);
+
+const loadLinkedMatch = async (client: NonNullable<typeof supabase>, quote: Record<string, any>) => {
+  const matchId = toText(quote.client_request_match_id);
+  const requestId = toText(quote.client_request_id);
+
+  if (matchId) {
+    const { data, error } = await client
+      .from('client_request_matches')
+      .select('id, request_id, technician_id, technician_name, technician_phone, quote_status, quote_id')
+      .eq('id', matchId)
+      .maybeSingle();
+    if (error) throw new Error(error.message || 'No pudimos leer la oferta vinculada.');
+    return data || null;
+  }
+
+  if (!requestId || !quote.id) return null;
+
+  const { data, error } = await client
+    .from('client_request_matches')
+    .select('id, request_id, technician_id, technician_name, technician_phone, quote_status, quote_id')
+    .eq('request_id', requestId)
+    .eq('quote_id', quote.id)
+    .maybeSingle();
+  if (error) throw new Error(error.message || 'No pudimos leer la oferta vinculada.');
+
+  if (data?.id) {
+    await client
+      .from('quotes')
+      .update({ client_request_match_id: data.id, updated_at: new Date().toISOString() })
+      .eq('id', quote.id);
+  }
+
+  return data || null;
+};
+
+const syncClosedQuoteWithClientRequest = async (
+  client: NonNullable<typeof supabase>,
+  quote: Record<string, any>,
+  nextStatus: string,
+  actorId: string
+) => {
+  if (!CLIENT_REQUEST_CLOSING_STATUSES.has(nextStatus)) return;
+
+  const match = await loadLinkedMatch(client, quote);
+  if (!match?.id || !match?.request_id) return;
+
+  const matchStatus = toText(match.quote_status).toLowerCase();
+  if (matchStatus === 'rejected') {
+    throw new Error('Esta cotizacion fue rechazada y no puede cerrarse como cobrada.');
+  }
+
+  const { data: requestRow, error: requestError } = await client
+    .from('client_requests')
+    .select('id, selected_match_id, status')
+    .eq('id', match.request_id)
+    .maybeSingle();
+  if (requestError) throw new Error(requestError.message || 'No pudimos leer la solicitud del cliente.');
+  if (!requestRow) return;
+
+  const selectedMatchId = toText(requestRow.selected_match_id);
+  if (selectedMatchId && selectedMatchId !== String(match.id)) {
+    throw new Error('La solicitud ya tiene otro presupuesto seleccionado.');
+  }
+
+  const { error: acceptMatchError } = await client
+    .from('client_request_matches')
+    .update({ quote_status: 'accepted' })
+    .eq('id', match.id)
+    .eq('request_id', match.request_id);
+  if (acceptMatchError) {
+    throw new Error(acceptMatchError.message || 'No pudimos marcar la oferta como aceptada.');
+  }
+
+  const { error: rejectOtherMatchesError } = await client
+    .from('client_request_matches')
+    .update({ quote_status: 'rejected' })
+    .eq('request_id', match.request_id)
+    .neq('id', match.id)
+    .eq('quote_status', 'submitted');
+  if (rejectOtherMatchesError) {
+    throw new Error(rejectOtherMatchesError.message || 'No pudimos cerrar las otras cotizaciones.');
+  }
+
+  const { error: updateRequestError } = await client
+    .from('client_requests')
+    .update({
+      status: 'completed',
+      selected_match_id: match.id,
+      assigned_technician_id: match.technician_id,
+      assigned_technician_name: match.technician_name,
+      assigned_technician_phone: match.technician_phone,
+    })
+    .eq('id', match.request_id);
+  if (updateRequestError) {
+    throw new Error(updateRequestError.message || 'No pudimos cerrar la solicitud del cliente.');
+  }
+
+  const technicianName = toText(match.technician_name) || 'tecnico';
+  const eventLabel =
+    nextStatus === 'paid'
+      ? `Trabajo cobrado por ${technicianName}.`
+      : `Trabajo finalizado por ${technicianName}.`;
+  const { error: eventError } = await client.from('client_request_events').insert({
+    request_id: match.request_id,
+    actor_id: actorId,
+    label: eventLabel,
+    created_at: new Date().toISOString(),
+  });
+  if (eventError) {
+    console.error('quote close client request event insert failed', eventError.message);
+  }
 };
 
 const getAuthUser = async (request: NextRequest) => {
@@ -124,6 +240,15 @@ export async function PATCH(
   const quote = Array.isArray(data) ? data[0] : null;
   if (!quote) {
     return NextResponse.json({ error: 'Presupuesto no encontrado.' }, { status: 404 });
+  }
+
+  try {
+    await syncClosedQuoteWithClientRequest(supabase, quote as Record<string, any>, nextStatus, user.id);
+  } catch (error: any) {
+    return NextResponse.json(
+      { error: error?.message || 'El presupuesto fue actualizado, pero no pudimos cerrar la solicitud vinculada.' },
+      { status: 409 }
+    );
   }
 
   return NextResponse.json({ ok: true, quote });
