@@ -380,6 +380,85 @@ header .header-view-option {
   animation-delay: 440ms;
 }
 
+.home-animation-hero__cta {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  width: fit-content;
+  min-height: 4rem;
+  margin-top: clamp(4.25rem, 6.4vw, 6.6rem);
+  margin-inline: auto;
+  padding: 0.95rem 1.25rem 0.95rem 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.42);
+  border-radius: 999px;
+  background:
+    linear-gradient(135deg, #fff7ed 0%, #ffc473 36%, #ff8f1f 100%);
+  box-shadow:
+    0 1.45rem 3.6rem rgba(255, 143, 31, 0.34),
+    0 0 0 0.55rem rgba(255, 143, 31, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82);
+  color: #17001f;
+  font-size: clamp(0.95rem, 1.35vw, 1.12rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.home-animation-hero__cta::after {
+  content: '';
+  position: absolute;
+  inset: -0.48rem;
+  z-index: -1;
+  border: 1px solid rgba(255, 143, 31, 0.44);
+  border-radius: inherit;
+  opacity: 0.82;
+  animation: home-app-cta-ring 2100ms ease-in-out infinite;
+}
+
+.home-animation-hero__cta:hover {
+  border-color: rgba(255, 255, 255, 0.72);
+  box-shadow:
+    0 1.75rem 4.4rem rgba(255, 143, 31, 0.42),
+    0 0 0 0.65rem rgba(255, 143, 31, 0.11),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  transform: translate3d(0, -0.18rem, 0);
+}
+
+.home-animation-hero__cta:focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.86);
+  outline-offset: 5px;
+}
+
+.home-animation-hero__cta-icon {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #21002f;
+  color: #ffb45d;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.home-animation-hero__cta-arrow {
+  flex: 0 0 auto;
+  transition: transform 180ms ease;
+}
+
+.home-animation-hero__cta:hover .home-animation-hero__cta-arrow {
+  transform: translateX(0.22rem);
+}
+
 .home-animation-hero__scroll {
   pointer-events: none;
   position: absolute;
@@ -461,6 +540,18 @@ header .header-view-option {
   }
 }
 
+@keyframes home-app-cta-ring {
+  0%,
+  100% {
+    opacity: 0.82;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.2;
+    transform: scale(1.05);
+  }
+}
+
 @media (max-width: 900px) {
   .home-animation-hero {
     min-height: clamp(31rem, 72svh, 42rem);
@@ -499,6 +590,11 @@ header .header-view-option {
     max-width: none;
     opacity: 0.58;
   }
+
+  .home-animation-hero__cta {
+    min-height: 3.6rem;
+    margin-top: 3.35rem;
+  }
 }
 
 @media (max-width: 560px) {
@@ -526,6 +622,17 @@ header .header-view-option {
   .home-animation-hero__tool-icon {
     width: clamp(1.55rem, 7.8vw, 2.2rem);
   }
+
+  .home-animation-hero__cta {
+    width: min(100%, 20rem);
+    gap: 0.65rem;
+    padding-right: 1rem;
+  }
+
+  .home-animation-hero__cta-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -533,7 +640,8 @@ header .header-view-option {
   .home-animation-hero__tool-icon,
   .home-animation-hero__network path,
   .home-animation-hero__network circle,
-  .home-animation-hero__scroll {
+  .home-animation-hero__scroll,
+  .home-animation-hero__cta::after {
     animation: none !important;
   }
 

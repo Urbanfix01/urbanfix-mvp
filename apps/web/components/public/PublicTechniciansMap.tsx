@@ -528,17 +528,17 @@ export default function PublicTechniciansMap({
       className={
         fullBleed
           ? 'h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)] overflow-hidden bg-[#12001c]'
-          : 'mt-6 overflow-hidden rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]'
+          : 'mt-6 overflow-visible rounded-[36px] border border-white/15 bg-[#12001c] shadow-[0_40px_110px_-65px_rgba(0,0,0,0.92)]'
       }
     >
       {(!fullBleed || searchConfig) && (
-        <div className="border-b border-white/12 bg-[#190426] px-2.5 py-2.5 sm:px-4 lg:px-6">
+        <div className="sticky top-[57px] z-[650] border-b border-white/12 bg-[#190426]/96 px-2.5 py-2.5 shadow-[0_18px_45px_-34px_rgba(0,0,0,0.95)] backdrop-blur-xl sm:px-4 lg:px-6">
           <div className="mx-auto w-full max-w-[1500px]">
             {searchConfig ? (
             <form
               method="get"
               action={searchConfig.actionHref}
-              className="grid gap-1.5 sm:gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] lg:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto_auto_auto]"
+              className="grid grid-cols-[minmax(0,1fr)_auto] gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
             >
               {searchConfig.hiddenFields?.map((field) => (
                 <input key={`${field.name}-${field.value}`} type="hidden" name={field.name} value={field.value} />
@@ -562,21 +562,14 @@ export default function PublicTechniciansMap({
               </div>
 
               <button
-                type="submit"
-                className="h-10 sm:h-12 rounded-[18px] sm:rounded-[20px] bg-[#ff8f1f] px-3 sm:px-4 text-xs sm:text-sm font-semibold text-[#2a0338] transition hover:bg-[#ffa748]"
-              >
-                Buscar
-              </button>
-
-              <button
                 type="button"
                 onClick={() => {
                   setHasRequestedUserFocus(true);
                   requestUserLocation();
                 }}
-                className="h-10 sm:h-12 rounded-[18px] sm:rounded-[20px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-3 sm:px-4 text-xs sm:text-sm font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white"
+                className="h-10 whitespace-nowrap rounded-[18px] border border-[#5eead4]/42 bg-[#5eead4]/10 px-3 text-xs font-semibold text-[#d6fffb] transition hover:border-[#8ffdf0] hover:bg-[#5eead4]/16 hover:text-white sm:h-12 sm:rounded-[20px] sm:px-4 sm:text-sm"
               >
-                {userLocation.status === 'requesting' ? 'Buscando...' : 'Ubicación'}
+                {userLocation.status === 'requesting' ? 'Buscando...' : 'Mi ubicación'}
               </button>
 
               {hasSearchFilters ? (
@@ -606,16 +599,16 @@ export default function PublicTechniciansMap({
         </div>
       )}
 
-      <div className={fullBleed ? 'relative h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)]' : 'relative h-[82vh] min-h-[680px] sm:min-h-[760px] max-h-[980px]'}>
+      <div className={fullBleed ? 'relative h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)]' : 'relative h-[82vh] min-h-[680px] max-h-[980px] overflow-hidden rounded-b-[36px] sm:min-h-[760px]'}>
         <div ref={mapHostRef} className={fullBleed ? 'ufx-public-map h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)] w-full' : 'ufx-public-map h-full w-full'} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
         {selectedPoint ? (
-          <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[460] sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(780px,calc(100%-2.5rem))] sm:-translate-x-1/2">
-            <article className="pointer-events-auto w-full overflow-hidden rounded-[30px] border border-white/18 bg-[linear-gradient(135deg,rgba(48,20,61,0.96),rgba(28,3,43,0.94)_58%,rgba(255,143,31,0.12))] p-3 text-white shadow-[0_28px_100px_-52px_rgba(0,0,0,1)] backdrop-blur-xl sm:p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <div className="flex min-w-0 items-start gap-3">
-                  <div className="h-16 w-16 shrink-0 overflow-hidden rounded-[20px] border border-white/16 bg-white/[0.06] shadow-[0_14px_40px_-24px_rgba(0,0,0,1)] sm:h-[72px] sm:w-[72px]">
+          <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-[460] sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(780px,calc(100%-2.5rem))] sm:-translate-x-1/2">
+            <article className="pointer-events-auto max-h-[44dvh] w-full overflow-y-auto rounded-[24px] border border-white/18 bg-[linear-gradient(135deg,rgba(48,20,61,0.96),rgba(28,3,43,0.94)_58%,rgba(255,143,31,0.12))] p-2.5 text-white shadow-[0_28px_100px_-52px_rgba(0,0,0,1)] backdrop-blur-xl sm:max-h-none sm:overflow-hidden sm:rounded-[30px] sm:p-4">
+              <div className="flex items-start justify-between gap-2 sm:gap-3">
+                <div className="flex min-w-0 items-start gap-2.5 sm:gap-3">
+                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[16px] border border-white/16 bg-white/[0.06] shadow-[0_14px_40px_-24px_rgba(0,0,0,1)] sm:h-[72px] sm:w-[72px] sm:rounded-[20px]">
                   {getSelectedMedia(selectedPoint) ? (
                     <img src={getSelectedMedia(selectedPoint)} alt={selectedPoint.name} className="h-full w-full object-cover" />
                   ) : (
@@ -627,28 +620,28 @@ export default function PublicTechniciansMap({
 
                   <div className="min-w-0 flex-1">
                     <div className="min-w-0">
-                        <p className="truncate text-xl font-black leading-tight text-white sm:text-2xl">{selectedPoint.name}</p>
-                        <p className="mt-1 truncate text-xs font-semibold text-white/68">{selectedPoint.city || 'Sin ciudad visible'}</p>
+                        <p className="truncate text-base font-black leading-tight text-white sm:text-2xl">{selectedPoint.name}</p>
+                        <p className="mt-0.5 truncate text-[11px] font-semibold text-white/68 sm:mt-1 sm:text-xs">{selectedPoint.city || 'Sin ciudad visible'}</p>
                         {selectedOwnerName && selectedOwnerName !== selectedPoint.name ? (
-                          <p className="mt-1 truncate text-xs font-semibold text-white/52">Responsable: {selectedOwnerName}</p>
+                          <p className="mt-0.5 truncate text-[11px] font-semibold text-white/52 sm:mt-1 sm:text-xs">Responsable: {selectedOwnerName}</p>
                         ) : null}
                     </div>
 
-                    <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-black uppercase tracking-[0.08em] sm:text-[11px]">
+                    <div className="mt-2 flex flex-wrap gap-1.5 text-[9px] font-black uppercase tracking-[0.08em] sm:mt-3 sm:text-[11px]">
                     <span
-                          className={`rounded-full border px-2.5 py-1 ${selectedAvailabilityClass}`}
+                          className={`rounded-full border px-2 py-0.5 sm:px-2.5 sm:py-1 ${selectedAvailabilityClass}`}
                     >
                           {selectedAvailabilityLabel}
                     </span>
-                    <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-2.5 py-1 text-[#ffd6a6]">
+                    <span className="rounded-full border border-[#ff8f1f]/45 bg-[#ff8f1f]/12 px-2 py-0.5 text-[#ffd6a6] sm:px-2.5 sm:py-1">
                       {selectedPoint.precision === 'exact' ? 'Punto verificado' : 'Zona estimada'}
                     </span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-2 sm:w-[440px]">
-                  <div className="grid flex-1 grid-cols-4 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.045]">
+                <div className="flex shrink-0 items-start gap-2 sm:w-[440px]">
+                  <div className="hidden flex-1 grid-cols-4 overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.045] sm:grid">
                     <div className="border-r border-white/10 px-2.5 py-3">
                       <p className="truncate text-[9px] font-black uppercase tracking-[0.04em] text-white/42">Rating</p>
                       <p className="mt-1 text-base font-black text-white">
@@ -680,12 +673,24 @@ export default function PublicTechniciansMap({
               </div>
 
               {selectedProfileSummary ? (
-                <p className="mt-4 line-clamp-2 rounded-[20px] border border-white/10 bg-black/16 px-3 py-2 text-sm leading-6 text-white/76">
+                <p className="mt-4 hidden line-clamp-2 rounded-[20px] border border-white/10 bg-black/16 px-3 py-2 text-sm leading-6 text-white/76 sm:block">
                   {selectedProfileSummary}
                 </p>
               ) : null}
 
-              <div className="mt-3 grid gap-2 text-xs sm:grid-cols-4">
+              <div className="mt-2 flex flex-wrap gap-1.5 text-[11px] font-semibold text-white/76 sm:hidden">
+                <span className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1">
+                  {selectedZoneLabel || 'Sin zona visible'}
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1">
+                  {selectedPoint.radiusKm} km
+                </span>
+                <span className="max-w-full truncate rounded-full border border-white/10 bg-white/[0.045] px-2.5 py-1">
+                  {selectedPoint.workingHoursLabel}
+                </span>
+              </div>
+
+              <div className="mt-3 hidden gap-2 text-xs sm:grid sm:grid-cols-4">
                 <div className="rounded-[18px] border border-white/10 bg-white/[0.035] px-3 py-2">
                   <p className="text-[9px] font-black uppercase tracking-[0.16em] text-white/42">Zona base</p>
                   <p className="mt-1 truncate font-semibold text-white/78">{selectedZoneLabel || 'Sin zona visible'}</p>
@@ -707,19 +712,19 @@ export default function PublicTechniciansMap({
               </div>
 
               {selectedSpecialties.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-1.5">
+                <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-4">
                   {selectedSpecialties.map((specialty) => (
-                    <span key={specialty} className="rounded-full border border-white/12 bg-black/18 px-2.5 py-1 text-[11px] font-bold text-white/78">
+                    <span key={specialty} className="rounded-full border border-white/12 bg-black/18 px-2 py-0.5 text-[10px] font-bold text-white/78 sm:px-2.5 sm:py-1 sm:text-[11px]">
                       {specialty}
                     </span>
                   ))}
                 </div>
               ) : null}
 
-              <div className="mt-4 flex flex-wrap items-center gap-2 sm:justify-end">
+              <div className="mt-2 flex flex-wrap items-center gap-2 sm:mt-4 sm:justify-end">
                 <Link
                   href={selectedPoint.profileHref}
-                    className="inline-flex h-11 flex-1 items-center justify-center rounded-full bg-[#ff8f1f] px-5 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] sm:flex-none"
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-full bg-[#ff8f1f] px-4 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] sm:h-11 sm:flex-none sm:px-5"
                 >
                   Ver perfil
                 </Link>
@@ -728,7 +733,7 @@ export default function PublicTechniciansMap({
                     href={selectedPoint.whatsappHref}
                     target="_blank"
                     rel="noreferrer noopener"
-                      className="inline-flex h-11 flex-1 items-center justify-center rounded-full border border-[#25d366]/45 bg-[#25d366]/12 px-5 text-sm font-black text-[#d9ffe8] transition hover:border-[#25d366] hover:text-white sm:flex-none"
+                      className="inline-flex h-10 flex-1 items-center justify-center rounded-full border border-[#25d366]/45 bg-[#25d366]/12 px-4 text-sm font-black text-[#d9ffe8] transition hover:border-[#25d366] hover:text-white sm:h-11 sm:flex-none sm:px-5"
                   >
                     WhatsApp
                   </a>
