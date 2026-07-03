@@ -2349,6 +2349,7 @@ export default function ClientRequestsHub() {
               <div className="mb-4 flex items-center justify-between gap-3">
                 <Link
                   href="/tecnicos"
+                  onClick={() => clearAuthAccessProfileIntent()}
                   aria-label="Volver al selector de perfiles"
                   title="Volver al selector de perfiles"
                   className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/[0.14] bg-white/[0.06] text-[#ffcf93] transition hover:border-[#ffcf93]/50 hover:bg-[#ff8f1f]/[0.12] hover:text-white"
