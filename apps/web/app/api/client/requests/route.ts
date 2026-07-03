@@ -36,6 +36,37 @@ const normalizeRadius = (value: unknown) => {
   return Math.min(100, Math.max(1, Math.round(parsed)));
 };
 
+const normalizeArgentinaWhatsappDisplay = (value: unknown) => {
+  const raw = toText(value);
+  const rawDigits = raw.replace(/\D/g, '');
+  if (!rawDigits) return '';
+
+  let digits = rawDigits;
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  digits = digits.replace(/^0+/, '');
+
+  if (digits.startsWith('549')) {
+    digits = `549${digits.slice(3).replace(/^0+/, '')}`;
+  } else if (digits.startsWith('54')) {
+    const national = digits.slice(2).replace(/^0+/, '');
+    digits = national.startsWith('9') ? `54${national}` : `549${national}`;
+  } else if (/^11(15)\d{8}$/.test(digits)) {
+    digits = `54911${digits.slice(4)}`;
+  } else if (digits.length === 8) {
+    digits = `54911${digits}`;
+  } else {
+    digits = `549${digits}`;
+  }
+
+  const nationalDigits = digits.startsWith('549') ? digits.slice(3) : '';
+  if (digits.length !== 13 || nationalDigits.length !== 10) return '';
+
+  const area = nationalDigits.slice(0, 2);
+  const blockA = nationalDigits.slice(2, 6);
+  const blockB = nationalDigits.slice(6);
+  return `+54 9 ${area} ${blockA}-${blockB}`;
+};
+
 const createSnapshotResponse = async (userId: string) => {
   if (!supabase) return { requests: [], knownTechnicians: [] };
   try {
@@ -81,6 +112,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 16 * 1024 });
+  if (!bodyResult.ok) {
+    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
+  }
+  const body = bodyResult.body;
+
   const { data: clientProfile, error: clientProfileError } = await supabase
     .from('profiles')
     .select('phone, avatar_url')
@@ -99,8 +136,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let clientProfilePhone = toText(clientProfile?.phone);
+  const incomingClientPhone = normalizeArgentinaWhatsappDisplay(
+    body.clientPhone || body.phone || body.whatsapp || body.whatsappPhone
+  );
+
+  if (!clientProfilePhone && incomingClientPhone) {
+    const { error: phoneUpsertError } = await supabase.from('profiles').upsert({
+      id: user.id,
+      email: user.email || null,
+      phone: incomingClientPhone,
+    });
+    if (phoneUpsertError) {
+      return NextResponse.json(
+        { error: phoneUpsertError.message || 'No se pudo guardar el telefono del cliente.' },
+        { status: 500 }
+      );
+    }
+    clientProfilePhone = incomingClientPhone;
+  }
+
   const missingProfileFields: string[] = [];
-  if (!toText(clientProfile?.phone)) missingProfileFields.push('Telefono');
+  if (!clientProfilePhone) missingProfileFields.push('Telefono');
 
   if (missingProfileFields.length > 0) {
     return NextResponse.json(
@@ -110,12 +167,6 @@ export async function POST(request: NextRequest) {
       { status: 400 }
     );
   }
-
-  const bodyResult = await readLimitedJsonBody(request, { maxBytes: 16 * 1024 });
-  if (!bodyResult.ok) {
-    return NextResponse.json({ error: bodyResult.error }, { status: bodyResult.status });
-  }
-  const body = bodyResult.body;
 
   const title = toText(body.title);
   const category = toText(body.category);

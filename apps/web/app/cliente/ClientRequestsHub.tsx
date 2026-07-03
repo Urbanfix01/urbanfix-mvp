@@ -1503,33 +1503,40 @@ export default function ClientRequestsHub() {
     }
   };
 
+  const saveClientProfilePhone = async () => {
+    if (!session?.user?.id) {
+      throw new Error('Inicia sesion para guardar tu perfil.');
+    }
+
+    const phoneValidation = getArgentinaWhatsappValidation(clientProfileForm.phone);
+    if (phoneValidation.isEmpty) {
+      throw new Error('Ingresa tu WhatsApp para guardar tu perfil.');
+    }
+    if (!phoneValidation.isValid) {
+      throw new Error('Ingresa un WhatsApp argentino valido.');
+    }
+
+    const phone = phoneValidation.display;
+    const { error } = await supabase.from('profiles').upsert({
+      id: session.user.id,
+      email: session.user.email || null,
+      phone,
+    });
+    if (error) throw error;
+
+    setClientProfileForm((prev) => ({ ...prev, phone }));
+    setSavedClientProfilePhone(phone);
+    return { phone };
+  };
+
   const handleSaveClientProfile = async () => {
     if (!session?.user?.id) return;
     setSavingClientProfile(true);
     setClientProfileError('');
     setClientProfileNotice('');
     try {
-      const phoneValidation = getArgentinaWhatsappValidation(clientProfileForm.phone);
-      if (phoneValidation.isEmpty) {
-        throw new Error('Ingresa tu WhatsApp para guardar tu perfil.');
-      }
-      if (!phoneValidation.isValid) {
-        throw new Error('Ingresa un WhatsApp argentino válido.');
-      }
-      const phone = phoneValidation.display;
-
-      const payload = {
-        id: session.user.id,
-        email: session.user.email || null,
-        phone,
-      };
-
-      const { error } = await supabase.from('profiles').upsert(payload);
-      if (error) throw error;
-
+      await saveClientProfilePhone();
       const welcomeSent = await notifyAccountWelcomeWhatsapp(session.access_token, 'client_profile_save');
-      setClientProfileForm((prev) => ({ ...prev, phone }));
-      setSavedClientProfilePhone(phone);
       setClientProfileNotice(
         welcomeSent ? 'WhatsApp guardado. Te enviamos un mensaje de bienvenida.' : 'WhatsApp guardado.'
       );
@@ -1632,6 +1639,7 @@ export default function ClientRequestsHub() {
         setRequestStep(2);
         throw new Error('Valida la dirección o usa GPS antes de publicar.');
       }
+      const { phone: clientPhone } = await saveClientProfilePhone();
       const response = await fetch('/api/client/requests', {
         method: 'POST',
         headers: {
@@ -1644,6 +1652,7 @@ export default function ClientRequestsHub() {
           province: confirmedAddressProvince.trim(),
           locationLat,
           locationLng,
+          clientPhone,
         }),
       });
       const payload = await response.json();
