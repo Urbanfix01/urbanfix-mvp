@@ -31,6 +31,13 @@ const apiNoStoreHeaders = [
   },
 ];
 
+const privateSeoHeaders = [
+  {
+    key: 'X-Robots-Tag',
+    value: 'noindex, nofollow',
+  },
+];
+
 const nextConfig = {
   ...(process.env.NEXT_DIST_DIR ? { distDir: process.env.NEXT_DIST_DIR } : {}),
 
@@ -53,6 +60,62 @@ const nextConfig = {
       {
         source: '/api/:path*',
         headers: apiNoStoreHeaders,
+      },
+      {
+        source: '/admin',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/admin/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/cliente',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/cliente/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/tecnicos',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/tecnicos/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/tecnico-panel',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/tecnico-panel/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/portal',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/portal/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/p/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/solicitudes/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/calificar/:path*',
+        headers: privateSeoHeaders,
+      },
+      {
+        source: '/newsletter/:path*',
+        headers: privateSeoHeaders,
       },
     ];
   },
