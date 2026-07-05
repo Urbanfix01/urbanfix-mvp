@@ -666,8 +666,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                 <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.12)_58%,rgba(33,0,47,0.54)_100%)]" />
               </div>
 
-              <div className="relative -mt-16 px-5 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
-                <div className="ufx-tech-card ufx-tech-card--soft relative min-h-[340px] space-y-5 p-5 pb-20 pt-16 sm:p-6 sm:pb-20 sm:pt-6 lg:min-h-[360px]">
+              <div className="relative -mt-16 px-4 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
+                <div className="ufx-tech-card ufx-tech-card--soft relative min-h-[340px] space-y-5 p-4 pb-20 pt-20 sm:p-6 sm:pb-20 sm:pt-6 lg:min-h-[360px]">
                   <ProfileVisitCounter
                     profileId={profile.id}
                     className="!absolute !right-4 !top-4 !z-10 max-w-[calc(100%-2rem)] bg-black/[0.24] sm:!right-6 sm:!top-6"
@@ -677,7 +677,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     <ProfileReviewComments profileId={profile.id} initialCount={reviewsCount} />
                     <ProfileShareActions profileId={profile.id} shareUrl={canonicalUrl} title={displayName} />
                   </div>
-                  <div className="flex flex-wrap items-end gap-4 sm:gap-5">
+                  <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:gap-5 sm:text-left">
                     <div className="h-28 w-28 overflow-hidden rounded-3xl border border-white/35 bg-[#2a0640] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.95)] ring-4 ring-[#ff8f1f]/35 sm:h-36 sm:w-36">
                       {avatarImageUrl ? (
                         <img src={avatarImageUrl} alt={`Foto de ${displayName}`} className="h-full w-full object-cover" />
@@ -687,10 +687,10 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                         </div>
                       )}
                     </div>
-                    <div className="min-w-0 flex-1 space-y-3 pb-1">
+                    <div className="w-full min-w-0 flex-1 space-y-3 pb-1">
                       <div className="space-y-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <h1 className="text-3xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
+                        <div className="flex flex-wrap items-center justify-center gap-2 sm:justify-start">
+                          <h1 className="max-w-full text-2xl font-semibold leading-tight text-white sm:text-4xl">{displayName}</h1>
                           {coverageHeroLabel && (
                             <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-white/72">
                               <MapPinned className="h-3.5 w-3.5 text-[#ff8f1f]" />
@@ -701,15 +701,15 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                         {profile.full_name && profile.full_name !== displayName && (
                           <p className="text-sm text-white/80">{profile.full_name}</p>
                         )}
-                        <div className="flex flex-wrap items-center gap-2 pt-2">
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2 sm:justify-start">
                           <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${availabilityToneClass}`}>
                             {availabilityLabel}
                           </span>
-                          <span className="text-xs leading-5 text-white/62">
+                          <span className="w-full text-xs leading-5 text-white/62 sm:w-auto">
                             {workingHoursLabel} · {argentinaTimeLabel}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 pt-2">
+                        <div className="flex flex-wrap items-center justify-center gap-3 pt-2 sm:justify-start">
                           {whatsappLink ? (
                             <a
                               href={whatsappLink}
@@ -717,7 +717,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                               rel="noreferrer noopener"
                               aria-label="Contactar por WhatsApp"
                               title="WhatsApp"
-                              className="inline-flex h-10 items-center gap-2 rounded-full bg-[#25d366] px-4 text-xs font-black text-[#052513] shadow-[0_18px_36px_-26px_rgba(37,211,102,0.9)] transition hover:-translate-y-0.5 hover:bg-[#31e477] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70"
+                              className="inline-flex h-10 w-full max-w-[230px] items-center justify-center gap-2 rounded-full bg-[#25d366] px-4 text-xs font-black text-[#052513] shadow-[0_18px_36px_-26px_rgba(37,211,102,0.9)] transition hover:-translate-y-0.5 hover:bg-[#31e477] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70 sm:w-auto sm:max-w-none"
                             >
                               <WhatsAppBrandIcon className="h-6 w-6" />
                               Consultar disponibilidad
@@ -752,7 +752,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     </div>
                   ) : null}
 
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap justify-center gap-2 sm:justify-start">
                     {specialties.length > 0 ? (
                       <>
                         {visibleSpecialties.map((specialty) => (
@@ -816,19 +816,19 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
             <section>
               <article className="ufx-tech-card overflow-hidden bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(255,143,31,0.08)_48%,rgba(255,255,255,0.03))]">
                 <div className="grid lg:grid-cols-[minmax(180px,0.38fr)_minmax(0,1.62fr)]">
-                  <div className="border-b border-white/10 p-5 sm:p-6 lg:border-b-0 lg:border-r">
+                  <div className="border-b border-white/10 p-4 sm:p-6 lg:border-b-0 lg:border-r">
                     <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">Perfil</p>
-                    <h2 className={`${spaceGrotesk.className} mt-2 text-3xl font-bold text-white`}>Confianza</h2>
+                    <h2 className={`${spaceGrotesk.className} mt-2 text-2xl font-bold text-white sm:text-3xl`}>Confianza</h2>
                     <p className="mt-2 text-sm leading-6 text-white/55">Se&ntilde;ales simples para decidir si contactar.</p>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-5 sm:divide-x sm:divide-white/10">
+                  <div className="grid grid-cols-1 sm:grid-cols-5 sm:divide-x sm:divide-white/10">
                     {metricCards.map((item) => (
-                      <div key={item.label} className="border-b border-white/10 p-5 last:border-b-0 sm:border-b-0">
+                      <div key={item.label} className="border-b border-white/10 p-4 last:border-b-0 sm:border-b-0 sm:p-5">
                         <p className="text-[10px] font-black uppercase tracking-[0.18em] text-white/48">
                           {item.label}
                         </p>
-                        <p className={`${spaceGrotesk.className} mt-3 flex items-baseline gap-1 text-4xl font-bold text-white sm:text-5xl`}>
+                        <p className={`${spaceGrotesk.className} mt-2 flex items-baseline gap-1 text-3xl font-bold text-white sm:mt-3 sm:text-5xl`}>
                           <span>{item.value}</span>
                           {'suffix' in item && item.suffix ? (
                             <span className="text-sm font-bold text-white/45">{item.suffix}</span>

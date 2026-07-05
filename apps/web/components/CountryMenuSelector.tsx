@@ -56,7 +56,7 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
   const menuRef = useRef<HTMLDivElement | null>(null);
   const [selectedCountry, setSelectedCountry] = useState(DEFAULT_COUNTRY_NAME);
   const [isOpen, setIsOpen] = useState(false);
-  const [menuPosition, setMenuPosition] = useState({ top: 0, right: 16 });
+  const [menuPosition, setMenuPosition] = useState({ top: 0, left: 12, width: 288 });
 
   useEffect(() => {
     setSelectedCountry(getCurrentCountry());
@@ -85,10 +85,15 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
       const rect = buttonRef.current?.getBoundingClientRect();
       if (!rect) return;
       const viewportWidth = window.innerWidth || document.documentElement.clientWidth || 0;
-      const right = Math.max(12, viewportWidth - rect.right);
+      const horizontalGap = 12;
+      const menuWidth = Math.min(288, Math.max(220, viewportWidth - horizontalGap * 2));
+      const maxLeft = Math.max(horizontalGap, viewportWidth - menuWidth - horizontalGap);
+      const preferredLeft = rect.right - menuWidth;
+      const left = Math.min(maxLeft, Math.max(horizontalGap, preferredLeft));
       setMenuPosition({
         top: Math.round(rect.bottom + 8),
-        right: Math.round(right),
+        left: Math.round(left),
+        width: Math.round(menuWidth),
       });
     };
 
@@ -156,8 +161,8 @@ export default function CountryMenuSelector({ className = '', onChanged }: Count
     >
       <div
         ref={menuRef}
-        className="absolute w-[min(18rem,calc(100vw-1.5rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl"
-        style={{ top: menuPosition.top, right: menuPosition.right }}
+        className="absolute overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-950 shadow-2xl"
+        style={{ top: menuPosition.top, left: menuPosition.left, width: menuPosition.width }}
       >
         <p className="border-b border-slate-100 px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[#7b6688]">
           Pais de ingreso
