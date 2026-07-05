@@ -3,6 +3,12 @@
 import Link from 'next/link';
 import React, { useEffect, useId, useMemo, useRef, useState } from 'react';
 import type { Circle as LeafletCircle, LayerGroup, Map as LeafletMap, Marker as LeafletMarker } from 'leaflet';
+import {
+  USER_COUNTRY_CHANGED_EVENT,
+  getStoredCountryPreference,
+} from '../../lib/country-preference';
+import { DEFAULT_COUNTRY_NAME } from '../../lib/location-catalog';
+import { getCountryMapFocus } from '../../lib/map-country-focus';
 import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
 
 export type PublicTechnicianMapPoint = {
@@ -58,6 +64,7 @@ type Props = {
   description?: string;
   searchConfig?: PublicTechniciansMapSearchConfig;
   fullBleed?: boolean;
+  selectedCountry?: string;
 };
 
 type DisplayPoint = PublicTechnicianMapPoint & {
@@ -168,6 +175,7 @@ export default function PublicTechniciansMap({
   description: _description,
   searchConfig,
   fullBleed = false,
+  selectedCountry = DEFAULT_COUNTRY_NAME,
 }: Props) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
@@ -181,6 +189,7 @@ export default function PublicTechniciansMap({
   const [mapReady, setMapReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(preferUserLocation);
+  const [activeCountry, setActiveCountry] = useState(selectedCountry || DEFAULT_COUNTRY_NAME);
   const [userLocation, setUserLocation] = useState<UserLocationState>({
     status: preferUserLocation ? 'requesting' : 'idle',
     lat: null,
@@ -190,11 +199,35 @@ export default function PublicTechniciansMap({
   const zonesListId = useId().replace(/:/g, '');
 
   const displayPoints = useMemo(() => spreadOverlappingPoints(points), [points]);
+  const countryFocus = useMemo(() => getCountryMapFocus(activeCountry), [activeCountry]);
+  const hasSearchFilters = Boolean(searchConfig?.query || searchConfig?.hiddenFields?.some((field) => field.value));
   const selectedPoint = useMemo(
     () => displayPoints.find((point) => point.id === selectedId) || null,
     [displayPoints, selectedId]
   );
   const shouldFocusUserLocation = preferUserLocation || hasRequestedUserFocus;
+
+  useEffect(() => {
+    setActiveCountry(getStoredCountryPreference() || selectedCountry || DEFAULT_COUNTRY_NAME);
+  }, [selectedCountry]);
+
+  useEffect(() => {
+    const syncCountry = (event?: Event) => {
+      const nextCountry =
+        event instanceof CustomEvent && typeof event.detail?.country === 'string'
+          ? event.detail.country
+          : getStoredCountryPreference();
+      setActiveCountry(nextCountry || selectedCountry || DEFAULT_COUNTRY_NAME);
+    };
+
+    window.addEventListener('storage', syncCountry);
+    window.addEventListener(USER_COUNTRY_CHANGED_EVENT, syncCountry);
+
+    return () => {
+      window.removeEventListener('storage', syncCountry);
+      window.removeEventListener(USER_COUNTRY_CHANGED_EVENT, syncCountry);
+    };
+  }, [selectedCountry]);
 
   const requestUserLocation = () => {
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -291,7 +324,7 @@ export default function PublicTechniciansMap({
         center: ARGENTINA_CENTER,
         zoom: ARGENTINA_DEFAULT_ZOOM,
         zoomControl: false,
-        minZoom: 4,
+        minZoom: 2,
         maxZoom: 18,
         worldCopyJump: false,
       });
@@ -380,6 +413,10 @@ export default function PublicTechniciansMap({
         map.setView([userLocation.lat, userLocation.lng], USER_FOCUS_FALLBACK_ZOOM, { animate: false });
         return;
       }
+      if (countryFocus) {
+        map.setView(countryFocus.center, countryFocus.zoom, { animate: false });
+        return;
+      }
       map.setView(ARGENTINA_CENTER, ARGENTINA_DEFAULT_ZOOM);
       return;
     }
@@ -412,12 +449,17 @@ export default function PublicTechniciansMap({
       return;
     }
 
+    if (countryFocus && !hasSearchFilters) {
+      map.setView(countryFocus.center, countryFocus.zoom, { animate: false });
+      return;
+    }
+
     const bounds = L.latLngBounds(displayPoints.map((point) => [point.mapLat, point.mapLng] as [number, number]));
     map.fitBounds(bounds.pad(0.14), {
       maxZoom: displayPoints.length === 1 ? 12 : 8,
       animate: false,
     });
-  }, [displayPoints, mapReady, selectedId, shouldFocusUserLocation, userLocation]);
+  }, [countryFocus, displayPoints, hasSearchFilters, mapReady, selectedId, shouldFocusUserLocation, userLocation]);
 
   useEffect(() => {
     if (!mapReady || !leafletRef.current || !mapRef.current) return;
@@ -499,7 +541,6 @@ export default function PublicTechniciansMap({
   }
 
   const listHref = searchConfig?.listAnchorId ? `#${searchConfig.listAnchorId}` : null;
-  const hasSearchFilters = Boolean(searchConfig?.query || searchConfig?.hiddenFields?.some((field) => field.value));
   const selectedRating = Number(selectedPoint?.rating || 0);
   const selectedAvailabilityStatus = selectedPoint
     ? selectedPoint.availabilityStatus || (selectedPoint.openNow ? 'open' : 'closed')

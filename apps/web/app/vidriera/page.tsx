@@ -11,6 +11,7 @@ import {
   resolveArgentinaZoneCoords,
   toFiniteCoordinate,
 } from '../../lib/geo/argentina-zone-presets';
+import { getServerCountryPreference } from '../../lib/country-preference-server';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import { fetchPublicReviewStatsByProfileIds } from '../../lib/public-profile-reviews';
 import {
@@ -175,6 +176,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function VidrieraPage({ searchParams }: VidrieraPageProps) {
   const resolvedSearchParams = (await searchParams) || {};
+  const selectedCountry = await getServerCountryPreference();
   const zonaQueryRaw = Array.isArray(resolvedSearchParams.zona)
     ? resolvedSearchParams.zona[0] || ''
     : resolvedSearchParams.zona || '';
@@ -327,6 +329,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
             <PublicTechniciansMap
               points={mapPoints}
               preferUserLocation={false}
+              selectedCountry={selectedCountry}
               eyebrow="Técnicos disponibles"
               title="Explora tecnicos por zona"
               description="Busca una ciudad o barrio, selecciona un punto y compara reputacion, rubros y contacto directo."
@@ -601,6 +604,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 <PublicTechniciansMap
                   points={mapPoints}
                   preferUserLocation={true}
+                  selectedCountry={selectedCountry}
                 />
               </div>
             </section>
