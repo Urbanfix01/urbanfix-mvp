@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, ActivityIndicator, Platform, StyleSheet } from 'react-native';
+import { Animated, Easing, Image, Platform, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -47,6 +48,7 @@ import ClientProfileScreen from '../screens/client/ClientProfileScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
+const logo = require('../../assets/icon.png');
 
 const normalizeAudience = (value: unknown): MobileAudience | null => {
   const normalized = String(value || '').trim().toLowerCase();
@@ -134,6 +136,54 @@ const ClientRequestsScreenWithSwipe = withTabSwipe(ClientRequestsScreen);
 const ClientPublishScreenWithSwipe = withTabSwipe(ClientPublishScreen);
 const ClientMapScreenWithSwipe = withTabSwipe(ClientMapScreen);
 const ClientProfileScreenWithSwipe = withTabSwipe(ClientProfileScreen);
+
+function AccountLoadingScreen() {
+  const progress = useRef(new Animated.Value(0.18)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(progress, {
+          toValue: 1,
+          duration: 1350,
+          easing: Easing.inOut(Easing.cubic),
+          useNativeDriver: false,
+        }),
+        Animated.timing(progress, {
+          toValue: 0.18,
+          duration: 420,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: false,
+        }),
+      ])
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [progress]);
+
+  const progressWidth = progress.interpolate({
+    inputRange: [0.18, 1],
+    outputRange: ['18%', '100%'],
+  });
+
+  return (
+    <LinearGradient colors={['#33003F', '#24002F', '#09000F']} style={styles.loadingRoot}>
+      <View style={styles.loadingCard}>
+        <View style={styles.loadingLogoWrap}>
+          <Image source={logo} style={styles.loadingLogo} />
+        </View>
+        <Text style={styles.loadingBrand}>
+          URBAN<Text style={styles.loadingBrandAccent}>FIX</Text>
+        </Text>
+        <Text style={styles.loadingLabel}>Cargando tu cuenta</Text>
+        <View style={styles.loadingProgressTrack}>
+          <Animated.View style={[styles.loadingProgressFill, { width: progressWidth }]} />
+        </View>
+      </View>
+    </LinearGradient>
+  );
+}
 
 const getTabIconName = (routeName: string, focused: boolean) => {
   if (routeName === 'Panel') return focused ? 'grid' : 'grid-outline';
@@ -459,11 +509,7 @@ export default function RootNavigator() {
   }, [session?.user?.id]);
 
   if (loading || audienceLoading || profileGateLoading) {
-    return (
-      <View style={styles.loadingRoot}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
-      </View>
-    );
+    return <AccountLoadingScreen />;
   }
 
   let rootContent: React.ReactNode;
@@ -558,7 +604,64 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.secondary,
+    paddingHorizontal: 28,
+    overflow: 'hidden',
+  },
+  loadingCard: {
+    width: '100%',
+    maxWidth: 320,
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingVertical: 26,
+  },
+  loadingLogoWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    marginBottom: 18,
+  },
+  loadingLogo: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+  },
+  loadingBrand: {
+    color: COLORS.white,
+    fontFamily: FONTS.title,
+    fontSize: 30,
+    letterSpacing: 0,
+  },
+  loadingBrandAccent: {
+    color: COLORS.primary,
+  },
+  loadingLabel: {
+    marginTop: 8,
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: FONTS.subtitle,
+    fontSize: 13,
+  },
+  loadingProgressTrack: {
+    width: '100%',
+    height: 9,
+    borderRadius: 999,
+    marginTop: 24,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  loadingProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 0 },
   },
   tabBarBackground: {
     flex: 1,

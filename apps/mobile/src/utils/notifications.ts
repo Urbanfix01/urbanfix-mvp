@@ -1,19 +1,46 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
+import type * as ExpoNotifications from 'expo-notifications';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+type NotificationsModule = typeof ExpoNotifications;
+
+let notificationsLoader: Promise<NotificationsModule> | null = null;
+let notificationHandlerReady = false;
+
+const isExpoGo = () => {
+  const runtimeConstants = Constants as typeof Constants & { executionEnvironment?: string };
+  return Constants.appOwnership === 'expo' || runtimeConstants.executionEnvironment === 'storeClient';
+};
+
+const getNotificationsAsync = async (): Promise<NotificationsModule | null> => {
+  if (isExpoGo()) {
+    return null;
+  }
+
+  notificationsLoader ??= import('expo-notifications');
+  const Notifications = await notificationsLoader;
+
+  if (!notificationHandlerReady) {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+    notificationHandlerReady = true;
+  }
+
+  return Notifications;
+};
 
 export const ensureAndroidChannel = async () => {
   if (Platform.OS !== 'android') return;
+  const Notifications = await getNotificationsAsync();
+  if (!Notifications) return;
+
   await Notifications.setNotificationChannelAsync('default', {
     name: 'Default',
     importance: Notifications.AndroidImportance.DEFAULT,
@@ -21,12 +48,13 @@ export const ensureAndroidChannel = async () => {
 };
 
 export const registerForPushNotificationsAsync = async (): Promise<string | null> => {
-  // Expo Go no soporta push remoto desde SDK 53+
-  if (Constants.appOwnership === 'expo') {
+  if (isExpoGo()) {
     return null;
   }
 
   await ensureAndroidChannel();
+  const Notifications = await getNotificationsAsync();
+  if (!Notifications) return null;
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
@@ -44,6 +72,9 @@ export const registerForPushNotificationsAsync = async (): Promise<string | null
 };
 
 export const showLocalNotification = async (title: string, body: string) => {
+  const Notifications = await getNotificationsAsync();
+  if (!Notifications) return;
+
   await Notifications.scheduleNotificationAsync({
     content: { title, body },
     trigger: null,

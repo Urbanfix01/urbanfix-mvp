@@ -12,6 +12,14 @@ const resolveGoogleMapsKey = (...candidates: Array<string | undefined>) => {
   return '';
 };
 
+const resolveEnvValue = (...candidates: Array<string | undefined>) => {
+  for (const candidate of candidates) {
+    const trimmed = String(candidate || '').trim();
+    if (trimmed) return trimmed.replace(/^"|"$/g, '');
+  }
+  return '';
+};
+
 const resolveAndroidMapsKey = () =>
   resolveGoogleMapsKey(
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY,
@@ -40,6 +48,8 @@ export default (): ExpoConfig => {
   const androidMapsKey = resolveAndroidMapsKey();
   const iosMapsKey = resolveIosMapsKey();
   const placesKey = resolvePlacesKey();
+  const supabaseUrl = resolveEnvValue(process.env.EXPO_PUBLIC_SUPABASE_URL);
+  const supabaseAnonKey = resolveEnvValue(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
   const baseAndroid = baseConfig.android || {};
   const baseAndroidConfig = (baseAndroid as any).config || {};
   const baseIos = baseConfig.ios || {};
@@ -69,6 +79,8 @@ export default (): ExpoConfig => {
     },
     extra: {
       ...(baseConfig.extra || {}),
+      supabaseUrl,
+      supabaseAnonKey,
       hasGoogleMapsAndroidKey: Boolean(androidMapsKey),
       hasGoogleMapsIosKey: Boolean(iosMapsKey),
       hasGooglePlacesKey: Boolean(placesKey),

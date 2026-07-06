@@ -17,7 +17,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.urbanfix.urbanfix",
-      "buildNumber": "11",
       "usesAppleSignIn": true,
       "config": {
         "usesNonExemptEncryption": false
@@ -29,7 +28,6 @@
         "backgroundColor": "#ffffff"
       },
       "package": "com.urbanfix.app",
-      "versionCode": 12,
       "intentFilters": [
         {
           "action": "VIEW",

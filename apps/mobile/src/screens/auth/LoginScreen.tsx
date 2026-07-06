@@ -83,6 +83,8 @@ const getRegistrationMediaTitle = (kind: RegistrationMediaKind) => {
 export default function AuthScreen() {
   const [audience, setAudience] = useState<Audience>('tecnico');
   const [isLogin, setIsLogin] = useState(true);
+  const [welcomeIntent, setWelcomeIntent] = useState<'login' | 'register'>('login');
+  const [hasStartedAuth, setHasStartedAuth] = useState(false);
   const [hasSelectedAudience, setHasSelectedAudience] = useState(false);
 
   const [email, setEmail] = useState('');
@@ -289,12 +291,40 @@ export default function AuthScreen() {
   };
 
   const handleAudienceChoice = (nextAudience: Audience) => {
+    const shouldRegister = welcomeIntent === 'register';
     setAudience(nextAudience);
-    setIsLogin(true);
-    setShowRegisterHint(false);
+    setIsLogin(!shouldRegister);
+    setShowRegisterHint(shouldRegister);
     clearRegisterFields();
     setHasSelectedAudience(true);
     void clearPendingTechnicianMedia();
+  };
+
+  const handleStartAuth = () => {
+    setWelcomeIntent('login');
+    setHasStartedAuth(true);
+    setHasSelectedAudience(false);
+    setIsLogin(true);
+    setShowRegisterHint(false);
+    clearRegisterFields();
+  };
+
+  const handleStartRegister = () => {
+    setWelcomeIntent('register');
+    setHasStartedAuth(true);
+    setHasSelectedAudience(false);
+    setIsLogin(false);
+    setShowRegisterHint(true);
+    clearRegisterFields();
+  };
+
+  const handleBackToWelcome = () => {
+    setWelcomeIntent('login');
+    setHasStartedAuth(false);
+    setHasSelectedAudience(false);
+    setIsLogin(true);
+    setShowRegisterHint(false);
+    clearRegisterFields();
   };
 
   const handleBackToAudienceChoice = () => {
@@ -805,7 +835,7 @@ export default function AuthScreen() {
     : 'Registro guiado con activacion por email y acceso seguro.';
 
   return (
-    <LinearGradient colors={['#020202', '#070707', '#0B0B0C']} style={styles.container}>
+    <LinearGradient colors={['#2A0338', '#23022F', '#0B0512']} style={styles.container}>
       <LinearGradient
         colors={['rgba(243,156,18,0.14)', 'rgba(243,156,18,0)']}
         start={{ x: 0, y: 0 }}
@@ -837,9 +867,38 @@ export default function AuthScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={[styles.layout, isCompactScreen && styles.layoutCompact, useCompactAuthLayout && styles.layoutTight]}>
-            {!hasSelectedAudience ? (
+            {!hasStartedAuth ? (
+              <View style={[styles.welcomeHero, isCompactScreen && styles.welcomeHeroCompact]}>
+                <View style={styles.welcomeLogoShell}>
+                  <Image source={logo} style={styles.welcomeLogo} />
+                </View>
+
+                <View style={styles.welcomeCopy}>
+                  <Text style={[styles.welcomeBrand, isNarrowScreen && styles.welcomeBrandCompact]}>
+                    URBAN<Text style={styles.welcomeBrandAccent}>FIX</Text>
+                  </Text>
+                  <Text style={[styles.welcomeAppTitle, isNarrowScreen && styles.welcomeAppTitleCompact]}>APP</Text>
+                  <Text style={styles.welcomeSubtitle}>
+                    Soluciones, tecnicos y solicitudes en un solo lugar.
+                  </Text>
+                </View>
+
+                <View style={styles.welcomeActions}>
+                  <TouchableOpacity style={styles.welcomeCta} activeOpacity={0.9} onPress={handleStartAuth}>
+                    <Text style={styles.welcomeCtaText}>Iniciar sesion</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.welcomeSecondaryCta} activeOpacity={0.9} onPress={handleStartRegister}>
+                    <Text style={styles.welcomeSecondaryCtaText}>Registrarme</Text>
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.homeCopyright}>© 2026 UrbanFix. Todos los derechos reservados.</Text>
+              </View>
+            ) : !hasSelectedAudience ? (
               <View style={[styles.chooserCard, isCompactScreen && styles.chooserCardCompact]}>
                 <LinearGradient colors={['#050505', '#0A0A0B', '#111214']} style={styles.chooserPanel}>
+                  <TouchableOpacity style={styles.chooserBackButton} activeOpacity={0.85} onPress={handleBackToWelcome}>
+                    <Ionicons name="arrow-back" size={17} color="#F8FAFC" />
+                  </TouchableOpacity>
                   <View style={styles.chooserBrandLockup}>
                     <View style={styles.chooserLogoWrap}>
                       <Image source={logo} style={styles.chooserLogo} />
@@ -890,7 +949,12 @@ export default function AuthScreen() {
                   styles.cardMinimal,
                 ]}
               >
-              <LinearGradient colors={['#050505', '#0A0A0B', '#111214']} style={[styles.authHeaderPanel, useCompactAuthLayout && styles.authHeaderPanelCompact]}>
+              <LinearGradient
+                colors={['rgba(255,255,255,0.13)', 'rgba(255,143,31,0.08)']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.authHeaderPanel, useCompactAuthLayout && styles.authHeaderPanelCompact]}
+              >
                 <View style={styles.authHeaderTopRow}>
                   <View style={styles.authHeaderMeta}>
                     <View style={styles.authHeaderLockup}>
@@ -922,42 +986,9 @@ export default function AuthScreen() {
                 </Text>
               </LinearGradient>
 
-              <View style={[styles.controlStack, useCompactAuthLayout && styles.controlStackCompact]}>
-                <View style={[styles.segmented, useCompactAuthLayout && styles.toggleCompact]}>
-                  <TouchableOpacity
-                    style={[styles.segmentItem, useCompactAuthLayout && styles.toggleItemCompact, isLogin && styles.segmentItemActive]}
-                    onPress={() => {
-                      setIsLogin(true);
-                      setShowRegisterHint(false);
-                    }}
-                  >
-                    <Text style={[styles.segmentText, useCompactAuthLayout && styles.toggleTextCompact, isLogin && styles.segmentTextActive]}>
-                      Ingresar
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.segmentItem, useCompactAuthLayout && styles.toggleItemCompact, isRegister && styles.segmentItemActive]}
-                    onPress={() => {
-                      setIsLogin(false);
-                      setShowRegisterHint(true);
-                    }}
-                  >
-                    <Text style={[styles.segmentText, useCompactAuthLayout && styles.toggleTextCompact, isRegister && styles.segmentTextActive]}>
-                      Crear cuenta
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-
-              {showRegisterHint && isRegister && !isCompactScreen && (
-                <View style={styles.notice}>
-                  <Text style={styles.noticeText}>{registerHint}</Text>
-                </View>
-              )}
-
-              {isLogin && (
-                <>
+              <View style={[styles.authSurface, useCompactAuthLayout && styles.authSurfaceCompact]}>
+                {isLogin && (
+                  <>
                   <View style={[styles.socialStack, useCompactAuthLayout && styles.socialStackCompact]}>
                     {showAppleButton && (
                       <View style={[styles.appleButtonWrap, useCompactAuthLayout && styles.appleButtonWrapCompact]}>
@@ -990,15 +1021,47 @@ export default function AuthScreen() {
                     </TouchableOpacity>
                   </View>
 
-                  {!useCompactAuthLayout && (
-                    <View style={[styles.dividerRow, useCompactAuthLayout && styles.dividerRowCompact]}>
-                      <View style={styles.dividerLine} />
-                      <Text style={styles.dividerText}>o con tu correo</Text>
-                      <View style={styles.dividerLine} />
-                    </View>
-                  )}
-                </>
-              )}
+                  <View style={[styles.dividerRow, useCompactAuthLayout && styles.dividerRowCompact]}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>o</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+                  </>
+                )}
+
+                <View style={[styles.controlStack, useCompactAuthLayout && styles.controlStackCompact]}>
+                  <View style={[styles.segmented, useCompactAuthLayout && styles.toggleCompact]}>
+                    <TouchableOpacity
+                      style={[styles.segmentItem, useCompactAuthLayout && styles.toggleItemCompact, isLogin && styles.segmentItemActive]}
+                      onPress={() => {
+                        setIsLogin(true);
+                        setShowRegisterHint(false);
+                      }}
+                    >
+                      <Text style={[styles.segmentText, useCompactAuthLayout && styles.toggleTextCompact, isLogin && styles.segmentTextActive]}>
+                        Ingresar
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.segmentItem, useCompactAuthLayout && styles.toggleItemCompact, isRegister && styles.segmentItemActive]}
+                      onPress={() => {
+                        setIsLogin(false);
+                        setShowRegisterHint(true);
+                      }}
+                    >
+                      <Text style={[styles.segmentText, useCompactAuthLayout && styles.toggleTextCompact, isRegister && styles.segmentTextActive]}>
+                        Crear cuenta
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
+                {showRegisterHint && isRegister && !isCompactScreen && (
+                  <View style={styles.notice}>
+                    <Text style={styles.noticeText}>{registerHint}</Text>
+                  </View>
+                )}
 
               {!!debugInfo && __DEV__ && <Text style={styles.debugText}>{debugInfo}</Text>}
 
@@ -1106,7 +1169,7 @@ export default function AuthScreen() {
                       <Image source={{ uri: registerMedia.banner }} style={styles.registerBannerImage} resizeMode="cover" />
                     ) : (
                       <View style={styles.registerBannerPlaceholder}>
-                        <Ionicons name="image-outline" size={30} color="rgba(248,250,252,0.52)" />
+                        <Ionicons name="image-outline" size={30} color="#64748B" />
                         <Text style={styles.registerBannerTitle}>Subir banner</Text>
                       </View>
                     )}
@@ -1144,7 +1207,7 @@ export default function AuthScreen() {
                                 <Ionicons
                                   name={kind === 'avatar' ? 'person-circle-outline' : 'business-outline'}
                                   size={28}
-                                  color="rgba(248,250,252,0.52)"
+                                  color="#64748B"
                                 />
                               </View>
                             )}
@@ -1221,7 +1284,7 @@ export default function AuthScreen() {
 
               <TouchableOpacity onPress={handleAuth} disabled={loading} activeOpacity={0.9}>
                 <LinearGradient
-                  colors={[COLORS.secondary, '#1F3144']}
+                  colors={['#FF8F1F', '#FFB45A']}
                   style={[styles.button, isCompactScreen && styles.buttonCompact, isCompressedLogin && styles.buttonTight]}
                 >
                   {loading ? (
@@ -1246,6 +1309,7 @@ export default function AuthScreen() {
               </TouchableOpacity>
 
               {!isLogin && !isCompressedLogin && <Text style={styles.footerHint}>{footerHint}</Text>}
+              </View>
               </View>
             )}
           </View>
@@ -1336,6 +1400,129 @@ const styles = StyleSheet.create({
   layoutTight: {
     gap: 10,
   },
+  welcomeHero: {
+    minHeight: 520,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 24,
+    paddingHorizontal: 22,
+    paddingVertical: 36,
+  },
+  welcomeHeroCompact: {
+    minHeight: 450,
+    gap: 22,
+    paddingVertical: 26,
+  },
+  welcomeLogoShell: {
+    width: 76,
+    height: 76,
+    borderRadius: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  welcomeLogo: {
+    width: 58,
+    height: 58,
+    resizeMode: 'contain',
+  },
+  welcomeCopy: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  welcomeBrand: {
+    width: '100%',
+    color: COLORS.white,
+    fontFamily: FONTS.title,
+    fontSize: 54,
+    lineHeight: 58,
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  welcomeBrandCompact: {
+    fontSize: 44,
+    lineHeight: 48,
+  },
+  welcomeBrandAccent: {
+    color: COLORS.primary,
+  },
+  welcomeAppTitle: {
+    width: '100%',
+    color: COLORS.white,
+    fontFamily: FONTS.title,
+    fontSize: 48,
+    lineHeight: 52,
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  welcomeAppTitleCompact: {
+    fontSize: 38,
+    lineHeight: 42,
+  },
+  welcomeSubtitle: {
+    marginTop: 16,
+    maxWidth: 290,
+    color: 'rgba(255,255,255,0.76)',
+    fontFamily: FONTS.body,
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: 'center',
+  },
+  welcomeActions: {
+    width: '100%',
+    maxWidth: 306,
+    gap: 12,
+  },
+  welcomeCta: {
+    width: '100%',
+    minHeight: 58,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.54)',
+    shadowColor: COLORS.primary,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.38,
+    shadowRadius: 24,
+    elevation: 10,
+  },
+  welcomeCtaText: {
+    color: '#2A0338',
+    fontFamily: FONTS.title,
+    fontSize: 15,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  welcomeSecondaryCta: {
+    width: '100%',
+    minHeight: 50,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  welcomeSecondaryCtaText: {
+    color: COLORS.white,
+    fontFamily: FONTS.title,
+    fontSize: 14,
+    letterSpacing: 0.2,
+    textTransform: 'uppercase',
+  },
+  homeCopyright: {
+    marginTop: 2,
+    color: 'rgba(255,255,255,0.5)',
+    fontFamily: FONTS.body,
+    fontSize: 11,
+    lineHeight: 16,
+    textAlign: 'center',
+  },
   chooserCard: {
     gap: 18,
     backgroundColor: '#0F1012',
@@ -1366,6 +1553,20 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.32,
     shadowRadius: 18,
     elevation: 5,
+  },
+  chooserBackButton: {
+    position: 'absolute',
+    top: 14,
+    left: 14,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    zIndex: 2,
   },
   chooserBrandLockup: {
     alignItems: 'center',
@@ -1626,13 +1827,13 @@ const styles = StyleSheet.create({
   },
   authHeaderPanel: {
     borderRadius: 24,
-    padding: 18,
+    padding: 16,
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.14)',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.32,
+    shadowOpacity: 0.18,
     shadowRadius: 18,
     elevation: 5,
   },
@@ -1667,7 +1868,7 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 19,
     letterSpacing: 0.2,
-    color: COLORS.primary,
+    color: '#FFFFFF',
     fontFamily: FONTS.title,
   },
   authHeaderBadge: {
@@ -1696,10 +1897,28 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
   authHeaderSubtitle: {
-    color: '#B8C0CB',
+    color: 'rgba(255,255,255,0.76)',
     fontFamily: FONTS.body,
     fontSize: 14,
     lineHeight: 20,
+  },
+  authSurface: {
+    gap: 14,
+    padding: 16,
+    borderRadius: 28,
+    backgroundColor: '#FFFDF9',
+    borderWidth: 1,
+    borderColor: '#EADFCF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.18,
+    shadowRadius: 28,
+    elevation: 7,
+  },
+  authSurfaceCompact: {
+    gap: 10,
+    padding: 12,
+    borderRadius: 22,
   },
   heroCopy: {
     flex: 1,
@@ -1808,30 +2027,30 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   card: {
-    gap: 18,
-    backgroundColor: '#0F1012',
-    borderRadius: 28,
-    padding: 22,
+    gap: 14,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 32,
+    padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.16)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 24 },
+    shadowOpacity: 0.42,
+    shadowRadius: 36,
+    elevation: 10,
   },
   cardMinimal: {
     gap: 10,
   },
   cardCompact: {
     gap: 12,
-    padding: 15,
-    borderRadius: 22,
+    padding: 13,
+    borderRadius: 26,
   },
   cardTight: {
     gap: 10,
-    padding: 13,
-    borderRadius: 20,
+    padding: 12,
+    borderRadius: 24,
   },
   cardHeader: {
     gap: 6,
@@ -1963,12 +2182,11 @@ const styles = StyleSheet.create({
   },
   segmented: {
     flexDirection: 'row',
-    gap: 8,
     padding: 4,
     borderRadius: 16,
-    backgroundColor: '#151618',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#E2E8F0',
   },
   segmentItem: {
     flex: 1,
@@ -1979,27 +2197,27 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   segmentItemActive: {
-    backgroundColor: 'rgba(243,156,18,0.16)',
-    borderColor: 'rgba(243,156,18,0.26)',
+    backgroundColor: '#2A0338',
+    borderColor: '#2A0338',
   },
   segmentText: {
-    color: '#7F8792',
+    color: '#64748B',
     fontFamily: FONTS.subtitle,
     fontSize: 14,
   },
   segmentTextActive: {
-    color: '#F8FAFC',
+    color: '#FFFFFF',
   },
   notice: {
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: 'rgba(243,156,18,0.14)',
+    backgroundColor: '#FFF7ED',
     borderWidth: 1,
-    borderColor: 'rgba(243,156,18,0.2)',
+    borderColor: '#FED7AA',
   },
   noticeText: {
-    color: '#FFD08A',
+    color: '#9A3412',
     fontFamily: FONTS.subtitle,
     fontSize: 12,
     lineHeight: 18,
@@ -2012,11 +2230,11 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     gap: 12,
-    padding: 14,
+    padding: 12,
     borderRadius: 18,
-    backgroundColor: '#151618',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#E2E8F0',
   },
   sectionCardCompact: {
     gap: 8,
@@ -2024,7 +2242,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   sectionLabel: {
-    color: '#7F8792',
+    color: '#64748B',
     fontFamily: FONTS.subtitle,
     fontSize: 11,
     letterSpacing: 0.8,
@@ -2053,7 +2271,7 @@ const styles = StyleSheet.create({
   },
   sectionHint: {
     marginTop: -4,
-    color: '#7F8792',
+    color: '#64748B',
     fontFamily: FONTS.body,
     fontSize: 12,
     lineHeight: 18,
@@ -2063,8 +2281,8 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0D0E10',
+    borderColor: '#E2E8F0',
+    backgroundColor: '#F8FAFC',
     justifyContent: 'center',
   },
   registerBannerPickerCompact: {
@@ -2083,7 +2301,7 @@ const styles = StyleSheet.create({
     paddingVertical: 18,
   },
   registerBannerTitle: {
-    color: '#F8FAFC',
+    color: '#334155',
     fontFamily: FONTS.subtitle,
     fontSize: 14,
   },
@@ -2110,8 +2328,8 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0D0E10',
+    borderColor: '#E2E8F0',
+    backgroundColor: '#FFFFFF',
   },
   registerMediaPreview: {
     height: 88,
@@ -2119,9 +2337,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#16181C',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
+    borderColor: '#E2E8F0',
   },
   registerMediaPreviewImage: {
     width: '100%',
@@ -2136,27 +2354,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   registerMediaCardTitle: {
-    color: '#F8FAFC',
+    color: '#334155',
     fontFamily: FONTS.subtitle,
     fontSize: 12,
   },
   input: {
-    backgroundColor: '#0D0E10',
+    backgroundColor: '#FFFFFF',
     padding: 15,
     borderRadius: 14,
     fontSize: 14,
     fontFamily: FONTS.body,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    color: '#F8FAFC',
+    borderColor: '#CBD5E1',
+    color: '#0F172A',
   },
   selectorField: {
     minHeight: 54,
     paddingHorizontal: 15,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#0D0E10',
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -2172,7 +2390,7 @@ const styles = StyleSheet.create({
   },
   selectorText: {
     flex: 1,
-    color: '#F8FAFC',
+    color: '#0F172A',
     fontFamily: FONTS.body,
     fontSize: 14,
   },
@@ -2196,12 +2414,13 @@ const styles = StyleSheet.create({
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 14,
+    minHeight: 50,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 16,
-    backgroundColor: '#151618',
+    backgroundColor: '#FFFFFF',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#CBD5E1',
     gap: 12,
   },
   googleButtonCompact: {
@@ -2211,14 +2430,14 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   socialButtonMark: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#0D0E10',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: 'rgba(243,156,18,0.24)',
+    borderColor: '#E2E8F0',
   },
   socialButtonMarkCompact: {
     width: 30,
@@ -2248,7 +2467,7 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   googleButtonText: {
-    color: '#F8FAFC',
+    color: '#334155',
     fontFamily: FONTS.subtitle,
     fontSize: 14,
   },
@@ -2279,9 +2498,9 @@ const styles = StyleSheet.create({
   },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dividerRowCompact: { gap: 8 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.08)' },
-  dividerText: { color: '#7F8792', fontFamily: FONTS.body, fontSize: 11 },
-  debugText: { fontSize: 10, color: '#7F8792', textAlign: 'center' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E2E8F0' },
+  dividerText: { color: '#94A3B8', fontFamily: FONTS.body, fontSize: 12 },
+  debugText: { fontSize: 10, color: '#64748B', textAlign: 'center' },
   trustRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -2289,9 +2508,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 12,
     borderRadius: 16,
-    backgroundColor: '#151618',
+    backgroundColor: '#F8FAFC',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: '#E2E8F0',
   },
   trustDot: {
     width: 10,
@@ -2301,7 +2520,7 @@ const styles = StyleSheet.create({
   },
   trustText: {
     flex: 1,
-    color: '#F8FAFC',
+    color: '#334155',
     fontFamily: FONTS.body,
     fontSize: 12,
     lineHeight: 18,
@@ -2323,15 +2542,15 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     borderRadius: 12,
   },
-  buttonText: { color: '#FFF', fontFamily: FONTS.subtitle, fontSize: 17, letterSpacing: 0.2 },
+  buttonText: { color: '#2A0338', fontFamily: FONTS.subtitle, fontSize: 17, letterSpacing: 0.2 },
   buttonTextCompact: { fontSize: 15 },
   switchBtn: { alignItems: 'center', paddingTop: 4 },
   switchBtnCompact: { paddingTop: 0 },
-  switchText: { color: '#D5D9DE', fontFamily: FONTS.body, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  switchText: { color: '#64748B', fontFamily: FONTS.body, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   switchTextCompact: { fontSize: 12, lineHeight: 18 },
   recoveryBtn: { alignSelf: 'flex-end', marginTop: -2 },
   recoveryBtnCompact: { marginTop: 0 },
-  recoveryText: { color: COLORS.primary, fontFamily: FONTS.body, fontSize: 12 },
+  recoveryText: { color: '#8F4F08', fontFamily: FONTS.body, fontSize: 12 },
   footerHint: {
     textAlign: 'center',
     color: '#7F8792',
