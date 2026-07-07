@@ -176,7 +176,8 @@ function AccountLoadingScreen() {
         <Text style={styles.loadingBrand}>
           URBAN<Text style={styles.loadingBrandAccent}>FIX</Text>
         </Text>
-        <Text style={styles.loadingLabel}>Cargando tu cuenta</Text>
+        <Text style={styles.loadingAppTitle}>APP</Text>
+        <Text style={styles.loadingLabel}>Preparando tu cuenta</Text>
         <View style={styles.loadingProgressTrack}>
           <Animated.View style={[styles.loadingProgressFill, { width: progressWidth }]} />
         </View>
@@ -633,13 +634,22 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontFamily: FONTS.title,
     fontSize: 30,
+    lineHeight: 34,
     letterSpacing: 0,
   },
   loadingBrandAccent: {
     color: COLORS.primary,
   },
+  loadingAppTitle: {
+    color: COLORS.white,
+    fontFamily: FONTS.title,
+    fontSize: 25,
+    lineHeight: 28,
+    letterSpacing: 0,
+    marginTop: -2,
+  },
   loadingLabel: {
-    marginTop: 8,
+    marginTop: 10,
     color: 'rgba(255,255,255,0.78)',
     fontFamily: FONTS.subtitle,
     fontSize: 13,

@@ -89,6 +89,7 @@ export default function AuthScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [fullName, setFullName] = useState('');
   const [businessName, setBusinessName] = useState('');
@@ -770,10 +771,6 @@ export default function AuthScreen() {
     }
   };
 
-  const subtitle = isClientAudience
-    ? 'Solicitudes, mensajes y respuestas en un solo acceso.'
-    : 'Pedidos, cotizaciones y agenda desde un solo acceso.';
-
   const registerHint = isClientAudience
     ? 'Completa tus datos para publicar solicitudes.'
     : 'Completa tu perfil profesional y activa tu presencia en la app.';
@@ -793,13 +790,6 @@ export default function AuthScreen() {
       chips: ['Solicitudes', 'Mensajes'],
     },
   ];
-  const formTitle = isLogin
-    ? isClientAudience
-      ? 'Accede a tu espacio'
-      : 'Accede a tu panel'
-    : isClientAudience
-      ? 'Crea tu cuenta de cliente'
-      : 'Crea tu perfil profesional';
   const googleActionText = isLogin
     ? isClientAudience
       ? 'Entrar con Google'
@@ -836,21 +826,6 @@ export default function AuthScreen() {
 
   return (
     <LinearGradient colors={['#2A0338', '#23022F', '#0B0512']} style={styles.container}>
-      <LinearGradient
-        colors={['rgba(243,156,18,0.14)', 'rgba(243,156,18,0)']}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.bgVeilTop}
-      />
-      <LinearGradient
-        colors={['rgba(255,255,255,0.06)', 'rgba(255,255,255,0)']}
-        start={{ x: 1, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={styles.bgVeilBottom}
-      />
-      <View style={styles.bgLineTop} />
-      <View style={styles.bgLineBottom} />
-
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
         <ScrollView
           contentContainerStyle={[
@@ -891,22 +866,13 @@ export default function AuthScreen() {
                     <Text style={styles.welcomeSecondaryCtaText}>Registrarme</Text>
                   </TouchableOpacity>
                 </View>
-                <Text style={styles.homeCopyright}>© 2026 UrbanFix. Todos los derechos reservados.</Text>
+                <Text style={styles.homeCopyright}>{'\u00A9 2026 UrbanFix. Todos los derechos reservados.'}</Text>
               </View>
             ) : !hasSelectedAudience ? (
               <View style={[styles.chooserCard, isCompactScreen && styles.chooserCardCompact]}>
-                <LinearGradient colors={['#050505', '#0A0A0B', '#111214']} style={styles.chooserPanel}>
-                  <TouchableOpacity style={styles.chooserBackButton} activeOpacity={0.85} onPress={handleBackToWelcome}>
-                    <Ionicons name="arrow-back" size={17} color="#F8FAFC" />
-                  </TouchableOpacity>
-                  <View style={styles.chooserBrandLockup}>
-                    <View style={styles.chooserLogoWrap}>
-                      <Image source={logo} style={styles.chooserLogo} />
-                    </View>
-                    <Text style={styles.chooserWordmark}>UrbanFix</Text>
-                  </View>
-                  <Text style={styles.chooserTitle}>Como quieres ingresar?</Text>
-                </LinearGradient>
+                <TouchableOpacity style={styles.chooserBackButton} activeOpacity={0.85} onPress={handleBackToWelcome}>
+                  <Ionicons name="arrow-back" size={17} color="#F8FAFC" />
+                </TouchableOpacity>
 
                 <View style={styles.chooserStack}>
                   {chooserOptions.map((option) => (
@@ -949,44 +915,15 @@ export default function AuthScreen() {
                   styles.cardMinimal,
                 ]}
               >
-              <LinearGradient
-                colors={['rgba(255,255,255,0.13)', 'rgba(255,143,31,0.08)']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.authHeaderPanel, useCompactAuthLayout && styles.authHeaderPanelCompact]}
-              >
-                <View style={styles.authHeaderTopRow}>
-                  <View style={styles.authHeaderMeta}>
-                    <View style={styles.authHeaderLockup}>
-                      <Image source={logo} style={styles.authHeaderLogo} />
-                      <Text style={styles.authHeaderBrand}>UrbanFix</Text>
-                    </View>
-                    <View style={styles.authHeaderBadge}>
-                      <View style={styles.badgeDot} />
-                      <Text style={styles.authHeaderBadgeText}>{isClientAudience ? 'Cliente' : 'Tecnico'}</Text>
-                    </View>
-                  </View>
-                  <TouchableOpacity style={styles.changeAudienceBtn} onPress={handleBackToAudienceChoice} activeOpacity={0.85}>
-                    <Ionicons name="swap-horizontal-outline" size={14} color="#F8FAFC" />
-                    <Text style={styles.changeAudienceTextLight}>Cambiar</Text>
+              <View style={[styles.authSurface, useCompactAuthLayout && styles.authSurfaceCompact]}>
+                <View style={styles.authInlineHeader}>
+                  <TouchableOpacity style={styles.authInlineChange} onPress={handleBackToAudienceChoice} activeOpacity={0.85}>
+                    <Ionicons name="arrow-back" size={14} color="#64748B" />
+                    <Text style={styles.authInlineChangeText}>Cambiar perfil</Text>
                   </TouchableOpacity>
+                  <Text style={styles.authAudiencePill}>{isClientAudience ? 'Cliente' : 'Tecnico'}</Text>
                 </View>
 
-                <Text
-                  style={[
-                    styles.authHeaderTitle,
-                    isNarrowScreen && styles.cardTitleCompact,
-                    useCompactAuthLayout && styles.cardTitleTight,
-                  ]}
-                >
-                  {formTitle}
-                </Text>
-                <Text style={[styles.authHeaderSubtitle, useCompactAuthLayout && styles.cardSubtitleCompact]}>
-                  {subtitle}
-                </Text>
-              </LinearGradient>
-
-              <View style={[styles.authSurface, useCompactAuthLayout && styles.authSurfaceCompact]}>
                 {isLogin && (
                   <>
                   <View style={[styles.socialStack, useCompactAuthLayout && styles.socialStackCompact]}>
@@ -1247,22 +1184,41 @@ export default function AuthScreen() {
                   onSubmitEditing={() => passwordRef.current?.focus()}
                 />
 
-                <TextInput
-                  ref={passwordRef}
-                  style={[styles.input, (isCompressedLogin || useCompactRegister) && styles.inputCompact, activeField === 'password' && styles.inputFocused]}
-                  placeholder="Contrasena"
-                  placeholderTextColor="#94A3B8"
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry
-                  onFocus={() => setActiveField('password')}
-                  onBlur={() => setActiveField(null)}
-                  autoCorrect={false}
-                  textContentType="password"
-                  autoComplete="password"
-                  returnKeyType="done"
-                  onSubmitEditing={handleAuth}
-                />
+                <View
+                  style={[
+                    styles.passwordField,
+                    (isCompressedLogin || useCompactRegister) && styles.passwordFieldCompact,
+                    activeField === 'password' && styles.inputFocused,
+                  ]}
+                >
+                  <TextInput
+                    ref={passwordRef}
+                    style={styles.passwordInput}
+                    placeholder="Contrasena"
+                    placeholderTextColor="#94A3B8"
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    onFocus={() => setActiveField('password')}
+                    onBlur={() => setActiveField(null)}
+                    autoCorrect={false}
+                    textContentType="password"
+                    autoComplete="password"
+                    returnKeyType="done"
+                    onSubmitEditing={handleAuth}
+                  />
+                  <TouchableOpacity
+                    style={styles.passwordVisibilityButton}
+                    onPress={() => setShowPassword((current) => !current)}
+                    activeOpacity={0.75}
+                  >
+                    <Ionicons
+                      name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+                      size={19}
+                      color="#64748B"
+                    />
+                  </TouchableOpacity>
+                </View>
 
                 {isLogin && (
                   <TouchableOpacity
@@ -1343,40 +1299,6 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  bgVeilTop: {
-    position: 'absolute',
-    top: -40,
-    right: -20,
-    width: 240,
-    height: 280,
-    borderBottomLeftRadius: 180,
-    opacity: 0.9,
-  },
-  bgVeilBottom: {
-    position: 'absolute',
-    bottom: -80,
-    left: -30,
-    width: 260,
-    height: 320,
-    borderTopRightRadius: 200,
-    opacity: 0.65,
-  },
-  bgLineTop: {
-    position: 'absolute',
-    top: 132,
-    left: 24,
-    right: 24,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  bgLineBottom: {
-    position: 'absolute',
-    bottom: 128,
-    left: 40,
-    right: 40,
-    height: 1,
-    backgroundColor: 'rgba(243,156,18,0.12)',
-  },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -1524,40 +1446,18 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chooserCard: {
-    gap: 18,
-    backgroundColor: '#0F1012',
-    borderRadius: 28,
-    padding: 22,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.32,
-    shadowRadius: 22,
-    elevation: 6,
+    gap: 14,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+    borderWidth: 0,
+    shadowOpacity: 0,
+    elevation: 0,
   },
   chooserCardCompact: {
-    gap: 14,
-    padding: 16,
-    borderRadius: 22,
-  },
-  chooserPanel: {
-    borderRadius: 24,
-    padding: 18,
-    gap: 10,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.32,
-    shadowRadius: 18,
-    elevation: 5,
+    gap: 12,
   },
   chooserBackButton: {
-    position: 'absolute',
-    top: 14,
-    left: 14,
     width: 36,
     height: 36,
     borderRadius: 18,
@@ -1566,52 +1466,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
-    zIndex: 2,
-  },
-  chooserBrandLockup: {
-    alignItems: 'center',
-    gap: 10,
-  },
-  chooserLogoWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#111214',
-    borderWidth: 1,
-    borderColor: 'rgba(243,156,18,0.26)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.24,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  chooserLogo: {
-    width: 44,
-    height: 44,
-    resizeMode: 'contain',
-  },
-  chooserWordmark: {
-    fontSize: 30,
-    lineHeight: 34,
-    letterSpacing: 0.3,
-    color: COLORS.primary,
-    fontFamily: FONTS.title,
-  },
-  chooserTitle: {
-    fontSize: 28,
-    lineHeight: 34,
-    color: '#F8FAFC',
-    fontFamily: FONTS.title,
-    textAlign: 'center',
-  },
-  chooserSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: 'rgba(255,255,255,0.78)',
-    fontFamily: FONTS.body,
-    textAlign: 'center',
+    alignSelf: 'flex-start',
   },
   chooserStack: {
     gap: 12,
@@ -1658,7 +1513,7 @@ const styles = StyleSheet.create({
   chooserOptionCopy: {
     flex: 1,
     gap: 6,
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'center',
   },
   chooserOptionTitle: {
@@ -1666,20 +1521,20 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     color: '#F8FAFC',
     fontFamily: FONTS.title,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   chooserOptionText: {
     fontSize: 13,
     lineHeight: 19,
     color: '#B2BAC4',
     fontFamily: FONTS.body,
-    textAlign: 'center',
+    textAlign: 'left',
     maxWidth: '92%',
   },
   chooserOptionChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     gap: 8,
     marginTop: 4,
     width: '100%',
@@ -1804,104 +1659,6 @@ const styles = StyleSheet.create({
     color: COLORS.secondary,
     fontFamily: FONTS.subtitle,
   },
-  changeAudienceBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-  },
-  changeAudienceText: {
-    color: COLORS.secondary,
-    fontFamily: FONTS.subtitle,
-    fontSize: 12,
-  },
-  changeAudienceTextLight: {
-    color: '#F8FAFC',
-    fontFamily: FONTS.subtitle,
-    fontSize: 12,
-  },
-  authHeaderPanel: {
-    borderRadius: 24,
-    padding: 16,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 5,
-  },
-  authHeaderPanelCompact: {
-    padding: 15,
-    gap: 8,
-    borderRadius: 20,
-  },
-  authHeaderTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  authHeaderMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  authHeaderLockup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  authHeaderLogo: {
-    width: 28,
-    height: 28,
-    resizeMode: 'contain',
-  },
-  authHeaderBrand: {
-    fontSize: 17,
-    lineHeight: 19,
-    letterSpacing: 0.2,
-    color: '#FFFFFF',
-    fontFamily: FONTS.title,
-  },
-  authHeaderBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  authHeaderBadgeText: {
-    fontSize: 11,
-    letterSpacing: 0.4,
-    textTransform: 'uppercase',
-    color: '#F8FAFC',
-    fontFamily: FONTS.subtitle,
-  },
-  authHeaderTitle: {
-    color: '#FFFFFF',
-    fontFamily: FONTS.title,
-    fontSize: 28,
-    lineHeight: 34,
-    letterSpacing: -0.3,
-  },
-  authHeaderSubtitle: {
-    color: 'rgba(255,255,255,0.76)',
-    fontFamily: FONTS.body,
-    fontSize: 14,
-    lineHeight: 20,
-  },
   authSurface: {
     gap: 14,
     padding: 16,
@@ -1919,6 +1676,37 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 12,
     borderRadius: 22,
+  },
+  authInlineHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  authInlineChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingRight: 8,
+  },
+  authInlineChangeText: {
+    color: '#64748B',
+    fontFamily: FONTS.subtitle,
+    fontSize: 12,
+  },
+  authAudiencePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    color: '#64748B',
+    fontFamily: FONTS.subtitle,
+    fontSize: 11,
+    textTransform: 'uppercase',
   },
   heroCopy: {
     flex: 1,
@@ -1946,12 +1734,6 @@ const styles = StyleSheet.create({
   badgeRowCompact: {
     paddingHorizontal: 10,
     paddingVertical: 6,
-  },
-  badgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 999,
-    backgroundColor: COLORS.primary,
   },
   badgeText: {
     fontSize: 11,
@@ -2028,29 +1810,26 @@ const styles = StyleSheet.create({
   },
   card: {
     gap: 14,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-    borderRadius: 32,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 24 },
-    shadowOpacity: 0.42,
-    shadowRadius: 36,
-    elevation: 10,
+    backgroundColor: 'transparent',
+    borderRadius: 0,
+    padding: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    shadowOpacity: 0,
+    elevation: 0,
   },
   cardMinimal: {
     gap: 10,
   },
   cardCompact: {
     gap: 12,
-    padding: 13,
-    borderRadius: 26,
+    padding: 0,
+    borderRadius: 0,
   },
   cardTight: {
     gap: 10,
-    padding: 12,
-    borderRadius: 24,
+    padding: 0,
+    borderRadius: 0,
   },
   cardHeader: {
     gap: 6,
@@ -2402,6 +2181,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 11,
     fontSize: 13,
+  },
+  passwordField: {
+    minHeight: 54,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#CBD5E1',
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingLeft: 15,
+    paddingRight: 8,
+  },
+  passwordFieldCompact: {
+    minHeight: 46,
+    borderRadius: 11,
+    paddingLeft: 12,
+    paddingRight: 6,
+  },
+  passwordInput: {
+    flex: 1,
+    color: '#0F172A',
+    fontFamily: FONTS.body,
+    fontSize: 14,
+    paddingVertical: 0,
+  },
+  passwordVisibilityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   inputFocused: {
     borderColor: COLORS.primary,
