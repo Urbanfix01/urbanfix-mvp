@@ -3,6 +3,7 @@ import { Sora } from 'next/font/google';
 import AuthHashHandler from '../components/AuthHashHandler';
 import FloatingWhatsappChannelButton from '../components/home/FloatingWhatsappChannelButton';
 import HomeAnimatedHero from '../components/home/HomeAnimatedHero';
+import HomeScrollReveal from '../components/home/HomeScrollReveal';
 import PublicTopNav from '../components/PublicTopNav';
 
 const sora = Sora({
@@ -22,6 +23,7 @@ export default function HomePage() {
   return (
     <div className={sora.className}>
       <AuthHashHandler />
+      <HomeScrollReveal />
 
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <PublicTopNav activeHref="/" />
