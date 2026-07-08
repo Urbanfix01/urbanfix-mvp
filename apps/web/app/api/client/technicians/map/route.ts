@@ -8,6 +8,7 @@ import {
   toFiniteNumber,
 } from '@/app/api/_shared/marketplace';
 import { resolveArgentinaZoneCoords } from '@/lib/geo/argentina-zone-presets';
+import { isPublicProfileVisible } from '@/lib/public-profile-validity';
 
 const ARGENTINA_CENTER = {
   lat: -38.416097,
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
   }
 
   const selectFields =
-    'id, full_name, business_name, phone, specialties, city, coverage_area, address, company_address, working_hours, public_rating, service_lat, service_lng, service_radius_km, access_granted, profile_published';
+    'id, full_name, business_name, phone, country, specialties, city, service_city, service_district, service_province, coverage_area, address, company_address, working_hours, public_rating, service_lat, service_lng, service_radius_km, access_granted, profile_published';
 
   let profilesRes = await supabase
     .from('profiles')
@@ -71,13 +72,24 @@ export async function GET(request: NextRequest) {
   let missingGeo = 0;
   let availableNow = 0;
 
-  const technicians = (profilesRes.data || [])
+  const visibleProfiles = (profilesRes.data || []).filter((row: any) => isPublicProfileVisible(row));
+
+  const technicians = visibleProfiles
     .map((row: any) => {
       const exactLat = toFiniteNumber(row.service_lat);
       const exactLng = toFiniteNumber(row.service_lng);
       const fallbackGeo =
         exactLat === null || exactLng === null
-          ? resolveArgentinaZoneCoords(row.city, row.coverage_area, row.address, row.company_address)
+          ? resolveArgentinaZoneCoords(
+              row.service_city,
+              row.service_district,
+              row.service_province,
+              row.city,
+              row.coverage_area,
+              row.address,
+              row.company_address,
+              row.country
+            )
           : null;
       const lat = exactLat ?? fallbackGeo?.lat ?? null;
       const lng = exactLng ?? fallbackGeo?.lng ?? null;
@@ -95,13 +107,18 @@ export async function GET(request: NextRequest) {
         id: toText(row.id),
         name: toText(row.business_name) || toText(row.full_name) || 'Tecnico UrbanFix',
         phone: toText(row.phone) || null,
-        city: toText(row.city) || fallbackGeo?.label || 'Argentina',
+        city: toText(row.service_city) || toText(row.city) || fallbackGeo?.label || toText(row.country) || 'Argentina',
         specialty: toText(row.specialties) || 'Servicios generales',
         rating: Number.isFinite(Number(row.public_rating)) ? Number(row.public_rating) : null,
         available_now: openNow,
         lat: Number(lat.toFixed(6)),
         lng: Number(lng.toFixed(6)),
-        address: toText(row.company_address) || toText(row.address) || toText(row.coverage_area) || 'Cobertura nacional',
+        address:
+          toText(row.company_address) ||
+          toText(row.address) ||
+          [toText(row.service_district), toText(row.service_province)].filter(Boolean).join(', ') ||
+          toText(row.coverage_area) ||
+          'Cobertura nacional',
         geo_source: exactLat !== null && exactLng !== null ? 'service' : 'profile',
         working_hours_label: formatWorkingHoursLabel(workingHours),
         radius_km: Math.max(1, Math.round(Number(row.service_radius_km || DEFAULT_MATCH_RADIUS_KM))),

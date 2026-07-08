@@ -9,6 +9,7 @@ import {
   parseWorkingHoursConfig,
   toFiniteNumber,
 } from '@/app/api/_shared/marketplace';
+import { isPublicProfileVisible } from '@/lib/public-profile-validity';
 
 const normalizeRadius = (value: unknown) => {
   const parsed = Number(value || DEFAULT_MATCH_RADIUS_KM);
@@ -125,9 +126,10 @@ export async function GET(request: NextRequest) {
   const { data: techniciansRows, error: techniciansError } = await supabase
     .from('profiles')
     .select(
-      'id, full_name, business_name, phone, specialties, city, service_city, service_district, service_province, working_hours, public_rating, service_lat, service_lng, access_granted'
+      'id, full_name, business_name, phone, country, specialties, city, service_city, service_district, service_province, coverage_area, working_hours, public_rating, service_lat, service_lng, access_granted, profile_published'
     )
     .eq('access_granted', true)
+    .or('profile_published.is.null,profile_published.eq.true')
     .neq('id', user.id)
     .limit(700);
 
@@ -137,9 +139,11 @@ export async function GET(request: NextRequest) {
 
   let skippedByMissingGeo = 0;
   let skippedByRadius = 0;
+  const visibleTechnicianRows = (techniciansRows || []).filter((row: any) => isPublicProfileVisible(row));
+  const skippedByIncompleteProfile = Math.max(0, (techniciansRows || []).length - visibleTechnicianRows.length);
   const now = new Date();
 
-  const technicians = (techniciansRows || [])
+  const technicians = visibleTechnicianRows
     .map((row: any) => {
       const techLat = toFiniteNumber(row.service_lat);
       const techLng = toFiniteNumber(row.service_lng);
@@ -185,7 +189,9 @@ export async function GET(request: NextRequest) {
 
   let warning = '';
   if (!technicians.length) {
-    if ((techniciansRows || []).length === 0) {
+    if (skippedByIncompleteProfile > 0 && visibleTechnicianRows.length === 0) {
+      warning = 'Hay tecnicos aprobados, pero todavia no tienen perfil completo para aparecer.';
+    } else if ((techniciansRows || []).length === 0) {
       warning = 'Todavía no hay técnicos disponibles para mostrar en esta zona.';
     } else if (skippedByRadius > 0) {
       warning = `No hay técnicos dentro de ${radiusKm} km. Ampliá el radio para ver más opciones.`;
@@ -206,6 +212,7 @@ export async function GET(request: NextRequest) {
     stats: {
       loaded: (techniciansRows || []).length,
       visible: technicians.length,
+      skipped_by_incomplete_profile: skippedByIncompleteProfile,
       skipped_by_missing_geo: skippedByMissingGeo,
       skipped_by_radius: skippedByRadius,
     },

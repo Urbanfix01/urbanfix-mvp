@@ -123,11 +123,18 @@ const getMailHref = (profile: TechnicianProfile) => {
 
 const hasContactChannel = (profile: TechnicianProfile) => Boolean(normalizeEmail(profile.email) || toText(profile.phone));
 
+const hasSpecialty = (profile: TechnicianProfile) =>
+  toText(profile.specialties)
+    .split(/[\n,;|/]+/)
+    .map((item) => item.trim())
+    .filter(Boolean).length > 0;
+
 const getApprovalMissingLabels = (profile: TechnicianProfile) => {
   const missing: string[] = [];
   if (!toText(profile.full_name)) missing.push('nombre');
   if (!toText(profile.business_name)) missing.push('negocio');
   if (!hasContactChannel(profile)) missing.push('mail o WhatsApp');
+  if (!hasSpecialty(profile)) missing.push('rubro');
   if (!getLocationLabel(profile)) missing.push('localidad');
   if (!hasExactMapPoint(profile)) missing.push('ubicacion exacta');
   return missing;

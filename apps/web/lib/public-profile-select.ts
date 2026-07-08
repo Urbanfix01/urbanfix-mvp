@@ -5,8 +5,14 @@ export const PUBLIC_PROFILE_SELECT_RICH = [
   'full_name',
   'business_name',
   'phone',
+  'country',
   'city',
   'coverage_area',
+  'service_city',
+  'service_province',
+  'service_district',
+  'service_lat',
+  'service_lng',
   'working_hours',
   'specialties',
   'avatar_url',
@@ -33,6 +39,8 @@ export const PUBLIC_PROFILE_SELECT_FALLBACK = [
   'phone',
   'city',
   'coverage_area',
+  'service_lat',
+  'service_lng',
   'specialties',
   'created_at',
 ].join(',');
@@ -44,10 +52,14 @@ export const PUBLISHED_TECHNICIANS_SELECT_RICH = [
   'full_name',
   'business_name',
   'phone',
+  'country',
   'address',
   'company_address',
   'city',
   'coverage_area',
+  'service_city',
+  'service_province',
+  'service_district',
   'working_hours',
   'service_lat',
   'service_lng',
@@ -100,6 +112,10 @@ export const isMissingPublicProfileFieldError = (message: string) => {
     normalized.includes('references_summary') ||
     normalized.includes('client_recommendations') ||
     normalized.includes('company_address') ||
+    normalized.includes('country') ||
+    normalized.includes('service_city') ||
+    normalized.includes('service_province') ||
+    normalized.includes('service_district') ||
     normalized.includes('service_radius_km')
   );
 };

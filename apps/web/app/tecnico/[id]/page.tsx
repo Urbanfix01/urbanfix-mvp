@@ -20,6 +20,7 @@ import {
   PUBLIC_PROFILE_SELECT_RICH,
   isMissingPublicProfileFieldError,
 } from '../../../lib/public-profile-select';
+import { isPublicProfileVisible } from '../../../lib/public-profile-validity';
 import {
   ARGENTINA_TIMEZONE,
   formatWorkingHoursLabel,
@@ -46,8 +47,12 @@ type PublicTechnicianProfile = {
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
+  country?: string | null;
   city: string | null;
   coverage_area: string | null;
+  service_city?: string | null;
+  service_province?: string | null;
+  service_district?: string | null;
   working_hours?: string | null;
   specialties: string | null;
   avatar_url?: string | null;
@@ -173,8 +178,6 @@ const toOptionalAbsoluteUrl = (value: string | null | undefined) => {
 
 const buildTechnicianUrl = (profileId: string, displayName: string) =>
   `${SITE_ORIGIN}${buildTechnicianPath(profileId, displayName)}`;
-
-const isProfilePublished = (value: boolean | null | undefined) => value !== false;
 
 const fetchPublicProfile = async (profileId: string) => {
   const supabase = getSupabase();
@@ -437,7 +440,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 
   const { data: profile } = await getPublicProfileById(profileId);
-  if (!profile || !profile.access_granted || !isProfilePublished(profile.profile_published)) {
+  if (!profile || !isPublicProfileVisible(profile)) {
     return {
       title: 'Perfil técnico | UrbanFix',
       description: 'Perfil técnico público en UrbanFix.',
@@ -446,7 +449,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 
   const displayName = String(profile.business_name || profile.full_name || 'Tecnico UrbanFix').trim();
-  const city = String(profile.city || '').trim();
+  const city = String(profile.service_city || profile.city || profile.service_province || profile.country || '').trim();
   const specialties = parseDelimitedValues(profile.specialties).slice(0, 3);
   const titleParts = [displayName, city ? `Tecnico en ${city}` : '', 'UrbanFix'].filter(Boolean);
   const descriptionParts = [
@@ -536,7 +539,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
   }
 
   const profile = (data || null) as PublicTechnicianProfile | null;
-  if (!profile || !profile.access_granted || !isProfilePublished(profile.profile_published)) {
+  if (!profile || !isPublicProfileVisible(profile)) {
     notFound();
   }
 
@@ -569,7 +572,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     : 'A coordinar';
   const argentinaTimeLabel = formatArgentinaTimeLabel();
   const whatsappLink = buildWhatsappLink(profile.phone);
-  const coverageHeroLabel = profile.city || profile.coverage_area || '';
+  const coverageHeroLabel = profile.service_city || profile.city || profile.coverage_area || profile.country || '';
   const availabilityToneClass = hasWorkingHoursConfigured
     ? isWithinWorkingHours
       ? 'border-emerald-300/35 bg-emerald-400/15 text-emerald-100'

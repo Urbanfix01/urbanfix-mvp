@@ -8618,6 +8618,19 @@ export default function TechniciansPage() {
     }
   };
 
+  const technicalRegisterMissing = useMemo(() => {
+    if (authMode !== 'register') return [];
+    const missing: string[] = [];
+    if (!fullName.trim()) missing.push('nombre completo');
+    if (!businessName.trim()) {
+      missing.push(selectedAccessProfile === 'empresa' ? 'nombre de la empresa' : 'nombre del negocio');
+    }
+    if (!isWhatsappLike(authWhatsapp.trim())) missing.push('WhatsApp valido');
+    return missing;
+  }, [authMode, authWhatsapp, businessName, fullName, selectedAccessProfile]);
+
+  const technicalRegisterBlocked = technicalRegisterMissing.length > 0;
+
   const handleEmailAuth = async () => {
     setAuthError('');
     setAuthNotice('');
@@ -8629,7 +8642,6 @@ export default function TechniciansPage() {
     try {
       const safeEmail = email.trim().toLowerCase();
       const normalizedAuthWhatsapp = authWhatsapp.trim();
-      const hasAuthWhatsapp = isWhatsappLike(normalizedAuthWhatsapp);
       if (!safeEmail || !password) {
         throw new Error('Ingresa correo y contraseña.');
       }
@@ -8640,11 +8652,8 @@ export default function TechniciansPage() {
       if (passwordPolicyError) {
         throw new Error(passwordPolicyError);
       }
-      if (authMode === 'register' && !quickRegisterMode && !fullName.trim()) {
-        throw new Error('Ingresa al menos tu nombre para crear la cuenta.');
-      }
-      if (authMode === 'register' && !safeEmail.includes('@') && !hasAuthWhatsapp) {
-        throw new Error('Ingresa un mail o WhatsApp para crear la cuenta.');
+      if (technicalRegisterBlocked) {
+        throw new Error(`Completa estos datos para crear la cuenta: ${technicalRegisterMissing.join(', ')}.`);
       }
       if (selectedAccessProfile) {
         setAuthAccessProfileIntent(selectedAccessProfile);
@@ -8664,8 +8673,8 @@ export default function TechniciansPage() {
         if (!emailValidationResponse.ok || emailValidationPayload?.valid !== true) {
           throw new Error(emailValidationPayload?.error || 'Ingresa un correo real para crear la cuenta.');
         }
-        const normalizedFullName = fullName.trim() || 'Técnico UrbanFix';
-        const normalizedBusinessName = businessName.trim() || normalizedFullName;
+        const normalizedFullName = fullName.trim();
+        const normalizedBusinessName = businessName.trim();
         const accessProfile = selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico';
         const { data: signUpData, error } = await supabase.auth.signUp({
           email: safeEmail,
@@ -8717,16 +8726,17 @@ export default function TechniciansPage() {
     const missing: string[] = [];
     const full = String(profile?.full_name || '').trim();
     const business = String(profile?.business_name || '').trim();
-    const email = String(profile?.email || session?.user?.email || '').trim();
     const phone = String(profile?.phone || '').trim();
-    const hasContact = isEmailLike(email) || isWhatsappLike(phone);
+    const specialties = parseSpecialties(profile?.specialties || '');
+    const hasWhatsapp = isWhatsappLike(phone);
     const hasExactMapPoint = Boolean(technicianLocationResult?.isValid && technicianLocationResult?.precision === 'exact');
     if (!full) missing.push('Nombre y apellido');
     if (!business) missing.push('Nombre del negocio');
-    if (!hasContact) missing.push('Mail o WhatsApp');
+    if (!hasWhatsapp) missing.push('WhatsApp');
+    if (specialties.length === 0) missing.push('Rubro');
     if (!hasExactMapPoint) missing.push('Ubicacion en el mapa');
     return missing;
-  }, [profile?.business_name, profile?.email, profile?.full_name, profile?.phone, session?.user?.email, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
+  }, [profile?.business_name, profile?.full_name, profile?.phone, profile?.specialties, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
 
   const hasResolvedBaseAddress = useMemo(() => {
     const locationLabel = String(technicianLocationResult?.displayName || '').trim();
@@ -8738,21 +8748,25 @@ export default function TechniciansPage() {
     );
   }, [technicianLocationResult?.displayName, technicianLocationResult?.isValid, technicianLocationResult?.precision]);
 
+  const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
+
   const formRequiredMissing = useMemo(() => {
     const missing: string[] = [];
-    const hasContact = isEmailLike(profileForm.email.trim()) || isWhatsappLike(profileForm.phone.trim());
+    const hasContact = isWhatsappLike(profileForm.phone.trim());
     if (!profileForm.fullName.trim()) missing.push('Nombre y apellido');
     if (!profileForm.businessName.trim()) missing.push('Nombre del negocio');
-    if (!hasContact) missing.push('Mail o WhatsApp');
+    if (!hasContact) missing.push('WhatsApp');
+    if (selectedSpecialties.length === 0) missing.push('Rubro');
     if (!hasResolvedBaseAddress) missing.push('Ubicacion en el mapa');
     return missing;
-  }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.email, profileForm.fullName, profileForm.phone]);
+  }, [hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, profileForm.phone, selectedSpecialties.length]);
 
-  const formHasContactChannel = isEmailLike(profileForm.email.trim()) || isWhatsappLike(profileForm.phone.trim());
+  const formHasContactChannel = isWhatsappLike(profileForm.phone.trim());
   const canSaveRequiredProfile =
     Boolean(profileForm.fullName.trim()) &&
     Boolean(profileForm.businessName.trim()) &&
     formHasContactChannel &&
+    selectedSpecialties.length > 0 &&
     hasResolvedBaseAddress;
   const hasWorkZoneForShowcase = hasResolvedBaseAddress;
   const requiredProfileSteps = useMemo(
@@ -8767,9 +8781,16 @@ export default function TechniciansPage() {
       {
         key: 'contact',
         label: 'Contacto',
-        detail: 'Mail o WhatsApp',
+        detail: 'WhatsApp',
         done: formHasContactChannel,
         icon: MessageCircle,
+      },
+      {
+        key: 'specialty',
+        label: 'Rubro',
+        detail: 'Oficio principal',
+        done: selectedSpecialties.length > 0,
+        icon: Wrench,
       },
       {
         key: 'location',
@@ -8779,7 +8800,7 @@ export default function TechniciansPage() {
         icon: MapPinned,
       },
     ],
-    [formHasContactChannel, hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName]
+    [formHasContactChannel, hasResolvedBaseAddress, profileForm.businessName, profileForm.fullName, selectedSpecialties.length]
   );
   const requiredProfileDoneCount = useMemo(
     () => requiredProfileSteps.filter((step) => step.done).length,
@@ -8790,7 +8811,6 @@ export default function TechniciansPage() {
     return Math.round((requiredProfileDoneCount / requiredProfileSteps.length) * 100);
   }, [requiredProfileDoneCount, requiredProfileSteps.length]);
 
-  const selectedSpecialties = useMemo(() => parseSpecialties(profileForm.specialties), [profileForm.specialties]);
   const selectedSpecialtiesSet = useMemo(
     () => new Set(selectedSpecialties.map((item) => normalizeTextForParsing(item))),
     [selectedSpecialties]
@@ -8799,26 +8819,24 @@ export default function TechniciansPage() {
     () => [
       { key: 'fullName', label: 'Nombre y apellido', done: Boolean(profileForm.fullName.trim()) },
       { key: 'businessName', label: 'Nombre del negocio', done: Boolean(profileForm.businessName.trim()) },
-      { key: 'contact', label: 'Mail o WhatsApp', done: formHasContactChannel },
-      { key: 'zone', label: 'Zona de trabajo', done: Boolean(profileForm.address.trim() || profileForm.city.trim()) },
+      { key: 'contact', label: 'WhatsApp', done: formHasContactChannel },
+      { key: 'zone', label: 'Ubicacion exacta', done: hasResolvedBaseAddress },
       { key: 'specialties', label: 'Rubros cargados', done: selectedSpecialties.length > 0 },
       { key: 'branding', label: 'Foto o logo', done: Boolean(profileForm.avatarUrl.trim() || profileForm.companyLogoUrl.trim()) },
       { key: 'social', label: 'Red social', done: Boolean(toSafeUrl(profileForm.facebookUrl) || toSafeUrl(profileForm.instagramUrl)) },
       { key: 'published', label: 'Publicado en vidriera', done: Boolean(profileForm.profilePublished) },
     ],
     [
-      profileForm.address,
       profileForm.avatarUrl,
       profileForm.businessName,
-      profileForm.city,
       profileForm.companyLogoUrl,
-      profileForm.email,
       profileForm.facebookUrl,
       profileForm.fullName,
       profileForm.instagramUrl,
       profileForm.phone,
       profileForm.profilePublished,
       formHasContactChannel,
+      hasResolvedBaseAddress,
       selectedSpecialties.length,
     ]
   );
@@ -8836,7 +8854,7 @@ export default function TechniciansPage() {
       {
         key: 'profile',
         title: 'Completa tu perfil base',
-        description: 'Nombre, negocio, telefono, zona y rubros para operar sin friccion.',
+        description: 'Nombre, negocio, WhatsApp, zona exacta y rubros para operar sin friccion.',
         done: canSaveRequiredProfile && selectedSpecialties.length > 0,
       },
       {
@@ -9731,13 +9749,15 @@ export default function TechniciansPage() {
                         Datos clave
                       </h1>
                       <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                        Identifica tu negocio, contacto y punto exacto de trabajo.
+                        Identifica tu negocio, WhatsApp, rubro y punto exacto de trabajo.
                       </p>
                     </div>
                     <div className="w-full sm:max-w-[210px]">
                       <div className="flex items-center justify-between gap-3">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">Progreso</p>
-                        <p className="text-sm font-black text-[#180f24]">{requiredProfileDoneCount}/3</p>
+                        <p className="text-sm font-black text-[#180f24]">
+                          {requiredProfileDoneCount}/{requiredProfileSteps.length}
+                        </p>
                       </div>
                       <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
                         <div
@@ -10181,7 +10201,7 @@ export default function TechniciansPage() {
                           </button>
                         </div>
 
-                        {authMode === 'register' && !quickRegisterMode && (
+                        {authMode === 'register' && (
                           <div className="mt-4 space-y-3">
                             <div className="relative">
                               <User className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[color:var(--ui-muted)]" />
@@ -10215,8 +10235,13 @@ export default function TechniciansPage() {
                               />
                             </div>
                             <p className="text-[11px] leading-5 text-slate-500">
-                              Para el alta debe quedar mail o WhatsApp. Luego completas rubros, zona y datos comerciales dentro del panel.
+                              Para crear la cuenta necesitamos nombre, negocio y WhatsApp. Luego completas rubros, zona exacta y datos comerciales dentro del panel.
                             </p>
+                            {technicalRegisterMissing.length > 0 && (
+                              <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
+                                Falta completar: {technicalRegisterMissing.join(', ')}.
+                              </p>
+                            )}
                           </div>
                         )}
 
@@ -10281,7 +10306,7 @@ export default function TechniciansPage() {
                         <button
                           type="button"
                           onClick={handleEmailAuth}
-                          disabled={authLoading || googleAuthLoading}
+                          disabled={authLoading || googleAuthLoading || technicalRegisterBlocked}
                           className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -16025,7 +16050,7 @@ export default function TechniciansPage() {
                         </p>
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                            {Math.max(0, 4 - formRequiredMissing.length)}/4 base
+                            {Math.max(0, 5 - formRequiredMissing.length)}/5 base
                           </span>
                           {formRequiredMissing.length > 0 && (
                             <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">

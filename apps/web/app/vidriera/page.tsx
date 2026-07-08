@@ -19,6 +19,7 @@ import {
   PUBLISHED_TECHNICIANS_SELECT_RICH,
   isMissingPublicProfileFieldError,
 } from '../../lib/public-profile-select';
+import { isPublicProfileVisible } from '../../lib/public-profile-validity';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
@@ -57,10 +58,14 @@ type PublishedProfileRow = {
   full_name: string | null;
   business_name: string | null;
   phone: string | null;
+  country?: string | null;
   address: string | null;
   company_address?: string | null;
   city: string | null;
   coverage_area: string | null;
+  service_city?: string | null;
+  service_province?: string | null;
+  service_district?: string | null;
   working_hours?: string | null;
   service_lat: number | null;
   service_lng: number | null;
@@ -102,22 +107,18 @@ const normalizeSearchText = (value: string | null | undefined) =>
     .toLowerCase()
     .trim();
 
-const hasMeaningfulCoverageArea = (value: string | null | undefined) => {
-  const normalized = String(value || '').trim().toLowerCase();
-  if (!normalized) return false;
-  return !normalized.includes('tu ciudad base');
-};
-
-const hasWorkZoneConfigured = (profile: PublishedProfileRow) =>
-  Boolean(
-    String(profile.city || '').trim() ||
-      String(profile.address || '').trim() ||
-      String(profile.company_address || '').trim() ||
-      hasMeaningfulCoverageArea(profile.coverage_area)
-  );
-
 const buildProfileZoneText = (profile: PublishedProfileRow) =>
-  [profile.city, profile.coverage_area, profile.address, profile.company_address].filter(Boolean).join(' ');
+  [
+    profile.service_city || profile.city,
+    profile.service_district,
+    profile.service_province,
+    profile.coverage_area,
+    profile.address,
+    profile.company_address,
+    profile.country,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
 const buildWhatsappLink = (phone: string | null | undefined) => {
   const raw = String(phone || '').replace(/\D/g, '');
@@ -141,8 +142,6 @@ const getPublicSupabaseClient = () => {
     return null;
   }
 };
-
-const isProfilePublished = (value: boolean | null | undefined) => value !== false;
 
 const fetchPublishedProfiles = async (supabase: NonNullable<ReturnType<typeof getPublicSupabaseClient>>) => {
   let response = await supabase
@@ -221,12 +220,15 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   }
 
   const { data: profiles, error, usedFallback } = await fetchPublishedProfiles(supabase);
-  const safeProfiles = profiles.filter((row) => row.access_granted && isProfilePublished(row.profile_published) && hasWorkZoneConfigured(row));
+  const safeProfiles = profiles.filter(isPublicProfileVisible);
   const zoneFilteredProfiles = zonaQueryNormalized
     ? safeProfiles.filter((profile) =>
         matchesArgentinaZoneQuery(
           zonaQuery,
           profile.city,
+          profile.service_city,
+          profile.service_district,
+          profile.service_province,
           profile.coverage_area,
           profile.address,
           profile.company_address
@@ -247,7 +249,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   const zonaOptions = Array.from(
     new Set([
       ...safeProfiles
-        .map((profile) => String(profile.city || profile.coverage_area || '').trim())
+        .map((profile) => String(profile.service_city || profile.city || profile.coverage_area || profile.country || '').trim())
         .filter(Boolean),
       ...getArgentinaZoneSearchOptions(),
     ])
@@ -258,7 +260,16 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
       const exactLng = toFiniteCoordinate(profile.service_lng);
       const fallbackCoords =
         exactLat === null || exactLng === null
-          ? resolveArgentinaZoneCoords(profile.city, profile.coverage_area, profile.address, profile.company_address)
+          ? resolveArgentinaZoneCoords(
+              profile.service_city,
+              profile.service_district,
+              profile.service_province,
+              profile.city,
+              profile.coverage_area,
+              profile.address,
+              profile.company_address,
+              profile.country
+            )
           : null;
       const lat = exactLat ?? fallbackCoords?.lat ?? null;
       const lng = exactLng ?? fallbackCoords?.lng ?? null;
@@ -282,7 +293,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
         ownerName: String(profile.full_name || '').trim(),
         profileHref: buildTechnicianPath(profile.id, displayName),
         whatsappHref: buildWhatsappLink(profile.phone),
-        city: String(profile.city || fallbackCoords?.label || '').trim(),
+        city: String(profile.service_city || profile.city || fallbackCoords?.label || profile.country || '').trim(),
         coverageArea: String(profile.coverage_area || '').trim(),
         profileSummary: String(profile.references_summary || '').trim(),
         socialLabels,
