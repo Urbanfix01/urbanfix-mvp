@@ -1,5 +1,33 @@
 import Link from 'next/link';
-import { ArrowDown, ArrowRight, Search } from 'lucide-react';
+import { ArrowDown, ArrowRight, Calculator, ClipboardList, Search, Wrench } from 'lucide-react';
+
+const homeActions = [
+  {
+    label: 'Buscar tecnicos',
+    note: 'Vidriera cercana',
+    href: '/vidriera',
+    icon: Search,
+    primary: true,
+  },
+  {
+    label: 'Publicar pedido',
+    note: 'Solicitud de trabajo',
+    href: '/cliente',
+    icon: ClipboardList,
+  },
+  {
+    label: 'Ver valores',
+    note: 'Mano de obra',
+    href: '/rubros',
+    icon: Calculator,
+  },
+  {
+    label: 'Soy tecnico',
+    note: 'Entrar o registrarme',
+    href: '/tecnicos',
+    icon: Wrench,
+  },
+];
 
 export default function HomeAnimatedHero() {
   return (
@@ -40,17 +68,41 @@ export default function HomeAnimatedHero() {
           </span>
         </h1>
 
-        <Link
-          href="/vidriera"
-          className="home-animation-hero__cta"
-          aria-label="Buscar técnicos en la vidriera de UrbanFix"
-        >
-          <span className="home-animation-hero__cta-icon" aria-hidden="true">
-            <Search className="h-5 w-5" />
-          </span>
-          <span>Buscar técnicos</span>
-          <ArrowRight className="home-animation-hero__cta-arrow h-5 w-5" aria-hidden="true" />
-        </Link>
+        <div className="home-animation-hero__actions" aria-label="Accesos principales">
+          {homeActions.map((action) => {
+            const Icon = action.icon;
+
+            return (
+              <Link
+                key={action.href}
+                href={action.href}
+                className={action.primary ? 'home-animation-hero__cta' : 'home-animation-hero__quick-action'}
+                aria-label={action.label}
+              >
+                <span
+                  className={
+                    action.primary ? 'home-animation-hero__cta-icon' : 'home-animation-hero__quick-action-icon'
+                  }
+                  aria-hidden="true"
+                >
+                  <Icon className="h-5 w-5" />
+                </span>
+                <span className="home-animation-hero__action-copy">
+                  <span>{action.label}</span>
+                  <small>{action.note}</small>
+                </span>
+                <ArrowRight
+                  className={
+                    action.primary
+                      ? 'home-animation-hero__cta-arrow h-5 w-5'
+                      : 'home-animation-hero__quick-action-arrow h-4 w-4'
+                  }
+                  aria-hidden="true"
+                />
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <div className="home-animation-hero__scroll" aria-hidden="true">
