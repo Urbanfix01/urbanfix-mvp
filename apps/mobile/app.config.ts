@@ -48,8 +48,15 @@ export default (): ExpoConfig => {
   const androidMapsKey = resolveAndroidMapsKey();
   const iosMapsKey = resolveIosMapsKey();
   const placesKey = resolvePlacesKey();
-  const supabaseUrl = resolveEnvValue(process.env.EXPO_PUBLIC_SUPABASE_URL);
-  const supabaseAnonKey = resolveEnvValue(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY);
+  const supabaseUrl = resolveEnvValue(
+    process.env.EXPO_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.SUPABASE_URL
+  );
+  const supabaseAnonKey = resolveEnvValue(
+    process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
   const baseAndroid = baseConfig.android || {};
   const baseAndroidConfig = (baseAndroid as any).config || {};
   const baseIos = baseConfig.ios || {};

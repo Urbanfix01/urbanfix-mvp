@@ -23,7 +23,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as ImagePicker from 'expo-image-picker';
 import Constants from 'expo-constants';
 
-import { supabase } from '../../lib/supabase';
+import { assertSupabaseConfig, supabase } from '../../lib/supabase';
 import { uploadImageToSupabase } from '../../services/StorageService';
 import { getWebApiUrl } from '../../utils/config';
 import { setStoredAudience } from '../../utils/audience';
@@ -36,6 +36,7 @@ WebBrowser.maybeCompleteAuthSession();
 const logo = require('../../../assets/icon.png');
 
 type Audience = 'tecnico' | 'cliente';
+type ChooserOptionKey = Audience | 'empresa';
 type FieldName = 'fullName' | 'businessName' | 'clientPhone' | 'email' | 'password';
 type PickerMode = 'province' | 'city' | null;
 type RegistrationMediaKind = 'avatar' | 'logo' | 'banner';
@@ -301,6 +302,18 @@ export default function AuthScreen() {
     void clearPendingTechnicianMedia();
   };
 
+  const handleChooserOptionPress = (optionKey: ChooserOptionKey) => {
+    if (optionKey === 'empresa') {
+      Alert.alert(
+        'Acceso empresa',
+        'El espacio de empresa en la app movil esta en preparacion. Por ahora puedes continuar como tecnico o cliente.'
+      );
+      return;
+    }
+
+    handleAudienceChoice(optionKey);
+  };
+
   const handleStartAuth = () => {
     setWelcomeIntent('login');
     setHasStartedAuth(true);
@@ -376,10 +389,7 @@ export default function AuthScreen() {
       return AuthSession.makeRedirectUri({ useProxy: true } as any);
     }
 
-    return AuthSession.makeRedirectUri({
-      scheme: 'urbanfix',
-      path: 'auth/callback',
-    });
+    return 'urbanfix://auth/callback';
   };
 
   const parseAuthParams = (url: string) => {
@@ -466,6 +476,7 @@ export default function AuthScreen() {
 
   const handleGoogleAuth = async () => {
     try {
+      assertSupabaseConfig();
       await setStoredAudience(audience);
 
       if (Platform.OS === 'web') {
@@ -562,6 +573,7 @@ export default function AuthScreen() {
     if (loading) return;
 
     try {
+      assertSupabaseConfig();
       const isAvailable = await AppleAuthentication.isAvailableAsync();
       if (!isAvailable) {
         throw new Error('Apple Sign-In no disponible en este dispositivo.');
@@ -633,6 +645,7 @@ export default function AuthScreen() {
     setLoading(true);
 
     try {
+      assertSupabaseConfig();
       await setStoredAudience(audience);
 
       const safeEmail = email.trim();
@@ -755,6 +768,7 @@ export default function AuthScreen() {
 
     setRecovering(true);
     try {
+      assertSupabaseConfig();
       const recoveryPath = isClientAudience ? '/cliente?recovery=1' : '/tecnicos?recovery=1';
       const { error } = await supabase.auth.resetPasswordForEmail(safeEmail, {
         redirectTo: getWebApiUrl(recoveryPath),
@@ -776,18 +790,25 @@ export default function AuthScreen() {
     : 'Completa tu perfil profesional y activa tu presencia en la app.';
   const chooserOptions = [
     {
-      key: 'tecnico' as const,
+      key: 'tecnico' as ChooserOptionKey,
       icon: 'construct-outline' as const,
       title: 'Tecnico',
+      badge: 'Operativo',
       description: 'Gestiona cotizaciones, agenda y perfil profesional.',
-      chips: ['Cotizaciones', 'Agenda'],
     },
     {
-      key: 'cliente' as const,
+      key: 'empresa' as ChooserOptionKey,
+      icon: 'business-outline' as const,
+      title: 'Empresa',
+      badge: 'Comercial',
+      description: 'Administra equipos, servicios y presencia comercial.',
+    },
+    {
+      key: 'cliente' as ChooserOptionKey,
       icon: 'home-outline' as const,
       title: 'Cliente',
+      badge: 'Solicitudes',
       description: 'Publica solicitudes, sigue respuestas y organiza mensajes.',
-      chips: ['Solicitudes', 'Mensajes'],
     },
   ];
   const googleActionText = isLogin
@@ -797,9 +818,7 @@ export default function AuthScreen() {
     : isClientAudience
       ? 'Crear cuenta con Google'
       : 'Crear perfil con Google';
-  const appleButtonType = isLogin
-    ? AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-    : AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP;
+  const appleActionText = isLogin ? 'Ingresar con iPhone' : 'Registrarme con iPhone';
   const primaryCta = isLogin
     ? isClientAudience
       ? 'Ingresar como cliente'
@@ -807,22 +826,12 @@ export default function AuthScreen() {
     : isClientAudience
       ? 'Crear cuenta de cliente'
       : 'Crear perfil profesional';
-  const secondaryCta = isLogin
-    ? isClientAudience
-      ? 'Aun no tienes cuenta? Registrate y publica en minutos'
-      : 'Aun no tienes cuenta? Crea tu perfil profesional'
-    : isClientAudience
-      ? 'Ya tienes cuenta? Ingresa a tu espacio'
-      : 'Ya tienes cuenta? Ingresa a tu panel';
   const credentialsHint = isLogin
     ? 'Usa tu email y contrasena para continuar.'
     : 'Este email quedara asociado a tu cuenta principal.';
   const trustHint = isClientAudience
     ? 'Acceso seguro para seguir solicitudes, mensajes y disponibilidad.'
     : 'Acceso seguro para gestionar presupuestos, agenda y oportunidades.';
-  const footerHint = isLogin
-    ? 'Recuperacion de cuenta y acceso por email en una experiencia simple.'
-    : 'Registro guiado con activacion por email y acceso seguro.';
 
   return (
     <LinearGradient colors={['#2A0338', '#23022F', '#0B0512']} style={styles.container}>
@@ -880,25 +889,31 @@ export default function AuthScreen() {
                       key={option.key}
                       style={styles.chooserOption}
                       activeOpacity={0.9}
-                      onPress={() => handleAudienceChoice(option.key)}
+                      onPress={() => handleChooserOptionPress(option.key)}
                     >
                       <View style={styles.chooserOptionAccent} />
                       <View style={styles.chooserOptionIcon}>
-                        <Ionicons name={option.icon} size={20} color="#F8FAFC" />
+                        <Ionicons name={option.icon} size={20} color="#2A0338" />
                       </View>
                       <View style={styles.chooserOptionCopy}>
-                        <Text style={styles.chooserOptionTitle}>{option.title}</Text>
-                        <Text style={styles.chooserOptionText}>{option.description}</Text>
-                        <View style={styles.chooserOptionChips}>
-                          {option.chips.map((chip) => (
-                            <View key={chip} style={styles.chooserChip}>
-                              <Text style={styles.chooserChipText}>{chip}</Text>
-                            </View>
-                          ))}
+                        <View style={styles.chooserTitleRow}>
+                          <Text style={styles.chooserOptionTitle}>{option.title}</Text>
+                          <View style={styles.chooserOptionBadge}>
+                            <Text style={styles.chooserOptionBadgeText}>{option.badge}</Text>
+                          </View>
                         </View>
                       </View>
-                      <View style={styles.chooserOptionArrow}>
-                        <Ionicons name="chevron-forward" size={18} color="#CBD5E1" />
+                      <View style={styles.chooserOptionActions}>
+                        <TouchableOpacity
+                          style={styles.chooserInfoButton}
+                          activeOpacity={0.8}
+                          onPress={() => Alert.alert(option.title, option.description)}
+                        >
+                          <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.78)" />
+                        </TouchableOpacity>
+                        <View style={styles.chooserOptionArrow}>
+                          <Ionicons name="arrow-forward" size={17} color="#FFE0A5" />
+                        </View>
                       </View>
                     </TouchableOpacity>
                   ))}
@@ -928,15 +943,19 @@ export default function AuthScreen() {
                   <>
                   <View style={[styles.socialStack, useCompactAuthLayout && styles.socialStackCompact]}>
                     {showAppleButton && (
-                      <View style={[styles.appleButtonWrap, useCompactAuthLayout && styles.appleButtonWrapCompact]}>
-                        <AppleAuthentication.AppleAuthenticationButton
-                          buttonType={appleButtonType}
-                          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
-                          cornerRadius={16}
-                          style={[styles.appleButton, useCompactAuthLayout && styles.appleButtonCompact]}
-                          onPress={handleAppleAuth}
-                        />
-                      </View>
+                      <TouchableOpacity
+                        style={[styles.appleLoginButton, useCompactAuthLayout && styles.appleLoginButtonCompact]}
+                        onPress={handleAppleAuth}
+                        disabled={loading}
+                        activeOpacity={0.86}
+                      >
+                        <View style={[styles.appleButtonMark, useCompactAuthLayout && styles.appleButtonMarkCompact]}>
+                          <Ionicons name="logo-apple" size={useCompactAuthLayout ? 18 : 20} color="#FFFFFF" />
+                        </View>
+                        <Text style={[styles.appleLoginButtonText, useCompactAuthLayout && styles.appleLoginButtonTextCompact]}>
+                          {appleActionText}
+                        </Text>
+                      </TouchableOpacity>
                     )}
 
                     <TouchableOpacity
@@ -965,34 +984,6 @@ export default function AuthScreen() {
                   </View>
                   </>
                 )}
-
-                <View style={[styles.controlStack, useCompactAuthLayout && styles.controlStackCompact]}>
-                  <View style={[styles.segmented, useCompactAuthLayout && styles.toggleCompact]}>
-                    <TouchableOpacity
-                      style={[styles.segmentItem, useCompactAuthLayout && styles.toggleItemCompact, isLogin && styles.segmentItemActive]}
-                      onPress={() => {
-                        setIsLogin(true);
-                        setShowRegisterHint(false);
-                      }}
-                    >
-                      <Text style={[styles.segmentText, useCompactAuthLayout && styles.toggleTextCompact, isLogin && styles.segmentTextActive]}>
-                        Ingresar
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[styles.segmentItem, useCompactAuthLayout && styles.toggleItemCompact, isRegister && styles.segmentItemActive]}
-                      onPress={() => {
-                        setIsLogin(false);
-                        setShowRegisterHint(true);
-                      }}
-                    >
-                      <Text style={[styles.segmentText, useCompactAuthLayout && styles.toggleTextCompact, isRegister && styles.segmentTextActive]}>
-                        Crear cuenta
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
 
                 {showRegisterHint && isRegister && !isCompactScreen && (
                   <View style={styles.notice}>
@@ -1251,20 +1242,6 @@ export default function AuthScreen() {
                 </LinearGradient>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.switchBtn, isCompressedLogin && styles.switchBtnCompact]}
-                onPress={() => {
-                  const nextIsLogin = !isLogin;
-                  setIsLogin(nextIsLogin);
-                  setShowRegisterHint(!nextIsLogin);
-                }}
-              >
-                <Text style={[styles.switchText, isCompactScreen && styles.switchTextCompact]}>
-                  {secondaryCta}
-                </Text>
-              </TouchableOpacity>
-
-              {!isLogin && !isCompressedLogin && <Text style={styles.footerHint}>{footerHint}</Text>}
               </View>
               </View>
             )}
@@ -1446,16 +1423,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   chooserCard: {
-    gap: 14,
-    backgroundColor: 'transparent',
-    borderRadius: 0,
-    padding: 0,
-    borderWidth: 0,
-    shadowOpacity: 0,
-    elevation: 0,
+    gap: 16,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 30,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.22,
+    shadowRadius: 28,
+    elevation: 8,
   },
   chooserCardCompact: {
     gap: 12,
+    borderRadius: 26,
+    padding: 14,
   },
   chooserBackButton: {
     width: 36,
@@ -1476,15 +1459,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.14)',
     borderRadius: 22,
-    paddingHorizontal: 14,
-    paddingVertical: 16,
-    backgroundColor: '#121316',
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    minHeight: 72,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     overflow: 'hidden',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.16,
     shadowRadius: 16,
     elevation: 3,
   },
@@ -1497,61 +1481,65 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.primary,
   },
   chooserOptionIcon: {
-    width: 54,
-    height: 54,
-    borderRadius: 18,
+    width: 42,
+    height: 42,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#17181C',
-    borderWidth: 1,
-    borderColor: 'rgba(243,156,18,0.28)',
+    backgroundColor: '#FFFDF9',
+    borderWidth: 0,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.18,
     shadowRadius: 12,
   },
   chooserOptionCopy: {
     flex: 1,
-    gap: 6,
     alignItems: 'flex-start',
     justifyContent: 'center',
   },
+  chooserTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 9,
+  },
   chooserOptionTitle: {
-    fontSize: 20,
+    fontSize: 19,
     lineHeight: 24,
     color: '#F8FAFC',
     fontFamily: FONTS.title,
     textAlign: 'left',
   },
-  chooserOptionText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#B2BAC4',
-    fontFamily: FONTS.body,
-    textAlign: 'left',
-    maxWidth: '92%',
-  },
-  chooserOptionChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    gap: 8,
-    marginTop: 4,
-    width: '100%',
-  },
-  chooserChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+  chooserOptionBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
-    backgroundColor: '#1A1B1E',
+    backgroundColor: 'rgba(255,255,255,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  chooserChipText: {
-    fontSize: 10,
-    letterSpacing: 0.2,
-    color: '#F8FAFC',
+  chooserOptionBadgeText: {
+    color: 'rgba(255,255,255,0.72)',
     fontFamily: FONTS.subtitle,
+    fontSize: 10,
+    letterSpacing: 0.7,
+    textTransform: 'uppercase',
+  },
+  chooserOptionActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+  },
+  chooserInfoButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
   chooserOptionArrow: {
     width: 34,
@@ -1559,9 +1547,9 @@ const styles = StyleSheet.create({
     borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#1A1B1E',
+    backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.13)',
   },
   chooserHint: {
     fontSize: 12,
@@ -1909,84 +1897,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
-  controlStack: {
-    gap: 6,
-  },
-  controlStackCompact: {
-    gap: 4,
-  },
-  controlLabel: {
-    fontSize: 11,
-    letterSpacing: 1.1,
-    textTransform: 'uppercase',
-    color: '#7F8792',
-    fontFamily: FONTS.subtitle,
-  },
-  roleSelector: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 4,
-    borderRadius: 16,
-    backgroundColor: '#151618',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  toggleCompact: {
-    padding: 2,
-    borderRadius: 12,
-  },
-  roleItem: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  toggleItemCompact: {
-    paddingVertical: 8,
-    borderRadius: 9,
-  },
-  roleItemActive: {
-    backgroundColor: '#222326',
-  },
-  roleText: {
-    color: '#7F8792',
-    fontFamily: FONTS.subtitle,
-    fontSize: 13,
-  },
-  toggleTextCompact: {
-    fontSize: 12,
-  },
-  roleTextActive: {
-    color: '#FFFFFF',
-  },
-  segmented: {
-    flexDirection: 'row',
-    padding: 4,
-    borderRadius: 16,
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  segmentItem: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'transparent',
-  },
-  segmentItemActive: {
-    backgroundColor: '#2A0338',
-    borderColor: '#2A0338',
-  },
-  segmentText: {
-    color: '#64748B',
-    fontFamily: FONTS.subtitle,
-    fontSize: 14,
-  },
-  segmentTextActive: {
-    color: '#FFFFFF',
-  },
   notice: {
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -2284,27 +2194,50 @@ const styles = StyleSheet.create({
   googleButtonTextCompact: {
     fontSize: 13,
   },
-  appleButtonWrap: {
+  appleLoginButton: {
+    minHeight: 52,
     borderRadius: 16,
-    overflow: 'hidden',
+    backgroundColor: '#050507',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: '#000000',
+    borderColor: 'rgba(255,255,255,0.1)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.24,
     shadowRadius: 18,
     elevation: 5,
   },
-  appleButtonWrapCompact: {
+  appleLoginButtonCompact: {
+    minHeight: 42,
     borderRadius: 12,
+    gap: 8,
+    paddingHorizontal: 12,
   },
-  appleButton: {
-    width: '100%',
-    height: 52,
+  appleButtonMark: {
+    width: 30,
+    height: 30,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
   },
-  appleButtonCompact: {
-    height: 40,
+  appleButtonMarkCompact: {
+    width: 28,
+    height: 28,
+  },
+  appleLoginButtonText: {
+    color: '#FFFFFF',
+    fontFamily: FONTS.subtitle,
+    fontSize: 14,
+  },
+  appleLoginButtonTextCompact: {
+    fontSize: 13,
   },
   dividerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dividerRowCompact: { gap: 8 },
@@ -2354,18 +2287,7 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#2A0338', fontFamily: FONTS.subtitle, fontSize: 17, letterSpacing: 0.2 },
   buttonTextCompact: { fontSize: 15 },
-  switchBtn: { alignItems: 'center', paddingTop: 4 },
-  switchBtnCompact: { paddingTop: 0 },
-  switchText: { color: '#64748B', fontFamily: FONTS.body, fontSize: 13, lineHeight: 18, textAlign: 'center' },
-  switchTextCompact: { fontSize: 12, lineHeight: 18 },
   recoveryBtn: { alignSelf: 'flex-end', marginTop: -2 },
   recoveryBtnCompact: { marginTop: 0 },
   recoveryText: { color: '#8F4F08', fontFamily: FONTS.body, fontSize: 12 },
-  footerHint: {
-    textAlign: 'center',
-    color: '#7F8792',
-    fontFamily: FONTS.body,
-    fontSize: 11,
-    lineHeight: 17,
-  },
 });

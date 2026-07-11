@@ -50,14 +50,16 @@ export const isPriceAccessPath = (value: string | null | undefined) => {
 
 export const buildAuthRedirectPath = (nextPath: string) => {
   const safeNextPath = sanitizeNextPath(nextPath) || '/';
+  const isPriceAccess = isPriceAccessPath(safeNextPath);
   const params = new URLSearchParams({
     mode: 'login',
-    perfil: 'tecnico',
     next: safeNextPath,
   });
 
-  if (isPriceAccessPath(safeNextPath)) {
+  if (isPriceAccess) {
     params.set('intent', PRICE_ACCESS_INTENT);
+  } else {
+    params.set('perfil', 'tecnico');
   }
 
   return `/tecnicos?${params.toString()}`;

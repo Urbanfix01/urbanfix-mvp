@@ -1,105 +1,190 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, StatusBar } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { Platform, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import { COLORS, FONTS } from '../../utils/theme';
+import { useRoute } from '@react-navigation/native';
+import { ScreenHeader } from '../../components/molecules/ScreenHeader';
 import { MasterItem } from '../../types/database';
+import { COLORS, FONTS } from '../../utils/theme';
+
+const formatSource = (source?: string | null) => {
+  const raw = source ? source.replace(/_/g, ' ') : 'General';
+  return raw.replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const formatPrice = (value?: number | null) => {
+  if (!value) return '$0';
+  return `$${value.toLocaleString('es-AR')}`;
+};
 
 export default function ItemDetailScreen() {
-  const navigation = useNavigation();
   const route = useRoute();
   const { item } = route.params as { item: MasterItem };
+  const isLabor = item.type === 'labor';
+  const typeLabel = isLabor ? 'Mano de obra' : item.type === 'consumable' ? 'Insumo' : 'Material';
+  const sourcePretty = formatSource(item.source_ref);
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.secondary} />
-      
-      {/* HEADER SIMPLE */}
-      <View style={styles.header}>
-        <SafeAreaView edges={['top']}>
-          <View style={styles.headerTop}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={24} color="#FFF" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Detalle Técnico</Text>
-            <View style={{width: 24}} />
-          </View>
-        </SafeAreaView>
-      </View>
 
-      <ScrollView contentContainerStyle={styles.content}>
-        
-        {/* TARJETA PRINCIPAL */}
+      <ScreenHeader title="DETALLE" subtitle="Catalogo maestro" showBack />
+
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.mainCard}>
           <View style={styles.iconCircle}>
-             <Ionicons 
-                name={item.type === 'labor' ? "hand-left" : "cube"} 
-                size={40} 
-                color={COLORS.primary} 
-             />
+            <Ionicons name={isLabor ? 'construct-outline' : 'cube-outline'} size={30} color="#FF8F1F" />
           </View>
-          <Text style={styles.typeBadge}>{item.type.toUpperCase()}</Text>
+
+          <View style={styles.badgeRow}>
+            <Text style={styles.typeBadge}>{typeLabel}</Text>
+            <Text style={styles.sourceBadge}>{sourcePretty}</Text>
+          </View>
+
           <Text style={styles.itemName}>{item.name}</Text>
-          <Text style={styles.price}>${item.suggested_price.toLocaleString('es-AR')}</Text>
+          <Text style={styles.price}>{formatPrice(item.suggested_price)}</Text>
+          <Text style={styles.priceHint}>Valor de referencia para presupuestar.</Text>
         </View>
 
-        {/* DETALLE TÉCNICO */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Información</Text>
-          
+        <View style={styles.infoCard}>
+          <Text style={styles.sectionEyebrow}>INFORMACION</Text>
+
           <View style={styles.row}>
-            <Text style={styles.label}>Fuente de Precio:</Text>
-            <Text style={styles.value}>{item.source_ref || 'Base de datos oficial'}</Text>
+            <Text style={styles.label}>Tipo</Text>
+            <Text style={styles.value}>{typeLabel}</Text>
           </View>
-          
+
           <View style={styles.divider} />
 
-          <Text style={styles.label}>Descripción:</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Categoria</Text>
+            <Text style={styles.value}>{sourcePretty}</Text>
+          </View>
+
+          <View style={styles.divider} />
+
           <Text style={styles.description}>
-            Este es un ítem estandarizado del catálogo maestro. 
-            El precio sugerido incluye {item.type === 'labor' ? 'mano de obra base' : 'materiales de referencia'}.
-            {/* NOTA: En el futuro, agregaremos una columna 'description' a la tabla master_items para traer texto real aquí */}
+            Este item pertenece al catalogo maestro de UrbanFix. Usalo como referencia al armar
+            presupuestos y ajustar valores segun zona, alcance y complejidad del trabajo.
           </Text>
         </View>
 
-        {/* BOTÓN COPIAR (Opcional, pero útil) */}
         <TouchableOpacity style={styles.copyBtn} onPress={() => {}}>
-           <Ionicons name="copy-outline" size={20} color={COLORS.primary} />
-           <Text style={styles.copyText}>Copiar Detalle</Text>
+          <Ionicons name="copy-outline" size={18} color="#17001F" />
+          <Text style={styles.copyText}>Copiar detalle</Text>
         </TouchableOpacity>
-
       </ScrollView>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
-  header: { backgroundColor: COLORS.secondary, paddingBottom: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
-  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 10 },
-  headerTitle: { fontSize: 18, fontFamily: FONTS.title, color: '#FFF' },
-  backBtn: { padding: 4 },
-  
-  content: { padding: 20 },
-  
-  mainCard: { 
-    backgroundColor: '#FFF', borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 20,
-    shadowColor: "#000", shadowOffset: {width:0, height:2}, shadowOpacity:0.05, elevation: 2
+const panelShadow = Platform.select({
+  web: {
+    boxShadow: '0 14px 28px rgba(20, 0, 30, 0.16)',
   },
-  iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#FFF5E0', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
-  typeBadge: { fontSize: 12, color: '#999', fontFamily: FONTS.subtitle, letterSpacing: 1, marginBottom: 8 },
-  itemName: { fontSize: 20, fontFamily: FONTS.title, color: COLORS.text, textAlign: 'center', marginBottom: 8 },
-  price: { fontSize: 32, fontFamily: FONTS.title, color: COLORS.primary },
+  default: {
+    shadowColor: '#17001F',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.14,
+    shadowRadius: 18,
+    elevation: 5,
+  },
+});
 
-  section: { backgroundColor: '#FFF', borderRadius: 16, padding: 20, marginBottom: 20 },
-  sectionTitle: { fontSize: 16, fontFamily: FONTS.subtitle, color: COLORS.text, marginBottom: 16 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  label: { fontSize: 14, fontFamily: FONTS.subtitle, color: COLORS.textLight },
-  value: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.text, flex: 1, textAlign: 'right' },
-  divider: { height: 1, backgroundColor: '#F0F0F0', marginVertical: 12 },
-  description: { fontSize: 14, fontFamily: FONTS.body, color: COLORS.text, lineHeight: 22, marginTop: 4 },
-
-  copyBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 16 },
-  copyText: { color: COLORS.primary, fontFamily: FONTS.subtitle, marginLeft: 8 }
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#F7F2EC' },
+  content: { padding: 16, paddingBottom: 28, gap: 14 },
+  mainCard: {
+    alignItems: 'center',
+    backgroundColor: '#2D0438',
+    borderRadius: 26,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+    padding: 22,
+    ...panelShadow,
+  },
+  iconCircle: {
+    width: 66,
+    height: 66,
+    borderRadius: 22,
+    backgroundColor: '#17001F',
+    borderWidth: 1,
+    borderColor: 'rgba(255,143,31,0.46)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8, marginBottom: 12 },
+  typeBadge: {
+    overflow: 'hidden',
+    borderRadius: 999,
+    backgroundColor: '#FF8F1F',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    color: '#17001F',
+    fontFamily: FONTS.title,
+    fontSize: 10,
+    textTransform: 'uppercase',
+  },
+  sourceBadge: {
+    overflow: 'hidden',
+    borderRadius: 999,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: FONTS.subtitle,
+    fontSize: 10,
+  },
+  itemName: {
+    color: '#FFFFFF',
+    fontFamily: FONTS.title,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: 0,
+    textAlign: 'center',
+  },
+  price: {
+    color: '#FFB15B',
+    fontFamily: FONTS.title,
+    fontSize: 34,
+    marginTop: 14,
+  },
+  priceHint: {
+    color: 'rgba(255,255,255,0.62)',
+    fontFamily: FONTS.body,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  infoCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#E9DCD1',
+    padding: 16,
+    ...panelShadow,
+  },
+  sectionEyebrow: {
+    color: '#9A6C43',
+    fontFamily: FONTS.subtitle,
+    fontSize: 10,
+    letterSpacing: 1.2,
+    marginBottom: 12,
+  },
+  row: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
+  label: { color: '#8A7D89', fontFamily: FONTS.subtitle, fontSize: 12 },
+  value: { flex: 1, color: '#17001F', fontFamily: FONTS.title, fontSize: 13, textAlign: 'right' },
+  divider: { height: 1, backgroundColor: '#EFE5DD', marginVertical: 12 },
+  description: { color: '#4B4250', fontFamily: FONTS.body, fontSize: 13, lineHeight: 20 },
+  copyBtn: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+    borderRadius: 18,
+    backgroundColor: '#FF8F1F',
+    paddingVertical: 15,
+  },
+  copyText: { color: '#17001F', fontFamily: FONTS.title, fontSize: 13 },
 });

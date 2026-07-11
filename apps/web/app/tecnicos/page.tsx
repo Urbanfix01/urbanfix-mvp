@@ -3385,7 +3385,6 @@ export default function TechniciansPage() {
     }
     if (intent === PRICE_ACCESS_INTENT) {
       setEntryPrompt('Para ver los precios de mano de obra actualizados, inicia sesión o crea tu cuenta.');
-      setSelectedAccessProfile('tecnico');
       setAuthMode('login');
       setQuickRegisterMode(false);
     } else {
@@ -3576,6 +3575,15 @@ export default function TechniciansPage() {
           setAuthAccessProfileIntent('cliente');
           const clientParams = new URLSearchParams();
           clientParams.set('mode', authMode);
+          const currentParams = new URLSearchParams(window.location.search);
+          const nextPath = sanitizeNextPath(currentParams.get('next'));
+          if (nextPath) {
+            clientParams.set('next', nextPath);
+          }
+          const intent = currentParams.get('intent');
+          if (intent) {
+            clientParams.set('intent', intent);
+          }
           window.location.href = `/cliente?${clientParams.toString()}`;
         }
         return;

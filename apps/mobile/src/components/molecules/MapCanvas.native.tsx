@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Platform, Text } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
 import Constants from 'expo-constants';
@@ -13,11 +13,27 @@ type Props = {
   valuePrefix?: string;
 };
 
+const isValidCoordinate = (point: MapPoint) =>
+  Number.isFinite(point.lat) &&
+  Number.isFinite(point.lng) &&
+  Math.abs(point.lat) <= 90 &&
+  Math.abs(point.lng) <= 180;
+
+const normalizeRegion = (region: MapRegion): MapRegion => ({
+  latitude: Number.isFinite(region.latitude) ? region.latitude : -34.6037,
+  longitude: Number.isFinite(region.longitude) ? region.longitude : -58.3816,
+  latitudeDelta: Number.isFinite(region.latitudeDelta) && region.latitudeDelta > 0 ? region.latitudeDelta : 0.25,
+  longitudeDelta: Number.isFinite(region.longitudeDelta) && region.longitudeDelta > 0 ? region.longitudeDelta : 0.25,
+});
+
 const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix = '$' }: Props) => {
   const mapHeight = height ?? 220;
-  const tracksViewChanges = Platform.OS === 'android';
   const mapRef = useRef<MapView>(null);
-  const coordsKey = points.map((point) => `${point.lat},${point.lng}`).join('|');
+  const [isMapReady, setIsMapReady] = useState(false);
+  const [tracksMarkers, setTracksMarkers] = useState(true);
+  const safePoints = useMemo(() => points.filter(isValidCoordinate), [points]);
+  const safeRegion = useMemo(() => normalizeRegion(region), [region]);
+  const coordsKey = safePoints.map((point) => `${point.lat},${point.lng}`).join('|');
   const hasAndroidMapsKeyFlag = Boolean((Constants.expoConfig as any)?.extra?.hasGoogleMapsAndroidKey);
   const androidGoogleMapsKey = String(
     process.env.EXPO_PUBLIC_GOOGLE_MAPS_ANDROID_API_KEY ||
@@ -30,12 +46,16 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
   useEffect(() => {
     if (!canRenderNativeMap) return;
     if (Platform.OS === 'web') return;
-    if (!points.length) return;
-    if (points.length === 1) {
-      mapRef.current?.animateToRegion(region, 250);
+    if (!isMapReady) return;
+    if (!safePoints.length) {
+      mapRef.current?.animateToRegion(safeRegion, 250);
       return;
     }
-    const coords = points.map((point) => ({ latitude: point.lat, longitude: point.lng }));
+    if (safePoints.length === 1) {
+      mapRef.current?.animateToRegion(safeRegion, 250);
+      return;
+    }
+    const coords = safePoints.map((point) => ({ latitude: point.lat, longitude: point.lng }));
     mapRef.current?.fitToCoordinates(coords, {
       edgePadding: { top: 18, right: 18, bottom: 18, left: 18 },
       animated: false,
@@ -43,12 +63,33 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
   }, [
     canRenderNativeMap,
     coordsKey,
-    points.length,
-    region.latitude,
-    region.longitude,
-    region.latitudeDelta,
-    region.longitudeDelta,
+    isMapReady,
+    safePoints.length,
+    safeRegion.latitude,
+    safeRegion.longitude,
+    safeRegion.latitudeDelta,
+    safeRegion.longitudeDelta,
   ]);
+
+  useEffect(() => {
+    if (!safePoints.length) return undefined;
+    setTracksMarkers(true);
+    const timeout = setTimeout(() => setTracksMarkers(false), 900);
+    return () => clearTimeout(timeout);
+  }, [coordsKey, safePoints.length]);
+
+  const handleMapReady = useCallback(() => {
+    setIsMapReady(true);
+  }, []);
+
+  const handleSelect = useCallback(
+    (point: MapPoint) => {
+      onSelect(point);
+    },
+    [onSelect]
+  );
+
+  const visiblePoints = safePoints;
 
   if (!canRenderNativeMap) {
     return (
@@ -65,21 +106,22 @@ const MapCanvas = ({ points, region, onSelect, formatMoney, height, valuePrefix 
       <MapView
         ref={mapRef}
         style={[styles.map, { height: mapHeight }]}
-        initialRegion={region}
+        initialRegion={safeRegion}
+        onMapReady={handleMapReady}
         scrollEnabled
         rotateEnabled
         pitchEnabled
         zoomEnabled
       >
-        {points.map((point) => (
+        {visiblePoints.map((point) => (
           <Marker
             key={point.id}
             coordinate={{ latitude: point.lat, longitude: point.lng }}
             anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={tracksViewChanges}
+            tracksViewChanges={tracksMarkers}
             title={point.title}
             description={`${valuePrefix}${formatMoney(point.amount)} - ${point.status.label}`}
-            onPress={() => onSelect(point)}
+            onPress={() => handleSelect(point)}
           >
             <View style={styles.pinWrap}>
               <View style={[styles.pinHead, { backgroundColor: point.status.color }]}>

@@ -184,6 +184,10 @@ export default function OperationalScreen() {
 
   const subtitle = `${filteredRequests.length} solicitudes visibles`;
   const mapKey = `${modeFilter}-${mapPoints.length}-${mapRegion.latitude}-${mapRegion.longitude}`;
+  const selectedMapPoint = useMemo(
+    () => mapPoints.find((point) => point.id === selectedRequestId) || null,
+    [mapPoints, selectedRequestId]
+  );
 
   if (isLoading && !data) {
     return (
@@ -262,8 +266,18 @@ export default function OperationalScreen() {
 
         <View style={styles.mapPanel}>
           <View style={styles.mapHeaderRow}>
-            <Text style={styles.mapTitle}>Solicitudes publicadas</Text>
-            <Text style={styles.mapCount}>{filteredRequests.length} visibles</Text>
+            <View style={styles.mapTitleRow}>
+              <View style={styles.mapIcon}>
+                <Ionicons name="map-outline" size={17} color="#17001F" />
+              </View>
+              <View style={styles.mapTitleTextBlock}>
+                <Text style={styles.mapTitle}>Mapa operativo</Text>
+                <Text style={styles.mapSubtitle}>Solicitudes activas cerca de tu zona</Text>
+              </View>
+            </View>
+            <View style={styles.mapCountPill}>
+              <Text style={styles.mapCount}>{filteredRequests.length} visibles</Text>
+            </View>
           </View>
           <MapCanvas
             key={mapKey}
@@ -271,8 +285,19 @@ export default function OperationalScreen() {
             region={mapRegion}
             onSelect={(point) => setSelectedRequestId(point.id)}
             formatMoney={formatCurrency}
-            height={260}
+            height={320}
           />
+          {selectedMapPoint && (
+            <View style={styles.mapSelectedCard}>
+              <Text style={styles.mapSelectedTitle} numberOfLines={1}>
+                {selectedMapPoint.title}
+              </Text>
+              <Text style={styles.mapSelectedMeta} numberOfLines={1}>
+                {selectedMapPoint.status.label}
+                {selectedMapPoint.address ? ` | ${selectedMapPoint.address}` : ''}
+              </Text>
+            </View>
+          )}
           {!mapPoints.length && <Text style={styles.emptyHint}>No hay puntos geolocalizados con estos filtros.</Text>}
         </View>
 
@@ -446,16 +471,57 @@ const styles = StyleSheet.create({
   },
   warningText: { flex: 1, fontFamily: FONTS.body, color: '#92400E', fontSize: 12 },
   mapPanel: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#2D0438',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    padding: 12,
+    shadowColor: '#17001F',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: Platform.OS === 'web' ? 0 : 0.16,
+    shadowRadius: 18,
+    elevation: 4,
+  },
+  mapHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+  },
+  mapTitleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mapIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: '#FF8F1F',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mapTitleTextBlock: { flex: 1 },
+  mapTitle: { fontFamily: FONTS.title, color: '#FFFFFF', fontSize: 15, letterSpacing: 0 },
+  mapSubtitle: { fontFamily: FONTS.body, color: 'rgba(255,255,255,0.64)', fontSize: 11, marginTop: 2 },
+  mapCountPill: {
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  mapCount: { fontFamily: FONTS.subtitle, color: '#FFB15B', fontSize: 11 },
+  mapSelectedCard: {
+    marginTop: 10,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 12,
+    borderColor: 'rgba(255,255,255,0.14)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  mapHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  mapTitle: { fontFamily: FONTS.subtitle, color: '#0F172A', fontSize: 13 },
-  mapCount: { fontFamily: FONTS.body, color: '#64748B', fontSize: 11 },
-  emptyHint: { marginTop: 10, fontFamily: FONTS.body, color: '#94A3B8', fontSize: 11 },
+  mapSelectedTitle: { fontFamily: FONTS.title, color: '#FFFFFF', fontSize: 13 },
+  mapSelectedMeta: { fontFamily: FONTS.body, color: 'rgba(255,255,255,0.66)', fontSize: 11, marginTop: 3 },
+  emptyHint: { marginTop: 10, fontFamily: FONTS.body, color: 'rgba(255,255,255,0.7)', fontSize: 11 },
   filterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   filterBtn: {
     borderWidth: 1,

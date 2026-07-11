@@ -10,13 +10,27 @@ const extra = (Constants.expoConfig?.extra || Constants.manifest2?.extra || {}) 
 
 const normalizeConfigValue = (value?: string) => String(value || '').trim().replace(/^"|"$/g, '');
 
-const supabaseUrl = normalizeConfigValue(process.env.EXPO_PUBLIC_SUPABASE_URL || extra.supabaseUrl);
-const supabaseAnonKey = normalizeConfigValue(process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || extra.supabaseAnonKey);
+const supabaseUrl = normalizeConfigValue(
+  process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || extra.supabaseUrl
+);
+const supabaseAnonKey = normalizeConfigValue(
+  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || extra.supabaseAnonKey
+);
 
-export const hasSupabaseConfig = Boolean(supabaseUrl && supabaseAnonKey);
+const isValidSupabaseUrl = (value?: string) => /^https:\/\/[a-z0-9-]+\.supabase\.co$/i.test(value || '');
+
+export const hasSupabaseConfig = Boolean(isValidSupabaseUrl(supabaseUrl) && supabaseAnonKey);
+
+export const assertSupabaseConfig = () => {
+  if (hasSupabaseConfig) return;
+
+  throw new Error(
+    'La app no tiene configurada la conexion segura. Revisa EXPO_PUBLIC_SUPABASE_URL y EXPO_PUBLIC_SUPABASE_ANON_KEY antes de publicar.'
+  );
+};
 
 export const supabase = createClient(
-  hasSupabaseConfig ? supabaseUrl! : 'http://127.0.0.1:54321',
+  hasSupabaseConfig ? supabaseUrl! : 'https://missing-supabase-config.invalid',
   hasSupabaseConfig ? supabaseAnonKey! : 'missing-supabase-anon-key',
   {
     auth: {

@@ -47,6 +47,7 @@ In Supabase Auth settings:
   - `https://www.urbanfix.com.ar/tecnicos`
   - `https://www.urbanfix.com.ar/cliente`
   - `https://www.urbanfix.com.ar/admin`
+  - `urbanfix://auth/callback`
 
 For local QA only, keep these if the local browser is used:
 

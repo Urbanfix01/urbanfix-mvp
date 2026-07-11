@@ -11,6 +11,9 @@ import TechnicianOperationalMap from '../../components/TechnicianOperationalMap'
 import {
   clearAuthAccessProfileIntent,
   getAuthUserProfileFromMetadata,
+  POST_AUTH_REDIRECT_KEY,
+  PRICE_ACCESS_INTENT,
+  sanitizeNextPath,
   setAuthAccessProfileIntent,
   syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
@@ -926,8 +929,41 @@ export default function ClientRequestsHub() {
       setCreateRequestIntent(true);
       setAuthMode('register');
       setAuthNotice('Crea tu cuenta o ingresa para publicar tu solicitud.');
+    } else if (intent === PRICE_ACCESS_INTENT) {
+      setAuthNotice('Para ver los precios de mano de obra actualizados, inicia sesión o crea tu cuenta.');
+    }
+    const nextPath = sanitizeNextPath(params.get('next'));
+    if (nextPath) {
+      try {
+        window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, nextPath);
+      } catch {
+        // Ignore storage errors in embedded browsers.
+      }
     }
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !session?.user?.id || createRequestIntent) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const queryRedirect = sanitizeNextPath(params.get('next'));
+    let storedRedirect: string | null = null;
+    try {
+      storedRedirect = sanitizeNextPath(window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY));
+    } catch {
+      storedRedirect = null;
+    }
+
+    const redirectPath = queryRedirect || storedRedirect;
+    if (!redirectPath || redirectPath === '/cliente') return;
+
+    try {
+      window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    } catch {
+      // Ignore storage errors in embedded browsers.
+    }
+    window.location.replace(redirectPath);
+  }, [createRequestIntent, session?.user?.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
