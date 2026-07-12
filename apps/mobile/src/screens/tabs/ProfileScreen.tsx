@@ -580,7 +580,7 @@ export default function ProfileScreen({
       const preciseLat = Number(technicianLocationResult.lat.toFixed(6));
       const preciseLng = Number(technicianLocationResult.lng.toFixed(6));
 
-      const updates = {
+      const updates: Record<string, unknown> = {
         id: user.id,
         email: user.email || null,
         access_granted: true,
@@ -589,7 +589,6 @@ export default function ProfileScreen({
           profile?.profile_published === false
             ? profile?.profile_published_at || null
             : profile?.profile_published_at || new Date().toISOString(),
-        full_name: fullName,
         business_name: businessName,
         phone: phone,
         city: safeServiceCity || null,
@@ -611,6 +610,10 @@ export default function ProfileScreen({
         service_lng: preciseLng,
         updated_at: new Date().toISOString(),
       };
+
+      if (!requiredCompletion || fullName.trim()) {
+        updates.full_name = fullName;
+      }
 
       const { error } = await supabase.from('profiles').upsert(updates);
 
@@ -920,17 +923,19 @@ export default function ProfileScreen({
             ))}
         </View>
         <View style={styles.formContainer}>
-            <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>NOMBRE REAL</Text>
-                <TextInput 
-                    style={[styles.inputField, !isEditing && styles.inputFieldDisabled]} 
-                    value={fullName} 
-                    onChangeText={setFullName}
-                    placeholder="Ej: Juan Perez"
-                    editable={isEditing}
-                    selectTextOnFocus={isEditing}
-                />
-            </View>
+            {!requiredCompletion && (
+              <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>NOMBRE REAL</Text>
+                  <TextInput
+                      style={[styles.inputField, !isEditing && styles.inputFieldDisabled]}
+                      value={fullName}
+                      onChangeText={setFullName}
+                      placeholder="Ej: Juan Perez"
+                      editable={isEditing}
+                      selectTextOnFocus={isEditing}
+                  />
+              </View>
+            )}
             
             {/* Input Nombre Empresa */}
             <View style={styles.inputGroup}>

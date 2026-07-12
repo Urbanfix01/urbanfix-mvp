@@ -818,7 +818,7 @@ export default function AuthScreen() {
     : isClientAudience
       ? 'Crear cuenta con Google'
       : 'Crear perfil con Google';
-  const appleActionText = isLogin ? 'Ingresar con iPhone' : 'Registrarme con iPhone';
+  const appleActionText = isLogin ? 'Iniciar sesion con Apple' : 'Registrarme con Apple';
   const primaryCta = isLogin
     ? isClientAudience
       ? 'Ingresar como cliente'

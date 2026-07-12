@@ -139,13 +139,18 @@ export default function ClientProfileScreen({
         throw new Error('Completa telefono y ciudad.');
       }
 
-      const { error } = await supabase.from('profiles').upsert({
+      const profilePayload: Record<string, unknown> = {
         id: user.id,
         email: user.email || null,
-        full_name: fullName.trim(),
         phone: phone.trim(),
         city: city.trim(),
-      });
+      };
+
+      if (!requiredCompletion || fullName.trim()) {
+        profilePayload.full_name = fullName.trim();
+      }
+
+      const { error } = await supabase.from('profiles').upsert(profilePayload);
 
       if (error) throw error;
       setMessage('Perfil actualizado.');
@@ -360,24 +365,28 @@ export default function ClientProfileScreen({
               Estos datos se usan para coordinar visitas, validar tu zona y mejorar el matching con tecnicos.
             </Text>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Email</Text>
-              <View style={styles.emailPill}>
-                <Ionicons name="mail-outline" size={15} color="#64748B" />
-                <Text style={styles.emailText}>{email || 'Sin email'}</Text>
-              </View>
-            </View>
+            {!requiredCompletion && (
+              <>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Email</Text>
+                  <View style={styles.emailPill}>
+                    <Ionicons name="mail-outline" size={15} color="#64748B" />
+                    <Text style={styles.emailText}>{email || 'Sin email'}</Text>
+                  </View>
+                </View>
 
-            <View style={styles.fieldGroup}>
-              <Text style={styles.label}>Nombre y apellido</Text>
-              <TextInput
-                style={styles.input}
-                value={fullName}
-                onChangeText={setFullName}
-                placeholder="Nombre completo"
-                placeholderTextColor="#94A3B8"
-              />
-            </View>
+                <View style={styles.fieldGroup}>
+                  <Text style={styles.label}>Nombre y apellido</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={fullName}
+                    onChangeText={setFullName}
+                    placeholder="Nombre completo"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+              </>
+            )}
 
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>Telefono / WhatsApp</Text>
