@@ -583,7 +583,6 @@ export default function ProfileScreen({
       const updates: Record<string, unknown> = {
         id: user.id,
         email: user.email || null,
-        access_granted: true,
         profile_published: profile?.profile_published === false ? false : true,
         profile_published_at:
           profile?.profile_published === false
@@ -625,7 +624,10 @@ export default function ProfileScreen({
       setIsEditing(false);
       onProfileUpdated?.();
 
-      const msg = 'Perfil actualizado con tu punto en el mapa.';
+      const msg =
+        profile?.access_granted === true
+          ? 'Perfil actualizado con tu punto en el mapa.'
+          : 'Perfil guardado. Queda pendiente la revision admin.';
       isWeb ? alert(msg) : Alert.alert("Éxito", msg);
 
     } catch (error: any) {

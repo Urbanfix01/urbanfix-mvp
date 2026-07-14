@@ -380,7 +380,6 @@ export default function RootNavigator() {
     if (!session?.user) return;
 
     const metadata = ((session.user as any)?.user_metadata || {}) as Record<string, unknown>;
-    const metadataAudience = normalizeAudience(metadata.app_audience);
 
     const seedProfileFromMetadata = async () => {
       const profileSeed: Record<string, unknown> = {
@@ -401,23 +400,13 @@ export default function RootNavigator() {
         profileSeed.business_name = String(metadata.business_name).trim();
       }
 
-      if (metadataAudience === 'tecnico') {
-        const { data: currentProfile } = await supabase
-          .from('profiles')
-          .select('access_granted, profile_published')
-          .eq('id', session.user.id)
-          .maybeSingle();
-
-        profileSeed.access_granted = true;
-        if ((currentProfile as any)?.profile_published !== false) {
-          profileSeed.profile_published = true;
-        }
-      }
-
-      await supabase.from('profiles').upsert(profileSeed);
+      const { error } = await supabase.from('profiles').upsert(profileSeed);
+      if (error) throw error;
     };
 
-    void seedProfileFromMetadata();
+    seedProfileFromMetadata().catch((error) => {
+      console.warn('Profile metadata seed error', error);
+    });
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -449,7 +438,7 @@ export default function RootNavigator() {
         setNeedsProfileCompletion(!isComplete);
       } catch (error) {
         console.warn('Profile gate error', error);
-        setNeedsProfileCompletion(false);
+        setNeedsProfileCompletion(true);
       } finally {
         setProfileGateLoading(false);
       }

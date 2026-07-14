@@ -457,21 +457,17 @@ export default function AuthScreen() {
     const profilePayload: Record<string, unknown> = { id: user.id };
     if (resolvedEmail) profilePayload.email = resolvedEmail;
     if (resolvedFullName) profilePayload.full_name = resolvedFullName;
-    if (nextAudience === 'tecnico') {
-      profilePayload.access_granted = true;
-      profilePayload.profile_published = true;
-      profilePayload.profile_published_at = new Date().toISOString();
-    }
 
     const metadataPayload: Record<string, unknown> = { app_audience: nextAudience };
     if (resolvedFullName) metadataPayload.full_name = resolvedFullName;
 
-    const operations: Promise<any>[] = [supabase.auth.updateUser({ data: metadataPayload })];
-    if (Object.keys(profilePayload).length > 1) {
-      operations.push((async () => supabase.from('profiles').upsert(profilePayload))());
-    }
+    const { error: metadataError } = await supabase.auth.updateUser({ data: metadataPayload });
+    if (metadataError) throw metadataError;
 
-    await Promise.allSettled(operations);
+    if (Object.keys(profilePayload).length > 1) {
+      const { error: profileError } = await supabase.from('profiles').upsert(profilePayload);
+      if (profileError) throw profileError;
+    }
   };
 
   const handleGoogleAuth = async () => {
@@ -633,12 +629,12 @@ export default function AuthScreen() {
     };
 
     if (!isClientAudience) {
-      basePayload.access_granted = true;
-      basePayload.profile_published = true;
-      basePayload.profile_published_at = new Date().toISOString();
+      basePayload.profile_published = false;
+      basePayload.profile_published_at = null;
     }
 
-    await supabase.from('profiles').upsert(basePayload);
+    const { error } = await supabase.from('profiles').upsert(basePayload);
+    if (error) throw error;
   };
 
   const handleAuth = async () => {
@@ -739,7 +735,7 @@ export default function AuthScreen() {
         if (data.session) {
           await upsertProfileIfPossible(safeEmail);
           await uploadPendingTechnicianMedia(safeEmail);
-          Alert.alert('Registro exitoso', 'Tu perfil tecnico fue creado.');
+          Alert.alert('Registro exitoso', 'Tu cuenta fue creada. Completa tu perfil tecnico para revision.');
         } else {
           if (hasRegistrationMedia(registerMedia)) {
             await persistPendingTechnicianMedia(safeEmail, registerMedia);
