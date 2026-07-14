@@ -388,6 +388,7 @@ type AdminOverview = {
         sessions: number;
         views: number;
         lastSeenAt: string | null;
+        lastSignInAt: string | null;
         lastPath: string;
         deviceType?: AnalyticsDeviceType;
         deviceLabel?: string;
@@ -6949,7 +6950,7 @@ export default function AdminPage() {
                         <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Origen de accesos</p>
                         <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Ubicación aproximada</h3>
                         <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                          Datos de país, región y ciudad detectados por infraestructura. No se guarda IP real.
+                          Datos de pais, region y ciudad detectados por infraestructura. No se guarda IP real. Cada sesion se reinicia tras 30 min de inactividad o cambio de login.
                         </p>
                       </div>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
@@ -6960,7 +6961,7 @@ export default function AdminPage() {
                     <div className="mt-4 rounded-[24px] border border-[#eadff0] bg-white px-3 py-3 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
                       <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                         {[
-                          { label: 'Accesos', value: formatNumber(summaryGeo?.totalSessions || 0), tone: 'text-[#180f24]' },
+                          { label: 'Sesiones reales', value: formatNumber(summaryGeo?.totalSessions || 0), tone: 'text-[#180f24]' },
                           { label: 'Con cuenta', value: formatNumber(summaryGeo?.accountSessions || 0), tone: 'text-[#047857]' },
                           { label: 'Sin cuenta', value: formatNumber(summaryGeo?.guestSessions || 0), tone: 'text-slate-600' },
                           { label: 'Con ubicación', value: formatNumber(summaryGeo?.knownSessions || 0), tone: 'text-[#047857]' },
@@ -7029,6 +7030,9 @@ export default function AdminPage() {
                                 )}
                               </div>
                               <p className="mt-0.5 truncate text-xs text-slate-500">{account.email || 'Sin email visible'}</p>
+                              {account.lastSignInAt && (
+                                <p className="mt-0.5 truncate text-[11px] text-slate-400">Ultimo login: {formatDateTime(account.lastSignInAt)}</p>
+                              )}
                               {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
                             </div>
                             <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-[11px] text-slate-500">

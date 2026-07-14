@@ -479,6 +479,7 @@ export async function GET(request: NextRequest) {
         sessions: number;
         views: number;
         lastSeenAt: string | null;
+        lastSignInAt: string | null;
         lastPath: string;
         deviceType: AnalyticsDeviceType;
         deviceLabel: string;
@@ -662,50 +663,64 @@ export async function GET(request: NextRequest) {
       }, {});
     }
 
-    analyticsGeo.accountUsers = Array.from(analyticsAccountMap.values())
-      .map((item) => {
-        const profile = profiles[item.userId] || {};
-        const label =
-          [profile.business_name, profile.full_name].find((value) => cleanGeoText(value)) ||
-          cleanGeoText(profile.email) ||
-          item.userId;
-        const devices = Array.from(item.deviceSessions.entries())
-          .map(([type, sessions]) => ({
-            type,
-            label: ANALYTICS_DEVICE_LABELS[type],
-            sessions: sessions.size,
-          }))
-          .filter((device) => device.sessions > 0)
-          .sort((a, b) => b.sessions - a.sessions || a.label.localeCompare(b.label));
-        const primaryDevice =
-          devices[0] ||
-          ({
-            type: 'unknown' as AnalyticsDeviceType,
-            label: ANALYTICS_DEVICE_LABELS.unknown,
-            sessions: 0,
-          });
-
-        return {
-          userId: item.userId,
-          label,
-          email: cleanGeoText(profile.email),
-          sessions: item.sessions.size,
-          views: item.views,
-          lastSeenAt: item.lastSeenAt,
-          lastPath: item.lastPath,
-          deviceType: primaryDevice.type,
-          deviceLabel: primaryDevice.label,
-          deviceSessions: primaryDevice.sessions,
-          devices,
-        };
-      })
+    const sortedAnalyticsAccounts = Array.from(analyticsAccountMap.values())
       .sort(
         (a, b) =>
-          b.sessions - a.sessions ||
+          b.sessions.size - a.sessions.size ||
           b.views - a.views ||
           new Date(b.lastSeenAt || 0).getTime() - new Date(a.lastSeenAt || 0).getTime()
       )
       .slice(0, 10);
+
+    const authUsersById: Record<string, any> = {};
+    await Promise.all(
+      sortedAnalyticsAccounts.map(async (item) => {
+        const { data, error } = await supabase!.auth.admin.getUserById(item.userId);
+        if (!error && data?.user) {
+          authUsersById[item.userId] = data.user;
+        }
+      })
+    );
+
+    analyticsGeo.accountUsers = sortedAnalyticsAccounts.map((item) => {
+      const profile = profiles[item.userId] || {};
+      const authUser = authUsersById[item.userId] || null;
+      const label =
+        [profile.business_name, profile.full_name].find((value) => cleanGeoText(value)) ||
+        cleanGeoText(profile.email) ||
+        cleanGeoText(authUser?.email) ||
+        item.userId;
+      const devices = Array.from(item.deviceSessions.entries())
+        .map(([type, sessions]) => ({
+          type,
+          label: ANALYTICS_DEVICE_LABELS[type],
+          sessions: sessions.size,
+        }))
+        .filter((device) => device.sessions > 0)
+        .sort((a, b) => b.sessions - a.sessions || a.label.localeCompare(b.label));
+      const primaryDevice =
+        devices[0] ||
+        ({
+          type: 'unknown' as AnalyticsDeviceType,
+          label: ANALYTICS_DEVICE_LABELS.unknown,
+          sessions: 0,
+        });
+
+      return {
+        userId: item.userId,
+        label,
+        email: cleanGeoText(profile.email) || cleanGeoText(authUser?.email),
+        sessions: item.sessions.size,
+        views: item.views,
+        lastSeenAt: item.lastSeenAt,
+        lastSignInAt: cleanGeoText(authUser?.last_sign_in_at) || null,
+        lastPath: item.lastPath,
+        deviceType: primaryDevice.type,
+        deviceLabel: primaryDevice.label,
+        deviceSessions: primaryDevice.sessions,
+        devices,
+      };
+    });
 
     let subscriptionsByUser: Record<string, any> = {};
     if (userIds.size) {

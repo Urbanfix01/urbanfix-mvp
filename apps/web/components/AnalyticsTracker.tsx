@@ -3,13 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
-import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId } from '../lib/analytics';
+import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId, startNewAnalyticsSessionId } from '../lib/analytics';
 import { getStoredCountryPreference } from '../lib/country-preference';
 const HEARTBEAT_MS = 60000;
 
 export default function AnalyticsTracker() {
   const pathname = usePathname();
   const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(!hasSupabaseConfig);
+  const [authEventVersion, setAuthEventVersion] = useState(0);
   const tokenRef = useRef<string | null>(null);
   const lastPathRef = useRef<string | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -20,21 +22,46 @@ export default function AnalyticsTracker() {
   }, [accessToken]);
 
   useEffect(() => {
-    if (!hasSupabaseConfig) return;
+    if (!hasSupabaseConfig) {
+      setAuthReady(true);
+      return;
+    }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setAccessToken(data.session?.access_token || null);
+    let mounted = true;
+    const applySession = (nextSession: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      const nextToken = nextSession?.access_token || null;
+      tokenRef.current = nextToken;
+      if (!mounted) return;
+      setAccessToken(nextToken);
+      setAuthReady(true);
+    };
+
+    supabase.auth
+      .getSession()
+      .then(({ data }) => applySession(data.session))
+      .catch(() => {
+        if (mounted) setAuthReady(true);
+      });
+
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      applySession(nextSession);
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+        sessionIdRef.current = startNewAnalyticsSessionId();
+        lastPathRef.current = null;
+        startTimeRef.current = null;
+        if (mounted) setAuthEventVersion((value) => value + 1);
+      }
     });
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setAccessToken(nextSession?.access_token || null);
-    });
+
     return () => {
+      mounted = false;
       data.subscription.unsubscribe();
     };
   }, []);
 
   const sendEvent = (payload: any) => {
     if (typeof window === 'undefined') return;
+    sessionIdRef.current = getOrCreateAnalyticsSessionId();
     const body = {
       session_id: sessionIdRef.current,
       referrer: document.referrer || '',
@@ -75,6 +102,7 @@ export default function AnalyticsTracker() {
   };
 
   useEffect(() => {
+    if (!authReady) return;
     const now = Date.now();
     if (lastPathRef.current) {
       flushDuration();
@@ -82,9 +110,10 @@ export default function AnalyticsTracker() {
     lastPathRef.current = pathname || '/';
     startTimeRef.current = now;
     sendEvent({ event_type: 'page_view', path: pathname || '/' });
-  }, [pathname]);
+  }, [authReady, authEventVersion, pathname]);
 
   useEffect(() => {
+    if (!authReady) return;
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
@@ -110,9 +139,10 @@ export default function AnalyticsTracker() {
     return () => {
       document.removeEventListener('click', handleClick, true);
     };
-  }, [pathname]);
+  }, [authReady, authEventVersion, pathname]);
 
   useEffect(() => {
+    if (!authReady) return;
     const handleVisibility = () => {
       if (document.visibilityState === 'hidden') {
         flushDuration();
@@ -131,9 +161,10 @@ export default function AnalyticsTracker() {
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [authReady, authEventVersion, pathname]);
 
   useEffect(() => {
+    if (!authReady) return;
     const sendHeartbeat = () => {
       if (document.visibilityState !== 'visible') return;
       const path = lastPathRef.current || pathname || '/';
@@ -144,7 +175,7 @@ export default function AnalyticsTracker() {
     return () => {
       window.clearInterval(interval);
     };
-  }, [pathname]);
+  }, [authReady, authEventVersion, pathname]);
 
   return null;
 }
