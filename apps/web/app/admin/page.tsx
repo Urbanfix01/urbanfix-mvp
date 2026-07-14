@@ -5737,7 +5737,6 @@ export default function AdminPage() {
     : 0;
   const summaryAccountUsers = summaryGeo?.accountUsers || [];
   const summaryGeoZones = selectedSummaryMonth?.zones || summaryGeo?.zones || [];
-  const maxMonthlyReach = Math.max(1, ...summaryMonthlyReach.map((item) => item.accountUsers || 0));
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
   const roadmapCurrentCount = useMemo(
@@ -7010,6 +7009,14 @@ export default function AdminPage() {
                             </select>
                           </label>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => loadOverview(session?.access_token)}
+                          disabled={!session?.access_token}
+                          className="rounded-2xl border border-[#eadff0] bg-white px-4 py-2 text-xs font-semibold text-[#432451] shadow-sm transition hover:border-[#d9c8e4] hover:bg-[#faf6fc] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Actualizar
+                        </button>
                         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
                           <Globe2 className="h-5 w-5" />
                         </span>
@@ -7039,45 +7046,6 @@ export default function AdminPage() {
                         ? `${formatNumber(summaryReachKnownUsers)} de ${formatNumber(summaryReachAccountUsers)} cuenta(s) únicas tienen ubicación aproximada en ${summaryReachLabel}. Las cuentas propias quedan excluidas del balance.`
                         : `Todavía no hay cuentas reales registradas para ${summaryReachLabel}. Las visitas sin cuenta quedan fuera de este balance.`}
                     </p>
-
-                    {summaryMonthlyReach.length > 0 && (
-                      <div className="mt-5 rounded-[24px] border border-[#eadff0] bg-white/82 p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Evolución mensual</p>
-                            <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Cuentas únicas alcanzadas</h4>
-                          </div>
-                          <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
-                            {summaryReachLabel}
-                          </span>
-                        </div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-12">
-                          {summaryMonthlyReach.map((item) => {
-                            const active = analyticsGeoMonthFilter === item.monthKey;
-                            const barHeight = Math.max(8, Math.round(((item.accountUsers || 0) / maxMonthlyReach) * 100));
-
-                            return (
-                              <button
-                                key={item.monthKey}
-                                type="button"
-                                onClick={() => setAnalyticsGeoMonthFilter(item.monthKey)}
-                                className={`flex h-28 flex-col justify-between rounded-2xl border px-2 py-2 text-left transition ${
-                                  active
-                                    ? 'border-[#ff8f1f] bg-[#fff7ed] text-[#8a3d00] shadow-sm'
-                                    : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-[#eadff0] hover:bg-white'
-                                }`}
-                              >
-                                <span className="text-[10px] font-semibold uppercase tracking-[0.12em]">{item.monthKey.slice(5)}/{item.monthKey.slice(2, 4)}</span>
-                                <span className="flex h-12 items-end rounded-xl bg-white px-1">
-                                  <span className="w-full rounded-t-lg bg-[#ff8f1f]" style={{ height: `${barHeight}%` }} />
-                                </span>
-                                <span className="text-base font-semibold">{formatNumber(item.accountUsers)}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
 
                     <div className="mt-6 border-t border-[#eadff0] pt-6">
                       <div className="flex items-center justify-between gap-3">
