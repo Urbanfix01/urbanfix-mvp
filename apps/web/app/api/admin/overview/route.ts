@@ -13,6 +13,31 @@ const parseAmount = (value: any) => {
 
 const cleanGeoText = (value: any) => String(value || '').trim();
 
+const DEFAULT_ANALYTICS_EXCLUDED_EMAILS = ['info@urbanfix.com', 'eliascastillo237@gmail.com'];
+const ANALYTICS_EXCLUDED_EMAILS_ENV = process.env.ADMIN_ANALYTICS_EXCLUDED_EMAILS || '';
+
+const normalizeAnalyticsEmail = (value: any) => cleanGeoText(value).toLowerCase();
+
+const getAnalyticsExcludedEmails = () =>
+  new Set(
+    [...DEFAULT_ANALYTICS_EXCLUDED_EMAILS, ...ANALYTICS_EXCLUDED_EMAILS_ENV.split(',')]
+      .map(normalizeAnalyticsEmail)
+      .filter(Boolean)
+  );
+
+const addExcludedAnalyticsUserId = (
+  target: Set<string>,
+  userId: any,
+  email: any,
+  excludedEmails: Set<string>
+) => {
+  const id = cleanGeoText(userId);
+  const normalizedEmail = normalizeAnalyticsEmail(email);
+  if (id && normalizedEmail && excludedEmails.has(normalizedEmail)) {
+    target.add(id);
+  }
+};
+
 const normalizeGeoTextKey = (value: any) =>
   cleanGeoText(value)
     .normalize('NFD')
@@ -500,6 +525,30 @@ export async function GET(request: NextRequest) {
       }[],
     };
     const analyticsAccountMap = new Map<string, AnalyticsAccountBucket>();
+    const analyticsExcludedEmails = getAnalyticsExcludedEmails();
+    const analyticsExcludedUserIds = new Set<string>();
+
+    if (analyticsExcludedEmails.size > 0) {
+      const excludedEmailList = Array.from(analyticsExcludedEmails);
+      const { data: excludedProfiles, error: excludedProfilesError } = await supabase
+        .from('profiles')
+        .select('id,email')
+        .in('email', excludedEmailList);
+      if (excludedProfilesError) throw excludedProfilesError;
+      (excludedProfiles || []).forEach((profile: any) => {
+        addExcludedAnalyticsUserId(analyticsExcludedUserIds, profile.id, profile.email, analyticsExcludedEmails);
+      });
+
+      for (let page = 1; page <= 10; page += 1) {
+        const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 200 });
+        if (error) throw error;
+        const authUsers = data?.users || [];
+        authUsers.forEach((user: any) => {
+          addExcludedAnalyticsUserId(analyticsExcludedUserIds, user.id, user.email, analyticsExcludedEmails);
+        });
+        if (authUsers.length < 200) break;
+      }
+    }
 
     const analyticsGeoRes = await supabase
       .from('analytics_events')
@@ -526,6 +575,7 @@ export async function GET(request: NextRequest) {
         const sessionId = cleanGeoText(row?.session_id);
         const userId = cleanGeoText(row?.user_id);
         const isAccountSession = Boolean(userId);
+        if (isAccountSession && analyticsExcludedUserIds.has(userId)) return;
         if (sessionId) allSessions.add(sessionId);
         if (sessionId && isAccountSession) accountSessions.add(sessionId);
         if (isAccountSession) {
