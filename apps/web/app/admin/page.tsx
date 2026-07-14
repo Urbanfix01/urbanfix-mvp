@@ -336,6 +336,27 @@ type AnalyticsGeoZone = {
   longitude: number;
   views: number;
   uniqueSessions: number;
+  uniqueAccounts?: number;
+};
+
+type AnalyticsReachBucket = {
+  label: string;
+  views: number;
+  uniqueSessions: number;
+  uniqueAccounts?: number;
+};
+
+type AnalyticsMonthlyReach = {
+  monthKey: string;
+  label: string;
+  accountUsers: number;
+  knownAccountUsers: number;
+  unknownAccountUsers: number;
+  sessions: number;
+  views: number;
+  countriesReached?: AnalyticsReachBucket[];
+  cities?: AnalyticsReachBucket[];
+  zones?: AnalyticsGeoZone[];
 };
 
 type AnalyticsDeviceType = 'mobile' | 'tablet' | 'desktop' | 'bot' | 'unknown';
@@ -376,11 +397,16 @@ type AdminOverview = {
     topScreens: ScreenMetric[];
     analyticsGeo?: {
       rangeDays: number;
+      rangeMonths?: number;
       totalSessions: number;
       accountSessions: number;
       guestSessions: number;
       knownSessions: number;
       unknownSessions: number;
+      accountUsersCount?: number;
+      knownAccountUsers?: number;
+      unknownAccountUsers?: number;
+      monthlyReach?: AnalyticsMonthlyReach[];
       accountUsers?: {
         userId: string;
         label: string;
@@ -395,8 +421,9 @@ type AdminOverview = {
         deviceSessions?: number;
         devices?: AnalyticsAccountDevice[];
       }[];
-      countries: { label: string; views: number; uniqueSessions: number }[];
-      cities: { label: string; views: number; uniqueSessions: number }[];
+      countries: AnalyticsReachBucket[];
+      cities: AnalyticsReachBucket[];
+      countriesReached?: AnalyticsReachBucket[];
       zones?: AnalyticsGeoZone[];
     };
   };
@@ -547,7 +574,8 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
     layer.clearLayers();
 
     validZones.forEach((zone) => {
-      const radius = Math.min(18, Math.max(7, 6 + zone.uniqueSessions * 2));
+      const reachCount = zone.uniqueAccounts ?? zone.uniqueSessions;
+      const radius = Math.min(18, Math.max(7, 6 + reachCount * 2));
       const marker = L.circleMarker([zone.latitude, zone.longitude], {
         radius,
         color: '#ffffff',
@@ -558,7 +586,7 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
       });
 
       marker.bindTooltip(
-        `<strong>${escapeMapText(zone.label)}</strong><br>${formatNumber(zone.uniqueSessions)} sesión(es) · ${formatNumber(zone.views)} vista(s)`,
+        `<strong>${escapeMapText(zone.label)}</strong><br>${formatNumber(reachCount)} cuenta(s) &middot; ${formatNumber(zone.uniqueSessions)} sesi&oacute;n(es)`,
         { direction: 'top', offset: [0, -8], opacity: 0.95 }
       );
       marker.addTo(layer);
@@ -2504,6 +2532,7 @@ export default function AdminPage() {
   const [overviewError, setOverviewError] = useState('');
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<AdminTabKey>('resumen');
+  const [analyticsGeoMonthFilter, setAnalyticsGeoMonthFilter] = useState('all');
   const [technicianQueueStats, setTechnicianQueueStats] = useState<TechnicianQueueStats | null>(null);
   const [companyQueueStats, setCompanyQueueStats] = useState<TechnicianQueueStats | null>(null);
   const [clientAccountStats, setClientAccountStats] = useState<AudienceAccountStats | null>(null);
@@ -5691,11 +5720,24 @@ export default function AdminPage() {
     [activeTab, tabs]
   );
   const summaryGeo = overview?.lists.analyticsGeo || null;
-  const summaryGeoCoverage = summaryGeo?.accountSessions
-    ? Math.round((summaryGeo.knownSessions / summaryGeo.accountSessions) * 100)
+  const summaryMonthlyReach = summaryGeo?.monthlyReach || [];
+  const selectedSummaryMonth =
+    analyticsGeoMonthFilter === 'all'
+      ? null
+      : summaryMonthlyReach.find((item) => item.monthKey === analyticsGeoMonthFilter) || null;
+  const summaryReachLabel = selectedSummaryMonth?.label || `últimos ${summaryGeo?.rangeMonths || 12} meses`;
+  const summaryReachAccountUsers = selectedSummaryMonth?.accountUsers ?? summaryGeo?.accountUsersCount ?? summaryGeo?.accountSessions ?? 0;
+  const summaryReachKnownUsers = selectedSummaryMonth?.knownAccountUsers ?? summaryGeo?.knownAccountUsers ?? summaryGeo?.knownSessions ?? 0;
+  const summaryReachUnknownUsers = selectedSummaryMonth?.unknownAccountUsers ?? summaryGeo?.unknownAccountUsers ?? summaryGeo?.unknownSessions ?? 0;
+  const summaryReachSessions = selectedSummaryMonth?.sessions ?? summaryGeo?.accountSessions ?? 0;
+  const summaryReachCountries = selectedSummaryMonth?.countriesReached || summaryGeo?.countriesReached || summaryGeo?.countries || [];
+  const summaryReachCities = selectedSummaryMonth?.cities || summaryGeo?.cities || [];
+  const summaryGeoCoverage = summaryReachAccountUsers
+    ? Math.round((summaryReachKnownUsers / summaryReachAccountUsers) * 100)
     : 0;
   const summaryAccountUsers = summaryGeo?.accountUsers || [];
-  const summaryGeoZones = summaryGeo?.zones || [];
+  const summaryGeoZones = selectedSummaryMonth?.zones || summaryGeo?.zones || [];
+  const maxMonthlyReach = Math.max(1, ...summaryMonthlyReach.map((item) => item.accountUsers || 0));
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
   const roadmapCurrentCount = useMemo(
@@ -6942,28 +6984,47 @@ export default function AdminPage() {
               {activeTab === 'resumen' && (
                 <section className="mt-6">
                   <article className="rounded-[30px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Sesiones iniciadas</p>
-                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Ubicación de cuentas reales</h3>
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="max-w-3xl">
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Balance mensual</p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Cuentas alcanzadas por país</h3>
                         <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                          El mapa y los rankings muestran solo sesiones con cuenta de UrbanFix. Las visitas sin cuenta quedan como tráfico web separado para no mezclar navegación anónima con actividad administrativa real.
+                          El resumen cuenta usuarios únicos con sesión real en UrbanFix. No suma logins repetidos ni cuentas internas, y separa la navegación anónima para que el alcance mensual sea mas claro.
                         </p>
                       </div>
-                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
-                        <Globe2 className="h-5 w-5" />
-                      </span>
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        {summaryMonthlyReach.length > 0 && (
+                          <label className="flex items-center gap-2 rounded-2xl border border-[#eadff0] bg-white px-3 py-2 text-xs font-semibold text-[#432451] shadow-sm">
+                            <span className="text-[10px] uppercase tracking-[0.16em] text-[#8b7c98]">Mes</span>
+                            <select
+                              value={analyticsGeoMonthFilter}
+                              onChange={(event) => setAnalyticsGeoMonthFilter(event.target.value)}
+                              className="bg-transparent text-sm font-semibold text-[#180f24] outline-none"
+                            >
+                              <option value="all">Últimos {summaryGeo?.rangeMonths || 12} meses</option>
+                              {summaryMonthlyReach.map((item) => (
+                                <option key={item.monthKey} value={item.monthKey}>
+                                  {item.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
+                          <Globe2 className="h-5 w-5" />
+                        </span>
+                      </div>
                     </div>
 
                     <div className="mt-4 rounded-[24px] border border-[#eadff0] bg-white px-3 py-3 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
                       <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                         {[
-                          { label: 'Con cuenta', value: formatNumber(summaryGeo?.accountSessions || 0), tone: 'text-[#047857]' },
-                          { label: 'Con ubicación', value: formatNumber(summaryGeo?.knownSessions || 0), tone: 'text-[#047857]' },
-                          { label: 'Sin ubicación', value: formatNumber(summaryGeo?.unknownSessions || 0), tone: 'text-slate-600' },
-                          { label: 'Visitantes', value: formatNumber(summaryGeo?.guestSessions || 0), tone: 'text-slate-600' },
-                          { label: 'Total web', value: formatNumber(summaryGeo?.totalSessions || 0), tone: 'text-[#180f24]' },
-                          { label: 'Cobertura cuenta', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
+                          { label: 'Cuentas alcanzadas', value: formatNumber(summaryReachAccountUsers), tone: 'text-[#047857]' },
+                          { label: 'Con ubicación', value: formatNumber(summaryReachKnownUsers), tone: 'text-[#047857]' },
+                          { label: 'Sin ubicación', value: formatNumber(summaryReachUnknownUsers), tone: 'text-slate-600' },
+                          { label: 'Países alcanzados', value: formatNumber(summaryReachCountries.length), tone: 'text-[#5b3a6e]' },
+                          { label: 'Sesiones reales', value: formatNumber(summaryReachSessions), tone: 'text-slate-600' },
+                          { label: 'Cobertura', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
                         ].map((item) => (
                           <div key={item.label} className="rounded-2xl bg-[#faf8fb] px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">{item.label}</p>
@@ -6974,124 +7035,167 @@ export default function AdminPage() {
                     </div>
 
                     <p className="mt-3 text-xs leading-6 text-[#6c6177]">
-                      {summaryGeo?.accountSessions
-                        ? `${formatNumber(summaryGeo.knownSessions)} de ${formatNumber(summaryGeo.accountSessions)} sesión(es) con cuenta tienen ubicación aproximada. El mapa y los rankings usan solo esas cuentas; ${formatNumber(summaryGeo.guestSessions || 0)} visita(s) sin cuenta quedan separadas como tráfico web.`
-                        : `Todavía no hay sesiones con cuenta registradas en los últimos ${summaryGeo?.rangeDays || 30} días. ${formatNumber(summaryGeo?.guestSessions || 0)} visita(s) sin cuenta se muestran solo como tráfico web.`}
+                      {summaryReachAccountUsers
+                        ? `${formatNumber(summaryReachKnownUsers)} de ${formatNumber(summaryReachAccountUsers)} cuenta(s) únicas tienen ubicación aproximada en ${summaryReachLabel}. Las cuentas propias quedan excluidas del balance.`
+                        : `Todavía no hay cuentas reales registradas para ${summaryReachLabel}. Las visitas sin cuenta quedan fuera de este balance.`}
                     </p>
 
-                    <div className="mt-6 border-t border-[#eadff0] pt-6">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución de cuentas</p>
-                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Países y ciudades con sesión iniciada</h3>
-                      </div>
-                      <MapPin className="h-5 w-5 text-[#ff8f1f]" />
-                    </div>
-
-                    <AdminGeoMap zones={summaryGeoZones} />
-
-                    <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div>
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Cuentas identificadas</p>
-                          <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Usuarios con sesión iniciada</h4>
-                        </div>
-                        <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
-                          {formatNumber(summaryAccountUsers.length)} cuenta(s)
-                        </span>
-                      </div>
-
-                      <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                        {summaryAccountUsers.length === 0 && (
-                          <p className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                            Todavía no hay cuentas identificadas en los últimos {summaryGeo?.rangeDays || 30} días.
-                          </p>
-                        )}
-                        {summaryAccountUsers.map((account) => {
-                          const deviceMeta = getAccountDeviceMeta(account.deviceType);
-                          const DeviceIcon = deviceMeta.icon;
-                          const deviceLabel = account.deviceLabel || deviceMeta.label;
-                          const accountIsOnline = isOnlineWithinWindow(account.lastSeenAt);
-
-                          return (
-                          <div key={account.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
-                                {accountIsOnline && (
-                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                    Online
-                                  </span>
-                                )}
-                              </div>
-                              <p className="mt-0.5 truncate text-xs text-slate-500">{account.email || 'Sin email visible'}</p>
-                              {account.lastSignInAt && (
-                                <p className="mt-0.5 truncate text-[11px] text-slate-400">Ultimo login: {formatDateTime(account.lastSignInAt)}</p>
-                              )}
-                              {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
-                            </div>
-                            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-[11px] text-slate-500">
-                              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${deviceMeta.className}`}>
-                                <DeviceIcon className="h-3.5 w-3.5" />
-                                <span>{deviceLabel}</span>
-                                {account.deviceSessions ? (
-                                  <span className="text-[10px] font-semibold opacity-70">{formatNumber(account.deviceSessions)} ses.</span>
-                                ) : null}
-                              </span>
-                              <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{formatNumber(account.sessions)} sesión(es)</span>
-                              <span>{formatNumber(account.views)} vista(s)</span>
-                              <span>{formatDateTime(account.lastSeenAt)}</span>
-                              <button
-                                type="button"
-                                onClick={() => openSupportConversationFromAccount(account)}
-                                className="inline-flex items-center gap-1.5 rounded-full border border-[#ffb15a] bg-white px-3 py-1 font-semibold text-[#9b4a00] transition hover:border-[#ff8f1f] hover:bg-[#fff7ed]"
-                              >
-                                <MessageSquareMore className="h-3.5 w-3.5" />
-                                Escribir
-                              </button>
-                            </div>
+                    {summaryMonthlyReach.length > 0 && (
+                      <div className="mt-5 rounded-[24px] border border-[#eadff0] bg-white/82 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Evolución mensual</p>
+                            <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Cuentas únicas alcanzadas</h4>
                           </div>
-                          );
-                        })}
-                      </div>
-                    </div>
+                          <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
+                            {summaryReachLabel}
+                          </span>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 xl:grid-cols-12">
+                          {summaryMonthlyReach.map((item) => {
+                            const active = analyticsGeoMonthFilter === item.monthKey;
+                            const barHeight = Math.max(8, Math.round(((item.accountUsers || 0) / maxMonthlyReach) * 100));
 
-                    <div className="mt-5 grid gap-4 md:grid-cols-2">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países con cuenta</p>
-                        <div className="mt-3 space-y-2">
-                          {(summaryGeo?.countries || []).length === 0 && (
-                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                              Todavía no hay países asociados a sesiones con cuenta.
+                            return (
+                              <button
+                                key={item.monthKey}
+                                type="button"
+                                onClick={() => setAnalyticsGeoMonthFilter(item.monthKey)}
+                                className={`flex h-28 flex-col justify-between rounded-2xl border px-2 py-2 text-left transition ${
+                                  active
+                                    ? 'border-[#ff8f1f] bg-[#fff7ed] text-[#8a3d00] shadow-sm'
+                                    : 'border-slate-100 bg-slate-50 text-slate-600 hover:border-[#eadff0] hover:bg-white'
+                                }`}
+                              >
+                                <span className="text-[10px] font-semibold uppercase tracking-[0.12em]">{item.monthKey.slice(5)}/{item.monthKey.slice(2, 4)}</span>
+                                <span className="flex h-12 items-end rounded-xl bg-white px-1">
+                                  <span className="w-full rounded-t-lg bg-[#ff8f1f]" style={{ height: `${barHeight}%` }} />
+                                </span>
+                                <span className="text-base font-semibold">{formatNumber(item.accountUsers)}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="mt-6 border-t border-[#eadff0] pt-6">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución por ubicación</p>
+                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Países alcanzados con la app</h3>
+                        </div>
+                        <MapPin className="h-5 w-5 text-[#ff8f1f]" />
+                      </div>
+
+                      <AdminGeoMap zones={summaryGeoZones} />
+
+                      <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Cuentas reales identificadas</p>
+                            <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Actividad con sesión iniciada</h4>
+                          </div>
+                          <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
+                            Top {formatNumber(summaryAccountUsers.length)}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                          {summaryAccountUsers.length === 0 && (
+                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                              Todavía no hay cuentas reales identificadas para este balance.
                             </p>
                           )}
-                          {(summaryGeo?.countries || []).map((item) => (
-                            <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                              <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-                              <span className="text-xs text-slate-500">{formatNumber(item.uniqueSessions)} sesión(es)</span>
-                            </div>
-                          ))}
+                          {summaryAccountUsers.map((account) => {
+                            const deviceMeta = getAccountDeviceMeta(account.deviceType);
+                            const DeviceIcon = deviceMeta.icon;
+                            const deviceLabel = account.deviceLabel || deviceMeta.label;
+                            const accountIsOnline = isOnlineWithinWindow(account.lastSeenAt);
+
+                            return (
+                              <div key={account.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
+                                    {accountIsOnline && (
+                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
+                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                        Online
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="mt-0.5 truncate text-xs text-slate-500">{account.email || 'Sin email visible'}</p>
+                                  {account.lastSignInAt && (
+                                    <p className="mt-0.5 truncate text-[11px] text-slate-400">Último login: {formatDateTime(account.lastSignInAt)}</p>
+                                  )}
+                                  {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
+                                </div>
+                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-[11px] text-slate-500">
+                                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${deviceMeta.className}`}>
+                                    <DeviceIcon className="h-3.5 w-3.5" />
+                                    <span>{deviceLabel}</span>
+                                    {account.deviceSessions ? (
+                                      <span className="text-[10px] font-semibold opacity-70">{formatNumber(account.deviceSessions)} ses.</span>
+                                    ) : null}
+                                  </span>
+                                  <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{formatNumber(account.sessions)} sesión(es)</span>
+                                  <span>{formatNumber(account.views)} vista(s)</span>
+                                  <span>{formatDateTime(account.lastSeenAt)}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => openSupportConversationFromAccount(account)}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-[#ffb15a] bg-white px-3 py-1 font-semibold text-[#9b4a00] transition hover:border-[#ff8f1f] hover:bg-[#fff7ed]"
+                                  >
+                                    <MessageSquareMore className="h-3.5 w-3.5" />
+                                    Escribir
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
 
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Ciudades con cuenta</p>
-                        <div className="mt-3 space-y-2">
-                          {(summaryGeo?.cities || []).length === 0 && (
-                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                              Todavía no hay ciudades asociadas a sesiones con cuenta.
-                            </p>
-                          )}
-                          {(summaryGeo?.cities || []).map((item) => (
-                            <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                              <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-                              <span className="text-xs text-slate-500">{formatNumber(item.uniqueSessions)} sesión(es)</span>
-                            </div>
-                          ))}
+                      <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países alcanzados</p>
+                          <div className="mt-3 space-y-2">
+                            {summaryReachCountries.length === 0 && (
+                              <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                Todavía no hay países asociados a cuentas reales.
+                              </p>
+                            )}
+                            {summaryReachCountries.map((item) => (
+                              <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                                <span className="text-sm font-semibold text-slate-700">{item.label}</span>
+                                <span className="text-xs text-slate-500">
+                                  {formatNumber(item.uniqueAccounts ?? item.uniqueSessions)} cuenta(s)
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Ciudades detectadas</p>
+                          <div className="mt-3 space-y-2">
+                            {summaryReachCities.length === 0 && (
+                              <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
+                                Todavía no hay ciudades asociadas a cuentas reales.
+                              </p>
+                            )}
+                            {summaryReachCities.map((item) => (
+                              <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                                <span className="text-sm font-semibold text-slate-700">{item.label}</span>
+                                <span className="text-xs text-slate-500">
+                                  {formatNumber(item.uniqueAccounts ?? item.uniqueSessions)} cuenta(s)
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
-                    </div>
                     </div>
                   </article>
                 </section>
@@ -10299,7 +10403,7 @@ export default function AdminPage() {
                           <article key={step.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{step.label}</p>
                             <p className="mt-2 text-xl font-semibold text-slate-900">{formatNumber(step.count)}</p>
-                            <p className="text-xs text-slate-500">{formatNumber(step.sessions)} sesion(es)</p>
+                            <p className="text-xs text-slate-500">{formatNumber(step.sessions)} sesión(es)</p>
                             <p className={`mt-1 text-xs ${getDeltaLabel(step.count, step.prevCount).tone}`}>
                               {getDeltaLabel(step.count, step.prevCount).text}
                             </p>
@@ -10313,7 +10417,7 @@ export default function AdminPage() {
                           <span className="text-xs text-slate-400">Top 12</span>
                         </div>
                         {activityData.funnel.topEvents.length === 0 && (
-                          <p className="text-sm text-slate-500">Todavia no hay eventos de embudo registrados.</p>
+                          <p className="text-sm text-slate-500">Todavía no hay eventos de embudo registrados.</p>
                         )}
                         {activityData.funnel.topEvents.map((item) => (
                           <div
@@ -10322,7 +10426,7 @@ export default function AdminPage() {
                           >
                             <div>
                               <p className="text-sm font-semibold text-slate-700">{item.event_name}</p>
-                              <p className="mt-1 text-[11px] text-slate-400">{item.sessions} sesion(es) unicas</p>
+                              <p className="mt-1 text-[11px] text-slate-400">{item.sessions} sesión(es) unicas</p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm font-semibold text-slate-700">{formatNumber(item.count)} eventos</p>

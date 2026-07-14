@@ -126,12 +126,25 @@ const normalizeAnalyticsRegion = (value: any, countryKey: string) => {
 };
 
 type GeoBucket = { label: string; views: number; sessions: Set<string> };
+type GeoReachBucket = GeoBucket & { users: Set<string> };
 type GeoZoneBucket = GeoBucket & {
+  users: Set<string>;
   country: string;
   region: string;
   city: string;
   latitude: number;
   longitude: number;
+};
+type AnalyticsMonthlyReachBucket = {
+  monthKey: string;
+  label: string;
+  accountUsers: Set<string>;
+  knownUsers: Set<string>;
+  sessions: Set<string>;
+  views: number;
+  countries: Map<string, GeoReachBucket>;
+  cities: Map<string, GeoReachBucket>;
+  zones: Map<string, GeoZoneBucket>;
 };
 type AnalyticsAccountBucket = {
   userId: string;
@@ -233,6 +246,21 @@ const addGeoBucket = (
   map.set(key, current);
 };
 
+const addGeoReachBucket = (
+  map: Map<string, GeoReachBucket>,
+  key: string,
+  label: string,
+  userId?: string | null,
+  sessionId?: string | null
+) => {
+  if (!key || !label) return;
+  const current = map.get(key) || { label, views: 0, sessions: new Set<string>(), users: new Set<string>() };
+  current.views += 1;
+  if (sessionId) current.sessions.add(sessionId);
+  if (userId) current.users.add(userId);
+  map.set(key, current);
+};
+
 const addGeoZone = (
   map: Map<string, GeoZoneBucket>,
   key: string,
@@ -243,6 +271,7 @@ const addGeoZone = (
     city: string;
     latitude: number;
     longitude: number;
+    userId?: string | null;
     sessionId?: string | null;
   }
 ) => {
@@ -258,9 +287,11 @@ const addGeoZone = (
       longitude: zone.longitude,
       views: 0,
       sessions: new Set<string>(),
+      users: new Set<string>(),
     };
   current.views += 1;
   if (zone.sessionId) current.sessions.add(zone.sessionId);
+  if (zone.userId) current.users.add(zone.userId);
   map.set(key, current);
 };
 
@@ -274,6 +305,17 @@ const serializeGeoBuckets = (map: Map<string, GeoBucket>) =>
     .sort((a, b) => b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
     .slice(0, 8);
 
+const serializeGeoReachBuckets = (map: Map<string, GeoReachBucket>) =>
+  Array.from(map.values())
+    .map((item) => ({
+      label: item.label,
+      views: item.views,
+      uniqueSessions: item.sessions.size,
+      uniqueAccounts: item.users.size,
+    }))
+    .sort((a, b) => b.uniqueAccounts - a.uniqueAccounts || b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
+    .slice(0, 24);
+
 const serializeGeoZones = (map: Map<string, GeoZoneBucket>) =>
   Array.from(map.values())
     .map((item) => ({
@@ -285,9 +327,54 @@ const serializeGeoZones = (map: Map<string, GeoZoneBucket>) =>
       longitude: item.longitude,
       views: item.views,
       uniqueSessions: item.sessions.size,
+      uniqueAccounts: item.users.size,
     }))
-    .sort((a, b) => b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
+    .sort((a, b) => b.uniqueAccounts - a.uniqueAccounts || b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
     .slice(0, 12);
+
+const ANALYTICS_REACH_MONTHS = 12;
+
+const getAnalyticsMonthKey = (value: any) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getUTCFullYear()}-${`${date.getUTCMonth() + 1}`.padStart(2, '0')}`;
+};
+
+const getAnalyticsMonthLabel = (monthKey: string) => {
+  const [year, month] = monthKey.split('-').map((value) => Number(value));
+  if (!year || !month) return monthKey;
+  return new Intl.DateTimeFormat('es-AR', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
+    new Date(Date.UTC(year, month - 1, 1))
+  );
+};
+
+const createAnalyticsMonthlyReachBucket = (monthKey: string): AnalyticsMonthlyReachBucket => ({
+  monthKey,
+  label: getAnalyticsMonthLabel(monthKey),
+  accountUsers: new Set<string>(),
+  knownUsers: new Set<string>(),
+  sessions: new Set<string>(),
+  views: 0,
+  countries: new Map<string, GeoReachBucket>(),
+  cities: new Map<string, GeoReachBucket>(),
+  zones: new Map<string, GeoZoneBucket>(),
+});
+
+const serializeMonthlyReachBuckets = (map: Map<string, AnalyticsMonthlyReachBucket>) =>
+  Array.from(map.values())
+    .sort((a, b) => a.monthKey.localeCompare(b.monthKey))
+    .map((item) => ({
+      monthKey: item.monthKey,
+      label: item.label,
+      accountUsers: item.accountUsers.size,
+      knownAccountUsers: item.knownUsers.size,
+      unknownAccountUsers: Math.max(0, item.accountUsers.size - item.knownUsers.size),
+      sessions: item.sessions.size,
+      views: item.views,
+      countriesReached: serializeGeoReachBuckets(item.countries),
+      cities: serializeGeoReachBuckets(item.cities),
+      zones: serializeGeoZones(item.zones),
+    }));
 
 export async function GET(request: NextRequest) {
   if (!supabase) {
@@ -311,6 +398,7 @@ export async function GET(request: NextRequest) {
     const analyticsSince1 = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     const analyticsSince7 = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
     const analyticsSince30 = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const analyticsSinceMonthly = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - (ANALYTICS_REACH_MONTHS - 1), 1));
     const paidQuoteStatuses = ['paid'];
     const activeSubStatuses = ['authorized', 'active', 'approved'];
     const blockedPaymentStatuses = new Set(['rejected', 'cancelled', 'canceled', 'refunded']);
@@ -492,11 +580,15 @@ export async function GET(request: NextRequest) {
 
     let analyticsGeo = {
       rangeDays: 30,
+      rangeMonths: ANALYTICS_REACH_MONTHS,
       totalSessions: 0,
       accountSessions: 0,
       guestSessions: 0,
       knownSessions: 0,
       unknownSessions: 0,
+      accountUsersCount: 0,
+      knownAccountUsers: 0,
+      unknownAccountUsers: 0,
       accountUsers: [] as {
         userId: string;
         label: string;
@@ -513,6 +605,29 @@ export async function GET(request: NextRequest) {
       }[],
       countries: [] as { label: string; views: number; uniqueSessions: number }[],
       cities: [] as { label: string; views: number; uniqueSessions: number }[],
+      countriesReached: [] as { label: string; views: number; uniqueSessions: number; uniqueAccounts: number }[],
+      monthlyReach: [] as {
+        monthKey: string;
+        label: string;
+        accountUsers: number;
+        knownAccountUsers: number;
+        unknownAccountUsers: number;
+        sessions: number;
+        views: number;
+        countriesReached: { label: string; views: number; uniqueSessions: number; uniqueAccounts: number }[];
+        cities: { label: string; views: number; uniqueSessions: number; uniqueAccounts: number }[];
+        zones: {
+          label: string;
+          country: string;
+          region: string;
+          city: string;
+          latitude: number;
+          longitude: number;
+          views: number;
+          uniqueSessions: number;
+          uniqueAccounts: number;
+        }[];
+      }[],
       zones: [] as {
         label: string;
         country: string;
@@ -522,11 +637,13 @@ export async function GET(request: NextRequest) {
         longitude: number;
         views: number;
         uniqueSessions: number;
+        uniqueAccounts: number;
       }[],
     };
     const analyticsAccountMap = new Map<string, AnalyticsAccountBucket>();
     const analyticsExcludedEmails = getAnalyticsExcludedEmails();
     const analyticsExcludedUserIds = new Set<string>();
+    const analyticsAuthUsersById: Record<string, any> = {};
 
     if (analyticsExcludedEmails.size > 0) {
       const excludedEmailList = Array.from(analyticsExcludedEmails);
@@ -554,7 +671,7 @@ export async function GET(request: NextRequest) {
       .from('analytics_events')
       .select('session_id,user_id,path,created_at,event_context,user_agent')
       .eq('event_type', 'page_view')
-      .gte('created_at', analyticsSince30.toISOString())
+      .gte('created_at', analyticsSinceMonthly.toISOString())
       .order('created_at', { ascending: false })
       .limit(20000);
 
@@ -564,21 +681,81 @@ export async function GET(request: NextRequest) {
         throw analyticsGeoRes.error;
       }
     } else {
-      const countryMap = new Map<string, { label: string; views: number; sessions: Set<string> }>();
-      const cityMap = new Map<string, { label: string; views: number; sessions: Set<string> }>();
+      const analyticsRows = analyticsGeoRes.data || [];
+      const analyticsEventUserIds = new Set<string>();
+      analyticsRows.forEach((row: any) => {
+        const userId = cleanGeoText(row?.user_id);
+        if (userId) analyticsEventUserIds.add(userId);
+      });
+
+      if (analyticsExcludedEmails.size > 0 && analyticsEventUserIds.size > 0) {
+        const analyticsEventUserIdList = Array.from(analyticsEventUserIds);
+        const { data: analyticsProfileRows, error: analyticsProfileError } = await supabase
+          .from('profiles')
+          .select('id,email')
+          .in('id', analyticsEventUserIdList);
+        if (analyticsProfileError) throw analyticsProfileError;
+        (analyticsProfileRows || []).forEach((profile: any) => {
+          addExcludedAnalyticsUserId(analyticsExcludedUserIds, profile.id, profile.email, analyticsExcludedEmails);
+        });
+
+        for (let index = 0; index < analyticsEventUserIdList.length; index += 25) {
+          const userIdBatch = analyticsEventUserIdList.slice(index, index + 25);
+          await Promise.all(
+            userIdBatch.map(async (userId) => {
+              const { data, error } = await supabase!.auth.admin.getUserById(userId);
+              if (!error && data?.user) {
+                analyticsAuthUsersById[userId] = data.user;
+                addExcludedAnalyticsUserId(analyticsExcludedUserIds, userId, data.user.email, analyticsExcludedEmails);
+              }
+            })
+          );
+        }
+      }
+
+      const countryMap = new Map<string, GeoBucket>();
+      const cityMap = new Map<string, GeoBucket>();
+      const countryReachMap = new Map<string, GeoReachBucket>();
+      const cityReachMap = new Map<string, GeoReachBucket>();
       const zoneMap = new Map<string, GeoZoneBucket>();
+      const monthlyReachMap = new Map<string, AnalyticsMonthlyReachBucket>();
       const allSessions = new Set<string>();
       const accountSessions = new Set<string>();
       const knownSessions = new Set<string>();
+      const accountUsersReached = new Set<string>();
+      const accountUsersWithGeo = new Set<string>();
 
-      (analyticsGeoRes.data || []).forEach((row: any) => {
+      for (let offset = ANALYTICS_REACH_MONTHS - 1; offset >= 0; offset -= 1) {
+        const monthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+        const monthKey = getAnalyticsMonthKey(monthDate.toISOString());
+        monthlyReachMap.set(monthKey, createAnalyticsMonthlyReachBucket(monthKey));
+      }
+
+      const getMonthlyReachBucket = (createdAt: any) => {
+        const monthKey = getAnalyticsMonthKey(createdAt);
+        if (!monthKey) return null;
+        const current = monthlyReachMap.get(monthKey) || createAnalyticsMonthlyReachBucket(monthKey);
+        monthlyReachMap.set(monthKey, current);
+        return current;
+      };
+
+      analyticsRows.forEach((row: any) => {
         const sessionId = cleanGeoText(row?.session_id);
         const userId = cleanGeoText(row?.user_id);
         const isAccountSession = Boolean(userId);
         if (isAccountSession && analyticsExcludedUserIds.has(userId)) return;
         if (sessionId) allSessions.add(sessionId);
         if (sessionId && isAccountSession) accountSessions.add(sessionId);
+
+        const monthlyBucket = isAccountSession ? getMonthlyReachBucket(row?.created_at) : null;
         if (isAccountSession) {
+          accountUsersReached.add(userId);
+          if (monthlyBucket) {
+            monthlyBucket.accountUsers.add(userId);
+            monthlyBucket.views += 1;
+            if (sessionId) monthlyBucket.sessions.add(sessionId);
+          }
+
           const current =
             analyticsAccountMap.get(userId) ||
             {
@@ -614,52 +791,66 @@ export async function GET(request: NextRequest) {
         const latitude = cleanGeoNumber(geo.latitude);
         const longitude = cleanGeoNumber(geo.longitude);
         const hasRawCoordinate = latitude !== null && longitude !== null;
-        const fallbackCoordinate =
-          !hasRawCoordinate
-            ? getGeoCoordinateFallback({ country, region, city })
-            : null;
+        const fallbackCoordinate = !hasRawCoordinate ? getGeoCoordinateFallback({ country, region, city }) : null;
         const zoneLatitude = hasRawCoordinate ? latitude : fallbackCoordinate?.latitude ?? null;
         const zoneLongitude = hasRawCoordinate ? longitude : fallbackCoordinate?.longitude ?? null;
+        const hasGeo = Boolean(country || region || city);
 
-        if (country || region || city) {
+        if (hasGeo) {
           if (sessionId) knownSessions.add(sessionId);
+          accountUsersWithGeo.add(userId);
+          monthlyBucket?.knownUsers.add(userId);
         }
         if (country) {
-          addGeoBucket(countryMap, countryKey || normalizeGeoTextKey(country), country, sessionId);
+          const normalizedCountryKey = countryKey || normalizeGeoTextKey(country);
+          addGeoBucket(countryMap, normalizedCountryKey, country, sessionId);
+          addGeoReachBucket(countryReachMap, normalizedCountryKey, country, userId, sessionId);
+          if (monthlyBucket) addGeoReachBucket(monthlyBucket.countries, normalizedCountryKey, country, userId, sessionId);
         }
         if (city) {
           const cityLabel = [city, region, country].filter(Boolean).join(', ');
-          addGeoBucket(cityMap, normalizeGeoTextKey(cityLabel), cityLabel, sessionId);
+          const cityKey = normalizeGeoTextKey(cityLabel);
+          addGeoBucket(cityMap, cityKey, cityLabel, sessionId);
+          addGeoReachBucket(cityReachMap, cityKey, cityLabel, userId, sessionId);
+          if (monthlyBucket) addGeoReachBucket(monthlyBucket.cities, cityKey, cityLabel, userId, sessionId);
         }
         if (zoneLatitude !== null && zoneLongitude !== null) {
           const zoneLabel = [city, region, country].filter(Boolean).join(', ') || `${zoneLatitude.toFixed(2)}, ${zoneLongitude.toFixed(2)}`;
           const zoneKey = `${normalizeGeoTextKey(zoneLabel)}|${zoneLatitude.toFixed(2)}|${zoneLongitude.toFixed(2)}`;
-          addGeoZone(zoneMap, zoneKey, {
+          const zonePayload = {
             label: zoneLabel,
             country,
             region,
             city,
             latitude: zoneLatitude,
             longitude: zoneLongitude,
+            userId,
             sessionId,
-          });
+          };
+          addGeoZone(zoneMap, zoneKey, zonePayload);
+          if (monthlyBucket) addGeoZone(monthlyBucket.zones, zoneKey, zonePayload);
         }
       });
 
       analyticsGeo = {
         rangeDays: 30,
+        rangeMonths: ANALYTICS_REACH_MONTHS,
         totalSessions: allSessions.size,
         accountSessions: accountSessions.size,
         guestSessions: Math.max(0, allSessions.size - accountSessions.size),
         knownSessions: knownSessions.size,
         unknownSessions: Math.max(0, accountSessions.size - knownSessions.size),
+        accountUsersCount: accountUsersReached.size,
+        knownAccountUsers: accountUsersWithGeo.size,
+        unknownAccountUsers: Math.max(0, accountUsersReached.size - accountUsersWithGeo.size),
         accountUsers: [],
         countries: serializeGeoBuckets(countryMap),
         cities: serializeGeoBuckets(cityMap),
+        countriesReached: serializeGeoReachBuckets(countryReachMap),
+        monthlyReach: serializeMonthlyReachBuckets(monthlyReachMap),
         zones: serializeGeoZones(zoneMap),
       };
     }
-
     const activeSubsRows = activeSubsDataRes.data || [];
     const mrr = activeSubsRows.reduce((sum, row: any) => {
       const price = parseAmount(row?.plan?.price_ars);
@@ -725,9 +916,10 @@ export async function GET(request: NextRequest) {
       )
       .slice(0, 10);
 
-    const authUsersById: Record<string, any> = {};
+    const authUsersById: Record<string, any> = { ...analyticsAuthUsersById };
     await Promise.all(
       sortedAnalyticsAccounts.map(async (item) => {
+        if (authUsersById[item.userId]) return;
         const { data, error } = await supabase!.auth.admin.getUserById(item.userId);
         if (!error && data?.user) {
           authUsersById[item.userId] = data.user;
