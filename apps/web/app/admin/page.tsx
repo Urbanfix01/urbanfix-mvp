@@ -5691,11 +5691,8 @@ export default function AdminPage() {
     [activeTab, tabs]
   );
   const summaryGeo = overview?.lists.analyticsGeo || null;
-  const summaryGeoCoverage = summaryGeo?.totalSessions
-    ? Math.round((summaryGeo.knownSessions / summaryGeo.totalSessions) * 100)
-    : 0;
-  const summaryAccountCoverage = summaryGeo?.totalSessions
-    ? Math.round(((summaryGeo.accountSessions || 0) / summaryGeo.totalSessions) * 100)
+  const summaryGeoCoverage = summaryGeo?.accountSessions
+    ? Math.round((summaryGeo.knownSessions / summaryGeo.accountSessions) * 100)
     : 0;
   const summaryAccountUsers = summaryGeo?.accountUsers || [];
   const summaryGeoZones = summaryGeo?.zones || [];
@@ -6947,10 +6944,10 @@ export default function AdminPage() {
                   <article className="rounded-[30px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Origen de accesos</p>
-                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Ubicación aproximada</h3>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Sesiones iniciadas</p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Ubicación de cuentas reales</h3>
                         <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                          Datos de pais, region y ciudad detectados por infraestructura. No se guarda IP real. Cada sesion se reinicia tras 30 min de inactividad o cambio de login.
+                          El mapa y los rankings muestran solo sesiones con cuenta de UrbanFix. Las visitas sin cuenta quedan como tráfico web separado para no mezclar navegación anónima con actividad administrativa real.
                         </p>
                       </div>
                       <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
@@ -6961,12 +6958,12 @@ export default function AdminPage() {
                     <div className="mt-4 rounded-[24px] border border-[#eadff0] bg-white px-3 py-3 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
                       <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                         {[
-                          { label: 'Sesiones reales', value: formatNumber(summaryGeo?.totalSessions || 0), tone: 'text-[#180f24]' },
                           { label: 'Con cuenta', value: formatNumber(summaryGeo?.accountSessions || 0), tone: 'text-[#047857]' },
-                          { label: 'Sin cuenta', value: formatNumber(summaryGeo?.guestSessions || 0), tone: 'text-slate-600' },
                           { label: 'Con ubicación', value: formatNumber(summaryGeo?.knownSessions || 0), tone: 'text-[#047857]' },
                           { label: 'Sin ubicación', value: formatNumber(summaryGeo?.unknownSessions || 0), tone: 'text-slate-600' },
-                          { label: 'Cobertura', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
+                          { label: 'Visitantes', value: formatNumber(summaryGeo?.guestSessions || 0), tone: 'text-slate-600' },
+                          { label: 'Total web', value: formatNumber(summaryGeo?.totalSessions || 0), tone: 'text-[#180f24]' },
+                          { label: 'Cobertura cuenta', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
                         ].map((item) => (
                           <div key={item.label} className="rounded-2xl bg-[#faf8fb] px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">{item.label}</p>
@@ -6977,17 +6974,16 @@ export default function AdminPage() {
                     </div>
 
                     <p className="mt-3 text-xs leading-6 text-[#6c6177]">
-                      {`${formatNumber(summaryGeo?.accountSessions || 0)} sesión(es) ingresaron con cuenta de UrbanFix y ${formatNumber(summaryGeo?.guestSessions || 0)} como visitantes sin cuenta. `}
-                      {summaryGeo?.knownSessions
-                        ? `${formatNumber(summaryGeo.unknownSessions)} sesión(es) de los últimos ${summaryGeo.rangeDays} días todavía no tienen ubicación.`
-                        : 'Todavía no hay sesiones con ubicación guardada. Se completará con las próximas visitas reales.'}
+                      {summaryGeo?.accountSessions
+                        ? `${formatNumber(summaryGeo.knownSessions)} de ${formatNumber(summaryGeo.accountSessions)} sesión(es) con cuenta tienen ubicación aproximada. El mapa y los rankings usan solo esas cuentas; ${formatNumber(summaryGeo.guestSessions || 0)} visita(s) sin cuenta quedan separadas como tráfico web.`
+                        : `Todavía no hay sesiones con cuenta registradas en los últimos ${summaryGeo?.rangeDays || 30} días. ${formatNumber(summaryGeo?.guestSessions || 0)} visita(s) sin cuenta se muestran solo como tráfico web.`}
                     </p>
 
                     <div className="mt-6 border-t border-[#eadff0] pt-6">
                     <div className="flex items-center justify-between gap-3">
                       <div>
-                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución</p>
-                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Países y ciudades</h3>
+                        <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución de cuentas</p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Países y ciudades con sesión iniciada</h3>
                       </div>
                       <MapPin className="h-5 w-5 text-[#ff8f1f]" />
                     </div>
@@ -7063,11 +7059,11 @@ export default function AdminPage() {
 
                     <div className="mt-5 grid gap-4 md:grid-cols-2">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países con cuenta</p>
                         <div className="mt-3 space-y-2">
                           {(summaryGeo?.countries || []).length === 0 && (
                             <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                              Sin países detectados todavía.
+                              Todavía no hay países asociados a sesiones con cuenta.
                             </p>
                           )}
                           {(summaryGeo?.countries || []).map((item) => (
@@ -7080,11 +7076,11 @@ export default function AdminPage() {
                       </div>
 
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Ciudades</p>
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Ciudades con cuenta</p>
                         <div className="mt-3 space-y-2">
                           {(summaryGeo?.cities || []).length === 0 && (
                             <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                              Sin ciudades detectadas todavía.
+                              Todavía no hay ciudades asociadas a sesiones con cuenta.
                             </p>
                           )}
                           {(summaryGeo?.cities || []).map((item) => (

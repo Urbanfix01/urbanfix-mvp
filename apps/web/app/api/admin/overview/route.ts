@@ -525,9 +525,10 @@ export async function GET(request: NextRequest) {
       (analyticsGeoRes.data || []).forEach((row: any) => {
         const sessionId = cleanGeoText(row?.session_id);
         const userId = cleanGeoText(row?.user_id);
+        const isAccountSession = Boolean(userId);
         if (sessionId) allSessions.add(sessionId);
-        if (sessionId && userId) accountSessions.add(sessionId);
-        if (userId) {
+        if (sessionId && isAccountSession) accountSessions.add(sessionId);
+        if (isAccountSession) {
           const current =
             analyticsAccountMap.get(userId) ||
             {
@@ -551,6 +552,8 @@ export async function GET(request: NextRequest) {
           }
           analyticsAccountMap.set(userId, current);
         }
+
+        if (!isAccountSession) return;
 
         const geo = row?.event_context?.geo || {};
         const countryInfo = normalizeAnalyticsCountry(geo.country);
@@ -599,7 +602,7 @@ export async function GET(request: NextRequest) {
         accountSessions: accountSessions.size,
         guestSessions: Math.max(0, allSessions.size - accountSessions.size),
         knownSessions: knownSessions.size,
-        unknownSessions: Math.max(0, allSessions.size - knownSessions.size),
+        unknownSessions: Math.max(0, accountSessions.size - knownSessions.size),
         accountUsers: [],
         countries: serializeGeoBuckets(countryMap),
         cities: serializeGeoBuckets(cityMap),
