@@ -2283,6 +2283,8 @@ const PREVIEW_TECHNICIAN_QUOTES: QuoteRow[] = [
 const formatCurrency = (value: number) =>
   `$${Number(value || 0).toLocaleString('es-AR')}`;
 
+const formatNumber = (value: number) => Number(value || 0).toLocaleString('es-AR');
+
 const buildLaborPriceUpdateNote = (item: MasterItemRow | null | undefined) => {
   if (item?.type !== 'labor') return '';
   const basePrice = getMasterItemBasePrice(item);
@@ -7267,12 +7269,45 @@ export default function TechniciansPage() {
   const filteredMasterItems = useMemo(() => {
     const search = masterSearch.trim().toLowerCase();
     return masterItems.filter((item) => {
-      const matchesSearch = !search || item.name.toLowerCase().includes(search);
       const rubro = resolveMasterRubro(item);
+      const matchesSearch =
+        !search ||
+        [item.name, item.technical_notes, item.source_ref, formatRubroLabel(rubro)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search));
       const matchesCategory = masterCategory === 'all' || rubro === masterCategory;
       return matchesSearch && matchesCategory;
     });
   }, [masterItems, masterSearch, masterCategory]);
+  const masterLaborItems = useMemo(() => masterItems.filter((item) => item.type === 'labor'), [masterItems]);
+  const filteredMasterPricedItems = useMemo(
+    () => filteredMasterItems.filter((item) => getMasterItemSuggestedPrice(item) > 0),
+    [filteredMasterItems]
+  );
+  const laborPriceStats = useMemo(() => {
+    const pricedLaborItems = masterLaborItems
+      .map((item) => getMasterItemSuggestedPrice(item))
+      .filter((price) => price > 0);
+    const average = pricedLaborItems.length
+      ? Math.round(pricedLaborItems.reduce((sum, price) => sum + price, 0) / pricedLaborItems.length)
+      : 0;
+    const topCategories = masterCategories
+      .map((category) => ({
+        category,
+        count: masterLaborItems.filter((item) => resolveMasterRubro(item) === category).length,
+      }))
+      .filter((item) => item.count > 0)
+      .sort((a, b) => b.count - a.count || formatRubroLabel(a.category).localeCompare(formatRubroLabel(b.category)))
+      .slice(0, 4);
+
+    return {
+      total: masterItems.length,
+      labor: masterLaborItems.length,
+      priced: pricedLaborItems.length,
+      average,
+      topCategories,
+    };
+  }, [masterCategories, masterItems.length, masterLaborItems]);
   const approvedJobs = useMemo(
     () =>
       quotes.filter(
@@ -17500,107 +17535,216 @@ export default function TechniciansPage() {
             )}
 
             {activeTab === 'precios' && (
-              <div className="rounded-[32px] border border-white/80 bg-white/96 p-5 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)] sm:p-6">
-                <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Precios</p>
-                <h2 className="text-xl font-semibold text-slate-900">Mano de obra</h2>
-                <p className="text-sm text-slate-500">
-                  Valores de mano de obra cargados en tu base. Selecciona un item para usarlo en el presupuesto.
-                </p>
-
-                <div className="mt-5 flex flex-wrap items-center gap-3">
-                  <input
-                    value={masterSearch}
-                    onChange={(event) => setMasterSearch(event.target.value)}
-                    placeholder="Buscar item..."
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm text-slate-700 outline-none transition focus:border-slate-400 sm:max-w-xs"
-                  />
-                  <select
-                    value={masterCategory}
-                    onChange={(event) => setMasterCategory(event.target.value)}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                  >
-                    <option value="all">Todos los rubros</option>
-                    {masterCategories.map((category) => (
-                      <option key={category} value={category}>
-                        {formatRubroLabel(category)}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMasterSearch('');
-                      setMasterCategory('all');
-                    }}
-                    className="rounded-full bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-600 transition hover:bg-slate-200"
-                  >
-                    Limpiar filtros
-                  </button>
-                </div>
-
-                <div className="mt-5 space-y-3">
-                  {loadingMasterItems && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                      Cargando valores...
-                    </div>
-                  )}
-                  {!loadingMasterItems && filteredMasterItems.length === 0 && (
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
-                      No encontramos items con esos filtros.
-                    </div>
-                  )}
-                  {filteredMasterItems.map((item) => {
-                    const basePrice = getMasterItemBasePrice(item);
-                    const activePrice = getMasterItemSuggestedPrice(item);
-                    const hasLaborUpdate =
-                      item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
-                    return (
-                    <div
-                      key={item.id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3"
-                    >
-                      <div className="min-w-[240px] flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p title={getMasterItemChoiceValue(item)} className="text-sm font-semibold text-slate-900">
-                            {item.name}
-                          </p>
-                          {item.technical_notes && (
-                            <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold text-violet-700">
-                              {getMasterItemTechnicalBadge(item)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-slate-500">
-                          {formatRubroLabel(resolveMasterRubro(item))}
-                          {item.source_ref ? ` | ${item.source_ref}` : ''}
+              <div className="space-y-5">
+                <section className="overflow-hidden rounded-[32px] border border-white/80 bg-white/96 shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)]">
+                  <div className="relative overflow-hidden bg-[#111827] px-5 py-6 text-white sm:px-6 lg:px-7">
+                    <div className="absolute inset-y-0 right-0 hidden w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,143,31,0.34),transparent_48%),radial-gradient(circle_at_bottom,rgba(20,184,166,0.2),transparent_42%)] lg:block" />
+                    <div className="relative grid gap-5 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+                      <div>
+                        <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[#ffb15a]">Base de precios UrbanFix</p>
+                        <h2 className={`${spaceGrotesk.className} mt-2 text-3xl font-black tracking-tight sm:text-4xl`}>
+                          Mano de obra lista para presupuestar
+                        </h2>
+                        <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                          Consulta valores activos, compara rubros y agrega tareas al presupuesto sin salir del panel tecnico.
                         </p>
-                        {item.technical_notes && (
-                          <p className="mt-2 max-w-2xl whitespace-pre-wrap text-xs leading-5 text-slate-600">
-                            <span className="font-semibold text-slate-700">Especificacion tecnica:</span> {item.technical_notes}
-                          </p>
-                        )}
+                        <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-bold">
+                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-white">
+                            {laborPriceIndex.activeLabel}
+                          </span>
+                          <span className="rounded-full border border-emerald-300/30 bg-emerald-400/15 px-3 py-1.5 text-emerald-100">
+                            {formatNumber(laborPriceStats.priced)} con precio
+                          </span>
+                          <span className="rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-white">
+                            {formatNumber(filteredMasterItems.length)} resultado(s)
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-right text-sm font-semibold text-slate-900">
-                          {formatCurrency(activePrice)}
-                          {hasLaborUpdate && (
-                            <span className="block text-[10px] font-semibold text-slate-400">
-                              base {formatCurrency(basePrice)}
-                            </span>
-                          )}
-                        </span>
+
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-2">
+                        {[
+                          { label: 'Mano de obra', value: formatNumber(laborPriceStats.labor), hint: 'items activos' },
+                          { label: 'Rubros', value: formatNumber(masterCategories.length), hint: 'categorias' },
+                          { label: 'Promedio', value: laborPriceStats.average ? formatCurrency(laborPriceStats.average) : 'Sin datos', hint: 'referencia MO' },
+                          { label: 'Filtrados', value: formatNumber(filteredMasterPricedItems.length), hint: 'con precio' },
+                        ].map((metric) => (
+                          <div key={metric.label} className="rounded-2xl border border-white/12 bg-white/10 px-3 py-3 backdrop-blur">
+                            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-300">{metric.label}</p>
+                            <p className="mt-1 text-lg font-black text-white">{metric.value}</p>
+                            <p className="text-[11px] text-slate-300">{metric.hint}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-4 sm:px-6 lg:px-7">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                      <div className="grid flex-1 gap-3 md:grid-cols-[minmax(0,1fr)_260px]">
+                        <label className="relative block">
+                          <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                          <input
+                            value={masterSearch}
+                            onChange={(event) => setMasterSearch(event.target.value)}
+                            placeholder="Buscar por tarea, rubro, fuente o detalle tecnico"
+                            className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200/60"
+                          />
+                        </label>
+                        <select
+                          value={masterCategory}
+                          onChange={(event) => setMasterCategory(event.target.value)}
+                          className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 outline-none transition focus:border-slate-400 focus:ring-4 focus:ring-slate-200/60"
+                        >
+                          <option value="all">Todos los rubros</option>
+                          {masterCategories.map((category) => (
+                            <option key={category} value={category}>
+                              {formatRubroLabel(category)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => addMasterItemToQuote(item)}
-                          className="rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                          onClick={() => {
+                            setMasterSearch('');
+                            setMasterCategory('all');
+                          }}
+                          className="h-11 rounded-2xl border border-slate-200 bg-white px-4 text-xs font-bold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
                         >
-                          Usar
+                          Limpiar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void fetchMasterItems()}
+                          disabled={loadingMasterItems}
+                          className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-950 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                        >
+                          <RefreshCw className={`h-4 w-4 ${loadingMasterItems ? 'animate-spin' : ''}`} />
+                          Actualizar
                         </button>
                       </div>
                     </div>
-                    );
-                  })}
-                </div>
+
+                    {laborPriceStats.topCategories.length > 0 && (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        {laborPriceStats.topCategories.map((item) => (
+                          <button
+                            key={item.category}
+                            type="button"
+                            onClick={() => setMasterCategory(item.category)}
+                            className={`rounded-full border px-3 py-1.5 text-[11px] font-bold transition ${
+                              masterCategory === item.category
+                                ? 'border-[#ff8f1f] bg-[#fff7ed] text-[#9b4a00]'
+                                : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900'
+                            }`}
+                          >
+                            {formatRubroLabel(item.category)} · {formatNumber(item.count)}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-[28px] border border-white/80 bg-white/96 p-4 shadow-[0_24px_64px_-44px_rgba(15,23,42,0.5)] sm:p-5">
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                    <div>
+                      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-400">Listado de referencia</p>
+                      <h3 className="mt-1 text-lg font-black text-slate-950">Valores disponibles</h3>
+                    </div>
+                    <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-bold text-slate-600">
+                      {formatNumber(filteredMasterItems.length)} item(s)
+                    </span>
+                  </div>
+
+                  <div className="mt-4">
+                    {loadingMasterItems && (
+                      <div className="grid gap-3 lg:grid-cols-2">
+                        {Array.from({ length: 4 }).map((_, index) => (
+                          <div key={index} className="h-36 animate-pulse rounded-3xl border border-slate-200 bg-slate-50" />
+                        ))}
+                      </div>
+                    )}
+
+                    {!loadingMasterItems && filteredMasterItems.length === 0 && (
+                      <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 px-5 py-8 text-center">
+                        <Tag className="mx-auto h-8 w-8 text-slate-400" />
+                        <p className="mt-3 text-sm font-bold text-slate-700">No encontramos items con esos filtros.</p>
+                        <p className="mt-1 text-xs text-slate-500">Prueba otro rubro o limpia la busqueda para volver al catalogo completo.</p>
+                      </div>
+                    )}
+
+                    {!loadingMasterItems && filteredMasterItems.length > 0 && (
+                      <div className="grid gap-3 xl:grid-cols-2">
+                        {filteredMasterItems.map((item) => {
+                          const rubro = resolveMasterRubro(item);
+                          const basePrice = getMasterItemBasePrice(item);
+                          const activePrice = getMasterItemSuggestedPrice(item);
+                          const hasLaborUpdate =
+                            item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
+                          const unitLabel = canonicalizeMasterItemUnit(item.unit || '') || item.unit || 'unidad';
+
+                          return (
+                            <article
+                              key={item.id}
+                              className="group flex min-h-[156px] flex-col justify-between rounded-3xl border border-slate-200 bg-white p-4 shadow-[0_14px_34px_-30px_rgba(15,23,42,0.75)] transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-[0_24px_46px_-34px_rgba(15,23,42,0.85)]"
+                            >
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-slate-600">
+                                      {formatRubroLabel(rubro)}
+                                    </span>
+                                    {item.source_ref && (
+                                      <span className="rounded-full border border-slate-200 px-2.5 py-1 text-[10px] font-bold text-slate-500">
+                                        {item.source_ref}
+                                      </span>
+                                    )}
+                                    {item.technical_notes && (
+                                      <span className="rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-bold text-violet-700">
+                                        {getMasterItemTechnicalBadge(item, { maxLength: 34 })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p title={getMasterItemChoiceValue(item)} className="mt-3 text-base font-black leading-5 text-slate-950">
+                                    {item.name}
+                                  </p>
+                                  {item.technical_notes ? (
+                                    <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
+                                      {compactTechnicalNotesText(item.technical_notes, { maxLength: 150 })}
+                                    </p>
+                                  ) : (
+                                    <p className="mt-2 text-xs leading-5 text-slate-400">Sin especificacion tecnica adicional.</p>
+                                  )}
+                                </div>
+                                <div className="shrink-0 rounded-2xl bg-slate-950 px-3 py-2 text-right text-white">
+                                  <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-300">{unitLabel}</p>
+                                  <p className="mt-1 text-base font-black">{activePrice > 0 ? formatCurrency(activePrice) : 'Pendiente'}</p>
+                                  {hasLaborUpdate && <p className="text-[10px] font-bold text-slate-300">base {formatCurrency(basePrice)}</p>}
+                                </div>
+                              </div>
+
+                              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
+                                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                                  <Info className="h-3.5 w-3.5" />
+                                  <span>{item.type === 'labor' ? 'Mano de obra' : 'Material o insumo'}</span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => addMasterItemToQuote(item)}
+                                  className="rounded-full bg-[#ff8f1f] px-4 py-2 text-[11px] font-black text-white shadow-sm transition hover:bg-[#ea7c10]"
+                                >
+                                  Usar en presupuesto
+                                </button>
+                              </div>
+                            </article>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </section>
               </div>
             )}
           </section>
