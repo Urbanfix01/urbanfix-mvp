@@ -1,16 +1,17 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { type Session } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, Settings, ShieldCheck, Store, User } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, Settings, ShieldCheck, Store, Tag, User } from 'lucide-react';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
 import {
   clearAuthAccessProfileIntent,
   getAuthUserProfileFromMetadata,
+  isPriceAccessPath,
   POST_AUTH_REDIRECT_KEY,
   PRICE_ACCESS_INTENT,
   sanitizeNextPath,
@@ -136,7 +137,21 @@ type AddressCandidate = {
 const getAddressCandidateKey = (candidate: AddressCandidate) =>
   `${candidate.lat.toFixed(6)}:${candidate.lng.toFixed(6)}:${candidate.displayName}`;
 
-type ClientWorkspaceView = 'request' | 'profile' | 'messages' | 'showcase' | 'map';
+type ClientLaborItem = {
+  id: string;
+  name: string;
+  suggested_price: number | null;
+  category: string | null;
+  source_ref?: string | null;
+  technical_notes?: string | null;
+  unit?: string | null;
+  active?: boolean | null;
+  created_at?: string | null;
+};
+type ClientWorkspaceView = 'request' | 'profile' | 'messages' | 'showcase' | 'map' | 'prices';
+
+const isClientWorkspaceView = (value: string | null): value is ClientWorkspaceView =>
+  value === 'request' || value === 'profile' || value === 'messages' || value === 'showcase' || value === 'map' || value === 'prices';
 
 const defaultForm: CreateRequestForm = {
   title: '',
@@ -555,6 +570,25 @@ const formatArs = (value: number | null | undefined) =>
       }).format(Number(value))
     : 'A coordinar';
 
+const normalizeClientLaborText = (value: string | null | undefined) =>
+  String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const resolveClientLaborCategory = (item: ClientLaborItem) => String(item.category || 'Sin rubro').trim() || 'Sin rubro';
+
+const formatClientLaborCategory = (value: string) =>
+  value
+    .split(/[\/_-]+/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Sin rubro';
+
+const getClientLaborSearchText = (item: ClientLaborItem) =>
+  normalizeClientLaborText([item.name, item.category, item.source_ref, item.technical_notes, item.unit].filter(Boolean).join(' '));
 const visibleResponseCount = (responses: ClientRequestResponse[]) =>
   responses.filter((item) => String(item.quoteStatus || '').toLowerCase() !== 'pending').length;
 
@@ -734,6 +768,11 @@ export default function ClientRequestsHub() {
   const [requests, setRequests] = useState<ClientRequestRow[]>([]);
   const [loadingRequests, setLoadingRequests] = useState(false);
   const [requestsLoadError, setRequestsLoadError] = useState('');
+  const [clientLaborItems, setClientLaborItems] = useState<ClientLaborItem[]>([]);
+  const [loadingClientLaborItems, setLoadingClientLaborItems] = useState(false);
+  const [clientLaborItemsError, setClientLaborItemsError] = useState('');
+  const [clientLaborSearch, setClientLaborSearch] = useState('');
+  const [clientLaborCategory, setClientLaborCategory] = useState('all');
   const [selectedClientRequestId, setSelectedClientRequestId] = useState('');
   const [selectedClientMessageRequestId, setSelectedClientMessageRequestId] = useState('');
   const [clientMapShowAll, setClientMapShowAll] = useState(true);
@@ -916,6 +955,10 @@ export default function ClientRequestsHub() {
     const params = new URLSearchParams(window.location.search);
     const mode = (params.get('mode') || '').toLowerCase();
     const intent = (params.get('intent') || '').toLowerCase();
+    const requestedView = (params.get('view') || params.get('tab') || '').toLowerCase();
+    if (isClientWorkspaceView(requestedView)) {
+      setActiveClientView(requestedView);
+    }
     if (mode === 'register') {
       setAuthMode('register');
     } else if (mode === 'login') {
@@ -962,6 +1005,13 @@ export default function ClientRequestsHub() {
     } catch {
       // Ignore storage errors in embedded browsers.
     }
+
+    if (isPriceAccessPath(redirectPath)) {
+      setActiveClientView('prices');
+      window.history.replaceState({}, document.title, '/cliente?view=precios');
+      return;
+    }
+
     window.location.replace(redirectPath);
   }, [createRequestIntent, session?.user?.id]);
 
@@ -1110,6 +1160,99 @@ export default function ClientRequestsHub() {
     void syncAuthAccessTokenCookie(null);
   };
 
+  const fetchClientLaborItems = useCallback(async () => {
+    if (!hasSupabaseConfig) {
+      setClientLaborItemsError(supabaseConfigError);
+      return [];
+    }
+
+    setLoadingClientLaborItems(true);
+    setClientLaborItemsError('');
+
+    const buildSelectFields = (includeActive: boolean, includeTechnicalNotes: boolean, includeUnit: boolean) =>
+      [
+        'id',
+        'name',
+        'suggested_price',
+        'category',
+        'source_ref',
+        includeTechnicalNotes ? 'technical_notes' : null,
+        includeUnit ? 'unit' : null,
+        includeActive ? 'active' : null,
+        'created_at',
+      ]
+        .filter(Boolean)
+        .join(',');
+
+    const variants = [
+      { includeActive: true, includeTechnicalNotes: true, includeUnit: true },
+      { includeActive: true, includeTechnicalNotes: true, includeUnit: false },
+      { includeActive: true, includeTechnicalNotes: false, includeUnit: false },
+      { includeActive: false, includeTechnicalNotes: true, includeUnit: true },
+      { includeActive: false, includeTechnicalNotes: true, includeUnit: false },
+      { includeActive: false, includeTechnicalNotes: false, includeUnit: false },
+    ];
+
+    try {
+      let lastError: any = null;
+      for (const variant of variants) {
+        let query = supabase
+          .from('master_items')
+          .select(buildSelectFields(variant.includeActive, variant.includeTechnicalNotes, variant.includeUnit))
+          .eq('type', 'labor');
+
+        if (variant.includeActive) {
+          query = query.eq('active', true).order('active', { ascending: false });
+        }
+
+        const { data, error } = await query.order('category', { ascending: true }).order('name', { ascending: true }).limit(5000);
+        if (!error) {
+          const rows = ((data as unknown) as ClientLaborItem[]) || [];
+          setClientLaborItems(rows);
+          return rows;
+        }
+        lastError = error;
+      }
+
+      throw lastError || new Error('No se pudieron cargar los valores.');
+    } catch (error: any) {
+      const message = error?.message || 'No se pudieron cargar los valores de mano de obra.';
+      setClientLaborItemsError(message);
+      return [];
+    } finally {
+      setLoadingClientLaborItems(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activeClientView !== 'prices' || !session?.user?.id || loadingClientLaborItems || clientLaborItems.length > 0) return;
+    void fetchClientLaborItems();
+  }, [activeClientView, clientLaborItems.length, fetchClientLaborItems, loadingClientLaborItems, session?.user?.id]);
+
+  const openClientPrices = () => {
+    if (typeof window === 'undefined') return;
+    setActiveClientView('prices');
+    window.setTimeout(() => {
+      document.getElementById('valores-mano-obra-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 80);
+  };
+
+  const startRequestFromLaborItem = (item: ClientLaborItem) => {
+    const category = formatClientLaborCategory(resolveClientLaborCategory(item));
+    const notes = String(item.technical_notes || '').trim();
+    setForm((prev) => ({
+      ...prev,
+      title: item.name,
+      category,
+      description: notes ? `${item.name}\n\nDetalle tecnico: ${notes}` : item.name,
+    }));
+    setActiveClientView('request');
+    setRequestStep(1);
+    window.setTimeout(() => {
+      document.getElementById('nueva-solicitud-cliente')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      requestTitleInputRef.current?.focus();
+    }, 120);
+  };
   const openClientProfileSection = (focusField = false) => {
     if (typeof window === 'undefined') return;
     setActiveClientView('profile');
@@ -1832,7 +1975,21 @@ export default function ClientRequestsHub() {
     const published = requests.filter((item) => String(item.status).toLowerCase() === 'published').length;
     return { total, matched, published };
   }, [requests]);
+  const clientLaborCategories = useMemo(() => {
+    const categories = new Set<string>();
+    clientLaborItems.forEach((item) => categories.add(resolveClientLaborCategory(item)));
+    return Array.from(categories).sort((a, b) => formatClientLaborCategory(a).localeCompare(formatClientLaborCategory(b), 'es'));
+  }, [clientLaborItems]);
 
+  const filteredClientLaborItems = useMemo(() => {
+    const search = normalizeClientLaborText(clientLaborSearch);
+    return clientLaborItems.filter((item) => {
+      const matchesSearch = !search || getClientLaborSearchText(item).includes(search);
+      const category = resolveClientLaborCategory(item);
+      const matchesCategory = clientLaborCategory === 'all' || category === clientLaborCategory;
+      return matchesSearch && matchesCategory;
+    });
+  }, [clientLaborCategory, clientLaborItems, clientLaborSearch]);
   const selectedNearbyTechnician = useMemo(
     () => nearbyTechnicians.find((item) => item.id === form.targetTechnicianId) || null,
     [nearbyTechnicians, form.targetTechnicianId]
@@ -2683,6 +2840,21 @@ export default function ClientRequestsHub() {
 
                   <button
                     type="button"
+                    title={!isDesktopNavExpanded ? 'Valores' : undefined}
+                    onClick={openClientPrices}
+                    className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
+                    } ${activeClientView === 'prices' ? 'text-white' : 'text-white/[0.72]'}`}
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] transition group-hover:bg-white/[0.09] ${
+                      activeClientView === 'prices' ? 'bg-[#ff8f1f] text-[#2a0338]' : 'bg-white/[0.055]'
+                    }`}>
+                      <Tag className="h-4 w-4" />
+                    </span>
+                    {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Valores</span>}
+                  </button>
+                  <button
+                    type="button"
                     title={!isDesktopNavExpanded ? 'Mapa' : undefined}
                     onClick={openClientRequestsMap}
                     className={`group relative flex items-center transition hover:bg-white/[0.075] hover:text-white ${
@@ -2846,7 +3018,7 @@ export default function ClientRequestsHub() {
               className={
                 activeClientView === 'map' || activeClientView === 'showcase'
                   ? 'w-full space-y-0'
-                  : activeClientView === 'messages'
+                  : activeClientView === 'messages' || activeClientView === 'prices'
                     ? 'mx-auto w-full max-w-6xl space-y-4'
                     : 'mx-auto w-full max-w-2xl space-y-4'
               }
@@ -2951,6 +3123,112 @@ export default function ClientRequestsHub() {
           </div>
         </section>
 
+        <article
+          id="valores-mano-obra-cliente"
+          className={activeClientView === 'prices' ? `${clientPanelCardClass} overflow-hidden bg-white` : 'hidden'}
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[11px] uppercase tracking-[0.22em] text-[#7a6786]">Valores de referencia</p>
+              <h2 className="mt-1 text-xl font-semibold text-slate-950">Mano de obra dentro del portal cliente</h2>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+                Consulta referencias reales sin salir de tu cuenta. Si un trabajo coincide con lo que necesitás, podés usarlo como base para publicar una solicitud.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => void fetchClientLaborItems()}
+              disabled={loadingClientLaborItems}
+              className={clientPanelSecondaryButtonClass + ' disabled:cursor-not-allowed disabled:opacity-60'}
+            >
+              {loadingClientLaborItems ? 'Actualizando...' : 'Actualizar valores'}
+            </button>
+          </div>
+
+          <div className="mt-5 grid gap-3 lg:grid-cols-[minmax(0,1fr)_260px_auto]">
+            <input
+              value={clientLaborSearch}
+              onChange={(event) => setClientLaborSearch(event.target.value)}
+              placeholder="Buscar por trabajo, rubro o detalle técnico"
+              className={clientPanelInputClass + ' mt-0'}
+            />
+            <select
+              value={clientLaborCategory}
+              onChange={(event) => setClientLaborCategory(event.target.value)}
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 outline-none transition focus:border-slate-900 focus:ring-2 focus:ring-slate-200"
+            >
+              <option value="all">Todos los rubros</option>
+              {clientLaborCategories.map((category) => (
+                <option key={category} value={category}>
+                  {formatClientLaborCategory(category)}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => {
+                setClientLaborSearch('');
+                setClientLaborCategory('all');
+              }}
+              className={clientPanelSecondaryButtonClass}
+            >
+              Limpiar
+            </button>
+          </div>
+
+          {clientLaborItemsError && (
+            <p className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+              {clientLaborItemsError}
+            </p>
+          )}
+
+          <div className="mt-5 grid gap-3">
+            {loadingClientLaborItems && (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                Cargando valores de mano de obra...
+              </div>
+            )}
+            {!loadingClientLaborItems && filteredClientLaborItems.length === 0 && (
+              <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm text-slate-500">
+                No encontramos valores con esos filtros.
+              </div>
+            )}
+            {!loadingClientLaborItems && filteredClientLaborItems.slice(0, 120).map((item) => {
+              const category = resolveClientLaborCategory(item);
+              const price = Number(item.suggested_price || 0);
+              return (
+                <div key={item.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-sm font-semibold text-slate-950">{item.name}</p>
+                      <span className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        {formatClientLaborCategory(category)}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {item.unit ? `Unidad: ${item.unit}` : 'Unidad a confirmar'}{item.source_ref ? ` | ${item.source_ref}` : ''}
+                    </p>
+                    {item.technical_notes && (
+                      <p className="mt-2 max-w-3xl whitespace-pre-wrap text-xs leading-5 text-slate-600">
+                        {item.technical_notes}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex shrink-0 flex-wrap items-center gap-3 lg:justify-end">
+                    <span className="text-sm font-semibold text-slate-950">{price > 0 ? formatArs(price) : 'A coordinar'}</span>
+                    <button
+                      type="button"
+                      onClick={() => startRequestFromLaborItem(item)}
+                      className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                    >
+                      Pedir presupuesto
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </article>
         <section
           id="perfil-cliente"
           className={

@@ -60,6 +60,7 @@ import {
   clearAuthAccessProfileIntent,
   getAuthUserProfileFromMetadata,
   getAuthAccessProfileIntent,
+  isPriceAccessPath,
   POST_AUTH_REDIRECT_KEY,
   PRICE_ACCESS_INTENT,
   sanitizeNextPath,
@@ -3448,16 +3449,23 @@ export default function TechniciansPage() {
     const nextPath = sanitizeNextPath(params.get('next'));
     if (!nextPath) return;
     window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+    if (isPriceAccessPath(nextPath)) {
+      const accountType = getAuthUserProfileFromMetadata(session.user.user_metadata);
+      window.location.replace(accountType === 'cliente' ? '/cliente?view=precios' : '/tecnicos?tab=precios');
+      return;
+    }
     window.location.replace(nextPath);
-  }, [session?.user?.id]);
+  }, [session?.user]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !session?.user) return;
     const accountType = getAuthUserProfileFromMetadata(session.user.user_metadata);
     if (accountType !== 'cliente') return;
     clearAuthAccessProfileIntent();
-    window.location.replace('/cliente');
-  }, [session?.user?.id, session?.user?.user_metadata?.profile, session?.user?.user_metadata?.user_type]);
+    const params = new URLSearchParams(window.location.search);
+    const nextPath = sanitizeNextPath(params.get('next'));
+    window.location.replace(isPriceAccessPath(nextPath) ? '/cliente?view=precios' : '/cliente');
+  }, [session?.user]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

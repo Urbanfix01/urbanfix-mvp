@@ -41,6 +41,11 @@ export default function PublicTopNav({ activeHref, showNavigationLinks = false, 
   const isPlatformActive = activeHref === '/tecnicos' || activeHref === '/tecnico-panel';
   const isAccountAreaActive = activeHref ? accountAreaHrefs.has(activeHref) : false;
   const panelHref = activeHref === '/cliente' || activeHref === '/tecnico-panel' ? activeHref : defaultAccountHref;
+  const laborValuesHref = isAuthenticated
+    ? defaultAccountHref === '/cliente'
+      ? '/cliente?view=precios'
+      : '/tecnicos?tab=precios'
+    : '/rubros';
   const profileName =
     profile?.business_name?.trim() ||
     profile?.full_name?.trim() ||
@@ -146,17 +151,20 @@ export default function PublicTopNav({ activeHref, showNavigationLinks = false, 
         <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-4">
           {showNavigationLinks && (
             <nav className="hidden items-center gap-4 xl:flex">
-              {navLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  className={`text-xs font-semibold transition hover:text-white ${
-                    activeHref === link.href ? 'text-white' : 'text-white/85'
-                  }`}
-                >
-                  {link.label}
-                </a>
-              ))}
+              {navLinks.map((link) => {
+                const href = link.href === '/rubros' ? laborValuesHref : link.href;
+                return (
+                  <a
+                    key={link.label}
+                    href={href}
+                    className={`text-xs font-semibold transition hover:text-white ${
+                      activeHref === link.href ? 'text-white' : 'text-white/85'
+                    }`}
+                  >
+                    {link.label}
+                  </a>
+                );
+              })}
             </nav>
           )}
 
@@ -202,18 +210,21 @@ export default function PublicTopNav({ activeHref, showNavigationLinks = false, 
             )}
             <CountryMenuSelector className="mb-2" onChanged={() => setMenuOpen(false)} />
             {showNavigationLinks &&
-              navLinks.map((link) => (
-                <a
-                  key={link.label}
-                  href={link.href}
-                  onClick={() => setMenuOpen(false)}
-                  className={`rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-white/10 ${
-                    activeHref === link.href ? 'bg-white/10 text-white' : 'text-white/90'
-                  }`}
-                >
-                  {link.label}
-                </a>
-              ))}
+              navLinks.map((link) => {
+                const href = link.href === '/rubros' ? laborValuesHref : link.href;
+                return (
+                  <a
+                    key={link.label}
+                    href={href}
+                    onClick={() => setMenuOpen(false)}
+                    className={`rounded-lg px-3 py-2 text-sm font-semibold transition hover:bg-white/10 ${
+                      activeHref === link.href ? 'bg-white/10 text-white' : 'text-white/90'
+                    }`}
+                  >
+                    {link.label}
+                  </a>
+                );
+              })}
             {!isAuthenticated && (
               <>
                 <a
