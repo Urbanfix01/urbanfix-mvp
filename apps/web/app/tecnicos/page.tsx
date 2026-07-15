@@ -3031,6 +3031,8 @@ const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
 
 const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
   summary: 'Red de agua fria/caliente para baño, cocina y lavadero hasta 25 metros lineales.',
+  imageSrc: '/catalog/items/agua-fria-caliente-bano-cocina-lavadero.jpg',
+  imageAlt: 'Instalacion de agua fria y caliente para baño, cocina y lavadero',
   includes: [
     'Replanteo de recorrido y puntos de consumo',
     'Instalacion de cañeria de agua fria y caliente hasta 25 metros lineales',
@@ -3066,8 +3068,11 @@ const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
   ],
   budgetNote: 'Si hay que romper, tapar, superar 25 metros o instalar artefactos, cargar esos trabajos como items separados.',
 };
+
 const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
   summary: 'Instalacion de cañeria de termofusion bajo suelo por metro lineal.',
+  imageSrc: '/catalog/items/termofusion-bajo-suelo.jpg',
+  imageAlt: 'Instalacion de cañeria de termofusion bajo suelo',
   includes: [
     'Replanteo del recorrido bajo piso o contrapiso',
     'Presentacion, corte y termofusion de caños y accesorios',
@@ -3104,6 +3109,8 @@ const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
 
 const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
   summary: 'Instalacion de cañeria de termofusion a la vista o engrampada por metro lineal.',
+  imageSrc: '/catalog/items/termofusion-engrampada.jpg',
+  imageAlt: 'Instalacion de cañeria de termofusion engrampada a la vista',
   includes: [
     'Replanteo del recorrido visible y puntos de fijacion',
     'Corte, presentacion y termofusion de caños y accesorios',
@@ -3138,6 +3145,460 @@ const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
   budgetNote: 'Medir por metro lineal instalado. Trabajos en altura, terminaciones o materiales especiales se presupuestan aparte.',
 };
 
+const getMasterItemBlueprintSummary = (item: MasterItemRow, fallback: string) => {
+  const note = item.technical_notes ? compactTechnicalNotesText(item.technical_notes, { maxLength: 150 }) : '';
+  return note || fallback;
+};
+
+const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): MasterItemBlueprint => {
+  const name = (item.name || 'Trabajo sanitario').trim();
+  const category = (item.category || 'Sanitarios').trim();
+  const categoryKey = normalizeText(category);
+  const unitLabel = canonicalizeMasterItemUnit(item.unit || '') || item.unit || 'unidad';
+  const byUnitLabel = unitLabel === 'global' ? 'alcance global' : `por ${unitLabel}`;
+
+  if (normalizedName.includes('calado') && normalizedName.includes('muro')) {
+    return {
+      summary: 'Ranurado de muro para alojar caneria sanitaria, sin tapado ni terminacion.',
+      imageSrc: '/catalog/items/calado-muro-canos.jpg',
+      imageAlt: 'Calado de muro para alojar canos sanitarios',
+      includes: [
+        'Marcado del recorrido y profundidad de canaleta',
+        'Calado o ranurado del muro por metro lineal',
+        'Limpieza basica del canal para recibir caneria',
+        'Revision de interferencias visibles antes de continuar',
+      ],
+      excludes: [
+        'Colocacion de caneria o accesorios',
+        'Tapado, revoque, pintura o reposicion de revestimientos',
+        'Retiro de escombros fuera del area inmediata',
+        'Cortes estructurales o trabajos sobre instalaciones no identificadas',
+      ],
+      requirements: [
+        'Recorrido aprobado antes de romper',
+        'Muro liberado y sin artefactos instalados',
+        'Confirmacion de que no pasan cables, gas u otras canerias criticas',
+        'Proteccion de zonas cercanas si corresponde',
+      ],
+      materials: ['Discos, mechas o herramientas de corte', 'Elementos de proteccion y limpieza basica'],
+      finishCriteria: [
+        'La canaleta queda con ancho y profundidad suficientes',
+        'El recorrido queda limpio y listo para instalar caneria',
+        'No se avanzo sobre zonas no autorizadas',
+        'El metraje calado queda medido y verificable',
+      ],
+      budgetNote: 'No incluye tapado ni terminaciones. Cargar instalacion de caneria, revoque o revestimiento como items separados.',
+    };
+  }
+
+  if (normalizedName.includes('pase') && normalizedName.includes('losa')) {
+    return {
+      summary: 'Perforacion pasante en losa para paso de caneria sanitaria.',
+      includes: [
+        'Marcado del punto de pase',
+        'Perforacion pasante en techo o piso',
+        'Ajuste basico del diametro para recibir caneria',
+        'Limpieza inmediata del area de trabajo',
+      ],
+      excludes: [
+        'Colocacion de caneria, sellado ignifugo o impermeabilizacion',
+        'Reparacion de cielorraso, piso, pintura o revestimiento',
+        'Trabajos estructurales o cortes de armadura',
+        'Gestion de permisos o cateos tecnicos',
+      ],
+      requirements: [
+        'Punto de pase autorizado y libre de interferencias',
+        'Espesor y material de losa aptos para perforar',
+        'Verificacion previa de instalaciones embutidas',
+        'Acceso seguro por ambas caras si corresponde',
+      ],
+      materials: ['Corona, mecha o herramienta de perforacion', 'Protecciones y elementos de limpieza', 'Camisa o pasacano si se define en obra'],
+      finishCriteria: [
+        'El pase queda limpio, centrado y con diametro adecuado',
+        'La caneria puede pasar sin forzar',
+        'No hay dano fuera del area acordada',
+        'El punto queda listo para sellado o instalacion posterior',
+      ],
+      budgetNote: 'No incluye sellado, impermeabilizacion ni reparacion de terminaciones. Si aparece armadura o instalacion oculta, revisar alcance antes de continuar.',
+    };
+  }
+
+  if (categoryKey.includes('jornales')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `${name} para apoyo de obra sanitaria ${byUnitLabel}.`),
+      includes: [
+        'Disponibilidad del perfil indicado durante la jornada contratada',
+        'Ejecucion de tareas sanitarias indicadas por el responsable de obra',
+        'Uso de herramientas manuales habituales del oficio',
+        'Orden basico del area inmediata de trabajo',
+      ],
+      excludes: [
+        'Materiales, repuestos o insumos de instalacion',
+        'Viaticos, estacionamiento o traslados especiales',
+        'Herramientas especiales, alquileres o equipos de elevacion',
+        'Responsabilidad por tareas no definidas o fuera de la jornada',
+      ],
+      requirements: [
+        'Alcance de tareas definido antes de iniciar',
+        'Acceso seguro al sector de trabajo',
+        'Materiales disponibles si la tarea los requiere',
+        'Coordinacion con otros gremios si comparten el frente de trabajo',
+      ],
+      materials: ['Elementos de proteccion personal', 'Herramientas manuales de uso habitual', 'Insumos menores segun tarea acordada'],
+      finishCriteria: [
+        'La jornada queda registrada con tareas realizadas',
+        'El sector queda ordenado al finalizar',
+        'Las horas contratadas quedan cumplidas o informadas',
+        'Los pendientes quedan identificados para el siguiente paso',
+      ],
+      budgetNote: 'Jornal por tiempo de trabajo. No reemplaza el presupuesto cerrado de una tarea con materiales y resultado final definido.',
+    };
+  }
+
+  if (categoryKey.includes('destapaciones') || normalizedName.includes('destranque')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Destapacion sanitaria ${byUnitLabel}.`),
+      includes: [
+        `Revision inicial de ${name}`,
+        'Trabajo de destranque con herramienta manual o mecanica segun acceso',
+        'Prueba de escurrimiento o descarga al finalizar',
+        'Limpieza basica del punto intervenido',
+      ],
+      excludes: [
+        'Reparacion o reemplazo de canerias danadas',
+        'Camara de inspeccion nueva o aperturas de obra civil',
+        'Hidrolavado industrial, camara de inspeccion o equipos especiales',
+        'Retiro de residuos fuera del area inmediata',
+      ],
+      requirements: [
+        'Acceso al punto de inspeccion, camara, rejilla o artefacto',
+        'Autorizacion para manipular tapas, sifones o accesorios',
+        'Sector liberado para trabajar con agua y residuos',
+        'Informar antecedentes de obstrucciones recurrentes',
+      ],
+      materials: ['Guantes y elementos de higiene', 'Sonda, varillas o destapador segun caso', 'Productos de limpieza solo si se acuerdan'],
+      finishCriteria: [
+        'El agua escurre sin retorno visible en la prueba',
+        'El punto intervenido queda nuevamente utilizable',
+        'Se informa si la obstruccion requiere reparacion adicional',
+        'El alcance queda medido segun unidad presupuestada',
+      ],
+      budgetNote: 'Si la obstruccion se repite por rotura, pendiente incorrecta o raiz, presupuestar reparacion como item separado.',
+    };
+  }
+
+  if (categoryKey.includes('griferias') || normalizedName.includes('griferia') || normalizedName.includes('flexible') || normalizedName.includes('cartucho') || normalizedName.includes('cabezal')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Intervencion de griferia o conexion sanitaria ${byUnitLabel}.`),
+      includes: [
+        `Desarme o retiro necesario para ${name}`,
+        'Colocacion, ajuste o reemplazo del componente indicado',
+        'Sellado y ajuste de conexiones accesibles',
+        'Prueba de apertura, cierre y perdidas visibles',
+      ],
+      excludes: [
+        'Provision de griferia, cartucho, flexible, cuerito o repuesto',
+        'Albanileria, rotura de pared o cambio de caneria embutida',
+        'Correccion de presion, sarro extremo o montantes defectuosas',
+        'Reposicion de revestimientos o terminaciones esteticas',
+      ],
+      requirements: [
+        'Llave de paso operativa para cortar el agua',
+        'Repuesto compatible con la marca y medida existente',
+        'Acceso libre al artefacto y sus conexiones',
+        'Estado de roscas y asiento apto para ajuste',
+      ],
+      materials: ['Repuesto especifico de la griferia', 'Cinta, sellador o juntas si corresponde', 'Herramientas de ajuste y limpieza'],
+      finishCriteria: [
+        'La griferia abre, cierra y regula correctamente',
+        'No hay perdida visible en conexiones intervenidas',
+        'El componente queda firme y sin juego anormal',
+        'Se informa si el cuerpo de griferia requiere reemplazo completo',
+      ],
+      budgetNote: 'No incluye repuestos ni trabajos de albanileria. Si el repuesto no es compatible, revisar alcance antes de continuar.',
+    };
+  }
+
+  if (categoryKey.includes('bombas') || normalizedName.includes('bomba')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Instalacion o reemplazo de bomba sanitaria ${byUnitLabel}.`),
+      includes: [
+        `Presentacion y montaje de ${name}`,
+        'Conexion hidraulica a entrada y salida existentes',
+        'Colocacion de uniones, valvulas o flexibles si estan disponibles',
+        'Prueba de funcionamiento, presion y perdidas visibles',
+      ],
+      excludes: [
+        'Provision de bomba, tablero, protecciones electricas o accesorios',
+        'Instalacion electrica nueva o adecuacion de tablero',
+        'Construccion de base, gabinete, nicho o proteccion climatica',
+        'Correccion de cisterna, tanque, flotantes o canerias existentes',
+      ],
+      requirements: [
+        'Equipo compatible con caudal, presion y uso requerido',
+        'Puntos hidraulicos y electricos disponibles y seguros',
+        'Llaves de corte operativas antes y despues del equipo',
+        'Manual o sentido de conexion identificado',
+      ],
+      materials: ['Uniones dobles, flexibles o conectores', 'Valvula de retencion si corresponde', 'Selladores, teflon y fijaciones', 'Proteccion electrica a definir con electricista'],
+      finishCriteria: [
+        'La bomba enciende y corta segun configuracion',
+        'No hay perdida visible en conexiones hidraulicas',
+        'El equipo queda firme y accesible para mantenimiento',
+        'El cliente recibe indicaciones basicas de uso y corte',
+      ],
+      budgetNote: 'La alimentacion electrica y protecciones deben verificarse aparte. Si falta presion por falla de red o tanque, cargar diagnostico adicional.',
+    };
+  }
+
+  if (categoryKey.includes('tanques') || normalizedName.includes('tanque')) {
+    const isCleaning = normalizedName.includes('limpieza');
+    const isFlotante = normalizedName.includes('flotante');
+    return {
+      summary: getMasterItemBlueprintSummary(item, isCleaning ? 'Limpieza sanitaria de tanque de reserva.' : `Trabajo sobre tanque sanitario ${byUnitLabel}.`),
+      includes: isCleaning
+        ? ['Vaciado controlado del tanque si corresponde', 'Limpieza interna de sedimentos accesibles', 'Enjuague y revision visual del estado general', 'Cierre y puesta nuevamente en servicio']
+        : [
+            `Presentacion y ejecucion de ${name}`,
+            isFlotante ? 'Retiro y colocacion de flotante compatible' : 'Conexion de entrada, salida, rebalse o colector segun alcance',
+            'Sellado y ajuste de conexiones accesibles',
+            'Prueba de carga, corte y perdidas visibles',
+          ],
+      excludes: [
+        'Provision de tanque, flotante, valvulas, canos o accesorios',
+        'Estructura metalica, base, losa o soporte nuevo',
+        'Trabajo en altura especial, grua, andamio o seguro adicional',
+        'Analisis bacteriologico de agua o certificaciones externas',
+      ],
+      requirements: [
+        'Acceso seguro al tanque y a sus conexiones',
+        'Corte de agua disponible para intervenir',
+        'Capacidad, ubicacion y altura verificadas',
+        'Sector liberado para maniobrar sin riesgo',
+      ],
+      materials: ['Flotante, valvulas o conexiones compatibles', 'Selladores y juntas', 'Fijaciones y soportes segun instalacion', 'Elementos de higiene si es limpieza'],
+      finishCriteria: [
+        isCleaning ? 'El tanque queda limpio de sedimentos visibles' : 'El tanque carga y corta correctamente',
+        'No hay perdida visible en conexiones intervenidas',
+        'El acceso queda cerrado y seguro',
+        'Se informa si hay fisuras, tapa defectuosa o riesgo estructural',
+      ],
+      budgetNote: 'Los trabajos en altura o con acceso riesgoso pueden requerir item adicional de seguridad, andamio o ayudante.',
+    };
+  }
+
+  if (categoryKey.includes('biodigestores') || normalizedName.includes('biodigestor') || normalizedName.includes('lecho') || normalizedName.includes('zanjeo')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Trabajo sanitario exterior para biodigestor o infiltracion ${byUnitLabel}.`),
+      includes: [
+        `Replanteo y ejecucion de ${name}`,
+        'Nivelacion y alineacion segun pendiente sanitaria requerida',
+        'Conexion o preparacion del tramo dentro del alcance presupuestado',
+        'Revision visual de continuidad y escurrimiento',
+      ],
+      excludes: [
+        'Provision de biodigestor, camaras, geotextil, piedra o canerias',
+        'Movimiento de suelo mayor, retiro de excedentes o maquinaria pesada',
+        'Estudio de suelo, permisos municipales o calculo sanitario',
+        'Reposicion de parquizado, veredas o pisos exteriores',
+      ],
+      requirements: [
+        'Ubicacion aprobada y distancia reglamentaria confirmada',
+        'Terreno accesible y libre de instalaciones ocultas',
+        'Cota de entrada y salida definida antes de iniciar',
+        'Condiciones de suelo aptas o verificadas por responsable tecnico',
+      ],
+      materials: ['Canerias y accesorios cloacales', 'Biodigestor, camara o modulo definido', 'Piedra, arena, geotextil o cama de asiento', 'Elementos de nivelacion y sellado'],
+      finishCriteria: [
+        'El tramo queda con pendiente y profundidad coherentes',
+        'Las conexiones quedan firmes y accesibles para inspeccion',
+        'El sistema queda listo para prueba o etapa siguiente',
+        'Se informa cualquier condicion de suelo que cambie el alcance',
+      ],
+      budgetNote: 'Zanjeo, lecho, camaras y materiales deben medirse por separado cuando no esten incluidos expresamente en el item.',
+    };
+  }
+
+  if (categoryKey.includes('desagues') || normalizedName.includes('desague') || normalizedName.includes('pluvial')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Instalacion de desague sanitario o pluvial ${byUnitLabel}.`),
+      includes: [
+        `Replanteo del recorrido para ${name}`,
+        'Presentacion, corte y colocacion de caneria PVC segun diametro del item',
+        'Alineacion, pendiente y fijacion del tramo instalado',
+        'Prueba de escurrimiento y revision de uniones visibles',
+      ],
+      excludes: [
+        'Provision de canos, curvas, accesorios o rejillas',
+        'Zanjeo, roturas, calados, tapados o reposicion de pisos',
+        'Camara nueva, boca de acceso o modificacion de red existente',
+        'Impermeabilizacion, pintura o terminaciones',
+      ],
+      requirements: [
+        'Pendiente y punto de descarga definidos',
+        'Recorrido liberado para colocar el tramo',
+        'Diametro compatible con el uso previsto',
+        'Acceso a puntos de prueba antes de tapar',
+      ],
+      materials: ['Caneria PVC sanitaria del diametro indicado', 'Curvas, codos, tees, cuplas y reducciones', 'Adhesivo, sellos o juntas segun sistema', 'Grampas o cama de asiento si corresponde'],
+      finishCriteria: [
+        'El tramo queda con pendiente continua',
+        'No hay filtraciones visibles en la prueba inicial',
+        'Las uniones quedan firmes y correctamente orientadas',
+        'El recorrido queda listo para tapado o uso segun etapa',
+      ],
+      budgetNote: 'Medir metros reales instalados. Roturas, zanjeo, tapados y accesorios especiales se cargan como items separados.',
+    };
+  }
+
+  if (
+    categoryKey.includes('artefactos') ||
+    categoryKey.includes('sanitarios 2') ||
+    normalizedName.includes('bidet') ||
+    normalizedName.includes('vanitory') ||
+    normalizedName.includes('lavatorio') ||
+    normalizedName.includes('bacha') ||
+    normalizedName.includes('banera') ||
+    normalizedName.includes('artefacto sanitario') ||
+    normalizedName.includes('accesorios de bano')
+  ) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Armado, presentacion y conexion de ${name}.`),
+      includes: [
+        `Presentacion y nivelacion de ${name}`,
+        'Fijacion o amurado segun artefacto y soporte existente',
+        'Conexion a puntos de agua y desague disponibles',
+        'Sellado sanitario y prueba de uso',
+      ],
+      excludes: [
+        'Provision del artefacto, griferia, flexibles o accesorios',
+        'Roturas, calados, revoques o revestimientos',
+        'Traslado de puntos de agua o desague',
+        'Mueble, mesada o soporte especial no incluido en el item',
+      ],
+      requirements: [
+        'Puntos de agua y desague ubicados en posicion compatible',
+        'Superficie firme, nivelada y terminada',
+        'Artefacto completo y sin faltantes antes de iniciar',
+        'Llave de paso operativa para prueba final',
+      ],
+      materials: ['Flexibles, sopapas o conexiones compatibles', 'Tornillos, tarugos y fijaciones', 'Silicona o sello sanitario', 'Juntas, arandelas y adaptadores si corresponde'],
+      finishCriteria: [
+        'El artefacto queda firme, alineado y usable',
+        'No hay perdidas visibles en conexiones intervenidas',
+        'El desague evacua correctamente en prueba simple',
+        'El sellado queda prolijo y continuo',
+      ],
+      budgetNote: 'Si hay que modificar canerias, romper o adaptar muebles, agregar esos trabajos como items separados.',
+    };
+  }
+
+  if (categoryKey.includes('cloacas') || normalizedName.includes('camara') || normalizedName.includes('cloaca') || normalizedName.includes('pozo ciego') || normalizedName.includes('conexion troncal')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Trabajo cloacal sanitario ${byUnitLabel}.`),
+      includes: [
+        `Replanteo y ejecucion de ${name}`,
+        'Colocacion o conexion del elemento cloacal segun alcance',
+        'Verificacion de pendiente, sentido de flujo y accesibilidad',
+        'Prueba inicial de escurrimiento o inspeccion visual',
+      ],
+      excludes: [
+        'Provision de canerias, camaras, tapas, valvulas o accesorios',
+        'Zanjeo, rotura, tapado, compactacion o retiro de suelo excedente',
+        'Permisos, tramites, inspecciones externas o derechos de conexion',
+        'Correccion de red existente fuera del punto intervenido',
+      ],
+      requirements: [
+        'Cotas, pendientes y punto de conexion definidos',
+        'Acceso al area de trabajo y camaras existentes',
+        'Material compatible con la red cloacal proyectada',
+        'Autorizacion para intervenir antes de tapar o cubrir',
+      ],
+      materials: ['Canerias y accesorios cloacales', 'Camara, tapa, marco o valvula si corresponde', 'Mortero, asiento o selladores', 'Elementos de nivelacion y limpieza'],
+      finishCriteria: [
+        'El elemento queda alineado con la pendiente sanitaria',
+        'Las uniones quedan firmes y revisables antes de tapar',
+        'El flujo no presenta retorno visible en prueba inicial',
+        'Se deja informado cualquier ajuste pendiente de obra civil',
+      ],
+      budgetNote: 'Cargar zanjeo, camaras, permisos, tapados y materiales aparte si no estan expresamente incluidos en el item.',
+    };
+  }
+
+  if (categoryKey.includes('pruebas') || normalizedName.includes('prueba hidraulica')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Prueba de presion antes de tapar canerias de agua.'),
+      includes: [
+        'Aislacion del tramo a probar',
+        'Carga de presion o agua segun sistema disponible',
+        'Control visual de uniones, accesorios y puntos de consumo',
+        'Informe de perdidas visibles o puntos a corregir',
+      ],
+      excludes: [
+        'Reparacion de perdidas detectadas',
+        'Provision de manometro especial o equipo certificado',
+        'Tapado, revoque o reposicion de terminaciones',
+        'Certificacion profesional o acta externa',
+      ],
+      requirements: [
+        'Tramo terminado y accesible antes de tapar',
+        'Puntos cerrados o taponados para prueba',
+        'Agua o medio de prueba disponible',
+        'Responsable presente para validar resultado',
+      ],
+      materials: ['Tapones, adaptadores o flexibles de prueba', 'Manometro o bomba de prueba si corresponde', 'Elementos de secado y revision'],
+      finishCriteria: [
+        'La presion se mantiene dentro del control acordado',
+        'No se observan perdidas visibles durante la prueba',
+        'Los puntos fallados quedan identificados',
+        'El tramo queda autorizado para continuar o corregir',
+      ],
+      budgetNote: 'La prueba no incluye reparaciones. Cada perdida detectada se corrige con item separado segun alcance.',
+    };
+  }
+
+  if (categoryKey.includes('varios') || normalizedName.includes('termotanque') || normalizedName.includes('calefon') || normalizedName.includes('llave de paso') || normalizedName.includes('lavavajillas') || normalizedName.includes('lavarropas') || normalizedName.includes('soldadura')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Intervencion sanitaria puntual ${byUnitLabel}.`),
+      includes: [
+        `Diagnostico breve y ejecucion de ${name}`,
+        'Retiro o preparacion del componente existente si corresponde',
+        'Colocacion, conexion o reparacion indicada por el item',
+        'Prueba funcional y revision de perdidas visibles',
+      ],
+      excludes: [
+        'Provision de artefactos, repuestos, flexibles, valvulas o accesorios',
+        'Adecuaciones electricas, gasistas o de ventilacion si aplican',
+        'Roturas, tapados, pintura o reposicion de revestimientos',
+        'Garantia sobre instalaciones existentes no intervenidas',
+      ],
+      requirements: [
+        'Acceso libre al equipo o punto sanitario',
+        'Llave de paso o corte de suministro operativo',
+        'Repuesto o equipo compatible disponible',
+        'Condiciones de seguridad verificadas antes de intervenir',
+      ],
+      materials: ['Repuesto o artefacto compatible', 'Flexibles, juntas, selladores o adaptadores', 'Fijaciones y herramientas especificas', 'Elementos de prueba y limpieza'],
+      finishCriteria: [
+        'El componente queda instalado o reparado segun alcance',
+        'No hay perdidas visibles en el punto intervenido',
+        'El funcionamiento basico queda probado con el cliente',
+        'Se informa si requiere gasista, electricista o repuesto adicional',
+      ],
+      budgetNote: 'Cuando el trabajo involucre gas o electricidad, validar que lo haga el profesional matriculado correspondiente.',
+    };
+  }
+
+  return {
+    summary: getMasterItemBlueprintSummary(item, `Trabajo sanitario de ${category.toLowerCase()} ${byUnitLabel}.`),
+    includes: [`Ejecucion de ${name}`, 'Revision del punto de trabajo antes de iniciar', 'Ajuste y prueba basica segun el tipo de tarea', 'Limpieza inmediata del sector intervenido'],
+    excludes: ['Materiales y repuestos no detallados', 'Roturas, tapados o terminaciones de obra civil', 'Trabajos fuera del rubro sanitario', 'Correcciones de instalaciones existentes no previstas'],
+    requirements: ['Alcance confirmado con el cliente', 'Acceso seguro al sector de trabajo', 'Puntos de corte o conexion identificados', 'Materiales compatibles disponibles si la tarea los requiere'],
+    materials: ['Insumos y repuestos definidos segun tarea', 'Selladores, juntas o fijaciones si corresponde', 'Elementos de proteccion y limpieza'],
+    finishCriteria: ['El trabajo queda ejecutado segun unidad presupuestada', 'El punto intervenido queda probado cuando corresponde', 'No hay perdidas visibles en el area trabajada', 'Los adicionales quedan informados antes de avanzar'],
+    budgetNote: 'Usar este detalle como base tecnica y agregar items separados para materiales, roturas, tapados o cambios de alcance.',
+  };
+};
 const MASTER_ITEM_BLUEPRINT_RULES: MasterItemBlueprintRule[] = [
   {
     matches: (rubro, normalizedName) => rubro === 'sanitarios' && normalizedName.includes('inodoro') && normalizedName.includes('mochila'),
@@ -3166,7 +3627,10 @@ const MASTER_ITEM_BLUEPRINT_RULES: MasterItemBlueprintRule[] = [
 const getMasterItemBlueprint = (item: MasterItemRow) => {
   const rubro = resolveMasterRubro(item);
   const normalizedName = normalizeText(item.name || '');
-  return MASTER_ITEM_BLUEPRINT_RULES.find((rule) => rule.matches(rubro, normalizedName))?.blueprint || null;
+  const specificBlueprint = MASTER_ITEM_BLUEPRINT_RULES.find((rule) => rule.matches(rubro, normalizedName))?.blueprint;
+  if (specificBlueprint) return specificBlueprint;
+  if (rubro === 'sanitarios') return buildSanitariosBlueprint(item, normalizedName);
+  return null;
 };
 
 
