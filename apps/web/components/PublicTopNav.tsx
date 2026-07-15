@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ElementType } from 'react';
 
 import CountryMenuSelector from './CountryMenuSelector';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
@@ -15,10 +15,21 @@ const navLinks = [
   { label: 'Tecnicos disponibles', href: '/vidriera' },
 ];
 
+type PublicTopNavPanelItem = {
+  key: string;
+  label: string;
+  active?: boolean;
+  badge?: string | number | null;
+  icon?: ElementType<{ className?: string }>;
+  onSelect: () => void;
+};
+
 type PublicTopNavProps = {
   activeHref?: string;
   showNavigationLinks?: boolean;
   sticky?: boolean;
+  panelMenuLabel?: string;
+  panelMenuItems?: PublicTopNavPanelItem[];
 };
 
 type AuthNavProfile = {
@@ -33,7 +44,13 @@ const accountAreaHrefs = new Set(['/tecnicos', '/tecnico-panel', '/cliente']);
 const platformButtonClass =
   'inline-flex rounded-full border px-5 py-2 text-xs font-bold uppercase tracking-[0.08em] transition';
 
-export default function PublicTopNav({ activeHref, showNavigationLinks = false, sticky = false }: PublicTopNavProps) {
+export default function PublicTopNav({
+  activeHref,
+  showNavigationLinks = false,
+  sticky = false,
+  panelMenuLabel,
+  panelMenuItems = [],
+}: PublicTopNavProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [profile, setProfile] = useState<AuthNavProfile | null>(null);
@@ -52,6 +69,7 @@ export default function PublicTopNav({ activeHref, showNavigationLinks = false, 
     'Mi cuenta';
   const profileLogoUrl = profile?.company_logo_url?.trim() || profile?.avatar_url?.trim() || '';
   const profileInitial = profileName.charAt(0).toUpperCase() || 'U';
+  const hasPanelMenuItems = panelMenuItems.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -209,6 +227,43 @@ export default function PublicTopNav({ activeHref, showNavigationLinks = false, 
               <div className="mb-2">{accountChip}</div>
             )}
             <CountryMenuSelector className="mb-2" onChanged={() => setMenuOpen(false)} />
+            {hasPanelMenuItems && (
+              <div className="mb-2 border-b border-white/10 pb-2">
+                {panelMenuLabel && (
+                  <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+                    {panelMenuLabel}
+                  </p>
+                )}
+                <div className="grid gap-1">
+                  {panelMenuItems.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <button
+                        key={item.key}
+                        type="button"
+                        onClick={() => {
+                          item.onSelect();
+                          setMenuOpen(false);
+                        }}
+                        className={`flex min-h-11 items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm font-semibold transition ${
+                          item.active
+                            ? 'bg-white/12 text-white'
+                            : 'text-white/90 hover:bg-white/10 hover:text-white'
+                        }`}
+                      >
+                        {Icon && <Icon className="h-4 w-4 shrink-0 text-[#ffb35e]" />}
+                        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                        {item.badge ? (
+                          <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-bold text-white">
+                            {item.badge}
+                          </span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             {showNavigationLinks &&
               navLinks.map((link) => {
                 const href = link.href === '/rubros' ? laborValuesHref : link.href;

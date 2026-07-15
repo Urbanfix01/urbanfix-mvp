@@ -23,7 +23,6 @@ import {
   LogOut,
   Mail,
   MapPinned,
-  Menu,
   MessageCircle,
   MoreVertical,
   RefreshCw,
@@ -3290,11 +3289,6 @@ export default function TechniciansPage() {
   const [quoteCatalogSearch, setQuoteCatalogSearch] = useState('');
   const [quoteCatalogCategory, setQuoteCatalogCategory] = useState('all');
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
-  const [isMobileToolsOpen, setIsMobileToolsOpen] = useState(false);
-  const [isMobileFloatingMenuOpen, setIsMobileFloatingMenuOpen] = useState(false);
-  const [isMobileDockVisible, setIsMobileDockVisible] = useState(true);
-  const mobileScrollYRef = useRef(0);
-  const mobileScrollTickingRef = useRef(false);
   const uiTheme = UI_THEME;
   const savingRef = useRef(false);
   const lastSavedItemsSignatureRef = useRef('');
@@ -3660,19 +3654,6 @@ export default function TechniciansPage() {
   const activeNavKey = activeTab === 'nuevo' ? 'presupuestos' : activeTab;
   const isFullBleedContent =
     activeTab === 'operativo' || (activeTab === 'perfil' && profilePanelTab === 'preview');
-  const mobilePrimaryNavItems = navItems.filter(
-    (item) =>
-      item.key === 'lobby' ||
-      item.key === 'operativo' ||
-      item.key === 'presupuestos' ||
-      item.key === 'agenda' ||
-      item.key === 'perfil'
-  );
-  const mobileSecondaryNavItems = navItems.filter(
-    (item) => !mobilePrimaryNavItems.some((primaryItem) => primaryItem.key === item.key)
-  );
-  const isMobileSecondaryActive = mobileSecondaryNavItems.some((item) => item.key === activeNavKey);
-  const isMobileDockShown = isMobileDockVisible || isMobileToolsOpen;
   const isProfileUnderReview = Boolean(session?.user && profileHydrated && profile && profile.access_granted !== true);
   const activeSupportLabel = useMemo(() => {
     if (isBetaAdmin) {
@@ -3712,36 +3693,6 @@ export default function TechniciansPage() {
     { key: 'expired', label: 'Vencidos' },
   ];
   const activeQuoteFilterLabel = quoteFilterOptions.find((option) => option.key === quoteFilter)?.label || 'Todos';
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    mobileScrollYRef.current = window.scrollY;
-
-    const handleScroll = () => {
-      if (mobileScrollTickingRef.current) return;
-      mobileScrollTickingRef.current = true;
-
-      window.requestAnimationFrame(() => {
-        const currentY = window.scrollY;
-        const delta = currentY - mobileScrollYRef.current;
-
-        if (Math.abs(delta) > 10) {
-          const scrollingUp = delta < 0;
-          setIsMobileDockVisible(scrollingUp || currentY < 80);
-          if (!scrollingUp && currentY > 80) {
-            setIsMobileToolsOpen(false);
-          }
-          mobileScrollYRef.current = currentY;
-        }
-
-        mobileScrollTickingRef.current = false;
-      });
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
@@ -7266,6 +7217,17 @@ export default function TechniciansPage() {
     () => notifications.filter((item) => !item.read_at).length,
     [notifications]
   );
+  const technicianTopMenuItems = navItems.map((item) => ({
+    key: item.key,
+    label: item.label,
+    active: activeNavKey === item.key,
+    badge: item.key === 'notificaciones' && unreadNotifications > 0 ? unreadNotifications : null,
+    icon: item.icon,
+    onSelect: () => {
+      setActiveTab(item.key);
+      if (item.key === 'presupuestos') setQuoteFilter('all');
+    },
+  }));
   const notificationStats = useMemo(
     () => ({
       all: notifications.length,
@@ -10389,7 +10351,7 @@ export default function TechniciansPage() {
       className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
-      <PublicTopNav activeHref="/tecnicos" sticky />
+      <PublicTopNav activeHref="/tecnicos" sticky panelMenuLabel="Panel técnico" panelMenuItems={technicianTopMenuItems} />
       <div
         className={`relative overflow-hidden ${
           activeTab === 'operativo'
@@ -10540,234 +10502,6 @@ export default function TechniciansPage() {
           </div>
 
           <div className="min-w-0 flex-1">
-            <nav
-              aria-label="Navegación principal móvil"
-              className={`fixed inset-x-3 bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] z-50 rounded-[24px] border border-white/[0.10] bg-[rgba(35,5,47,0.92)] p-1.5 shadow-[0_18px_48px_-30px_rgba(0,0,0,0.86),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl transition duration-300 lg:hidden ${
-                isMobileDockShown ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-[calc(100%+1.25rem)] opacity-0'
-              }`}
-            >
-              {isMobileToolsOpen && (
-                <div className="absolute inset-x-2 bottom-[calc(100%+0.6rem)] rounded-[22px] border border-white/[0.10] bg-[rgba(31,5,42,0.96)] p-2.5 shadow-[0_22px_54px_-32px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
-                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.46]">Herramientas</p>
-                    <span className="shrink-0 rounded-full bg-white/[0.07] px-2.5 py-1 text-[10px] font-semibold text-white/[0.58]">
-                      {quotes.length}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {mobileSecondaryNavItems.map((item) => {
-                      const isActive = activeNavKey === item.key;
-                      const Icon = item.icon;
-                      const compactLabel =
-                        item.key === 'visualizador'
-                          ? 'Ver'
-                          : item.key === 'notificaciones'
-                            ? 'Alertas'
-                            : item.label;
-                      return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          aria-pressed={isActive}
-                          onClick={() => {
-                            setActiveTab(item.key);
-                            setIsMobileToolsOpen(false);
-                            if (item.key === 'presupuestos') setQuoteFilter('all');
-                          }}
-                          className={`flex min-h-10 items-center gap-2 rounded-[16px] px-3 text-left text-xs font-semibold transition ${
-                            isActive
-                              ? 'bg-white/[0.13] text-[#ffcf93] shadow-[inset_0_0_0_1px_rgba(255,207,147,0.24)]'
-                              : 'bg-white/[0.055] text-white/[0.82] hover:bg-white/[0.10] hover:text-white'
-                          }`}
-                        >
-                          <Icon className={isActive ? 'h-4 w-4 shrink-0 text-[#ffcf93]' : 'h-4 w-4 shrink-0 text-white/[0.62]'} />
-                          <span className="min-w-0 flex-1 truncate">{compactLabel}</span>
-                          {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                            <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
-                              {unreadNotifications}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <div className="grid grid-cols-[repeat(5,minmax(0,1fr))_38px] gap-0.5">
-                {mobilePrimaryNavItems.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activeNavKey === item.key;
-                  const mobileLabel =
-                    item.key === 'lobby'
-                      ? 'Panel'
-                      : item.key === 'operativo'
-                        ? 'Mapa'
-                        : item.key === 'presupuestos'
-                          ? 'Presup.'
-                          : item.label;
-                  return (
-                    <button
-                      key={item.key}
-                      type="button"
-                      aria-pressed={isActive}
-                      onClick={() => {
-                        setActiveTab(item.key);
-                        setIsMobileToolsOpen(false);
-                        if (item.key === 'presupuestos') setQuoteFilter('all');
-                      }}
-                      className={`relative flex min-h-[56px] flex-col items-center justify-center gap-1 rounded-[18px] px-1 text-[10px] font-semibold transition ${
-                        isActive
-                          ? 'bg-white/[0.08] text-white shadow-[inset_0_0_0_1px_rgba(255,143,31,0.18)]'
-                          : 'text-white/[0.58] hover:bg-white/[0.06] hover:text-white'
-                      }`}
-                    >
-                      <Icon className={isActive ? 'h-4 w-4 text-[#ff9c1a]' : 'h-4 w-4'} />
-                      <span className="max-w-full truncate">{mobileLabel}</span>
-                      {isActive && <span className="absolute bottom-1.5 h-1 w-4 rounded-full bg-[#ff8f1f]" />}
-                    </button>
-                    );
-                  })}
-                <button
-                  type="button"
-                  aria-expanded={isMobileToolsOpen}
-                  aria-label="Más herramientas"
-                  onClick={() => setIsMobileToolsOpen((prev) => !prev)}
-                  className={`relative flex min-h-[56px] items-center justify-center rounded-[18px] px-1 transition ${
-                    isMobileToolsOpen || isMobileSecondaryActive
-                      ? 'bg-white/[0.08] text-[#ff9c1a] shadow-[inset_0_0_0_1px_rgba(255,143,31,0.18)]'
-                      : 'text-white/[0.58] hover:bg-white/[0.06] hover:text-white'
-                  }`}
-                >
-                  <MoreVertical className="h-5 w-5" />
-                  {unreadNotifications > 0 && (
-                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-[#ef4444]" />
-                  )}
-                </button>
-              </div>
-            </nav>
-
-            <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.4rem)] right-4 z-[60] flex flex-col items-end gap-3 lg:hidden">
-              {isMobileFloatingMenuOpen && (
-                <div className="w-[min(19.5rem,calc(100vw-2rem))] overflow-hidden rounded-[24px] border border-white/[0.10] bg-[rgba(35,5,47,0.96)] p-2.5 shadow-[0_24px_58px_-30px_rgba(0,0,0,0.88),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-xl">
-                  <div className="mb-2 flex items-center justify-between gap-3 px-1">
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/[0.46]">Menú técnico</p>
-                      <p className="mt-0.5 truncate text-[12px] font-semibold text-white/[0.78]">
-                        {technicianSidebarAccountLabel}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      aria-label="Cerrar menú"
-                      onClick={() => setIsMobileFloatingMenuOpen(false)}
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[14px] bg-white/[0.07] text-white/[0.72] transition hover:bg-white/[0.12] hover:text-white"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="max-h-[min(62vh,28rem)] overflow-y-auto pr-0.5">
-                    <div className="grid gap-1">
-                      {navItems.map((item) => {
-                        const Icon = item.icon;
-                        const isActive = activeNavKey === item.key;
-                        return (
-                          <button
-                            key={item.key}
-                            type="button"
-                            aria-pressed={isActive}
-                            onClick={() => {
-                              setActiveTab(item.key);
-                              setIsMobileFloatingMenuOpen(false);
-                              setIsMobileToolsOpen(false);
-                              if (item.key === 'presupuestos') setQuoteFilter('all');
-                            }}
-                            className={`flex min-h-11 items-center gap-2.5 rounded-[16px] px-3 text-left text-[13px] font-semibold transition ${
-                              isActive
-                                ? 'bg-white/[0.13] text-[#ffcf93] shadow-[inset_0_0_0_1px_rgba(255,207,147,0.24)]'
-                                : 'text-white/[0.78] hover:bg-white/[0.075] hover:text-white'
-                            }`}
-                          >
-                            <span
-                              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] ${
-                                isActive ? 'bg-[#ff8f1f] text-[#2a0338]' : 'bg-white/[0.06] text-white/[0.64]'
-                              }`}
-                            >
-                              <Icon className="h-4 w-4" />
-                            </span>
-                            <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                            {item.key === 'notificaciones' && unreadNotifications > 0 && (
-                              <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
-                                {unreadNotifications}
-                              </span>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    <div className="mt-2 border-t border-white/[0.08] pt-2">
-                      <a
-                        href={publicProfileUrl || (session?.user?.id ? `/tecnico/${session.user.id}` : '/tecnicos?tab=perfil')}
-                        onClick={() => setIsMobileFloatingMenuOpen(false)}
-                        className="flex min-h-11 items-center gap-2.5 rounded-[16px] px-3 text-[13px] font-semibold text-white/[0.78] transition hover:bg-white/[0.075] hover:text-white"
-                      >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.06] text-white/[0.64]">
-                          <Store className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">Perfil público</span>
-                      </a>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setActiveTab('perfil');
-                          setIsMobileFloatingMenuOpen(false);
-                          setIsMobileToolsOpen(false);
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2.5 rounded-[16px] px-3 text-left text-[13px] font-semibold text-white/[0.78] transition hover:bg-white/[0.075] hover:text-white"
-                      >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.06] text-white/[0.64]">
-                          <Settings className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">Configuración</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsMobileFloatingMenuOpen(false);
-                          void handleLogout();
-                        }}
-                        className="flex min-h-11 w-full items-center gap-2.5 rounded-[16px] px-3 text-left text-[13px] font-semibold text-white/[0.88] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white"
-                      >
-                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338]">
-                          <LogOut className="h-4 w-4" />
-                        </span>
-                        <span className="min-w-0 flex-1 truncate">Cerrar sesión</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <button
-                type="button"
-                aria-label={isMobileFloatingMenuOpen ? 'Cerrar menú técnico' : 'Abrir menú técnico'}
-                aria-expanded={isMobileFloatingMenuOpen}
-                onClick={() => {
-                  setIsMobileFloatingMenuOpen((prev) => !prev);
-                  setIsMobileToolsOpen(false);
-                }}
-                className={`flex h-14 items-center gap-2 rounded-full border px-4 text-sm font-black shadow-[0_18px_42px_-24px_rgba(0,0,0,0.86)] backdrop-blur-xl transition ${
-                  isMobileFloatingMenuOpen
-                    ? 'border-[#ffcf93]/35 bg-[#ff8f1f] text-[#2a0338]'
-                    : 'border-white/[0.12] bg-[rgba(35,5,47,0.94)] text-white'
-                }`}
-              >
-                {isMobileFloatingMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-                <span>Menú</span>
-              </button>
-            </div>
-
             <main className={isFullBleedContent ? 'relative w-full pt-0' : 'relative pt-6'}>
               {isProfileUnderReview && (
                 <section className="mb-5 overflow-hidden rounded-[28px] border border-[#ffcf93]/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(255,247,237,0.9))] p-4 shadow-[0_22px_62px_-46px_rgba(42,3,56,0.62)] sm:p-5">
@@ -17768,6 +17502,3 @@ export default function TechniciansPage() {
     </div>
   );
 }
-
-
-
