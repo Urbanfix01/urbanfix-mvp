@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Image from 'next/image';
 import { Manrope, Space_Grotesk } from 'next/font/google';
 import {
   ArrowLeft,
@@ -2965,6 +2966,73 @@ const formatRubroLabel = (value: string) => {
 const getMasterItemChoiceValue = (item: Pick<MasterItemRow, 'name' | 'technical_notes' | 'unit'>) =>
   buildMasterItemChoiceLabel(item);
 
+type MasterItemBlueprint = {
+  summary: string;
+  imageSrc?: string;
+  imageAlt?: string;
+  includes: string[];
+  excludes: string[];
+  requirements: string[];
+  materials: string[];
+  finishCriteria: string[];
+  budgetNote: string;
+};
+
+type CatalogImagePreview = {
+  src: string;
+  alt: string;
+  title: string;
+};
+
+const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
+  summary: 'Fijación, sellado y conexión de agua/desagüe.',
+  imageSrc: '/catalog/items/inodoro-mochila-despiece-hq.jpg',
+  imageAlt: 'Despiece de inodoro con mochila y conexión instalada',
+  includes: [
+    'Presentación y nivelación del inodoro',
+    'Fijación al piso con tornillos y tarugos',
+    'Armado y regulación de mochila',
+    'Conexión de flexible de agua',
+    'Conexión a descarga existente',
+    'Sellado perimetral sanitario',
+    'Prueba de carga, descarga y pérdidas',
+  ],
+  excludes: [
+    'Provisión del inodoro, mochila, asiento o flexible',
+    'Roturas, calados, albañilería o revestimientos',
+    'Cambio de cañerías o llave de paso',
+    'Traslado de punto sanitario',
+  ],
+  requirements: [
+    'Punto de agua y descarga existentes en posición correcta',
+    'Piso terminado, firme y nivelado',
+    'Artefacto compatible con la salida existente',
+    'Llave de paso operativa para cortar el agua',
+  ],
+  materials: [
+    'Flexible mallado',
+    'Tornillos y tarugos de fijación',
+    'Sello sanitario / silicona neutra',
+    'Conector o junta para descarga si corresponde',
+  ],
+  finishCriteria: [
+    'El inodoro queda firme y alineado',
+    'La mochila carga, corta y descarga correctamente',
+    'No hay pérdida visible en flexible, mochila ni descarga',
+    'El cliente recibe el punto probado antes del cierre',
+  ],
+  budgetNote: 'Si hay que romper, mover cañería o corregir descarga, agregar esos trabajos como ítems separados.',
+};
+
+const getMasterItemBlueprint = (item: MasterItemRow) => {
+  const rubro = resolveMasterRubro(item);
+  const normalizedName = normalizeText(item.name || '');
+  if (rubro === 'sanitarios' && normalizedName.includes('inodoro') && normalizedName.includes('mochila')) {
+    return SANITARIOS_INODORO_MOCHILA_BLUEPRINT;
+  }
+  return null;
+};
+
 
 const parseDateLocal = (value?: string | null) => {
   if (!value) return null;
@@ -3209,6 +3277,7 @@ export default function TechniciansPage() {
   const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const [uploadingItemImageId, setUploadingItemImageId] = useState<string | null>(null);
   const [deletingItemImageId, setDeletingItemImageId] = useState<string | null>(null);
+  const [catalogImagePreview, setCatalogImagePreview] = useState<CatalogImagePreview | null>(null);
   const [deletingAttachmentId, setDeletingAttachmentId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [formError, setFormError] = useState('');
@@ -17428,6 +17497,7 @@ export default function TechniciansPage() {
                             item.type === 'labor' && basePrice > 0 && activePrice > 0 && !pricesAreEquivalent(basePrice, activePrice);
                           const unitLabel = canonicalizeMasterItemUnit(item.unit || '') || item.unit || 'unidad';
                           const isSelected = selectedMasterItemIdSet.has(item.id);
+                          const itemBlueprint = getMasterItemBlueprint(item);
 
                           return (
                             <article
@@ -17439,10 +17509,37 @@ export default function TechniciansPage() {
                               }`}
                             >
                               <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                                <div className="w-full shrink-0 sm:w-40">
-                                  <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-slate-300">
-                                    <ImagePlus className="h-6 w-6" aria-hidden="true" />
-                                  </div>
+                                <div className="w-full shrink-0 sm:w-52">
+                                  {itemBlueprint?.imageSrc ? (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setCatalogImagePreview({
+                                          src: itemBlueprint.imageSrc || '',
+                                          alt: itemBlueprint.imageAlt || item.name,
+                                          title: item.name,
+                                        })
+                                      }
+                                      className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-[#ff8f1f]/45"
+                                      aria-label={`Ver imagen ampliada de ${item.name}`}
+                                    >
+                                      <Image
+                                        src={itemBlueprint.imageSrc}
+                                        alt={itemBlueprint.imageAlt || item.name}
+                                        fill
+                                        sizes="(min-width: 640px) 208px, 100vw"
+                                        quality={100}
+                                        className="object-cover object-center"
+                                      />
+                                      <span className="absolute inset-x-2 bottom-2 rounded-full bg-slate-950/78 px-2 py-1 text-center text-[10px] font-black uppercase tracking-[0.12em] text-white opacity-0 transition group-hover:opacity-100">
+                                        Ampliar
+                                      </span>
+                                    </button>
+                                  ) : (
+                                    <div className="flex aspect-[4/3] w-full items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-slate-50 text-slate-300">
+                                      <ImagePlus className="h-6 w-6" aria-hidden="true" />
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
@@ -17453,7 +17550,9 @@ export default function TechniciansPage() {
                                   <p title={getMasterItemChoiceValue(item)} className="mt-3 text-base font-black leading-5 text-slate-950">
                                     {item.name}
                                   </p>
-                                  {item.technical_notes ? (
+                                  {itemBlueprint ? (
+                                    <p className="mt-2 text-xs leading-5 text-slate-600">{itemBlueprint.summary}</p>
+                                  ) : item.technical_notes ? (
                                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
                                       {compactTechnicalNotesText(item.technical_notes, { maxLength: 150 })}
                                     </p>
@@ -17467,10 +17566,67 @@ export default function TechniciansPage() {
                                   {hasLaborUpdate && <p className="text-[10px] font-bold text-slate-300">base {formatCurrency(basePrice)}</p>}
                                 </div>
                               </div>
-                              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3">
-                                <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
-                                  <Info className="h-3.5 w-3.5" />
-                                  <span>{item.type === 'labor' ? 'Mano de obra' : 'Material o insumo'}</span>
+                              <div className="mt-4 flex flex-wrap items-start justify-between gap-3 border-t border-slate-100 pt-3">
+                                <div className="min-w-0 flex-1">
+                                  {itemBlueprint ? (
+                                    <details className="group">
+                                      <summary className="inline-flex cursor-pointer list-none items-center gap-2 text-[11px] font-bold text-slate-500 transition hover:text-slate-800 [&::-webkit-details-marker]:hidden">
+                                        <Info className="h-3.5 w-3.5" />
+                                        <span>Mano de obra</span>
+                                        <ChevronDown className="h-3.5 w-3.5 transition group-open:rotate-180" />
+                                      </summary>
+                                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Incluye</p>
+                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                            {itemBlueprint.includes.map((entry) => (
+                                              <li key={entry}>- {entry}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">No incluye</p>
+                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                            {itemBlueprint.excludes.map((entry) => (
+                                              <li key={entry}>- {entry}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-100 bg-white p-3">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Condiciones previas</p>
+                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                            {itemBlueprint.requirements.map((entry) => (
+                                              <li key={entry}>- {entry}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-100 bg-white p-3">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Materiales a definir</p>
+                                          <ul className="mt-2 space-y-1.5 text-xs font-semibold leading-5 text-slate-700">
+                                            {itemBlueprint.materials.map((entry) => (
+                                              <li key={entry}>- {entry}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                        <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-3 lg:col-span-2">
+                                          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-500">Criterio de entrega</p>
+                                          <div className="mt-2 grid gap-2 text-xs font-semibold leading-5 text-slate-700 md:grid-cols-2">
+                                            {itemBlueprint.finishCriteria.map((entry) => (
+                                              <p key={entry}>- {entry}</p>
+                                            ))}
+                                          </div>
+                                          <p className="mt-3 rounded-xl bg-white px-3 py-2 text-xs font-bold leading-5 text-slate-700">
+                                            {itemBlueprint.budgetNote}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </details>
+                                  ) : (
+                                    <div className="flex items-center gap-2 text-[11px] font-bold text-slate-500">
+                                      <Info className="h-3.5 w-3.5" />
+                                      <span>{item.type === 'labor' ? 'Mano de obra' : 'Material o insumo'}</span>
+                                    </div>
+                                  )}
                                 </div>
                                 <button
                                   type="button"
@@ -17497,6 +17653,45 @@ export default function TechniciansPage() {
         </main>
           </div>
         </div>
+        {catalogImagePreview && (
+          <div
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/82 px-4 py-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label={catalogImagePreview.title}
+            onClick={() => setCatalogImagePreview(null)}
+          >
+            <div
+              className="relative w-full max-w-5xl overflow-hidden rounded-[28px] border border-white/15 bg-white shadow-[0_28px_90px_-40px_rgba(0,0,0,0.75)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-black text-slate-950">{catalogImagePreview.title}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCatalogImagePreview(null)}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-950"
+                  aria-label="Cerrar imagen"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="relative aspect-[16/9] w-full bg-slate-100">
+                <Image
+                  src={catalogImagePreview.src}
+                  alt={catalogImagePreview.alt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 1024px"
+                  quality={100}
+                  className="object-contain"
+                  priority
+                />
+              </div>
+            </div>
+          </div>
+        )}
         {sessionMediaOverlays}
       </div>
     </div>
