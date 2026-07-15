@@ -2984,6 +2984,11 @@ type CatalogImagePreview = {
   title: string;
 };
 
+type MasterItemBlueprintRule = {
+  matches: (rubro: string, normalizedName: string) => boolean;
+  blueprint: MasterItemBlueprint;
+};
+
 const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
   summary: 'Fijación, sellado y conexión de agua/desagüe.',
   imageSrc: '/catalog/items/inodoro-mochila-despiece-hq.jpg',
@@ -3024,13 +3029,144 @@ const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
   budgetNote: 'Si hay que romper, mover cañería o corregir descarga, agregar esos trabajos como ítems separados.',
 };
 
+const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
+  summary: 'Red de agua fria/caliente para baño, cocina y lavadero hasta 25 metros lineales.',
+  includes: [
+    'Replanteo de recorrido y puntos de consumo',
+    'Instalacion de cañeria de agua fria y caliente hasta 25 metros lineales',
+    'Distribucion para baño, cocina y lavadero segun puntos existentes o definidos',
+    'Termofusion, fijacion y alineacion de tramos accesibles',
+    'Conexiones basicas para alimentar artefactos sanitarios y griferias',
+    'Prueba de presion, purga y verificacion de perdidas visibles',
+  ],
+  excludes: [
+    'Provision de caños, accesorios, llaves, colectores o griferias',
+    'Roturas, canaletas, albañileria, tapados o reposicion de revestimientos',
+    'Instalacion de artefactos, sanitarios, griferias o termotanque',
+    'Trabajos por encima de 25 metros lineales',
+    'Correccion de presion, bombas, tanques o montantes existentes',
+  ],
+  requirements: [
+    'Recorrido y ubicacion de puntos definidos antes de iniciar',
+    'Acceso a llave de paso o alimentacion principal',
+    'Muros, pisos o pases liberados para trabajar si corresponde',
+    'Sistema compatible con el material y diametro presupuestado',
+  ],
+  materials: [
+    'Caños y accesorios de termofusion',
+    'Codos, tees, cuplas, reducciones y uniones',
+    'Llaves de paso o colectores si corresponde',
+    'Soportes, grampas y aislacion segun recorrido',
+  ],
+  finishCriteria: [
+    'Los puntos quedan alimentados y correctamente identificados',
+    'La cañeria queda firme, alineada y sin esfuerzos visibles',
+    'La prueba de presion no muestra perdidas',
+    'El alcance real medido coincide con el limite presupuestado',
+  ],
+  budgetNote: 'Si hay que romper, tapar, superar 25 metros o instalar artefactos, cargar esos trabajos como items separados.',
+};
+const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
+  summary: 'Instalacion de cañeria de termofusion bajo suelo por metro lineal.',
+  includes: [
+    'Replanteo del recorrido bajo piso o contrapiso',
+    'Presentacion, corte y termofusion de caños y accesorios',
+    'Colocacion de cañeria con pendiente, alineacion y proteccion basica',
+    'Fijacion provisoria para evitar desplazamientos antes del tapado',
+    'Prueba de presion antes de cubrir la instalacion',
+  ],
+  excludes: [
+    'Provision de caños, accesorios o aislaciones',
+    'Calado, rotura, zanjeo, contrapiso, tapado o reposicion de pisos',
+    'Instalacion de llaves, griferias, artefactos o colectores',
+    'Correccion de instalaciones existentes fuera del tramo medido',
+  ],
+  requirements: [
+    'Recorrido liberado y niveles definidos',
+    'Material y diametro confirmados antes de iniciar',
+    'Puntos de conexion identificados y accesibles',
+    'Autorizacion para prueba antes de tapar',
+  ],
+  materials: [
+    'Caños de termofusion',
+    'Codos, tees, cuplas y reducciones',
+    'Aislacion o proteccion segun recorrido',
+    'Elementos de fijacion provisorios',
+  ],
+  finishCriteria: [
+    'El tramo queda continuo, alineado y sin esfuerzos visibles',
+    'Las uniones quedan correctamente fusionadas',
+    'La prueba de presion no muestra perdidas',
+    'El metraje ejecutado queda listo para tapado o siguiente etapa',
+  ],
+  budgetNote: 'Medir por metro lineal real. Cargar calados, tapados, zanjeos o accesorios especiales como items separados.',
+};
+
+const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
+  summary: 'Instalacion de cañeria de termofusion a la vista o engrampada por metro lineal.',
+  includes: [
+    'Replanteo del recorrido visible y puntos de fijacion',
+    'Corte, presentacion y termofusion de caños y accesorios',
+    'Colocacion de grampas, soportes y alineacion del tramo',
+    'Conexion a puntos existentes o definidos dentro del mismo recorrido',
+    'Prueba de presion y revision visual de uniones',
+  ],
+  excludes: [
+    'Provision de caños, accesorios, grampas o soportes especiales',
+    'Roturas, canaletas, pintura, tapados o terminaciones esteticas',
+    'Trabajos en altura o con acceso especial no previsto',
+    'Instalacion de artefactos, griferias o equipos',
+  ],
+  requirements: [
+    'Superficie apta para fijar grampas o soportes',
+    'Recorrido visible aprobado por el cliente',
+    'Puntos de alimentacion y destino accesibles',
+    'Diametro y material definidos antes de iniciar',
+  ],
+  materials: [
+    'Caños y accesorios de termofusion',
+    'Grampas, tarugos y tornillos',
+    'Aislacion si corresponde',
+    'Llaves o uniones si el tramo las requiere',
+  ],
+  finishCriteria: [
+    'La cañeria queda firme, recta y prolija a la vista',
+    'Las fijaciones no presentan juego ni tension excesiva',
+    'La prueba de presion no muestra perdidas',
+    'El tramo queda identificado y listo para uso o conexion final',
+  ],
+  budgetNote: 'Medir por metro lineal instalado. Trabajos en altura, terminaciones o materiales especiales se presupuestan aparte.',
+};
+
+const MASTER_ITEM_BLUEPRINT_RULES: MasterItemBlueprintRule[] = [
+  {
+    matches: (rubro, normalizedName) => rubro === 'sanitarios' && normalizedName.includes('inodoro') && normalizedName.includes('mochila'),
+    blueprint: SANITARIOS_INODORO_MOCHILA_BLUEPRINT,
+  },
+  {
+    matches: (rubro, normalizedName) =>
+      rubro === 'sanitarios' &&
+      normalizedName.includes('instalacion agua fria') &&
+      normalizedName.includes('caliente') &&
+      normalizedName.includes('cocina') &&
+      normalizedName.includes('lavadero'),
+    blueprint: SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT,
+  },
+  {
+    matches: (rubro, normalizedName) =>
+      rubro === 'sanitarios' && normalizedName.includes('termofusion') && normalizedName.includes('bajo suelo'),
+    blueprint: SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT,
+  },
+  {
+    matches: (rubro, normalizedName) =>
+      rubro === 'sanitarios' && normalizedName.includes('termofusion') && normalizedName.includes('engrampada'),
+    blueprint: SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT,
+  },
+];
 const getMasterItemBlueprint = (item: MasterItemRow) => {
   const rubro = resolveMasterRubro(item);
   const normalizedName = normalizeText(item.name || '');
-  if (rubro === 'sanitarios' && normalizedName.includes('inodoro') && normalizedName.includes('mochila')) {
-    return SANITARIOS_INODORO_MOCHILA_BLUEPRINT;
-  }
-  return null;
+  return MASTER_ITEM_BLUEPRINT_RULES.find((rule) => rule.matches(rubro, normalizedName))?.blueprint || null;
 };
 
 
