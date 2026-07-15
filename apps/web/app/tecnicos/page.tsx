@@ -3194,6 +3194,8 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
   if (normalizedName.includes('pase') && normalizedName.includes('losa')) {
     return {
       summary: 'Perforacion pasante en losa para paso de caneria sanitaria.',
+      imageSrc: '/catalog/items/pase-losa-caneria.jpg',
+      imageAlt: 'Pase de losa para paso de caneria sanitaria',
       includes: [
         'Marcado del punto de pase',
         'Perforacion pasante en techo o piso',
