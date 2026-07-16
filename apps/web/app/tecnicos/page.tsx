@@ -2991,8 +2991,8 @@ type MasterItemBlueprintRule = {
 
 const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
   summary: 'Fijación, sellado y conexión de agua/desagüe.',
-  imageSrc: '/catalog/items/inodoro-mochila-despiece-hq.jpg',
-  imageAlt: 'Despiece de inodoro con mochila y conexión instalada',
+  imageSrc: '/catalog/items/inodoro-mochila-instalado.jpg',
+  imageAlt: 'Inodoro con mochila instalado en bano terminado',
   includes: [
     'Presentación y nivelación del inodoro',
     'Fijación al piso con tornillos y tarugos',
@@ -3389,6 +3389,41 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
     };
   }
 
+  if (normalizedName.includes('instalacion') && normalizedName.includes('biodigestor')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Instalacion de biodigestor con camara de lodos, base de hormigon y muros.'),
+      imageSrc: '/catalog/items/biodigestor-instalacion.jpg',
+      imageAlt: 'Instalacion de biodigestor enterrado con canerias conectadas',
+      includes: [
+        'Replanteo de ubicacion, niveles y conexion sanitaria',
+        'Presentacion del biodigestor sobre base preparada',
+        'Conexion de entrada, salida y camara de lodos segun alcance',
+        'Alineacion con canerias cloacales y pendiente requerida',
+        'Revision visual antes de tapado o etapa siguiente',
+      ],
+      excludes: [
+        'Provision del biodigestor, camaras, tapas, canerias o accesorios',
+        'Excavacion, retiro de suelo excedente o maquinaria pesada si no esta detallado',
+        'Base de hormigon, muros, lecho drenante o camaras adicionales fuera del item',
+        'Permisos, estudios de suelo o calculo sanitario externo',
+      ],
+      requirements: [
+        'Ubicacion aprobada y accesible para maniobra',
+        'Cotas de entrada y salida definidas antes de instalar',
+        'Base firme, nivelada y compatible con el equipo',
+        'Distancias reglamentarias y condiciones de suelo verificadas',
+      ],
+      materials: ['Biodigestor y tapas compatibles', 'Canerias y accesorios cloacales', 'Base de hormigon o cama de asiento', 'Camara de lodos, sellos y elementos de nivelacion'],
+      finishCriteria: [
+        'El biodigestor queda nivelado, firme y orientado correctamente',
+        'Las conexiones quedan alineadas y revisables antes de tapar',
+        'La camara de lodos queda accesible para mantenimiento',
+        'El sistema queda listo para prueba, tapado o etapa siguiente',
+      ],
+      budgetNote: 'Confirmar por separado excavacion, base, muros, lecho drenante, camaras y materiales cuando no esten incluidos expresamente.',
+    };
+  }
+
   if (categoryKey.includes('biodigestores') || normalizedName.includes('biodigestor') || normalizedName.includes('lecho') || normalizedName.includes('zanjeo')) {
     return {
       summary: getMasterItemBlueprintSummary(item, `Trabajo sanitario exterior para biodigestor o infiltracion ${byUnitLabel}.`),
@@ -3453,6 +3488,110 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
     };
   }
 
+  if (normalizedName.includes('vanitory')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Amurado a pared, ensamble y conexion de vanitory.'),
+      imageSrc: '/catalog/items/vanitory-instalado.jpg',
+      imageAlt: 'Vanitory instalado en bano terminado',
+      includes: [
+        'Presentacion, nivelacion y replanteo del vanitory',
+        'Armado o ensamble basico del mueble si corresponde',
+        'Amurado o fijacion a pared o soporte existente',
+        'Conexion de griferia, flexibles y desague disponibles',
+        'Sellado sanitario y prueba de uso sin perdidas visibles',
+      ],
+      excludes: [
+        'Provision del vanitory, bacha, griferia, flexibles o repuestos',
+        'Roturas, calados, revoques, pintura o revestimientos',
+        'Traslado de puntos de agua o desague',
+        'Refuerzos de pared, mesada especial o adaptaciones de carpinteria',
+      ],
+      requirements: [
+        'Puntos de agua y desague ubicados en posicion compatible',
+        'Pared firme, nivelada y apta para fijacion',
+        'Vanitory completo y compatible con el espacio disponible',
+        'Llave de paso operativa para prueba final',
+      ],
+      materials: ['Flexibles y conexiones compatibles', 'Tornillos, tarugos y fijaciones', 'Silicona o sello sanitario', 'Sopapa, sifon y adaptadores si corresponde'],
+      finishCriteria: [
+        'El vanitory queda firme, alineado y nivelado',
+        'La bacha y la griferia funcionan correctamente',
+        'No hay perdidas visibles en conexiones intervenidas',
+        'El sellado queda prolijo y continuo',
+      ],
+      budgetNote: 'Si hay que mover canerias, reforzar pared, adaptar mueble o corregir desague, agregar esos trabajos como items separados.',
+    };
+  }
+
+  if (normalizedName.includes('bidet')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Fijacion, sellado y conexion de agua/desague para bidet.'),
+      imageSrc: '/catalog/items/bidet-instalado.jpg',
+      imageAlt: 'Bidet instalado en bano terminado',
+      includes: [
+        'Presentacion y nivelacion del bidet',
+        'Fijacion al piso o soporte existente',
+        'Conexion a puntos de agua y desague disponibles',
+        'Sellado sanitario en base y encuentros necesarios',
+        'Prueba de uso y verificacion de perdidas visibles',
+      ],
+      excludes: [
+        'Provision del bidet, griferia, flexibles o repuestos',
+        'Roturas, calados, revoques o revestimientos',
+        'Traslado de puntos de agua o desague',
+        'Correccion de pendiente o canerias existentes',
+      ],
+      requirements: [
+        'Puntos de agua y desague ubicados en posicion compatible',
+        'Piso terminado, firme y nivelado',
+        'Bidet completo y compatible con la instalacion existente',
+        'Llave de paso operativa para prueba final',
+      ],
+      materials: ['Flexibles y conexiones compatibles', 'Tornillos y tarugos de fijacion', 'Silicona o sello sanitario', 'Juntas, arandelas y adaptadores si corresponde'],
+      finishCriteria: [
+        'El bidet queda firme, alineado y usable',
+        'No hay perdidas visibles en conexiones intervenidas',
+        'El desague evacua correctamente en prueba simple',
+        'El sellado queda prolijo y continuo',
+      ],
+      budgetNote: 'Si hay que mover canerias, romper o corregir desague, agregar esos trabajos como items separados.',
+    };
+  }
+
+  if (normalizedName.includes('accesorios de bano')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Instalacion de accesorios de bano: toallero, portarrollo, jabonera y perchas.'),
+      imageSrc: '/catalog/items/accesorios-bano-set-5.jpg',
+      imageAlt: 'Instalacion de accesorios de bano set de 5 piezas',
+      includes: [
+        'Presentacion y marcado de ubicacion para cada accesorio',
+        'Perforacion y colocacion de tarugos segun soporte existente',
+        'Fijacion de hasta 5 accesorios de bano',
+        'Alineacion, ajuste y verificacion de firmeza',
+        'Limpieza basica del area intervenida',
+      ],
+      excludes: [
+        'Provision de accesorios, tornillos especiales o repuestos',
+        'Reparacion de ceramicos, porcelanato, pintura o revestimientos',
+        'Instalacion sobre vidrio, mampara, marmol o superficies especiales',
+        'Refuerzos estructurales o cambios de ubicacion posteriores',
+      ],
+      requirements: [
+        'Accesorios completos y compatibles con la superficie',
+        'Ubicaciones definidas antes de perforar',
+        'Pared firme y apta para fijacion',
+        'Sector libre para trabajar y medir correctamente',
+      ],
+      materials: ['Tarugos y tornillos compatibles', 'Sellador si corresponde', 'Elementos de medicion y nivelacion', 'Mechas adecuadas para la superficie'],
+      finishCriteria: [
+        'Los accesorios quedan firmes y alineados',
+        'No hay juego visible en las fijaciones',
+        'La ubicacion final coincide con lo aprobado',
+        'El set queda listo para uso cotidiano',
+      ],
+      budgetNote: 'Si la superficie requiere mechas especiales, reparaciones o colocacion sobre vidrio o marmol, presupuestar como adicional.',
+    };
+  }
   if (
     categoryKey.includes('artefactos') ||
     categoryKey.includes('sanitarios 2') ||
