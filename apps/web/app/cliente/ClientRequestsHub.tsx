@@ -798,6 +798,9 @@ export default function ClientRequestsHub() {
   const [clientProfileError, setClientProfileError] = useState('');
   const [clientProfileNotice, setClientProfileNotice] = useState('');
   const [savedClientProfilePhone, setSavedClientProfilePhone] = useState('');
+  const [showTechnicianSwitchConfirm, setShowTechnicianSwitchConfirm] = useState(false);
+  const [switchingToTechnician, setSwitchingToTechnician] = useState(false);
+  const [technicianSwitchError, setTechnicianSwitchError] = useState('');
   const [nearbyTechnicians, setNearbyTechnicians] = useState<NearbyTechnician[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(false);
   const [nearbyError, setNearbyError] = useState('');
@@ -1767,6 +1770,40 @@ export default function ClientRequestsHub() {
       setClientProfileError(error?.message || 'No se pudo guardar tu perfil.');
     } finally {
       setSavingClientProfile(false);
+    }
+  };
+
+  const handleSwitchToTechnicianProfile = async () => {
+    if (!session?.user?.id || switchingToTechnician) return;
+    setSwitchingToTechnician(true);
+    setTechnicianSwitchError('');
+    setClientProfileError('');
+    setClientProfileNotice('');
+
+    try {
+      if (!hasSupabaseConfig) {
+        throw new Error(supabaseConfigError);
+      }
+
+      setAuthAccessProfileIntent('tecnico');
+      const metadata = (session.user.user_metadata || {}) as Record<string, unknown>;
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...metadata,
+          user_type: 'tecnico',
+          profile: 'tecnico',
+        },
+      });
+      if (error) throw error;
+
+      await supabase.auth.refreshSession().catch(() => null);
+      if (typeof window !== 'undefined') {
+        window.location.assign('/tecnicos?perfil=tecnico&tab=perfil');
+      }
+    } catch (error: any) {
+      clearAuthAccessProfileIntent();
+      setTechnicianSwitchError(error?.message || 'No pudimos cambiar esta cuenta a perfil tecnico.');
+      setSwitchingToTechnician(false);
     }
   };
 
@@ -3364,6 +3401,61 @@ export default function ClientRequestsHub() {
                         );
                       })}
                     </div>
+                  </div>
+
+                  <div id="cambiar-a-tecnico" className="mt-5 rounded-2xl border border-[#ff8f1f]/25 bg-[#fff7ed] p-4">
+                    <div className="flex flex-wrap items-start gap-3">
+                      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-[#2a0338] text-white">
+                        <ShieldCheck className="h-5 w-5" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#9a5a13]">Cambio de acceso</p>
+                        <h3 className="mt-1 text-base font-semibold text-slate-950">Usar esta cuenta como tecnico</h3>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                          Si entraste por error como cliente, cambia el perfil para ver el panel tecnico y cargar tus datos de trabajo.
+                        </p>
+                      </div>
+                    </div>
+
+                    {showTechnicianSwitchConfirm ? (
+                      <div className="mt-4 rounded-2xl border border-[#ff8f1f]/25 bg-white p-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-950">Confirmar cambio</p>
+                          <p className="mt-1 text-xs leading-5 text-slate-600">
+                            Esta cuenta pasara al panel tecnico y dejara de abrirse como cliente por defecto.
+                          </p>
+                        </div>
+                        <div className="mt-3 flex flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowTechnicianSwitchConfirm(false)}
+                            disabled={switchingToTechnician}
+                            className={clientPanelSecondaryButtonClass + ' disabled:cursor-not-allowed disabled:opacity-60'}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleSwitchToTechnicianProfile}
+                            disabled={switchingToTechnician}
+                            className={clientPanelPrimaryButtonClass + ' disabled:cursor-not-allowed disabled:opacity-60'}
+                          >
+                            {switchingToTechnician ? 'Cambiando...' : 'Confirmar y entrar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowTechnicianSwitchConfirm(true)}
+                        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#ff8f1f] px-4 py-2.5 text-sm font-semibold text-[#2a0338] transition hover:brightness-105"
+                      >
+                        <span>Cambiar a tecnico</span>
+                        <ArrowRight className="h-4 w-4" />
+                      </button>
+                    )}
+
+                    {technicianSwitchError && <p className="mt-3 text-xs font-semibold text-rose-600">{technicianSwitchError}</p>}
                   </div>
 
                   {(clientProfileError || clientProfileNotice) && (
