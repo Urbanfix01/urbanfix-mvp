@@ -10749,6 +10749,96 @@ export default function TechniciansPage() {
                   <div className="space-y-4 border-t border-slate-200/70 pt-5">
                     <div className="flex items-center gap-3">
                       <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.85)]">
+                        <Wrench className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Rubro de trabajo</p>
+                        <p className="text-sm font-bold text-[#180f24]">Elegi al menos un rubro que ofreces</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <label className="text-xs font-semibold text-slate-600">Rubros que ofreces</label>
+                        <span
+                          className={
+                            selectedSpecialties.length > 0
+                              ? 'rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700'
+                              : 'rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700'
+                          }
+                        >
+                          {selectedSpecialties.length > 0 ? selectedSpecialties.length + ' seleccionado(s)' : 'Pendiente'}
+                        </span>
+                      </div>
+                      <select
+                        value=""
+                        onChange={(event) => handleSpecialtySelect(event.target.value)}
+                        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#ff8f1f]"
+                      >
+                        <option value="">Seleccionar rubro</option>
+                        {TECH_SPECIALTY_OPTIONS.slice()
+                          .sort((a, b) => a.localeCompare(b, 'es'))
+                          .map((specialty) => {
+                            const isSelected = selectedSpecialtiesSet.has(normalizeTextForParsing(specialty));
+                            return (
+                              <option key={specialty} value={specialty} disabled={isSelected}>
+                                {isSelected ? specialty + ' - seleccionado' : specialty}
+                              </option>
+                            );
+                          })}
+                      </select>
+
+                      {selectedSpecialties.length === 0 ? (
+                        <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                          Todavia falta elegir el rubro para poder guardar los datos clave.
+                        </p>
+                      ) : (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {selectedSpecialties.map((specialty) => (
+                            <button
+                              key={specialty}
+                              type="button"
+                              onClick={() => handleSpecialtyToggle(specialty)}
+                              className="inline-flex items-center gap-1 rounded-full bg-[#2a0338] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3b064f]"
+                              title="Quitar rubro"
+                            >
+                              {specialty}
+                              <X className="h-3 w-3" />
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <details className="mt-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-semibold text-slate-600">No encuentro mi rubro</summary>
+                        <p className="mt-2 text-[11px] text-slate-500">Usalo solo si no aparece en la lista principal.</p>
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            value={customSpecialtyDraft}
+                            onChange={(event) => setCustomSpecialtyDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key !== 'Enter') return;
+                              event.preventDefault();
+                              handleAddCustomSpecialty();
+                            }}
+                            placeholder="Ej: Durlock"
+                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800 outline-none transition focus:border-[#ff8f1f] focus:bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCustomSpecialty}
+                            className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                          >
+                            Agregar
+                          </button>
+                        </div>
+                      </details>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4 border-t border-slate-200/70 pt-5">
+                    <div className="flex items-center gap-3">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.85)]">
                         <MapPinned className="h-4 w-4" />
                       </span>
                       <div>
