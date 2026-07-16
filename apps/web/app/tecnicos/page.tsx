@@ -1523,38 +1523,72 @@ const AUTH_ROLE_SELECTOR_OPTIONS: Array<{
 }> = [
   {
     profile: 'tecnico',
-    title: 'Técnico',
-    badge: 'Operativo',
-    description: 'Presupuestos, solicitudes cercanas, seguimiento de trabajos y perfil público desde un mismo panel.',
-    info: 'Para profesionales que cotizan, responden solicitudes, organizan agenda y muestran su perfil publico.',
-    note: 'Ideal para operar y cotizar sin salir de la web.',
+    title: 'Tecnico',
+    badge: 'Panel de trabajo',
+    description: 'Vas a entrar al panel para cotizar, presupuestar y gestionar trabajos.',
+    info: 'Precios, presupuestos, agenda, solicitudes y perfil publico.',
+    note: 'Para ofrecer servicios.',
     icon: Wrench,
     iconShellClassName: 'border-[#ff8f1f]/[0.25] bg-[#ff8f1f]/[0.12]',
     iconClassName: 'text-[#ff8f1f]',
   },
   {
-    profile: 'empresa',
-    title: 'Empresa',
-    badge: 'Comercial',
-    description: 'Centraliza marca, responsables, presupuestos y flujo comercial en una única cuenta operativa.',
-    info: 'Para empresas, marcas o equipos que necesitan gestionar responsables, presupuestos y datos comerciales.',
-    note: 'Pensado para equipos, marcas y gestión comercial.',
-    icon: Building2,
-    iconShellClassName: 'border-[#2a0338]/[0.18] bg-[#2a0338]/[0.08]',
-    iconClassName: 'text-[#2a0338]',
-  },
-  {
     profile: 'cliente',
     title: 'Cliente',
-    badge: 'Solicitudes',
-    description: 'Publica pedidos, recibe cotizaciones y encuentra técnicos en el flujo específico para clientes.',
-    info: 'Para personas que quieren publicar una solicitud, seguir respuestas y contactar tecnicos desde su portal.',
-    note: 'Te llevamos directo al portal cliente.',
+    badge: 'Portal de pedidos',
+    description: 'Vas a entrar al portal para pedir trabajos y seguir presupuestos.',
+    info: 'Solicitudes, respuestas de tecnicos, presupuestos y seguimiento.',
+    note: 'Para pedir un servicio.',
     icon: Home,
     iconShellClassName: 'border-sky-200 bg-sky-50',
     iconClassName: 'text-sky-700',
   },
 ];
+
+const AUTH_ACCESS_FLOW_COPY: Record<
+  AccessProfile,
+  {
+    panelLabel: string;
+    title: string;
+    body: string;
+    googleLabel: string;
+    loginLabel: string;
+    registerLabel: string;
+    registerHint: string;
+    secureLabel: string;
+  }
+> = {
+  tecnico: {
+    panelLabel: 'Panel tecnico',
+    title: 'Confirmar acceso tecnico',
+    body: 'Precios, presupuestos, agenda y perfil publico.',
+    googleLabel: 'Continuar con Google',
+    loginLabel: 'Ingresar',
+    registerLabel: 'Crear cuenta tecnica',
+    registerHint: 'Despues completas rubro, zona y datos del negocio.',
+    secureLabel: 'Acceso seguro UrbanFix',
+  },
+  empresa: {
+    panelLabel: 'Panel empresa',
+    title: 'Confirmar acceso empresa',
+    body: 'Marca, responsables, presupuestos y seguimiento comercial.',
+    googleLabel: 'Continuar con Google',
+    loginLabel: 'Ingresar',
+    registerLabel: 'Crear cuenta empresa',
+    registerHint: 'Despues completas marca, rubros y datos comerciales.',
+    secureLabel: 'Acceso seguro UrbanFix',
+  },
+  cliente: {
+    panelLabel: 'Portal cliente',
+    title: 'Confirmar acceso cliente',
+    body: 'Solicitudes, presupuestos y contacto con tecnicos.',
+    googleLabel: 'Continuar con Google',
+    loginLabel: 'Ingresar',
+    registerLabel: 'Crear cuenta cliente',
+    registerHint: 'Tu cuenta queda separada del panel tecnico.',
+    secureLabel: 'Acceso seguro UrbanFix',
+  },
+};
 
 const AUTH_PROFILE_META = {
   tecnico: {
@@ -3950,6 +3984,7 @@ export default function TechniciansPage() {
   const [sendingRecovery, setSendingRecovery] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
   const [selectedAccessProfile, setSelectedAccessProfile] = useState<AccessProfile | null>(null);
+  const [pendingAccessProfile, setPendingAccessProfile] = useState<AccessProfile | null>(null);
   const [isDesignPreview, setIsDesignPreview] = useState(false);
   const [accessTransitionProfile, setAccessTransitionProfile] = useState<AccessProfile | null>(null);
   const [recoveryPassword, setRecoveryPassword] = useState('');
@@ -4373,6 +4408,7 @@ export default function TechniciansPage() {
       accessTransitionTimerRef.current = null;
     }
     setAccessTransitionProfile(profile);
+    setPendingAccessProfile(profile);
     setAuthError('');
     setAuthNotice('');
     setShowAuthPassword(false);
@@ -4380,29 +4416,36 @@ export default function TechniciansPage() {
     accessTransitionTimerRef.current = window.setTimeout(() => {
       accessTransitionTimerRef.current = null;
       setAccessTransitionProfile(null);
+    }, 180);
+  };
 
-      if (profile === 'cliente') {
-        if (typeof window !== 'undefined') {
-          setAuthAccessProfileIntent('cliente');
-          const clientParams = new URLSearchParams();
-          clientParams.set('mode', authMode);
-          const currentParams = new URLSearchParams(window.location.search);
-          const nextPath = sanitizeNextPath(currentParams.get('next'));
-          if (nextPath) {
-            clientParams.set('next', nextPath);
-          }
-          const intent = currentParams.get('intent');
-          if (intent) {
-            clientParams.set('intent', intent);
-          }
-          window.location.href = `/cliente?${clientParams.toString()}`;
+  const handleConfirmAccessProfile = () => {
+    if (!pendingAccessProfile) return;
+    const profile = pendingAccessProfile;
+
+    if (profile === 'cliente') {
+      if (typeof window !== 'undefined') {
+        setAuthAccessProfileIntent('cliente');
+        const clientParams = new URLSearchParams();
+        clientParams.set('mode', authMode);
+        const currentParams = new URLSearchParams(window.location.search);
+        const nextPath = sanitizeNextPath(currentParams.get('next'));
+        if (nextPath) {
+          clientParams.set('next', nextPath);
         }
-        return;
+        const intent = currentParams.get('intent');
+        if (intent) {
+          clientParams.set('intent', intent);
+        }
+        window.location.href = '/cliente?' + clientParams.toString();
       }
-      clearAuthAccessProfileIntent();
-      setSelectedAccessProfile(profile);
-      setAccessProfileInUrl(profile);
-    }, 240);
+      return;
+    }
+
+    clearAuthAccessProfileIntent();
+    setPendingAccessProfile(null);
+    setSelectedAccessProfile(profile);
+    setAccessProfileInUrl(profile);
   };
 
   const handleBackToProfileSelector = () => {
@@ -4411,6 +4454,7 @@ export default function TechniciansPage() {
       accessTransitionTimerRef.current = null;
     }
     setAccessTransitionProfile(null);
+    setPendingAccessProfile(null);
     setSelectedAccessProfile(null);
     setAutoGoogleStarted(false);
     setQuickRegisterMode(false);
@@ -8245,6 +8289,21 @@ export default function TechniciansPage() {
     if (selectedAccessProfile === 'tecnico') return AUTH_PROFILE_META.tecnico;
     return null;
   }, [selectedAccessProfile]);
+  const selectedAccessFlowCopy = useMemo(
+    () => (selectedAccessProfile ? AUTH_ACCESS_FLOW_COPY[selectedAccessProfile] : null),
+    [selectedAccessProfile]
+  );
+  const pendingAccessOption = useMemo(
+    () =>
+      pendingAccessProfile
+        ? AUTH_ROLE_SELECTOR_OPTIONS.find((option) => option.profile === pendingAccessProfile) ?? null
+        : null,
+    [pendingAccessProfile]
+  );
+  const pendingAccessFlowCopy = useMemo(
+    () => (pendingAccessProfile ? AUTH_ACCESS_FLOW_COPY[pendingAccessProfile] : null),
+    [pendingAccessProfile]
+  );
   const agendaBaseDate = startOfDay(new Date());
   const agendaTodayKey = formatDateLocal(agendaBaseDate);
   const agendaTomorrowKey = formatDateLocal(addDays(agendaBaseDate, 1));
@@ -10962,69 +11021,103 @@ export default function TechniciansPage() {
 
             <main className="relative z-10 mx-auto flex min-h-screen w-full max-w-xl items-center justify-center px-4 py-8 sm:px-6 sm:py-10">
               <section
-                className={`w-full backdrop-blur ${
-                  selectedAccessProfile
-                    ? 'rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-5'
-                    : 'rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-5'
+                className={`w-full ${
+                  pendingAccessProfile && !selectedAccessProfile
+                    ? 'text-white'
+                    : selectedAccessProfile
+                      ? 'backdrop-blur rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-5'
+                      : 'backdrop-blur rounded-[32px] border border-white/[0.16] bg-[linear-gradient(145deg,rgba(255,255,255,0.14),rgba(255,255,255,0.055)_48%,rgba(255,143,31,0.10))] p-4 text-white shadow-[0_44px_120px_-64px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.16)] sm:p-5'
                 }`}
               >
                 {!selectedAccessProfile ? (
-                  <div className={`space-y-3 ${accessTransitionProfile ? 'ufx-auth-selector-exit' : 'ufx-auth-view-enter'}`}>
-                    {AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
-                      const Icon = option.icon;
-                      const isTransitionTarget = accessTransitionProfile === option.profile;
-                      const isTransitionDimmed = Boolean(accessTransitionProfile) && !isTransitionTarget;
-                      return (
-                        <button
-                          key={option.profile}
-                          type="button"
-                          disabled={Boolean(accessTransitionProfile)}
-                          onClick={() => handleAccessProfileSelect(option.profile)}
-                          className={`group relative w-full overflow-hidden rounded-[24px] border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.045))] px-4 py-4 text-left shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ffb35e]/[0.52] hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.17),rgba(255,255,255,0.07))] hover:shadow-[0_26px_62px_-42px_rgba(255,143,31,0.7)] disabled:cursor-default ${
-                            isTransitionTarget
-                              ? 'scale-[1.015] border-[#ffcf93]/60 bg-[linear-gradient(135deg,rgba(255,143,31,0.18),rgba(255,255,255,0.08))] shadow-[0_28px_72px_-42px_rgba(255,143,31,0.9)]'
-                              : ''
-                          } ${isTransitionDimmed ? 'scale-[0.985] opacity-40 blur-[1px]' : ''}`}
-                        >
-                          <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-gradient-to-b from-[#ff8f1f] via-[#ffcf93] to-white/[0.18]" />
-                          <div
-                            aria-hidden="true"
-                            className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.32] to-transparent"
-                          />
-                          <div className="relative flex items-center gap-4">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
-                              <Icon className={`h-5 w-5 ${option.iconClassName}`} />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="text-lg font-semibold text-white">{option.title}</p>
-                                <span className="rounded-full border border-white/[0.12] bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/[0.58]">
-                                  {option.badge}
+                  <div className={accessTransitionProfile ? 'space-y-3 ufx-auth-selector-exit' : 'space-y-3 ufx-auth-view-enter'}>
+                    {pendingAccessProfile && pendingAccessOption && pendingAccessFlowCopy ? (
+                      <div className="rounded-[26px] border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))] px-4 py-4 text-white shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)]">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
+                            {pendingAccessProfile === 'cliente' ? (
+                              <Home className="h-5 w-5 text-sky-700" />
+                            ) : (
+                              <Wrench className="h-5 w-5 text-[#ff8f1f]" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#ffcf93]">Confirmar acceso</p>
+                            <h1 className="mt-1 text-xl font-black leading-tight text-white">{pendingAccessFlowCopy.title}</h1>
+                            <p className="mt-2 text-sm leading-6 text-white/[0.72]">{pendingAccessOption.description}</p>
+                            <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ffcf93]">{pendingAccessOption.note}</p>
+                          </div>
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPendingAccessProfile(null)}
+                            className="min-h-11 rounded-2xl border border-white/[0.14] bg-white/[0.06] px-4 py-2 text-sm font-semibold text-white/[0.72] transition hover:border-white/[0.24] hover:bg-white/[0.10] hover:text-white"
+                          >
+                            Volver
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleConfirmAccessProfile}
+                            className="min-h-11 rounded-2xl bg-[#ff8f1f] px-4 py-2 text-sm font-black text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56]"
+                          >
+                            {pendingAccessProfile === 'cliente' ? 'Ir al portal' : 'Continuar'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
+                        const Icon = option.icon;
+                        const isTransitionTarget = accessTransitionProfile === option.profile;
+                        const isTransitionDimmed = Boolean(accessTransitionProfile) && !isTransitionTarget;
+                        return (
+                          <button
+                            key={option.profile}
+                            type="button"
+                            disabled={Boolean(accessTransitionProfile)}
+                            onClick={() => handleAccessProfileSelect(option.profile)}
+                            className={
+                              'group relative w-full overflow-hidden rounded-[24px] border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.12),rgba(255,255,255,0.045))] px-4 py-4 text-left shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)] transition duration-300 hover:-translate-y-0.5 hover:border-[#ffb35e]/[0.52] hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.17),rgba(255,255,255,0.07))] hover:shadow-[0_26px_62px_-42px_rgba(255,143,31,0.7)] disabled:cursor-default ' +
+                              (isTransitionTarget
+                                ? 'scale-[1.015] border-[#ffcf93]/60 bg-[linear-gradient(135deg,rgba(255,143,31,0.18),rgba(255,255,255,0.08))] shadow-[0_28px_72px_-42px_rgba(255,143,31,0.9)] '
+                                : '') +
+                              (isTransitionDimmed ? 'scale-[0.985] opacity-40 blur-[1px]' : '')
+                            }
+                          >
+                            <div className="absolute inset-y-0 left-0 w-1 rounded-full bg-gradient-to-b from-[#ff8f1f] via-[#ffcf93] to-white/[0.18]" />
+                            <div
+                              aria-hidden="true"
+                              className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.32] to-transparent"
+                            />
+                            <div className="relative flex items-center gap-4">
+                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
+                                <Icon className={'h-5 w-5 ' + option.iconClassName} />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <p className="text-lg font-semibold text-white">{option.title}</p>
+                                  <span className="rounded-full border border-white/[0.12] bg-white/[0.08] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/[0.58]">
+                                    {option.badge}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="flex shrink-0 items-center gap-2">
+                                <span
+                                  className="group/info relative flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.045] text-white/[0.62] transition hover:border-[#ffcf93]/50 hover:bg-white/[0.10] hover:text-[#ffcf93]"
+                                  aria-label={'Info sobre ' + option.title}
+                                  title={option.info}
+                                >
+                                  <Info className="h-4 w-4" />
+                                </span>
+                                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.06] text-[#ffcf93] transition group-hover:translate-x-0.5 group-hover:border-[#ffcf93]/50 group-hover:bg-[#ff8f1f]/[0.12]">
+                                  <ArrowRight className="h-4 w-4" />
                                 </span>
                               </div>
                             </div>
-                            <div className="flex shrink-0 items-center gap-2">
-                              <span
-                                className="group/info relative flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.045] text-white/[0.62] transition hover:border-[#ffcf93]/50 hover:bg-white/[0.10] hover:text-[#ffcf93]"
-                                aria-label={`Info sobre ${option.title}`}
-                                title={option.info}
-                              >
-                                <Info className="h-4 w-4" />
-                                <span
-                                  role="tooltip"
-                                  className="pointer-events-none absolute right-full top-1/2 z-30 mr-2 hidden w-[min(72vw,240px)] -translate-y-1/2 rounded-2xl border border-[#ffcf93]/40 bg-[#fffdf9] px-3 py-2 text-[11px] font-medium leading-5 text-[#2a0338] opacity-0 shadow-[0_18px_42px_-24px_rgba(0,0,0,0.7)] transition duration-200 group-hover/info:opacity-100 sm:block"
-                                >
-                                  {option.info}
-                                </span>
-                              </span>
-                              <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/[0.10] bg-white/[0.06] text-[#ffcf93] transition group-hover:translate-x-0.5 group-hover:border-[#ffcf93]/50 group-hover:bg-[#ff8f1f]/[0.12]">
-                                <ArrowRight className="h-4 w-4" />
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })}
+                          </button>
+                        );
+                      })
+                    )}
                   </div>
                 ) : (
                   <div className="ufx-auth-view-enter">
@@ -11044,7 +11137,7 @@ export default function TechniciansPage() {
                         ) : (
                           <Wrench className="h-3.5 w-3.5 text-[#ffcf93]" />
                         )}
-                        {selectedAccessMeta?.panelLabel || 'Acceso'}
+                        {selectedAccessFlowCopy?.panelLabel || selectedAccessMeta?.panelLabel || 'Acceso'}
                       </span>
                     </div>
 
@@ -11055,7 +11148,7 @@ export default function TechniciansPage() {
                     )}
 
                     <div className="rounded-[28px] border border-[#eadfce]/70 bg-[#fffdf9] p-4 text-[#180f24] shadow-[0_28px_76px_-50px_rgba(0,0,0,0.92)] sm:p-5">
-                        <button
+<button
                           type="button"
                           onClick={handleGoogleLogin}
                           disabled={googleAuthLoading || authLoading}
@@ -11066,7 +11159,7 @@ export default function TechniciansPage() {
                           ) : (
                             <GoogleMark className="h-5 w-5" />
                           )}
-                          {googleAuthLoading ? 'Abriendo Google...' : 'Continuar con Google'}
+                          {googleAuthLoading ? 'Abriendo Google...' : selectedAccessFlowCopy?.googleLabel || 'Continuar con Google'}
                         </button>
 
                         <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
@@ -11151,7 +11244,7 @@ export default function TechniciansPage() {
                               />
                             </div>
                             <p className="text-[11px] leading-5 text-slate-500">
-                              Para crear la cuenta necesitamos nombre, negocio y WhatsApp. Luego completas rubros, zona exacta y datos comerciales dentro del panel.
+                              {selectedAccessFlowCopy?.registerHint || 'Para crear la cuenta necesitamos nombre, negocio y WhatsApp. Luego completas rubros, zona exacta y datos comerciales dentro del panel.'}
                             </p>
                             {technicalRegisterMissing.length > 0 && (
                               <p className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-800">
@@ -11226,12 +11319,16 @@ export default function TechniciansPage() {
                           className="mt-5 inline-flex min-h-[48px] w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#2a0338] shadow-[0_18px_40px_-24px_rgba(255,143,31,0.78)] transition hover:bg-[#ffad56] disabled:cursor-not-allowed disabled:opacity-50"
                         >
                           {authLoading && <Loader2 className="h-4 w-4 animate-spin" />}
-                          {authLoading ? 'Procesando...' : authMode === 'login' ? 'Ingresar' : 'Crear cuenta'}
+                          {authLoading
+                            ? 'Procesando...'
+                            : authMode === 'login'
+                              ? selectedAccessFlowCopy?.loginLabel || 'Ingresar'
+                              : selectedAccessFlowCopy?.registerLabel || 'Crear cuenta'}
                           {!authLoading && <ArrowRight className="h-4 w-4" />}
                         </button>
                         <p className="mt-3 flex items-center justify-center gap-1.5 text-[11px] font-semibold text-slate-400">
                           <ShieldCheck className="h-3.5 w-3.5 text-[#c48635]" />
-                          Acceso seguro UrbanFix
+                          {selectedAccessFlowCopy?.secureLabel || 'Acceso seguro UrbanFix'}
                         </p>
                     </div>
                   </div>
