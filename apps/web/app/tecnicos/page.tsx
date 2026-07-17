@@ -8076,17 +8076,37 @@ export default function TechniciansPage() {
     () => notifications.filter((item) => !item.read_at).length,
     [notifications]
   );
-  const technicianTopMenuItems = navItems.map((item) => ({
-    key: item.key,
-    label: item.label,
-    active: activeNavKey === item.key,
-    badge: item.key === 'notificaciones' && unreadNotifications > 0 ? unreadNotifications : null,
-    icon: item.icon,
-    onSelect: () => {
-      setActiveTab(item.key);
-      if (item.key === 'presupuestos') setQuoteFilter('all');
+  const technicianTopMenuItems = [
+    ...navItems.map((item) => ({
+      key: item.key,
+      label: item.label,
+      active: activeNavKey === item.key,
+      badge: item.key === 'notificaciones' && unreadNotifications > 0 ? unreadNotifications : null,
+      icon: item.icon,
+      onSelect: () => {
+        setActiveTab(item.key);
+        if (item.key === 'presupuestos') setQuoteFilter('all');
+      },
+    })),
+    {
+      key: 'mobile-settings',
+      label: 'Configuraci\u00f3n',
+      active: activeTab === 'perfil',
+      badge: null,
+      icon: Settings,
+      onSelect: () => setActiveTab('perfil'),
     },
-  }));
+    {
+      key: 'mobile-logout',
+      label: 'Cerrar sesi\u00f3n',
+      active: false,
+      badge: null,
+      icon: LogOut,
+      onSelect: () => {
+        void handleLogout();
+      },
+    },
+  ];
   const notificationStats = useMemo(
     () => ({
       all: notifications.length,
