@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Image from 'next/image';
-import { Manrope, Space_Grotesk } from 'next/font/google';
+import { Manrope, Sora, Space_Grotesk } from 'next/font/google';
 import {
   ArrowLeft,
   ArrowRight,
@@ -1408,6 +1408,11 @@ const getClientInitials = (name: string) => {
 };
 
 const manrope = Manrope({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700', '800'],
+});
+
+const sora = Sora({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800'],
 });
@@ -11011,7 +11016,7 @@ export default function TechniciansPage() {
         <div
           style={activeThemeStyles}
           data-ui-theme={uiTheme}
-          className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[#16031f] text-white`}
+          className={`ufx-theme-scope ${sora.className} min-h-screen bg-[#16031f] text-white`}
         >
           <div className="relative overflow-hidden">
             <div
@@ -11032,7 +11037,41 @@ export default function TechniciansPage() {
                 {!selectedAccessProfile ? (
                   <div className={accessTransitionProfile ? 'space-y-3 ufx-auth-selector-exit' : 'space-y-3 ufx-auth-view-enter'}>
                     {pendingAccessProfile && pendingAccessOption && pendingAccessFlowCopy ? (
-                      <div className="rounded-[26px] border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))] px-4 py-4 text-white shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)]">
+                      <>
+                        {(pendingAccessProfile === 'cliente' || pendingAccessProfile === 'tecnico') && (
+                          <div className="overflow-hidden rounded-t-[26px] border border-b-0 border-white/[0.14] shadow-[0_22px_54px_-38px_rgba(0,0,0,0.95)]">
+                            <div className="relative aspect-[2/1] min-h-[154px] w-full bg-[#16031f]">
+                              <Image
+                                src={
+                                  pendingAccessProfile === 'cliente'
+                                    ? '/auth/client-service-confirmation.jpg'
+                                    : '/auth/technician-access-confirmation.jpg'
+                                }
+                                alt={
+                                  pendingAccessProfile === 'cliente'
+                                    ? 'Cliente confirmando la contratacion de un servicio tecnico'
+                                    : 'Tecnica de UrbanFix trabajando en una obra'
+                                }
+                                fill
+                                priority
+                                sizes="(min-width: 640px) 576px, 100vw"
+                                className="object-cover"
+                              />
+                              <div
+                                aria-hidden="true"
+                                className="absolute inset-0 bg-[linear-gradient(180deg,rgba(22,3,31,0.02)_0%,rgba(22,3,31,0.18)_58%,rgba(22,3,31,0.52)_100%)]"
+                              />
+                            </div>
+                          </div>
+                        )}
+                        <div
+                          className={[
+                            'border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))] px-4 py-4 text-white shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)]',
+                            pendingAccessProfile === 'cliente' || pendingAccessProfile === 'tecnico'
+                              ? '!-mt-px rounded-b-[26px] rounded-t-none'
+                              : 'rounded-[26px]',
+                          ].join(' ')}
+                        >
                         <div className="flex items-start gap-4">
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
                             {pendingAccessProfile === 'cliente' ? (
@@ -11064,7 +11103,8 @@ export default function TechniciansPage() {
                             {pendingAccessProfile === 'cliente' ? 'Ir al portal' : 'Continuar'}
                           </button>
                         </div>
-                      </div>
+                        </div>
+                      </>
                     ) : (
                       AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
                         const Icon = option.icon;
