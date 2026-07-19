@@ -275,10 +275,10 @@ type LaborTemplateLookup = {
 type MaterialTemplateLookup = LaborTemplateLookup;
 
 const QUOTE_ESTIMATOR_OPTIONS: Array<{ key: QuoteWorkEstimatorMode; label: string }> = [
-  { key: 'revoques', label: 'Cómputo: Revoques' },
-  { key: 'mamposteria', label: 'Cómputo: Mampostería' },
-  { key: 'pisos', label: 'Cómputo: Pisos' },
-  { key: 'pintura', label: 'Cómputo: Pintura' },
+  { key: 'revoques', label: 'CÃ³mputo: Revoques' },
+  { key: 'mamposteria', label: 'CÃ³mputo: MamposterÃ­a' },
+  { key: 'pisos', label: 'CÃ³mputo: Pisos' },
+  { key: 'pintura', label: 'CÃ³mputo: Pintura' },
 ];
 
 const DEFAULT_QUOTE_ESTIMATOR_MODE: QuoteWorkEstimatorMode = QUOTE_ESTIMATOR_OPTIONS[0]?.key || 'manual';
@@ -714,7 +714,7 @@ const PISO_MATERIAL_PRICE_LOOKUPS: Record<PisoMaterialPriceField, MaterialTempla
     termGroups: [
       ['pastina'],
       ['fragua'],
-      ['fragüe'],
+      ['fragÃ¼e'],
       ['frague'],
     ],
     preferredUnit: 'kg',
@@ -899,7 +899,7 @@ const extractProvinceHint = (...candidates: Array<string | null | undefined>) =>
 };
 
 const LOCALITY_CONTAINER_PREFIXES = ['partido de ', 'departamento de ', 'comuna ', 'provincia de '];
-const GENERIC_MAP_LOCATION_LABEL = 'Ubicación seleccionada en mapa';
+const GENERIC_MAP_LOCATION_LABEL = 'UbicaciÃ³n seleccionada en mapa';
 
 const isLikelyPostalSegment = (value: string) => /^[a-z]{0,3}\d{4,}[a-z0-9-]*$/i.test(value.replace(/\s+/g, ''));
 
@@ -1394,7 +1394,7 @@ const requestPublicZoneLabel = (request: Pick<NearbyRequestRow, 'city' | 'distan
   const city = String(request.city || '').trim();
   const distance = Number(request.distance_km);
   const distanceLabel = Number.isFinite(distance) ? `${distance.toFixed(1)} km aprox.` : 'Distancia aproximada';
-  return city ? `${city} · ${distanceLabel}` : distanceLabel;
+  return city ? `${city} Â· ${distanceLabel}` : distanceLabel;
 };
 
 const getClientInitials = (name: string) => {
@@ -1468,8 +1468,8 @@ const authOptionButtonClass =
   'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-left transition hover:border-[color:var(--ui-accent-soft)]';
 
 const AUTH_FORM_VALIDATION_MESSAGES = [
-  'Ingresa correo y contraseña.',
-  'Ingresa un correo válido.',
+  'Ingresa correo y contraseÃ±a.',
+  'Ingresa un correo vÃ¡lido.',
   'Ingresa un correo real para crear la cuenta.',
   'No pudimos validar el dominio del correo. Usa una cuenta real.',
   PASSWORD_POLICY_MESSAGE,
@@ -1487,13 +1487,13 @@ const getFriendlyAuthErrorMessage = (
 
   const normalizedMessage = rawMessage.toLowerCase();
   if (normalizedMessage.includes('invalid login credentials') || normalizedMessage.includes('invalid credentials')) {
-    return 'Correo o contraseña incorrectos.';
+    return 'Correo o contraseÃ±a incorrectos.';
   }
   if (normalizedMessage.includes('email not confirmed')) {
     return 'Confirma tu correo antes de ingresar.';
   }
   if (normalizedMessage.includes('already registered') || normalizedMessage.includes('user already exists')) {
-    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseña.';
+    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseÃ±a.';
   }
   if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
     return PASSWORD_POLICY_MESSAGE;
@@ -1502,13 +1502,13 @@ const getFriendlyAuthErrorMessage = (
     return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
   }
   if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
-    return 'No pudimos conectar. Revisa tu conexión e intenta nuevamente.';
+    return 'No pudimos conectar. Revisa tu conexiÃ³n e intenta nuevamente.';
   }
   if (mode === 'google') {
     return 'No pudimos abrir el acceso con Google. Intenta nuevamente.';
   }
   if (mode === 'recovery') {
-    return 'No pudimos enviar el correo de recuperación.';
+    return 'No pudimos enviar el correo de recuperaciÃ³n.';
   }
   return mode === 'register'
     ? 'No pudimos crear la cuenta. Revisa los datos e intenta de nuevo.'
@@ -1597,29 +1597,29 @@ const AUTH_ACCESS_FLOW_COPY: Record<
 
 const AUTH_PROFILE_META = {
   tecnico: {
-    panelLabel: 'Panel técnico',
-    heading: 'Ingresa a tu operación técnica con una entrada más clara.',
+    panelLabel: 'Panel tÃ©cnico',
+    heading: 'Ingresa a tu operaciÃ³n tÃ©cnica con una entrada mÃ¡s clara.',
     description:
-      'Accede a presupuestos, solicitudes cercanas, facturación y presencia pública sin pasar por una pantalla genérica.',
+      'Accede a presupuestos, solicitudes cercanas, facturaciÃ³n y presencia pÃºblica sin pasar por una pantalla genÃ©rica.',
     heroCards: [
       {
-        eyebrow: 'Cotización',
+        eyebrow: 'CotizaciÃ³n',
         title: 'Presupuestos listos para compartir',
-        body: 'Armá links y PDFs claros con identidad propia y seguimiento desde la web.',
+        body: 'ArmÃ¡ links y PDFs claros con identidad propia y seguimiento desde la web.',
       },
       {
         eyebrow: 'Cobertura',
         title: 'Solicitudes, agenda y vidriera',
-        body: 'Concentrá operación, disponibilidad y visibilidad pública desde un solo panel.',
+        body: 'ConcentrÃ¡ operaciÃ³n, disponibilidad y visibilidad pÃºblica desde un solo panel.',
       },
     ],
     accessBullets: [
-      'Responder solicitudes y cotizar sin fricción.',
+      'Responder solicitudes y cotizar sin fricciÃ³n.',
       'Administrar precios, agenda, notificaciones y seguimiento.',
-      'Publicar tu perfil en vidriera y mapa cuando estés listo.',
+      'Publicar tu perfil en vidriera y mapa cuando estÃ©s listo.',
     ],
     afterSteps: [
-      'Entrás al panel y completas tu perfil operativo.',
+      'EntrÃ¡s al panel y completas tu perfil operativo.',
       'Cargas rubros, zona de trabajo y tu primer presupuesto.',
       'Si quieres, publicas tu perfil para aparecer en la vidriera y el mapa.',
     ],
@@ -1628,28 +1628,28 @@ const AUTH_PROFILE_META = {
     panelLabel: 'Panel empresa',
     heading: 'Acceso para marcas y equipos que necesitan orden comercial.',
     description:
-      'Entra a una vista enfocada en marca, responsables, presupuestos y seguimiento comercial con una estética alineada al sitio actual.',
+      'Entra a una vista enfocada en marca, responsables, presupuestos y seguimiento comercial con una estÃ©tica alineada al sitio actual.',
     heroCards: [
       {
         eyebrow: 'Control',
-        title: 'Gestión comercial centralizada',
+        title: 'GestiÃ³n comercial centralizada',
         body: 'Unifica responsables, presupuestos y estado de avance con una sola cuenta web.',
       },
       {
         eyebrow: 'Marca',
-        title: 'Presentación más sólida',
-        body: 'Tus propuestas, datos comerciales y presencia pública quedan mejor alineados con la identidad de empresa.',
+        title: 'PresentaciÃ³n mÃ¡s sÃ³lida',
+        body: 'Tus propuestas, datos comerciales y presencia pÃºblica quedan mejor alineados con la identidad de empresa.',
       },
     ],
     accessBullets: [
       'Centralizar presupuestos, responsables y seguimiento.',
       'Mantener branding, datos comerciales y contacto en una sola capa.',
-      'Escalar la operación con un acceso menos improvisado.',
+      'Escalar la operaciÃ³n con un acceso menos improvisado.',
     ],
     afterSteps: [
-      'Ingresas al panel y validas tu información comercial.',
+      'Ingresas al panel y validas tu informaciÃ³n comercial.',
       'Configuras marca, responsables, rubros y flujo de trabajo.',
-      'Publicas presencia y compartes presupuestos desde una base más sólida.',
+      'Publicas presencia y compartes presupuestos desde una base mÃ¡s sÃ³lida.',
     ],
   },
 } as const;
@@ -1698,7 +1698,7 @@ const extractQuoteId = (value: string) => {
 };
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  draft: { label: 'Cómputo', className: 'bg-slate-100 text-slate-600' },
+  draft: { label: 'CÃ³mputo', className: 'bg-slate-100 text-slate-600' },
   sent: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   presented: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   approved: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-700' },
@@ -1864,8 +1864,8 @@ const normalizeLaborLookupText = (value: string | null | undefined) =>
   String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/²/g, '2')
-    .replace(/³/g, '3')
+    .replace(/Â²/g, '2')
+    .replace(/Â³/g, '3')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -2426,7 +2426,7 @@ const getFinancePeriodLabel = (date: Date, mode: FinanceTimelineMode) => {
 
 const getFinanceTimelineUnit = (mode: FinanceTimelineMode, amount: number) => {
   if (mode === 'weekly') return amount === 1 ? 'semana' : 'semanas';
-  if (mode === 'yearly') return amount === 1 ? 'año' : 'años';
+  if (mode === 'yearly') return amount === 1 ? 'aÃ±o' : 'aÃ±os';
   return amount === 1 ? 'mes' : 'meses';
 };
 
@@ -3029,60 +3029,60 @@ type MasterItemBlueprintRule = {
 };
 
 const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Fijación, sellado y conexión de agua/desagüe.',
+  summary: 'FijaciÃ³n, sellado y conexiÃ³n de agua/desagÃ¼e.',
   imageSrc: '/catalog/items/inodoro-mochila-instalado.jpg',
   imageAlt: 'Inodoro con mochila instalado en bano terminado',
   includes: [
-    'Presentación y nivelación del inodoro',
-    'Fijación al piso con tornillos y tarugos',
-    'Armado y regulación de mochila',
-    'Conexión de flexible de agua',
-    'Conexión a descarga existente',
+    'PresentaciÃ³n y nivelaciÃ³n del inodoro',
+    'FijaciÃ³n al piso con tornillos y tarugos',
+    'Armado y regulaciÃ³n de mochila',
+    'ConexiÃ³n de flexible de agua',
+    'ConexiÃ³n a descarga existente',
     'Sellado perimetral sanitario',
-    'Prueba de carga, descarga y pérdidas',
+    'Prueba de carga, descarga y pÃ©rdidas',
   ],
   excludes: [
-    'Provisión del inodoro, mochila, asiento o flexible',
-    'Roturas, calados, albañilería o revestimientos',
-    'Cambio de cañerías o llave de paso',
+    'ProvisiÃ³n del inodoro, mochila, asiento o flexible',
+    'Roturas, calados, albaÃ±ilerÃ­a o revestimientos',
+    'Cambio de caÃ±erÃ­as o llave de paso',
     'Traslado de punto sanitario',
   ],
   requirements: [
-    'Punto de agua y descarga existentes en posición correcta',
+    'Punto de agua y descarga existentes en posiciÃ³n correcta',
     'Piso terminado, firme y nivelado',
     'Artefacto compatible con la salida existente',
     'Llave de paso operativa para cortar el agua',
   ],
   materials: [
     'Flexible mallado',
-    'Tornillos y tarugos de fijación',
+    'Tornillos y tarugos de fijaciÃ³n',
     'Sello sanitario / silicona neutra',
     'Conector o junta para descarga si corresponde',
   ],
   finishCriteria: [
     'El inodoro queda firme y alineado',
     'La mochila carga, corta y descarga correctamente',
-    'No hay pérdida visible en flexible, mochila ni descarga',
+    'No hay pÃ©rdida visible en flexible, mochila ni descarga',
     'El cliente recibe el punto probado antes del cierre',
   ],
-  budgetNote: 'Si hay que romper, mover cañería o corregir descarga, agregar esos trabajos como ítems separados.',
+  budgetNote: 'Si hay que romper, mover caÃ±erÃ­a o corregir descarga, agregar esos trabajos como Ã­tems separados.',
 };
 
 const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Red de agua fria/caliente para baño, cocina y lavadero hasta 25 metros lineales.',
+  summary: 'Red de agua fria/caliente para baÃ±o, cocina y lavadero hasta 25 metros lineales.',
   imageSrc: '/catalog/items/agua-fria-caliente-bano-cocina-lavadero.jpg',
-  imageAlt: 'Instalacion de agua fria y caliente para baño, cocina y lavadero',
+  imageAlt: 'Instalacion de agua fria y caliente para baÃ±o, cocina y lavadero',
   includes: [
     'Replanteo de recorrido y puntos de consumo',
-    'Instalacion de cañeria de agua fria y caliente hasta 25 metros lineales',
-    'Distribucion para baño, cocina y lavadero segun puntos existentes o definidos',
+    'Instalacion de caÃ±eria de agua fria y caliente hasta 25 metros lineales',
+    'Distribucion para baÃ±o, cocina y lavadero segun puntos existentes o definidos',
     'Termofusion, fijacion y alineacion de tramos accesibles',
     'Conexiones basicas para alimentar artefactos sanitarios y griferias',
     'Prueba de presion, purga y verificacion de perdidas visibles',
   ],
   excludes: [
-    'Provision de caños, accesorios, llaves, colectores o griferias',
-    'Roturas, canaletas, albañileria, tapados o reposicion de revestimientos',
+    'Provision de caÃ±os, accesorios, llaves, colectores o griferias',
+    'Roturas, canaletas, albaÃ±ileria, tapados o reposicion de revestimientos',
     'Instalacion de artefactos, sanitarios, griferias o termotanque',
     'Trabajos por encima de 25 metros lineales',
     'Correccion de presion, bombas, tanques o montantes existentes',
@@ -3094,14 +3094,14 @@ const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
     'Sistema compatible con el material y diametro presupuestado',
   ],
   materials: [
-    'Caños y accesorios de termofusion',
+    'CaÃ±os y accesorios de termofusion',
     'Codos, tees, cuplas, reducciones y uniones',
     'Llaves de paso o colectores si corresponde',
     'Soportes, grampas y aislacion segun recorrido',
   ],
   finishCriteria: [
     'Los puntos quedan alimentados y correctamente identificados',
-    'La cañeria queda firme, alineada y sin esfuerzos visibles',
+    'La caÃ±eria queda firme, alineada y sin esfuerzos visibles',
     'La prueba de presion no muestra perdidas',
     'El alcance real medido coincide con el limite presupuestado',
   ],
@@ -3109,18 +3109,18 @@ const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
 };
 
 const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Instalacion de cañeria de termofusion bajo suelo por metro lineal.',
+  summary: 'Instalacion de caÃ±eria de termofusion bajo suelo por metro lineal.',
   imageSrc: '/catalog/items/termofusion-bajo-suelo.jpg',
-  imageAlt: 'Instalacion de cañeria de termofusion bajo suelo',
+  imageAlt: 'Instalacion de caÃ±eria de termofusion bajo suelo',
   includes: [
     'Replanteo del recorrido bajo piso o contrapiso',
-    'Presentacion, corte y termofusion de caños y accesorios',
-    'Colocacion de cañeria con pendiente, alineacion y proteccion basica',
+    'Presentacion, corte y termofusion de caÃ±os y accesorios',
+    'Colocacion de caÃ±eria con pendiente, alineacion y proteccion basica',
     'Fijacion provisoria para evitar desplazamientos antes del tapado',
     'Prueba de presion antes de cubrir la instalacion',
   ],
   excludes: [
-    'Provision de caños, accesorios o aislaciones',
+    'Provision de caÃ±os, accesorios o aislaciones',
     'Calado, rotura, zanjeo, contrapiso, tapado o reposicion de pisos',
     'Instalacion de llaves, griferias, artefactos o colectores',
     'Correccion de instalaciones existentes fuera del tramo medido',
@@ -3132,7 +3132,7 @@ const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
     'Autorizacion para prueba antes de tapar',
   ],
   materials: [
-    'Caños de termofusion',
+    'CaÃ±os de termofusion',
     'Codos, tees, cuplas y reducciones',
     'Aislacion o proteccion segun recorrido',
     'Elementos de fijacion provisorios',
@@ -3147,18 +3147,18 @@ const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
 };
 
 const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Instalacion de cañeria de termofusion a la vista o engrampada por metro lineal.',
+  summary: 'Instalacion de caÃ±eria de termofusion a la vista o engrampada por metro lineal.',
   imageSrc: '/catalog/items/termofusion-engrampada.jpg',
-  imageAlt: 'Instalacion de cañeria de termofusion engrampada a la vista',
+  imageAlt: 'Instalacion de caÃ±eria de termofusion engrampada a la vista',
   includes: [
     'Replanteo del recorrido visible y puntos de fijacion',
-    'Corte, presentacion y termofusion de caños y accesorios',
+    'Corte, presentacion y termofusion de caÃ±os y accesorios',
     'Colocacion de grampas, soportes y alineacion del tramo',
     'Conexion a puntos existentes o definidos dentro del mismo recorrido',
     'Prueba de presion y revision visual de uniones',
   ],
   excludes: [
-    'Provision de caños, accesorios, grampas o soportes especiales',
+    'Provision de caÃ±os, accesorios, grampas o soportes especiales',
     'Roturas, canaletas, pintura, tapados o terminaciones esteticas',
     'Trabajos en altura o con acceso especial no previsto',
     'Instalacion de artefactos, griferias o equipos',
@@ -3170,13 +3170,13 @@ const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
     'Diametro y material definidos antes de iniciar',
   ],
   materials: [
-    'Caños y accesorios de termofusion',
+    'CaÃ±os y accesorios de termofusion',
     'Grampas, tarugos y tornillos',
     'Aislacion si corresponde',
     'Llaves o uniones si el tramo las requiere',
   ],
   finishCriteria: [
-    'La cañeria queda firme, recta y prolija a la vista',
+    'La caÃ±eria queda firme, recta y prolija a la vista',
     'Las fijaciones no presentan juego ni tension excesiva',
     'La prueba de presion no muestra perdidas',
     'El tramo queda identificado y listo para uso o conexion final',
@@ -3296,9 +3296,112 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
     };
   }
 
+  if (normalizedName.includes('grasera') || normalizedName.includes('sifon')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Destapacion sanitaria de cocina por unidad.'),
+      imageSrc: '/catalog/items/destranque-grasera-sifon-cocina.jpg',
+      imageAlt: 'Destranque de grasera y sifon de cocina debajo de bacha con desague flexible y balde de prueba',
+      includes: [
+        `Revision inicial de ${name}`,
+        'Desarme o acceso al sifon flexible, grasera o punto de inspeccion disponible',
+        'Limpieza y destranque de obstruccion por grasa o residuos de cocina',
+        'Prueba de escurrimiento y revision de perdidas visibles al finalizar',
+      ],
+      excludes: [
+        'Provision o reemplazo de sifon, flexibles, canerias, grasera o accesorios',
+        'Reparacion de mueble, mesada, bacha o puntos sanitarios existentes',
+        'Aperturas de obra civil, roturas, calados o camara nueva',
+        'Hidrolavado industrial o equipos especiales no detallados',
+      ],
+      requirements: [
+        'Acceso libre bajo bacha, mueble o sector de grasera',
+        'Autorizacion para desmontar sifones, tapas o accesorios existentes',
+        'Sector preparado para trabajar con agua y residuos de cocina',
+        'Informar si la obstruccion es recurrente o si hubo productos quimicos previos',
+      ],
+      materials: ['Guantes y elementos de higiene', 'Sonda, varillas o destapador segun caso', 'Balde y panos de contencion', 'Productos de limpieza solo si se acuerdan'],
+      finishCriteria: [
+        'El agua escurre sin retorno visible en la prueba',
+        'El sifon o grasera queda accesible y correctamente cerrado',
+        'No hay perdidas visibles en el punto intervenido',
+        'Se informa si la obstruccion requiere reparacion o reemplazo adicional',
+      ],
+      budgetNote: 'Si el sifon, grasera o caneria esta roto, deformado o mal instalado, presupuestar reemplazo o reparacion como item separado.',
+    };
+  }
+  if (normalizedName.includes('destranque') && normalizedName.includes('pluvial')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Destapacion de desague pluvial por metro.'),
+      imageSrc: '/catalog/items/destranque-pluviales.jpg',
+      imageAlt: 'Destranque de pluviales con rejilla exterior abierta y sonda de destapacion ingresando en caneria',
+      includes: [
+        `Revision inicial de ${name}`,
+        'Acceso a rejilla, boca de lluvia, camara o punto pluvial disponible',
+        'Destranque con sonda o herramienta de destapacion segun obstruccion',
+        'Prueba de escurrimiento con agua al finalizar',
+      ],
+      excludes: [
+        'Reparacion o reemplazo de canerias pluviales danadas',
+        'Aperturas de obra civil, roturas, excavaciones o retiro de pisos',
+        'Hidrolavado industrial o equipos especiales no detallados',
+        'Limpieza general de patios, canaletas o zonas fuera del punto intervenido',
+      ],
+      requirements: [
+        'Acceso libre a rejilla, camara o punto de inspeccion pluvial',
+        'Informar si hay hojas, barro, raices u obstrucciones recurrentes',
+        'Autorizacion para manipular tapas, rejillas o accesorios existentes',
+        'Sector preparado para trabajar con agua y residuos acumulados',
+      ],
+      materials: ['Guantes y elementos de higiene', 'Sonda o herramienta de destapacion', 'Balde, panos y elementos de contencion', 'Agua para prueba de escurrimiento'],
+      finishCriteria: [
+        'El agua escurre sin acumulacion visible en la prueba inicial',
+        'La rejilla o punto intervenido queda nuevamente utilizable',
+        'Se informa si la obstruccion requiere reparacion o limpieza mayor',
+        'El alcance queda medido segun metro presupuestado',
+      ],
+      budgetNote: 'Si el problema viene de rotura, pendiente insuficiente, raices, camara colapsada o falta de acceso, presupuestar reparacion como trabajo separado.',
+    };
+  }
+
+  if (normalizedName.includes('destranque') && normalizedName.includes('sumidero')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Destapacion de sumidero sanitario por unidad.'),
+      imageSrc: '/catalog/items/destranque-sumidero-bano.jpg',
+      imageAlt: 'Destranque de sumidero de bano con rejilla abierta y sonda sanitaria en el desague',
+      includes: [
+        `Revision inicial de ${name}`,
+        'Apertura de rejilla o tapa del sumidero accesible',
+        'Destranque con sonda o herramienta manual segun obstruccion',
+        'Prueba de escurrimiento con agua al finalizar',
+      ],
+      excludes: [
+        'Reparacion o reemplazo de rejilla, caja, pileta de patio o canerias danadas',
+        'Rotura de piso, aperturas de obra civil o retiro de revestimientos',
+        'Hidrolavado industrial o equipos especiales no detallados',
+        'Limpieza general del bano fuera del punto intervenido',
+      ],
+      requirements: [
+        'Acceso libre al sumidero, rejilla o punto de inspeccion',
+        'Autorizacion para retirar tapas o rejillas existentes',
+        'Sector preparado para trabajar con agua y residuos acumulados',
+        'Informar si el problema es recurrente o si hubo productos quimicos previos',
+      ],
+      materials: ['Guantes y elementos de higiene', 'Sonda o herramienta de destapacion', 'Balde, panos y elementos de contencion', 'Agua para prueba de escurrimiento'],
+      finishCriteria: [
+        'El agua escurre sin retorno visible en la prueba',
+        'El sumidero queda nuevamente utilizable',
+        'La tapa o rejilla queda colocada si estaba en condiciones',
+        'Se informa si la obstruccion requiere reparacion adicional',
+      ],
+      budgetNote: 'Si el sumidero esta roto, mal conectado o requiere levantar piso, presupuestar la reparacion como item separado.',
+    };
+  }
+
   if (categoryKey.includes('destapaciones') || normalizedName.includes('destranque')) {
     return {
       summary: getMasterItemBlueprintSummary(item, `Destapacion sanitaria ${byUnitLabel}.`),
+      imageSrc: '/catalog/items/destranque-cloacas.jpg',
+      imageAlt: 'Destranque de cloacas con camara de inspeccion abierta y herramienta de destapacion sanitaria',
       includes: [
         `Revision inicial de ${name}`,
         'Trabajo de destranque con herramienta manual o mecanica segun acceso',
@@ -3325,6 +3428,108 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
         'El alcance queda medido segun unidad presupuestada',
       ],
       budgetNote: 'Si la obstruccion se repite por rotura, pendiente incorrecta o raiz, presupuestar reparacion como item separado.',
+    };
+  }
+
+  if (normalizedName.includes('cuerito') || normalizedName.includes('frezado') || (normalizedName.includes('cabezal') && normalizedName.includes('griferia'))) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Cambio de cabezal o cuerito de griferia por unidad.'),
+      imageSrc: '/catalog/items/cambio-cabezal-cuerito-griferia.jpg',
+      imageAlt: 'Cambio de cabezal o cuerito de griferia con repuesto expuesto y herramientas sobre vanitory',
+      includes: [
+        `Desarme inicial de ${name}`,
+        'Retiro del cabezal, cuerito o componente accesible de la griferia',
+        'Frezado o limpieza del asiento si corresponde al alcance indicado',
+        'Armado, ajuste y prueba de cierre sin perdida visible',
+      ],
+      excludes: [
+        'Provision de cabezal, cuerito, cartucho, cierre ceramico o repuesto',
+        'Cambio completo de griferia o flexibles',
+        'Reparacion de roscas danadas, sarro extremo o cuerpo de griferia defectuoso',
+        'Rotura de pared, cambio de caneria embutida o reposicion de revestimientos',
+      ],
+      requirements: [
+        'Llave de paso operativa para cortar el agua',
+        'Repuesto compatible con la marca y medida existente',
+        'Acceso libre al artefacto y a la griferia',
+        'Estado del cuerpo de griferia apto para reparacion',
+      ],
+      materials: ['Cabezal, cuerito o repuesto compatible', 'Grasa siliconada o sellador si corresponde', 'Herramientas de desarme y ajuste', 'Elementos de limpieza y prueba'],
+      finishCriteria: [
+        'La griferia abre y cierra correctamente',
+        'No queda goteo visible en la prueba final',
+        'El comando queda firme y sin juego anormal',
+        'Se informa si conviene reemplazar la griferia completa',
+      ],
+      budgetNote: 'No incluye repuestos ni cambio completo de griferia. Si el cuerpo esta danado o el asiento no permite reparacion, presupuestar reemplazo como item separado.',
+    };
+  }
+
+  if (normalizedName.includes('cartucho') && normalizedName.includes('monocomando')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Cambio de cartucho monocomando por unidad.'),
+      imageSrc: '/catalog/items/cambio-cartucho-monocomando.jpg',
+      imageAlt: 'Cambio de cartucho monocomando en griferia cromada con repuesto azul y herramientas sobre mesada',
+      includes: [
+        `Desarme inicial de ${name}`,
+        'Retiro del comando y cartucho existente de la griferia',
+        'Limpieza del alojamiento accesible y colocacion del cartucho compatible',
+        'Armado, ajuste y prueba de apertura, cierre y mezcla de agua',
+      ],
+      excludes: [
+        'Provision del cartucho monocomando o repuesto compatible',
+        'Cambio completo de griferia, flexibles o conexiones internas',
+        'Reparacion de cuerpo de griferia danado, roscas barridas o sarro extremo',
+        'Rotura de mesada, pared, mueble o reposicion de terminaciones',
+      ],
+      requirements: [
+        'Llaves de paso operativas para cortar agua fria y caliente',
+        'Cartucho compatible con marca, medida y modelo de la griferia',
+        'Acceso libre a la griferia y espacio de trabajo seco',
+        'Estado del cuerpo de griferia apto para recibir el repuesto',
+      ],
+      materials: ['Cartucho monocomando compatible', 'Llave Allen, llave ajustable y herramientas de desarme', 'Grasa siliconada o sellador si corresponde', 'Elementos de limpieza y prueba'],
+      finishCriteria: [
+        'La griferia abre, cierra y mezcla correctamente',
+        'No hay perdida visible en el cuerpo ni en el comando intervenido',
+        'El monocomando queda firme y con movimiento normal',
+        'Se informa si conviene reemplazar la griferia completa',
+      ],
+      budgetNote: 'No incluye el cartucho ni cambio completo de griferia. Si el repuesto no coincide o el cuerpo esta danado, revisar alcance antes de continuar.',
+    };
+  }
+
+  if (normalizedName.includes('cambio') && normalizedName.includes('flexible')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Cambio de flexible sanitario por unidad.'),
+      imageSrc: '/catalog/items/cambio-flexible-sanitario.jpg',
+      imageAlt: 'Cambio de flexible sanitario bajo vanitory con llave ajustable y conexion de agua visible',
+      includes: [
+        `Revision inicial de ${name}`,
+        'Corte de agua y retiro del flexible existente accesible',
+        'Colocacion y ajuste del flexible compatible',
+        'Prueba de apertura y revision de perdidas visibles',
+      ],
+      excludes: [
+        'Provision del flexible, valvula, llave de paso o accesorios',
+        'Cambio de griferia, sopapa, sifon o canerias existentes',
+        'Reparacion de roscas danadas, conexiones trabadas o sarro extremo',
+        'Rotura de mueble, mesada, pared o reposicion de terminaciones',
+      ],
+      requirements: [
+        'Llave de paso operativa para cortar el agua',
+        'Flexible compatible en largo, rosca y medida',
+        'Acceso libre bajo bacha, vanitory o artefacto sanitario',
+        'Estado de roscas y conexiones apto para ajuste',
+      ],
+      materials: ['Flexible sanitario compatible', 'Cinta, sellador o junta si corresponde', 'Llave ajustable y herramientas de ajuste', 'Panos de contencion y elementos de prueba'],
+      finishCriteria: [
+        'El flexible queda firme y sin tension excesiva',
+        'No hay perdida visible en las conexiones intervenidas',
+        'La griferia o artefacto recibe agua correctamente',
+        'Se informa si alguna valvula o conexion requiere reemplazo adicional',
+      ],
+      budgetNote: 'No incluye el flexible ni accesorios. Si las roscas, valvulas o conexiones estan danadas, presupuestar reparacion o reemplazo como item separado.',
     };
   }
 
@@ -3699,6 +3904,144 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
     };
   }
 
+  if (
+    normalizedName.includes('desague') &&
+    normalizedName.includes('bano') &&
+    normalizedName.includes('cocina') &&
+    normalizedName.includes('lavadero')
+  ) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Primarios/Secundarios lindero. Max 10 mts.'),
+      imageSrc: '/catalog/items/desagues-bano-cocina-lavadero.jpg',
+      imageAlt: 'Red de desagues sanitarios para bano cocina y lavadero con canerias primarias y secundarias instaladas',
+      includes: [
+        'Replanteo del recorrido de desagues para bano, cocina y lavadero',
+        'Colocacion de canerias primarias y secundarias hasta el maximo indicado',
+        'Conexion de ramales, curvas, piletas o bocas de acceso dentro del alcance',
+        'Control de pendiente, continuidad y prueba inicial antes de tapar',
+      ],
+      excludes: [
+        'Provision de canos, curvas, accesorios, piletas o bocas de inspeccion',
+        'Zanjeo, roturas, tapados, contrapiso o reposicion de pisos',
+        'Conexion a red publica, camaras nuevas o modificaciones fuera del tramo',
+        'Tramos adicionales por encima del maximo indicado',
+      ],
+      requirements: [
+        'Ubicacion de bano, cocina y lavadero definida antes de iniciar',
+        'Puntos de descarga y pendientes sanitarias aprobadas',
+        'Frente de trabajo liberado para instalar y revisar antes de tapar',
+        'Diametros y accesorios compatibles con el uso previsto',
+      ],
+      materials: ['Canerias cloacales primarias y secundarias', 'Curvas, ramales, reducciones y accesorios compatibles', 'Piletas, bocas de acceso o inspeccion si corresponde', 'Elementos de nivelacion, sellado y prueba'],
+      finishCriteria: [
+        'La red queda alineada y con pendiente sanitaria correcta',
+        'Los ramales quedan identificados para bano, cocina y lavadero',
+        'Las uniones quedan firmes y revisables antes del tapado',
+        'El tramo queda listo para prueba completa o etapa siguiente',
+      ],
+      budgetNote: 'El alcance contempla hasta el maximo indicado. Cargar zanjeos, tapados, materiales, camaras y metros adicionales como items separados.',
+    };
+  }
+
+  if (normalizedName.includes('bajada pluvial')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Caneria pluvial exterior a la vista o engrampada.'),
+      imageSrc: '/catalog/items/bajada-pluvial-exterior-110.jpg',
+      imageAlt: 'Bajada pluvial exterior de PVC gris instalada con abrazaderas sobre pared de vivienda',
+      includes: [
+        `Replanteo y colocacion de ${name}`,
+        'Presentacion, corte y armado de caneria pluvial exterior',
+        'Fijacion con grampas o abrazaderas sobre soporte existente',
+        'Conexion superior e inferior del tramo segun desague disponible',
+      ],
+      excludes: [
+        'Provision de canos, codos, abrazaderas, rejillas o accesorios',
+        'Canaletas, zingueria, trabajos en altura complejos o andamios',
+        'Roturas, embutidos, revoques, pintura o terminaciones exteriores',
+        'Conexion a pozo, camara o red pluvial no incluida en el item',
+      ],
+      requirements: [
+        'Altura, recorrido y punto de descarga definidos antes de iniciar',
+        'Pared o soporte firme para fijar la bajada',
+        'Acceso seguro al tramo superior y sector de trabajo liberado',
+        'Diametro y accesorios compatibles con el caudal pluvial previsto',
+      ],
+      materials: ['Caneria PVC pluvial diametro 110', 'Codos, cuplas y accesorios compatibles', 'Grampas, abrazaderas, tarugos y tornillos', 'Sellos, adhesivo o juntas segun sistema'],
+      finishCriteria: [
+        'La bajada queda alineada, firme y correctamente fijada',
+        'Las uniones quedan orientadas y sin perdidas visibles en prueba simple',
+        'El tramo descarga hacia el punto previsto sin retorno visible',
+        'La instalacion queda prolija y lista para uso o terminacion posterior',
+      ],
+      budgetNote: 'Confirmar por separado trabajos en altura, canaletas, embutidos, pintura, materiales y conexion a red o camara pluvial cuando no esten incluidos.',
+    };
+  }
+  if ((normalizedName.includes('desague pvc') || normalizedName.includes('caneria desague')) && (normalizedName.includes('40') || normalizedName.includes('50'))) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Ramales secundarios para piletas de piso, lavatorios y bidets.'),
+      imageSrc: '/catalog/items/caneria-desague-pvc-40-50.jpg',
+      imageAlt: 'Caneria de desague PVC diametro 40 y 50 instalada en obra interior para ramales secundarios sanitarios',
+      includes: [
+        `Replanteo y colocacion de ${name}`,
+        'Presentacion, corte y armado de caneria PVC 40/50 segun recorrido definido',
+        'Conexion de ramales para pileta de piso, lavatorio o bidet dentro del alcance',
+        'Alineacion, pendiente y revision de uniones antes del tapado',
+      ],
+      excludes: [
+        'Provision de canos, curvas, tees, reducciones, rejillas o accesorios',
+        'Zanjeo, roturas, calados, tapado, contrapiso o reposicion de pisos',
+        'Traslado de artefactos, griferias o puntos sanitarios existentes',
+        'Prueba hidraulica formal, permisos o inspecciones externas',
+      ],
+      requirements: [
+        'Ubicacion de artefactos y piletas de piso definida antes de iniciar',
+        'Pendiente sanitaria disponible hacia el desague principal',
+        'Frente de trabajo liberado para instalar y revisar antes de tapar',
+        'Diametro 40/50 compatible con cada artefacto y accesorio previsto',
+      ],
+      materials: ['Caneria PVC sanitaria diametro 40 y 50', 'Curvas, tees, cuplas, reducciones y adaptadores compatibles', 'Adhesivo, sellos o juntas segun sistema', 'Arena, cama de asiento o elementos de nivelacion'],
+      finishCriteria: [
+        'Los ramales quedan alineados y con pendiente continua',
+        'Las conexiones para artefactos quedan a cota y orientacion correcta',
+        'Las uniones quedan firmes y revisables antes del tapado',
+        'El tramo queda listo para prueba completa o conexion siguiente',
+      ],
+      budgetNote: 'Medir metros reales instalados. Cargar zanjeo, tapado, materiales, piletas, rejillas y accesorios especiales como items separados.',
+    };
+  }
+  if (normalizedName.includes('desague pvc') && normalizedName.includes('110')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Linea principal de desague cloacal para inodoros.'),
+      imageSrc: '/catalog/items/caneria-desague-pvc-110.jpg',
+      imageAlt: 'Caneria de desague PVC diametro 110 instalada en zanja interior con pendiente y ramal para inodoro',
+      includes: [
+        `Replanteo y colocacion de ${name}`,
+        'Presentacion, corte y armado de caneria PVC 110 segun recorrido definido',
+        'Alineacion, cama de asiento y pendiente sanitaria del tramo instalado',
+        'Conexion de ramales, curvas o bocas previstas para inodoro dentro del alcance',
+      ],
+      excludes: [
+        'Provision de canos, curvas, ramales, reducciones o accesorios',
+        'Zanjeo, roturas, tapado, contrapiso o reposicion de pisos',
+        'Camara nueva, boca de inspeccion o modificacion de red existente',
+        'Prueba hidraulica formal, permisos o inspecciones externas',
+      ],
+      requirements: [
+        'Recorrido, cota y punto de descarga definidos antes de iniciar',
+        'Pendiente sanitaria disponible para el tramo principal',
+        'Frente de trabajo liberado para instalar y revisar antes de tapar',
+        'Diametro 110 compatible con artefactos y red cloacal proyectada',
+      ],
+      materials: ['Caneria PVC sanitaria diametro 110', 'Curvas, codos, ramales y cuplas compatibles', 'Adhesivo, sellos o juntas segun sistema', 'Arena, cama de asiento o elementos de nivelacion'],
+      finishCriteria: [
+        'La caneria queda alineada y con pendiente continua',
+        'Los ramales para inodoro quedan orientados y a cota correcta',
+        'Las uniones quedan firmes y revisables antes del tapado',
+        'El tramo queda listo para prueba completa o conexion siguiente',
+      ],
+      budgetNote: 'Medir metros reales instalados. Cargar zanjeo, tapado, materiales, camaras, roturas y accesorios especiales como items separados.',
+    };
+  }
   if (categoryKey.includes('desagues') || normalizedName.includes('desague') || normalizedName.includes('pluvial')) {
     return {
       summary: getMasterItemBlueprintSummary(item, `Instalacion de desague sanitario o pluvial ${byUnitLabel}.`),
@@ -3835,6 +4178,74 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
       budgetNote: 'Si la superficie requiere mechas especiales, reparaciones o colocacion sobre vidrio o marmol, presupuestar como adicional.',
     };
   }
+  if (normalizedName.includes('artefacto sanitario') && normalizedName.includes('minimo')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Mano de obra minima para presentar, fijar y conectar un artefacto sanitario simple.'),
+      imageSrc: '/catalog/items/artefacto-sanitario-minimo.jpg',
+      imageAlt: 'Bano completo con artefactos sanitarios instalados como referencia de mano de obra minima',
+      includes: [
+        'Presentacion y nivelacion de un artefacto sanitario simple',
+        'Fijacion o amurado segun artefacto y soporte existente',
+        'Conexion a puntos de agua y desague disponibles',
+        'Sellado sanitario y prueba de uso basica',
+      ],
+      excludes: [
+        'Provision del artefacto, griferia, flexibles o accesorios',
+        'Instalacion simultanea de varios artefactos completos',
+        'Roturas, calados, revoques o revestimientos',
+        'Traslado de puntos de agua o desague',
+      ],
+      requirements: [
+        'Puntos de agua y desague ubicados en posicion compatible',
+        'Superficie firme, nivelada y terminada',
+        'Artefacto completo y sin faltantes antes de iniciar',
+        'Llave de paso operativa para prueba final',
+      ],
+      materials: ['Flexibles, sopapas o conexiones compatibles', 'Tornillos, tarugos y fijaciones', 'Silicona o sello sanitario', 'Juntas, arandelas y adaptadores si corresponde'],
+      finishCriteria: [
+        'El artefacto queda firme, alineado y usable',
+        'No hay perdidas visibles en conexiones intervenidas',
+        'El desague evacua correctamente en prueba simple',
+        'El sellado queda prolijo y continuo',
+      ],
+      budgetNote: 'Usar este minimo cuando no exista un item especifico. Para inodoro, bidet, vanitory, ducha o varios artefactos, cargar el item correspondiente.',
+    };
+  }
+
+  if (normalizedName.includes('banera')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Instalacion de banera con junta tomada y mamposteria.'),
+      imageSrc: '/catalog/items/banera-instalacion.jpg',
+      imageAlt: 'Banera instalada en obra con mamposteria lateral, junta tomada y conexiones sanitarias visibles',
+      includes: [
+        `Presentacion, nivelacion y colocacion de ${name}`,
+        'Armado o apoyo sobre base y mamposteria existente o indicada',
+        'Conexion a desague y puntos sanitarios disponibles',
+        'Toma de junta, sellado sanitario y prueba de uso basica',
+      ],
+      excludes: [
+        'Provision de banera, griferia, flexibles, sopapa o accesorios',
+        'Revestimiento final, ceramicos, pintura o terminaciones esteticas',
+        'Roturas, traslado de puntos de agua o desague',
+        'Construccion completa de base, tabiques o estructura si no esta detallada',
+      ],
+      requirements: [
+        'Espacio, medidas y nivel de apoyo verificados antes de iniciar',
+        'Puntos de agua y desague ubicados en posicion compatible',
+        'Superficie firme y apta para recibir la banera',
+        'Banera completa, sin faltantes y sin danos visibles',
+      ],
+      materials: ['Sopapa, desague y conexiones compatibles', 'Mortero o asiento segun alcance', 'Silicona o sello sanitario', 'Elementos de nivelacion y fijacion'],
+      finishCriteria: [
+        'La banera queda firme, nivelada y alineada',
+        'El desague evacua correctamente en prueba simple',
+        'No hay perdidas visibles en conexiones intervenidas',
+        'La junta queda tomada y lista para terminacion posterior',
+      ],
+      budgetNote: 'Confirmar por separado base, mamposteria completa, revestimientos, materiales y traslado de instalaciones cuando no esten incluidos expresamente.',
+    };
+  }
+
   if (
     categoryKey.includes('artefactos') ||
     categoryKey.includes('sanitarios 2') ||
@@ -3877,6 +4288,72 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
     };
   }
 
+  if (normalizedName.includes('pozo ciego')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Trabajo cloacal sanitario por unidad.'),
+      imageSrc: '/catalog/items/pozo-ciego-5m3-calzado.jpg',
+      imageAlt: 'Pozo ciego calzado con ladrillo y tapa de hormigon con conexion cloacal',
+      includes: [
+        `Replanteo y ejecucion de ${name}`,
+        'Calzado interior del pozo segun alcance definido',
+        'Conexion de entrada cloacal y preparacion de tapa',
+        'Revision visual de estabilidad, acceso y cierre sanitario',
+      ],
+      excludes: [
+        'Provision de materiales, tapa, canerias o accesorios si no estan detallados',
+        'Excavacion mayor, retiro de suelo excedente o maquinaria pesada',
+        'Permisos, estudios de suelo o inspecciones externas',
+        'Compactacion, parquizado o reposicion de terminaciones exteriores',
+      ],
+      requirements: [
+        'Ubicacion, profundidad y volumen aprobados antes de iniciar',
+        'Terreno accesible y condiciones de suelo verificadas',
+        'Cota de entrada cloacal definida con pendiente correcta',
+        'Tapa compatible con el uso y carga prevista',
+      ],
+      materials: ['Ladrillos, bloques u hormigon para calzado', 'Tapa sanitaria de hormigon', 'Canerias y accesorios cloacales', 'Mortero, selladores y elementos de nivelacion'],
+      finishCriteria: [
+        'El pozo queda calzado, firme y con geometria adecuada',
+        'La conexion cloacal queda alineada y revisable antes del cierre',
+        'La tapa asienta correctamente y permite acceso futuro',
+        'Se informa cualquier condicion de suelo que cambie el alcance',
+      ],
+      budgetNote: 'Confirmar por separado excavacion, retiro de suelo, materiales, tapa reforzada y permisos cuando no esten incluidos expresamente.',
+    };
+  }
+  if (normalizedName.includes('conexion troncal') || normalizedName.includes('valvula anti-retorno') || normalizedName.includes('valvula antiretorno')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Trabajo cloacal sanitario de alcance global.'),
+      imageSrc: '/catalog/items/conexion-troncal-valvula-anti-retorno.jpg',
+      imageAlt: 'Conexion cloacal troncal con valvula anti-retorno y camara de inspeccion en zanja exterior',
+      includes: [
+        `Replanteo y gestion operativa de ${name}`,
+        'Conexion del tramo cloacal domiciliario hacia linea troncal disponible',
+        'Colocacion o preparacion de valvula anti-retorno segun alcance definido',
+        'Verificacion de pendiente, sentido de flujo y acceso para inspeccion',
+      ],
+      excludes: [
+        'Provision de canerias, camaras, tapas, valvula o accesorios si no estan detallados',
+        'Permisos, tasas, derechos de conexion o inspecciones externas',
+        'Zanjeo mayor, rotura de vereda, tapado, compactacion o retiro de suelo',
+        'Correccion de red existente fuera del punto troncal intervenido',
+      ],
+      requirements: [
+        'Punto troncal, cotas y pendiente sanitaria definidos antes de iniciar',
+        'Autorizacion de conexion o tramite correspondiente confirmado',
+        'Camara o punto de inspeccion accesible para revisar antes del cierre',
+        'Valvula anti-retorno compatible con diametro y sentido de flujo',
+      ],
+      materials: ['Canerias cloacales y accesorios compatibles', 'Valvula anti-retorno sanitaria', 'Camara, tapa o boca de inspeccion si corresponde', 'Mortero, asiento, selladores y elementos de nivelacion'],
+      finishCriteria: [
+        'La conexion queda alineada con pendiente sanitaria correcta',
+        'La valvula queda orientada en el sentido de flujo y accesible para mantenimiento',
+        'Las uniones quedan firmes y revisables antes de tapar',
+        'Se informa cualquier tramite, inspeccion o tapado pendiente',
+      ],
+      budgetNote: 'Confirmar por separado permisos, tasas, zanjeo, rotura de vereda, tapado, materiales y valvula cuando no esten incluidos expresamente.',
+    };
+  }
   if (categoryKey.includes('cloacas') || normalizedName.includes('camara') || normalizedName.includes('cloaca') || normalizedName.includes('pozo ciego') || normalizedName.includes('conexion troncal')) {
     return {
       summary: getMasterItemBlueprintSummary(item, `Trabajo cloacal sanitario ${byUnitLabel}.`),
@@ -4059,7 +4536,7 @@ const formatAgendaRangeLabel = (startValue?: string | null, endValue?: string | 
   const start = parseDateLocal(getDatePart(startValue));
   const end = parseDateLocal(getDatePart(endValue));
   if (!start) return 'Sin fecha definida';
-  if (!end) return `${formatAgendaDateLabel(startValue)} · cierre a confirmar`;
+  if (!end) return `${formatAgendaDateLabel(startValue)} Â· cierre a confirmar`;
   if (isSameDay(start, end)) return formatAgendaDateLabel(startValue);
   return `${formatAgendaDateLabel(startValue)} al ${formatAgendaDateLabel(endValue)}`;
 };
@@ -4417,7 +4894,7 @@ export default function TechniciansPage() {
       setProfileForm((prev) => ({
         ...prev,
         fullName: prev.fullName || 'UrbanFix QA',
-        businessName: prev.businessName || 'UrbanFix QA Técnica',
+        businessName: prev.businessName || 'UrbanFix QA TÃ©cnica',
         email: prev.email || 'preview@urbanfix.local',
         phone: prev.phone || '+54 9 11 0000-0000',
         city: prev.city || 'Buenos Aires',
@@ -4432,7 +4909,7 @@ export default function TechniciansPage() {
       window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, nextPath);
     }
     if (intent === PRICE_ACCESS_INTENT) {
-      setEntryPrompt('Para ver los precios de mano de obra actualizados, inicia sesión o crea tu cuenta.');
+      setEntryPrompt('Para ver los precios de mano de obra actualizados, inicia sesiÃ³n o crea tu cuenta.');
       setAuthMode('login');
       setQuickRegisterMode(false);
     } else {
@@ -4707,7 +5184,7 @@ export default function TechniciansPage() {
     { key: 'agenda', label: 'Agenda', hint: 'Planificacion', short: 'AG', icon: Calendar },
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO', icon: Bell },
     { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH', icon: MessageCircle },
-    { key: 'historial', label: 'Facturación', hint: 'Cobros', short: 'FA', icon: Clock },
+    { key: 'historial', label: 'FacturaciÃ³n', hint: 'Cobros', short: 'FA', icon: Clock },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
   ];
@@ -4728,7 +5205,7 @@ export default function TechniciansPage() {
   }, [activeSupportUserId, isBetaAdmin, profile?.business_name, session?.user?.email, supportUsers]);
 
   const statusOptions = [
-    { value: 'draft', label: 'Cómputo' },
+    { value: 'draft', label: 'CÃ³mputo' },
     { value: 'pending', label: 'Pendiente' },
     { value: 'presented', label: 'Presentado' },
     { value: 'approved', label: 'Aprobado' },
@@ -4743,7 +5220,7 @@ export default function TechniciansPage() {
   ];
   const quoteFilterOptions: Array<{ key: QuoteFilter; label: string }> = [
     { key: 'all', label: 'Todos' },
-    { key: 'draft', label: 'Cómputo' },
+    { key: 'draft', label: 'CÃ³mputo' },
     { key: 'pending', label: 'Pendientes' },
     { key: 'approved', label: 'Aprobados' },
     { key: 'scheduled', label: 'Programados' },
@@ -4905,7 +5382,7 @@ export default function TechniciansPage() {
       let resolvedProfile = profileData || null;
       if (error) {
         setProfile(null);
-        setProfileLoadError(error.message || 'No pudimos cargar tu perfil técnico.');
+        setProfileLoadError(error.message || 'No pudimos cargar tu perfil tÃ©cnico.');
         setLoadingProfile(false);
         return;
       }
@@ -7890,7 +8367,7 @@ export default function TechniciansPage() {
           totalAmount: client.totalAmount,
           movements: client.quotes.length,
           lastDateLabel: client.lastDateLabel,
-          address: getQuoteAddress(locatedQuote) || 'Zona sin dirección',
+          address: getQuoteAddress(locatedQuote) || 'Zona sin direcciÃ³n',
           lat: coordinate.lat,
           lon: coordinate.lon,
         };
@@ -7916,7 +8393,7 @@ export default function TechniciansPage() {
               totalAmount: 658858.6,
               movements: 2,
               lastDateLabel: '26/2/2026',
-              address: 'San Nicolás',
+              address: 'San NicolÃ¡s',
               lat: -34.6037,
               lon: -58.3816,
             },
@@ -7957,7 +8434,7 @@ export default function TechniciansPage() {
   const clientHistoryFilterOptions = useMemo(
     () => [
       { id: 'all' as const, label: 'Todos', count: clientHistorySummary.clients },
-      { id: 'located' as const, label: 'Con ubicación', count: clientHistorySummary.located },
+      { id: 'located' as const, label: 'Con ubicaciÃ³n', count: clientHistorySummary.located },
       { id: 'pending' as const, label: 'Seguimiento', count: clientHistorySummary.pending },
       { id: 'paid' as const, label: 'Cobrados', count: clientHistorySummary.paid },
     ],
@@ -8059,14 +8536,14 @@ export default function TechniciansPage() {
         ? `${Math.abs(financeTimelineOffset)} ${getFinanceTimelineUnit(
             financeTimelineMode,
             Math.abs(financeTimelineOffset)
-          )} atrás`
+          )} atrÃ¡s`
         : `${financeTimelineOffset} ${getFinanceTimelineUnit(financeTimelineMode, financeTimelineOffset)} adelante`;
   const financeTimelineTitle =
     financeTimelineMode === 'weekly'
-      ? 'Tendencia semanal + próximas 2'
+      ? 'Tendencia semanal + prÃ³ximas 2'
       : financeTimelineMode === 'yearly'
-        ? 'Tendencia anual + próximos 2'
-        : 'Tendencia mensual + próximos 2';
+        ? 'Tendencia anual + prÃ³ximos 2'
+        : 'Tendencia mensual + prÃ³ximos 2';
   const moveFinanceTimeline = (delta: number) => {
     setActiveFinancePointKey(null);
     setFinanceTimelineOffset((value) => Math.max(-12, Math.min(6, value + delta)));
@@ -8380,7 +8857,7 @@ export default function TechniciansPage() {
         kind: 'job',
         title: quote.client_name || 'Trabajo sin cliente',
         subtitle: addressLabel,
-        meta: `${statusLabel} · ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
+        meta: `${statusLabel} Â· ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
         lat: coordinate.lat,
         lon: coordinate.lon,
         createdAt: quote.created_at,
@@ -8432,7 +8909,7 @@ export default function TechniciansPage() {
         kind: 'request',
         title: request.title || 'Solicitud',
         subtitle: requestPublicZoneLabel(request),
-        meta: `${request.urgency.toUpperCase()} · ${request.distance_km.toFixed(1)} km`,
+        meta: `${request.urgency.toUpperCase()} Â· ${request.distance_km.toFixed(1)} km`,
         lat,
         lon,
         createdAt: request.created_at,
@@ -8748,7 +9225,7 @@ export default function TechniciansPage() {
         throw new Error(payload?.error || 'No pudimos actualizar el estado.');
       }
       if (!payload?.quote?.id) {
-        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o polÃ­ticas de seguridad.');
       }
       setQuotes((prev) =>
         prev.map((quote) => (quote.id === quoteId ? normalizeQuoteRow({ ...quote, ...payload.quote }) : quote))
@@ -8888,7 +9365,7 @@ export default function TechniciansPage() {
       }
       
       if (effectiveProfilePublished && !serviceLat && !serviceLng) {
-        throw new Error('Completa tu ubicación en el mapa para publicar en la vidriera.');
+        throw new Error('Completa tu ubicaciÃ³n en el mapa para publicar en la vidriera.');
       }
 
       const normalizedServiceLocationName = String(serviceLocationName || '').trim();
@@ -8986,7 +9463,7 @@ export default function TechniciansPage() {
         setProfileMessage(
           nextAccessGranted === true
             ? 'Perfil actualizado con tu punto en el mapa.'
-            : 'Perfil enviado a revisión. Te avisaremos cuando esté habilitado.'
+            : 'Perfil enviado a revisiÃ³n. Te avisaremos cuando estÃ© habilitado.'
         );
       } else {
         setAutoSaveMessage('Guardado automatico.');
@@ -9256,7 +9733,7 @@ export default function TechniciansPage() {
   };
 
   const handleDeleteQuote = async (quote: QuoteRow) => {
-    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
+    if (!confirm(`Â¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acciÃ³n no se puede deshacer.`)) {
       return;
     }
       try {
@@ -9680,7 +10157,7 @@ export default function TechniciansPage() {
     }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contraseña.');
+      setAuthError('Ingresa tu correo para recuperar la contraseÃ±a.');
       return;
     }
     setSendingRecovery(true);
@@ -9688,7 +10165,7 @@ export default function TechniciansPage() {
       const redirectTo = `${window.location.origin}/tecnicos`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseÃ±a.');
     } catch (error: any) {
       setAuthError(getFriendlyAuthErrorMessage(error, 'recovery'));
     } finally {
@@ -9700,13 +10177,13 @@ export default function TechniciansPage() {
     setRecoveryError('');
     setRecoveryMessage('');
     if (!session?.user) {
-      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
+      setRecoveryError('La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.');
       return;
     }
     const nextPassword = recoveryPassword.trim();
     const confirmPassword = recoveryConfirm.trim();
     if (!nextPassword) {
-      setRecoveryError('Ingresa una nueva contraseña.');
+      setRecoveryError('Ingresa una nueva contraseÃ±a.');
       return;
     }
     const recoveryPasswordPolicyError = getPasswordPolicyError(nextPassword);
@@ -9715,18 +10192,18 @@ export default function TechniciansPage() {
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setRecoveryError('Las contraseñas no coinciden.');
+      setRecoveryError('Las contraseÃ±as no coinciden.');
       return;
     }
     setUpdatingRecovery(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: nextPassword });
       if (error) throw error;
-      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
+      setRecoveryMessage('Listo. Tu contraseÃ±a fue actualizada.');
       setRecoveryPassword('');
       setRecoveryConfirm('');
     } catch (error: any) {
-      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseÃ±a.');
     } finally {
       setUpdatingRecovery(false);
     }
@@ -9757,10 +10234,10 @@ export default function TechniciansPage() {
       const safeEmail = email.trim().toLowerCase();
       const normalizedAuthWhatsapp = authWhatsapp.trim();
       if (!safeEmail || !password) {
-        throw new Error('Ingresa correo y contraseña.');
+        throw new Error('Ingresa correo y contraseÃ±a.');
       }
       if (!safeEmail.includes('@')) {
-        throw new Error('Ingresa un correo válido.');
+        throw new Error('Ingresa un correo vÃ¡lido.');
       }
       const passwordPolicyError = authMode === 'register' ? getPasswordPolicyError(password) : '';
       if (passwordPolicyError) {
@@ -9812,7 +10289,7 @@ export default function TechniciansPage() {
             ? welcomeSent
               ? 'Cuenta creada. Ya puedes completar tu perfil. Te enviamos un WhatsApp de bienvenida.'
               : 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
-            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se preparará al iniciar sesión.'
+            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se prepararÃ¡ al iniciar sesiÃ³n.'
         );
         setPassword('');
       }
@@ -9974,7 +10451,7 @@ export default function TechniciansPage() {
       {
         key: 'quotes',
         title: 'Carga tu primer presupuesto',
-        description: 'Empieza a cotizar para construir facturación, seguimiento y cobros.',
+        description: 'Empieza a cotizar para construir facturaciÃ³n, seguimiento y cobros.',
         done: quotes.length > 0,
       },
       {
@@ -10003,7 +10480,7 @@ export default function TechniciansPage() {
       profileForm.fullName ||
       profile?.full_name ||
       session?.user?.email ||
-      'Panel técnico';
+      'Panel tÃ©cnico';
     return rawName.trim();
   }, [profile?.business_name, profile?.full_name, profileForm.businessName, profileForm.fullName, session?.user?.email]);
   const technicianTodayLabel = useMemo(
@@ -10030,7 +10507,7 @@ export default function TechniciansPage() {
       return {
         lat: profileLat,
         lon: profileLon,
-        label: profile?.coverage_area || profileForm.coverageArea || profileForm.city || 'Ubicación de trabajo',
+        label: profile?.coverage_area || profileForm.coverageArea || profileForm.city || 'UbicaciÃ³n de trabajo',
       };
     }
 
@@ -10041,7 +10518,7 @@ export default function TechniciansPage() {
       return {
         lat: formLat,
         lon: formLon,
-        label: formLocation?.displayName || profileForm.coverageArea || profileForm.city || 'Ubicación de trabajo',
+        label: formLocation?.displayName || profileForm.coverageArea || profileForm.city || 'UbicaciÃ³n de trabajo',
       };
     }
 
@@ -10106,8 +10583,8 @@ export default function TechniciansPage() {
         : quoteStats.approved > 0
           ? `${quoteStats.approved} ${quoteStats.approved === 1 ? 'trabajo aprobado' : 'trabajos aprobados'} para ejecutar`
           : profileCompletionPercent < 100
-            ? `Tu perfil está al ${profileCompletionPercent}%`
-            : 'No tenés bloqueos operativos';
+            ? `Tu perfil estÃ¡ al ${profileCompletionPercent}%`
+            : 'No tenÃ©s bloqueos operativos';
 
     return {
       actionLabel,
@@ -10207,7 +10684,7 @@ export default function TechniciansPage() {
         return;
       }
       if (typeof window !== 'undefined') {
-        const confirmed = window.confirm('Vas a aparecer en la vidriera publica de tecnicos. ¿Confirmas publicacion?');
+        const confirmed = window.confirm('Vas a aparecer en la vidriera publica de tecnicos. Â¿Confirmas publicacion?');
         if (!confirmed) {
           setProfileMessage('Publicacion cancelada.');
           return;
@@ -10355,8 +10832,8 @@ export default function TechniciansPage() {
   const publicProfilePreview = useMemo(() => {
     const profileId = session?.user?.id || profile?.id || '';
     const displayName =
-      String(profileForm.businessName || profileForm.fullName || profile?.business_name || profile?.full_name || 'Técnico UrbanFix').trim() ||
-      'Técnico UrbanFix';
+      String(profileForm.businessName || profileForm.fullName || profile?.business_name || profile?.full_name || 'TÃ©cnico UrbanFix').trim() ||
+      'TÃ©cnico UrbanFix';
     const fullName = String(profileForm.fullName || profile?.full_name || '').trim();
     const displayInitial = displayName.slice(0, 1).toUpperCase() || 'U';
     const specialties = parseSpecialties(profileForm.specialties).slice(0, 12);
@@ -10660,7 +11137,7 @@ export default function TechniciansPage() {
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
         >
           <div className={`${authSurfaceClass} max-w-lg border-rose-200`}>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Perfil técnico</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Perfil tÃ©cnico</p>
             <h1 className="mt-2 text-2xl font-bold text-[color:var(--ui-ink)]">No pudimos abrir tu perfil</h1>
             <p className="mt-3 text-sm text-[color:var(--ui-muted)]">{profileLoadError}</p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -10676,7 +11153,7 @@ export default function TechniciansPage() {
                 onClick={handleLogout}
                 className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-4 py-3 text-sm font-semibold text-[color:var(--ui-ink)] transition hover:border-[color:var(--ui-accent-soft)]"
               >
-                Cerrar sesión
+                Cerrar sesiÃ³n
               </button>
             </div>
           </div>
@@ -10698,7 +11175,7 @@ export default function TechniciansPage() {
           <div className={`${authSurfaceClass} max-w-lg text-center`}>
             <h1 className="text-2xl font-bold text-[color:var(--ui-ink)]">Acceso administrativo</h1>
             <p className="mt-3 text-sm text-[color:var(--ui-muted)]">
-              Tu cuenta está configurada como admin. Te llevamos al panel de control.
+              Tu cuenta estÃ¡ configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
@@ -10758,12 +11235,12 @@ export default function TechniciansPage() {
                   </div>
                   <div className="text-left">
                     <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
-                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">Panel técnico</p>
+                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">Panel tÃ©cnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">Restablecer contraseña</h1>
+                <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">Restablecer contraseÃ±a</h1>
                 <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
-                  Define una nueva contraseña para volver a acceder a tu cuenta.
+                  Define una nueva contraseÃ±a para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
@@ -10776,13 +11253,13 @@ export default function TechniciansPage() {
 
               <div className={authSurfaceClass}>
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Nueva contraseña</h2>
-                  <p className="text-sm text-[color:var(--ui-muted)]">Ingresa tu nueva contraseña para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Nueva contraseÃ±a</h2>
+                  <p className="text-sm text-[color:var(--ui-muted)]">Ingresa tu nueva contraseÃ±a para finalizar.</p>
                 </div>
 
                 {!session?.user && (
                   <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
+                    La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.
                   </div>
                 )}
 
@@ -10793,14 +11270,14 @@ export default function TechniciansPage() {
                         value={recoveryPassword}
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
-                        placeholder="Nueva contraseña"
+                        placeholder="Nueva contraseÃ±a"
                         className={authInputClass.replace('mt-2 ', '')}
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
-                        placeholder="Repetir contraseña"
+                        placeholder="Repetir contraseÃ±a"
                         className={authInputClass.replace('mt-2 ', '')}
                       />
                     </div>
@@ -10815,7 +11292,7 @@ export default function TechniciansPage() {
                         disabled={updatingRecovery}
                         className={`mt-5 ${authPrimaryButtonClass}`}
                       >
-                          {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
+                          {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseÃ±a'}
                       </button>
                     )}
 
@@ -10957,7 +11434,7 @@ export default function TechniciansPage() {
                               {profileForm.businessName || 'Tu negocio'}
                             </p>
                             <p className="mt-0.5 truncate text-xs text-slate-500">
-                              {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` · ${profileForm.email}` : ''}
+                              {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` Â· ${profileForm.email}` : ''}
                             </p>
                           </div>
                         </div>
@@ -11220,7 +11697,7 @@ export default function TechniciansPage() {
                     onClick={handleLogout}
                     className={authSecondaryButtonBlockClass}
                   >
-                    Cerrar sesión
+                    Cerrar sesiÃ³n
                   </button>
                 </div>
                 </div>
@@ -11602,7 +12079,7 @@ export default function TechniciansPage() {
       className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
-      <PublicTopNav activeHref="/tecnicos" sticky panelMenuLabel="Panel técnico" panelMenuItems={technicianTopMenuItems} />
+      <PublicTopNav activeHref="/tecnicos" sticky panelMenuLabel="Panel tÃ©cnico" panelMenuItems={technicianTopMenuItems} />
       <div
         className={`relative overflow-hidden ${
           activeTab === 'operativo'
@@ -11626,7 +12103,7 @@ export default function TechniciansPage() {
         >
           <div className={isFullBleedContent ? 'contents' : 'hidden w-[74px] shrink-0 lg:block'}>
             <aside
-              aria-label="Navegación técnica"
+              aria-label="NavegaciÃ³n tÃ©cnica"
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
               className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/[0.08] bg-[linear-gradient(180deg,#17031f_0%,#250331_48%,#13021a_100%)] shadow-[14px_0_44px_-42px_rgba(0,0,0,0.9),inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
@@ -11648,7 +12125,7 @@ export default function TechniciansPage() {
                     {isDesktopNavExpanded && (
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-semibold text-white">{technicianSidebarAccountLabel}</p>
-                        <p className="mt-0.5 text-[10px] font-semibold text-white/[0.42]">Panel técnico</p>
+                        <p className="mt-0.5 text-[10px] font-semibold text-white/[0.42]">Panel tÃ©cnico</p>
                       </div>
                     )}
                   </div>
@@ -11713,7 +12190,7 @@ export default function TechniciansPage() {
                   <div className="flex flex-col gap-0.5">
                     <button
                       type="button"
-                      title={!isDesktopNavExpanded ? 'Configuración' : undefined}
+                      title={!isDesktopNavExpanded ? 'ConfiguraciÃ³n' : undefined}
                       onClick={() => setActiveTab('perfil')}
                       className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
@@ -11725,13 +12202,13 @@ export default function TechniciansPage() {
                         <Settings className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Configuración</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">ConfiguraciÃ³n</span>
                       )}
                     </button>
 
                     <button
                       type="button"
-                      title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
+                      title={!isDesktopNavExpanded ? 'Cerrar sesiÃ³n' : undefined}
                       onClick={handleLogout}
                       className={`group relative flex items-center text-white/[0.82] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white ${
                         isDesktopNavExpanded
@@ -11743,7 +12220,7 @@ export default function TechniciansPage() {
                         <LogOut className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesión</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesiÃ³n</span>
                       )}
                     </button>
                   </div>
@@ -11760,14 +12237,14 @@ export default function TechniciansPage() {
                     <div className="min-w-0">
                       <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/25 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7a4a15] shadow-sm">
                         <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
-                        Perfil en revisión
+                        Perfil en revisiÃ³n
                       </span>
                       <h2 className={`${spaceGrotesk.className} mt-3 text-2xl font-bold tracking-tight text-[#180f24]`}>
-                        Ya podés preparar tu operación
+                        Ya podÃ©s preparar tu operaciÃ³n
                       </h2>
                       <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-                        Tu perfil está cargado y UrbanFix lo está revisando. Mientras tanto podés crear presupuestos,
-                        ordenar clientes y completar detalles; las solicitudes cercanas y la vidriera pública se habilitan
+                        Tu perfil estÃ¡ cargado y UrbanFix lo estÃ¡ revisando. Mientras tanto podÃ©s crear presupuestos,
+                        ordenar clientes y completar detalles; las solicitudes cercanas y la vidriera pÃºblica se habilitan
                         cuando quede aprobado.
                       </p>
                     </div>
@@ -11805,7 +12282,7 @@ export default function TechniciansPage() {
                           Bienvenido, {technicianHomeName}
                         </h1>
                         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                          Este es tu estado de hoy: pendientes, balance y el próximo paso para avanzar.
+                          Este es tu estado de hoy: pendientes, balance y el prÃ³ximo paso para avanzar.
                         </p>
                       </div>
                     </div>
@@ -11838,7 +12315,7 @@ export default function TechniciansPage() {
                             <div className="flex min-h-[86px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                                  Acción recomendada
+                                  AcciÃ³n recomendada
                                 </p>
                                 <p className={`${spaceGrotesk.className} mt-1 text-lg font-bold text-[#180f24]`}>
                                   {technicianStatusWindow.nextAction}
@@ -11859,17 +12336,17 @@ export default function TechniciansPage() {
                             <div className="flex min-h-[88px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                  Configuración inicial
+                                  ConfiguraciÃ³n inicial
                                 </p>
                                 <p className={`${spaceGrotesk.className} mt-1 text-lg font-bold text-slate-900`}>
                                   {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
                                     ? lobbyPrimarySetupStep.title
-                                    : 'Tu panel ya está listo para operar'}
+                                    : 'Tu panel ya estÃ¡ listo para operar'}
                                 </p>
                                 <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
                                   {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
                                     ? lobbyPrimarySetupStep.description
-                                    : 'Puedes seguir optimizando presupuestos, agenda y presencia pública.'}
+                                    : 'Puedes seguir optimizando presupuestos, agenda y presencia pÃºblica.'}
                                 </p>
                               </div>
                               <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#2a0338]">
@@ -11889,7 +12366,7 @@ export default function TechniciansPage() {
                           {technicianHomeMapPoint && technicianHomeMapUrl ? (
                             <>
                               <iframe
-                                title={`Ubicación de ${technicianHomeName}`}
+                                title={`UbicaciÃ³n de ${technicianHomeName}`}
                                 src={technicianHomeMapUrl}
                                 loading="lazy"
                                 className="absolute inset-0 h-full w-full border-0 grayscale-[0.08] saturate-[0.92]"
@@ -11899,7 +12376,7 @@ export default function TechniciansPage() {
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338]">
                                   <MapPinned className="h-3.5 w-3.5" strokeWidth={2.2} />
                                 </span>
-                                Ubicación técnica
+                                UbicaciÃ³n tÃ©cnica
                               </div>
                               <div className="absolute bottom-3 left-3 right-3 rounded-[17px] border border-white/72 bg-white/88 px-3 py-2 shadow-[0_16px_34px_-28px_rgba(42,3,56,0.62)] backdrop-blur">
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -11926,7 +12403,7 @@ export default function TechniciansPage() {
                                 <MapPinned className="h-5 w-5" strokeWidth={2.1} />
                               </span>
                               <span>
-                                <span className="block text-sm font-semibold text-[#180f24]">Ubicación pendiente</span>
+                                <span className="block text-sm font-semibold text-[#180f24]">UbicaciÃ³n pendiente</span>
                                 <span className="mt-1 block text-xs leading-5 text-slate-500">
                                   Completa tu punto en el mapa para aparecer en la vidriera y ordenar trabajos por zona.
                                 </span>
@@ -12072,7 +12549,7 @@ export default function TechniciansPage() {
                             <div className="space-y-3">
                               {filteredClientHistory.length === 0 && (
                                 <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                                  No hay clientes en este filtro todavía.
+                                  No hay clientes en este filtro todavÃ­a.
                                 </div>
                               )}
                               {filteredClientHistory.slice(0, 5).map((client) => {
@@ -12110,16 +12587,16 @@ export default function TechniciansPage() {
                                           <span className="truncate text-base font-semibold text-slate-900">{client.name}</span>
                                           {client.locationCount > 0 ? (
                                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                              ubicación
+                                              ubicaciÃ³n
                                             </span>
                                           ) : null}
                                         </span>
                                         <span className="mt-1 block text-xs text-slate-500">
-                                          {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} · último {client.lastDateLabel}
+                                          {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} Â· Ãºltimo {client.lastDateLabel}
                                         </span>
                                         <span className="mt-1 block text-[11px] text-slate-400">
                                           Desde {client.firstDateLabel}
-                                          {pendingClient ? ' · requiere seguimiento' : paidClient ? ' · trabajo cobrado' : ''}
+                                          {pendingClient ? ' Â· requiere seguimiento' : paidClient ? ' Â· trabajo cobrado' : ''}
                                         </span>
                                       </span>
                                     </div>
@@ -12176,7 +12653,7 @@ export default function TechniciansPage() {
                                   <span>
                                     <span className="block text-sm font-semibold text-[#180f24]">Sin zonas mapeadas</span>
                                     <span className="mt-1 block text-xs leading-5 text-slate-500">
-                                      Para mapear clientes con precisión, cada presupuesto necesita ubicación confirmada.
+                                      Para mapear clientes con precisiÃ³n, cada presupuesto necesita ubicaciÃ³n confirmada.
                                     </span>
                                   </span>
                                 </button>
@@ -12189,16 +12666,16 @@ export default function TechniciansPage() {
                           <div className="relative flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <p className="inline-flex rounded-full border border-[#ffcf93] bg-[#fff8ef] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a4a07]">
-                                Facturación
+                                FacturaciÃ³n
                               </p>
                               <h3 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Caja, cobro y mano de obra</h3>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
-                                {financeTimelineMode === 'weekly' ? '6 + 2 semanas' : financeTimelineMode === 'yearly' ? '6 + 2 años' : '6 + 2 meses'}
+                                {financeTimelineMode === 'weekly' ? '6 + 2 semanas' : financeTimelineMode === 'yearly' ? '6 + 2 aÃ±os' : '6 + 2 meses'}
                               </span>
                               <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
-                                Último {financeOverview.latestActiveMonth.label.toUpperCase()}
+                                Ãšltimo {financeOverview.latestActiveMonth.label.toUpperCase()}
                               </span>
                               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
                                 {financeOverview.collectionRate}% cobrado
@@ -12253,9 +12730,9 @@ export default function TechniciansPage() {
                               <div>
                                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{financeTimelineTitle}</p>
                                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                                  Mejor periodo: {financeOverview.bestMonth.label.toUpperCase()} · {formatDashboardMoney(financeOverview.bestMonth.quotes)}
+                                  Mejor periodo: {financeOverview.bestMonth.label.toUpperCase()} Â· {formatDashboardMoney(financeOverview.bestMonth.quotes)}
                                   {financeTimelineOffset !== 0 ? (
-                                    <span className="font-medium text-slate-400"> · {financeTimelinePositionLabel}</span>
+                                    <span className="font-medium text-slate-400"> Â· {financeTimelinePositionLabel}</span>
                                   ) : null}
                                 </p>
                               </div>
@@ -12504,7 +12981,7 @@ export default function TechniciansPage() {
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
                                       <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                                        {activeFinancePoint.label.toUpperCase()} · {activeFinancePoint.quoteRefs.length} presupuestos
+                                        {activeFinancePoint.label.toUpperCase()} Â· {activeFinancePoint.quoteRefs.length} presupuestos
                                       </p>
                                       <p className="mt-1 text-base font-semibold text-slate-950">
                                         {formatDashboardMoney(activeFinancePoint.quotes)}
@@ -12541,10 +13018,10 @@ export default function TechniciansPage() {
                                       >
                                         <div className="min-w-0">
                                           <p className="truncate text-[11px] font-bold text-slate-900">
-                                            #{quoteRef.number} · {quoteRef.clientName}
+                                            #{quoteRef.number} Â· {quoteRef.clientName}
                                           </p>
                                           <p className="mt-0.5 text-[10px] font-medium text-slate-400">
-                                            {quoteRef.dateLabel} · {quoteRef.statusLabel}
+                                            {quoteRef.dateLabel} Â· {quoteRef.statusLabel}
                                           </p>
                                         </div>
                                         <span className="shrink-0 text-[11px] font-bold text-slate-950">
@@ -12618,7 +13095,7 @@ export default function TechniciansPage() {
                       disabled={loadingNearbyRequests || isProfileUnderReview}
                       className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isProfileUnderReview ? 'En revisión' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar'}
+                      {isProfileUnderReview ? 'En revisiÃ³n' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar'}
                     </button>
                   </div>
                   {isProfileUnderReview && (
@@ -12703,11 +13180,11 @@ export default function TechniciansPage() {
                             Boolean(String(request.my_response_message || '').trim());
                           const hasResponseValues = hasDirectQuoteValues || hasApplicationValues;
                           const responseSummary = hasApplicationValues
-                            ? `Postulacion: ${Math.round(Number(request.my_visit_eta_hours || 0))} h · ${String(
+                            ? `Postulacion: ${Math.round(Number(request.my_visit_eta_hours || 0))} h Â· ${String(
                                 request.my_response_message || ''
                               ).trim()}`
                             : hasDirectQuoteValues
-                              ? `Cotizacion: ${formatCurrency(Number(request.my_price_ars || 0))} · ETA ${Math.round(
+                              ? `Cotizacion: ${formatCurrency(Number(request.my_price_ars || 0))} Â· ETA ${Math.round(
                                   Number(request.my_eta_hours || 0)
                                 )} h`
                               : '';
@@ -12753,7 +13230,7 @@ export default function TechniciansPage() {
                                   </span>
                                 </div>
                                 <p className="mt-2 text-xs font-semibold text-slate-500">
-                                  {request.category} · Zona: {requestPublicZoneLabel(request)}
+                                  {request.category} Â· Zona: {requestPublicZoneLabel(request)}
                                 </p>
                                 {requestDescription && (
                                   <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600 xl:line-clamp-2">
@@ -12943,7 +13420,7 @@ export default function TechniciansPage() {
                                   {draft.client_name || 'Cliente sin nombre'}
                                 </span>
                                 <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
-                                  {getQuoteAddress(draft) || 'Sin direccion'} · {formatCurrency(toAmountValue(draft.total_amount))}
+                                  {getQuoteAddress(draft) || 'Sin direccion'} Â· {formatCurrency(toAmountValue(draft.total_amount))}
                                 </span>
                               </span>
                               <span className="shrink-0 rounded-full bg-slate-950 px-3 py-1.5 text-[11px] font-black text-white">
@@ -13001,7 +13478,7 @@ export default function TechniciansPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-semibold text-slate-600">Dirección del trabajo</label>
+                            <label className="block text-xs font-semibold text-slate-600">DirecciÃ³n del trabajo</label>
                             <input
                               value={clientAddress}
                               onChange={(event) => handleQuoteAddressChange(event.target.value)}
@@ -13010,7 +13487,7 @@ export default function TechniciansPage() {
                                   setGeoError('');
                                 }
                               }}
-                              placeholder="Calle, número y localidad. Ej: Coronel Bogado 2556"
+                              placeholder="Calle, nÃºmero y localidad. Ej: Coronel Bogado 2556"
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                             />
                           </div>
@@ -13087,7 +13564,7 @@ export default function TechniciansPage() {
                               loading="lazy"
                             />
                             <div className="flex items-center justify-between gap-2 px-4 py-3 text-xs text-slate-500">
-                              <span className="truncate">Vista previa de la ubicación</span>
+                              <span className="truncate">Vista previa de la ubicaciÃ³n</span>
                               <a
                                 href={buildOsmLink(geoSelected.lat, geoSelected.lon)}
                                 target="_blank"
@@ -13127,7 +13604,7 @@ export default function TechniciansPage() {
                             <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                               {laborItems.length > 0
                                 ? `${laborItems.length} items - ${formatCurrency(laborSubtotal)}`
-                                : 'Trabajo, medidas y cómputo.'}
+                                : 'Trabajo, medidas y cÃ³mputo.'}
                             </p>
                           </div>
                         </div>
@@ -13145,9 +13622,9 @@ export default function TechniciansPage() {
                           <div className="px-3 py-3">
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="min-w-0">
-                              <h4 className="text-sm font-black text-slate-950">Elegí cómo cargar</h4>
+                              <h4 className="text-sm font-black text-slate-950">ElegÃ­ cÃ³mo cargar</h4>
                               <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                                Calculá por medidas, buscá un precio o agregá una tarea simple.
+                                CalculÃ¡ por medidas, buscÃ¡ un precio o agregÃ¡ una tarea simple.
                               </p>
                             </div>
                             <div className="grid gap-2 sm:grid-cols-3 lg:w-auto">
@@ -13160,7 +13637,7 @@ export default function TechniciansPage() {
                                     : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-white'
                                 }`}
                               >
-                                Catálogo
+                                CatÃ¡logo
                               </button>
                               <button
                                 type="button"
@@ -13189,7 +13666,7 @@ export default function TechniciansPage() {
 
                           {quoteLaborLoadMode === 'calculator' && (
                             <label className="mt-3 block max-w-md text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                              Tipo de cálculo
+                              Tipo de cÃ¡lculo
                               <select
                                 value={quoteWorkEstimatorMode}
                                 onChange={(event) =>
@@ -13403,7 +13880,7 @@ export default function TechniciansPage() {
                                             </span>
                                             <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
                                               {quantityLabel}
-                                              {unitPrice > 0 ? ` · ${formatCurrency(unitPrice)}` : ' · pendiente'}
+                                              {unitPrice > 0 ? ` Â· ${formatCurrency(unitPrice)}` : ' Â· pendiente'}
                                             </span>
                                           </span>
                                           <input
@@ -13443,7 +13920,7 @@ export default function TechniciansPage() {
                                       {revoqueCatalogCheck.sourceLabel && (
                                         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
                                           {revoqueCatalogCheck.sourceLabel}
-                                          {revoqueCatalogCheck.updatedAtLabel ? ` · ${revoqueCatalogCheck.updatedAtLabel}` : ''}
+                                          {revoqueCatalogCheck.updatedAtLabel ? ` Â· ${revoqueCatalogCheck.updatedAtLabel}` : ''}
                                         </p>
                                       )}
                                     </div>
@@ -13711,7 +14188,7 @@ export default function TechniciansPage() {
                                             </span>
                                             <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
                                               {quantityLabel}
-                                              {unitPrice > 0 ? ` · ${formatCurrency(unitPrice)}` : ' · pendiente'}
+                                              {unitPrice > 0 ? ` Â· ${formatCurrency(unitPrice)}` : ' Â· pendiente'}
                                             </span>
                                           </span>
                                           <input
@@ -13756,7 +14233,7 @@ export default function TechniciansPage() {
                                         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
                                           {mamposteriaCatalogCheck.sourceLabel}
                                           {mamposteriaCatalogCheck.updatedAtLabel
-                                            ? ` · ${mamposteriaCatalogCheck.updatedAtLabel}`
+                                            ? ` Â· ${mamposteriaCatalogCheck.updatedAtLabel}`
                                             : ''}
                                         </p>
                                       )}
@@ -14416,23 +14893,23 @@ export default function TechniciansPage() {
                               <div className="p-4">
                               <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_90px_130px_150px]">
                                 <div>
-                                  <label className="block text-[11px] font-semibold text-slate-500">Ítem</label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Ãtem</label>
                                   <input
                                     value={item.description}
                                     onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
-                                    placeholder="Ej: Reparación de pérdida"
+                                    placeholder="Ej: ReparaciÃ³n de pÃ©rdida"
                                     list={item.type === 'labor' ? 'labor-master-items' : undefined}
                                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                   />
                                 </div>
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500">
-                                    Descripción / sector
+                                    DescripciÃ³n / sector
                                   </label>
                                   <input
                                     value={item.workArea || ''}
                                     onChange={(event) => handleItemUpdate(item.id, { workArea: event.target.value })}
-                                    placeholder="Pared 1, escalera, baño"
+                                    placeholder="Pared 1, escalera, baÃ±o"
                                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                   />
                                 </div>
@@ -14600,14 +15077,14 @@ export default function TechniciansPage() {
                               </div>
                               <details className="group mt-3 rounded-xl bg-white ring-1 ring-slate-100">
                                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                    <span>Especificación técnica</span>
+                                    <span>EspecificaciÃ³n tÃ©cnica</span>
                                     <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
                                   </summary>
                                   <div className="border-t border-slate-100 p-3">
                                     <textarea
                                       value={item.technicalNotes || ''}
                                       onChange={(event) => handleItemUpdate(item.id, { technicalNotes: event.target.value })}
-                                      placeholder="Detalle técnico, criterio de medición, preparación o terminación."
+                                      placeholder="Detalle tÃ©cnico, criterio de mediciÃ³n, preparaciÃ³n o terminaciÃ³n."
                                       rows={4}
                                       className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                                     />
@@ -14704,7 +15181,7 @@ export default function TechniciansPage() {
                           </div>
                           {materialItems.length === 0 ? (
                             <div className="m-3 rounded-[20px] border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
-                              Agrega materiales manuales o desde el cómputo automático.
+                              Agrega materiales manuales o desde el cÃ³mputo automÃ¡tico.
                             </div>
                           ) : (
                             <div className="space-y-3 p-3">
@@ -14838,14 +15315,14 @@ export default function TechniciansPage() {
                                     {isEditingItem && (
                                       <details className="group mx-4 mb-4 rounded-xl bg-white ring-1 ring-slate-100">
                                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                          <span>Especificación técnica</span>
+                                          <span>EspecificaciÃ³n tÃ©cnica</span>
                                           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
                                         </summary>
                                         <div className="border-t border-slate-100 p-3">
                                           <textarea
                                             value={item.technicalNotes || ''}
                                             onChange={(event) => handleItemUpdate(item.id, { technicalNotes: event.target.value })}
-                                            placeholder="Detalle técnico, criterio de medición, preparación o terminación."
+                                            placeholder="Detalle tÃ©cnico, criterio de mediciÃ³n, preparaciÃ³n o terminaciÃ³n."
                                             rows={4}
                                             className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                                           />
@@ -14938,7 +15415,7 @@ export default function TechniciansPage() {
                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500"
                               />
                               {attachments.length === 0 && (
-                                <p className="text-xs text-slate-500">Aún no hay fotos adjuntas.</p>
+                                <p className="text-xs text-slate-500">AÃºn no hay fotos adjuntas.</p>
                               )}
                               {attachments.length > 0 && (
                                 <div className="grid gap-3 sm:grid-cols-2">
@@ -15105,7 +15582,7 @@ export default function TechniciansPage() {
                     </h2>
                     <p className="mt-1 text-sm text-slate-500">
                       {filteredQuotes.length} de {quoteStats.total} en vista
-                      {quoteFilter !== 'all' ? ` · ${activeQuoteFilterLabel}` : ''}
+                      {quoteFilter !== 'all' ? ` Â· ${activeQuoteFilterLabel}` : ''}
                     </p>
                   </div>
                   <button
@@ -15195,7 +15672,7 @@ export default function TechniciansPage() {
                                 {quote.client_name || 'Presupuesto sin cliente'}
                               </h3>
                               <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500">
-                                {quoteAddress || 'Sin dirección confirmada'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                                {quoteAddress || 'Sin direcciÃ³n confirmada'} Â· {new Date(quote.created_at).toLocaleDateString('es-AR')}
                               </p>
                             </div>
                           </div>
@@ -15240,7 +15717,7 @@ export default function TechniciansPage() {
                                 onClick={() => handleCopyFeedbackLink(quote.id)}
                                 className="h-9 w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
                               >
-                                Calificación
+                                CalificaciÃ³n
                               </button>
                             )}
                             {!canShareFeedbackLink && <span aria-hidden="true" className="hidden lg:block" />}
@@ -15328,7 +15805,7 @@ export default function TechniciansPage() {
                                 )}
                               </div>
                               <p className={`${spaceGrotesk.className} truncate text-base font-bold text-[#180f24]`}>
-                                {activeQuote.client_name || 'Presupuesto sin cliente'} · {formatCurrency(toAmountValue(activeQuote.total_amount))}
+                                {activeQuote.client_name || 'Presupuesto sin cliente'} Â· {formatCurrency(toAmountValue(activeQuote.total_amount))}
                               </p>
                             </div>
                       </>
@@ -15371,7 +15848,7 @@ export default function TechniciansPage() {
                             onClick={() => handleCopyFeedbackLink(activeQuote.id)}
                             className="h-9 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
                           >
-                            Calificación
+                            CalificaciÃ³n
                           </button>
                         )}
                         {infoMessage && (
@@ -15473,7 +15950,7 @@ export default function TechniciansPage() {
                       <input
                         value={agendaSearch}
                         onChange={(event) => setAgendaSearch(event.target.value)}
-                        placeholder="Buscar cliente o dirección"
+                        placeholder="Buscar cliente o direcciÃ³n"
                         className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#020617]"
                       />
                     </div>
@@ -15510,7 +15987,7 @@ export default function TechniciansPage() {
                                     {quote.client_name || 'Presupuesto'}
                                   </p>
                                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
-                                    {getQuoteAddress(quote) || 'Sin dirección'}
+                                    {getQuoteAddress(quote) || 'Sin direcciÃ³n'}
                                   </p>
                                 </div>
                                 <p className="shrink-0 text-xs font-bold text-slate-900">
@@ -15532,7 +16009,7 @@ export default function TechniciansPage() {
                                   disabled={isSaving}
                                   className="h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  Mañana
+                                  MaÃ±ana
                                 </button>
                                 <input
                                   type="date"
@@ -15624,7 +16101,7 @@ export default function TechniciansPage() {
                                       </button>
                                     </div>
                                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
-                                      {getQuoteAddress(quote) || 'Sin dirección'}
+                                      {getQuoteAddress(quote) || 'Sin direcciÃ³n'}
                                     </p>
                                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500">
                                       <span className="rounded-full bg-slate-100 px-2 py-1">
@@ -15874,7 +16351,7 @@ export default function TechniciansPage() {
                                     </span>
                                   </div>
                                   <p className="mt-1 text-xs text-slate-500">
-                                    {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                                    {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                                     {new Date(quote.created_at).toLocaleDateString('es-AR')}
                                   </p>
                                 </div>
@@ -16009,7 +16486,7 @@ export default function TechniciansPage() {
                                       </span>
                                     </div>
                                     <p className="mt-1 text-xs text-slate-500">
-                                      {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
+                                      {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
                                       {new Date(quote.created_at).toLocaleDateString('es-AR')}
                                     </p>
                                     <p className="mt-2 text-sm font-medium text-slate-800">
@@ -16138,7 +16615,7 @@ export default function TechniciansPage() {
                   <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-                        Facturación
+                        FacturaciÃ³n
                       </p>
                       <h2 className={`${spaceGrotesk.className} mt-2 text-3xl font-black tracking-tight sm:text-4xl`}>
                         Control de caja
@@ -16213,7 +16690,7 @@ export default function TechniciansPage() {
                           Rendimiento
                         </p>
                         <h3 className={`${spaceGrotesk.className} mt-1 text-xl font-bold text-[#180f24]`}>
-                          Últimos 12 meses
+                          Ãšltimos 12 meses
                         </h3>
                       </div>
                       <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
@@ -16299,7 +16776,7 @@ export default function TechniciansPage() {
                       <div className="mt-3 space-y-2">
                         {billingYearSeries.length === 0 && (
                           <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                            Aún no hay facturación registrada.
+                            AÃºn no hay facturaciÃ³n registrada.
                           </div>
                         )}
                         {billingYearSeries.slice(0, 4).map((item) => (
@@ -16342,7 +16819,7 @@ export default function TechniciansPage() {
                           Sin movimientos facturables
                         </p>
                         <p className="mt-1 text-sm text-slate-500">
-                          Los presupuestos aprobados, programados, finalizados o cobrados aparecerán acá.
+                          Los presupuestos aprobados, programados, finalizados o cobrados aparecerÃ¡n acÃ¡.
                         </p>
                       </div>
                     )}
@@ -16368,7 +16845,7 @@ export default function TechniciansPage() {
                               {quote.client_name || 'Presupuesto sin cliente'}
                             </h4>
                             <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                              {quoteAddress || 'Sin dirección'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                              {quoteAddress || 'Sin direcciÃ³n'} Â· {new Date(quote.created_at).toLocaleDateString('es-AR')}
                             </p>
                           </div>
 
@@ -16426,14 +16903,14 @@ export default function TechniciansPage() {
                     disabled={notificationStats.unread === 0}
                     className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    Marcar todo como leído
+                    Marcar todo como leÃ­do
                   </button>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-[18px] border border-slate-200 bg-slate-200 md:grid-cols-4">
                   {[
                     { label: 'Total', value: notificationStats.all, hint: 'avisos' },
-                    { label: 'No leídas', value: notificationStats.unread, hint: 'pendientes' },
+                    { label: 'No leÃ­das', value: notificationStats.unread, hint: 'pendientes' },
                     { label: 'Presupuestos', value: notificationStats.quote, hint: 'movimientos' },
                     { label: 'Agenda', value: notificationStats.agenda, hint: 'fechas' },
                   ].map((item) => (
@@ -16448,7 +16925,7 @@ export default function TechniciansPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {[
                     { key: 'all' as const, label: 'Todas', count: notificationStats.all },
-                    { key: 'unread' as const, label: 'No leídas', count: notificationStats.unread },
+                    { key: 'unread' as const, label: 'No leÃ­das', count: notificationStats.unread },
                     { key: 'quote' as const, label: 'Presupuestos', count: notificationStats.quote },
                     { key: 'agenda' as const, label: 'Agenda', count: notificationStats.agenda },
                   ].map((item) => (
@@ -16483,7 +16960,7 @@ export default function TechniciansPage() {
                       <p className={`${spaceGrotesk.className} mt-3 text-lg font-bold text-slate-900`}>
                         Sin notificaciones
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">Los avisos de presupuestos y agenda van a aparecer acá.</p>
+                      <p className="mt-1 text-sm text-slate-500">Los avisos de presupuestos y agenda van a aparecer acÃ¡.</p>
                     </div>
                   )}
                   {!loadingNotifications &&
@@ -16524,7 +17001,7 @@ export default function TechniciansPage() {
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <p className={`${spaceGrotesk.className} truncate text-base font-bold text-[#180f24]`}>
-                                  {notif.title || 'Notificación'}
+                                  {notif.title || 'NotificaciÃ³n'}
                                 </p>
                                 {isUnread && (
                                   <span className="rounded-full bg-[#ff8f1f]/15 px-2 py-0.5 text-[10px] font-semibold text-[#b45309]">
@@ -16548,7 +17025,7 @@ export default function TechniciansPage() {
                               )}
                               {notif.read_at && (
                                 <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">
-                                  Leída
+                                  LeÃ­da
                                 </span>
                               )}
                             </div>
@@ -16830,7 +17307,7 @@ export default function TechniciansPage() {
                       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="min-w-0">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-                            Perfil público
+                            Perfil pÃºblico
                           </p>
                           <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-black tracking-tight sm:text-3xl`}>
                             Editor del perfil
@@ -17078,7 +17555,7 @@ export default function TechniciansPage() {
                               <article className="ufx-tech-card p-5 sm:p-6">
                                 <h2 className="text-2xl font-semibold text-white">Facebook</h2>
                                 <iframe
-                                  title="Publicaciones Facebook del técnico"
+                                  title="Publicaciones Facebook del tÃ©cnico"
                                   src={publicProfilePreview.facebookFeedEmbedUrl}
                                   className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
                                   loading="lazy"
@@ -17091,7 +17568,7 @@ export default function TechniciansPage() {
                               <article className="ufx-tech-card p-5 sm:p-6">
                                 <h2 className="text-2xl font-semibold text-white">Instagram</h2>
                                 <iframe
-                                  title="Publicaciones Instagram del técnico"
+                                  title="Publicaciones Instagram del tÃ©cnico"
                                   src={publicProfilePreview.instagramPostEmbedUrl}
                                   className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
                                   loading="lazy"
@@ -17251,7 +17728,7 @@ export default function TechniciansPage() {
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
                             />
                             <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                              Bio pública
+                              Bio pÃºblica
                               <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
                                 Visible
                               </span>
@@ -17261,11 +17738,11 @@ export default function TechniciansPage() {
                               onChange={(event) => setProfileForm((prev) => ({ ...prev, bio: event.target.value }))}
                               rows={4}
                               maxLength={420}
-                              placeholder="Contá en pocas líneas quién sos, qué trabajos hacés y por qué pueden confiar en vos."
+                              placeholder="ContÃ¡ en pocas lÃ­neas quiÃ©n sos, quÃ© trabajos hacÃ©s y por quÃ© pueden confiar en vos."
                               className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
                             />
                             <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                              <span>Se muestra en el encabezado del link público.</span>
+                              <span>Se muestra en el encabezado del link pÃºblico.</span>
                               <span>{profileForm.bio.length}/420</span>
                             </div>
                           </details>
@@ -17575,7 +18052,7 @@ export default function TechniciansPage() {
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Redes y visibilidad
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
-                                Público
+                                PÃºblico
                               </span>
                             </summary>
                             <label className="mt-4 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
@@ -17866,7 +18343,7 @@ export default function TechniciansPage() {
                       />
                       <p className="mt-1 text-[11px] text-slate-500">Activa el boton de contacto del perfil publico.</p>
                       <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                        Bio pública
+                        Bio pÃºblica
                         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
                           Visible
                         </span>
@@ -17876,11 +18353,11 @@ export default function TechniciansPage() {
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, bio: event.target.value }))}
                         rows={4}
                         maxLength={420}
-                        placeholder="Contá en pocas líneas quién sos, qué trabajos hacés y por qué pueden confiar en vos."
+                        placeholder="ContÃ¡ en pocas lÃ­neas quiÃ©n sos, quÃ© trabajos hacÃ©s y por quÃ© pueden confiar en vos."
                         className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
                       />
                       <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                        <span>Se muestra en el encabezado del link público.</span>
+                        <span>Se muestra en el encabezado del link pÃºblico.</span>
                         <span>{profileForm.bio.length}/420</span>
                       </div>
                     </div>
@@ -18222,7 +18699,7 @@ export default function TechniciansPage() {
                           Redes y visibilidad
                         </p>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                          Público
+                          PÃºblico
                         </span>
                       </div>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
