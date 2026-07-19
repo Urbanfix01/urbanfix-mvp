@@ -3361,8 +3361,27 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
   }
 
   if (categoryKey.includes('bombas') || normalizedName.includes('bomba')) {
+    const isPresurizadoraBajoTanqueItem =
+      normalizedName.includes('presurizadora') && normalizedName.includes('bajo') && normalizedName.includes('tanque');
+    const isPresurizadoraChicaItem = normalizedName.includes('presurizadora') && normalizedName.includes('chica');
+    const pumpImage = isPresurizadoraBajoTanqueItem
+      ? {
+          imageSrc: '/catalog/items/bomba-presurizadora-bajo-tanque.jpg',
+          imageAlt: 'Bomba presurizadora bajo tanque instalada con filtro y canerias conectadas',
+        }
+      : isPresurizadoraChicaItem
+        ? {
+            imageSrc: '/catalog/items/bomba-presurizadora-chica.jpg',
+            imageAlt: 'Bomba presurizadora chica instalada con filtro y canerias conectadas',
+          }
+        : {
+            imageSrc: '/catalog/items/bomba-elevadora-sanitaria.jpg',
+            imageAlt: 'Bomba elevadora sanitaria instalada con canerias y conexiones hidraulicas',
+          };
+
     return {
       summary: getMasterItemBlueprintSummary(item, `Instalacion o reemplazo de bomba sanitaria ${byUnitLabel}.`),
+      ...pumpImage,
       includes: [
         `Presentacion y montaje de ${name}`,
         'Conexion hidraulica a entrada y salida existentes',
@@ -3463,9 +3482,194 @@ const buildSanitariosBlueprint = (item: MasterItemRow, normalizedName: string): 
     };
   }
 
+  if (normalizedName.includes('camara') && normalizedName.includes('septica')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Construccion rectangular segun OSN.'),
+      imageSrc: '/catalog/items/camara-septica-instalacion.jpg',
+      imageAlt: 'Camara septica rectangular de hormigon con tabique interno y canerias cloacales conectadas',
+      includes: [
+        `Presentacion y ejecucion de ${name}`,
+        'Construccion o montaje rectangular de camara sanitaria',
+        'Ejecucion de tabique interno y puntos de entrada y salida',
+        'Revision de nivel, pendiente y continuidad cloacal',
+      ],
+      excludes: [
+        'Provision de materiales, tapa, canerias o accesorios si no estan detallados',
+        'Excavacion mayor, retiro de suelo excedente o maquinaria pesada',
+        'Impermeabilizacion especial, permisos o calculo sanitario externo',
+        'Reposicion de parquizado, veredas, pisos o terminaciones exteriores',
+      ],
+      requirements: [
+        'Ubicacion, medidas y cotas aprobadas antes de iniciar',
+        'Entrada y salida cloacal definidas con pendiente correcta',
+        'Base firme y terreno apto para recibir la camara',
+        'Acceso suficiente para construir, revisar y tapar el sistema',
+      ],
+      materials: ['Hormigon, ladrillo o premoldeado segun alcance', 'Canerias y accesorios cloacales', 'Mortero, selladores y tapa sanitaria', 'Elementos de nivelacion e impermeabilizacion basica'],
+      finishCriteria: [
+        'La camara queda firme, nivelada y con geometria correcta',
+        'El tabique interno queda ejecutado segun el funcionamiento sanitario',
+        'Las conexiones quedan alineadas y revisables antes del tapado',
+        'El sistema queda listo para prueba, tapa o etapa siguiente',
+      ],
+      budgetNote: 'Confirmar por separado excavacion, materiales, tapa reforzada, impermeabilizacion y retiro de suelo cuando no esten incluidos expresamente.',
+    };
+  }
+
+  if (normalizedName.includes('camara') && normalizedName.includes('inspeccion') && normalizedName.includes('cementicia')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Trabajo cloacal sanitario ${byUnitLabel}.`),
+      imageSrc: '/catalog/items/camara-inspeccion-cementicia.jpg',
+      imageAlt: 'Camara de inspeccion cementicia sanitaria con canerias cloacales conectadas',
+      includes: [
+        `Presentacion y ejecucion de ${name}`,
+        'Nivelacion de base y apoyo de la camara cementicia',
+        'Conexion de entrada y salida cloacal dentro del alcance',
+        'Revision visual de continuidad, pendiente y acceso de inspeccion',
+      ],
+      excludes: [
+        'Provision de camara, tapa, canerias o accesorios',
+        'Excavacion mayor, retiro de suelo excedente o maquinaria pesada',
+        'Reposicion de pisos, veredas, parquizado o terminaciones exteriores',
+        'Permisos, estudio de suelo o modificaciones de red fuera del punto',
+      ],
+      requirements: [
+        'Ubicacion y cota de camara aprobadas antes de iniciar',
+        'Entrada y salida sanitaria definidas con pendiente correcta',
+        'Terreno accesible y libre de interferencias ocultas',
+        'Camara y tapa compatibles con el uso y transito previsto',
+      ],
+      materials: ['Camara cementicia y tapa', 'Canerias y accesorios cloacales', 'Mortero, selladores y cama de asiento', 'Elementos de nivelacion y limpieza'],
+      finishCriteria: [
+        'La camara queda nivelada, firme y accesible para inspeccion',
+        'Las conexiones quedan alineadas y selladas visualmente',
+        'El interior queda limpio y listo para prueba o tapado',
+        'La tapa asienta correctamente y permite mantenimiento futuro',
+      ],
+      budgetNote: 'Confirmar por separado excavacion, materiales, tapa reforzada y reposicion de terminaciones cuando no esten incluidos en el item.',
+    };
+  }
+
+  if (normalizedName.includes('camara') && normalizedName.includes('inspeccion') && normalizedName.includes('plastica')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Trabajo cloacal sanitario ${byUnitLabel}.`),
+      imageSrc: '/catalog/items/camara-inspeccion-plastica.jpg',
+      imageAlt: 'Camara de inspeccion plastica sanitaria sobre mortero con canerias conectadas',
+      includes: [
+        `Presentacion y ejecucion de ${name}`,
+        'Preparacion y nivelacion de base de mortero',
+        'Conexion de entrada y salida cloacal dentro del alcance',
+        'Revision visual de continuidad, pendiente y acceso de inspeccion',
+      ],
+      excludes: [
+        'Provision de camara plastica, tapa, canerias o accesorios',
+        'Excavacion mayor, retiro de suelo excedente o maquinaria pesada',
+        'Reposicion de pisos, veredas, parquizado o terminaciones exteriores',
+        'Permisos, estudio de suelo o modificaciones de red fuera del punto',
+      ],
+      requirements: [
+        'Ubicacion y cota de camara aprobadas antes de iniciar',
+        'Entrada y salida sanitaria definidas con pendiente correcta',
+        'Base de mortero firme, nivelada y compatible con la camara',
+        'Camara y tapa compatibles con el uso y transito previsto',
+      ],
+      materials: ['Camara plastica y tapa', 'Canerias y accesorios cloacales', 'Mortero, selladores y cama de asiento', 'Elementos de nivelacion y limpieza'],
+      finishCriteria: [
+        'La camara queda nivelada, firme y accesible para inspeccion',
+        'Las conexiones quedan alineadas y selladas visualmente',
+        'El interior queda limpio y listo para prueba o tapado',
+        'La tapa asienta correctamente y permite mantenimiento futuro',
+      ],
+      budgetNote: 'Confirmar por separado excavacion, materiales, tapa reforzada y reposicion de terminaciones cuando no esten incluidos en el item.',
+    };
+  }
+
+  if (normalizedName.includes('caneria') && normalizedName.includes('ventilacion')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, `Trabajo cloacal sanitario ${byUnitLabel}.`),
+      imageSrc: '/catalog/items/caneria-ventilacion-cloacal.jpg',
+      imageAlt: 'Caneria de ventilacion cloacal exterior fijada a muro con abrazaderas y conexion sanitaria',
+      includes: [
+        `Replanteo y ejecucion de ${name}`,
+        'Presentacion, corte y colocacion de caneria de ventilacion cloacal',
+        'Fijacion del tramo con abrazaderas o soportes disponibles',
+        'Conexion al sistema sanitario y revision de continuidad de aireacion',
+      ],
+      excludes: [
+        'Provision de canos, curvas, sombrerete, abrazaderas o accesorios',
+        'Roturas, calados, zanjeo, tapado o reposicion de terminaciones',
+        'Trabajos en altura especial, andamio o medios de elevacion',
+        'Modificaciones de red cloacal fuera del punto de conexion',
+      ],
+      requirements: [
+        'Recorrido vertical y punto de conexion definidos antes de iniciar',
+        'Muro, montante o sector exterior apto para fijacion',
+        'Diametro de ventilacion compatible con el sistema existente',
+        'Acceso seguro al tramo completo de instalacion',
+      ],
+      materials: ['Caneria de ventilacion cloacal', 'Curvas, manguitos y accesorios compatibles', 'Abrazaderas, fijaciones y sombrerete si corresponde', 'Sellos, juntas y elementos de nivelacion'],
+      finishCriteria: [
+        'La caneria queda alineada, firme y con fijaciones suficientes',
+        'La salida de ventilacion queda libre y protegida segun alcance',
+        'La conexion al sistema sanitario queda revisable y sin obstrucciones visibles',
+        'Se informa cualquier interferencia o necesidad de trabajo en altura adicional',
+      ],
+      budgetNote: 'Confirmar por separado materiales, trabajos en altura, roturas, tapados y reposicion de terminaciones cuando no esten incluidos expresamente.',
+    };
+  }
+
+  if (normalizedName.includes('caneria') && normalizedName.includes('primaria')) {
+    return {
+      summary: getMasterItemBlueprintSummary(item, 'Agregar costo de zanjeo.'),
+      imageSrc: '/catalog/items/caneria-primaria-cloacal.jpg',
+      imageAlt: 'Caneria cloacal primaria instalada en zanja exterior con pendiente y cama de arena',
+      includes: [
+        `Replanteo y ejecucion de ${name}`,
+        'Presentacion, corte y colocacion de caneria cloacal primaria',
+        'Alineacion del recorrido y control de pendiente sanitaria',
+        'Revision visual de uniones, curvas y continuidad antes de tapar',
+      ],
+      excludes: [
+        'Zanjeo, excavacion, tapado o retiro de suelo excedente',
+        'Provision de canos, curvas, accesorios o camaras',
+        'Rotura y reposicion de pisos, veredas o parquizado',
+        'Conexion a red publica, permisos o intervenciones fuera del tramo',
+      ],
+      requirements: [
+        'Recorrido, pendiente y punto de descarga definidos antes de iniciar',
+        'Zanja o frente de trabajo preparado si no esta incluido',
+        'Diametro de caneria compatible con el uso previsto',
+        'Cotas de camaras, artefactos o descarga verificadas',
+      ],
+      materials: ['Caneria cloacal primaria', 'Curvas, manguitos y accesorios compatibles', 'Arena o cama de asiento si corresponde', 'Sellos, juntas y elementos de nivelacion'],
+      finishCriteria: [
+        'La caneria queda alineada y con pendiente correcta',
+        'Las uniones quedan firmes y revisables antes del tapado',
+        'El recorrido queda listo para prueba o conexion siguiente',
+        'Se informa cualquier interferencia o cambio de cota detectado',
+      ],
+      budgetNote: 'Agregar zanjeo, tapado, camaras, materiales y reposicion de terminaciones cuando no esten incluidos expresamente.',
+    };
+  }
+
   if (categoryKey.includes('biodigestores') || normalizedName.includes('biodigestor') || normalizedName.includes('lecho') || normalizedName.includes('zanjeo')) {
+    const isZanjeoItem = normalizedName.includes('zanjeo');
+    const isLechoInfiltracionItem = normalizedName.includes('lecho') && normalizedName.includes('infiltracion');
+    const exteriorImage = isZanjeoItem
+      ? {
+          imageSrc: '/catalog/items/zanjeo-sanitario-exterior.jpg',
+          imageAlt: 'Zanjeo sanitario exterior con caneria instalada hacia biodigestor o infiltracion',
+        }
+      : isLechoInfiltracionItem
+        ? {
+            imageSrc: '/catalog/items/lecho-infiltracion-sanitario.jpg',
+            imageAlt: 'Lecho de infiltracion sanitario con canerias perforadas sobre grava y geotextil',
+          }
+        : {};
+
     return {
       summary: getMasterItemBlueprintSummary(item, `Trabajo sanitario exterior para biodigestor o infiltracion ${byUnitLabel}.`),
+      ...exteriorImage,
       includes: [
         `Replanteo y ejecucion de ${name}`,
         'Nivelacion y alineacion segun pendiente sanitaria requerida',
@@ -10408,7 +10612,7 @@ export default function TechniciansPage() {
           />
         </div>
       )}
-    </>
+                      </>
   ) : null;
 
   if (loadingSession && !isDesignPreview) {
@@ -10423,7 +10627,7 @@ export default function TechniciansPage() {
         >
           <UrbanFixBrandLoader label="Cargando UrbanFix" />
         </div>
-      </>
+                      </>
     );
   }
 
@@ -10440,7 +10644,7 @@ export default function TechniciansPage() {
         >
           <UrbanFixBrandLoader label={adminGateStatus === 'checking' ? 'Validando acceso' : 'Cargando perfil'} />
         </div>
-      </>
+                      </>
     );
   }
 
@@ -10477,7 +10681,7 @@ export default function TechniciansPage() {
             </div>
           </div>
         </div>
-      </>
+                      </>
     );
   }
 
@@ -10504,7 +10708,7 @@ export default function TechniciansPage() {
             </a>
           </div>
         </div>
-      </>
+                      </>
     );
   }
 
@@ -10624,13 +10828,13 @@ export default function TechniciansPage() {
                         Ir al panel
                       </button>
                     )}
-                  </>
+                      </>
                 )}
               </div>
             </main>
           </div>
         </div>
-      </>
+                      </>
     );
   }
 
@@ -11024,7 +11228,7 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
-      </>
+                      </>
     );
   }
 
@@ -11062,16 +11266,8 @@ export default function TechniciansPage() {
                           <div className="overflow-hidden rounded-t-[26px] border border-b-0 border-white/[0.14] shadow-[0_22px_54px_-38px_rgba(0,0,0,0.95)]">
                             <div className="relative aspect-[2/1] min-h-[154px] w-full bg-[#16031f]">
                               <Image
-                                src={
-                                  pendingAccessProfile === 'cliente'
-                                    ? '/auth/client-service-confirmation.jpg'
-                                    : '/auth/technician-access-confirmation.jpg'
-                                }
-                                alt={
-                                  pendingAccessProfile === 'cliente'
-                                    ? 'Cliente confirmando la contratacion de un servicio tecnico'
-                                    : 'Tecnica de UrbanFix trabajando en una obra'
-                                }
+                                src={pendingAccessProfile === 'cliente' ? '/auth/client-service-confirmation.jpg' : '/auth/technician-access-confirmation.jpg'}
+                                alt={pendingAccessProfile === 'cliente' ? 'Cliente confirmando la contratacion de un servicio tecnico' : 'Tecnica de UrbanFix trabajando en una obra'}
                                 fill
                                 priority
                                 sizes="(min-width: 640px) 576px, 100vw"
@@ -11085,15 +11281,12 @@ export default function TechniciansPage() {
                           </div>
                         )}
                         <div
-                          className={[
-                            'border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))] px-4 py-4 text-white shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)]',
-                            pendingAccessProfile === 'cliente' || pendingAccessProfile === 'tecnico'
-                              ? '!-mt-px rounded-b-[26px] rounded-t-none'
-                              : 'rounded-[26px]',
-                          ].join(' ')}
+                          className={`border border-white/[0.12] bg-[linear-gradient(135deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))] px-4 py-4 text-white shadow-[0_22px_54px_-42px_rgba(0,0,0,0.95)] ${
+                            (pendingAccessProfile === 'cliente' || pendingAccessProfile === 'tecnico') ? '!-mt-px rounded-b-[26px] rounded-t-none' : 'rounded-[26px]'
+                          }`}
                         >
-                        <div className="flex items-start gap-4">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
+                          <div className="flex items-start gap-4">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
                             {pendingAccessProfile === 'cliente' ? (
                               <Home className="h-5 w-5 text-sky-700" />
                             ) : (
@@ -11107,6 +11300,7 @@ export default function TechniciansPage() {
                             <p className="mt-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-[#ffcf93]">{pendingAccessOption.note}</p>
                           </div>
                         </div>
+
                         <div className="mt-4 grid grid-cols-2 gap-2">
                           <button
                             type="button"
@@ -11123,7 +11317,7 @@ export default function TechniciansPage() {
                             {pendingAccessProfile === 'cliente' ? 'Ir al portal' : 'Continuar'}
                           </button>
                         </div>
-                        </div>
+                      </div>
                       </>
                     ) : (
                       AUTH_ROLE_SELECTOR_OPTIONS.map((option) => {
@@ -11150,7 +11344,7 @@ export default function TechniciansPage() {
                               className="absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white/[0.32] to-transparent"
                             />
                             <div className="relative flex items-center gap-4">
-                              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/[0.14] bg-[#fffdf9] shadow-[0_16px_30px_-24px_rgba(255,255,255,0.9)]">
                                 <Icon className={'h-5 w-5 ' + option.iconClassName} />
                               </div>
                               <div className="min-w-0 flex-1">
@@ -11397,7 +11591,7 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
-      </>
+                      </>
     );
   }
 
@@ -11721,7 +11915,7 @@ export default function TechniciansPage() {
                                   </span>
                                 </div>
                               </div>
-                            </>
+                      </>
                           ) : (
                             <button
                               type="button"
@@ -12266,7 +12460,7 @@ export default function TechniciansPage() {
                                             </text>
                                           </g>
                                         ) : null}
-                                      </>
+                      </>
                                     ) : null}
                                   </g>
                                 );
@@ -12277,7 +12471,7 @@ export default function TechniciansPage() {
                                     <>
                                       {point.value > 0 ? <circle cx={point.x} cy={point.y} r="8" fill="#F59E0B" opacity="0.1" /> : null}
                                       <circle cx={point.x} cy={point.y} r="3.5" fill="#F59E0B" stroke="#fff" strokeWidth="2" />
-                                    </>
+                      </>
                                   ) : null}
                                 </g>
                               ))}
@@ -12287,7 +12481,7 @@ export default function TechniciansPage() {
                                     <>
                                       {point.value > 0 ? <circle cx={point.x} cy={point.y} r="8" fill="#10B981" opacity="0.1" /> : null}
                                       <circle cx={point.x} cy={point.y} r="3.5" fill="#10B981" stroke="#fff" strokeWidth="2" />
-                                    </>
+                      </>
                                   ) : null}
                                 </g>
                               ))}
@@ -12372,7 +12566,7 @@ export default function TechniciansPage() {
                       </div>
 
                     </section>
-                  </>
+                      </>
                 )}
 
                 {activeTab === 'operativo' && (
@@ -12652,7 +12846,7 @@ export default function TechniciansPage() {
                                     >
                                       {isSubmittingOffer ? 'Enviando...' : 'Postularme para este trabajo'}
                                     </button>
-                                  </>
+                      </>
                                 )}
                               </div>
                             </div>
@@ -15137,7 +15331,7 @@ export default function TechniciansPage() {
                                 {activeQuote.client_name || 'Presupuesto sin cliente'} · {formatCurrency(toAmountValue(activeQuote.total_amount))}
                               </p>
                             </div>
-                          </>
+                      </>
                         ) : (
                           <p className="text-sm font-semibold text-slate-500">Selecciona un presupuesto desde el listado</p>
                         )}
@@ -16661,7 +16855,7 @@ export default function TechniciansPage() {
                         </div>
                       </div>
                     </div>
-                  </>
+                      </>
                 )}
 
                 {profilePanelTab === 'preview' ? (
@@ -16701,7 +16895,7 @@ export default function TechniciansPage() {
                                   className="h-full w-full object-cover"
                                 />
                                 <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.28)_0%,rgba(33,0,47,0.08)_44%,rgba(33,0,47,0.24)_100%)]" />
-                              </>
+                      </>
                             ) : (
                               <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
                             )}
@@ -18323,7 +18517,7 @@ export default function TechniciansPage() {
                   )}
                   {profileMessage && <span className="text-xs text-slate-600">{profileMessage}</span>}
                 </div>
-                  </>
+                      </>
                 )}
               </div>
             )}
