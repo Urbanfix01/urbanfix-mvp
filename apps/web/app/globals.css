@@ -2022,42 +2022,111 @@ header .header-view-option {
   color: #ffd6a6;
 }
 
-.ufx-map-tooltip .leaflet-tooltip {
+.leaflet-tooltip.ufx-map-tooltip {
+  border: 0;
+  border-radius: 22px;
   background: transparent;
+  padding: 0;
+  box-shadow: none;
+}
+
+.leaflet-tooltip.ufx-map-tooltip::before {
+  border-top-color: rgba(25, 11, 37, 0.96);
 }
 
 .ufx-map-tooltip-card {
-  min-width: 170px;
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  border-radius: 18px;
-  background: rgba(17, 8, 28, 0.92);
-  padding: 10px 12px;
+  position: relative;
+  min-width: 190px;
+  max-width: 250px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(52, 25, 64, 0.98), rgba(22, 8, 33, 0.96) 68%),
+    radial-gradient(circle at top left, rgba(255, 143, 31, 0.18), transparent 44%);
+  padding: 12px 14px 11px;
   color: #ffffff;
-  box-shadow: 0 20px 44px -28px rgba(0, 0, 0, 0.92);
-  backdrop-filter: blur(12px);
+  box-shadow:
+    0 18px 46px -28px rgba(0, 0, 0, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+}
+
+.ufx-map-tooltip-card::after {
+  content: '';
+  position: absolute;
+  inset: auto 14px 0;
+  height: 2px;
+  border-radius: 999px 999px 0 0;
+  background: linear-gradient(90deg, #ff8f1f, rgba(255, 255, 255, 0.24));
+}
+
+.ufx-map-tooltip-card.is-approx::after {
+  background: linear-gradient(90deg, #8b5cf6, rgba(255, 255, 255, 0.22));
+}
+
+.ufx-map-tooltip-head {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 8px;
+}
+
+.ufx-map-tooltip-dot {
+  height: 8px;
+  width: 8px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: #ff8f1f;
+  box-shadow: 0 0 0 4px rgba(255, 143, 31, 0.15);
+}
+
+.ufx-map-tooltip-card.is-approx .ufx-map-tooltip-dot {
+  background: #8b5cf6;
+  box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15);
 }
 
 .ufx-map-tooltip-title {
   font-family: var(--font-display);
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1.35;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ufx-map-tooltip-meta,
 .ufx-map-tooltip-subtle {
-  margin-top: 4px;
   font-family: var(--font-body);
   font-size: 11px;
-  line-height: 1.5;
+  line-height: 1.35;
 }
 
 .ufx-map-tooltip-meta {
-  color: rgba(255, 255, 255, 0.76);
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.72);
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .ufx-map-tooltip-subtle {
+  display: inline-flex;
+  margin-top: 9px;
+  border-radius: 999px;
+  background: rgba(255, 143, 31, 0.13);
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
   color: #ffd6a6;
+}
+
+.ufx-map-tooltip-card.is-approx .ufx-map-tooltip-subtle {
+  background: rgba(139, 92, 246, 0.14);
+  color: #ddd6fe;
 }
 
 /* --- PUBLIC TECHNICIAN PROFILE --- */

@@ -10,6 +10,7 @@ import {
 import { DEFAULT_COUNTRY_NAME } from '../../lib/location-catalog';
 import { getCountryMapFocus } from '../../lib/map-country-focus';
 import { addMalvinasArgentinaLabel } from '../../lib/map-overlays';
+import { hasSupabaseConfig, supabase } from '../../lib/supabase/supabase';
 
 export type PublicTechnicianMapPoint = {
   id: string;
@@ -78,6 +79,8 @@ const USER_FOCUS_DISTANCE_KM = 120;
 const USER_FOCUS_NEAREST_LIMIT = 6;
 const USER_FOCUS_FALLBACK_ZOOM = 10;
 const defaultPlaceholder = 'Ingresa ciudades o barrios';
+const MAP_PROFILE_SETUP_PATH = '/tecnicos?tab=perfil&perfil=tecnico#perfil-publicacion';
+const MAP_PROFILE_SETUP_AUTH_HREF = `/tecnicos?perfil=tecnico&mode=login&next=${encodeURIComponent(MAP_PROFILE_SETUP_PATH)}`;
 
 const formatCompactNumber = (value: number) => value.toLocaleString('es-AR');
 
@@ -105,9 +108,13 @@ const buildMarkerHtml = (point: DisplayPoint, selected: boolean) => {
 
 const buildTooltipHtml = (point: DisplayPoint) => {
   const precisionLabel = point.precision === 'exact' ? 'Punto verificado' : 'Zona estimada';
+  const precisionClass = point.precision === 'exact' ? 'is-exact' : 'is-approx';
   return `
-    <div class="ufx-map-tooltip-card">
-      <p class="ufx-map-tooltip-title">${escapeHtml(point.name)}</p>
+    <div class="ufx-map-tooltip-card ${precisionClass}">
+      <div class="ufx-map-tooltip-head">
+        <span class="ufx-map-tooltip-dot"></span>
+        <p class="ufx-map-tooltip-title">${escapeHtml(point.name)}</p>
+      </div>
       <p class="ufx-map-tooltip-meta">${escapeHtml(point.city || point.coverageArea || 'UrbanFix')}</p>
       <p class="ufx-map-tooltip-subtle">${escapeHtml(precisionLabel)}</p>
     </div>
@@ -167,6 +174,19 @@ type UserLocationState =
   | { status: 'idle' | 'requesting' | 'unsupported' | 'denied' | 'error'; lat: null; lng: null; accuracyMeters: null }
   | { status: 'ready'; lat: number; lng: number; accuracyMeters: number | null };
 
+type CurrentProfileMapStatus = {
+  access_granted?: boolean | null;
+  profile_published?: boolean | null;
+  service_lat?: number | string | null;
+  service_lng?: number | string | null;
+};
+
+const hasEnabledMapProfile = (profile: CurrentProfileMapStatus | null | undefined) =>
+  profile?.access_granted === true &&
+  profile?.profile_published === true &&
+  Number.isFinite(Number(profile.service_lat)) &&
+  Number.isFinite(Number(profile.service_lng));
+
 export default function PublicTechniciansMap({
   points,
   preferUserLocation = true,
@@ -186,9 +206,11 @@ export default function PublicTechniciansMap({
   const userMarkerRef = useRef<LeafletMarker | null>(null);
   const isMountedRef = useRef(true);
   const shouldRecenterSelectionRef = useRef(false);
+  const shouldPreserveViewportRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hasRequestedUserFocus, setHasRequestedUserFocus] = useState(preferUserLocation);
+  const [showMapSignupCta, setShowMapSignupCta] = useState(!hasSupabaseConfig);
   const [activeCountry, setActiveCountry] = useState(selectedCountry || DEFAULT_COUNTRY_NAME);
   const [userLocation, setUserLocation] = useState<UserLocationState>({
     status: preferUserLocation ? 'requesting' : 'idle',
@@ -210,6 +232,48 @@ export default function PublicTechniciansMap({
   useEffect(() => {
     setActiveCountry(getStoredCountryPreference() || selectedCountry || DEFAULT_COUNTRY_NAME);
   }, [selectedCountry]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!hasSupabaseConfig) {
+      setShowMapSignupCta(true);
+      return;
+    }
+
+    const applySession = async (nextSession: Awaited<ReturnType<typeof supabase.auth.getSession>>['data']['session']) => {
+      const user = nextSession?.user || null;
+
+      if (!user) {
+        if (!cancelled) setShowMapSignupCta(true);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('access_granted,profile_published,service_lat,service_lng')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (cancelled) return;
+      setShowMapSignupCta(Boolean(error) || !hasEnabledMapProfile(data as CurrentProfileMapStatus | null));
+    };
+
+    supabase.auth.getSession().then(({ data }) => {
+      void applySession(data.session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void applySession(nextSession);
+    });
+
+    return () => {
+      cancelled = true;
+      subscription.unsubscribe();
+    };
+  }, []);
 
   useEffect(() => {
     const syncCountry = (event?: Event) => {
@@ -279,6 +343,11 @@ export default function PublicTechniciansMap({
   const selectPoint = (pointId: string) => {
     shouldRecenterSelectionRef.current = true;
     setSelectedId(pointId);
+  };
+
+  const closeSelectedPoint = () => {
+    shouldPreserveViewportRef.current = true;
+    setSelectedId(null);
   };
 
   useEffect(() => {
@@ -407,6 +476,11 @@ export default function PublicTechniciansMap({
 
       marker.addTo(layer);
     });
+
+    if (shouldPreserveViewportRef.current || shouldRecenterSelectionRef.current) {
+      shouldPreserveViewportRef.current = false;
+      return;
+    }
 
     if (displayPoints.length === 0) {
       if (shouldFocusUserLocation && userLocation.status === 'ready') {
@@ -644,6 +718,17 @@ export default function PublicTechniciansMap({
         <div ref={mapHostRef} className={fullBleed ? 'ufx-public-map h-[calc(100dvh-57px)] min-h-[calc(100dvh-57px)] w-full' : 'ufx-public-map h-full w-full'} />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(255,143,31,0.12),transparent_22%),linear-gradient(180deg,rgba(19,2,31,0.12)_0%,rgba(19,2,31,0.02)_26%,rgba(19,2,31,0.14)_82%,rgba(19,2,31,0.76)_100%)]" />
 
+        {showMapSignupCta ? (
+          <div className="pointer-events-none absolute right-3 top-3 z-[470] sm:right-5 sm:top-5">
+            <Link
+              href={MAP_PROFILE_SETUP_AUTH_HREF}
+              className="pointer-events-auto inline-flex h-11 items-center justify-center rounded-full border border-[#ffb35c]/45 bg-[#ff8f1f] px-4 text-sm font-black text-[#25002f] shadow-[0_18px_45px_-24px_rgba(0,0,0,0.95)] transition hover:border-[#ffd29a] hover:bg-[#ffa43d] sm:h-12 sm:px-5"
+            >
+              Quiero aparecer en el mapa!
+            </Link>
+          </div>
+        ) : null}
+
         {selectedPoint ? (
           <div className="pointer-events-none absolute bottom-2 left-2 right-2 z-[460] sm:bottom-5 sm:left-1/2 sm:right-auto sm:w-[min(780px,calc(100%-2.5rem))] sm:-translate-x-1/2">
             <article className="pointer-events-auto max-h-[44dvh] w-full overflow-y-auto rounded-[24px] border border-white/18 bg-[linear-gradient(135deg,rgba(48,20,61,0.96),rgba(28,3,43,0.94)_58%,rgba(255,143,31,0.12))] p-2.5 text-white shadow-[0_28px_100px_-52px_rgba(0,0,0,1)] backdrop-blur-xl sm:max-h-none sm:overflow-hidden sm:rounded-[30px] sm:p-4">
@@ -704,7 +789,7 @@ export default function PublicTechniciansMap({
                   </div>
                   <button
                     type="button"
-                    onClick={() => setSelectedId(null)}
+                    onClick={closeSelectedPoint}
                     className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/18 bg-white/[0.06] text-xs font-semibold text-white/72 transition hover:border-white/35 hover:text-white"
                     aria-label="Cerrar tecnico seleccionado"
                   >

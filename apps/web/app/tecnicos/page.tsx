@@ -894,6 +894,8 @@ const isTechnicianDashboardTab = (
     'notificaciones',
   ].includes(value);
 
+const PROFILE_PUBLICATION_ANCHOR = 'perfil-publicacion';
+
 const normalizeTimeValue = (value: string | null | undefined, fallback: string) => {
   const match = String(value || '')
     .trim()
@@ -4882,6 +4884,8 @@ export default function TechniciansPage() {
     | 'notificaciones'
   >('lobby');
   const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('preview');
+  const [profilePublicationFocus, setProfilePublicationFocus] = useState(false);
+  const profilePublicationDetailsRef = useRef<HTMLDetailsElement | null>(null);
   const [publicProfileReviewStats, setPublicProfileReviewStats] = useState({
     rating: null as number | null,
     reviewsCount: 0,
@@ -5053,7 +5057,23 @@ export default function TechniciansPage() {
     if (isTechnicianDashboardTab(incomingTab)) {
       setActiveTab(incomingTab);
     }
+    if (window.location.hash === `#${PROFILE_PUBLICATION_ANCHOR}`) {
+      setActiveTab('perfil');
+      setProfilePanelTab('editor');
+      setProfilePublicationFocus(true);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!profilePublicationFocus || activeTab !== 'perfil' || profilePanelTab !== 'editor') return;
+    const frameId = window.requestAnimationFrame(() => {
+      if (profilePublicationDetailsRef.current) {
+        profilePublicationDetailsRef.current.open = true;
+      }
+      document.getElementById(PROFILE_PUBLICATION_ANCHOR)?.scrollIntoView({ block: 'start' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeTab, profilePanelTab, profilePublicationFocus]);
 
   useEffect(() => {
     return () => {
@@ -18464,7 +18484,11 @@ export default function TechniciansPage() {
                               </div>
                             )}
                           </details>
-                          <details className="border-b border-slate-200 p-4 last:border-b-0">
+                          <details
+                            ref={profilePublicationDetailsRef}
+                            id={PROFILE_PUBLICATION_ANCHOR}
+                            className="scroll-mt-24 border-b border-slate-200 p-4 last:border-b-0"
+                          >
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Redes y visibilidad
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
