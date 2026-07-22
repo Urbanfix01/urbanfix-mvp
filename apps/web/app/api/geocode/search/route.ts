@@ -760,6 +760,19 @@ export async function GET(request: NextRequest) {
         const normalizedRoad = normalizeSearchText(labels.street);
         const normalizedHouseNumber = extractAddressNumber(labels.houseNumber);
         const normalizedLocalities = getLocalityLabels(item).map((part) => normalizeSearchText(part));
+        const shouldPreserveTypedNumber =
+          Boolean(queryNumber && !normalizedHouseNumber && labels.street && queryStreet) &&
+          (normalizedRoad === queryStreet || normalizedRoad.includes(queryStreet) || queryStreet.includes(normalizedRoad));
+        const effectiveHouseNumber = shouldPreserveTypedNumber ? queryNumber : labels.houseNumber;
+        const effectivePrimaryLabel = shouldPreserveTypedNumber
+          ? `${labels.street} ${queryNumber}`.trim()
+          : labels.primaryLabel;
+        const effectiveDisplayLabel = shouldPreserveTypedNumber
+          ? [effectivePrimaryLabel, labels.secondaryLabel].filter(Boolean).join(', ') || labels.displayLabel
+          : labels.displayLabel;
+        const effectiveFullDisplayName = shouldPreserveTypedNumber
+          ? [effectivePrimaryLabel, labels.secondaryLabel || labels.displayName].filter(Boolean).join(', ')
+          : labels.displayName;
         const matchesSelectedLocality =
           selectedLocalityAliases.length === 0 ||
           selectedLocalityAliases.some((alias) => {
@@ -785,6 +798,7 @@ export async function GET(request: NextRequest) {
         }
         if (queryNumber && exactHouseNumberMatch) score += 18;
         else if (queryNumber && hasHouseNumber) score += 5;
+        else if (shouldPreserveTypedNumber) score += 4;
         else if (queryNumber && normalizedDisplayName.includes(queryNumber)) score += 1.5;
         if (normalizedCityHint && normalizedDisplayName.includes(normalizedCityHint)) score += 2.5;
         if (normalizedProvinceHint && normalizedDisplayName.includes(normalizedProvinceHint)) score += 3;
@@ -807,9 +821,9 @@ export async function GET(request: NextRequest) {
         if (item.addresstype === 'house' || item.addresstype === 'building') score += 3;
 
         return {
-          display_name: labels.displayLabel,
-          full_display_name: labels.displayName,
-          primary_label: labels.primaryLabel,
+          display_name: effectiveDisplayLabel,
+          full_display_name: effectiveFullDisplayName,
+          primary_label: effectivePrimaryLabel,
           secondary_label: labels.secondaryLabel,
           detail_label: labels.detailLabel,
           accuracy_label:
@@ -819,7 +833,7 @@ export async function GET(request: NextRequest) {
                 ? 'Altura detectada'
                 : 'Confirmar en mapa',
           street: labels.street,
-          house_number: labels.houseNumber,
+          house_number: effectiveHouseNumber,
           locality: labels.locality,
           province: labels.province,
           postcode: labels.postcode,

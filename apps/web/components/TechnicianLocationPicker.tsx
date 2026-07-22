@@ -215,6 +215,9 @@ export default function TechnicianLocationPicker({
   const markerRef = useRef<any | null>(null);
   const coverageCircleRef = useRef<any | null>(null);
   const isMountedRef = useRef(true);
+  const latestValueRef = useRef<LocationPickerResult | null>(value);
+  const latestInputRef = useRef('');
+  const latestOnChangeRef = useRef(onChange);
   const searchRequestIdRef = useRef(0);
   const searchCacheRef = useRef(new Map<string, { expiresAt: number; payload: GeocodeSearchResponse }>());
   const rateLimitedUntilRef = useRef(0);
@@ -332,6 +335,18 @@ export default function TechnicianLocationPicker({
       isMountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    latestValueRef.current = value;
+  }, [value]);
+
+  useEffect(() => {
+    latestInputRef.current = input;
+  }, [input]);
+
+  useEffect(() => {
+    latestOnChangeRef.current = onChange;
+  }, [onChange]);
 
   // Initialize input from controlled query
   useEffect(() => {
@@ -477,7 +492,8 @@ export default function TechnicianLocationPicker({
         }
 
         // Initial center: Buenos Aires
-        const center = value || { lat: -34.6037, lng: -58.3816 };
+        const initialValue = latestValueRef.current;
+        const center = initialValue || { lat: -34.6037, lng: -58.3816 };
         const coverageRadiusMeters = Math.max(1, coverageRadiusKm) * 1000;
 
         const map = L.map(mapHostRef.current, {
@@ -525,31 +541,32 @@ export default function TechnicianLocationPicker({
         };
 
         // Add marker if location exists
-        if (value) {
-          const initialMarker = L.marker([value.lat, value.lng], {
+        if (initialValue) {
+          const initialMarker = L.marker([initialValue.lat, initialValue.lng], {
             draggable: true,
             title: 'Tu ubicación de trabajo',
           }).addTo(map);
           markerRef.current = initialMarker;
-          fitCoverageBounds(value.lat, value.lng);
+          fitCoverageBounds(initialValue.lat, initialValue.lng);
 
           initialMarker.on('dragend', () => {
             if (cancelled || mapRef.current !== map) return;
             const newLat = initialMarker.getLatLng().lat;
             const newLng = initialMarker.getLatLng().lng;
+            const currentValue = latestValueRef.current || initialValue;
 
             if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
               syncCoverageCircle(newLat, newLng);
-              onChange({
+              latestOnChangeRef.current({
                 lat: newLat,
                 lng: newLng,
-                displayName: value.displayName,
+                displayName: currentValue.displayName,
                 isValid: true,
-                precision: 'exact',
+                precision: 'approx',
               });
             } else {
               setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
-              initialMarker.setLatLng([value.lat, value.lng]);
+              initialMarker.setLatLng([currentValue.lat, currentValue.lng]);
             }
           });
         }
@@ -580,12 +597,14 @@ export default function TechnicianLocationPicker({
 
               if (isCoordinateWithinCountry(newLat, newLng, countryHint)) {
                 syncCoverageCircle(newLat, newLng);
-                onChange({
+                const currentValue = latestValueRef.current;
+                const currentInput = latestInputRef.current;
+                latestOnChangeRef.current({
                   lat: newLat,
                   lng: newLng,
-                  displayName: input || 'Ubicación seleccionada en mapa',
+                  displayName: currentValue?.displayName || currentInput || 'Ubicación seleccionada en mapa',
                   isValid: true,
-                  precision: 'exact',
+                  precision: 'approx',
                 });
               } else {
                 setMapError(`La ubicación debe estar dentro de ${countryHint}.`);
@@ -594,14 +613,16 @@ export default function TechnicianLocationPicker({
             });
           }
 
-          fitCoverageBounds(lat, lng);
+          syncCoverageCircle(lat, lng);
+          const currentValue = latestValueRef.current;
+          const currentInput = latestInputRef.current;
 
-          onChange({
+          latestOnChangeRef.current({
             lat,
             lng,
-            displayName: input || 'Ubicación seleccionada en mapa',
+            displayName: currentValue?.displayName || currentInput || 'Ubicación seleccionada en mapa',
             isValid: true,
-            precision: 'exact',
+            precision: 'approx',
           });
 
           setMapError('');
@@ -624,7 +645,7 @@ export default function TechnicianLocationPicker({
       coverageCircleRef.current = null;
       markerRef.current = null;
     };
-  }, [countryHint, coverageRadiusKm, showMap, value, input, onChange]);
+  }, [countryHint, coverageRadiusKm, showMap]);
 
   const getSuggestionSecondary = (suggestion: LocationPickerResult) =>
     suggestion.secondaryLabel ||
@@ -763,7 +784,7 @@ export default function TechnicianLocationPicker({
                   onClick={handleConfirmMapPoint}
                   className="inline-flex items-center justify-center rounded-xl bg-[#ff8f1f] px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-[#ff9f39]"
                 >
-                  Confirmar punto
+                  Confirmar direccion
                 </button>
               )}
               <button

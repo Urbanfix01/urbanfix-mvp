@@ -126,8 +126,27 @@ const DASHBOARD_VIDEO_URL = (process.env.NEXT_PUBLIC_DASHBOARD_VIDEO_URL || POST
 const ACCESS_ANDROID_URL = 'https://play.google.com/apps/testing/com.urbanfix.app';
 const POST_LOGIN_VIDEO_MAX_MS = 10000;
 const COVERAGE_RADIUS_KM = 20;
+const APPROXIMATE_PROFILE_LOCATION_RADIUS_KM = 0.35;
 const POST_LOGIN_VIDEO_SEEN_STORAGE_KEY = 'urbanfix_post_login_video_seen';
 const POST_LOGIN_VIDEO_ENABLED = false;
+
+const buildApproximateProfileLocation = (lat: number, lng: number, seed: string) => {
+  const normalizedSeed = seed || `${lat}:${lng}`;
+  let hash = 0;
+  for (let index = 0; index < normalizedSeed.length; index += 1) {
+    hash = (hash * 31 + normalizedSeed.charCodeAt(index)) >>> 0;
+  }
+
+  const angle = ((hash % 360) * Math.PI) / 180;
+  const latOffset = (APPROXIMATE_PROFILE_LOCATION_RADIUS_KM / 111) * Math.cos(angle);
+  const lngFactor = Math.max(0.3, Math.abs(Math.cos((lat * Math.PI) / 180)));
+  const lngOffset = (APPROXIMATE_PROFILE_LOCATION_RADIUS_KM / (111 * lngFactor)) * Math.sin(angle);
+
+  return {
+    lat: Number((lat + latOffset).toFixed(7)),
+    lng: Number((lng + lngOffset).toFixed(7)),
+  };
+};
 
 type WorkingHoursConfig = {
   weekdayFrom: string;
@@ -275,10 +294,10 @@ type LaborTemplateLookup = {
 type MaterialTemplateLookup = LaborTemplateLookup;
 
 const QUOTE_ESTIMATOR_OPTIONS: Array<{ key: QuoteWorkEstimatorMode; label: string }> = [
-  { key: 'revoques', label: 'CÃ³mputo: Revoques' },
-  { key: 'mamposteria', label: 'CÃ³mputo: MamposterÃ­a' },
-  { key: 'pisos', label: 'CÃ³mputo: Pisos' },
-  { key: 'pintura', label: 'CÃ³mputo: Pintura' },
+  { key: 'revoques', label: 'Cómputo: Revoques' },
+  { key: 'mamposteria', label: 'Cómputo: Mampostería' },
+  { key: 'pisos', label: 'Cómputo: Pisos' },
+  { key: 'pintura', label: 'Cómputo: Pintura' },
 ];
 
 const DEFAULT_QUOTE_ESTIMATOR_MODE: QuoteWorkEstimatorMode = QUOTE_ESTIMATOR_OPTIONS[0]?.key || 'manual';
@@ -714,7 +733,7 @@ const PISO_MATERIAL_PRICE_LOOKUPS: Record<PisoMaterialPriceField, MaterialTempla
     termGroups: [
       ['pastina'],
       ['fragua'],
-      ['fragÃ¼e'],
+      ['fragüe'],
       ['frague'],
     ],
     preferredUnit: 'kg',
@@ -899,7 +918,7 @@ const extractProvinceHint = (...candidates: Array<string | null | undefined>) =>
 };
 
 const LOCALITY_CONTAINER_PREFIXES = ['partido de ', 'departamento de ', 'comuna ', 'provincia de '];
-const GENERIC_MAP_LOCATION_LABEL = 'UbicaciÃ³n seleccionada en mapa';
+const GENERIC_MAP_LOCATION_LABEL = 'Ubicación seleccionada en mapa';
 
 const isLikelyPostalSegment = (value: string) => /^[a-z]{0,3}\d{4,}[a-z0-9-]*$/i.test(value.replace(/\s+/g, ''));
 
@@ -1414,7 +1433,7 @@ const requestPublicZoneLabel = (request: Pick<NearbyRequestRow, 'city' | 'distan
   const city = String(request.city || '').trim();
   const distance = Number(request.distance_km);
   const distanceLabel = Number.isFinite(distance) ? `${distance.toFixed(1)} km aprox.` : 'Distancia aproximada';
-  return city ? `${city} Â· ${distanceLabel}` : distanceLabel;
+  return city ? `${city} · ${distanceLabel}` : distanceLabel;
 };
 
 const getClientInitials = (name: string) => {
@@ -1488,8 +1507,8 @@ const authOptionButtonClass =
   'w-full rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)] px-4 py-3 text-left transition hover:border-[color:var(--ui-accent-soft)]';
 
 const AUTH_FORM_VALIDATION_MESSAGES = [
-  'Ingresa correo y contraseÃ±a.',
-  'Ingresa un correo vÃ¡lido.',
+  'Ingresa correo y contraseña.',
+  'Ingresa un correo válido.',
   'Ingresa un correo real para crear la cuenta.',
   'No pudimos validar el dominio del correo. Usa una cuenta real.',
   PASSWORD_POLICY_MESSAGE,
@@ -1507,13 +1526,13 @@ const getFriendlyAuthErrorMessage = (
 
   const normalizedMessage = rawMessage.toLowerCase();
   if (normalizedMessage.includes('invalid login credentials') || normalizedMessage.includes('invalid credentials')) {
-    return 'Correo o contraseÃ±a incorrectos.';
+    return 'Correo o contraseña incorrectos.';
   }
   if (normalizedMessage.includes('email not confirmed')) {
     return 'Confirma tu correo antes de ingresar.';
   }
   if (normalizedMessage.includes('already registered') || normalizedMessage.includes('user already exists')) {
-    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseÃ±a.';
+    return 'Ese correo ya tiene cuenta. Ingresa o recupera la contraseña.';
   }
   if (normalizedMessage.includes('password should be at least') || normalizedMessage.includes('weak password')) {
     return PASSWORD_POLICY_MESSAGE;
@@ -1522,13 +1541,13 @@ const getFriendlyAuthErrorMessage = (
     return 'Hay demasiados intentos. Espera un momento y vuelve a probar.';
   }
   if (normalizedMessage.includes('network') || normalizedMessage.includes('fetch')) {
-    return 'No pudimos conectar. Revisa tu conexiÃ³n e intenta nuevamente.';
+    return 'No pudimos conectar. Revisa tu conexión e intenta nuevamente.';
   }
   if (mode === 'google') {
     return 'No pudimos abrir el acceso con Google. Intenta nuevamente.';
   }
   if (mode === 'recovery') {
-    return 'No pudimos enviar el correo de recuperaciÃ³n.';
+    return 'No pudimos enviar el correo de recuperación.';
   }
   return mode === 'register'
     ? 'No pudimos crear la cuenta. Revisa los datos e intenta de nuevo.'
@@ -1617,29 +1636,29 @@ const AUTH_ACCESS_FLOW_COPY: Record<
 
 const AUTH_PROFILE_META = {
   tecnico: {
-    panelLabel: 'Panel tÃ©cnico',
-    heading: 'Ingresa a tu operaciÃ³n tÃ©cnica con una entrada mÃ¡s clara.',
+    panelLabel: 'Panel técnico',
+    heading: 'Ingresa a tu operación técnica con una entrada más clara.',
     description:
-      'Accede a presupuestos, solicitudes cercanas, facturaciÃ³n y presencia pÃºblica sin pasar por una pantalla genÃ©rica.',
+      'Accede a presupuestos, solicitudes cercanas, facturación y presencia pública sin pasar por una pantalla genérica.',
     heroCards: [
       {
-        eyebrow: 'CotizaciÃ³n',
+        eyebrow: 'Cotización',
         title: 'Presupuestos listos para compartir',
-        body: 'ArmÃ¡ links y PDFs claros con identidad propia y seguimiento desde la web.',
+        body: 'Armá links y PDFs claros con identidad propia y seguimiento desde la web.',
       },
       {
         eyebrow: 'Cobertura',
         title: 'Solicitudes, agenda y vidriera',
-        body: 'ConcentrÃ¡ operaciÃ³n, disponibilidad y visibilidad pÃºblica desde un solo panel.',
+        body: 'Concentrá operación, disponibilidad y visibilidad pública desde un solo panel.',
       },
     ],
     accessBullets: [
-      'Responder solicitudes y cotizar sin fricciÃ³n.',
+      'Responder solicitudes y cotizar sin fricción.',
       'Administrar precios, agenda, notificaciones y seguimiento.',
-      'Publicar tu perfil en vidriera y mapa cuando estÃ©s listo.',
+      'Publicar tu perfil en vidriera y mapa cuando estés listo.',
     ],
     afterSteps: [
-      'EntrÃ¡s al panel y completas tu perfil operativo.',
+      'Entrás al panel y completas tu perfil operativo.',
       'Cargas rubros, zona de trabajo y tu primer presupuesto.',
       'Si quieres, publicas tu perfil para aparecer en la vidriera y el mapa.',
     ],
@@ -1648,28 +1667,28 @@ const AUTH_PROFILE_META = {
     panelLabel: 'Panel empresa',
     heading: 'Acceso para marcas y equipos que necesitan orden comercial.',
     description:
-      'Entra a una vista enfocada en marca, responsables, presupuestos y seguimiento comercial con una estÃ©tica alineada al sitio actual.',
+      'Entra a una vista enfocada en marca, responsables, presupuestos y seguimiento comercial con una estética alineada al sitio actual.',
     heroCards: [
       {
         eyebrow: 'Control',
-        title: 'GestiÃ³n comercial centralizada',
+        title: 'Gestión comercial centralizada',
         body: 'Unifica responsables, presupuestos y estado de avance con una sola cuenta web.',
       },
       {
         eyebrow: 'Marca',
-        title: 'PresentaciÃ³n mÃ¡s sÃ³lida',
-        body: 'Tus propuestas, datos comerciales y presencia pÃºblica quedan mejor alineados con la identidad de empresa.',
+        title: 'Presentación más sólida',
+        body: 'Tus propuestas, datos comerciales y presencia pública quedan mejor alineados con la identidad de empresa.',
       },
     ],
     accessBullets: [
       'Centralizar presupuestos, responsables y seguimiento.',
       'Mantener branding, datos comerciales y contacto en una sola capa.',
-      'Escalar la operaciÃ³n con un acceso menos improvisado.',
+      'Escalar la operación con un acceso menos improvisado.',
     ],
     afterSteps: [
-      'Ingresas al panel y validas tu informaciÃ³n comercial.',
+      'Ingresas al panel y validas tu información comercial.',
       'Configuras marca, responsables, rubros y flujo de trabajo.',
-      'Publicas presencia y compartes presupuestos desde una base mÃ¡s sÃ³lida.',
+      'Publicas presencia y compartes presupuestos desde una base más sólida.',
     ],
   },
 } as const;
@@ -1718,7 +1737,7 @@ const extractQuoteId = (value: string) => {
 };
 
 const statusMap: Record<string, { label: string; className: string }> = {
-  draft: { label: 'CÃ³mputo', className: 'bg-slate-100 text-slate-600' },
+  draft: { label: 'Cómputo', className: 'bg-slate-100 text-slate-600' },
   sent: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   presented: { label: 'Presentado', className: 'bg-sky-100 text-sky-700' },
   approved: { label: 'Aprobado', className: 'bg-emerald-100 text-emerald-700' },
@@ -1884,8 +1903,8 @@ const normalizeLaborLookupText = (value: string | null | undefined) =>
   String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/Â²/g, '2')
-    .replace(/Â³/g, '3')
+    .replace(/²/g, '2')
+    .replace(/³/g, '3')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -2446,7 +2465,7 @@ const getFinancePeriodLabel = (date: Date, mode: FinanceTimelineMode) => {
 
 const getFinanceTimelineUnit = (mode: FinanceTimelineMode, amount: number) => {
   if (mode === 'weekly') return amount === 1 ? 'semana' : 'semanas';
-  if (mode === 'yearly') return amount === 1 ? 'aÃ±o' : 'aÃ±os';
+  if (mode === 'yearly') return amount === 1 ? 'año' : 'años';
   return amount === 1 ? 'mes' : 'meses';
 };
 
@@ -3049,60 +3068,60 @@ type MasterItemBlueprintRule = {
 };
 
 const SANITARIOS_INODORO_MOCHILA_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'FijaciÃ³n, sellado y conexiÃ³n de agua/desagÃ¼e.',
+  summary: 'Fijación, sellado y conexión de agua/desagüe.',
   imageSrc: '/catalog/items/inodoro-mochila-instalado.jpg',
   imageAlt: 'Inodoro con mochila instalado en bano terminado',
   includes: [
-    'PresentaciÃ³n y nivelaciÃ³n del inodoro',
-    'FijaciÃ³n al piso con tornillos y tarugos',
-    'Armado y regulaciÃ³n de mochila',
-    'ConexiÃ³n de flexible de agua',
-    'ConexiÃ³n a descarga existente',
+    'Presentación y nivelación del inodoro',
+    'Fijación al piso con tornillos y tarugos',
+    'Armado y regulación de mochila',
+    'Conexión de flexible de agua',
+    'Conexión a descarga existente',
     'Sellado perimetral sanitario',
-    'Prueba de carga, descarga y pÃ©rdidas',
+    'Prueba de carga, descarga y pérdidas',
   ],
   excludes: [
-    'ProvisiÃ³n del inodoro, mochila, asiento o flexible',
-    'Roturas, calados, albaÃ±ilerÃ­a o revestimientos',
-    'Cambio de caÃ±erÃ­as o llave de paso',
+    'Provisión del inodoro, mochila, asiento o flexible',
+    'Roturas, calados, albañilería o revestimientos',
+    'Cambio de cañerías o llave de paso',
     'Traslado de punto sanitario',
   ],
   requirements: [
-    'Punto de agua y descarga existentes en posiciÃ³n correcta',
+    'Punto de agua y descarga existentes en posición correcta',
     'Piso terminado, firme y nivelado',
     'Artefacto compatible con la salida existente',
     'Llave de paso operativa para cortar el agua',
   ],
   materials: [
     'Flexible mallado',
-    'Tornillos y tarugos de fijaciÃ³n',
+    'Tornillos y tarugos de fijación',
     'Sello sanitario / silicona neutra',
     'Conector o junta para descarga si corresponde',
   ],
   finishCriteria: [
     'El inodoro queda firme y alineado',
     'La mochila carga, corta y descarga correctamente',
-    'No hay pÃ©rdida visible en flexible, mochila ni descarga',
+    'No hay pérdida visible en flexible, mochila ni descarga',
     'El cliente recibe el punto probado antes del cierre',
   ],
-  budgetNote: 'Si hay que romper, mover caÃ±erÃ­a o corregir descarga, agregar esos trabajos como Ã­tems separados.',
+  budgetNote: 'Si hay que romper, mover cañería o corregir descarga, agregar esos trabajos como ítems separados.',
 };
 
 const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Red de agua fria/caliente para baÃ±o, cocina y lavadero hasta 25 metros lineales.',
+  summary: 'Red de agua fria/caliente para baño, cocina y lavadero hasta 25 metros lineales.',
   imageSrc: '/catalog/items/agua-fria-caliente-bano-cocina-lavadero.jpg',
-  imageAlt: 'Instalacion de agua fria y caliente para baÃ±o, cocina y lavadero',
+  imageAlt: 'Instalacion de agua fria y caliente para baño, cocina y lavadero',
   includes: [
     'Replanteo de recorrido y puntos de consumo',
-    'Instalacion de caÃ±eria de agua fria y caliente hasta 25 metros lineales',
-    'Distribucion para baÃ±o, cocina y lavadero segun puntos existentes o definidos',
+    'Instalacion de cañeria de agua fria y caliente hasta 25 metros lineales',
+    'Distribucion para baño, cocina y lavadero segun puntos existentes o definidos',
     'Termofusion, fijacion y alineacion de tramos accesibles',
     'Conexiones basicas para alimentar artefactos sanitarios y griferias',
     'Prueba de presion, purga y verificacion de perdidas visibles',
   ],
   excludes: [
-    'Provision de caÃ±os, accesorios, llaves, colectores o griferias',
-    'Roturas, canaletas, albaÃ±ileria, tapados o reposicion de revestimientos',
+    'Provision de caños, accesorios, llaves, colectores o griferias',
+    'Roturas, canaletas, albañileria, tapados o reposicion de revestimientos',
     'Instalacion de artefactos, sanitarios, griferias o termotanque',
     'Trabajos por encima de 25 metros lineales',
     'Correccion de presion, bombas, tanques o montantes existentes',
@@ -3114,14 +3133,14 @@ const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
     'Sistema compatible con el material y diametro presupuestado',
   ],
   materials: [
-    'CaÃ±os y accesorios de termofusion',
+    'Caños y accesorios de termofusion',
     'Codos, tees, cuplas, reducciones y uniones',
     'Llaves de paso o colectores si corresponde',
     'Soportes, grampas y aislacion segun recorrido',
   ],
   finishCriteria: [
     'Los puntos quedan alimentados y correctamente identificados',
-    'La caÃ±eria queda firme, alineada y sin esfuerzos visibles',
+    'La cañeria queda firme, alineada y sin esfuerzos visibles',
     'La prueba de presion no muestra perdidas',
     'El alcance real medido coincide con el limite presupuestado',
   ],
@@ -3129,18 +3148,18 @@ const SANITARIOS_AGUA_FRIA_CALIENTE_BLUEPRINT: MasterItemBlueprint = {
 };
 
 const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Instalacion de caÃ±eria de termofusion bajo suelo por metro lineal.',
+  summary: 'Instalacion de cañeria de termofusion bajo suelo por metro lineal.',
   imageSrc: '/catalog/items/termofusion-bajo-suelo.jpg',
-  imageAlt: 'Instalacion de caÃ±eria de termofusion bajo suelo',
+  imageAlt: 'Instalacion de cañeria de termofusion bajo suelo',
   includes: [
     'Replanteo del recorrido bajo piso o contrapiso',
-    'Presentacion, corte y termofusion de caÃ±os y accesorios',
-    'Colocacion de caÃ±eria con pendiente, alineacion y proteccion basica',
+    'Presentacion, corte y termofusion de caños y accesorios',
+    'Colocacion de cañeria con pendiente, alineacion y proteccion basica',
     'Fijacion provisoria para evitar desplazamientos antes del tapado',
     'Prueba de presion antes de cubrir la instalacion',
   ],
   excludes: [
-    'Provision de caÃ±os, accesorios o aislaciones',
+    'Provision de caños, accesorios o aislaciones',
     'Calado, rotura, zanjeo, contrapiso, tapado o reposicion de pisos',
     'Instalacion de llaves, griferias, artefactos o colectores',
     'Correccion de instalaciones existentes fuera del tramo medido',
@@ -3152,7 +3171,7 @@ const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
     'Autorizacion para prueba antes de tapar',
   ],
   materials: [
-    'CaÃ±os de termofusion',
+    'Caños de termofusion',
     'Codos, tees, cuplas y reducciones',
     'Aislacion o proteccion segun recorrido',
     'Elementos de fijacion provisorios',
@@ -3167,18 +3186,18 @@ const SANITARIOS_TERMOFUSION_BAJO_SUELO_BLUEPRINT: MasterItemBlueprint = {
 };
 
 const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
-  summary: 'Instalacion de caÃ±eria de termofusion a la vista o engrampada por metro lineal.',
+  summary: 'Instalacion de cañeria de termofusion a la vista o engrampada por metro lineal.',
   imageSrc: '/catalog/items/termofusion-engrampada.jpg',
-  imageAlt: 'Instalacion de caÃ±eria de termofusion engrampada a la vista',
+  imageAlt: 'Instalacion de cañeria de termofusion engrampada a la vista',
   includes: [
     'Replanteo del recorrido visible y puntos de fijacion',
-    'Corte, presentacion y termofusion de caÃ±os y accesorios',
+    'Corte, presentacion y termofusion de caños y accesorios',
     'Colocacion de grampas, soportes y alineacion del tramo',
     'Conexion a puntos existentes o definidos dentro del mismo recorrido',
     'Prueba de presion y revision visual de uniones',
   ],
   excludes: [
-    'Provision de caÃ±os, accesorios, grampas o soportes especiales',
+    'Provision de caños, accesorios, grampas o soportes especiales',
     'Roturas, canaletas, pintura, tapados o terminaciones esteticas',
     'Trabajos en altura o con acceso especial no previsto',
     'Instalacion de artefactos, griferias o equipos',
@@ -3190,13 +3209,13 @@ const SANITARIOS_TERMOFUSION_ENGRAMPADA_BLUEPRINT: MasterItemBlueprint = {
     'Diametro y material definidos antes de iniciar',
   ],
   materials: [
-    'CaÃ±os y accesorios de termofusion',
+    'Caños y accesorios de termofusion',
     'Grampas, tarugos y tornillos',
     'Aislacion si corresponde',
     'Llaves o uniones si el tramo las requiere',
   ],
   finishCriteria: [
-    'La caÃ±eria queda firme, recta y prolija a la vista',
+    'La cañeria queda firme, recta y prolija a la vista',
     'Las fijaciones no presentan juego ni tension excesiva',
     'La prueba de presion no muestra perdidas',
     'El tramo queda identificado y listo para uso o conexion final',
@@ -4556,7 +4575,7 @@ const formatAgendaRangeLabel = (startValue?: string | null, endValue?: string | 
   const start = parseDateLocal(getDatePart(startValue));
   const end = parseDateLocal(getDatePart(endValue));
   if (!start) return 'Sin fecha definida';
-  if (!end) return `${formatAgendaDateLabel(startValue)} Â· cierre a confirmar`;
+  if (!end) return `${formatAgendaDateLabel(startValue)} · cierre a confirmar`;
   if (isSameDay(start, end)) return formatAgendaDateLabel(startValue);
   return `${formatAgendaDateLabel(startValue)} al ${formatAgendaDateLabel(endValue)}`;
 };
@@ -4818,6 +4837,8 @@ export default function TechniciansPage() {
   const [autoSaveState, setAutoSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [autoSaveMessage, setAutoSaveMessage] = useState('');
   const [profilePersistTick, setProfilePersistTick] = useState(0);
+  const profileBannerInputRef = useRef<HTMLInputElement | null>(null);
+  const profileAvatarInputRef = useRef<HTMLInputElement | null>(null);
   const lastPersistedProfileSignatureRef = useRef('');
   const lastAttemptedProfileSignatureRef = useRef('');
   const profilePersistInFlightRef = useRef(false);
@@ -4829,7 +4850,6 @@ export default function TechniciansPage() {
   const [profileMessage, setProfileMessage] = useState('');
   const [showLocationAuthorizationModal, setShowLocationAuthorizationModal] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
-  const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [logoRatio, setLogoRatio] = useState(1);
   const [notifications, setNotifications] = useState<NotificationRow[]>([]);
@@ -4971,7 +4991,7 @@ export default function TechniciansPage() {
       setProfileForm((prev) => ({
         ...prev,
         fullName: prev.fullName || 'UrbanFix QA',
-        businessName: prev.businessName || 'UrbanFix QA TÃ©cnica',
+        businessName: prev.businessName || 'UrbanFix QA Técnica',
         email: prev.email || 'preview@urbanfix.local',
         phone: prev.phone || '+54 9 11 0000-0000',
         city: prev.city || 'Buenos Aires',
@@ -4986,7 +5006,7 @@ export default function TechniciansPage() {
       window.sessionStorage.setItem(POST_AUTH_REDIRECT_KEY, nextPath);
     }
     if (intent === PRICE_ACCESS_INTENT) {
-      setEntryPrompt('Para ver los precios de mano de obra actualizados, inicia sesiÃ³n o crea tu cuenta.');
+      setEntryPrompt('Para ver los precios de mano de obra actualizados, inicia sesión o crea tu cuenta.');
       setAuthMode('login');
       setQuickRegisterMode(false);
     } else {
@@ -5261,7 +5281,7 @@ export default function TechniciansPage() {
     { key: 'agenda', label: 'Agenda', hint: 'Planificacion', short: 'AG', icon: Calendar },
     { key: 'notificaciones', label: 'Notificaciones', hint: 'Alertas', short: 'NO', icon: Bell },
     { key: 'soporte', label: 'Soporte', hint: 'Chat beta', short: 'CH', icon: MessageCircle },
-    { key: 'historial', label: 'FacturaciÃ³n', hint: 'Cobros', short: 'FA', icon: Clock },
+    { key: 'historial', label: 'Facturación', hint: 'Cobros', short: 'FA', icon: Clock },
     { key: 'perfil', label: 'Perfil', hint: 'Datos del negocio', short: 'PF', icon: User },
     { key: 'precios', label: 'Precios', hint: 'Mano de obra', short: 'PM', icon: Tag },
   ];
@@ -5282,7 +5302,7 @@ export default function TechniciansPage() {
   }, [activeSupportUserId, isBetaAdmin, profile?.business_name, session?.user?.email, supportUsers]);
 
   const statusOptions = [
-    { value: 'draft', label: 'CÃ³mputo' },
+    { value: 'draft', label: 'Cómputo' },
     { value: 'pending', label: 'Pendiente' },
     { value: 'presented', label: 'Presentado' },
     { value: 'approved', label: 'Aprobado' },
@@ -5297,7 +5317,7 @@ export default function TechniciansPage() {
   ];
   const quoteFilterOptions: Array<{ key: QuoteFilter; label: string }> = [
     { key: 'all', label: 'Todos' },
-    { key: 'draft', label: 'CÃ³mputo' },
+    { key: 'draft', label: 'Cómputo' },
     { key: 'pending', label: 'Pendientes' },
     { key: 'approved', label: 'Aprobados' },
     { key: 'scheduled', label: 'Programados' },
@@ -5459,7 +5479,7 @@ export default function TechniciansPage() {
       let resolvedProfile = profileData || null;
       if (error) {
         setProfile(null);
-        setProfileLoadError(error.message || 'No pudimos cargar tu perfil tÃ©cnico.');
+        setProfileLoadError(error.message || 'No pudimos cargar tu perfil técnico.');
         setLoadingProfile(false);
         return;
       }
@@ -8478,7 +8498,7 @@ export default function TechniciansPage() {
           totalAmount: client.totalAmount,
           movements: client.quotes.length,
           lastDateLabel: client.lastDateLabel,
-          address: getQuoteAddress(locatedQuote) || 'Zona sin direcciÃ³n',
+          address: getQuoteAddress(locatedQuote) || 'Zona sin dirección',
           lat: coordinate.lat,
           lon: coordinate.lon,
         };
@@ -8504,7 +8524,7 @@ export default function TechniciansPage() {
               totalAmount: 658858.6,
               movements: 2,
               lastDateLabel: '26/2/2026',
-              address: 'San NicolÃ¡s',
+              address: 'San Nicolás',
               lat: -34.6037,
               lon: -58.3816,
             },
@@ -8545,7 +8565,7 @@ export default function TechniciansPage() {
   const clientHistoryFilterOptions = useMemo(
     () => [
       { id: 'all' as const, label: 'Todos', count: clientHistorySummary.clients },
-      { id: 'located' as const, label: 'Con ubicaciÃ³n', count: clientHistorySummary.located },
+      { id: 'located' as const, label: 'Con ubicación', count: clientHistorySummary.located },
       { id: 'pending' as const, label: 'Seguimiento', count: clientHistorySummary.pending },
       { id: 'paid' as const, label: 'Cobrados', count: clientHistorySummary.paid },
     ],
@@ -8647,14 +8667,14 @@ export default function TechniciansPage() {
         ? `${Math.abs(financeTimelineOffset)} ${getFinanceTimelineUnit(
             financeTimelineMode,
             Math.abs(financeTimelineOffset)
-          )} atrÃ¡s`
+          )} atrás`
         : `${financeTimelineOffset} ${getFinanceTimelineUnit(financeTimelineMode, financeTimelineOffset)} adelante`;
   const financeTimelineTitle =
     financeTimelineMode === 'weekly'
-      ? 'Tendencia semanal + prÃ³ximas 2'
+      ? 'Tendencia semanal + próximas 2'
       : financeTimelineMode === 'yearly'
-        ? 'Tendencia anual + prÃ³ximos 2'
-        : 'Tendencia mensual + prÃ³ximos 2';
+        ? 'Tendencia anual + próximos 2'
+        : 'Tendencia mensual + próximos 2';
   const moveFinanceTimeline = (delta: number) => {
     setActiveFinancePointKey(null);
     setFinanceTimelineOffset((value) => Math.max(-12, Math.min(6, value + delta)));
@@ -8968,7 +8988,7 @@ export default function TechniciansPage() {
         kind: 'job',
         title: quote.client_name || 'Trabajo sin cliente',
         subtitle: addressLabel,
-        meta: `${statusLabel} Â· ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
+        meta: `${statusLabel} · ${new Date(quote.created_at).toLocaleDateString('es-AR')}`,
         lat: coordinate.lat,
         lon: coordinate.lon,
         createdAt: quote.created_at,
@@ -9020,7 +9040,7 @@ export default function TechniciansPage() {
         kind: 'request',
         title: request.title || 'Solicitud',
         subtitle: requestPublicZoneLabel(request),
-        meta: `${request.urgency.toUpperCase()} Â· ${request.distance_km.toFixed(1)} km`,
+        meta: `${request.urgency.toUpperCase()} · ${request.distance_km.toFixed(1)} km`,
         lat,
         lon,
         createdAt: request.created_at,
@@ -9336,7 +9356,7 @@ export default function TechniciansPage() {
         throw new Error(payload?.error || 'No pudimos actualizar el estado.');
       }
       if (!payload?.quote?.id) {
-        throw new Error('No se pudo actualizar el estado. Revisa permisos o polÃ­ticas de seguridad.');
+        throw new Error('No se pudo actualizar el estado. Revisa permisos o políticas de seguridad.');
       }
       setQuotes((prev) =>
         prev.map((quote) => (quote.id === quoteId ? normalizeQuoteRow({ ...quote, ...payload.quote }) : quote))
@@ -9412,10 +9432,12 @@ export default function TechniciansPage() {
     silent = false,
     refreshNearby = false,
     publishProfile,
+    locationVisibility = 'exact',
   }: {
     silent?: boolean;
     refreshNearby?: boolean;
     publishProfile?: boolean;
+    locationVisibility?: 'exact' | 'approx';
   } = {}) => {
     if (!session?.user?.id) return false;
     if (profilePersistInFlightRef.current) return false;
@@ -9474,9 +9496,23 @@ export default function TechniciansPage() {
       } else {
         throw new Error('Elige y confirma en el mapa el punto exacto donde quieres aparecer.');
       }
+
+      if (effectiveProfilePublished && locationVisibility === 'approx' && serviceLat !== null && serviceLng !== null) {
+        const approximatePoint = buildApproximateProfileLocation(
+          serviceLat,
+          serviceLng,
+          `${session.user.id}-${profileForm.businessName}-${profileForm.city}`
+        );
+        serviceLat = approximatePoint.lat;
+        serviceLng = approximatePoint.lng;
+        serviceLocationPrecision = 'approx';
+        serviceLocationName =
+          [profileForm.city, profileForm.province, profileForm.country].filter(Boolean).join(', ') ||
+          'Ubicacion aproximada';
+      }
       
       if (effectiveProfilePublished && !serviceLat && !serviceLng) {
-        throw new Error('Completa tu ubicaciÃ³n en el mapa para publicar en la vidriera.');
+        throw new Error('Completa tu ubicación en el mapa para publicar en la vidriera.');
       }
 
       const normalizedServiceLocationName = String(serviceLocationName || '').trim();
@@ -9574,7 +9610,7 @@ export default function TechniciansPage() {
         setProfileMessage(
           nextAccessGranted === true
             ? 'Perfil actualizado con tu punto en el mapa.'
-            : 'Perfil enviado a revisiÃ³n. Te avisaremos cuando estÃ© habilitado.'
+            : 'Perfil enviado a revisión. Te avisaremos cuando esté habilitado.'
         );
       } else {
         setAutoSaveMessage('Guardado automatico.');
@@ -9652,45 +9688,34 @@ export default function TechniciansPage() {
     setActiveTab('perfil');
   };
 
-  const handleCompanyLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!session?.user?.id) {
-      setProfileMessage('Inicia sesion para subir un logo.');
+  const handleUseApproximateLocationAndContinue = async () => {
+    if (!canSaveRequiredProfile) return;
+    setProfileForm((prev) => ({ ...prev, profilePublished: true }));
+    const saved = await persistProfile({
+      silent: false,
+      refreshNearby: true,
+      publishProfile: true,
+      locationVisibility: 'approx',
+    });
+    if (!saved) {
+      setProfileForm((prev) => ({ ...prev, profilePublished: false }));
       return;
     }
-    if (!file.type.startsWith('image/')) {
-      setProfileMessage('Solo se permiten imagenes.');
-      return;
-    }
-    setUploadingCompanyLogo(true);
-    setProfileMessage('');
-    try {
-      const storagePath = `${session.user.id}/profile/${Date.now()}-${sanitizeFileName(file.name)}`;
-      const { error: uploadError } = await supabase.storage.from('urbanfix-assets').upload(storagePath, file, {
-        contentType: file.type || 'application/octet-stream',
-        upsert: true,
-      });
-      if (uploadError) throw uploadError;
-      const { data: publicData } = supabase.storage.from('urbanfix-assets').getPublicUrl(storagePath);
-      const publicUrl = publicData.publicUrl;
-      const { data, error } = await supabase
-        .from('profiles')
-        .update({ company_logo_url: publicUrl })
-        .eq('id', session.user.id)
-        .select()
-        .single();
-      if (error) throw error;
-      setProfile(data);
-      setProfileForm((prev) => ({ ...prev, companyLogoUrl: publicUrl }));
-      setProfileMessage('Logo actualizado.');
-    } catch (error: any) {
-      console.error('Error subiendo logo:', error);
-      setProfileMessage('No pudimos subir el logo.');
-    } finally {
-      setUploadingCompanyLogo(false);
-    }
+    setShowLocationAuthorizationModal(false);
+    setProfileMessage('Listo. Publicamos una zona aproximada para que te encuentren sin mostrar la puerta exacta.');
+    setProfilePanelTab('editor');
+    setActiveTab('perfil');
+  };
+
+  const handleConfirmLocationLater = async () => {
+    if (!canSaveRequiredProfile) return;
+    setProfileForm((prev) => ({ ...prev, profilePublished: false }));
+    const saved = await persistProfile({ silent: false, refreshNearby: false, publishProfile: false });
+    if (!saved) return;
+    setShowLocationAuthorizationModal(false);
+    setProfileMessage('Datos guardados. Puedes publicar tu ubicacion en el mapa mas adelante.');
+    setProfilePanelTab('editor');
+    setActiveTab('perfil');
   };
 
   const handleBannerUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -9877,7 +9902,7 @@ export default function TechniciansPage() {
   };
 
   const handleDeleteQuote = async (quote: QuoteRow) => {
-    if (!confirm(`Â¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acciÃ³n no se puede deshacer.`)) {
+    if (!confirm(`¿Eliminar el presupuesto de ${quote.client_name || 'este cliente'}? Esta acción no se puede deshacer.`)) {
       return;
     }
       try {
@@ -10301,7 +10326,7 @@ export default function TechniciansPage() {
     }
     const trimmedEmail = email.trim();
     if (!trimmedEmail) {
-      setAuthError('Ingresa tu correo para recuperar la contraseÃ±a.');
+      setAuthError('Ingresa tu correo para recuperar la contraseña.');
       return;
     }
     setSendingRecovery(true);
@@ -10309,7 +10334,7 @@ export default function TechniciansPage() {
       const redirectTo = `${window.location.origin}/tecnicos`;
       const { error } = await supabase.auth.resetPasswordForEmail(trimmedEmail, { redirectTo });
       if (error) throw error;
-      setAuthNotice('Te enviamos un correo para recuperar tu contraseÃ±a.');
+      setAuthNotice('Te enviamos un correo para recuperar tu contraseña.');
     } catch (error: any) {
       setAuthError(getFriendlyAuthErrorMessage(error, 'recovery'));
     } finally {
@@ -10321,13 +10346,13 @@ export default function TechniciansPage() {
     setRecoveryError('');
     setRecoveryMessage('');
     if (!session?.user) {
-      setRecoveryError('La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.');
+      setRecoveryError('La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.');
       return;
     }
     const nextPassword = recoveryPassword.trim();
     const confirmPassword = recoveryConfirm.trim();
     if (!nextPassword) {
-      setRecoveryError('Ingresa una nueva contraseÃ±a.');
+      setRecoveryError('Ingresa una nueva contraseña.');
       return;
     }
     const recoveryPasswordPolicyError = getPasswordPolicyError(nextPassword);
@@ -10336,18 +10361,18 @@ export default function TechniciansPage() {
       return;
     }
     if (nextPassword !== confirmPassword) {
-      setRecoveryError('Las contraseÃ±as no coinciden.');
+      setRecoveryError('Las contraseñas no coinciden.');
       return;
     }
     setUpdatingRecovery(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: nextPassword });
       if (error) throw error;
-      setRecoveryMessage('Listo. Tu contraseÃ±a fue actualizada.');
+      setRecoveryMessage('Listo. Tu contraseña fue actualizada.');
       setRecoveryPassword('');
       setRecoveryConfirm('');
     } catch (error: any) {
-      setRecoveryError(error?.message || 'No pudimos actualizar la contraseÃ±a.');
+      setRecoveryError(error?.message || 'No pudimos actualizar la contraseña.');
     } finally {
       setUpdatingRecovery(false);
     }
@@ -10378,10 +10403,10 @@ export default function TechniciansPage() {
       const safeEmail = email.trim().toLowerCase();
       const normalizedAuthWhatsapp = authWhatsapp.trim();
       if (!safeEmail || !password) {
-        throw new Error('Ingresa correo y contraseÃ±a.');
+        throw new Error('Ingresa correo y contraseña.');
       }
       if (!safeEmail.includes('@')) {
-        throw new Error('Ingresa un correo vÃ¡lido.');
+        throw new Error('Ingresa un correo válido.');
       }
       const passwordPolicyError = authMode === 'register' ? getPasswordPolicyError(password) : '';
       if (passwordPolicyError) {
@@ -10433,7 +10458,7 @@ export default function TechniciansPage() {
             ? welcomeSent
               ? 'Cuenta creada. Ya puedes completar tu perfil. Te enviamos un WhatsApp de bienvenida.'
               : 'Cuenta creada. Ya puedes completar tu perfil, cargar rubros y publicar tu vidriera.'
-            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se prepararÃ¡ al iniciar sesiÃ³n.'
+            : 'Cuenta creada. Revisa tu correo para confirmar y luego entra: el perfil base se preparará al iniciar sesión.'
         );
         setPassword('');
       }
@@ -10644,7 +10669,7 @@ export default function TechniciansPage() {
       {
         key: 'quotes',
         title: 'Carga tu primer presupuesto',
-        description: 'Empieza a cotizar para construir facturaciÃ³n, seguimiento y cobros.',
+        description: 'Empieza a cotizar para construir facturación, seguimiento y cobros.',
         done: quotes.length > 0,
       },
       {
@@ -10673,7 +10698,7 @@ export default function TechniciansPage() {
       profileForm.fullName ||
       profile?.full_name ||
       session?.user?.email ||
-      'Panel tÃ©cnico';
+      'Panel técnico';
     return rawName.trim();
   }, [profile?.business_name, profile?.full_name, profileForm.businessName, profileForm.fullName, session?.user?.email]);
   const technicianTodayLabel = useMemo(
@@ -10700,7 +10725,7 @@ export default function TechniciansPage() {
       return {
         lat: profileLat,
         lon: profileLon,
-        label: profile?.coverage_area || profileForm.coverageArea || profileForm.city || 'UbicaciÃ³n de trabajo',
+        label: profile?.coverage_area || profileForm.coverageArea || profileForm.city || 'Ubicación de trabajo',
       };
     }
 
@@ -10711,7 +10736,7 @@ export default function TechniciansPage() {
       return {
         lat: formLat,
         lon: formLon,
-        label: formLocation?.displayName || profileForm.coverageArea || profileForm.city || 'UbicaciÃ³n de trabajo',
+        label: formLocation?.displayName || profileForm.coverageArea || profileForm.city || 'Ubicación de trabajo',
       };
     }
 
@@ -10776,8 +10801,8 @@ export default function TechniciansPage() {
         : quoteStats.approved > 0
           ? `${quoteStats.approved} ${quoteStats.approved === 1 ? 'trabajo aprobado' : 'trabajos aprobados'} para ejecutar`
           : profileCompletionPercent < 100
-            ? `Tu perfil estÃ¡ al ${profileCompletionPercent}%`
-            : 'No tenÃ©s bloqueos operativos';
+            ? `Tu perfil está al ${profileCompletionPercent}%`
+            : 'No tenés bloqueos operativos';
 
     return {
       actionLabel,
@@ -10884,7 +10909,7 @@ export default function TechniciansPage() {
         return;
       }
       if (typeof window !== 'undefined') {
-        const confirmed = window.confirm('Vas a aparecer en la vidriera publica de tecnicos. Â¿Confirmas publicacion?');
+        const confirmed = window.confirm('Vas a aparecer en la vidriera publica de tecnicos. ¿Confirmas publicacion?');
         if (!confirmed) {
           setProfileMessage('Publicacion cancelada.');
           return;
@@ -11032,8 +11057,8 @@ export default function TechniciansPage() {
   const publicProfilePreview = useMemo(() => {
     const profileId = session?.user?.id || profile?.id || '';
     const displayName =
-      String(profileForm.businessName || profileForm.fullName || profile?.business_name || profile?.full_name || 'TÃ©cnico UrbanFix').trim() ||
-      'TÃ©cnico UrbanFix';
+      String(profileForm.businessName || profileForm.fullName || profile?.business_name || profile?.full_name || 'Técnico UrbanFix').trim() ||
+      'Técnico UrbanFix';
     const fullName = String(profileForm.fullName || profile?.full_name || '').trim();
     const displayInitial = displayName.slice(0, 1).toUpperCase() || 'U';
     const specialties = parseSpecialties(profileForm.specialties).slice(0, 12);
@@ -11297,18 +11322,18 @@ export default function TechniciansPage() {
       className="fixed inset-0 z-[140] flex items-center justify-center bg-[#17001f]/78 px-4 py-6 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
-      aria-label="Autorizar ubicacion en el mapa"
+      aria-label="Elegir visibilidad de ubicacion"
     >
-      <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-[0_28px_90px_-44px_rgba(0,0,0,0.82)]">
+      <div className="w-full max-w-lg overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-[0_28px_90px_-44px_rgba(0,0,0,0.82)]">
         <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5">
           <div className="flex min-w-0 items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338]">
               <MapPinned className="h-5 w-5" />
             </span>
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a4a00]">Autorizacion</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a4a00]">Visibilidad</p>
               <h2 className={`${spaceGrotesk.className} mt-1 text-xl font-black text-[#180f24]`}>
-                Mostrar ubicacion en el mapa
+                Elegi como mostrar tu zona
               </h2>
             </div>
           </div>
@@ -11316,28 +11341,41 @@ export default function TechniciansPage() {
             type="button"
             onClick={() => setShowLocationAuthorizationModal(false)}
             className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
-            aria-label="Cerrar autorizacion"
+            aria-label="Cerrar"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
         <div className="space-y-4 px-5 py-5">
           <p className="text-sm leading-6 text-slate-600">
-            Autorizas a UrbanFix a usar tu ubicacion de trabajo para mostrar tu perfil en el mapa de tecnicos y que los clientes puedan encontrarte.
+            Tu ubicacion ayuda a que los clientes cercanos te encuentren. Puedes publicar el punto elegido,
+            mostrar solo una zona aproximada o decidirlo mas adelante desde tu perfil.
           </p>
           {technicianLocationResult?.displayName && (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
-              {technicianLocationResult.displayName}
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Punto elegido</p>
+              <p className="mt-1 text-sm font-semibold leading-5 text-slate-700">{technicianLocationResult.displayName}</p>
             </div>
           )}
-          <div className="grid gap-2 sm:grid-cols-2">
+          <p className="rounded-2xl bg-amber-50 px-4 py-3 text-xs font-semibold leading-5 text-[#8a4a00]">
+            Si eliges ubicacion aproximada, movemos el pin dentro de tu zona para no mostrar la puerta exacta.
+          </p>
+          <div className="grid gap-2">
             <button
               type="button"
-              onClick={() => setShowLocationAuthorizationModal(false)}
+              onClick={handleConfirmLocationLater}
               disabled={profileSaving}
               className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 disabled:opacity-50"
             >
-              Volver
+              {profileSaving ? 'Guardando...' : 'Confirmar luego'}
+            </button>
+            <button
+              type="button"
+              onClick={handleUseApproximateLocationAndContinue}
+              disabled={profileSaving}
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-[#ff8f1f]/35 bg-[#fff7ed] px-4 text-sm font-black text-[#8a4a00] transition hover:bg-[#ffedd5] disabled:opacity-60"
+            >
+              {profileSaving ? 'Guardando...' : 'Poner ubicacion aproximada'}
             </button>
             <button
               type="button"
@@ -11398,7 +11436,7 @@ export default function TechniciansPage() {
           className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)] flex items-center justify-center`}
         >
           <div className={`${authSurfaceClass} max-w-lg border-rose-200`}>
-            <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Perfil tÃ©cnico</p>
+            <p className="text-[11px] uppercase tracking-[0.2em] text-rose-500">Perfil técnico</p>
             <h1 className="mt-2 text-2xl font-bold text-[color:var(--ui-ink)]">No pudimos abrir tu perfil</h1>
             <p className="mt-3 text-sm text-[color:var(--ui-muted)]">{profileLoadError}</p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -11414,7 +11452,7 @@ export default function TechniciansPage() {
                 onClick={handleLogout}
                 className="rounded-2xl border border-[color:var(--ui-border)] bg-[color:var(--ui-card)]/72 px-4 py-3 text-sm font-semibold text-[color:var(--ui-ink)] transition hover:border-[color:var(--ui-accent-soft)]"
               >
-                Cerrar sesiÃ³n
+                Cerrar sesión
               </button>
             </div>
           </div>
@@ -11436,7 +11474,7 @@ export default function TechniciansPage() {
           <div className={`${authSurfaceClass} max-w-lg text-center`}>
             <h1 className="text-2xl font-bold text-[color:var(--ui-ink)]">Acceso administrativo</h1>
             <p className="mt-3 text-sm text-[color:var(--ui-muted)]">
-              Tu cuenta estÃ¡ configurada como admin. Te llevamos al panel de control.
+              Tu cuenta está configurada como admin. Te llevamos al panel de control.
             </p>
             <a
               href="/admin"
@@ -11496,12 +11534,12 @@ export default function TechniciansPage() {
                   </div>
                   <div className="text-left">
                     <p className="text-xs uppercase tracking-[0.2em] text-[color:var(--ui-muted)]">UrbanFix</p>
-                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">Panel tÃ©cnico</p>
+                    <p className="text-sm font-semibold text-[color:var(--ui-ink)]">Panel técnico</p>
                   </div>
                 </div>
-                <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">Restablecer contraseÃ±a</h1>
+                <h1 className="text-5xl font-black text-[color:var(--ui-ink)] md:text-6xl">Restablecer contraseña</h1>
                 <p className="text-base text-[color:var(--ui-muted)] md:text-lg">
-                  Define una nueva contraseÃ±a para volver a acceder a tu cuenta.
+                  Define una nueva contraseña para volver a acceder a tu cuenta.
                 </p>
                 <button
                   type="button"
@@ -11514,13 +11552,13 @@ export default function TechniciansPage() {
 
               <div className={authSurfaceClass}>
                 <div className="space-y-3">
-                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Nueva contraseÃ±a</h2>
-                  <p className="text-sm text-[color:var(--ui-muted)]">Ingresa tu nueva contraseÃ±a para finalizar.</p>
+                  <h2 className="text-2xl font-bold text-[color:var(--ui-ink)]">Nueva contraseña</h2>
+                  <p className="text-sm text-[color:var(--ui-muted)]">Ingresa tu nueva contraseña para finalizar.</p>
                 </div>
 
                 {!session?.user && (
                   <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-                    La sesiÃ³n de recuperaciÃ³n no estÃ¡ activa. Abre el enlace del correo nuevamente.
+                    La sesión de recuperación no está activa. Abre el enlace del correo nuevamente.
                   </div>
                 )}
 
@@ -11531,14 +11569,14 @@ export default function TechniciansPage() {
                         value={recoveryPassword}
                         onChange={(event) => setRecoveryPassword(event.target.value)}
                         type="password"
-                        placeholder="Nueva contraseÃ±a"
+                        placeholder="Nueva contraseña"
                         className={authInputClass.replace('mt-2 ', '')}
                       />
                       <input
                         value={recoveryConfirm}
                         onChange={(event) => setRecoveryConfirm(event.target.value)}
                         type="password"
-                        placeholder="Repetir contraseÃ±a"
+                        placeholder="Repetir contraseña"
                         className={authInputClass.replace('mt-2 ', '')}
                       />
                     </div>
@@ -11553,7 +11591,7 @@ export default function TechniciansPage() {
                         disabled={updatingRecovery}
                         className={`mt-5 ${authPrimaryButtonClass}`}
                       >
-                          {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseÃ±a'}
+                          {updatingRecovery ? 'Actualizando...' : 'Guardar nueva contraseña'}
                       </button>
                     )}
 
@@ -12434,7 +12472,7 @@ export default function TechniciansPage() {
       className={`ufx-theme-scope ${manrope.className} min-h-screen bg-[color:var(--ui-bg)] text-[color:var(--ui-ink)]`}
     >
       <AuthHashHandler />
-      <PublicTopNav activeHref="/tecnicos" sticky panelMenuLabel="Panel tÃ©cnico" panelMenuItems={technicianTopMenuItems} />
+      <PublicTopNav activeHref="/tecnicos" sticky panelMenuLabel="Panel técnico" panelMenuItems={technicianTopMenuItems} />
       <div
         className={`relative overflow-hidden ${
           activeTab === 'operativo'
@@ -12458,7 +12496,7 @@ export default function TechniciansPage() {
         >
           <div className={isFullBleedContent ? 'contents' : 'hidden w-[74px] shrink-0 lg:block'}>
             <aside
-              aria-label="NavegaciÃ³n tÃ©cnica"
+              aria-label="Navegación técnica"
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
               className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] overflow-hidden border-r border-white/[0.08] bg-[linear-gradient(180deg,#17031f_0%,#250331_48%,#13021a_100%)] shadow-[14px_0_44px_-42px_rgba(0,0,0,0.9),inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
@@ -12480,7 +12518,7 @@ export default function TechniciansPage() {
                     {isDesktopNavExpanded && (
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-semibold text-white">{technicianSidebarAccountLabel}</p>
-                        <p className="mt-0.5 text-[10px] font-semibold text-white/[0.42]">Panel tÃ©cnico</p>
+                        <p className="mt-0.5 text-[10px] font-semibold text-white/[0.42]">Panel técnico</p>
                       </div>
                     )}
                   </div>
@@ -12545,7 +12583,7 @@ export default function TechniciansPage() {
                   <div className="flex flex-col gap-0.5">
                     <button
                       type="button"
-                      title={!isDesktopNavExpanded ? 'ConfiguraciÃ³n' : undefined}
+                      title={!isDesktopNavExpanded ? 'Configuración' : undefined}
                       onClick={() => setActiveTab('perfil')}
                       className={`group relative flex items-center text-white/[0.76] transition hover:bg-white/[0.075] hover:text-white ${
                         isDesktopNavExpanded
@@ -12557,13 +12595,13 @@ export default function TechniciansPage() {
                         <Settings className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">ConfiguraciÃ³n</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Configuración</span>
                       )}
                     </button>
 
                     <button
                       type="button"
-                      title={!isDesktopNavExpanded ? 'Cerrar sesiÃ³n' : undefined}
+                      title={!isDesktopNavExpanded ? 'Cerrar sesión' : undefined}
                       onClick={handleLogout}
                       className={`group relative flex items-center text-white/[0.82] transition hover:bg-[#ff8f1f]/[0.12] hover:text-white ${
                         isDesktopNavExpanded
@@ -12575,7 +12613,7 @@ export default function TechniciansPage() {
                         <LogOut className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
-                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesiÃ³n</span>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Cerrar sesión</span>
                       )}
                     </button>
                   </div>
@@ -12592,14 +12630,14 @@ export default function TechniciansPage() {
                     <div className="min-w-0">
                       <span className="inline-flex items-center gap-2 rounded-full border border-[#ff8f1f]/25 bg-white px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#7a4a15] shadow-sm">
                         <ShieldCheck className="h-3.5 w-3.5 text-[#ff8f1f]" />
-                        Perfil en revisiÃ³n
+                        Perfil en revisión
                       </span>
                       <h2 className={`${spaceGrotesk.className} mt-3 text-2xl font-bold tracking-tight text-[#180f24]`}>
-                        Ya podÃ©s preparar tu operaciÃ³n
+                        Ya podés preparar tu operación
                       </h2>
                       <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-600">
-                        Tu perfil estÃ¡ cargado y UrbanFix lo estÃ¡ revisando. Mientras tanto podÃ©s crear presupuestos,
-                        ordenar clientes y completar detalles; las solicitudes cercanas y la vidriera pÃºblica se habilitan
+                        Tu perfil está cargado y UrbanFix lo está revisando. Mientras tanto podés crear presupuestos,
+                        ordenar clientes y completar detalles; las solicitudes cercanas y la vidriera pública se habilitan
                         cuando quede aprobado.
                       </p>
                     </div>
@@ -12637,7 +12675,7 @@ export default function TechniciansPage() {
                           Bienvenido, {technicianHomeName}
                         </h1>
                         <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-                          Este es tu estado de hoy: pendientes, balance y el prÃ³ximo paso para avanzar.
+                          Este es tu estado de hoy: pendientes, balance y el próximo paso para avanzar.
                         </p>
                       </div>
                     </div>
@@ -12670,7 +12708,7 @@ export default function TechniciansPage() {
                             <div className="flex min-h-[86px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                                  AcciÃ³n recomendada
+                                  Acción recomendada
                                 </p>
                                 <p className={`${spaceGrotesk.className} mt-1 text-lg font-bold text-[#180f24]`}>
                                   {technicianStatusWindow.nextAction}
@@ -12691,17 +12729,17 @@ export default function TechniciansPage() {
                             <div className="flex min-h-[88px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div className="min-w-0">
                                 <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                                  ConfiguraciÃ³n inicial
+                                  Configuración inicial
                                 </p>
                                 <p className={`${spaceGrotesk.className} mt-1 text-lg font-bold text-slate-900`}>
                                   {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
                                     ? lobbyPrimarySetupStep.title
-                                    : 'Tu panel ya estÃ¡ listo para operar'}
+                                    : 'Tu panel ya está listo para operar'}
                                 </p>
                                 <p className="mt-1 max-w-md text-xs leading-5 text-slate-500">
                                   {shouldShowLobbyOnboarding && lobbyPrimarySetupStep
                                     ? lobbyPrimarySetupStep.description
-                                    : 'Puedes seguir optimizando presupuestos, agenda y presencia pÃºblica.'}
+                                    : 'Puedes seguir optimizando presupuestos, agenda y presencia pública.'}
                                 </p>
                               </div>
                               <span className="inline-flex shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-[#2a0338]">
@@ -12721,7 +12759,7 @@ export default function TechniciansPage() {
                           {technicianHomeMapPoint && technicianHomeMapUrl ? (
                             <>
                               <iframe
-                                title={`UbicaciÃ³n de ${technicianHomeName}`}
+                                title={`Ubicación de ${technicianHomeName}`}
                                 src={technicianHomeMapUrl}
                                 loading="lazy"
                                 className="absolute inset-0 h-full w-full border-0 grayscale-[0.08] saturate-[0.92]"
@@ -12731,7 +12769,7 @@ export default function TechniciansPage() {
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338]">
                                   <MapPinned className="h-3.5 w-3.5" strokeWidth={2.2} />
                                 </span>
-                                UbicaciÃ³n tÃ©cnica
+                                Ubicación técnica
                               </div>
                               <div className="absolute bottom-3 left-3 right-3 rounded-[17px] border border-white/72 bg-white/88 px-3 py-2 shadow-[0_16px_34px_-28px_rgba(42,3,56,0.62)] backdrop-blur">
                                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -12758,7 +12796,7 @@ export default function TechniciansPage() {
                                 <MapPinned className="h-5 w-5" strokeWidth={2.1} />
                               </span>
                               <span>
-                                <span className="block text-sm font-semibold text-[#180f24]">UbicaciÃ³n pendiente</span>
+                                <span className="block text-sm font-semibold text-[#180f24]">Ubicación pendiente</span>
                                 <span className="mt-1 block text-xs leading-5 text-slate-500">
                                   Completa tu punto en el mapa para aparecer en la vidriera y ordenar trabajos por zona.
                                 </span>
@@ -12904,7 +12942,7 @@ export default function TechniciansPage() {
                             <div className="space-y-3">
                               {filteredClientHistory.length === 0 && (
                                 <div className="rounded-[24px] border border-dashed border-slate-200 bg-slate-50 p-5 text-sm text-slate-500">
-                                  No hay clientes en este filtro todavÃ­a.
+                                  No hay clientes en este filtro todavía.
                                 </div>
                               )}
                               {filteredClientHistory.slice(0, 5).map((client) => {
@@ -12942,16 +12980,16 @@ export default function TechniciansPage() {
                                           <span className="truncate text-base font-semibold text-slate-900">{client.name}</span>
                                           {client.locationCount > 0 ? (
                                             <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                              ubicaciÃ³n
+                                              ubicación
                                             </span>
                                           ) : null}
                                         </span>
                                         <span className="mt-1 block text-xs text-slate-500">
-                                          {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} Â· Ãºltimo {client.lastDateLabel}
+                                          {client.quotes.length} {client.quotes.length === 1 ? 'movimiento' : 'movimientos'} · último {client.lastDateLabel}
                                         </span>
                                         <span className="mt-1 block text-[11px] text-slate-400">
                                           Desde {client.firstDateLabel}
-                                          {pendingClient ? ' Â· requiere seguimiento' : paidClient ? ' Â· trabajo cobrado' : ''}
+                                          {pendingClient ? ' · requiere seguimiento' : paidClient ? ' · trabajo cobrado' : ''}
                                         </span>
                                       </span>
                                     </div>
@@ -13008,7 +13046,7 @@ export default function TechniciansPage() {
                                   <span>
                                     <span className="block text-sm font-semibold text-[#180f24]">Sin zonas mapeadas</span>
                                     <span className="mt-1 block text-xs leading-5 text-slate-500">
-                                      Para mapear clientes con precisiÃ³n, cada presupuesto necesita ubicaciÃ³n confirmada.
+                                      Para mapear clientes con precisión, cada presupuesto necesita ubicación confirmada.
                                     </span>
                                   </span>
                                 </button>
@@ -13021,16 +13059,16 @@ export default function TechniciansPage() {
                           <div className="relative flex flex-wrap items-start justify-between gap-3">
                             <div>
                               <p className="inline-flex rounded-full border border-[#ffcf93] bg-[#fff8ef] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8a4a07]">
-                                FacturaciÃ³n
+                                Facturación
                               </p>
                               <h3 className="mt-3 text-2xl font-semibold tracking-tight text-slate-950">Caja, cobro y mano de obra</h3>
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
-                                {financeTimelineMode === 'weekly' ? '6 + 2 semanas' : financeTimelineMode === 'yearly' ? '6 + 2 aÃ±os' : '6 + 2 meses'}
+                                {financeTimelineMode === 'weekly' ? '6 + 2 semanas' : financeTimelineMode === 'yearly' ? '6 + 2 años' : '6 + 2 meses'}
                               </span>
                               <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
-                                Ãšltimo {financeOverview.latestActiveMonth.label.toUpperCase()}
+                                Último {financeOverview.latestActiveMonth.label.toUpperCase()}
                               </span>
                               <span className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-semibold text-emerald-700">
                                 {financeOverview.collectionRate}% cobrado
@@ -13085,9 +13123,9 @@ export default function TechniciansPage() {
                               <div>
                                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">{financeTimelineTitle}</p>
                                 <p className="mt-1 text-sm font-semibold text-slate-900">
-                                  Mejor periodo: {financeOverview.bestMonth.label.toUpperCase()} Â· {formatDashboardMoney(financeOverview.bestMonth.quotes)}
+                                  Mejor periodo: {financeOverview.bestMonth.label.toUpperCase()} · {formatDashboardMoney(financeOverview.bestMonth.quotes)}
                                   {financeTimelineOffset !== 0 ? (
-                                    <span className="font-medium text-slate-400"> Â· {financeTimelinePositionLabel}</span>
+                                    <span className="font-medium text-slate-400"> · {financeTimelinePositionLabel}</span>
                                   ) : null}
                                 </p>
                               </div>
@@ -13336,7 +13374,7 @@ export default function TechniciansPage() {
                                   <div className="flex items-start justify-between gap-3">
                                     <div>
                                       <p className="text-[9px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                                        {activeFinancePoint.label.toUpperCase()} Â· {activeFinancePoint.quoteRefs.length} presupuestos
+                                        {activeFinancePoint.label.toUpperCase()} · {activeFinancePoint.quoteRefs.length} presupuestos
                                       </p>
                                       <p className="mt-1 text-base font-semibold text-slate-950">
                                         {formatDashboardMoney(activeFinancePoint.quotes)}
@@ -13373,10 +13411,10 @@ export default function TechniciansPage() {
                                       >
                                         <div className="min-w-0">
                                           <p className="truncate text-[11px] font-bold text-slate-900">
-                                            #{quoteRef.number} Â· {quoteRef.clientName}
+                                            #{quoteRef.number} · {quoteRef.clientName}
                                           </p>
                                           <p className="mt-0.5 text-[10px] font-medium text-slate-400">
-                                            {quoteRef.dateLabel} Â· {quoteRef.statusLabel}
+                                            {quoteRef.dateLabel} · {quoteRef.statusLabel}
                                           </p>
                                         </div>
                                         <span className="shrink-0 text-[11px] font-bold text-slate-950">
@@ -13450,7 +13488,7 @@ export default function TechniciansPage() {
                       disabled={loadingNearbyRequests || isProfileUnderReview}
                       className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
                     >
-                      {isProfileUnderReview ? 'En revisiÃ³n' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar'}
+                      {isProfileUnderReview ? 'En revisión' : loadingNearbyRequests ? 'Actualizando...' : 'Actualizar'}
                     </button>
                   </div>
                   {isProfileUnderReview && (
@@ -13535,11 +13573,11 @@ export default function TechniciansPage() {
                             Boolean(String(request.my_response_message || '').trim());
                           const hasResponseValues = hasDirectQuoteValues || hasApplicationValues;
                           const responseSummary = hasApplicationValues
-                            ? `Postulacion: ${Math.round(Number(request.my_visit_eta_hours || 0))} h Â· ${String(
+                            ? `Postulacion: ${Math.round(Number(request.my_visit_eta_hours || 0))} h · ${String(
                                 request.my_response_message || ''
                               ).trim()}`
                             : hasDirectQuoteValues
-                              ? `Cotizacion: ${formatCurrency(Number(request.my_price_ars || 0))} Â· ETA ${Math.round(
+                              ? `Cotizacion: ${formatCurrency(Number(request.my_price_ars || 0))} · ETA ${Math.round(
                                   Number(request.my_eta_hours || 0)
                                 )} h`
                               : '';
@@ -13585,7 +13623,7 @@ export default function TechniciansPage() {
                                   </span>
                                 </div>
                                 <p className="mt-2 text-xs font-semibold text-slate-500">
-                                  {request.category} Â· Zona: {requestPublicZoneLabel(request)}
+                                  {request.category} · Zona: {requestPublicZoneLabel(request)}
                                 </p>
                                 {requestDescription && (
                                   <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600 xl:line-clamp-2">
@@ -13775,7 +13813,7 @@ export default function TechniciansPage() {
                                   {draft.client_name || 'Cliente sin nombre'}
                                 </span>
                                 <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
-                                  {getQuoteAddress(draft) || 'Sin direccion'} Â· {formatCurrency(toAmountValue(draft.total_amount))}
+                                  {getQuoteAddress(draft) || 'Sin direccion'} · {formatCurrency(toAmountValue(draft.total_amount))}
                                 </span>
                               </span>
                               <span className="shrink-0 rounded-full bg-slate-950 px-3 py-1.5 text-[11px] font-black text-white">
@@ -13833,7 +13871,7 @@ export default function TechniciansPage() {
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-semibold text-slate-600">DirecciÃ³n del trabajo</label>
+                            <label className="block text-xs font-semibold text-slate-600">Dirección del trabajo</label>
                             <input
                               value={clientAddress}
                               onChange={(event) => handleQuoteAddressChange(event.target.value)}
@@ -13842,7 +13880,7 @@ export default function TechniciansPage() {
                                   setGeoError('');
                                 }
                               }}
-                              placeholder="Calle, nÃºmero y localidad. Ej: Coronel Bogado 2556"
+                              placeholder="Calle, número y localidad. Ej: Coronel Bogado 2556"
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                             />
                           </div>
@@ -13919,7 +13957,7 @@ export default function TechniciansPage() {
                               loading="lazy"
                             />
                             <div className="flex items-center justify-between gap-2 px-4 py-3 text-xs text-slate-500">
-                              <span className="truncate">Vista previa de la ubicaciÃ³n</span>
+                              <span className="truncate">Vista previa de la ubicación</span>
                               <a
                                 href={buildOsmLink(geoSelected.lat, geoSelected.lon)}
                                 target="_blank"
@@ -13959,7 +13997,7 @@ export default function TechniciansPage() {
                             <p className="mt-0.5 truncate text-xs font-semibold text-slate-500">
                               {laborItems.length > 0
                                 ? `${laborItems.length} items - ${formatCurrency(laborSubtotal)}`
-                                : 'Trabajo, medidas y cÃ³mputo.'}
+                                : 'Trabajo, medidas y cómputo.'}
                             </p>
                           </div>
                         </div>
@@ -13977,9 +14015,9 @@ export default function TechniciansPage() {
                           <div className="px-3 py-3">
                           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                             <div className="min-w-0">
-                              <h4 className="text-sm font-black text-slate-950">ElegÃ­ cÃ³mo cargar</h4>
+                              <h4 className="text-sm font-black text-slate-950">Elegí cómo cargar</h4>
                               <p className="mt-0.5 text-xs font-semibold text-slate-500">
-                                CalculÃ¡ por medidas, buscÃ¡ un precio o agregÃ¡ una tarea simple.
+                                Calculá por medidas, buscá un precio o agregá una tarea simple.
                               </p>
                             </div>
                             <div className="grid gap-2 sm:grid-cols-3 lg:w-auto">
@@ -13992,7 +14030,7 @@ export default function TechniciansPage() {
                                     : 'bg-slate-50 text-slate-600 ring-1 ring-slate-200 hover:bg-white'
                                 }`}
                               >
-                                CatÃ¡logo
+                                Catálogo
                               </button>
                               <button
                                 type="button"
@@ -14021,7 +14059,7 @@ export default function TechniciansPage() {
 
                           {quoteLaborLoadMode === 'calculator' && (
                             <label className="mt-3 block max-w-md text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
-                              Tipo de cÃ¡lculo
+                              Tipo de cálculo
                               <select
                                 value={quoteWorkEstimatorMode}
                                 onChange={(event) =>
@@ -14235,7 +14273,7 @@ export default function TechniciansPage() {
                                             </span>
                                             <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
                                               {quantityLabel}
-                                              {unitPrice > 0 ? ` Â· ${formatCurrency(unitPrice)}` : ' Â· pendiente'}
+                                              {unitPrice > 0 ? ` · ${formatCurrency(unitPrice)}` : ' · pendiente'}
                                             </span>
                                           </span>
                                           <input
@@ -14275,7 +14313,7 @@ export default function TechniciansPage() {
                                       {revoqueCatalogCheck.sourceLabel && (
                                         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
                                           {revoqueCatalogCheck.sourceLabel}
-                                          {revoqueCatalogCheck.updatedAtLabel ? ` Â· ${revoqueCatalogCheck.updatedAtLabel}` : ''}
+                                          {revoqueCatalogCheck.updatedAtLabel ? ` · ${revoqueCatalogCheck.updatedAtLabel}` : ''}
                                         </p>
                                       )}
                                     </div>
@@ -14543,7 +14581,7 @@ export default function TechniciansPage() {
                                             </span>
                                             <span className="mt-0.5 block truncate text-xs font-semibold text-slate-500">
                                               {quantityLabel}
-                                              {unitPrice > 0 ? ` Â· ${formatCurrency(unitPrice)}` : ' Â· pendiente'}
+                                              {unitPrice > 0 ? ` · ${formatCurrency(unitPrice)}` : ' · pendiente'}
                                             </span>
                                           </span>
                                           <input
@@ -14588,7 +14626,7 @@ export default function TechniciansPage() {
                                         <p className="mt-2 text-[10px] font-black uppercase tracking-[0.12em] opacity-60">
                                           {mamposteriaCatalogCheck.sourceLabel}
                                           {mamposteriaCatalogCheck.updatedAtLabel
-                                            ? ` Â· ${mamposteriaCatalogCheck.updatedAtLabel}`
+                                            ? ` · ${mamposteriaCatalogCheck.updatedAtLabel}`
                                             : ''}
                                         </p>
                                       )}
@@ -15248,23 +15286,23 @@ export default function TechniciansPage() {
                               <div className="p-4">
                               <div className="grid gap-3 md:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_90px_130px_150px]">
                                 <div>
-                                  <label className="block text-[11px] font-semibold text-slate-500">Ãtem</label>
+                                  <label className="block text-[11px] font-semibold text-slate-500">Ítem</label>
                                   <input
                                     value={item.description}
                                     onChange={(event) => handleItemUpdate(item.id, { description: event.target.value })}
-                                    placeholder="Ej: ReparaciÃ³n de pÃ©rdida"
+                                    placeholder="Ej: Reparación de pérdida"
                                     list={item.type === 'labor' ? 'labor-master-items' : undefined}
                                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                   />
                                 </div>
                                 <div>
                                   <label className="block text-[11px] font-semibold text-slate-500">
-                                    DescripciÃ³n / sector
+                                    Descripción / sector
                                   </label>
                                   <input
                                     value={item.workArea || ''}
                                     onChange={(event) => handleItemUpdate(item.id, { workArea: event.target.value })}
-                                    placeholder="Pared 1, escalera, baÃ±o"
+                                    placeholder="Pared 1, escalera, baño"
                                     className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-slate-400"
                                   />
                                 </div>
@@ -15432,14 +15470,14 @@ export default function TechniciansPage() {
                               </div>
                               <details className="group mt-3 rounded-xl bg-white ring-1 ring-slate-100">
                                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                    <span>EspecificaciÃ³n tÃ©cnica</span>
+                                    <span>Especificación técnica</span>
                                     <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
                                   </summary>
                                   <div className="border-t border-slate-100 p-3">
                                     <textarea
                                       value={item.technicalNotes || ''}
                                       onChange={(event) => handleItemUpdate(item.id, { technicalNotes: event.target.value })}
-                                      placeholder="Detalle tÃ©cnico, criterio de mediciÃ³n, preparaciÃ³n o terminaciÃ³n."
+                                      placeholder="Detalle técnico, criterio de medición, preparación o terminación."
                                       rows={4}
                                       className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                                     />
@@ -15536,7 +15574,7 @@ export default function TechniciansPage() {
                           </div>
                           {materialItems.length === 0 ? (
                             <div className="m-3 rounded-[20px] border border-dashed border-slate-200 bg-white p-4 text-sm font-semibold text-slate-500">
-                              Agrega materiales manuales o desde el cÃ³mputo automÃ¡tico.
+                              Agrega materiales manuales o desde el cómputo automático.
                             </div>
                           ) : (
                             <div className="space-y-3 p-3">
@@ -15670,14 +15708,14 @@ export default function TechniciansPage() {
                                     {isEditingItem && (
                                       <details className="group mx-4 mb-4 rounded-xl bg-white ring-1 ring-slate-100">
                                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                                          <span>EspecificaciÃ³n tÃ©cnica</span>
+                                          <span>Especificación técnica</span>
                                           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
                                         </summary>
                                         <div className="border-t border-slate-100 p-3">
                                           <textarea
                                             value={item.technicalNotes || ''}
                                             onChange={(event) => handleItemUpdate(item.id, { technicalNotes: event.target.value })}
-                                            placeholder="Detalle tÃ©cnico, criterio de mediciÃ³n, preparaciÃ³n o terminaciÃ³n."
+                                            placeholder="Detalle técnico, criterio de medición, preparación o terminación."
                                             rows={4}
                                             className="w-full resize-y rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-5 text-slate-700 outline-none transition focus:border-slate-400 focus:bg-white"
                                           />
@@ -15770,7 +15808,7 @@ export default function TechniciansPage() {
                                 className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500"
                               />
                               {attachments.length === 0 && (
-                                <p className="text-xs text-slate-500">AÃºn no hay fotos adjuntas.</p>
+                                <p className="text-xs text-slate-500">Aún no hay fotos adjuntas.</p>
                               )}
                               {attachments.length > 0 && (
                                 <div className="grid gap-3 sm:grid-cols-2">
@@ -15937,7 +15975,7 @@ export default function TechniciansPage() {
                     </h2>
                     <p className="mt-1 text-sm text-slate-500">
                       {filteredQuotes.length} de {quoteStats.total} en vista
-                      {quoteFilter !== 'all' ? ` Â· ${activeQuoteFilterLabel}` : ''}
+                      {quoteFilter !== 'all' ? ` · ${activeQuoteFilterLabel}` : ''}
                     </p>
                   </div>
                   <button
@@ -16027,7 +16065,7 @@ export default function TechniciansPage() {
                                 {quote.client_name || 'Presupuesto sin cliente'}
                               </h3>
                               <p className="mt-0.5 line-clamp-1 text-xs leading-5 text-slate-500">
-                                {quoteAddress || 'Sin direcciÃ³n confirmada'} Â· {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                                {quoteAddress || 'Sin dirección confirmada'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
                               </p>
                             </div>
                           </div>
@@ -16072,7 +16110,7 @@ export default function TechniciansPage() {
                                 onClick={() => handleCopyFeedbackLink(quote.id)}
                                 className="h-9 w-full rounded-full border border-emerald-200 bg-emerald-50 px-3 text-[11px] font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
                               >
-                                CalificaciÃ³n
+                                Calificación
                               </button>
                             )}
                             {!canShareFeedbackLink && <span aria-hidden="true" className="hidden lg:block" />}
@@ -16160,7 +16198,7 @@ export default function TechniciansPage() {
                                 )}
                               </div>
                               <p className={`${spaceGrotesk.className} truncate text-base font-bold text-[#180f24]`}>
-                                {activeQuote.client_name || 'Presupuesto sin cliente'} Â· {formatCurrency(toAmountValue(activeQuote.total_amount))}
+                                {activeQuote.client_name || 'Presupuesto sin cliente'} · {formatCurrency(toAmountValue(activeQuote.total_amount))}
                               </p>
                             </div>
                       </>
@@ -16203,7 +16241,7 @@ export default function TechniciansPage() {
                             onClick={() => handleCopyFeedbackLink(activeQuote.id)}
                             className="h-9 rounded-full border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100"
                           >
-                            CalificaciÃ³n
+                            Calificación
                           </button>
                         )}
                         {infoMessage && (
@@ -16305,7 +16343,7 @@ export default function TechniciansPage() {
                       <input
                         value={agendaSearch}
                         onChange={(event) => setAgendaSearch(event.target.value)}
-                        placeholder="Buscar cliente o direcciÃ³n"
+                        placeholder="Buscar cliente o dirección"
                         className="h-11 w-full rounded-[14px] border border-slate-200 bg-white pl-10 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#020617]"
                       />
                     </div>
@@ -16342,7 +16380,7 @@ export default function TechniciansPage() {
                                     {quote.client_name || 'Presupuesto'}
                                   </p>
                                   <p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">
-                                    {getQuoteAddress(quote) || 'Sin direcciÃ³n'}
+                                    {getQuoteAddress(quote) || 'Sin dirección'}
                                   </p>
                                 </div>
                                 <p className="shrink-0 text-xs font-bold text-slate-900">
@@ -16364,7 +16402,7 @@ export default function TechniciansPage() {
                                   disabled={isSaving}
                                   className="h-8 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
                                 >
-                                  MaÃ±ana
+                                  Mañana
                                 </button>
                                 <input
                                   type="date"
@@ -16456,7 +16494,7 @@ export default function TechniciansPage() {
                                       </button>
                                     </div>
                                     <p className="mt-2 line-clamp-2 text-xs leading-5 text-slate-500">
-                                      {getQuoteAddress(quote) || 'Sin direcciÃ³n'}
+                                      {getQuoteAddress(quote) || 'Sin dirección'}
                                     </p>
                                     <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-semibold text-slate-500">
                                       <span className="rounded-full bg-slate-100 px-2 py-1">
@@ -16706,7 +16744,7 @@ export default function TechniciansPage() {
                                     </span>
                                   </div>
                                   <p className="mt-1 text-xs text-slate-500">
-                                    {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
+                                    {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
                                     {new Date(quote.created_at).toLocaleDateString('es-AR')}
                                   </p>
                                 </div>
@@ -16841,7 +16879,7 @@ export default function TechniciansPage() {
                                       </span>
                                     </div>
                                     <p className="mt-1 text-xs text-slate-500">
-                                      {getQuoteAddress(quote) || 'Sin direccion'} Â·{' '}
+                                      {getQuoteAddress(quote) || 'Sin direccion'} ·{' '}
                                       {new Date(quote.created_at).toLocaleDateString('es-AR')}
                                     </p>
                                     <p className="mt-2 text-sm font-medium text-slate-800">
@@ -16970,7 +17008,7 @@ export default function TechniciansPage() {
                   <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div>
                       <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-                        FacturaciÃ³n
+                        Facturación
                       </p>
                       <h2 className={`${spaceGrotesk.className} mt-2 text-3xl font-black tracking-tight sm:text-4xl`}>
                         Control de caja
@@ -17045,7 +17083,7 @@ export default function TechniciansPage() {
                           Rendimiento
                         </p>
                         <h3 className={`${spaceGrotesk.className} mt-1 text-xl font-bold text-[#180f24]`}>
-                          Ãšltimos 12 meses
+                          Últimos 12 meses
                         </h3>
                       </div>
                       <div className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-semibold text-slate-600">
@@ -17131,7 +17169,7 @@ export default function TechniciansPage() {
                       <div className="mt-3 space-y-2">
                         {billingYearSeries.length === 0 && (
                           <div className="rounded-2xl border border-dashed border-slate-200 p-4 text-sm text-slate-500">
-                            AÃºn no hay facturaciÃ³n registrada.
+                            Aún no hay facturación registrada.
                           </div>
                         )}
                         {billingYearSeries.slice(0, 4).map((item) => (
@@ -17174,7 +17212,7 @@ export default function TechniciansPage() {
                           Sin movimientos facturables
                         </p>
                         <p className="mt-1 text-sm text-slate-500">
-                          Los presupuestos aprobados, programados, finalizados o cobrados aparecerÃ¡n acÃ¡.
+                          Los presupuestos aprobados, programados, finalizados o cobrados aparecerán acá.
                         </p>
                       </div>
                     )}
@@ -17200,7 +17238,7 @@ export default function TechniciansPage() {
                               {quote.client_name || 'Presupuesto sin cliente'}
                             </h4>
                             <p className="mt-0.5 line-clamp-1 text-xs text-slate-500">
-                              {quoteAddress || 'Sin direcciÃ³n'} Â· {new Date(quote.created_at).toLocaleDateString('es-AR')}
+                              {quoteAddress || 'Sin dirección'} · {new Date(quote.created_at).toLocaleDateString('es-AR')}
                             </p>
                           </div>
 
@@ -17258,14 +17296,14 @@ export default function TechniciansPage() {
                     disabled={notificationStats.unread === 0}
                     className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-45"
                   >
-                    Marcar todo como leÃ­do
+                    Marcar todo como leído
                   </button>
                 </div>
 
                 <div className="mt-4 grid grid-cols-2 overflow-hidden rounded-[18px] border border-slate-200 bg-slate-200 md:grid-cols-4">
                   {[
                     { label: 'Total', value: notificationStats.all, hint: 'avisos' },
-                    { label: 'No leÃ­das', value: notificationStats.unread, hint: 'pendientes' },
+                    { label: 'No leídas', value: notificationStats.unread, hint: 'pendientes' },
                     { label: 'Presupuestos', value: notificationStats.quote, hint: 'movimientos' },
                     { label: 'Agenda', value: notificationStats.agenda, hint: 'fechas' },
                   ].map((item) => (
@@ -17280,7 +17318,7 @@ export default function TechniciansPage() {
                 <div className="mt-4 flex flex-wrap gap-2">
                   {[
                     { key: 'all' as const, label: 'Todas', count: notificationStats.all },
-                    { key: 'unread' as const, label: 'No leÃ­das', count: notificationStats.unread },
+                    { key: 'unread' as const, label: 'No leídas', count: notificationStats.unread },
                     { key: 'quote' as const, label: 'Presupuestos', count: notificationStats.quote },
                     { key: 'agenda' as const, label: 'Agenda', count: notificationStats.agenda },
                   ].map((item) => (
@@ -17315,7 +17353,7 @@ export default function TechniciansPage() {
                       <p className={`${spaceGrotesk.className} mt-3 text-lg font-bold text-slate-900`}>
                         Sin notificaciones
                       </p>
-                      <p className="mt-1 text-sm text-slate-500">Los avisos de presupuestos y agenda van a aparecer acÃ¡.</p>
+                      <p className="mt-1 text-sm text-slate-500">Los avisos de presupuestos y agenda van a aparecer acá.</p>
                     </div>
                   )}
                   {!loadingNotifications &&
@@ -17356,7 +17394,7 @@ export default function TechniciansPage() {
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex min-w-0 flex-wrap items-center gap-2">
                                 <p className={`${spaceGrotesk.className} truncate text-base font-bold text-[#180f24]`}>
-                                  {notif.title || 'NotificaciÃ³n'}
+                                  {notif.title || 'Notificación'}
                                 </p>
                                 {isUnread && (
                                   <span className="rounded-full bg-[#ff8f1f]/15 px-2 py-0.5 text-[10px] font-semibold text-[#b45309]">
@@ -17380,7 +17418,7 @@ export default function TechniciansPage() {
                               )}
                               {notif.read_at && (
                                 <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-slate-400 ring-1 ring-slate-200">
-                                  LeÃ­da
+                                  Leída
                                 </span>
                               )}
                             </div>
@@ -17652,27 +17690,45 @@ export default function TechniciansPage() {
                 className={
                   profilePanelTab === 'preview'
                     ? 'min-h-[calc(100dvh-57px)] bg-[#21002f]'
-                    : 'overflow-hidden rounded-[32px] border border-slate-200 bg-[#f5f7fb] shadow-[0_32px_82px_-44px_rgba(15,23,42,0.48)]'
+                    : 'overflow-hidden rounded-[28px] border border-slate-200 bg-[#f6f7f4] shadow-[0_26px_70px_-52px_rgba(15,23,42,0.52)]'
                 }
               >
                 {profilePanelTab !== 'preview' && (
                   <>
-                    <div className="relative overflow-hidden bg-[#16051f] px-5 py-4 text-white sm:px-6">
-                      <div className="pointer-events-none absolute inset-y-0 right-0 w-1/2 bg-[radial-gradient(circle_at_top_right,rgba(255,143,31,0.32),transparent_54%)]" />
-                      <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="border-b border-slate-200 bg-white px-5 py-4 sm:px-6">
+                      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                         <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/45">
-                            Perfil pÃºblico
+                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">
+                            Perfil publico
                           </p>
-                          <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-black tracking-tight sm:text-3xl`}>
+                          <h2 className={`${spaceGrotesk.className} mt-1 text-2xl font-black tracking-tight text-slate-950 sm:text-3xl`}>
                             Editor del perfil
                           </h2>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700">
+                              {profileCompletionPercent}% completo
+                            </span>
+                            <span
+                              className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                                profileForm.profilePublished
+                                  ? 'bg-emerald-50 text-emerald-700'
+                                  : 'bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              {profileForm.profilePublished ? 'Visible en vidriera' : 'Sin publicar'}
+                            </span>
+                            {formRequiredMissing.length > 0 && (
+                              <span className="rounded-full bg-slate-950 px-3 py-1 text-[11px] font-bold text-white">
+                                Falta {formRequiredMissing.length}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                           <button
                             type="button"
                             onClick={() => setProfilePanelTab('preview')}
-                            className="inline-flex h-10 items-center justify-center rounded-full border border-white/20 bg-white/10 px-4 text-xs font-bold text-white/88 transition hover:border-white/45 hover:bg-white/20"
+                            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                           >
                             Ver como cliente
                           </button>
@@ -17680,7 +17736,7 @@ export default function TechniciansPage() {
                             type="button"
                             onClick={handleProfileSave}
                             disabled={profileSaving}
-                            className="inline-flex h-10 items-center justify-center rounded-full bg-[#ff8f1f] px-5 text-xs font-black text-[#18051f] shadow-[0_18px_48px_-28px_rgba(255,143,31,0.9)] transition hover:bg-[#ffa748] disabled:cursor-not-allowed disabled:bg-white/30 disabled:text-white/50"
+                            className="inline-flex h-10 items-center justify-center rounded-full bg-[#ff8f1f] px-5 text-xs font-black text-[#18051f] shadow-[0_18px_42px_-30px_rgba(255,143,31,0.86)] transition hover:bg-[#ffa748] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-500"
                           >
                             {profileSaving ? 'Guardando...' : 'Guardar'}
                           </button>
@@ -17910,7 +17966,7 @@ export default function TechniciansPage() {
                               <article className="ufx-tech-card p-5 sm:p-6">
                                 <h2 className="text-2xl font-semibold text-white">Facebook</h2>
                                 <iframe
-                                  title="Publicaciones Facebook del tÃ©cnico"
+                                  title="Publicaciones Facebook del técnico"
                                   src={publicProfilePreview.facebookFeedEmbedUrl}
                                   className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
                                   loading="lazy"
@@ -17923,7 +17979,7 @@ export default function TechniciansPage() {
                               <article className="ufx-tech-card p-5 sm:p-6">
                                 <h2 className="text-2xl font-semibold text-white">Instagram</h2>
                                 <iframe
-                                  title="Publicaciones Instagram del tÃ©cnico"
+                                  title="Publicaciones Instagram del técnico"
                                   src={publicProfilePreview.instagramPostEmbedUrl}
                                   className="mt-4 h-[360px] w-full rounded-[24px] border-0 bg-white"
                                   loading="lazy"
@@ -17939,53 +17995,82 @@ export default function TechniciansPage() {
                 ) : (
                   <>
 
-                <div className="mx-5 mt-5 grid gap-5 pb-6 sm:mx-6 xl:grid-cols-[minmax(0,1.12fr)_minmax(360px,0.88fr)]">
+                <div className="mx-auto grid max-w-6xl gap-5 px-4 py-5 sm:px-6 xl:grid-cols-[360px_minmax(0,1fr)]">
                   <div className="lg:col-span-2">
-                    <div className="rounded-[30px] border border-slate-200 bg-white p-5 shadow-[0_22px_68px_-54px_rgba(15,23,42,0.75)]">
-                      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[28px] border border-slate-200 bg-white px-4 py-4 shadow-sm">
-                        <p className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500">
-                          Foto, logo y portada
-                        </p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
-                            {Math.max(0, 5 - formRequiredMissing.length)}/5 base
-                          </span>
-                          {formRequiredMissing.length > 0 && (
-                            <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">
-                              Falta {formRequiredMissing.length}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid items-start gap-5 lg:grid-cols-2">
-                        <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm">
-                          <div className="relative h-48 overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800">
+                    <div className="overflow-hidden rounded-[26px] border border-slate-200 bg-white shadow-[0_22px_70px_-56px_rgba(15,23,42,0.55)]">
+                      <div className="grid items-start gap-5 p-4 sm:p-5 xl:grid-cols-[330px_minmax(0,1fr)]">
+                        <details className="group overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 marker:hidden [&::-webkit-details-marker]:hidden">
+                            <div className="min-w-0">
+                              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
+                                Foto, logo y portada
+                              </p>
+                              <p className="mt-1 text-xs font-semibold text-slate-500">
+                                Imágenes del perfil
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                                Perfil {profileCompletionPercent}%
+                              </span>
+                              {formRequiredMissing.length > 0 && (
+                                <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">
+                                  Falta {formRequiredMissing.length}
+                                </span>
+                              )}
+                              <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+                            </div>
+                          </summary>
+                          <div className="border-t border-slate-100 bg-slate-50">
+                            <div
+                              role="button"
+                              tabIndex={0}
+                              onClick={() => profileBannerInputRef.current?.click()}
+                              onKeyDown={(event) => {
+                                if (event.key !== 'Enter' && event.key !== ' ') return;
+                                event.preventDefault();
+                                profileBannerInputRef.current?.click();
+                              }}
+                              aria-label="Cambiar portada del perfil"
+                              className="group/banner relative h-44 cursor-pointer overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-slate-800 outline-none transition focus-visible:ring-2 focus-visible:ring-[#ff8f1f]"
+                            >
+                            <input
+                              ref={profileBannerInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleBannerUpload}
+                              className="hidden"
+                            />
                             {profileForm.bannerUrl ? (
                               <img src={profileForm.bannerUrl} alt="Banner" className="h-full w-full object-cover" />
                             ) : null}
                             <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(2,6,23,0.08)_0%,rgba(2,6,23,0.36)_100%)]" />
-                            <div className="absolute inset-x-3 top-3 flex justify-between gap-2">
-                              <span className="rounded-full bg-black/35 px-3 py-1.5 text-[11px] font-semibold text-white/90">
-                                Portada del perfil
+                            <div className="absolute right-3 top-3 z-10">
+                              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-700 shadow-sm transition group-hover/banner:bg-white">
+                                {uploadingBanner ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <ImagePlus className="h-4 w-4" />
+                                )}
                               </span>
-                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-white/90 px-3 py-2 text-[11px] font-semibold text-slate-700 shadow-sm transition hover:bg-white">
-                                <ImagePlus className="h-4 w-4" />
-                                {uploadingBanner ? 'Subiendo...' : 'Subir banner'}
-                                <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
-                              </label>
                             </div>
-                            {!profileForm.bannerUrl && (
-                              <div className="absolute inset-x-6 bottom-5 text-center sm:text-left">
-                                <p className="text-lg font-semibold text-white">Banner del perfil</p>
-                                <p className="mt-1 text-sm text-white/75">Imagen horizontal para la portada del perfil publico.</p>
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="space-y-3 px-6 py-4">
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-3xl border-4 border-white bg-slate-100 shadow-sm">
+                            <div className="absolute inset-x-5 bottom-4 z-10 flex items-end gap-3">
+                              <input
+                                ref={profileAvatarInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleAvatarUpload}
+                                className="hidden"
+                              />
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  profileAvatarInputRef.current?.click();
+                                }}
+                                className="group/avatar relative h-20 w-20 shrink-0 overflow-hidden rounded-3xl border-4 border-white bg-slate-100 shadow-[0_18px_42px_-24px_rgba(0,0,0,0.75)] outline-none transition hover:scale-[1.02] focus-visible:ring-2 focus-visible:ring-[#ff8f1f]"
+                                aria-label="Cambiar foto de perfil"
+                              >
                                 {profileForm.avatarUrl ? (
                                   <img src={profileForm.avatarUrl} alt="Foto" className="h-full w-full object-cover" />
                                 ) : (
@@ -17993,44 +18078,50 @@ export default function TechniciansPage() {
                                     {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
                                   </div>
                                 )}
-                              </div>
+                                <span className="absolute inset-0 flex items-center justify-center bg-black/0 text-white opacity-0 transition group-hover/avatar:bg-black/32 group-hover/avatar:opacity-100 group-focus-visible/avatar:bg-black/32 group-focus-visible/avatar:opacity-100">
+                                  {uploadingAvatar ? (
+                                    <Loader2 className="h-5 w-5 animate-spin" />
+                                  ) : (
+                                    <ImagePlus className="h-5 w-5" />
+                                  )}
+                                </span>
+                              </button>
 
-                              <div className="min-w-0 flex-1">
-                                <p className="truncate text-base font-semibold text-slate-900">
+                              <div className="min-w-0 flex-1 pb-1">
+                                <p className="truncate text-base font-semibold text-white">
                                   {profileForm.businessName || 'Tu negocio'}
                                 </p>
                               </div>
                             </div>
+                          </div>
 
-                            <div className="flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                                <ImagePlus className="h-4 w-4" />
-                                {uploadingAvatar ? 'Subiendo...' : 'Cambiar foto'}
-                                <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+                          <div className="space-y-3 px-5 py-4">
+                            <div>
+                              <label className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+                                Bio pública
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                                  Visible
+                                </span>
                               </label>
-                              <label className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-slate-900 px-3 py-2 text-[11px] font-semibold text-white shadow-sm transition hover:bg-slate-800">
-                                <ImagePlus className="h-4 w-4" />
-                                {uploadingCompanyLogo ? 'Subiendo...' : 'Subir logo'}
-                                <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                              </label>
-                              <select
-                                value={profileForm.logoShape}
-                                onChange={(event) =>
-                                  setProfileForm((prev) => ({ ...prev, logoShape: event.target.value }))
-                                }
-                                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 outline-none transition focus:border-slate-400"
-                              >
-                                <option value="auto">Logo: auto</option>
-                                <option value="round">Logo: redondo</option>
-                                <option value="square">Logo: cuadrado</option>
-                                <option value="rect">Logo: rectangular</option>
-                              </select>
+                              <textarea
+                                value={profileForm.bio}
+                                onChange={(event) => setProfileForm((prev) => ({ ...prev, bio: event.target.value }))}
+                                rows={5}
+                                maxLength={420}
+                                placeholder="Contá en pocas líneas quién sos, qué trabajos hacés y por qué pueden confiar en vos."
+                                className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400"
+                              />
+                              <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                                <span>Se muestra en el encabezado del link público.</span>
+                                <span>{profileForm.bio.length}/420</span>
+                              </div>
                             </div>
                           </div>
-                        </div>
+                          </div>
+                        </details>
 
-                        <div className="space-y-4">
-                          <details className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
+                          <details className="border-b border-slate-200 p-4 last:border-b-0">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Datos principales
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
@@ -18081,26 +18172,8 @@ export default function TechniciansPage() {
                               onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
                               className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
                             />
-                            <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                              Bio pÃºblica
-                              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
-                                Visible
-                              </span>
-                            </label>
-                            <textarea
-                              value={profileForm.bio}
-                              onChange={(event) => setProfileForm((prev) => ({ ...prev, bio: event.target.value }))}
-                              rows={4}
-                              maxLength={420}
-                              placeholder="ContÃ¡ en pocas lÃ­neas quiÃ©n sos, quÃ© trabajos hacÃ©s y por quÃ© pueden confiar en vos."
-                              className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
-                            />
-                            <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                              <span>Se muestra en el encabezado del link pÃºblico.</span>
-                              <span>{profileForm.bio.length}/420</span>
-                            </div>
                           </details>
-                          <details className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                          <details className="border-b border-slate-200 p-4 last:border-b-0">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Cobertura y horarios
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
@@ -18250,7 +18323,7 @@ export default function TechniciansPage() {
                               </p>
                             </div>
                           </details>
-                          <details className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                          <details className="border-b border-slate-200 p-4 last:border-b-0">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Especialidades
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
@@ -18391,11 +18464,11 @@ export default function TechniciansPage() {
                               </div>
                             )}
                           </details>
-                          <details className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                          <details className="border-b border-slate-200 p-4 last:border-b-0">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Redes y visibilidad
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
-                                PÃºblico
+                                Público
                               </span>
                             </summary>
                             <label className="mt-4 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
@@ -18489,7 +18562,7 @@ export default function TechniciansPage() {
                               </div>
                             </div>
                           </details>
-                          <details className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-sm">
+                          <details className="border-b border-slate-200 p-4 last:border-b-0">
                             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
                               Datos comerciales
                               <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold normal-case tracking-normal text-slate-500">
@@ -18686,7 +18759,7 @@ export default function TechniciansPage() {
                       />
                       <p className="mt-1 text-[11px] text-slate-500">Activa el boton de contacto del perfil publico.</p>
                       <label className="mt-4 flex items-center gap-2 text-xs font-semibold text-slate-600">
-                        Bio pÃºblica
+                        Bio pública
                         <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
                           Visible
                         </span>
@@ -18696,11 +18769,11 @@ export default function TechniciansPage() {
                         onChange={(event) => setProfileForm((prev) => ({ ...prev, bio: event.target.value }))}
                         rows={4}
                         maxLength={420}
-                        placeholder="ContÃ¡ en pocas lÃ­neas quiÃ©n sos, quÃ© trabajos hacÃ©s y por quÃ© pueden confiar en vos."
+                        placeholder="Contá en pocas líneas quién sos, qué trabajos hacés y por qué pueden confiar en vos."
                         className="mt-2 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
                       />
                       <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                        <span>Se muestra en el encabezado del link pÃºblico.</span>
+                        <span>Se muestra en el encabezado del link público.</span>
                         <span>{profileForm.bio.length}/420</span>
                       </div>
                     </div>
@@ -19031,7 +19104,7 @@ export default function TechniciansPage() {
                           Redes y visibilidad
                         </p>
                         <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-500">
-                          PÃºblico
+                          Público
                         </span>
                       </div>
                       <label className="mt-3 block text-xs font-semibold text-slate-600">Facebook (pagina)</label>
@@ -19293,38 +19366,44 @@ export default function TechniciansPage() {
                   </div>
                 </div>
 
-                <div className="sticky bottom-0 z-20 flex flex-wrap items-center gap-3 border-t border-slate-200 bg-white/90 px-5 py-4 shadow-[0_-18px_42px_-36px_rgba(15,23,42,0.7)] backdrop-blur sm:px-6">
-                  <button
-                    type="button"
-                    onClick={handlePublishProfile}
-                    className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
-                  >
-                    {profileForm.profilePublished ? 'Copiar link publico' : 'PUBLICAR EN VIDRIERA'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleProfileSave}
-                    disabled={profileSaving}
-                    className="rounded-full bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-                  >
-                    {profileSaving ? 'Guardando...' : 'Guardar cambios'}
-                  </button>
-                  {autoSaveBootstrapped && (
-                    <span
-                      className={`text-xs font-semibold ${
-                        autoSaveState === 'error'
-                          ? 'text-rose-600'
-                          : autoSaveState === 'saving'
-                            ? 'text-amber-600'
-                            : 'text-slate-500'
-                      }`}
-                    >
-                      {autoSaveState === 'saving'
-                        ? 'Autoguardando...'
-                        : autoSaveMessage || 'Autoguardado activo'}
-                    </span>
-                  )}
-                  {profileMessage && <span className="text-xs text-slate-600">{profileMessage}</span>}
+                <div className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 px-5 py-4 shadow-[0_-18px_42px_-36px_rgba(15,23,42,0.7)] backdrop-blur sm:px-6">
+                  <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 text-xs font-semibold text-slate-500">
+                      {autoSaveBootstrapped && (
+                        <span
+                          className={
+                            autoSaveState === 'error'
+                              ? 'text-rose-600'
+                              : autoSaveState === 'saving'
+                                ? 'text-amber-600'
+                                : 'text-slate-500'
+                          }
+                        >
+                          {autoSaveState === 'saving'
+                            ? 'Autoguardando...'
+                            : autoSaveMessage || 'Autoguardado activo'}
+                        </span>
+                      )}
+                      {profileMessage && <span className="ml-0 block text-slate-600 sm:ml-3 sm:inline">{profileMessage}</span>}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handlePublishProfile}
+                        className="rounded-full border border-slate-300 bg-white px-5 py-2.5 text-xs font-bold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
+                      >
+                        {profileForm.profilePublished ? 'Copiar link publico' : 'Publicar perfil'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleProfileSave}
+                        disabled={profileSaving}
+                        className="rounded-full bg-slate-950 px-5 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                      >
+                        {profileSaving ? 'Guardando...' : 'Guardar cambios'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
                       </>
                 )}
