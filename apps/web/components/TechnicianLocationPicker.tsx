@@ -55,6 +55,8 @@ type StructuredAddressFields = {
 
 const normalizeSpacing = (value: string) => String(value || '').trim().replace(/\s+/g, ' ');
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 const parseStructuredAddress = (value: string): StructuredAddressFields => {
   const compact = normalizeSpacing(value).replace(/\s+·\s+/g, ', ');
   const parts = compact
@@ -73,6 +75,36 @@ const composeStructuredAddress = (fields: StructuredAddressFields) => {
   const streetLine = normalizeSpacing([fields.street, fields.number].filter(Boolean).join(' '));
   const locality = normalizeSpacing(fields.locality);
   return [streetLine, locality].filter(Boolean).join(', ');
+};
+
+const addressContainsNumber = (value: string, number: string) =>
+  Boolean(number && new RegExp(`\\b${escapeRegExp(number)}\\b`, 'i').test(value));
+
+const preserveTypedHouseNumber = (result: LocationPickerResult, searchText: string): LocationPickerResult => {
+  const parsed = parseStructuredAddress(searchText);
+  const typedNumber = normalizeSpacing(parsed.number);
+
+  if (!typedNumber) return result;
+
+  const primarySource = normalizeSpacing(result.primaryLabel || result.displayName.split(',')[0] || parsed.street);
+  const displaySource = normalizeSpacing(result.displayName);
+
+  if (addressContainsNumber(primarySource, typedNumber) || addressContainsNumber(displaySource, typedNumber)) {
+    return { ...result, houseNumber: result.houseNumber || typedNumber };
+  }
+
+  const baseStreet = normalizeSpacing(primarySource || parsed.street);
+  const primaryLabel = normalizeSpacing(`${baseStreet} ${typedNumber}`);
+  const secondaryLabel = normalizeSpacing(result.secondaryLabel || parsed.locality);
+  const displayName = [primaryLabel, secondaryLabel].filter(Boolean).join(', ');
+
+  return {
+    ...result,
+    displayName: displayName || primaryLabel || result.displayName,
+    primaryLabel: primaryLabel || result.primaryLabel,
+    secondaryLabel: secondaryLabel || result.secondaryLabel,
+    houseNumber: typedNumber,
+  };
 };
 
 const buildSearchCacheKey = (query: string, countryHint?: string, cityHint?: string, provinceHint?: string) =>
@@ -161,7 +193,6 @@ export default function TechnicianLocationPicker({
   cityHint,
   provinceHint,
   label = 'Ubicación de trabajo',
-  description: descriptionProp,
   required = true,
   disabled = false,
   error,
@@ -187,6 +218,33 @@ export default function TechnicianLocationPicker({
   const searchRequestIdRef = useRef(0);
   const searchCacheRef = useRef(new Map<string, { expiresAt: number; payload: GeocodeSearchResponse }>());
   const rateLimitedUntilRef = useRef(0);
+
+  const applyExactSearchResult = useCallback(
+    (results: LocationPickerResult[], searchText: string) => {
+      const typedNumber = parseStructuredAddress(searchText).number;
+      const exactResult = results.find((result) => {
+        if (result.precision !== 'exact') return false;
+        if (!typedNumber) return true;
+        return (
+          addressContainsNumber(result.houseNumber || '', typedNumber) ||
+          addressContainsNumber(result.primaryLabel || '', typedNumber) ||
+          addressContainsNumber(result.displayName || '', typedNumber)
+        );
+      });
+
+      if (!exactResult) return false;
+
+      const confirmedQuery = normalizeSpacing(exactResult.displayName || exactResult.primaryLabel || searchText);
+      onChange(exactResult);
+      setInput(confirmedQuery);
+      onQueryChange?.(confirmedQuery);
+      setSuggestions([]);
+      setSearchError('');
+      setShowMap(true);
+      return true;
+    },
+    [onChange, onQueryChange]
+  );
 
   const runAddressSearch = useCallback(
     async (rawQuery: string, options: { force?: boolean } = {}) => {
@@ -218,6 +276,10 @@ export default function TechnicianLocationPicker({
       const cacheKey = buildSearchCacheKey(trimmed, countryHint, cityHint, provinceHint);
       const cached = searchCacheRef.current.get(cacheKey);
       if (cached && cached.expiresAt > now) {
+        if (options.force && applyExactSearchResult(cached.payload.results, trimmed)) {
+          setLoading(false);
+          return;
+        }
         setSuggestions(cached.payload.results);
         setSearchError(cached.payload.error || '');
         setLoading(false);
@@ -231,6 +293,8 @@ export default function TechnicianLocationPicker({
 
       const response = await geocodeAddress(trimmed, countryHint, cityHint, provinceHint);
       if (!isMountedRef.current || searchRequestIdRef.current !== requestId) return;
+      const searchResults = response.results.map((result) => preserveTypedHouseNumber(result, trimmed));
+      const normalizedResponse = { ...response, results: searchResults };
 
       if (response.rateLimited) {
         rateLimitedUntilRef.current = Date.now() + SEARCH_RATE_LIMIT_COOLDOWN_MS;
@@ -238,11 +302,16 @@ export default function TechnicianLocationPicker({
 
       searchCacheRef.current.set(cacheKey, {
         expiresAt: Date.now() + SEARCH_CACHE_TTL_MS,
-        payload: response,
+        payload: normalizedResponse,
       });
 
-      setSuggestions(response.results);
-      if (options.force && response.results.length === 0) {
+      if (options.force && applyExactSearchResult(searchResults, trimmed)) {
+        setLoading(false);
+        return;
+      }
+
+      setSuggestions(searchResults);
+      if (options.force && searchResults.length === 0) {
         setShowMap(true);
         setSearchError(
           response.error
@@ -254,7 +323,7 @@ export default function TechnicianLocationPicker({
       }
       setLoading(false);
     },
-    [cityHint, countryHint, provinceHint]
+    [applyExactSearchResult, cityHint, countryHint, provinceHint]
   );
 
   useEffect(() => {
@@ -345,8 +414,11 @@ export default function TechnicianLocationPicker({
 
   // Select suggestion
   const handleSelectSuggestion = (result: LocationPickerResult) => {
-    const confirmedQuery = normalizeSpacing(result.displayName || result.primaryLabel || input);
-    onChange(result);
+    const effectiveLocality = normalizeSpacing(cityHint || addressFields.locality);
+    const composedQuery = composeStructuredAddress({ ...addressFields, locality: effectiveLocality });
+    const normalizedResult = preserveTypedHouseNumber(result, normalizeSpacing(composedQuery || input));
+    const confirmedQuery = normalizeSpacing(normalizedResult.displayName || normalizedResult.primaryLabel || input);
+    onChange(normalizedResult);
     setInput(confirmedQuery);
     onQueryChange?.(confirmedQuery);
     setSuggestions([]);
@@ -354,16 +426,29 @@ export default function TechnicianLocationPicker({
     setShowMap(true);
   };
 
-  // Clear location
-  const handleClear = () => {
-    onChange(null);
-    setInput('');
-    setAddressFields({ locality: '', street: '', number: '' });
-    onQueryChange?.('');
-    setSuggestions([]);
-    setShowMap(false);
-    setMapError('');
+  const handleConfirmMapPoint = () => {
+    if (!value?.isValid) return;
+
+    const markerPosition = markerRef.current?.getLatLng?.();
+    const lat = Number(markerPosition?.lat ?? value.lat);
+    const lng = Number(markerPosition?.lng ?? value.lng);
+
+    if (!isCoordinateWithinCountry(lat, lng, countryHint)) {
+      setMapError(`La ubicacion debe estar dentro de ${countryHint}.`);
+      return;
+    }
+
+    onChange({
+      ...value,
+      lat,
+      lng,
+      displayName: normalizeSpacing(value.displayName || input || 'Ubicacion seleccionada en mapa'),
+      isValid: true,
+      precision: 'exact',
+    });
     setSearchError('');
+    setMapError('');
+    setShowMap(false);
   };
 
   // Initialize and manage map
@@ -541,40 +626,27 @@ export default function TechnicianLocationPicker({
     };
   }, [countryHint, coverageRadiusKm, showMap, value, input, onChange]);
 
-  const description =
-    descriptionProp || 'Busca la dirección y confirma el punto exacto en el mapa para definir dónde apareces.';
-  const needsMapConfirmation = Boolean(value?.isValid && value.precision !== 'exact');
-  const statusText = value?.isValid
-    ? needsMapConfirmation
-      ? 'Confirma el punto en el mapa para guardar.'
-      : value.displayName
-    : null;
-  const coverageText = needsMapConfirmation
-    ? 'Haz clic o arrastra el pin para fijar tu punto exacto.'
-    : `Este punto define dónde apareces en el mapa y tu cobertura de ${coverageRadiusKm} km.`;
-
   const getSuggestionSecondary = (suggestion: LocationPickerResult) =>
     suggestion.secondaryLabel ||
     suggestion.fullDisplayName ||
     `${suggestion.lat.toFixed(4)}, ${suggestion.lng.toFixed(4)}`;
   const effectiveLocality = normalizeSpacing(cityHint || addressFields.locality);
   const composedAddressQuery = composeStructuredAddress({ ...addressFields, locality: effectiveLocality });
-  const searchQuery = normalizeSpacing(input);
+  const searchQuery = normalizeSpacing(composedAddressQuery || input);
   const canOpenMapManually = searchQuery.length >= 3 && hasAddressHeight(searchQuery);
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
+      <div>
         <label className="text-sm font-semibold text-slate-700">
           {label}
           {required && <span className="text-red-500">*</span>}
         </label>
-        <p className="text-xs text-slate-500">{description}</p>
       </div>
 
       {/* Input y Búsqueda */}
       <div className="space-y-2">
-        <div className="hidden">
+        <div>
           <div className="grid gap-2 sm:grid-cols-[1fr_8rem]">
             <div>
               <label className="mb-1 block text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
@@ -601,7 +673,7 @@ export default function TechnicianLocationPicker({
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     event.preventDefault();
-                    void runAddressSearch(composedAddressQuery, { force: true });
+                    void runAddressSearch(searchQuery, { force: true });
                   }
                 }}
                 placeholder="564"
@@ -610,44 +682,10 @@ export default function TechnicianLocationPicker({
               />
             </div>
           </div>
-          <p className="text-[11px] text-slate-500">
-            Buscamos como: {composedAddressQuery || 'completa distrito, calle y altura'}.
-          </p>
         </div>
 
-        <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div>
           <div className="flex flex-col gap-2 lg:flex-row">
-          <div className="relative min-w-0 flex-1">
-            <input
-              type="text"
-              value={input}
-              onChange={(event) => handleSearch(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.preventDefault();
-                  void runAddressSearch(searchQuery, { force: true });
-                }
-              }}
-              placeholder="Calle y altura. Ej: Husares 564"
-              disabled={disabled}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 pr-10 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white disabled:bg-slate-50"
-            />
-            {loading && (
-              <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-400 border-t-transparent" />
-              </div>
-            )}
-            {value?.isValid && !loading && (
-              <button
-                type="button"
-                onClick={handleClear}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                title="Limpiar ubicación"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            )}
-          </div>
           <button
             type="button"
             onClick={() => void runAddressSearch(searchQuery, { force: true })}
@@ -676,12 +714,6 @@ export default function TechnicianLocationPicker({
             {value?.isValid ? 'Ajustar' : 'Mapa'}
           </button>
         </div>
-
-          {!cityHint?.trim() && (
-            <p className="mt-2 text-[11px] text-amber-700">
-              Elegi una localidad para mejorar la precision.
-            </p>
-          )}
         </div>
 
         {/* Sugerencias */}
@@ -723,9 +755,17 @@ export default function TechnicianLocationPicker({
 
         {/* Mapa */}
         {showMap && (
-          <div className="space-y-2 rounded-lg border border-slate-200 bg-white p-3">
-            <div className="flex justify-between items-center">
-              <p className="text-xs text-slate-600">Haz clic o arrastra el marcador para seleccionar tu ubicación</p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-end gap-2">
+              {value?.isValid && value.precision !== 'exact' && (
+                <button
+                  type="button"
+                  onClick={handleConfirmMapPoint}
+                  className="inline-flex items-center justify-center rounded-xl bg-[#ff8f1f] px-3 py-2 text-xs font-bold text-slate-950 transition hover:bg-[#ff9f39]"
+                >
+                  Confirmar punto
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setShowMap(false)}
@@ -743,22 +783,9 @@ export default function TechnicianLocationPicker({
               ref={mapHostRef}
               className="h-[300px] w-full rounded bg-slate-100"
             />
-            <p className="text-xs text-slate-500">El círculo azul muestra la cobertura desde el punto que elijas en el mapa.</p>
           </div>
         )}
       </div>
-
-      {/* Estado actual */}
-      {statusText && (
-        <div
-          className={`rounded-lg px-3 py-2 text-sm ${
-            needsMapConfirmation ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800'
-          }`}
-        >
-          {needsMapConfirmation ? '!' : '✓'} {statusText}
-          <div className={`mt-1 text-xs ${needsMapConfirmation ? 'text-amber-700' : 'text-green-700'}`}>{coverageText}</div>
-        </div>
-      )}
 
       {/* Errores */}
       {error && (
@@ -773,11 +800,6 @@ export default function TechnicianLocationPicker({
         </div>
       )}
 
-      {required && !value?.isValid && (
-        <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          ⚠ Esta información es obligatoria para que aparezcas en el mapa de técnicos
-        </div>
-      )}
     </div>
   );
 }

@@ -1035,43 +1035,63 @@ const buildCoverageAreaLabel = (city: string) => {
 };
 
 const TECH_SPECIALTY_OPTIONS = [
-  'Electricidad',
-  'Plomeria',
-  'Sanitario',
-  'Gas',
-  'Albanileria',
-  'Pintura',
-  'Herreria',
-  'Carpinteria',
-  'Aire acondicionado',
-  'Refrigeracion',
-  'Cerrajeria',
-  'Impermeabilizacion',
-  'Techos',
-  'Durlock y yeseria',
-  'Pisos y revestimientos',
-  'Vidrieria y aberturas',
-  'Soldadura',
-  'Portones automaticos',
-  'Alarmas y camaras',
-  'Redes y datos',
-  'Calefaccion',
-  'Energia solar',
-  'Jardineria y poda',
-  'Limpieza',
+  'Plomero',
+  'Sanitarista',
+  'Gasista',
+  'Electricista',
+  'Albanil',
+  'Pintor',
+  'Durlockero',
+  'Yesero',
+  'Carpintero',
+  'Herrero',
+  'Cerrajero',
+  'Techista',
+  'Impermeabilizador',
+  'Colocador de pisos',
+  'Colocador de revestimientos',
+  'Vidriero',
+  'Instalador de aberturas',
+  'Soldador',
+  'Instalador de aire acondicionado',
+  'Tecnico en refrigeracion',
+  'Tecnico calefaccionista',
+  'Instalador de portones automaticos',
+  'Instalador de alarmas y camaras',
+  'Tecnico en redes y datos',
+  'Instalador solar',
+  'Jardinero',
+  'Podador',
+  'Piletero',
+  'Fumigador',
+  'Limpieza general',
   'Limpieza post obra',
-  'Control de plagas',
-  'Mantenimiento de piletas',
   'Mantenimiento de consorcios',
   'Mantenimiento comercial',
-  'Banos y cocinas',
-  'Demolicion',
-  'Excavaciones',
+  'Especialista en banos y cocinas',
+  'Demoledor',
+  'Excavador',
   'Movimiento de suelo',
-  'Hormigon armado',
-  'Estructuras metalicas',
-  'Reformas integrales',
+  'Hormigonista',
+  'Estructurista metalico',
+  'Reformista integral',
 ];
+const TECH_SPECIALTY_SEARCH_ALIASES: Record<string, string[]> = {
+  Plomero: ['plomeria', 'sanitario', 'canos', 'canerias'],
+  Sanitarista: ['sanitario', 'banos', 'bano', 'artefactos sanitarios'],
+  Albanil: ['albanileria', 'obra civil'],
+  Durlockero: ['durlock', 'durcklero', 'drywall', 'tabiqueria'],
+  Yesero: ['yeseria', 'enduido', 'cielorraso'],
+  Techista: ['techo', 'cubierta', 'zingueria'],
+  Impermeabilizador: ['humedad', 'filtraciones', 'membrana'],
+  Piletero: ['piletas', 'piscinas'],
+  Fumigador: ['control de plagas'],
+};
+
+const getSpecialtySearchTerms = (specialty: string) => [specialty, ...(TECH_SPECIALTY_SEARCH_ALIASES[specialty] || [])];
+
+const getSpecialtySearchText = (specialty: string) =>
+  getSpecialtySearchTerms(specialty).map((item) => normalizeTextForParsing(item)).join(' ');
 
 const TAX_STATUS_OPTIONS = [
   'Monotributista',
@@ -4784,6 +4804,9 @@ export default function TechniciansPage() {
     locationPickerResult: null as any,
   });
   const [customSpecialtyDraft, setCustomSpecialtyDraft] = useState('');
+  const [specialtySearchTerm, setSpecialtySearchTerm] = useState('');
+  const [specialtySearchOpen, setSpecialtySearchOpen] = useState(false);
+  const [requiredProfileOpenStep, setRequiredProfileOpenStep] = useState<'identity' | 'contact' | 'specialty' | 'location' | null>(null);
   const [customPaymentMethodDraft, setCustomPaymentMethodDraft] = useState('');
   const [bankAccountType, setBankAccountType] = useState<'alias' | 'cbu'>('alias');
   const [certificationFiles, setCertificationFiles] = useState<CertificationFileRow[]>([]);
@@ -4804,6 +4827,7 @@ export default function TechniciansPage() {
   const autoSaveMessageTimerRef = useRef<number | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileMessage, setProfileMessage] = useState('');
+  const [showLocationAuthorizationModal, setShowLocationAuthorizationModal] = useState(false);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [uploadingCompanyLogo, setUploadingCompanyLogo] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -4864,8 +4888,23 @@ export default function TechniciansPage() {
   const [financeTimelineOffset, setFinanceTimelineOffset] = useState(0);
   const [activeFinancePointKey, setActiveFinancePointKey] = useState<string | null>(null);
   const financeTimelineDragRef = useRef<{ lastX: number } | null>(null);
-  const provinceOptions = useMemo(() => getProvinceOptions(profileForm.country), [profileForm.country]);
+  const fallbackProvinceOptions = useMemo(() => getProvinceOptions(profileForm.country), [profileForm.country]);
   const provinceFieldLabel = useMemo(() => getProvinceLabel(profileForm.country), [profileForm.country]);
+  const [remoteProvinceOptions, setRemoteProvinceOptions] = useState<string[]>([]);
+  const [provinceOptionsLoading, setProvinceOptionsLoading] = useState(false);
+  const [provinceOptionsError, setProvinceOptionsError] = useState('');
+  const provinceOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return [...fallbackProvinceOptions, ...remoteProvinceOptions]
+      .map((province) => String(province || '').trim())
+      .filter((province) => {
+        const key = normalizeTextForParsing(province);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .sort((left, right) => left.localeCompare(right, 'es', { sensitivity: 'base' }));
+  }, [fallbackProvinceOptions, remoteProvinceOptions]);
   const [deletingQuoteId, setDeletingQuoteId] = useState<string | null>(null);
   const [scheduleSavingId, setScheduleSavingId] = useState<string | null>(null);
   const [scheduleMessage, setScheduleMessage] = useState('');
@@ -4873,6 +4912,44 @@ export default function TechniciansPage() {
   const [agendaFilter, setAgendaFilter] = useState<'all' | 'pending' | 'scheduled'>('all');
   const [agendaWeekOffset, setAgendaWeekOffset] = useState(0);
   const activeThemeStyles = themeStyles;
+
+  useEffect(() => {
+    const trimmedCountry = String(profileForm.country || '').trim();
+    if (!trimmedCountry) {
+      setRemoteProvinceOptions([]);
+      setProvinceOptionsLoading(false);
+      setProvinceOptionsError('');
+      return;
+    }
+
+    const hasLocalProvinceOptions = fallbackProvinceOptions.length > 0;
+    let cancelled = false;
+    setProvinceOptionsLoading(!hasLocalProvinceOptions);
+    setProvinceOptionsError('');
+
+    fetch(`/api/location/provinces?country=${encodeURIComponent(trimmedCountry)}`, { cache: 'no-store' })
+      .then((response) => response.json())
+      .then((payload: { provinces?: string[]; error?: string }) => {
+        if (cancelled) return;
+        const provinces = Array.isArray(payload.provinces) ? payload.provinces : [];
+        setRemoteProvinceOptions(provinces);
+        setProvinceOptionsError(provinces.length > 0 || hasLocalProvinceOptions ? '' : payload.error || '');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setRemoteProvinceOptions([]);
+        setProvinceOptionsError(
+          hasLocalProvinceOptions ? '' : 'No pudimos cargar provincias o estados. Puedes escribirlo manualmente.'
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setProvinceOptionsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fallbackProvinceOptions, profileForm.country]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -7813,6 +7890,40 @@ export default function TechniciansPage() {
     }));
   };
 
+  const renderProvinceControl = (
+    inputClassName: string,
+    messageClassName = 'mt-2 text-[11px] text-amber-700'
+  ) => (
+    <>
+      {provinceOptionsLoading ? (
+        <select value="" disabled className={inputClassName}>
+          <option>Cargando {provinceFieldLabel.toLowerCase()}...</option>
+        </select>
+      ) : provinceOptions.length > 0 ? (
+        <select
+          value={profileForm.province}
+          onChange={(event) => handleProvinceChange(event.target.value)}
+          className={inputClassName}
+        >
+          <option value="">Seleccionar {provinceFieldLabel.toLowerCase()}</option>
+          {provinceOptions.map((province) => (
+            <option key={province} value={province}>
+              {province}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <input
+          value={profileForm.province}
+          onChange={(event) => handleProvinceChange(event.target.value)}
+          placeholder={`${provinceFieldLabel} / region`}
+          className={inputClassName}
+        />
+      )}
+      {provinceOptionsError && <p className={messageClassName}>{provinceOptionsError}</p>}
+    </>
+  );
+
   const handleTechnicianLocationChange = (result: LocationPickerResult | null) => {
     const countryHint = result ? inferCountryFromCandidates(result.displayName, profileForm.country) : profileForm.country;
     const provinceHint = result ? extractProvinceHintForCountry(countryHint, result.displayName) : '';
@@ -9508,6 +9619,39 @@ export default function TechniciansPage() {
     await persistProfile({ silent: false, refreshNearby: true });
   };
 
+  const handleRequiredProfileNext = () => {
+    if (!canSaveRequiredProfile) {
+      const nextStep = (firstIncompleteRequiredProfileStepKey || 'identity') as
+        | 'identity'
+        | 'contact'
+        | 'specialty'
+        | 'location';
+      setRequiredProfileOpenStep(nextStep);
+      if (nextStep !== 'specialty') setSpecialtySearchOpen(false);
+      setProfileMessage(
+        formRequiredMissing.length > 0
+          ? `Falta completar: ${formRequiredMissing.join(', ')}.`
+          : 'Falta completar un paso del registro.'
+      );
+      return;
+    }
+    setProfileMessage('');
+    setShowLocationAuthorizationModal(true);
+  };
+
+  const handleAuthorizeLocationAndContinue = async () => {
+    if (!canSaveRequiredProfile) return;
+    setProfileForm((prev) => ({ ...prev, profilePublished: true }));
+    const saved = await persistProfile({ silent: false, refreshNearby: true, publishProfile: true });
+    if (!saved) {
+      setProfileForm((prev) => ({ ...prev, profilePublished: false }));
+      return;
+    }
+    setShowLocationAuthorizationModal(false);
+    setProfilePanelTab('editor');
+    setActiveTab('perfil');
+  };
+
   const handleCompanyLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
@@ -10366,6 +10510,7 @@ export default function TechniciansPage() {
         key: 'identity',
         label: 'Identidad',
         detail: 'Nombre y negocio',
+        targetId: 'registro-identity',
         done: Boolean(profileForm.fullName.trim()) && Boolean(profileForm.businessName.trim()),
         icon: User,
       },
@@ -10373,6 +10518,7 @@ export default function TechniciansPage() {
         key: 'contact',
         label: 'Contacto',
         detail: 'WhatsApp',
+        targetId: 'registro-contact',
         done: formHasContactChannel,
         icon: MessageCircle,
       },
@@ -10380,6 +10526,7 @@ export default function TechniciansPage() {
         key: 'specialty',
         label: 'Rubro',
         detail: 'Oficio principal',
+        targetId: 'registro-specialty',
         done: selectedSpecialties.length > 0,
         icon: Wrench,
       },
@@ -10387,6 +10534,7 @@ export default function TechniciansPage() {
         key: 'location',
         label: 'Ubicacion',
         detail: 'Punto exacto',
+        targetId: 'registro-location',
         done: hasResolvedBaseAddress,
         icon: MapPinned,
       },
@@ -10401,11 +10549,56 @@ export default function TechniciansPage() {
     if (!requiredProfileSteps.length) return 0;
     return Math.round((requiredProfileDoneCount / requiredProfileSteps.length) * 100);
   }, [requiredProfileDoneCount, requiredProfileSteps.length]);
+  const firstIncompleteRequiredProfileStepKey = requiredProfileSteps.find((step) => !step.done)?.key;
+
+  useEffect(() => {
+    if (requiredProfileOpenStep || profileRequiredMissing.length === 0) return;
+    setRequiredProfileOpenStep((firstIncompleteRequiredProfileStepKey || 'identity') as 'identity' | 'contact' | 'specialty' | 'location');
+  }, [firstIncompleteRequiredProfileStepKey, profileRequiredMissing.length, requiredProfileOpenStep]);
+
+  const toggleRequiredProfileStep = (step: 'identity' | 'contact' | 'specialty' | 'location') => {
+    setRequiredProfileOpenStep((current) => (current === step ? null : step));
+    if (step !== 'specialty') setSpecialtySearchOpen(false);
+  };
+
+  const openFirstIncompleteRequiredProfileStep = () => {
+    const nextStep = (firstIncompleteRequiredProfileStepKey || 'identity') as
+      | 'identity'
+      | 'contact'
+      | 'specialty'
+      | 'location';
+    setRequiredProfileOpenStep(nextStep);
+    if (nextStep !== 'specialty') setSpecialtySearchOpen(false);
+    const targetId = requiredProfileSteps.find((step) => step.key === nextStep)?.targetId;
+    if (targetId && typeof window !== 'undefined') {
+      window.requestAnimationFrame(() => {
+        document.getElementById(targetId)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    }
+  };
+
 
   const selectedSpecialtiesSet = useMemo(
     () => new Set(selectedSpecialties.map((item) => normalizeTextForParsing(item))),
     [selectedSpecialties]
   );
+  const filteredSpecialtyOptions = useMemo(() => {
+    const query = normalizeTextForParsing(specialtySearchTerm);
+    return TECH_SPECIALTY_OPTIONS.filter((specialty) => {
+      const normalizedSpecialty = normalizeTextForParsing(specialty);
+      const searchableSpecialty = getSpecialtySearchText(specialty);
+      if (selectedSpecialtiesSet.has(normalizedSpecialty)) return false;
+      return query ? searchableSpecialty.includes(query) : true;
+    });
+  }, [selectedSpecialtiesSet, specialtySearchTerm]);
+  const canAddSpecialtySearchTerm = useMemo(() => {
+    const value = specialtySearchTerm.trim();
+    const normalizedValue = normalizeTextForParsing(value);
+    if (value.length < 3 || selectedSpecialtiesSet.has(normalizedValue)) return false;
+    return !TECH_SPECIALTY_OPTIONS.some((specialty) =>
+      getSpecialtySearchTerms(specialty).some((term) => normalizeTextForParsing(term) === normalizedValue)
+    );
+  }, [selectedSpecialtiesSet, specialtySearchTerm]);
   const profileChecklistItems = useMemo(
     () => [
       { key: 'fullName', label: 'Nombre y apellido', done: Boolean(profileForm.fullName.trim()) },
@@ -10610,6 +10803,13 @@ export default function TechniciansPage() {
       ...prev,
       specialties: upsertSpecialty(prev.specialties, selected),
     }));
+    setSpecialtySearchTerm('');
+  };
+
+  const handleAddSearchedSpecialty = () => {
+    const value = specialtySearchTerm.trim();
+    if (!value || !canAddSpecialtySearchTerm) return;
+    handleSpecialtySelect(value);
   };
 
   const handleAddCustomSpecialty = () => {
@@ -11092,6 +11292,67 @@ export default function TechniciansPage() {
                       </>
   ) : null;
 
+  const locationAuthorizationModal = showLocationAuthorizationModal ? (
+    <div
+      className="fixed inset-0 z-[140] flex items-center justify-center bg-[#17001f]/78 px-4 py-6 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Autorizar ubicacion en el mapa"
+    >
+      <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-[0_28px_90px_-44px_rgba(0,0,0,0.82)]">
+        <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338]">
+              <MapPinned className="h-5 w-5" />
+            </span>
+            <div className="min-w-0">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a4a00]">Autorizacion</p>
+              <h2 className={`${spaceGrotesk.className} mt-1 text-xl font-black text-[#180f24]`}>
+                Mostrar ubicacion en el mapa
+              </h2>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowLocationAuthorizationModal(false)}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+            aria-label="Cerrar autorizacion"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          <p className="text-sm leading-6 text-slate-600">
+            Autorizas a UrbanFix a usar tu ubicacion de trabajo para mostrar tu perfil en el mapa de tecnicos y que los clientes puedan encontrarte.
+          </p>
+          {technicianLocationResult?.displayName && (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+              {technicianLocationResult.displayName}
+            </div>
+          )}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setShowLocationAuthorizationModal(false)}
+              disabled={profileSaving}
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 disabled:opacity-50"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              onClick={handleAuthorizeLocationAndContinue}
+              disabled={profileSaving}
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#ff8f1f] px-4 text-sm font-black text-[#2a0338] transition hover:bg-[#ff9f39] disabled:opacity-60"
+            >
+              {profileSaving ? 'Guardando...' : 'Autorizar y continuar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   if (loadingSession && !isDesignPreview) {
     return (
       <>
@@ -11311,6 +11572,66 @@ export default function TechniciansPage() {
             </main>
           </div>
         </div>
+        {showLocationAuthorizationModal && (
+          <div
+            className="fixed inset-0 z-[140] flex items-center justify-center bg-[#17001f]/78 px-4 py-6 backdrop-blur-sm"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Autorizar ubicación en el mapa"
+          >
+            <div className="w-full max-w-md overflow-hidden rounded-[28px] border border-white/12 bg-white shadow-[0_28px_90px_-44px_rgba(0,0,0,0.82)]">
+              <div className="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-5">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338]">
+                    <MapPinned className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#8a4a00]">Autorizacion</p>
+                    <h2 className={`${spaceGrotesk.className} mt-1 text-xl font-black text-[#180f24]`}>
+                      Mostrar ubicación en el mapa
+                    </h2>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowLocationAuthorizationModal(false)}
+                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-300 hover:text-slate-900"
+                  aria-label="Cerrar autorización"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="space-y-4 px-5 py-5">
+                <p className="text-sm leading-6 text-slate-600">
+                  Autorizas a UrbanFix a usar tu ubicación de trabajo para mostrar tu perfil en el mapa de técnicos y que los clientes puedan encontrarte.
+                </p>
+                {technicianLocationResult?.displayName && (
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700">
+                    {technicianLocationResult.displayName}
+                  </div>
+                )}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationAuthorizationModal(false)}
+                    disabled={profileSaving}
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:text-slate-950 disabled:opacity-50"
+                  >
+                    Volver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAuthorizeLocationAndContinue}
+                    disabled={profileSaving}
+                    className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-[#ff8f1f] px-4 text-sm font-black text-[#2a0338] transition hover:bg-[#ff9f39] disabled:opacity-60"
+                  >
+                    {profileSaving ? 'Guardando...' : 'Autorizar y continuar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
                       </>
     );
   }
@@ -11358,353 +11679,387 @@ export default function TechniciansPage() {
                       </div>
                     </div>
                   </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    {requiredProfileSteps.map((step) => {
-                      const StepIcon = step.icon;
-                      return (
-                        <div
-                          key={step.key}
-                          className={`inline-flex min-h-9 items-center gap-2 rounded-full border px-3 py-1.5 transition ${
-                            step.done
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                              : 'border-slate-200 bg-white text-slate-500'
-                          }`}
-                        >
-                          <span
-                            className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${
-                              step.done ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-500'
-                            }`}
-                          >
-                            <StepIcon className="h-3.5 w-3.5" />
-                          </span>
-                          <span className="text-xs font-semibold">{step.label}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
 
                 <div className="px-5 py-5 sm:px-6">
-                  <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white">
-                    <div className="relative h-28 overflow-hidden bg-slate-100 sm:h-32">
-                      {profileForm.bannerUrl ? (
-                        <img src={profileForm.bannerUrl} alt="Portada del perfil" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(135deg,#f8fafc,#f5efe6)]">
-                          <span className="rounded-full border border-slate-200 bg-white/80 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                            Banner opcional
+                  <div className="space-y-3">
+                    <details
+                      id="registro-identity"
+                      open={requiredProfileOpenStep === 'identity'}
+                      className="group scroll-mt-28 overflow-hidden rounded-[24px] border border-slate-200 bg-white"
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          toggleRequiredProfileStep('identity');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 marker:hidden [&::-webkit-details-marker]:hidden sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            requiredProfileSteps[0]?.done ? 'bg-emerald-500 text-white' : 'bg-[#2a0338] text-white'
+                          }`}>
+                            <User className="h-4 w-4" />
                           </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Paso 1</p>
+                            <p className="text-sm font-bold text-[#180f24]">Identidad</p>
+                            <p className="mt-0.5 text-xs text-slate-500">Nombre y negocio.</p>
+                          </div>
                         </div>
-                      )}
-                      {profileForm.bannerUrl && (
-                        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,23,42,0.02),rgba(15,23,42,0.18))]" />
-                      )}
-                      <label className="absolute right-3 top-3 inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white/92 px-3 py-1.5 text-[11px] font-semibold text-[#180f24] shadow-sm transition hover:border-[#ff8f1f]/40 hover:bg-white">
-                        {uploadingBanner ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                        {uploadingBanner ? 'Subiendo...' : 'Banner'}
-                        <input type="file" accept="image/*" onChange={handleBannerUpload} className="hidden" />
-                      </label>
-                    </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                              requiredProfileSteps[0]?.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {requiredProfileSteps[0]?.done ? 'Completo' : 'Pendiente'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+                        </div>
+                      </summary>
+                      <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre y apellido</label>
+                            <input
+                              value={profileForm.fullName}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
+                              className={authInputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre del negocio</label>
+                            <input
+                              value={profileForm.businessName}
+                              onChange={(event) =>
+                                setProfileForm((prev) => ({ ...prev, businessName: event.target.value }))
+                              }
+                              className={authInputClass}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </details>
 
-                    <div className="px-4 pb-4 sm:px-5">
-                      <div className="-mt-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-                        <div className="flex min-w-0 flex-1 items-end gap-3">
-                          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[22px] border-[4px] border-white bg-slate-100 shadow-sm">
-                            {profileForm.avatarUrl ? (
-                              <img src={profileForm.avatarUrl} alt="Foto de perfil" className="h-full w-full object-cover" />
-                            ) : profileForm.companyLogoUrl ? (
-                              <img src={profileForm.companyLogoUrl} alt="Logo del negocio" className="h-full w-full object-contain p-2.5" />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center bg-slate-100 text-xl font-black text-slate-500">
-                                {(profileForm.fullName || profileForm.businessName || 'U')[0]?.toUpperCase()}
+                    <details
+                      id="registro-contact"
+                      open={requiredProfileOpenStep === 'contact'}
+                      className="group scroll-mt-28 overflow-hidden rounded-[24px] border border-slate-200 bg-white"
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          toggleRequiredProfileStep('contact');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 marker:hidden [&::-webkit-details-marker]:hidden sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            requiredProfileSteps[1]?.done ? 'bg-emerald-500 text-white' : 'bg-[#2a0338] text-white'
+                          }`}>
+                            <MessageCircle className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Paso 2</p>
+                            <p className="text-sm font-bold text-[#180f24]">Contacto</p>
+                            <p className="mt-0.5 text-xs text-slate-500">Mail y WhatsApp para recibir consultas.</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                              requiredProfileSteps[1]?.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {requiredProfileSteps[1]?.done ? 'Completo' : 'Pendiente'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+                        </div>
+                      </summary>
+                      <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Mail de contacto</label>
+                            <input
+                              value={profileForm.email}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
+                              type="email"
+                              placeholder="tu@email.com"
+                              className={authInputClass}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-[color:var(--ui-muted)]">WhatsApp de contacto</label>
+                            <input
+                              value={profileForm.phone}
+                              onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
+                              placeholder="+54 9 ..."
+                              className={authInputClass}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+
+                    <details
+                      id="registro-specialty"
+                      open={requiredProfileOpenStep === 'specialty'}
+                      className="group scroll-mt-28 overflow-hidden rounded-[24px] border border-slate-200 bg-white"
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          toggleRequiredProfileStep('specialty');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 marker:hidden [&::-webkit-details-marker]:hidden sm:px-5"
+                      >
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            requiredProfileSteps[2]?.done ? 'bg-emerald-500 text-white' : 'bg-[#ff8f1f] text-[#2a0338]'
+                          }`}>
+                            <Wrench className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Paso 3</p>
+                            <p className="text-sm font-bold text-[#180f24]">Rubro</p>
+                            <p className="mt-0.5 text-xs text-slate-500">Elige los servicios que ofreces.</p>
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                              requiredProfileSteps[2]?.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}
+                          >
+                            {requiredProfileSteps[2]?.done ? `${selectedSpecialties.length} rubro(s)` : 'Pendiente'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
+                        </div>
+                      </summary>
+                      <div className="border-t border-slate-100 px-4 py-4 sm:px-5">
+                        <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <label className="text-xs font-semibold text-slate-600">Rubros que ofreces</label>
+                            <span
+                              className={
+                                selectedSpecialties.length > 0
+                                  ? 'rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700'
+                                  : 'rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700'
+                              }
+                            >
+                              {selectedSpecialties.length > 0 ? selectedSpecialties.length + ' seleccionado(s)' : 'Pendiente'}
+                            </span>
+                          </div>
+                          <div className="relative mt-3">
+                            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <input
+                              value={specialtySearchTerm}
+                              onFocus={() => setSpecialtySearchOpen(true)}
+                              onChange={(event) => {
+                                setSpecialtySearchTerm(event.target.value);
+                                setSpecialtySearchOpen(true);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === 'Escape') {
+                                  setSpecialtySearchOpen(false);
+                                  return;
+                                }
+                                if (event.key !== 'Enter') return;
+                                event.preventDefault();
+                                const firstOption = filteredSpecialtyOptions[0];
+                                if (firstOption) {
+                                  handleSpecialtySelect(firstOption);
+                                  return;
+                                }
+                                handleAddSearchedSpecialty();
+                              }}
+                              placeholder="Buscar y elegir rubro: plomero, sanitarista, yesero..."
+                              className="h-12 w-full rounded-2xl border border-slate-200 bg-white pl-11 pr-4 text-sm font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
+                            />
+                            {specialtySearchOpen && (
+                              <div className="relative z-20 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10">
+                                <div className="max-h-56 overflow-y-auto py-2">
+                                  {filteredSpecialtyOptions.length === 0 && !canAddSpecialtySearchTerm ? (
+                                    <p className="px-4 py-3 text-xs font-semibold text-slate-500">No hay rubros con ese nombre.</p>
+                                  ) : (
+                                    filteredSpecialtyOptions.map((specialty) => (
+                                      <button
+                                        key={specialty}
+                                        type="button"
+                                        onMouseDown={(event) => event.preventDefault()}
+                                        onClick={() => handleSpecialtySelect(specialty)}
+                                        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-[#fff7ed]"
+                                      >
+                                        <span>{specialty}</span>
+                                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Elegir</span>
+                                      </button>
+                                    ))
+                                  )}
+                                  {canAddSpecialtySearchTerm && (
+                                    <button
+                                      type="button"
+                                      onMouseDown={(event) => event.preventDefault()}
+                                      onClick={handleAddSearchedSpecialty}
+                                      className="mx-2 mt-1 flex w-[calc(100%-16px)] rounded-xl border border-dashed border-[#ff8f1f]/60 bg-[#fff7ed] px-3 py-3 text-left text-xs font-bold text-[#8a4a00] transition hover:bg-[#ffedd5]"
+                                    >
+                                      Agregar "{specialtySearchTerm.trim()}" como rubro
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             )}
-                            <label
-                              title="Subir foto de perfil"
-                              className="absolute bottom-1 right-1 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338] shadow-sm transition hover:scale-105"
-                            >
-                              {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                              <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                            </label>
                           </div>
 
-                          <div className="min-w-0 pb-1">
-                            <p className={`${spaceGrotesk.className} truncate text-xl font-bold text-[#180f24]`}>
-                              {profileForm.businessName || 'Tu negocio'}
+                          {selectedSpecialties.length === 0 ? (
+                            <>
+                            <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
+                              Todavia falta elegir el rubro para poder guardar los datos clave.
                             </p>
-                            <p className="mt-0.5 truncate text-xs text-slate-500">
-                              {profileForm.fullName || 'Tu nombre'}{profileForm.email ? ` Â· ${profileForm.email}` : ''}
-                            </p>
-                          </div>
+                            <span className="hidden">
+                            </span>
+                            </>
+                          ) : (
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {selectedSpecialties.map((specialty) => (
+                                <button
+                                  key={specialty}
+                                  type="button"
+                                  onClick={() => handleSpecialtyToggle(specialty)}
+                                  className="inline-flex items-center gap-1 rounded-full bg-[#2a0338] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3b064f]"
+                                  title="Quitar rubro"
+                                >
+                                  {specialty}
+                                  <X className="h-3 w-3" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+
                         </div>
-
-                        <div className="flex flex-wrap gap-2 sm:justify-end">
-                          <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-700 transition hover:border-[#ff8f1f]/45">
-                            {uploadingAvatar ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <User className="h-3.5 w-3.5" />}
-                            {uploadingAvatar ? 'Subiendo...' : 'Foto'}
-                            <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
-                          </label>
-                          <label className="inline-flex min-h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 text-[11px] font-semibold text-slate-500 transition hover:border-[#ff8f1f]/35 hover:text-slate-700">
-                            {uploadingCompanyLogo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Store className="h-3.5 w-3.5" />}
-                            {uploadingCompanyLogo ? 'Subiendo...' : 'Logo'}
-                            <input type="file" accept="image/*" onChange={handleCompanyLogoUpload} className="hidden" />
-                          </label>
-                        </div>
                       </div>
-                    </div>
-                  </div>
+                    </details>
 
-                <div className="mt-6 space-y-6">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#2a0338] text-white shadow-[0_16px_34px_-24px_rgba(42,3,56,0.85)]">
-                        <User className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Datos publicos</p>
-                        <p className="text-sm font-bold text-[#180f24]">Identidad y contacto</p>
-                      </div>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre y apellido</label>
-                      <input
-                        value={profileForm.fullName}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, fullName: event.target.value }))}
-                        className={authInputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Nombre del negocio</label>
-                      <input
-                        value={profileForm.businessName}
-                        onChange={(event) =>
-                          setProfileForm((prev) => ({ ...prev, businessName: event.target.value }))
-                        }
-                        className={authInputClass}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Mail de contacto</label>
-                      <input
-                        value={profileForm.email}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, email: event.target.value }))}
-                        type="email"
-                        placeholder="tu@email.com"
-                        className={authInputClass}
-                      />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold text-[color:var(--ui-muted)]">WhatsApp de contacto</label>
-                      <input
-                        value={profileForm.phone}
-                        onChange={(event) => setProfileForm((prev) => ({ ...prev, phone: event.target.value }))}
-                        placeholder="+54 9 ..."
-                        className={authInputClass}
-                      />
-                    </div>
-                  </div>
-                  </div>
-
-                  <div className="space-y-4 border-t border-slate-200/70 pt-5">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.85)]">
-                        <Wrench className="h-4 w-4" />
-                      </span>
-                      <div className="min-w-0">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Rubro de trabajo</p>
-                        <p className="text-sm font-bold text-[#180f24]">Elegi al menos un rubro que ofreces</p>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[22px] border border-slate-200 bg-slate-50 p-3 sm:p-4">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <label className="text-xs font-semibold text-slate-600">Rubros que ofreces</label>
-                        <span
-                          className={
-                            selectedSpecialties.length > 0
-                              ? 'rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-bold text-emerald-700'
-                              : 'rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700'
-                          }
-                        >
-                          {selectedSpecialties.length > 0 ? selectedSpecialties.length + ' seleccionado(s)' : 'Pendiente'}
-                        </span>
-                      </div>
-                      <select
-                        value=""
-                        onChange={(event) => handleSpecialtySelect(event.target.value)}
-                        className="mt-3 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 outline-none transition focus:border-[#ff8f1f]"
+                    <details
+                      id="registro-location"
+                      open={requiredProfileOpenStep === 'location'}
+                      className="group scroll-mt-28 overflow-hidden rounded-[24px] border border-slate-200 bg-white"
+                    >
+                      <summary
+                        onClick={(event) => {
+                          event.preventDefault();
+                          toggleRequiredProfileStep('location');
+                        }}
+                        className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 marker:hidden [&::-webkit-details-marker]:hidden sm:px-5"
                       >
-                        <option value="">Seleccionar rubro</option>
-                        {TECH_SPECIALTY_OPTIONS.slice()
-                          .sort((a, b) => a.localeCompare(b, 'es'))
-                          .map((specialty) => {
-                            const isSelected = selectedSpecialtiesSet.has(normalizeTextForParsing(specialty));
-                            return (
-                              <option key={specialty} value={specialty} disabled={isSelected}>
-                                {isSelected ? specialty + ' - seleccionado' : specialty}
-                              </option>
-                            );
-                          })}
-                      </select>
-
-                      {selectedSpecialties.length === 0 ? (
-                        <p className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-700">
-                          Todavia falta elegir el rubro para poder guardar los datos clave.
-                        </p>
-                      ) : (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {selectedSpecialties.map((specialty) => (
-                            <button
-                              key={specialty}
-                              type="button"
-                              onClick={() => handleSpecialtyToggle(specialty)}
-                              className="inline-flex items-center gap-1 rounded-full bg-[#2a0338] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#3b064f]"
-                              title="Quitar rubro"
-                            >
-                              {specialty}
-                              <X className="h-3 w-3" />
-                            </button>
-                          ))}
+                        <div className="flex min-w-0 items-center gap-3">
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${
+                            requiredProfileSteps[3]?.done ? 'bg-emerald-500 text-white' : 'bg-[#ff8f1f] text-[#2a0338]'
+                          }`}>
+                            <MapPinned className="h-4 w-4" />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Paso 4</p>
+                            <p className="text-sm font-bold text-[#180f24]">Ubicacion</p>
+                            <p className="mt-0.5 text-xs text-slate-500">Localidad, calle y punto exacto.</p>
+                          </div>
                         </div>
-                      )}
-
-                      <details className="mt-3 rounded-2xl border border-slate-200 bg-white px-3 py-2">
-                        <summary className="cursor-pointer text-xs font-semibold text-slate-600">No encuentro mi rubro</summary>
-                        <p className="mt-2 text-[11px] text-slate-500">Usalo solo si no aparece en la lista principal.</p>
-                        <div className="mt-2 flex gap-2">
-                          <input
-                            value={customSpecialtyDraft}
-                            onChange={(event) => setCustomSpecialtyDraft(event.target.value)}
-                            onKeyDown={(event) => {
-                              if (event.key !== 'Enter') return;
-                              event.preventDefault();
-                              handleAddCustomSpecialty();
-                            }}
-                            placeholder="Ej: Durlock"
-                            className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-800 outline-none transition focus:border-[#ff8f1f] focus:bg-white"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddCustomSpecialty}
-                            className="rounded-2xl bg-slate-900 px-4 py-2 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={`rounded-full px-3 py-1 text-[11px] font-bold ${
+                              requiredProfileSteps[3]?.done ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                            }`}
                           >
-                            Agregar
-                          </button>
+                            {requiredProfileSteps[3]?.done ? 'Completo' : 'Pendiente'}
+                          </span>
+                          <ChevronDown className="h-4 w-4 text-slate-400 transition group-open:rotate-180" />
                         </div>
-                      </details>
-                    </div>
+                      </summary>
+                      <div className="space-y-4 border-t border-slate-100 px-4 py-4 sm:px-5">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div>
+                            <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Pais</label>
+                            <select
+                              value={profileForm.country}
+                              onChange={(event) => handleCountryChange(event.target.value)}
+                              className={authInputClass}
+                            >
+                              {COUNTRY_NAMES.map((country) => (
+                                <option key={country} value={country}>
+                                  {country}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs font-semibold text-[color:var(--ui-muted)]">{provinceFieldLabel}</label>
+                            {renderProvinceControl(authInputClass)}
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Ciudad / barrio / localidad</label>
+                          <LocalitySelect
+                            country={profileForm.country}
+                            province={profileForm.province}
+                            value={profileForm.city}
+                            onChange={handleCityChange}
+                            selectClassName={authInputClass}
+                            helperClassName="mt-2 text-[11px] text-[color:var(--ui-muted)]"
+                          />
+                        </div>
+
+                        <TechnicianLocationPicker
+                          value={technicianLocationResult}
+                          query={profileForm.address}
+                          onQueryChange={handleTechnicianAddressQueryChange}
+                          onChange={handleTechnicianLocationChange}
+                          coverageRadiusKm={technicianRadiusKm}
+                          countryHint={profileForm.country}
+                          cityHint={profileForm.city}
+                          provinceHint={profileForm.province}
+                          label="Ubicacion de trabajo"
+                          description="Elige la localidad arriba. Luego escribe solo calle y altura, busca la direccion y ajusta el pin."
+                          required={false}
+                        />
+                      </div>
+                    </details>
                   </div>
 
-                  <div className="space-y-4 border-t border-slate-200/70 pt-5">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ff8f1f] text-[#2a0338] shadow-[0_16px_34px_-24px_rgba(255,143,31,0.85)]">
-                        <MapPinned className="h-4 w-4" />
-                      </span>
-                      <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Zona de trabajo</p>
-                        <p className="text-sm font-bold text-[#180f24]">Localidad, calle y pin exacto</p>
-                      </div>
-                    </div>
-
-                    <div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div>
-                        <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Pais</label>
-                        <select
-                          value={profileForm.country}
-                          onChange={(event) => handleCountryChange(event.target.value)}
-                          className={authInputClass}
+                  <div className="mt-5 space-y-3">
+                    {!canSaveRequiredProfile ? (
+                      <>
+                        <p className="text-xs font-semibold text-amber-700">
+                          Falta completar: {formRequiredMissing.join(', ') || 'datos pendientes'}.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={openFirstIncompleteRequiredProfileStep}
+                          className={authSecondaryButtonBlockClass}
                         >
-                          {COUNTRY_NAMES.map((country) => (
-                            <option key={country} value={country}>
-                              {country}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-[color:var(--ui-muted)]">{provinceFieldLabel}</label>
-                        <select
-                          value={profileForm.province}
-                          onChange={(event) => handleProvinceChange(event.target.value)}
-                          className={authInputClass}
-                        >
-                          <option value="">Seleccionar {provinceFieldLabel.toLowerCase()}</option>
-                          {provinceOptions.map((province) => (
-                            <option key={province} value={province}>
-                              {province}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
+                          Completar {requiredProfileSteps.find((step) => !step.done)?.label || 'paso pendiente'}
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleRequiredProfileNext}
+                        disabled={profileSaving}
+                        className={authPrimaryButtonClass}
+                      >
+                        {profileSaving ? 'Guardando...' : 'Siguiente'}
+                      </button>
+                    )}
+
+                    {profileMessage && <p className="text-xs text-[color:var(--ui-muted)]">{profileMessage}</p>}
                   </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-[color:var(--ui-muted)]">Localidad / partido</label>
-                    <LocalitySelect
-                      country={profileForm.country}
-                      province={profileForm.province}
-                      value={profileForm.city}
-                      onChange={handleCityChange}
-                      selectClassName={authInputClass}
-                      helperClassName="mt-2 text-[11px] text-[color:var(--ui-muted)]"
-                    />
-                  </div>
-
-                  <div>
-                    <TechnicianLocationPicker
-                      value={technicianLocationResult}
-                      query={profileForm.address}
-                      onQueryChange={handleTechnicianAddressQueryChange}
-                      onChange={handleTechnicianLocationChange}
-                      coverageRadiusKm={technicianRadiusKm}
-                      countryHint={profileForm.country}
-                      cityHint={profileForm.city}
-                      provinceHint={profileForm.province}
-                      label="Ubicacion de trabajo"
-                      description="Elige la localidad arriba. Luego escribe solo calle y altura, busca la direccion y ajusta el pin."
-                      required={false}
-                    />
-                    </div>
-                  </div>
-
-                  {!canSaveRequiredProfile && (
-                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-700">
-                      Falta completar: {formRequiredMissing.join(', ')}.
-                    </div>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={handleProfileSave}
-                    disabled={profileSaving || !canSaveRequiredProfile}
-                    className={authPrimaryButtonClass}
-                  >
-                    {profileSaving ? 'Guardando...' : 'Guardar datos clave'}
-                  </button>
-
-                  {profileMessage && <p className="text-xs text-[color:var(--ui-muted)]">{profileMessage}</p>}
-
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className={authSecondaryButtonBlockClass}
-                  >
-                    Cerrar sesiÃ³n
-                  </button>
-                </div>
                 </div>
               </section>
             </main>
           </div>
         </div>
+        {locationAuthorizationModal}
                       </>
     );
   }
@@ -17644,7 +17999,6 @@ export default function TechniciansPage() {
                                 <p className="truncate text-base font-semibold text-slate-900">
                                   {profileForm.businessName || 'Tu negocio'}
                                 </p>
-                                <p className="truncate text-sm text-slate-500">{profileForm.fullName || 'Tu nombre'}</p>
                               </div>
                             </div>
 
@@ -17770,21 +18124,10 @@ export default function TechniciansPage() {
                               </div>
                               <div>
                                 <label className="block text-xs font-semibold text-slate-600">{provinceFieldLabel}</label>
-                                <select
-                                  value={profileForm.province}
-                                  onChange={(event) => handleProvinceChange(event.target.value)}
-                                  className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
-                                >
-                                  <option value="">Seleccionar {provinceFieldLabel.toLowerCase()}</option>
-                                  {provinceOptions.map((province) => (
-                                    <option key={province} value={province}>
-                                      {province}
-                                    </option>
-                                  ))}
-                                </select>
+                                {renderProvinceControl("mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white", "mt-2 text-xs text-amber-700")}
                               </div>
                             </div>
-                            <label className="mt-4 block text-xs font-semibold text-slate-600">Localidad / partido</label>
+                            <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad / barrio / localidad</label>
                             <LocalitySelect
                               country={profileForm.country}
                               province={profileForm.province}
@@ -18389,22 +18732,11 @@ export default function TechniciansPage() {
                         </div>
                         <div>
                           <label className="block text-xs font-semibold text-slate-600">{provinceFieldLabel}</label>
-                          <select
-                            value={profileForm.province}
-                            onChange={(event) => handleProvinceChange(event.target.value)}
-                            className="mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white"
-                          >
-                            <option value="">Seleccionar {provinceFieldLabel.toLowerCase()}</option>
-                            {provinceOptions.map((province) => (
-                              <option key={province} value={province}>
-                                {province}
-                              </option>
-                            ))}
-                          </select>
+                          {renderProvinceControl("mt-2 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-slate-400 focus:bg-white", "mt-2 text-xs text-amber-700")}
                           <p className="mt-1 text-[11px] text-slate-500">Ayuda a ubicarte en la vidriera correcta.</p>
                         </div>
                       </div>
-                      <label className="mt-4 block text-xs font-semibold text-slate-600">Localidad / partido</label>
+                      <label className="mt-4 block text-xs font-semibold text-slate-600">Ciudad / barrio / localidad</label>
                       <LocalitySelect
                         country={profileForm.country}
                         province={profileForm.province}

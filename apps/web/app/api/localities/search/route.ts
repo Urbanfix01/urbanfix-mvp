@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { enforceRateLimit } from '@/lib/api/rate-limit';
 import { getCountryCode, getCountryConfig } from '../../../../lib/location-catalog';
+import { GLOBAL_LOCALITY_OPTIONS_BY_COUNTRY_PROVINCE } from '../../../../lib/global-locality-options';
 
 const MAX_SEARCH_QUERY_LENGTH = 80;
 const MAX_SEARCH_FILTER_LENGTH = 80;
 const LOCALITY_LIST_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
+const COUNTRIES_NOW_BASE_URL = 'https://countriesnow.space/api/v0.1';
 const localityListCache = new Map<string, { expiresAt: number; payload: { results: Array<{ name: string; label: string }>; error: string } }>();
+const countryCityListCache = new Map<string, { expiresAt: number; cities: string[] }>();
 
 type GeoRefLocalityRow = {
   nombre?: string;
@@ -19,14 +22,29 @@ type GeoRefDistrictRow = {
   provincia?: { nombre?: string };
 };
 
+type CountriesNowCitiesPayload = {
+  error?: boolean;
+  msg?: string;
+  data?: string[];
+};
+
 type NominatimLocalityRow = {
   display_name?: string;
+  name?: string;
+  type?: string;
   address?: {
     city?: string;
     town?: string;
     village?: string;
+    hamlet?: string;
     municipality?: string;
+    suburb?: string;
+    neighbourhood?: string;
+    quarter?: string;
+    city_district?: string;
+    borough?: string;
     county?: string;
+    state_district?: string;
     state?: string;
   };
 };
@@ -43,6 +61,17 @@ const normalizeSearchParam = (value: string | null) =>
   String(value || '')
     .trim()
     .replace(/\s+/g, ' ');
+
+const getEnglishCountryName = (countryCode: string) => {
+  const iso2 = String(countryCode || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(iso2)) return '';
+
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(iso2) || '';
+  } catch {
+    return '';
+  }
+};
 
 const rejectOversizedSearchParam = (value: string, maxLength: number, message: string) => {
   if (value.length <= maxLength) return null;
@@ -417,6 +446,30 @@ const buildArgentinaFallbackDistricts = (province: string, limit: number) => {
     }));
 };
 
+const buildCatalogLocalityKey = (countryCode: string, province: string) =>
+  `${String(countryCode || '').toUpperCase()}|${normalizeText(province)}`;
+
+const getCatalogLocalityRows = (countryCode: string, province: string, limit: number) => {
+  const rows = GLOBAL_LOCALITY_OPTIONS_BY_COUNTRY_PROVINCE[buildCatalogLocalityKey(countryCode, province)] || [];
+  return rows.slice(0, limit).map((row) => ({
+    name: row.name,
+    label: row.label || `${row.name}, ${province}`,
+    kind: 'locality' as const,
+  }));
+};
+
+const searchCatalogLocalityRows = (countryCode: string, province: string, query: string, limit: number) => {
+  const normalizedQuery = normalizeText(query);
+  const rows = getCatalogLocalityRows(countryCode, province, Math.max(limit * 4, 80));
+  if (!normalizedQuery) return rows.slice(0, limit);
+
+  const candidates = rows.filter((row) => {
+    return normalizeText(row.name).includes(normalizedQuery) || normalizeText(row.label).includes(normalizedQuery);
+  });
+
+  return rankLocalityResults(candidates, query, province, limit);
+};
+
 const fetchArgentinaLocalities = async (province: string, query: string, limit: number) => {
   const upstreamLimit = Math.max(limit * 4, 24);
   const url = `https://apis.datos.gob.ar/georef/api/localidades?provincia=${encodeURIComponent(
@@ -463,7 +516,7 @@ const fetchArgentinaLocalities = async (province: string, query: string, limit: 
     clearTimeout(timeoutId);
     return {
       results: [] as Array<{ name: string; label: string }>,
-      error: 'La búsqueda de localidades tardó demasiado. Intenta nuevamente.',
+      error: 'La busqueda de localidades tardo demasiado. Intenta nuevamente.',
     };
   }
 };
@@ -525,7 +578,7 @@ const fetchArgentinaLocalityList = async (province: string, limit: number) => {
     clearTimeout(timeoutId);
     return {
       results: [] as Array<{ name: string; label: string }>,
-      error: 'La carga de localidades tardó demasiado. Intenta nuevamente.',
+      error: 'La carga de localidades tardo demasiado. Intenta nuevamente.',
     };
   }
 };
@@ -607,7 +660,7 @@ const fetchArgentinaDistrictList = async (province: string, limit: number) => {
     const fallbackResults = buildArgentinaFallbackDistricts(province, limit);
     return {
       results: fallbackResults,
-      error: fallbackResults.length > 0 ? '' : 'La carga de localidades tardó demasiado. Intenta nuevamente.',
+      error: fallbackResults.length > 0 ? '' : 'La carga de localidades tardo demasiado. Intenta nuevamente.',
     };
   }
 };
@@ -675,7 +728,7 @@ const fetchArgentinaDistricts = async (province: string, query: string, limit: n
     clearTimeout(timeoutId);
     return {
       results: [] as Array<{ name: string; label: string; kind?: 'locality' | 'municipality' | 'department' }>,
-      error: 'La búsqueda de distritos tardó demasiado. Intenta nuevamente.',
+      error: 'La busqueda de distritos tardo demasiado. Intenta nuevamente.',
     };
   }
 };
@@ -704,15 +757,102 @@ const fetchPredictiveArgentinaLocalities = async (province: string, query: strin
   };
 };
 
+const fetchCountriesNowCountryCities = async (countryCode: string) => {
+  const iso2 = String(countryCode || '').trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(iso2)) return [];
+
+  const cached = countryCityListCache.get(iso2);
+  if (cached && cached.expiresAt > Date.now()) return cached.cities;
+
+  const countryName = getEnglishCountryName(iso2);
+  if (!countryName) return [];
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 6500);
+
+  try {
+    const response = await fetch(
+      `${COUNTRIES_NOW_BASE_URL}/countries/cities/q?country=${encodeURIComponent(countryName)}`,
+      {
+        next: { revalidate: 24 * 60 * 60 },
+        signal: controller.signal,
+        headers: { Accept: 'application/json' },
+      }
+    );
+
+    if (!response.ok) return [];
+
+    const payload = (await response.json()) as CountriesNowCitiesPayload;
+    const cities = Array.isArray(payload.data)
+      ? Array.from(new Set(payload.data.map((city) => String(city || '').trim()).filter(Boolean))).sort((left, right) =>
+          left.localeCompare(right, 'es', { sensitivity: 'base' })
+        )
+      : [];
+
+    if (cities.length > 0) {
+      countryCityListCache.set(iso2, {
+        expiresAt: Date.now() + LOCALITY_LIST_CACHE_TTL_MS,
+        cities,
+      });
+    }
+
+    return cities;
+  } catch {
+    return [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+const fetchCountriesNowLocalities = async (country: string, province: string, query: string, limit: number) => {
+  const countryCode = getCountryCode(country).toUpperCase();
+  const normalizedQuery = normalizeText(query);
+  if (!normalizedQuery) return { results: [] as Array<{ name: string; label: string }>, error: '' };
+
+  const cities = await fetchCountriesNowCountryCities(countryCode);
+  const candidates = cities
+    .filter((city) => normalizeText(city).includes(normalizedQuery))
+    .slice(0, Math.max(limit * 5, 30))
+    .map((city) => ({
+      name: city,
+      label: [city, province, country].filter(Boolean).join(', '),
+      kind: 'locality' as const,
+    }));
+
+  return {
+    results: rankLocalityResults(candidates, query, province, limit),
+    error: cities.length > 0 ? '' : 'No pudimos consultar el listado global de ciudades en este momento.',
+  };
+};
+
+const getNominatimLocalityName = (row: NominatimLocalityRow) => {
+  const address = row.address || {};
+  return String(
+    address.city ||
+      address.town ||
+      address.village ||
+      address.hamlet ||
+      address.municipality ||
+      address.suburb ||
+      address.neighbourhood ||
+      address.quarter ||
+      address.city_district ||
+      address.borough ||
+      row.name ||
+      String(row.display_name || '').split(',')[0]
+  ).trim();
+};
+
 const fetchGlobalLocalities = async (country: string, province: string, query: string, limit: number) => {
   const countryCode = getCountryCode(country);
   const q = `${query}, ${province}, ${country}`;
-  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${limit}&dedupe=0&featuretype=city&countrycodes=${encodeURIComponent(
+  const upstreamLimit = Math.min(Math.max(limit * 3, 18), 50);
+  const url = `https://nominatim.openstreetmap.org/search?format=json&limit=${upstreamLimit}&dedupe=1&countrycodes=${encodeURIComponent(
     countryCode
   )}&q=${encodeURIComponent(q)}&addressdetails=1&email=info@urbanfixar.com`;
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 6500);
 
   try {
     const response = await fetch(url, {
@@ -738,12 +878,11 @@ const fetchGlobalLocalities = async (country: string, province: string, query: s
     const rows = Array.isArray(payload) ? payload : [];
     const results = rows
       .map((row) => {
-        const name = String(
-          row.address?.city || row.address?.town || row.address?.village || row.address?.municipality || ''
-        ).trim();
+        const name = getNominatimLocalityName(row);
         if (!name) return null;
-        const county = String(row.address?.county || '').trim();
-        const state = String(row.address?.state || '').trim();
+        const address = row.address || {};
+        const county = String(address.county || address.state_district || '').trim();
+        const state = String(address.state || '').trim();
         return {
           name,
           label: [name, county, state].filter(Boolean).join(', '),
@@ -751,12 +890,12 @@ const fetchGlobalLocalities = async (country: string, province: string, query: s
       })
       .filter(Boolean) as Array<{ name: string; label: string }>;
 
-    return { results: rankLocalityResults(results, query, province, limit), error: '' };
+    return { results: rankLocalityResults(dedupeLocalityResults(results), query, province, limit), error: '' };
   } catch {
     clearTimeout(timeoutId);
     return {
       results: [] as Array<{ name: string; label: string }>,
-      error: 'La búsqueda de localidades tardó demasiado. Intenta nuevamente.',
+      error: 'La busqueda de localidades tardo demasiado. Intenta nuevamente.',
     };
   }
 };
@@ -790,30 +929,43 @@ export async function GET(request: NextRequest) {
   }
 
   const normalizedCountry = getCountryConfig(country).name;
+  const countryCode = getCountryCode(normalizedCountry);
+  const catalogResults = getCatalogLocalityRows(countryCode, province, limit);
+
   if (isListMode) {
     if (normalizedCountry === 'Argentina') {
-      const districtResult = await fetchArgentinaDistrictList(province, limit);
-      if (districtResult.results.length > 0) {
-        return NextResponse.json(districtResult);
-      }
-
-      const localityResult = await fetchArgentinaLocalityList(province, limit);
-      return NextResponse.json(localityResult);
+      const [districtResult, localityResult] = await Promise.all([
+        fetchArgentinaDistrictList(province, limit),
+        fetchArgentinaLocalityList(province, limit),
+      ]);
+      const localityResults = dedupeLocalityResults([
+        ...catalogResults,
+        ...localityResult.results,
+        ...districtResult.results,
+      ])
+        .sort((left, right) => left.name.localeCompare(right.name, 'es', { sensitivity: 'base' }))
+        .slice(0, limit);
+      return NextResponse.json({
+        results: localityResults,
+        error: localityResults.length > 0 ? '' : localityResult.error || districtResult.error,
+      });
     }
 
     return NextResponse.json({
-      results: [] as Array<{ name: string; label: string }>,
-      error: 'El listado desplegable de localidades todavia no esta disponible para este pais.',
+      results: catalogResults,
+      error: '',
     });
   }
 
   if (normalizedCountry === 'Argentina') {
-    const [georefResult, districtResult] = await Promise.all([
+    const catalogSearchResults = searchCatalogLocalityRows(countryCode, province, query, limit);
+    const [georefResult, districtResult, countriesNowResult] = await Promise.all([
       fetchPredictiveArgentinaLocalities(province, query, limit),
       fetchArgentinaDistricts(province, query, limit),
+      fetchCountriesNowLocalities(normalizedCountry, province, query, limit),
     ]);
     const mergedGeorefResults = rankLocalityResults(
-      [...georefResult.results, ...districtResult.results],
+      [...catalogSearchResults, ...georefResult.results, ...districtResult.results, ...countriesNowResult.results],
       query,
       province,
       limit
@@ -825,17 +977,36 @@ export async function GET(request: NextRequest) {
 
     const nominatimFallback = await fetchGlobalLocalities(normalizedCountry, province, query, limit);
     const mergedResults = rankLocalityResults(
-      [...georefResult.results, ...districtResult.results, ...nominatimFallback.results],
+      [
+        ...catalogSearchResults,
+        ...georefResult.results,
+        ...districtResult.results,
+        ...countriesNowResult.results,
+        ...nominatimFallback.results,
+      ],
       query,
       province,
       limit
     );
-    const error = mergedResults.length > 0 ? '' : georefResult.error || districtResult.error || nominatimFallback.error;
+    const error = mergedResults.length > 0
+      ? ''
+      : countriesNowResult.error || georefResult.error || districtResult.error || nominatimFallback.error;
 
     return NextResponse.json({ results: mergedResults, error });
   }
 
-  const { results, error } = await fetchGlobalLocalities(normalizedCountry, province, query, limit);
+  const catalogSearchResults = searchCatalogLocalityRows(countryCode, province, query, limit);
+  const [countriesNowResult, nominatimResult] = await Promise.all([
+    fetchCountriesNowLocalities(normalizedCountry, province, query, limit),
+    fetchGlobalLocalities(normalizedCountry, province, query, limit),
+  ]);
+  const results = rankLocalityResults(
+    [...catalogSearchResults, ...countriesNowResult.results, ...nominatimResult.results],
+    query,
+    province,
+    limit
+  );
+  const error = results.length > 0 ? '' : countriesNowResult.error || nominatimResult.error;
 
   return NextResponse.json({ results, error });
 }

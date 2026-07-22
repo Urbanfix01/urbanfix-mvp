@@ -1,3 +1,6 @@
+﻿import { GLOBAL_COUNTRY_OPTIONS } from './global-country-options';
+import { GLOBAL_PROVINCE_OPTIONS_BY_CODE } from './global-province-options';
+
 export type CountryBounds = {
   minLat: number;
   maxLat: number;
@@ -24,6 +27,12 @@ const normalizeLocationText = (value: string) =>
     .trim();
 
 export const DEFAULT_COUNTRY_NAME = 'Argentina';
+
+const WORLD_BOUNDS: CountryBounds = { minLat: -90, maxLat: 90, minLng: -180, maxLng: 180 };
+
+const GLOBAL_COUNTRY_OPTIONS_BY_NORMALIZED = new Map(
+  GLOBAL_COUNTRY_OPTIONS.map((country) => [normalizeLocationText(country.name), country])
+);
 
 export const SUPPORTED_COUNTRIES: SupportedCountryConfig[] = [
   {
@@ -226,7 +235,9 @@ export const SUPPORTED_COUNTRIES: SupportedCountryConfig[] = [
   },
 ];
 
-export const COUNTRY_NAMES = SUPPORTED_COUNTRIES.map((country) => country.name);
+export const COUNTRY_NAMES = Array.from(
+  new Set([...SUPPORTED_COUNTRIES.map((country) => country.name), ...GLOBAL_COUNTRY_OPTIONS.map((country) => country.name)])
+);
 
 const COUNTRY_PROVINCE_ALIASES: Record<string, Record<string, string[]>> = {
   Argentina: {
@@ -236,17 +247,38 @@ const COUNTRY_PROVINCE_ALIASES: Record<string, Record<string, string[]>> = {
 };
 
 export const getCountryConfig = (countryName?: string | null) => {
+  const defaultCountry =
+    SUPPORTED_COUNTRIES.find((country) => country.name === DEFAULT_COUNTRY_NAME) || SUPPORTED_COUNTRIES[0];
   const normalizedCountry = normalizeLocationText(countryName || '');
+
   if (!normalizedCountry) {
-    return SUPPORTED_COUNTRIES.find((country) => country.name === DEFAULT_COUNTRY_NAME) || SUPPORTED_COUNTRIES[0];
+    return defaultCountry;
   }
 
-  return (
-    SUPPORTED_COUNTRIES.find((country) => {
-      const aliases = [country.name, ...(country.aliases || [])].map((value) => normalizeLocationText(value));
-      return aliases.includes(normalizedCountry);
-    }) || SUPPORTED_COUNTRIES.find((country) => country.name === DEFAULT_COUNTRY_NAME) || SUPPORTED_COUNTRIES[0]
-  );
+  const supportedCountry = SUPPORTED_COUNTRIES.find((country) => {
+    const aliases = [country.name, ...(country.aliases || [])].map((value) => normalizeLocationText(value));
+    return aliases.includes(normalizedCountry);
+  });
+
+  if (supportedCountry) {
+    return supportedCountry;
+  }
+
+  const globalCountry = GLOBAL_COUNTRY_OPTIONS_BY_NORMALIZED.get(normalizedCountry);
+
+  if (globalCountry) {
+    const countryCode = globalCountry.code.toUpperCase();
+    return {
+      name: globalCountry.name,
+      code: globalCountry.code.toLowerCase(),
+      provinceLabel: 'Provincia / estado',
+      timeZone: 'UTC',
+      bounds: WORLD_BOUNDS,
+      provinces: GLOBAL_PROVINCE_OPTIONS_BY_CODE[countryCode] || [],
+    };
+  }
+
+  return defaultCountry;
 };
 
 export const getProvinceOptions = (countryName?: string | null) => getCountryConfig(countryName).provinces;
@@ -255,6 +287,11 @@ export const getProvinceLabel = (countryName?: string | null) => getCountryConfi
 
 export const getCountryCode = (countryName?: string | null) => getCountryConfig(countryName).code;
 
+export const hasProvinceCatalogForCountry = (countryName?: string | null) => {
+  const country = getCountryConfig(countryName);
+  const supportedCountryHasCatalog = SUPPORTED_COUNTRIES.some((supportedCountry) => supportedCountry.code === country.code);
+  return supportedCountryHasCatalog || Object.prototype.hasOwnProperty.call(GLOBAL_PROVINCE_OPTIONS_BY_CODE, country.code.toUpperCase());
+};
 export const getCountryTimeZone = (countryName?: string | null) => getCountryConfig(countryName).timeZone;
 
 export const inferCountryFromCandidates = (...candidates: Array<string | null | undefined>) => {
@@ -265,6 +302,14 @@ export const inferCountryFromCandidates = (...candidates: Array<string | null | 
       return country.name;
     }
   }
+
+  for (const country of GLOBAL_COUNTRY_OPTIONS) {
+    const normalizedCountry = normalizeLocationText(country.name);
+    if (normalizedCandidates.some((candidate) => candidate.includes(normalizedCountry))) {
+      return country.name;
+    }
+  }
+
   return DEFAULT_COUNTRY_NAME;
 };
 

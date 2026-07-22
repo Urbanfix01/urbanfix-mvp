@@ -151,6 +151,32 @@ const buildLocationAliases = (value: string) => {
   return Array.from(new Set(aliases.map((item) => item.trim()).filter((item) => item.length >= 4)));
 };
 
+const buildSelectedLocalityAliases = (cityHint: string, provinceHint: string, countryHint: string) => {
+  const ignored = new Set(
+    [provinceHint, countryHint]
+      .map((item) => normalizeSearchText(item))
+      .filter(Boolean)
+  );
+  const aliases = new Set<string>();
+  const parts = String(cityHint || '')
+    .split(/[,;|]/)
+    .map((part) => normalizeSearchText(part))
+    .filter((part) => part.length >= 3 && !ignored.has(part));
+
+  parts.forEach((part) => {
+    aliases.add(part);
+    const tokens = part.split(' ').filter(Boolean);
+    if (tokens.length >= 3) {
+      aliases.add(tokens.slice(-2).join(' '));
+    }
+    if (tokens.length === 1 && part.length >= 4) {
+      aliases.add(part);
+    }
+  });
+
+  return Array.from(aliases);
+};
+
 const getRoadLabel = (row: NominatimRow) =>
   String(row.address?.road || row.address?.pedestrian || row.address?.footway || row.address?.residential || '').trim();
 
@@ -258,6 +284,66 @@ type GeoRefAddressRow = {
     lat?: number | string;
     lon?: number | string;
   };
+};
+
+type GeoRefAddressFilter = {
+  key: 'localidad' | 'departamento';
+  value: string;
+};
+
+const buildArgentinaAddressFilters = (
+  cityHint: string,
+  provinceHint: string,
+  inlineLocalities: string[]
+): GeoRefAddressFilter[] => {
+  const ignored = new Set(
+    [provinceHint, DEFAULT_COUNTRY_NAME]
+      .map((item) => normalizeSearchText(item))
+      .filter(Boolean)
+  );
+  const locationParts = [
+    ...String(cityHint || '').split(/[,;|]/),
+    ...inlineLocalities,
+  ]
+    .map(expandCommonAddressAbbreviations)
+    .map((part) => part.trim().replace(/\s+/g, ' '))
+    .filter((part) => {
+      const normalized = normalizeSearchText(part);
+      return normalized.length >= 3 && !ignored.has(normalized);
+    });
+  const uniqueParts = [] as string[];
+  const seenParts = new Set<string>();
+
+  locationParts.forEach((part) => {
+    const key = normalizeSearchText(part);
+    if (seenParts.has(key)) return;
+    seenParts.add(key);
+    uniqueParts.push(part);
+  });
+
+  const filters = [] as GeoRefAddressFilter[];
+  const seenFilters = new Set<string>();
+  const addFilter = (key: GeoRefAddressFilter['key'], value: string) => {
+    const normalizedValue = value.trim().replace(/\s+/g, ' ');
+    const filterKey = `${key}|${normalizeSearchText(normalizedValue)}`;
+    if (!normalizedValue || seenFilters.has(filterKey)) return;
+    seenFilters.add(filterKey);
+    filters.push({ key, value: normalizedValue });
+  };
+
+  if (uniqueParts[0]) {
+    addFilter('localidad', uniqueParts[0]);
+  }
+  if (uniqueParts[1]) {
+    addFilter('departamento', uniqueParts[1]);
+  }
+
+  uniqueParts.slice(0, 4).forEach((part) => {
+    addFilter('localidad', part);
+    addFilter('departamento', part);
+  });
+
+  return filters.slice(0, 8);
 };
 
 const buildStructuredAddressLabels = (row: NominatimRow, countryHint: string) => {
@@ -467,9 +553,9 @@ const fetchArgentinaAddressRows = async (query: string, cityHint: string, provin
   if (!parsed.streetAddress || !parsed.numberToken) {
     return { rows: [] as NominatimRow[], error: '' };
   }
-  const departmentHint = cityHint.trim() || parsed.inlineLocalities[0] || '';
+  const locationFilters = buildArgentinaAddressFilters(cityHint, provinceHint, parsed.inlineLocalities);
 
-  const buildUrl = (includeDepartment: boolean) => {
+  const buildUrl = (filter?: GeoRefAddressFilter) => {
     const params = new URLSearchParams({
       direccion: parsed.streetAddress,
       max: String(Math.max(limit, 8)),
@@ -477,8 +563,8 @@ const fetchArgentinaAddressRows = async (query: string, cityHint: string, provin
     if (provinceHint.trim()) {
       params.set('provincia', provinceHint.trim());
     }
-    if (includeDepartment && departmentHint.trim()) {
-      params.set('departamento', departmentHint.trim());
+    if (filter?.value) {
+      params.set(filter.key, filter.value);
     }
     return `https://apis.datos.gob.ar/georef/api/direcciones?${params.toString()}`;
   };
@@ -507,8 +593,28 @@ const fetchArgentinaAddressRows = async (query: string, cityHint: string, provin
     }
   };
 
-  const primary = await fetchRows(buildUrl(true));
-  const sourceRows = primary.rows.length > 0 || !departmentHint.trim() ? primary : await fetchRows(buildUrl(false));
+  const urls = [...locationFilters.map((filter) => buildUrl(filter)), buildUrl()];
+  const seenUrls = new Set<string>();
+  let firstError = '';
+  let sourceRows = { rows: [] as GeoRefAddressRow[], error: '' };
+
+  for (const url of urls) {
+    if (seenUrls.has(url)) continue;
+    seenUrls.add(url);
+    const result = await fetchRows(url);
+    if (!firstError && result.error) {
+      firstError = result.error;
+    }
+    if (result.rows.length > 0) {
+      sourceRows = result;
+      break;
+    }
+  }
+
+  if (sourceRows.rows.length === 0 && firstError) {
+    sourceRows = { rows: [], error: firstError };
+  }
+
   const rows = sourceRows.rows
     .map((row): NominatimRow | null => {
       const lat = Number(row.ubicacion?.lat);
@@ -629,6 +735,7 @@ export async function GET(request: NextRequest) {
     const normalizedLocalityAliases = Array.from(
       new Set([...parsedQuery.inlineLocalities, cityHint, ...buildLocationAliases(cityHint)].map((item) => normalizeSearchText(item)).filter(Boolean))
     );
+    const selectedLocalityAliases = buildSelectedLocalityAliases(cityHint, provinceHint, countryHint);
     const queryTokens = normalizedQuery.split(' ').filter(Boolean);
     const queryNumber = extractAddressNumber(query) || queryTokens.find((token) => /\d/.test(token)) || '';
     const queryStreet = normalizeSearchText(parsedQuery.streetPart || queryTokens.filter((token) => !/\d/.test(token)).join(' '));
@@ -653,6 +760,18 @@ export async function GET(request: NextRequest) {
         const normalizedRoad = normalizeSearchText(labels.street);
         const normalizedHouseNumber = extractAddressNumber(labels.houseNumber);
         const normalizedLocalities = getLocalityLabels(item).map((part) => normalizeSearchText(part));
+        const matchesSelectedLocality =
+          selectedLocalityAliases.length === 0 ||
+          selectedLocalityAliases.some((alias) => {
+            if (!alias) return false;
+            return (
+              normalizedLocalities.some((locality) => locality === alias || locality.includes(alias) || alias.includes(locality)) ||
+              normalizedDisplayName.includes(alias)
+            );
+          });
+        if (!matchesSelectedLocality) {
+          return null;
+        }
         const hasHouseNumber = Boolean(normalizedHouseNumber);
         const exactHouseNumberMatch = Boolean(queryNumber && normalizedHouseNumber === queryNumber);
         let score = Number(item.importance || 0);
@@ -711,6 +830,19 @@ export async function GET(request: NextRequest) {
         };
       })
       .filter(Boolean)
+      .filter((item, _index, list) => {
+        if (!queryNumber) return true;
+        const hasExactAddressMatch = list.some(
+          (candidate) =>
+            (candidate as any)?.precision === 'exact' &&
+            extractAddressNumber(String((candidate as any)?.house_number || '')) === queryNumber
+        );
+        if (!hasExactAddressMatch) return true;
+        return (
+          (item as any)?.precision === 'exact' &&
+          extractAddressNumber(String((item as any)?.house_number || '')) === queryNumber
+        );
+      })
       .sort((a, b) => Number((b as any).score || 0) - Number((a as any).score || 0))
       .slice(0, limit)
       .map((item) => ({

@@ -67,6 +67,42 @@ const loadLocalities = async (
   }
 };
 
+const searchLocalities = async (
+  country: string,
+  province: string,
+  query: string
+): Promise<{ results: LocalityOption[]; error?: string }> => {
+  const trimmedCountry = country.trim();
+  const trimmedProvince = province.trim();
+  const trimmedQuery = query.trim();
+  if (!trimmedCountry || !trimmedProvince || trimmedQuery.length < 2) return { results: [] };
+
+  try {
+    const params = new URLSearchParams({
+      country: trimmedCountry,
+      province: trimmedProvince,
+      query: trimmedQuery,
+      limit: '24',
+    });
+    const response = await fetch(`/api/localities/search?${params.toString()}`, {
+      cache: 'no-store',
+    });
+    const payload = (await response.json()) as {
+      results?: LocalityOption[];
+      error?: string;
+    };
+    return {
+      results: Array.isArray(payload.results) ? payload.results : [],
+      error: payload.error,
+    };
+  } catch {
+    return {
+      results: [],
+      error: 'No pudimos buscar esa localidad en este momento.',
+    };
+  }
+};
+
 export default function LocalitySelect({
   country,
   province,
@@ -77,20 +113,27 @@ export default function LocalitySelect({
   helperClassName,
 }: Props) {
   const [options, setOptions] = useState<LocalityOption[]>([]);
+  const [searchOptions, setSearchOptions] = useState<LocalityOption[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
   const [error, setError] = useState('');
+  const [searchError, setSearchError] = useState('');
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const requestIdRef = useRef(0);
+  const searchRequestIdRef = useRef(0);
 
   useEffect(() => {
     const trimmedCountry = country.trim();
     const trimmedProvince = province.trim();
     if (!trimmedCountry || !trimmedProvince) {
       setOptions([]);
+      setSearchOptions([]);
       setLoading(false);
+      setSearchLoading(false);
       setError('');
+      setSearchError('');
       setQuery('');
       setOpen(false);
       return;
@@ -98,6 +141,10 @@ export default function LocalitySelect({
 
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
+    setOptions([]);
+    setSearchOptions([]);
+    setSearchLoading(false);
+    setSearchError('');
     setLoading(true);
     setError('');
 
@@ -109,22 +156,62 @@ export default function LocalitySelect({
     });
   }, [country, province]);
 
+  const availableOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return [...options, ...searchOptions].filter((option) => {
+      const key = normalizeText(getOptionDisplayLabel(option));
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [options, searchOptions]);
+
   const normalizedValue = normalizeText(value);
   const selectedValue = useMemo(() => {
     if (!normalizedValue) return '';
-    const exact = options.find((option) => normalizeText(option.name) === normalizedValue);
+    const exact = availableOptions.find((option) => normalizeText(option.name) === normalizedValue);
     return exact?.name || cleanAdministrativePrefix(value);
-  }, [normalizedValue, options, value]);
+  }, [normalizedValue, availableOptions, value]);
 
   const selectedDisplayValue = useMemo(() => {
     if (!selectedValue) return '';
-    const exact = options.find((option) => normalizeText(option.name) === normalizeText(selectedValue));
+    const exact = availableOptions.find((option) => normalizeText(option.name) === normalizeText(selectedValue));
     return exact ? getOptionDisplayLabel(exact) : cleanAdministrativePrefix(selectedValue);
-  }, [options, selectedValue]);
+  }, [availableOptions, selectedValue]);
 
   useEffect(() => {
     setQuery(selectedDisplayValue);
   }, [selectedDisplayValue]);
+
+  useEffect(() => {
+    const trimmedCountry = country.trim();
+    const trimmedProvince = province.trim();
+    const trimmedQuery = query.trim();
+
+    if (!trimmedCountry || !trimmedProvince || loading || trimmedQuery.length < 2) {
+      setSearchOptions([]);
+      setSearchLoading(false);
+      setSearchError('');
+      return;
+    }
+
+    const requestId = searchRequestIdRef.current + 1;
+    searchRequestIdRef.current = requestId;
+    setSearchLoading(true);
+    setSearchError('');
+
+    const timeoutId = window.setTimeout(() => {
+      searchLocalities(trimmedCountry, trimmedProvince, trimmedQuery).then(({ results, error: nextError }) => {
+        if (searchRequestIdRef.current !== requestId) return;
+        setSearchOptions(results);
+        setSearchError(nextError || '');
+        setSearchLoading(false);
+        if (results.length > 0) setOpen(true);
+      });
+    }, 250);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [country, province, query, loading]);
 
   useEffect(() => {
     const handleDocumentPointerDown = (event: PointerEvent) => {
@@ -140,11 +227,11 @@ export default function LocalitySelect({
   const visibleOptions = useMemo(() => {
     const normalizedQuery = normalizeText(query);
     const rows = normalizedQuery
-      ? options.filter((option) => {
+      ? availableOptions.filter((option) => {
           const display = getOptionDisplayLabel(option);
           return normalizeText(option.name).includes(normalizedQuery) || normalizeText(display).includes(normalizedQuery);
         })
-      : options;
+      : availableOptions;
 
     const seen = new Set<string>();
     return rows
@@ -155,7 +242,7 @@ export default function LocalitySelect({
         return true;
       })
       .slice(0, 80);
-  }, [options, query]);
+  }, [availableOptions, query]);
 
   const handleSelect = (option: LocalityOption) => {
     const display = getOptionDisplayLabel(option);
@@ -169,16 +256,22 @@ export default function LocalitySelect({
     'w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 outline-none transition focus:border-slate-400';
   const baseHelperClassName = helperClassName || 'mt-2 text-xs text-slate-500';
   const isDisabled = disabled || !country.trim() || !province.trim() || loading;
+  const allowsFreeText = !isDisabled;
+  const hasDropdownOptions = availableOptions.length > 0;
 
   return (
     <div ref={rootRef} className="relative">
       <input
         value={query}
         onChange={(event) => {
-          setQuery(event.target.value);
-          setOpen(true);
+          const nextValue = event.target.value;
+          setQuery(nextValue);
+          setOpen(hasDropdownOptions || nextValue.trim().length >= 2);
+          if (allowsFreeText) {
+            onChange(nextValue);
+          }
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={() => setOpen(hasDropdownOptions)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && visibleOptions.length > 0) {
             event.preventDefault();
@@ -196,16 +289,16 @@ export default function LocalitySelect({
             ? 'Selecciona pais y provincia primero'
             : loading
               ? 'Cargando localidades...'
-              : 'Escribe para buscar distrito'
+              : 'Escribe ciudad, barrio o localidad'
         }
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"
       />
-      {open && !isDisabled && (
+      {open && !isDisabled && hasDropdownOptions && (
         <div className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-50 max-h-72 overflow-auto rounded-2xl border border-slate-200 bg-white p-1.5 shadow-[0_24px_54px_-34px_rgba(15,23,42,0.55)]">
           {visibleOptions.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-slate-500">No encontramos ese distrito en la lista.</div>
+            <div className="px-3 py-2 text-xs text-slate-500">No encontramos esa zona en la lista.</div>
           ) : (
             visibleOptions.map((option) => {
               const display = getOptionDisplayLabel(option);
@@ -230,12 +323,22 @@ export default function LocalitySelect({
         </div>
       )}
       {!country.trim() || !province.trim() ? (
-        <p className={baseHelperClassName}>Selecciona pais y provincia para habilitar localidades.</p>
+        <p className={baseHelperClassName}>Selecciona pais y provincia para habilitar ciudades o barrios.</p>
       ) : error ? (
         <p className="mt-2 text-xs text-rose-500">{error}</p>
       ) : (
         <p className={baseHelperClassName}>
-          {loading ? 'Cargando localidades disponibles...' : 'Escribe para filtrar y elige el distrito del listado.'}
+          {loading
+            ? 'Cargando localidades disponibles...'
+            : searchLoading
+              ? 'Buscando coincidencias...'
+              : searchError
+                ? `${searchError} Puedes escribir la localidad manualmente.`
+                : query.trim().length < 2
+                  ? 'Escribe al menos 2 letras para buscar o carga la localidad manualmente.'
+                  : visibleOptions.length === 0
+                    ? 'No encontramos esa zona. Puedes escribirla manualmente.'
+                    : 'Escribe para filtrar y elige ciudad, barrio o localidad.'}
         </p>
       )}
     </div>
