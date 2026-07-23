@@ -49,6 +49,10 @@ export type PublicTechniciansMapSearchConfig = {
   clearHref: string;
   query: string;
   options: string[];
+  rubroValue?: string;
+  rubroOptions?: Array<{ label: string; value: string }>;
+  rubroPlaceholder?: string;
+  rubroFieldName?: string;
   hiddenFields?: Array<{ name: string; value: string }>;
   resultLabel: string;
   listAnchorId?: string;
@@ -216,7 +220,9 @@ export default function PublicTechniciansMap({
 
   const displayPoints = useMemo(() => spreadOverlappingPoints(points), [points]);
   const countryFocus = useMemo(() => getCountryMapFocus(activeCountry), [activeCountry]);
-  const hasSearchFilters = Boolean(searchConfig?.query || searchConfig?.hiddenFields?.some((field) => field.value));
+  const hasSearchFilters = Boolean(
+    searchConfig?.query || searchConfig?.rubroValue || searchConfig?.hiddenFields?.some((field) => field.value)
+  );
   const selectedPoint = useMemo(
     () => displayPoints.find((point) => point.id === selectedId) || null,
     [displayPoints, selectedId]
@@ -642,13 +648,13 @@ export default function PublicTechniciansMap({
             <form
               method="get"
               action={searchConfig.actionHref}
-              className="grid grid-cols-[minmax(0,1fr)_auto] gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1fr)_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_auto_auto_auto]"
+              className="grid grid-cols-2 gap-1.5 sm:gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(170px,260px)_auto_auto_auto] xl:grid-cols-[minmax(0,1fr)_minmax(190px,280px)_auto_auto_auto]"
             >
               {searchConfig.hiddenFields?.map((field) => (
                 <input key={`${field.name}-${field.value}`} type="hidden" name={field.name} value={field.value} />
               ))}
 
-              <div className="min-w-0 sm:col-span-1">
+              <div className="col-span-2 min-w-0 lg:col-span-1">
                 <input
                   id="vidriera-zona"
                   type="text"
@@ -664,6 +670,27 @@ export default function PublicTechniciansMap({
                   ))}
                 </datalist>
               </div>
+
+              {searchConfig.rubroOptions?.length ? (
+                <div className="col-span-2 min-w-0 sm:col-span-1 lg:col-span-1">
+                  <select
+                    name={searchConfig.rubroFieldName || 'gremio'}
+                    defaultValue={searchConfig.rubroValue || ''}
+                    onChange={(event) => event.currentTarget.form?.requestSubmit()}
+                    aria-label="Filtrar por rubro"
+                    className="h-10 w-full rounded-[18px] border border-white/18 bg-black/25 px-3 text-xs font-semibold text-white outline-none transition focus:border-[#ff8f1f] focus:bg-black/34 sm:h-12 sm:rounded-[20px] sm:px-4 sm:text-sm"
+                  >
+                    <option value="" className="bg-[#190426] text-white">
+                      {searchConfig.rubroPlaceholder || 'Todos los rubros'}
+                    </option>
+                    {searchConfig.rubroOptions.map((rubro) => (
+                      <option key={`rubro-${rubro.value}`} value={rubro.value} className="bg-[#190426] text-white">
+                        {rubro.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
 
               <button
                 type="button"

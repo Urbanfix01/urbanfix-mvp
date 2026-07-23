@@ -30,6 +30,7 @@ import {
   profileMatchesGremioQuery,
   profileMatchesSpecialtyQuery,
 } from '../../../lib/seo/gremios-data';
+import { TECH_SPECIALTY_OPTIONS } from '../../../lib/technician-specialties';
 import { ciudades, ciudadSlugs, type CiudadKey } from '../../../lib/seo/urbanfix-data';
 
 type VidrieraZonaSearchParams = {
@@ -225,6 +226,10 @@ export default async function VidrieraZonaPage({
   );
   const whatsappEnabledCount = filteredProfiles.filter((profile) => Boolean(buildWhatsappLink(profile.phone))).length;
   const zonaOptions = getArgentinaZoneSearchOptions();
+  const rubroOptions = TECH_SPECIALTY_OPTIONS.slice().sort((a, b) => a.localeCompare(b, 'es')).map((specialty) => ({
+    label: specialty,
+    value: specialty,
+  }));
   const mapPoints = filteredProfiles
     .map((profile) => {
       const exactLat = toFiniteCoordinate(profile.service_lat);
@@ -356,9 +361,12 @@ export default async function VidrieraZonaPage({
                 clearHref: `/vidriera/${zona}`,
                 query: city.name,
                 options: zonaOptions,
+                rubroFieldName: 'especialidad',
+                rubroValue: specialtyQuery,
+                rubroOptions,
+                rubroPlaceholder: 'Todos los rubros',
                 hiddenFields: [
                   ...(activeGremio ? [{ name: 'gremio', value: activeGremio.slug }] : []),
-                  ...(specialtyQuery ? [{ name: 'especialidad', value: specialtyQuery }] : []),
                 ],
                 resultLabel: `Mostrando ${filteredProfiles.length} tecnico(s) visibles en ${city.name}.`,
                 listAnchorId: 'vidriera-listado',

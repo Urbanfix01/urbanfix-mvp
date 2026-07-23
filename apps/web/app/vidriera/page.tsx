@@ -31,6 +31,7 @@ import {
   profileMatchesGremioQuery,
   profileMatchesSpecialtyQuery,
 } from '../../lib/seo/gremios-data';
+import { TECH_SPECIALTY_OPTIONS } from '../../lib/technician-specialties';
 import { ciudades } from '../../lib/seo/urbanfix-data';
 
 const sora = Sora({
@@ -254,6 +255,10 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
       ...getArgentinaZoneSearchOptions(),
     ])
   ).sort((a, b) => a.localeCompare(b, 'es'));
+  const rubroOptions = TECH_SPECIALTY_OPTIONS.slice().sort((a, b) => a.localeCompare(b, 'es')).map((specialty) => ({
+    label: specialty,
+    value: specialty,
+  }));
   const mapPoints = filteredProfiles
     .map((profile) => {
       const exactLat = toFiniteCoordinate(profile.service_lat);
@@ -349,9 +354,12 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
                 clearHref: '/vidriera',
                 query: zonaQuery,
                 options: zonaOptions,
+                rubroFieldName: 'especialidad',
+                rubroValue: specialtyQuery,
+                rubroOptions,
+                rubroPlaceholder: 'Todos los rubros',
                 hiddenFields: [
                   ...(activeGremio ? [{ name: 'gremio', value: activeGremio.slug }] : []),
-                  ...(specialtyQuery ? [{ name: 'especialidad', value: specialtyQuery }] : []),
                 ],
                 resultLabel:
                   zonaQuery || activeGremio || specialtyQuery

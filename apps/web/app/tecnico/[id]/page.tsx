@@ -656,21 +656,20 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
           <div className="pointer-events-none absolute -right-16 bottom-10 h-96 w-96 rounded-full bg-[#55207e]/35 blur-3xl" />
 
           <div className="relative mx-auto w-full max-w-7xl space-y-6 px-4 py-8 sm:px-6 lg:px-8">
-            <section className="overflow-hidden rounded-[32px] border border-white/15 bg-white/[0.04] shadow-[0_35px_110px_-70px_rgba(0,0,0,1)]">
+            <section className="overflow-hidden rounded-[32px] border border-white/15 bg-[#2d073f] shadow-[0_35px_110px_-70px_rgba(0,0,0,1)]">
               <div className="relative h-44 sm:h-56 lg:h-64">
                 {companyBannerUrl ? (
                   <>
                     <img src={companyBannerUrl} alt={`Banner de ${displayName}`} className="h-full w-full object-cover" />
-                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.28)_0%,rgba(33,0,47,0.08)_44%,rgba(33,0,47,0.24)_100%)]" />
+                    <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(33,0,47,0.2)_0%,rgba(33,0,47,0.04)_44%,rgba(33,0,47,0.22)_100%)]" />
                   </>
                 ) : (
                   <div className="h-full w-full bg-[radial-gradient(circle_at_18%_20%,rgba(255,143,31,0.35),transparent_42%),radial-gradient(circle_at_80%_30%,rgba(139,92,246,0.28),transparent_40%),linear-gradient(120deg,#240033_0%,#2a0541_45%,#1d012a_100%)]" />
                 )}
-                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.12)_58%,rgba(33,0,47,0.54)_100%)]" />
+                <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(33,0,47,0)_0%,rgba(33,0,47,0.1)_50%,rgba(33,0,47,0.72)_100%)]" />
               </div>
 
-              <div className="relative -mt-16 px-4 pb-6 sm:-mt-20 sm:px-8 sm:pb-8">
-                <div className="ufx-tech-card ufx-tech-card--soft relative min-h-[340px] space-y-5 p-4 pb-20 pt-20 sm:p-6 sm:pb-20 sm:pt-6 lg:min-h-[360px]">
+              <div className="relative min-h-[340px] space-y-5 border-t border-white/10 bg-[linear-gradient(180deg,rgba(66,16,86,0.96)_0%,rgba(45,6,62,0.99)_100%)] px-4 pb-20 pt-20 sm:min-h-[350px] sm:px-8 sm:pb-20 sm:pt-8">
                   <ProfileVisitCounter
                     profileId={profile.id}
                     className="!absolute !right-4 !top-4 !z-10 max-w-[calc(100%-2rem)] bg-black/[0.24] sm:!right-6 sm:!top-6"
@@ -680,7 +679,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                     <ProfileReviewComments profileId={profile.id} initialCount={reviewsCount} />
                     <ProfileShareActions profileId={profile.id} shareUrl={canonicalUrl} title={displayName} />
                   </div>
-                  <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:gap-5 sm:text-left">
+                  <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-start sm:gap-5 sm:pr-64 sm:text-left lg:pr-72">
                     <div className="h-28 w-28 overflow-hidden rounded-3xl border border-white/35 bg-[#2a0640] shadow-[0_20px_60px_-28px_rgba(0,0,0,0.95)] ring-4 ring-[#ff8f1f]/35 sm:h-36 sm:w-36">
                       {avatarImageUrl ? (
                         <img src={avatarImageUrl} alt={`Foto de ${displayName}`} className="h-full w-full object-cover" />
@@ -811,8 +810,6 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       </div>
                     </div>
                   )}
-                </div>
-
               </div>
             </section>
 

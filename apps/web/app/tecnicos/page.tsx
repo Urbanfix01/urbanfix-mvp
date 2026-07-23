@@ -94,6 +94,7 @@ import {
   laborPriceIndex,
 } from '../../lib/labor-price-index';
 import { parseTechnicianLocation } from '../../lib/technician-location';
+import { TECH_SPECIALTY_OPTIONS, TECH_SPECIALTY_SEARCH_ALIASES } from '../../lib/technician-specialties';
 import { rubroCatalog } from '../../lib/seo/rubro-catalog';
 import type {
   AccessProfile,
@@ -1053,60 +1054,6 @@ const buildCoverageAreaLabel = (city: string) => {
   return normalizedCity
     ? `Radio de ${COVERAGE_RADIUS_KM} km desde ${normalizedCity}`
     : `Radio de ${COVERAGE_RADIUS_KM} km desde tu ciudad base`;
-};
-
-const TECH_SPECIALTY_OPTIONS = [
-  'Plomero',
-  'Sanitarista',
-  'Gasista',
-  'Electricista',
-  'Albanil',
-  'Pintor',
-  'Durlockero',
-  'Yesero',
-  'Carpintero',
-  'Herrero',
-  'Cerrajero',
-  'Techista',
-  'Impermeabilizador',
-  'Colocador de pisos',
-  'Colocador de revestimientos',
-  'Vidriero',
-  'Instalador de aberturas',
-  'Soldador',
-  'Instalador de aire acondicionado',
-  'Tecnico en refrigeracion',
-  'Tecnico calefaccionista',
-  'Instalador de portones automaticos',
-  'Instalador de alarmas y camaras',
-  'Tecnico en redes y datos',
-  'Instalador solar',
-  'Jardinero',
-  'Podador',
-  'Piletero',
-  'Fumigador',
-  'Limpieza general',
-  'Limpieza post obra',
-  'Mantenimiento de consorcios',
-  'Mantenimiento comercial',
-  'Especialista en banos y cocinas',
-  'Demoledor',
-  'Excavador',
-  'Movimiento de suelo',
-  'Hormigonista',
-  'Estructurista metalico',
-  'Reformista integral',
-];
-const TECH_SPECIALTY_SEARCH_ALIASES: Record<string, string[]> = {
-  Plomero: ['plomeria', 'sanitario', 'canos', 'canerias'],
-  Sanitarista: ['sanitario', 'banos', 'bano', 'artefactos sanitarios'],
-  Albanil: ['albanileria', 'obra civil'],
-  Durlockero: ['durlock', 'durcklero', 'drywall', 'tabiqueria'],
-  Yesero: ['yeseria', 'enduido', 'cielorraso'],
-  Techista: ['techo', 'cubierta', 'zingueria'],
-  Impermeabilizador: ['humedad', 'filtraciones', 'membrana'],
-  Piletero: ['piletas', 'piscinas'],
-  Fumigador: ['control de plagas'],
 };
 
 const getSpecialtySearchTerms = (specialty: string) => [specialty, ...(TECH_SPECIALTY_SEARCH_ALIASES[specialty] || [])];
