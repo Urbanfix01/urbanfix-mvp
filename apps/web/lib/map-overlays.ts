@@ -23,8 +23,8 @@ export const addMalvinasArgentinaLabel = (L: any, map: LeafletMapLike) => {
     icon: L.divIcon({
       html: '<div class="ufx-malvinas-map-label">Islas Malvinas Argentinas</div>',
       className: 'ufx-malvinas-map-label-shell',
-      iconSize: [218, 34],
-      iconAnchor: [109, 17],
+      iconSize: [166, 24],
+      iconAnchor: [83, 12],
     }),
     zIndexOffset: 1200,
   });

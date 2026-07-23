@@ -1873,21 +1873,21 @@ header .header-view-option {
 .ufx-operational-map-malvinas-label,
 .ufx-malvinas-map-label {
   display: inline-flex;
-  min-width: 214px;
+  min-width: 158px;
   justify-content: center;
-  border: 1px solid rgba(23, 64, 92, 0.32);
+  border: 1px solid rgba(23, 64, 92, 0.26);
   border-radius: 999px;
-  background: #aad3df;
-  padding: 6px 12px;
+  background: rgba(170, 211, 223, 0.86);
+  padding: 4px 9px;
   color: #17405c;
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 900;
   line-height: 1.05;
   letter-spacing: 0.02em;
   text-align: center;
   box-shadow:
-    0 0 0 10px #aad3df,
-    0 8px 18px -16px rgba(15, 23, 42, 0.72);
+    0 0 0 4px rgba(170, 211, 223, 0.72),
+    0 6px 14px -14px rgba(15, 23, 42, 0.66);
 }
 
 .ufx-operational-map-tooltip {

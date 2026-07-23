@@ -75,16 +75,14 @@ type DisplayPoint = PublicTechnicianMapPoint & {
 
 const ARGENTINA_CENTER: [number, number] = [-38.4, -63.6];
 const ARGENTINA_DEFAULT_ZOOM = 4.2;
-const USER_FOCUS_DISTANCE_KM = 120;
-const USER_FOCUS_NEAREST_LIMIT = 6;
-const USER_FOCUS_FALLBACK_ZOOM = 10;
+const USER_LOCATION_DEFAULT_ZOOM = 14;
+const USER_LOCATION_CLOSE_ZOOM = 15;
+const USER_LOCATION_COARSE_ZOOM = 13;
 const defaultPlaceholder = 'Ingresa ciudades o barrios';
 const MAP_PROFILE_SETUP_PATH = '/tecnicos?tab=perfil&perfil=tecnico#perfil-publicacion';
 const MAP_PROFILE_SETUP_AUTH_HREF = `/tecnicos?perfil=tecnico&mode=login&next=${encodeURIComponent(MAP_PROFILE_SETUP_PATH)}`;
 
 const formatCompactNumber = (value: number) => value.toLocaleString('es-AR');
-
-const toRadians = (value: number) => (value * Math.PI) / 180;
 
 const escapeHtml = (value: string) =>
   value
@@ -159,15 +157,11 @@ const spreadOverlappingPoints = (points: PublicTechnicianMapPoint[]): DisplayPoi
 
 const getSelectedMedia = (point: PublicTechnicianMapPoint) => point.avatarUrl || point.companyLogoUrl || '';
 
-const getDistanceKm = (fromLat: number, fromLng: number, toLat: number, toLng: number) => {
-  const earthRadiusKm = 6371;
-  const dLat = toRadians(toLat - fromLat);
-  const dLng = toRadians(toLng - fromLng);
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(toRadians(fromLat)) * Math.cos(toRadians(toLat)) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
-
-  return earthRadiusKm * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+const getUserLocationFocusZoom = (accuracyMeters: number | null) => {
+  if (!accuracyMeters) return USER_LOCATION_DEFAULT_ZOOM;
+  if (accuracyMeters <= 250) return USER_LOCATION_CLOSE_ZOOM;
+  if (accuracyMeters <= 1200) return USER_LOCATION_DEFAULT_ZOOM;
+  return USER_LOCATION_COARSE_ZOOM;
 };
 
 type UserLocationState =
@@ -228,6 +222,13 @@ export default function PublicTechniciansMap({
     [displayPoints, selectedId]
   );
   const shouldFocusUserLocation = preferUserLocation || hasRequestedUserFocus;
+
+  const focusMapOnUserLocation = (lat: number, lng: number, accuracyMeters: number | null, animate = true) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    map.setView([lat, lng], getUserLocationFocusZoom(accuracyMeters), { animate });
+  };
 
   useEffect(() => {
     setActiveCountry(getStoredCountryPreference() || selectedCountry || DEFAULT_COUNTRY_NAME);
@@ -315,11 +316,16 @@ export default function PublicTechniciansMap({
       (position) => {
         if (!isMountedRef.current) return;
 
-        setUserLocation({
-          status: 'ready',
+        const nextLocation = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
           accuracyMeters: Number.isFinite(position.coords.accuracy) ? position.coords.accuracy : null,
+        };
+
+        focusMapOnUserLocation(nextLocation.lat, nextLocation.lng, nextLocation.accuracyMeters);
+        setUserLocation({
+          status: 'ready',
+          ...nextLocation,
         });
       },
       (error) => {
@@ -347,6 +353,7 @@ export default function PublicTechniciansMap({
 
   const closeSelectedPoint = () => {
     shouldPreserveViewportRef.current = true;
+    shouldRecenterSelectionRef.current = false;
     setSelectedId(null);
   };
 
@@ -479,12 +486,15 @@ export default function PublicTechniciansMap({
 
     if (shouldPreserveViewportRef.current || shouldRecenterSelectionRef.current) {
       shouldPreserveViewportRef.current = false;
+      shouldRecenterSelectionRef.current = false;
       return;
     }
 
     if (displayPoints.length === 0) {
       if (shouldFocusUserLocation && userLocation.status === 'ready') {
-        map.setView([userLocation.lat, userLocation.lng], USER_FOCUS_FALLBACK_ZOOM, { animate: false });
+        map.setView([userLocation.lat, userLocation.lng], getUserLocationFocusZoom(userLocation.accuracyMeters), {
+          animate: false,
+        });
         return;
       }
       if (countryFocus) {
@@ -496,29 +506,8 @@ export default function PublicTechniciansMap({
     }
 
     if (shouldFocusUserLocation && userLocation.status === 'ready') {
-      const nearestPoints = displayPoints
-        .map((point) => ({
-          point,
-          distanceKm: getDistanceKm(userLocation.lat, userLocation.lng, point.lat, point.lng),
-        }))
-        .sort((a, b) => a.distanceKm - b.distanceKm);
-      const nearbyPoints = nearestPoints
-        .filter((entry) => entry.distanceKm <= USER_FOCUS_DISTANCE_KM)
-        .slice(0, USER_FOCUS_NEAREST_LIMIT)
-        .map((entry) => entry.point);
-
-      if (nearbyPoints.length === 0) {
-        map.setView([userLocation.lat, userLocation.lng], USER_FOCUS_FALLBACK_ZOOM, { animate: false });
-        return;
-      }
-
-      const userBounds = L.latLngBounds([
-        [userLocation.lat, userLocation.lng] as [number, number],
-        ...nearbyPoints.map((point) => [point.mapLat, point.mapLng] as [number, number]),
-      ]);
-      map.fitBounds(userBounds.pad(0.18), {
-        maxZoom: nearbyPoints.length === 1 ? 11 : 12,
-        animate: false,
+      map.setView([userLocation.lat, userLocation.lng], getUserLocationFocusZoom(userLocation.accuracyMeters), {
+        animate: true,
       });
       return;
     }
