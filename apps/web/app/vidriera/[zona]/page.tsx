@@ -198,7 +198,7 @@ export default async function VidrieraZonaPage({
     return (
       <div className={sora.className}>
         <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
-          <PublicTopNav activeHref="/vidriera" sticky />
+          <PublicTopNav activeHref="/vidriera" sticky showNavigationLinks />
           <div className="mx-auto w-full max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
             <section className="rounded-3xl border border-white/15 bg-white/[0.03] p-6 text-center sm:p-8">
               <h1 className="text-2xl font-semibold text-white">Vidriera no disponible</h1>
@@ -340,7 +340,7 @@ export default async function VidrieraZonaPage({
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionJsonLd) }} />
-        <PublicTopNav activeHref="/vidriera" sticky />
+        <PublicTopNav activeHref="/vidriera" sticky showNavigationLinks />
 
         <div className="px-3 pb-4 pt-3 sm:px-4 lg:px-6">
           {error && (

@@ -87,3 +87,8 @@ create policy "Users delete own community posts"
   on public.community_posts for delete
   to authenticated
   using (auth.uid() = author_id);
+
+grant select on public.community_posts to anon, authenticated;
+grant insert, update, delete on public.community_posts to authenticated;
+
+notify pgrst, 'reload schema';

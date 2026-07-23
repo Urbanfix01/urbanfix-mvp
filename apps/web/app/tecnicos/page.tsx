@@ -16,6 +16,7 @@ import {
   EyeOff,
   FilePlus,
   FileText,
+  Globe2,
   Home,
   ImagePlus,
   Info,
@@ -8868,6 +8869,16 @@ export default function TechniciansPage() {
       },
     })),
     {
+      key: 'mobile-community',
+      label: 'Comunidad',
+      active: false,
+      badge: null,
+      icon: Globe2,
+      onSelect: () => {
+        window.location.href = '/comunidad';
+      },
+    },
+    {
       key: 'mobile-settings',
       label: 'Configuraci\u00f3n',
       active: activeTab === 'perfil',
@@ -12543,6 +12554,22 @@ export default function TechniciansPage() {
                         </button>
                       );
                     })}
+                    <a
+                      href="/comunidad"
+                      title={!isDesktopNavExpanded ? 'Comunidad' : undefined}
+                      className={`group relative flex items-center text-white/[0.58] transition duration-200 hover:bg-white/[0.055] hover:text-white ${
+                        isDesktopNavExpanded
+                          ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left'
+                          : 'h-10 w-10 justify-center rounded-[14px]'
+                      }`}
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.055] text-white/[0.68] transition group-hover:bg-white/[0.09] group-hover:text-white">
+                        <Globe2 className="h-4 w-4" />
+                      </span>
+                      {isDesktopNavExpanded && (
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Comunidad</span>
+                      )}
+                    </a>
                   </div>
                 </nav>
 

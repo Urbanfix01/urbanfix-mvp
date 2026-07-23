@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type Session } from '@supabase/supabase-js';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../lib/supabase/supabase';
 import Link from 'next/link';
-import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, Settings, ShieldCheck, Store, Tag, User } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Eye, EyeOff, FilePlus, Globe2, ImagePlus, Loader2, LockKeyhole, LogOut, Mail, MapPin, MessageCircle, Settings, ShieldCheck, Store, Tag, User } from 'lucide-react';
 import GoogleMark from '../../components/GoogleMark';
 import PublicTopNav from '../../components/PublicTopNav';
 import TechnicianOperationalMap from '../../components/TechnicianOperationalMap';
@@ -2939,6 +2939,19 @@ export default function ClientRequestsHub() {
                     </span>
                     {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Técnicos</span>}
                   </button>
+
+                  <Link
+                    href="/comunidad"
+                    title={!isDesktopNavExpanded ? 'Comunidad' : undefined}
+                    className={`group relative flex items-center text-white/[0.72] transition hover:bg-white/[0.075] hover:text-white ${
+                      isDesktopNavExpanded ? 'min-h-10 w-full gap-2.5 rounded-[14px] px-2.5 text-left' : 'h-10 w-10 justify-center rounded-[14px]'
+                    }`}
+                  >
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[12px] bg-white/[0.055] transition group-hover:bg-white/[0.09]">
+                      <Globe2 className="h-4 w-4" />
+                    </span>
+                    {isDesktopNavExpanded && <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Comunidad</span>}
+                  </Link>
 
                   <button
                     type="button"

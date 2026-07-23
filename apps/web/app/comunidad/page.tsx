@@ -20,7 +20,7 @@ export default function ComunidadPage() {
   return (
     <div className={sora.className}>
       <main className="min-h-screen bg-[#f8f5f0] text-slate-950">
-        <PublicTopNav activeHref="/comunidad" sticky />
+        <PublicTopNav activeHref="/comunidad" sticky showNavigationLinks />
 
         <CommunityFeed />
       </main>
