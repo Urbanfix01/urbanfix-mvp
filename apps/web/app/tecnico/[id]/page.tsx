@@ -79,6 +79,26 @@ type PublicProfileReview = {
   submittedAt: string;
 };
 
+type TechnicianCommunityPost = {
+  id: string;
+  postType: string;
+  title: string;
+  body: string;
+  mediaCount: number;
+  likesCount: number;
+  commentsCount: number;
+  createdAt: string;
+};
+
+const communityPostTypeLabel: Record<string, string> = {
+  trabajo: 'Trabajo',
+  aviso: 'Aviso',
+  consulta: 'Consulta',
+  antes_despues: 'Antes/despues',
+  publicidad: 'Aviso',
+  post: 'Post',
+};
+
 const parseDelimitedValues = (value: string | null | undefined) =>
   String(value || '')
     .split(/[\n,;|/]+/)
@@ -333,6 +353,63 @@ const normalizePublicReview = (row: any, source: 'verified' | 'profile', fallbac
   submittedAt: String(row?.submitted_at || row?.updated_at || ''),
 });
 
+const normalizeCommunityPost = (row: any): TechnicianCommunityPost => ({
+  id: String(row?.id || crypto.randomUUID()),
+  postType: String(row?.post_type || 'post'),
+  title: String(row?.title || '').trim(),
+  body: String(row?.body || '').trim(),
+  mediaCount: Array.isArray(row?.media_items) ? row.media_items.length : 0,
+  likesCount: Math.max(0, Number(row?.likes_count || 0)),
+  commentsCount: Math.max(0, Number(row?.comments_count || 0)),
+  createdAt: String(row?.created_at || ''),
+});
+
+const isMissingCommunitySource = (message: string) => {
+  const lower = String(message || '').toLowerCase();
+  return lower.includes('community_posts') || lower.includes('does not exist') || lower.includes('schema cache');
+};
+
+const formatCommunityPostDate = (value: string) => {
+  if (!value) return 'Ahora';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Ahora';
+  return new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: ARGENTINA_TIMEZONE,
+  }).format(date);
+};
+
+const getCommunityPostPreview = (post: TechnicianCommunityPost) => {
+  const source = post.title || post.body;
+  if (source.length <= 120) return source;
+  return `${source.slice(0, 117).trimEnd()}...`;
+};
+
+const fetchTechnicianCommunityPosts = async (profileId: string) => {
+  const supabase = getSupabase();
+  if (!supabase) return [] as TechnicianCommunityPost[];
+
+  const { data, error } = await supabase
+    .from('community_posts')
+    .select('id, post_type, title, body, media_items, likes_count, comments_count, created_at')
+    .eq('author_id', profileId)
+    .eq('is_published', true)
+    .order('created_at', { ascending: false })
+    .limit(3);
+
+  if (error) {
+    if (!isMissingCommunitySource(error.message || '')) {
+      console.error('Error loading technician community posts:', error);
+    }
+    return [];
+  }
+
+  return (data || []).map(normalizeCommunityPost);
+};
+
 const fetchTechnicianPublicReviews = async (profileId: string, fallbackLocation = '') => {
   const supabase = getSupabase();
   if (!supabase) {
@@ -555,6 +632,7 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
     ? publicReviewState.reviewsCount
     : Math.max(0, Number(profile.public_reviews_count || 0));
   const publicReviews = publicReviewState.reviews;
+  const communityPosts = await fetchTechnicianCommunityPosts(profile.id);
   const completedJobsRaw = Number(profile.completed_jobs_total);
   const hasRating = Number.isFinite(rating) && rating > 0;
   const hasCompletedJobs = Number.isFinite(completedJobsRaw) && completedJobsRaw > 0;
@@ -916,6 +994,54 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                       >
                         {badge}
                       </span>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            )}
+
+            {communityPosts.length > 0 && (
+              <section>
+                <article className="ufx-tech-card ufx-tech-card--soft p-5 sm:p-6">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.2em] text-white/55">Muro UrbanFix</p>
+                      <h2 className="mt-2 text-2xl font-semibold text-white">Actividad reciente</h2>
+                    </div>
+                    <Link
+                      href={`/comunidad?autor=${profile.id}`}
+                      className="inline-flex rounded-full border border-white/15 bg-white/[0.06] px-4 py-2 text-xs font-black text-white transition hover:border-[#ff8f1f]/60 hover:bg-[#ff8f1f]/15"
+                    >
+                      Ver en el muro
+                    </Link>
+                  </div>
+
+                  <div className="mt-5 grid gap-3 lg:grid-cols-3">
+                    {communityPosts.map((post) => (
+                      <Link
+                        key={post.id}
+                        href={`/comunidad?autor=${profile.id}`}
+                        className="group rounded-[24px] border border-white/12 bg-black/18 p-4 transition hover:-translate-y-0.5 hover:border-[#ff8f1f]/50 hover:bg-black/24"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="rounded-full bg-white/10 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.14em] text-[#ffd6a6]">
+                            {communityPostTypeLabel[post.postType] || 'Post'}
+                          </span>
+                          <span className="text-[11px] font-bold text-white/45">{formatCommunityPostDate(post.createdAt)}</span>
+                        </div>
+                        <p className="mt-4 min-h-[72px] text-sm font-semibold leading-6 text-white/78 group-hover:text-white">
+                          {getCommunityPostPreview(post)}
+                        </p>
+                        <div className="mt-4 flex flex-wrap gap-2 text-[11px] font-black text-white/52">
+                          <span className="rounded-full bg-white/[0.08] px-2.5 py-1">{post.likesCount} me gusta</span>
+                          <span className="rounded-full bg-white/[0.08] px-2.5 py-1">{post.commentsCount} comentarios</span>
+                          {post.mediaCount > 0 ? (
+                            <span className="rounded-full bg-[#ff8f1f]/15 px-2.5 py-1 text-[#ffd6a6]">
+                              {post.mediaCount} imagen(es)
+                            </span>
+                          ) : null}
+                        </div>
+                      </Link>
                     ))}
                   </div>
                 </article>
