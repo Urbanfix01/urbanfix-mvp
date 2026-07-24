@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   BadgeCheck,
   Camera,
+  ClipboardList,
   Globe2,
   Heart,
   ImageIcon,
@@ -22,8 +23,8 @@ import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import { parseGremioSpecialties } from '../../lib/seo/gremios-data';
 import { TECH_SPECIALTY_OPTIONS, TECH_SPECIALTY_SEARCH_ALIASES } from '../../lib/technician-specialties';
 
-type PostType = 'post' | 'publicidad' | 'trabajo' | 'aviso' | 'consulta' | 'antes_despues';
-type AuthorRole = 'tecnico' | 'empresa';
+type PostType = 'post' | 'publicidad' | 'trabajo' | 'pedido' | 'aviso' | 'consulta' | 'antes_despues';
+type AuthorRole = 'tecnico' | 'empresa' | 'cliente' | 'admin';
 
 type CommunityMedia = {
   url: string;
@@ -96,9 +97,29 @@ type CommunityAuthorPublicProfile = {
   specialties: string[];
 };
 
+type AdminCommunityProfileDraft = {
+  name: string;
+  logoUrl: string;
+};
+
+const ADMIN_COMMUNITY_PROFILE_STORAGE_KEY = 'urbanfix.community.adminProfile';
+const DEFAULT_ADMIN_COMMUNITY_PROFILE: AdminCommunityProfileDraft = {
+  name: 'UrbanFix',
+  logoUrl: '/logo-ufx-main.png',
+};
+
 const roleLabel: Record<AuthorRole, string> = {
   tecnico: 'Tecnico',
   empresa: 'Empresa',
+  cliente: 'Cliente',
+  admin: 'UrbanFix',
+};
+
+const roleBadgeClass: Record<AuthorRole, string> = {
+  tecnico: 'bg-emerald-50 text-emerald-700',
+  empresa: 'bg-violet-50 text-violet-700',
+  cliente: 'bg-sky-50 text-sky-700',
+  admin: 'bg-[#fff4e8] text-[#b65b00]',
 };
 
 const postTypeMeta: Record<
@@ -117,6 +138,13 @@ const postTypeMeta: Record<
     helper: 'Mostra una obra, reparacion o servicio finalizado.',
     badgeClass: 'bg-emerald-50 text-emerald-700',
     bodyPlaceholder: 'Conta que hiciste, en que zona y que resultado lograste.',
+  },
+  pedido: {
+    label: 'Pedido de trabajo',
+    shortLabel: 'Pedido',
+    helper: 'Para clientes que quieren resolver un trabajo.',
+    badgeClass: 'bg-blue-50 text-blue-700',
+    bodyPlaceholder: 'Conta que trabajo necesitas, en que zona estas, urgencia y detalles importantes.',
   },
   aviso: {
     label: 'Aviso / promo',
@@ -155,7 +183,50 @@ const postTypeMeta: Record<
   },
 };
 
-const composerPostTypes: PostType[] = ['trabajo', 'aviso', 'consulta', 'antes_despues'];
+const technicianComposerPostTypes: PostType[] = ['trabajo', 'aviso', 'consulta', 'antes_despues'];
+const clientComposerPostTypes: PostType[] = ['pedido', 'consulta'];
+const adminComposerPostTypes: PostType[] = ['post', 'aviso', 'consulta'];
+
+const getComposerPostTypes = (role: AuthorRole | null | undefined) =>
+  role === 'admin' ? adminComposerPostTypes : role === 'cliente' ? clientComposerPostTypes : technicianComposerPostTypes;
+
+const getDefaultPostType = (role: AuthorRole | null | undefined): PostType =>
+  role === 'admin' ? 'post' : role === 'cliente' ? 'pedido' : 'trabajo';
+
+const normalizeAdminCommunityProfile = (value: Partial<AdminCommunityProfileDraft> | null | undefined) => {
+  const name = String(value?.name || '').trim() || DEFAULT_ADMIN_COMMUNITY_PROFILE.name;
+  const logoUrl = String(value?.logoUrl || '').trim() || DEFAULT_ADMIN_COMMUNITY_PROFILE.logoUrl;
+  return { name, logoUrl };
+};
+
+const readStoredAdminCommunityProfile = () => {
+  if (typeof window === 'undefined') return DEFAULT_ADMIN_COMMUNITY_PROFILE;
+
+  try {
+    const raw = window.localStorage.getItem(ADMIN_COMMUNITY_PROFILE_STORAGE_KEY);
+    if (!raw) return DEFAULT_ADMIN_COMMUNITY_PROFILE;
+    return normalizeAdminCommunityProfile(JSON.parse(raw));
+  } catch {
+    return DEFAULT_ADMIN_COMMUNITY_PROFILE;
+  }
+};
+
+const writeStoredAdminCommunityProfile = (profile: AdminCommunityProfileDraft) => {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(ADMIN_COMMUNITY_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+};
+
+const buildAdminCommunityProfile = (userId: string, draft: AdminCommunityProfileDraft): CommunityProfile => ({
+  id: userId,
+  name: draft.name,
+  role: 'admin',
+  avatarUrl: draft.logoUrl,
+  phone: null,
+  location: 'UrbanFix',
+  specialties: [],
+  profileHref: '/urbanfix',
+  whatsappHref: '',
+});
 
 const normalizeCoordinates = (value: any): CommunityCoordinates | null => {
   const lat = Number(value?.lat ?? value?.latitude);
@@ -227,23 +298,46 @@ const normalizePost = (
 ): CommunityPost => {
   const authorId = row.author_id ? String(row.author_id) : null;
   const publicProfile = authorId ? authorProfiles[authorId] : null;
-  const authorName = publicProfile?.name || String(row.author_name || 'Tecnico UrbanFix');
-  const authorSpecialties = publicProfile?.specialties || [];
+  const authorRole: AuthorRole =
+    row.author_role === 'admin'
+      ? 'admin'
+      : row.author_role === 'empresa'
+        ? 'empresa'
+        : row.author_role === 'cliente'
+          ? 'cliente'
+          : 'tecnico';
+  const rowAuthorName = String(row.author_name || '').trim();
+  const authorName =
+    authorRole === 'admin'
+      ? rowAuthorName || DEFAULT_ADMIN_COMMUNITY_PROFILE.name
+      : authorRole === 'cliente'
+      ? rowAuthorName || publicProfile?.name || 'Cliente UrbanFix'
+      : publicProfile?.name || rowAuthorName || 'Tecnico UrbanFix';
+  const authorSpecialties = authorRole === 'admin' ? [] : publicProfile?.specialties || [];
+  const profileContactUrl =
+    authorRole === 'admin'
+      ? '/urbanfix'
+      : authorRole === 'cliente'
+      ? null
+      : publicProfile?.profileHref || (authorId ? buildTechnicianPath(authorId, authorName) : null);
 
   return {
     id: String(row.id),
     author_id: authorId,
     author_name: authorName,
-    author_role: row.author_role === 'empresa' ? 'empresa' : 'tecnico',
-    author_avatar_url: publicProfile?.avatarUrl || (row.author_avatar_url ? String(row.author_avatar_url) : null),
+    author_role: authorRole,
+    author_avatar_url:
+      authorRole === 'admin'
+        ? String(row.author_avatar_url || DEFAULT_ADMIN_COMMUNITY_PROFILE.logoUrl).trim() || null
+        : publicProfile?.avatarUrl || (row.author_avatar_url ? String(row.author_avatar_url) : null),
     post_type: postTypeMeta[row.post_type as PostType] ? (row.post_type as PostType) : 'post',
     title: row.title ? String(row.title) : null,
     body: String(row.body || ''),
     category: row.category ? String(row.category) : authorSpecialties[0] || null,
     location: row.location ? String(row.location) : publicProfile?.location || null,
     coordinates: normalizeCoordinates(row.coordinates),
-    contact_url: row.contact_url ? String(row.contact_url) : publicProfile?.profileHref || (authorId ? `/tecnico/${authorId}` : null),
-    whatsapp_url: publicProfile?.whatsappHref || null,
+    contact_url: row.contact_url ? String(row.contact_url) : profileContactUrl,
+    whatsapp_url: authorRole === 'cliente' || authorRole === 'admin' ? null : publicProfile?.whatsappHref || null,
     author_location: publicProfile?.location || null,
     author_specialties: authorSpecialties,
     tags: Array.isArray(row.tags) ? row.tags.map((tag: unknown) => String(tag)).filter(Boolean) : [],
@@ -376,6 +470,22 @@ const getInitials = (name: string) => {
   return `${parts[0]?.charAt(0) || 'U'}${parts[1]?.charAt(0) || ''}`.toUpperCase();
 };
 
+const verifyAdminSession = async (accessToken: string | null | undefined) => {
+  if (!accessToken) return false;
+
+  try {
+    const response = await fetch('/api/admin/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!response.ok) return false;
+    const payload = await response.json();
+    return Boolean(payload?.isAdmin);
+  } catch {
+    return false;
+  }
+};
+
 export default function CommunityFeed() {
   const mediaInputRef = useRef<HTMLInputElement | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
@@ -401,6 +511,10 @@ export default function CommunityFeed() {
   const [locationFilter, setLocationFilter] = useState('');
   const [specialtyFilter, setSpecialtyFilter] = useState('');
   const [authorFilter, setAuthorFilter] = useState('');
+  const [adminProfileDraft, setAdminProfileDraft] = useState<AdminCommunityProfileDraft>(
+    DEFAULT_ADMIN_COMMUNITY_PROFILE
+  );
+  const [adminProfileFeedback, setAdminProfileFeedback] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -411,7 +525,7 @@ export default function CommunityFeed() {
         return undefined;
       }
 
-      const applyUser = async (user: any) => {
+      const applyUser = async (user: any, accessToken?: string | null) => {
         if (!user) {
           if (!cancelled) {
             setProfile(null);
@@ -420,10 +534,27 @@ export default function CommunityFeed() {
           return;
         }
 
+        const isAdmin = await verifyAdminSession(accessToken);
+        if (cancelled) return;
+
+        if (isAdmin) {
+          const storedAdminProfile = readStoredAdminCommunityProfile();
+          setAdminProfileDraft(storedAdminProfile);
+          setProfile(buildAdminCommunityProfile(user.id, storedAdminProfile));
+          setAuthLoading(false);
+          return;
+        }
+
         const metadata = user.user_metadata || {};
         const metadataRole = String(metadata.user_type || metadata.profile || '').toLowerCase();
         const role: AuthorRole | null =
-          metadataRole === 'empresa' ? 'empresa' : metadataRole === 'tecnico' ? 'tecnico' : null;
+          metadataRole === 'empresa'
+            ? 'empresa'
+            : metadataRole === 'tecnico'
+              ? 'tecnico'
+              : metadataRole === 'cliente'
+                ? 'cliente'
+                : null;
 
         const { data } = await supabase
           .from('profiles')
@@ -437,7 +568,7 @@ export default function CommunityFeed() {
 
         const profileName =
           String(data?.business_name || data?.full_name || metadata.business_name || metadata.full_name || user.email || '')
-            .trim() || 'Tecnico UrbanFix';
+            .trim() || (role === 'cliente' ? 'Cliente UrbanFix' : 'Tecnico UrbanFix');
         const profileSpecialties = parseGremioSpecialties(data?.specialties).slice(0, 6);
 
         setProfile({
@@ -448,19 +579,19 @@ export default function CommunityFeed() {
           phone: String(data?.phone || metadata.phone || metadata.whatsapp || '').trim() || null,
           location: buildProfileLocation(data),
           specialties: profileSpecialties,
-          profileHref: buildTechnicianPath(user.id, profileName),
-          whatsappHref: buildWhatsappLink(data?.phone || metadata.phone || metadata.whatsapp),
+          profileHref: role === 'cliente' ? '/cliente' : buildTechnicianPath(user.id, profileName),
+          whatsappHref: role === 'cliente' ? '' : buildWhatsappLink(data?.phone || metadata.phone || metadata.whatsapp),
         });
         setAuthLoading(false);
       };
 
       const { data } = await supabase.auth.getSession();
-      await applyUser(data.session?.user || null);
+      await applyUser(data.session?.user || null, data.session?.access_token || null);
 
       const {
         data: { subscription },
       } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-        void applyUser(nextSession?.user || null);
+        void applyUser(nextSession?.user || null, nextSession?.access_token || null);
       });
 
       return () => subscription.unsubscribe();
@@ -550,10 +681,31 @@ export default function CommunityFeed() {
 
   const canPublish = Boolean(profile?.role);
   const canComment = Boolean(profile?.id);
+  const isAdminProfile = profile?.role === 'admin';
   const displayName = profile?.name || 'Comunidad UrbanFix';
   const firstName = profile?.name?.trim().split(/\s+/)[0] || 'UrbanFix';
-  const loginHref = `/tecnicos?perfil=tecnico&mode=login&next=${encodeURIComponent('/comunidad')}`;
+  const loginHref = `/tecnicos?mode=login&next=${encodeURIComponent('/comunidad')}`;
+  const availableComposerPostTypes = getComposerPostTypes(profile?.role);
+  const defaultPostType = getDefaultPostType(profile?.role);
   const selectedPostType = postTypeMeta[postType];
+  const quickComposerActions =
+    profile?.role === 'admin'
+      ? [
+          { type: 'post' as PostType, label: 'Comunicado', icon: Sparkles, iconClass: 'text-[#ff8f1f]' },
+          { type: 'aviso' as PostType, label: 'Aviso', icon: Megaphone, iconClass: 'text-[#ff8f1f]' },
+          { type: 'consulta' as PostType, label: 'Consulta', icon: MessageCircle, iconClass: 'text-sky-600' },
+        ]
+      : profile?.role === 'cliente'
+      ? [
+          { type: 'pedido' as PostType, label: 'Pedido', icon: ClipboardList, iconClass: 'text-blue-600' },
+          { type: 'consulta' as PostType, label: 'Consulta', icon: MessageCircle, iconClass: 'text-sky-600' },
+        ]
+      : [
+          { type: 'trabajo' as PostType, label: 'Trabajo', icon: Camera, iconClass: 'text-emerald-600' },
+          { type: 'aviso' as PostType, label: 'Aviso', icon: Megaphone, iconClass: 'text-[#ff8f1f]' },
+          { type: 'consulta' as PostType, label: 'Consulta', icon: MessageCircle, iconClass: 'text-sky-600' },
+          { type: 'antes_despues' as PostType, label: 'Antes/despues', icon: ImageIcon, iconClass: 'text-violet-600' },
+        ];
   const normalizedLocationFilter = normalizeFilterText(locationFilter);
   const hasActiveFilters = Boolean(normalizedLocationFilter || specialtyFilter || authorFilter);
   const filteredPosts = posts.filter((post) => {
@@ -564,23 +716,40 @@ export default function CommunityFeed() {
     return matchesLocation && matchesSpecialty && matchesAuthor;
   });
 
-  const openComposer = (nextPostType: PostType = postType) => {
-    setPostType(nextPostType);
+  const openComposer = (nextPostType: PostType = defaultPostType) => {
+    setPostType(availableComposerPostTypes.includes(nextPostType) ? nextPostType : defaultPostType);
     setIsComposerOpen(true);
+  };
+
+  const saveAdminProfile = () => {
+    if (!profile || profile.role !== 'admin') return;
+
+    const nextProfile = normalizeAdminCommunityProfile(adminProfileDraft);
+    setAdminProfileDraft(nextProfile);
+    writeStoredAdminCommunityProfile(nextProfile);
+    setProfile(buildAdminCommunityProfile(profile.id, nextProfile));
+    setAdminProfileFeedback('Perfil actualizado para publicar como UrbanFix.');
+    window.setTimeout(() => setAdminProfileFeedback(''), 2400);
   };
 
   useEffect(() => {
     if (authLoading || !canPublish || isComposerOpen || typeof window === 'undefined') return;
 
     const requestedType = new URLSearchParams(window.location.search).get('crear') as PostType | null;
-    if (requestedType && composerPostTypes.includes(requestedType)) {
+    if (requestedType && availableComposerPostTypes.includes(requestedType)) {
       setPostType(requestedType);
       setIsComposerOpen(true);
     }
-  }, [authLoading, canPublish, isComposerOpen]);
+  }, [authLoading, availableComposerPostTypes, canPublish, isComposerOpen]);
+
+  useEffect(() => {
+    if (!availableComposerPostTypes.includes(postType)) {
+      setPostType(defaultPostType);
+    }
+  }, [availableComposerPostTypes, defaultPostType, postType]);
 
   const resetComposer = () => {
-    setPostType('trabajo');
+    setPostType(defaultPostType);
     setTitle('');
     setBody('');
     setTagInput('');
@@ -646,7 +815,7 @@ export default function CommunityFeed() {
     setFeedback('');
 
     if (!canPublish) {
-      setFeedback('Ingresa como tecnico o empresa para publicar.');
+      setFeedback('Ingresa con tu cuenta UrbanFix para publicar.');
       return;
     }
 
@@ -676,15 +845,15 @@ export default function CommunityFeed() {
         .from('community_posts')
         .insert({
           author_id: profile.id,
-          author_name: profile.name || 'Tecnico UrbanFix',
+          author_name: profile.name || (profile.role === 'cliente' ? 'Cliente UrbanFix' : 'Tecnico UrbanFix'),
           author_role: profile.role || 'tecnico',
           author_avatar_url: profile.avatarUrl || null,
           post_type: postType,
           title: safeTitle || null,
           body: safeBody,
-          category: profile.specialties[0] || null,
+          category: profile.role === 'cliente' ? null : profile.specialties[0] || null,
           location: profile.location,
-          contact_url: profile.profileHref,
+          contact_url: profile.role === 'cliente' ? null : profile.profileHref,
           tags: parseTags(tagInput),
           media_items: uploadedMedia,
           is_published: true,
@@ -836,7 +1005,7 @@ export default function CommunityFeed() {
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Comunidad</p>
             <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Muro UrbanFix</h1>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              Posteos reales de tecnicos y empresas dentro de la plataforma.
+              Posteos reales de clientes, tecnicos y empresas dentro de la plataforma.
             </p>
           </div>
 
@@ -873,7 +1042,7 @@ export default function CommunityFeed() {
                 </span>
                 <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Comparte, muestra y conecta</h2>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-white/78">
-                  Un feed para publicar avances, trabajos terminados, novedades y avisos sin mezclar actividad ficticia.
+                  Un feed para publicar pedidos, avances, trabajos terminados, novedades y avisos sin mezclar actividad ficticia.
                 </p>
               </div>
               <Link
@@ -890,7 +1059,7 @@ export default function CommunityFeed() {
           <div className="flex items-center gap-3">
             <button
               type="button"
-              onClick={() => openComposer('trabajo')}
+              onClick={() => openComposer(defaultPostType)}
               className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2a0338] text-sm font-black text-white"
               aria-label="Abrir perfil para publicar"
             >
@@ -903,50 +1072,91 @@ export default function CommunityFeed() {
 
             <button
               type="button"
-              onClick={() => openComposer('trabajo')}
+              onClick={() => openComposer(defaultPostType)}
               className="min-w-0 flex-1 rounded-full bg-slate-100 px-4 py-3 text-left text-sm font-semibold text-slate-500 transition hover:bg-slate-200"
             >
-              {canPublish ? `Que queres compartir, ${firstName}?` : 'Ingresa como tecnico o empresa para publicar'}
+              {canPublish ? `Que queres compartir, ${firstName}?` : 'Ingresa con tu cuenta UrbanFix para publicar'}
             </button>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4">
-            <button
-              type="button"
-              onClick={() => openComposer('trabajo')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
-            >
-              <Camera className="h-4 w-4 text-emerald-600" />
-              Trabajo
-            </button>
-            <button
-              type="button"
-              onClick={() => openComposer('aviso')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
-            >
-              <Megaphone className="h-4 w-4 text-[#ff8f1f]" />
-              Aviso
-            </button>
-            <button
-              type="button"
-              onClick={() => openComposer('consulta')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
-            >
-              <MessageCircle className="h-4 w-4 text-sky-600" />
-              Consulta
-            </button>
-            <button
-              type="button"
-              onClick={() => openComposer('antes_despues')}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
-            >
-              <ImageIcon className="h-4 w-4 text-violet-600" />
-              Antes/despues
-            </button>
+            {quickComposerActions.map((action) => {
+              const Icon = action.icon;
+              return (
+                <button
+                  key={action.type}
+                  type="button"
+                  onClick={() => openComposer(action.type)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-100"
+                >
+                  <Icon className={`h-4 w-4 ${action.iconClass}`} />
+                  {action.label}
+                </button>
+              );
+            })}
           </div>
 
           {feedback && <p className="mt-3 text-sm font-semibold text-slate-500">{feedback}</p>}
         </div>
+
+        {isAdminProfile ? (
+          <div className="rounded-3xl border border-[#f0d8bd] bg-white p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-950">
+                  {adminProfileDraft.logoUrl ? (
+                    <img
+                      src={adminProfileDraft.logoUrl}
+                      alt={adminProfileDraft.name || 'UrbanFix'}
+                      className="h-full w-full object-contain p-1.5"
+                    />
+                  ) : (
+                    getInitials(adminProfileDraft.name || 'UrbanFix')
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#b65b00]">
+                    Perfil administrativo
+                  </p>
+                  <h3 className="truncate text-lg font-black text-slate-950">Publicar como {displayName}</h3>
+                </div>
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4e8] px-3 py-1 text-xs font-black text-[#b65b00]">
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Oficial
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
+              <input
+                value={adminProfileDraft.name}
+                onChange={(event) =>
+                  setAdminProfileDraft((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="Nombre para publicar"
+                className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
+              />
+              <input
+                value={adminProfileDraft.logoUrl}
+                onChange={(event) =>
+                  setAdminProfileDraft((current) => ({ ...current, logoUrl: event.target.value }))
+                }
+                placeholder="/logo-ufx-main.png"
+                className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
+              />
+              <button
+                type="button"
+                onClick={saveAdminProfile}
+                className="h-12 rounded-2xl bg-[#2a0338] px-5 text-sm font-black text-white transition hover:bg-[#401354]"
+              >
+                Guardar
+              </button>
+            </div>
+            {adminProfileFeedback ? (
+              <p className="mt-2 text-sm font-bold text-emerald-700">{adminProfileFeedback}</p>
+            ) : null}
+          </div>
+        ) : null}
 
         <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="grid gap-2 sm:grid-cols-[1fr_230px_auto]">
@@ -1015,7 +1225,7 @@ export default function CommunityFeed() {
             </div>
             <h3 className="mt-4 text-xl font-black text-slate-950">Todavia no hay publicaciones reales</h3>
             <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-slate-500">
-              Cuando un tecnico o empresa publique, el contenido va a aparecer aca.
+              Cuando un cliente, tecnico o empresa publique, el contenido va a aparecer aca.
             </p>
           </div>
         ) : null}
@@ -1035,7 +1245,13 @@ export default function CommunityFeed() {
         <div className="space-y-4">
           {filteredPosts.map((post) => {
             const profileHref =
-              post.contact_url || (post.author_id ? buildTechnicianPath(post.author_id, post.author_name) : '/vidriera');
+              post.contact_url ||
+              (post.author_role === 'cliente'
+                ? ''
+                : post.author_id
+                  ? buildTechnicianPath(post.author_id, post.author_name)
+                  : '/vidriera');
+            const hasProfileLink = Boolean(profileHref);
             const isLiked = Boolean(likedPosts[post.id]);
             const postMeta = postTypeMeta[post.post_type];
             const visibleSpecialties = post.author_specialties.slice(0, 4);
@@ -1045,28 +1261,48 @@ export default function CommunityFeed() {
             const commentValue = commentInputs[post.id] || '';
             const isCommentSubmitting = Boolean(commentSubmitting[post.id]);
             const postCommentFeedback = commentFeedback[post.id] || '';
+            const actionGridClass =
+              post.whatsapp_url && hasProfileLink
+                ? 'grid-cols-2 sm:grid-cols-4'
+                : hasProfileLink
+                  ? 'grid-cols-3'
+                  : 'grid-cols-2';
 
             return (
               <article key={post.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
                 <div className="p-4 sm:p-5">
                   <div className="flex gap-3">
-                    <Link
-                      href={profileHref}
-                      className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-sm font-black text-white"
-                    >
-                      {post.author_avatar_url ? (
-                        <img src={post.author_avatar_url} alt={post.author_name} className="h-full w-full object-cover" />
-                      ) : (
-                        getInitials(post.author_name)
-                      )}
-                    </Link>
+                    {hasProfileLink ? (
+                      <Link
+                        href={profileHref}
+                        className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-sm font-black text-white"
+                      >
+                        {post.author_avatar_url ? (
+                          <img src={post.author_avatar_url} alt={post.author_name} className="h-full w-full object-cover" />
+                        ) : (
+                          getInitials(post.author_name)
+                        )}
+                      </Link>
+                    ) : (
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-950 text-sm font-black text-white">
+                        {post.author_avatar_url ? (
+                          <img src={post.author_avatar_url} alt={post.author_name} className="h-full w-full object-cover" />
+                        ) : (
+                          getInitials(post.author_name)
+                        )}
+                      </div>
+                    )}
 
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Link href={profileHref} className="truncate text-base font-black text-slate-950 hover:text-[#b65b00]">
-                          {post.author_name}
-                        </Link>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-700">
+                        {hasProfileLink ? (
+                          <Link href={profileHref} className="truncate text-base font-black text-slate-950 hover:text-[#b65b00]">
+                            {post.author_name}
+                          </Link>
+                        ) : (
+                          <span className="truncate text-base font-black text-slate-950">{post.author_name}</span>
+                        )}
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.1em] ${roleBadgeClass[post.author_role]}`}>
                           <BadgeCheck className="h-3 w-3" />
                           {roleLabel[post.author_role]}
                         </span>
@@ -1138,7 +1374,7 @@ export default function CommunityFeed() {
                     <span>{post.comments_count} comentarios</span>
                   </div>
 
-                  <div className={`grid gap-2 pt-2 ${post.whatsapp_url ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+                  <div className={`grid gap-2 pt-2 ${actionGridClass}`}>
                     <button
                       type="button"
                       onClick={() => handleLike(post.id)}
@@ -1157,13 +1393,15 @@ export default function CommunityFeed() {
                       <MessageCircle className="h-4 w-4" />
                       Comentar
                     </button>
-                    <Link
-                      href={profileHref}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
-                    >
-                      <Share2 className="h-4 w-4" />
-                      Ver perfil
-                    </Link>
+                    {hasProfileLink ? (
+                      <Link
+                        href={profileHref}
+                        className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
+                      >
+                        <Share2 className="h-4 w-4" />
+                        Ver perfil
+                      </Link>
+                    ) : null}
                     {post.whatsapp_url ? (
                       <Link
                         href={post.whatsapp_url}
@@ -1282,14 +1520,14 @@ export default function CommunityFeed() {
         <div className="sticky top-20 space-y-3">
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Publicar</p>
-            <h3 className="mt-2 text-lg font-black text-slate-950">Solo cuentas UrbanFix</h3>
+            <h3 className="mt-2 text-lg font-black text-slate-950">Cuentas UrbanFix</h3>
             <p className="mt-2 text-sm leading-6 text-slate-500">
-              El muro queda reservado para tecnicos y empresas con cuenta iniciada.
+              Clientes, tecnicos y empresas pueden publicar contenido real dentro de la plataforma.
             </p>
             {canPublish ? (
               <button
                 type="button"
-                onClick={() => openComposer('trabajo')}
+                onClick={() => openComposer(defaultPostType)}
                 className="mt-4 inline-flex w-full justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748]"
               >
                 Crear publicacion
@@ -1358,7 +1596,7 @@ export default function CommunityFeed() {
 
               {!canPublish && !authLoading ? (
                 <div className="mt-4 rounded-2xl border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-semibold text-orange-800">
-                  Para publicar, ingresa con una cuenta de tecnico o empresa.
+                  Para publicar, ingresa con una cuenta UrbanFix.
                   <Link href={loginHref} className="ml-2 font-black underline">
                     Ingresar
                   </Link>
@@ -1366,7 +1604,7 @@ export default function CommunityFeed() {
               ) : null}
 
               <div className="mt-4 grid grid-cols-2 gap-2">
-                {composerPostTypes.map((type) => {
+                {availableComposerPostTypes.map((type) => {
                   const meta = postTypeMeta[type];
                   const isSelected = type === postType;
 
