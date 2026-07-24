@@ -384,8 +384,8 @@ header .header-view-option {
   position: relative;
   z-index: 3;
   display: grid;
-  width: min(100%, 82rem);
-  grid-template-columns: minmax(16rem, 1.15fr) repeat(3, minmax(12rem, 0.8fr));
+  width: min(100%, 94rem);
+  grid-template-columns: minmax(16rem, 1.15fr) repeat(4, minmax(10.5rem, 0.8fr));
   gap: 0.75rem;
   align-items: stretch;
   margin-top: clamp(4.25rem, 6.4vw, 6.6rem);

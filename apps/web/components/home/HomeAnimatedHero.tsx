@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowDown, ArrowRight, Calculator, ClipboardList, Search, Wrench } from 'lucide-react';
+import { ArrowDown, ArrowRight, Calculator, ClipboardList, MessageCircle, Search, Wrench } from 'lucide-react';
 
 const homeActions = [
   {
@@ -20,6 +20,12 @@ const homeActions = [
     note: 'Mano de obra',
     href: '/rubros',
     icon: Calculator,
+  },
+  {
+    label: 'Comunidad',
+    note: 'Muro UrbanFix',
+    href: '/comunidad',
+    icon: MessageCircle,
   },
   {
     label: 'Soy tecnico',
