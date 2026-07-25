@@ -424,12 +424,25 @@ const postMatchesSpecialty = (post: CommunityPost, specialty: string) => {
 const getCommunityPostsErrorMessage = (error: any) => {
   const code = String(error?.code || '');
   const message = String(error?.message || '');
+  const normalizedMessage = message.toLowerCase();
 
-  if (code === 'PGRST205' || code === '42P01' || message.includes('community_posts')) {
+  if (
+    code === '23514' ||
+    normalizedMessage.includes('community_posts_author_role_chk') ||
+    normalizedMessage.includes('community_posts_post_type_chk')
+  ) {
+    return 'La publicacion no se guardo porque falta actualizar Supabase para aceptar publicaciones de clientes y administradores.';
+  }
+
+  if (
+    code === 'PGRST205' ||
+    code === '42P01' ||
+    (normalizedMessage.includes('relation') && normalizedMessage.includes('community_posts'))
+  ) {
     return 'El muro esta listo en la app, pero falta activar la tabla community_posts en Supabase.';
   }
 
-  if (code === '42501' || message.toLowerCase().includes('permission denied')) {
+  if (code === '42501' || normalizedMessage.includes('permission denied')) {
     return 'La tabla del muro existe, pero faltan permisos para leer o publicar.';
   }
 
@@ -717,6 +730,7 @@ export default function CommunityFeed() {
   });
 
   const openComposer = (nextPostType: PostType = defaultPostType) => {
+    setFeedback('');
     setPostType(availableComposerPostTypes.includes(nextPostType) ? nextPostType : defaultPostType);
     setIsComposerOpen(true);
   };
@@ -728,7 +742,7 @@ export default function CommunityFeed() {
     setAdminProfileDraft(nextProfile);
     writeStoredAdminCommunityProfile(nextProfile);
     setProfile(buildAdminCommunityProfile(profile.id, nextProfile));
-    setAdminProfileFeedback('Perfil actualizado para publicar como UrbanFix.');
+    setAdminProfileFeedback('Perfil de autor actualizado. Para publicar, usa el cuadro de arriba.');
     window.setTimeout(() => setAdminProfileFeedback(''), 2400);
   };
 
@@ -1113,13 +1127,13 @@ export default function CommunityFeed() {
                   ) : (
                     getInitials(adminProfileDraft.name || 'UrbanFix')
                   )}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#b65b00]">
-                    Perfil administrativo
-                  </p>
-                  <h3 className="truncate text-lg font-black text-slate-950">Publicar como {displayName}</h3>
-                </div>
+	                </div>
+	                <div className="min-w-0">
+	                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#b65b00]">
+	                    Identidad administrativa
+	                  </p>
+	                  <h3 className="truncate text-lg font-black text-slate-950">Autor del muro: {displayName}</h3>
+	                </div>
               </div>
               <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4e8] px-3 py-1 text-xs font-black text-[#b65b00]">
                 <BadgeCheck className="h-3.5 w-3.5" />
@@ -1144,13 +1158,13 @@ export default function CommunityFeed() {
                 placeholder="/logo-ufx-main.png"
                 className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
               />
-              <button
-                type="button"
-                onClick={saveAdminProfile}
-                className="h-12 rounded-2xl bg-[#2a0338] px-5 text-sm font-black text-white transition hover:bg-[#401354]"
-              >
-                Guardar
-              </button>
+	              <button
+	                type="button"
+	                onClick={saveAdminProfile}
+	                className="h-12 rounded-2xl bg-[#2a0338] px-5 text-sm font-black text-white transition hover:bg-[#401354]"
+	              >
+	                Guardar perfil
+	              </button>
             </div>
             {adminProfileFeedback ? (
               <p className="mt-2 text-sm font-bold text-emerald-700">{adminProfileFeedback}</p>
@@ -1684,21 +1698,33 @@ export default function CommunityFeed() {
                 </div>
               )}
 
-              <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
-                <p className="text-sm font-black text-slate-700">Agregar a tu publicacion</p>
-                <button
-                  type="button"
-                  onClick={() => mediaInputRef.current?.click()}
+	              <div className="mt-4 flex items-center justify-between rounded-2xl border border-slate-200 px-4 py-3">
+	                <p className="text-sm font-black text-slate-700">Agregar a tu publicacion</p>
+	                <button
+	                  type="button"
+	                  onClick={() => mediaInputRef.current?.click()}
                   className="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-2 text-xs font-black text-slate-700 transition hover:bg-slate-200"
                 >
                   <ImageIcon className="h-4 w-4 text-emerald-600" />
-                  Foto o video
-                </button>
-              </div>
+	                  Foto o video
+	                </button>
+	              </div>
 
-              <button
-                type="submit"
-                disabled={!canPublish || submitting || body.trim().length < 12}
+	              {feedback ? (
+	                <p
+	                  className={`mt-4 rounded-2xl border px-4 py-3 text-sm font-bold ${
+	                    feedback === 'Publicado.'
+	                      ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+	                      : 'border-orange-200 bg-orange-50 text-orange-800'
+	                  }`}
+	                >
+	                  {feedback}
+	                </p>
+	              ) : null}
+
+	              <button
+	                type="submit"
+	                disabled={!canPublish || submitting || body.trim().length < 12}
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748] disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400"
               >
                 {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

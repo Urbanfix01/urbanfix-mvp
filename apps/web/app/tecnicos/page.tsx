@@ -10736,10 +10736,6 @@ export default function TechniciansPage() {
     profileForm.coverageArea,
     profileForm.locationPickerResult,
   ]);
-  const technicianHomeMapUrl = useMemo(
-    () => (technicianHomeMapPoint ? buildOsmEmbedUrl(technicianHomeMapPoint.lat, technicianHomeMapPoint.lon) : ''),
-    [technicianHomeMapPoint]
-  );
   const technicianStatusWindow = useMemo(() => {
     const now = new Date();
     const monthQuotes = quotes.filter((quote) => {
@@ -12749,37 +12745,44 @@ export default function TechniciansPage() {
                           </div>
                         </div>
 
-                        <div className="relative min-h-[250px] overflow-hidden rounded-[26px] border border-slate-200/90 bg-white shadow-[0_22px_50px_-38px_rgba(15,23,42,0.48),inset_0_1px_0_rgba(255,255,255,0.78)]">
-                          {technicianHomeMapPoint && technicianHomeMapUrl ? (
-                            <>
-                              <iframe
-                                title={`Ubicación de ${technicianHomeName}`}
-                                src={technicianHomeMapUrl}
-                                loading="lazy"
-                                className="absolute inset-0 h-full w-full border-0 grayscale-[0.08] saturate-[0.92]"
-                              />
-                              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.42),rgba(255,255,255,0)_40%,rgba(24,15,36,0.12))]" />
-                              <div className="absolute left-4 top-4 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/88 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2a0338] shadow-[0_16px_36px_-24px_rgba(42,3,56,0.58)] backdrop-blur">
+                        <div className="relative min-h-[250px] overflow-hidden rounded-[26px] border border-slate-200/90 bg-[radial-gradient(circle_at_82%_18%,rgba(255,143,31,0.22),transparent_30%),linear-gradient(135deg,#fffaf4,#ffffff_44%,#f3edf7)] shadow-[0_22px_50px_-38px_rgba(15,23,42,0.48),inset_0_1px_0_rgba(255,255,255,0.78)]">
+                          {technicianHomeMapPoint ? (
+                            <div className="relative flex h-full min-h-[250px] flex-col justify-between p-5">
+                              <div className="pointer-events-none absolute inset-0 opacity-[0.28] [background-image:linear-gradient(rgba(42,3,56,0.08)_1px,transparent_1px),linear-gradient(90deg,rgba(42,3,56,0.08)_1px,transparent_1px)] [background-size:28px_28px]" />
+                              <div className="relative inline-flex w-fit items-center gap-2 rounded-full border border-white/80 bg-white/88 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#2a0338] shadow-[0_16px_36px_-24px_rgba(42,3,56,0.58)] backdrop-blur">
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-[#ff8f1f] text-[#2a0338]">
                                   <MapPinned className="h-3.5 w-3.5" strokeWidth={2.2} />
                                 </span>
                                 Ubicación técnica
                               </div>
-                              <div className="absolute bottom-3 left-3 right-3 rounded-[17px] border border-white/72 bg-white/88 px-3 py-2 shadow-[0_16px_34px_-28px_rgba(42,3,56,0.62)] backdrop-blur">
-                                <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-                                  <p className="min-w-0 max-w-[180px] truncate text-sm font-semibold text-[#180f24]">{technicianHomeName}</p>
-                                  <p className="min-w-0 max-w-[140px] truncate text-xs text-slate-500">{technicianHomeMapPoint.label}</p>
+                              <div className="relative rounded-[20px] border border-white/75 bg-white/90 p-4 shadow-[0_16px_34px_-28px_rgba(42,3,56,0.62)] backdrop-blur">
+                                <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="min-w-0 truncate text-lg font-black text-[#180f24]">{technicianHomeName}</p>
+                                    <p className="mt-1 line-clamp-2 text-sm font-semibold text-slate-600">{technicianHomeMapPoint.label}</p>
+                                  </div>
+                                  <a
+                                    href={buildOsmLink(technicianHomeMapPoint.lat, technicianHomeMapPoint.lon)}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex shrink-0 items-center justify-center rounded-full bg-[#2a0338] px-4 py-2 text-xs font-black text-white transition hover:bg-[#401354]"
+                                  >
+                                    Abrir mapa
+                                  </a>
                                 </div>
-                                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                                <div className="mt-3 flex flex-wrap gap-1.5">
                                   <span className="rounded-full border border-[#eadfce] bg-white px-2 py-0.5 text-[10px] font-semibold text-[#2a0338]">
                                     Zona activa
                                   </span>
                                   <span className="rounded-full border border-[#ffcf93] bg-[#fff7ed] px-2 py-0.5 text-[10px] font-semibold text-[#8a4a07]">
                                     {profileForm.profilePublished ? 'Visible en vidriera' : 'Pendiente de publicar'}
                                   </span>
+                                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-semibold text-slate-600">
+                                    {technicianHomeMapPoint.lat.toFixed(5)}, {technicianHomeMapPoint.lon.toFixed(5)}
+                                  </span>
                                 </div>
                               </div>
-                      </>
+                            </div>
                           ) : (
                             <button
                               type="button"
