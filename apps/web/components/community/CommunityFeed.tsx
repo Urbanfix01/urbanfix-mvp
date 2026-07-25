@@ -103,6 +103,7 @@ type AdminCommunityProfileDraft = {
 };
 
 const ADMIN_COMMUNITY_PROFILE_STORAGE_KEY = 'urbanfix.community.adminProfile';
+const COMMUNITY_TUTORIAL_STORAGE_KEY = 'urbanfix.community.tutorialHidden';
 const DEFAULT_ADMIN_COMMUNITY_PROFILE: AdminCommunityProfileDraft = {
   name: 'UrbanFix',
   logoUrl: '/logo-ufx-main.png',
@@ -528,6 +529,7 @@ export default function CommunityFeed() {
     DEFAULT_ADMIN_COMMUNITY_PROFILE
   );
   const [adminProfileFeedback, setAdminProfileFeedback] = useState('');
+  const [showCommunityTutorial, setShowCommunityTutorial] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -624,6 +626,11 @@ export default function CommunityFeed() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     setAuthorFilter(new URLSearchParams(window.location.search).get('autor') || '');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    setShowCommunityTutorial(window.localStorage.getItem(COMMUNITY_TUTORIAL_STORAGE_KEY) !== '1');
   }, []);
 
   useEffect(() => {
@@ -744,6 +751,13 @@ export default function CommunityFeed() {
     setProfile(buildAdminCommunityProfile(profile.id, nextProfile));
     setAdminProfileFeedback('Perfil de autor actualizado. Para publicar, usa el cuadro de arriba.');
     window.setTimeout(() => setAdminProfileFeedback(''), 2400);
+  };
+
+  const hideCommunityTutorial = () => {
+    setShowCommunityTutorial(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(COMMUNITY_TUTORIAL_STORAGE_KEY, '1');
+    }
   };
 
   useEffect(() => {
@@ -1012,62 +1026,38 @@ export default function CommunityFeed() {
   };
 
   return (
-    <section className="mx-auto grid w-full max-w-7xl gap-5 px-4 pb-12 pt-5 sm:px-6 lg:grid-cols-[230px_minmax(0,1fr)_280px]">
-      <aside className="hidden lg:block">
-        <div className="sticky top-20 space-y-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Comunidad</p>
-            <h1 className="mt-2 text-2xl font-black tracking-tight text-slate-950">Muro UrbanFix</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Posteos reales de clientes, tecnicos y empresas dentro de la plataforma.
-            </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-white p-2 shadow-sm">
-            {[
-              { label: 'Publicaciones', icon: MessageCircle },
-              { label: 'Trabajos recientes', icon: Camera },
-              { label: 'Avisos y promos', icon: Megaphone },
-            ].map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-3 text-left text-sm font-bold text-slate-700 transition hover:bg-slate-100"
-                >
-                  <Icon className="h-4 w-4 text-[#ff8f1f]" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </aside>
-
+    <section className="mx-auto grid w-full max-w-6xl gap-5 px-4 pb-12 pt-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="min-w-0 space-y-4">
-        <div className="overflow-hidden rounded-[28px] border border-[#f0d8bd] bg-[#2a0338] text-white shadow-xl">
-          <div className="bg-[radial-gradient(circle_at_15%_10%,rgba(255,143,31,0.36),transparent_28%),linear-gradient(135deg,#2a0338,#401354)] px-5 py-6 sm:px-7">
-            <div className="flex flex-wrap items-start justify-between gap-4">
+        {showCommunityTutorial ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
               <div>
-                <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#ffd7a6]">
-                  <Sparkles className="h-3.5 w-3.5" />
-                  Muro de la comunidad
-                </span>
-                <h2 className="mt-4 text-3xl font-black tracking-tight sm:text-4xl">Comparte, muestra y conecta</h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/78">
-                  Un feed para publicar pedidos, avances, trabajos terminados, novedades y avisos sin mezclar actividad ficticia.
-                </p>
+                <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Guia rapida</p>
+                <h3 className="mt-1 text-lg font-black text-slate-950">Como usar el muro</h3>
               </div>
-              <Link
-                href="/vidriera"
-                className="inline-flex rounded-full border border-white/20 bg-white px-4 py-2 text-sm font-black text-[#2a0338] transition hover:bg-[#ff8f1f]"
+              <button
+                type="button"
+                onClick={hideCommunityTutorial}
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
+                aria-label="Ocultar tutorial"
               >
-                Ver tecnicos
-              </Link>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              {[
+                { label: 'Publica', text: 'Pedidos, trabajos, avisos o consultas reales.' },
+                { label: 'Filtra', text: 'Busca por ciudad, barrio o rubro.' },
+                { label: 'Conecta', text: 'Deriva al perfil, WhatsApp o comentarios.' },
+              ].map((item) => (
+                <div key={item.label} className="rounded-2xl bg-slate-50 p-3">
+                  <p className="text-sm font-black text-[#2a0338]">{item.label}</p>
+                  <p className="mt-1 text-xs font-semibold leading-5 text-slate-500">{item.text}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex items-center gap-3">
@@ -1112,65 +1102,6 @@ export default function CommunityFeed() {
 
           {feedback && <p className="mt-3 text-sm font-semibold text-slate-500">{feedback}</p>}
         </div>
-
-        {isAdminProfile ? (
-          <div className="rounded-3xl border border-[#f0d8bd] bg-white p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex min-w-0 items-center gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-950">
-                  {adminProfileDraft.logoUrl ? (
-                    <img
-                      src={adminProfileDraft.logoUrl}
-                      alt={adminProfileDraft.name || 'UrbanFix'}
-                      className="h-full w-full object-contain p-1.5"
-                    />
-                  ) : (
-                    getInitials(adminProfileDraft.name || 'UrbanFix')
-                  )}
-	                </div>
-	                <div className="min-w-0">
-	                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-[#b65b00]">
-	                    Identidad administrativa
-	                  </p>
-	                  <h3 className="truncate text-lg font-black text-slate-950">Autor del muro: {displayName}</h3>
-	                </div>
-              </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4e8] px-3 py-1 text-xs font-black text-[#b65b00]">
-                <BadgeCheck className="h-3.5 w-3.5" />
-                Oficial
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_1.4fr_auto]">
-              <input
-                value={adminProfileDraft.name}
-                onChange={(event) =>
-                  setAdminProfileDraft((current) => ({ ...current, name: event.target.value }))
-                }
-                placeholder="Nombre para publicar"
-                className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
-              />
-              <input
-                value={adminProfileDraft.logoUrl}
-                onChange={(event) =>
-                  setAdminProfileDraft((current) => ({ ...current, logoUrl: event.target.value }))
-                }
-                placeholder="/logo-ufx-main.png"
-                className="h-12 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
-              />
-	              <button
-	                type="button"
-	                onClick={saveAdminProfile}
-	                className="h-12 rounded-2xl bg-[#2a0338] px-5 text-sm font-black text-white transition hover:bg-[#401354]"
-	              >
-	                Guardar perfil
-	              </button>
-            </div>
-            {adminProfileFeedback ? (
-              <p className="mt-2 text-sm font-bold text-emerald-700">{adminProfileFeedback}</p>
-            ) : null}
-          </div>
-        ) : null}
 
         <div className="rounded-3xl border border-slate-200 bg-white p-3 shadow-sm">
           <div className="grid gap-2 sm:grid-cols-[1fr_230px_auto]">
@@ -1532,31 +1463,68 @@ export default function CommunityFeed() {
 
       <aside className="hidden lg:block">
         <div className="sticky top-20 space-y-3">
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Publicar</p>
-            <h3 className="mt-2 text-lg font-black text-slate-950">Cuentas UrbanFix</h3>
-            <p className="mt-2 text-sm leading-6 text-slate-500">
-              Clientes, tecnicos y empresas pueden publicar contenido real dentro de la plataforma.
-            </p>
-            {canPublish ? (
-              <button
-                type="button"
-                onClick={() => openComposer(defaultPostType)}
-                className="mt-4 inline-flex w-full justify-center rounded-full bg-[#ff8f1f] px-4 py-2.5 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748]"
-              >
-                Crear publicacion
-              </button>
-            ) : (
-              <Link
-                href={loginHref}
-                className="mt-4 inline-flex w-full justify-center rounded-full bg-[#2a0338] px-4 py-2.5 text-sm font-black text-white transition hover:bg-[#401354]"
-              >
-                Ingresar
-              </Link>
-            )}
-          </div>
+		          {isAdminProfile ? (
+		            <details className="rounded-3xl border border-[#f0d8bd] bg-white p-4 shadow-sm">
+	              <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+	                <div className="flex items-center justify-between gap-3">
+	                  <div className="flex min-w-0 items-center gap-3">
+	                    <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-200 bg-white text-xs font-black text-slate-950">
+	                      {adminProfileDraft.logoUrl ? (
+	                        <img
+	                          src={adminProfileDraft.logoUrl}
+	                          alt={adminProfileDraft.name || 'UrbanFix'}
+	                          className="h-full w-full object-contain p-1.5"
+	                        />
+	                      ) : (
+	                        getInitials(adminProfileDraft.name || 'UrbanFix')
+	                      )}
+	                    </div>
+	                    <div className="min-w-0">
+	                      <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#b65b00]">
+	                        Configuracion
+	                      </p>
+	                      <h3 className="truncate text-sm font-black text-slate-950">Autor: {displayName}</h3>
+	                    </div>
+	                  </div>
+	                  <span className="inline-flex items-center gap-1 rounded-full bg-[#fff4e8] px-2 py-1 text-[10px] font-black text-[#b65b00]">
+	                    <BadgeCheck className="h-3 w-3" />
+	                    Oficial
+	                  </span>
+	                </div>
+	              </summary>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
+	              <div className="mt-4 space-y-2 border-t border-[#f4e2ce] pt-4">
+	                <input
+	                  value={adminProfileDraft.name}
+	                  onChange={(event) =>
+	                    setAdminProfileDraft((current) => ({ ...current, name: event.target.value }))
+	                  }
+	                  placeholder="Nombre para publicar"
+	                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
+	                />
+	                <input
+	                  value={adminProfileDraft.logoUrl}
+	                  onChange={(event) =>
+	                    setAdminProfileDraft((current) => ({ ...current, logoUrl: event.target.value }))
+	                  }
+	                  placeholder="/logo-ufx-main.png"
+	                  className="h-11 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm font-bold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-[#ff8f1f]"
+	                />
+	                <button
+	                  type="button"
+	                  onClick={saveAdminProfile}
+	                  className="h-11 w-full rounded-2xl bg-[#2a0338] px-4 text-sm font-black text-white transition hover:bg-[#401354]"
+	                >
+	                  Guardar perfil
+	                </button>
+	                {adminProfileFeedback ? (
+	                  <p className="text-xs font-bold text-emerald-700">{adminProfileFeedback}</p>
+	                ) : null}
+	              </div>
+	            </details>
+	          ) : null}
+
+	          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
             <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Actividad real</p>
             <div className="mt-3 grid grid-cols-2 gap-2">
               <div className="rounded-2xl bg-slate-100 p-3">
