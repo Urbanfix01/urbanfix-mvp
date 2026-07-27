@@ -1,8 +1,7 @@
 import type { Metadata } from 'next';
 import { Sora } from 'next/font/google';
 
-import CommunityFeed from '../../components/community/CommunityFeed';
-import PublicTopNav from '../../components/PublicTopNav';
+import CommunityShell from '../../components/community/CommunityShell';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -19,11 +18,7 @@ export const metadata: Metadata = {
 export default function ComunidadPage() {
   return (
     <div className={sora.className}>
-      <main className="min-h-screen bg-[#f8f5f0] text-slate-950">
-        <PublicTopNav activeHref="/comunidad" sticky showNavigationLinks />
-
-        <CommunityFeed />
-      </main>
+      <CommunityShell />
     </div>
   );
 }

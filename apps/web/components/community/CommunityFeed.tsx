@@ -397,6 +397,42 @@ const parseTags = (value: string) =>
     .filter(Boolean)
     .slice(0, 4);
 
+const getCommunityPostShareUrl = (postId: string) => {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://www.urbanfix.com.ar';
+  return `${baseUrl}/comunidad?post=${encodeURIComponent(postId)}`;
+};
+
+const buildCommunityPostShareText = (post: CommunityPost) => {
+  const parts = [
+    post.title,
+    post.body,
+    post.location ? `Zona: ${post.location}` : null,
+    post.tags.length ? post.tags.map((tag) => `#${tag}`).join(' ') : null,
+    `Publicado en UrbanFix por ${post.author_name}.`,
+  ];
+
+  return parts.filter(Boolean).join('\n\n');
+};
+
+const copyTextToClipboard = async (text: string) => {
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  if (typeof document === 'undefined') return;
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  document.body.appendChild(textarea);
+  textarea.select();
+  document.execCommand('copy');
+  document.body.removeChild(textarea);
+};
+
 const normalizeFilterText = (value: string | null | undefined) =>
   String(value || '')
     .normalize('NFD')
@@ -918,6 +954,49 @@ export default function CommunityFeed() {
     );
   };
 
+  const handleSharePost = async (post: CommunityPost) => {
+    const url = getCommunityPostShareUrl(post.id);
+    const text = buildCommunityPostShareText(post);
+    const title = post.title || `Publicacion de ${post.author_name} en UrbanFix`;
+
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title, text, url });
+        return;
+      } catch (error) {
+        if (error instanceof DOMException && error.name === 'AbortError') return;
+      }
+    }
+
+    await copyTextToClipboard(`${text}\n\n${url}`);
+    setFeedback('Copiamos el texto y el enlace de la publicacion.');
+  };
+
+  const handleSharePostToFacebook = (post: CommunityPost) => {
+    if (typeof window === 'undefined') return;
+
+    const shareUrl = encodeURIComponent(getCommunityPostShareUrl(post.id));
+    window.open(
+      `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}`,
+      '_blank',
+      'noopener,noreferrer,width=720,height=640'
+    );
+  };
+
+  const handlePreparePostForInstagram = async (post: CommunityPost) => {
+    const url = getCommunityPostShareUrl(post.id);
+    const text = buildCommunityPostShareText(post);
+    const instagramWindow =
+      typeof window !== 'undefined' ? window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer') : null;
+
+    await copyTextToClipboard(`${text}\n\nVer en UrbanFix: ${url}`);
+    setFeedback(
+      instagramWindow
+        ? 'Copiamos el texto para Instagram. Podes pegarlo al crear la publicacion.'
+        : 'Copiamos el texto para Instagram.'
+    );
+  };
+
   const loadComments = async (postId: string) => {
     if (!hasSupabaseConfig) {
       setCommentFeedback((current) => ({
@@ -1026,7 +1105,11 @@ export default function CommunityFeed() {
   };
 
   return (
-    <section className="mx-auto grid w-full max-w-6xl gap-5 px-4 pb-12 pt-5 sm:px-6 lg:grid-cols-[minmax(0,1fr)_260px]">
+    <section
+      className={`mx-auto grid w-full gap-5 px-4 pb-12 pt-5 sm:px-6 ${
+        isAdminProfile ? 'max-w-6xl lg:grid-cols-[minmax(0,1fr)_260px]' : 'max-w-4xl'
+      }`}
+    >
       <div className="min-w-0 space-y-4">
         {showCommunityTutorial ? (
           <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1206,12 +1289,6 @@ export default function CommunityFeed() {
             const commentValue = commentInputs[post.id] || '';
             const isCommentSubmitting = Boolean(commentSubmitting[post.id]);
             const postCommentFeedback = commentFeedback[post.id] || '';
-            const actionGridClass =
-              post.whatsapp_url && hasProfileLink
-                ? 'grid-cols-2 sm:grid-cols-4'
-                : hasProfileLink
-                  ? 'grid-cols-3'
-                  : 'grid-cols-2';
 
             return (
               <article key={post.id} className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
@@ -1319,11 +1396,11 @@ export default function CommunityFeed() {
                     <span>{post.comments_count} comentarios</span>
                   </div>
 
-                  <div className={`grid gap-2 pt-2 ${actionGridClass}`}>
+                  <div className="flex flex-wrap gap-2 pt-2">
                     <button
                       type="button"
                       onClick={() => handleLike(post.id)}
-                      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black transition ${
+                      className={`inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black transition ${
                         isLiked ? 'bg-rose-50 text-rose-700' : 'text-slate-600 hover:bg-slate-100'
                       }`}
                     >
@@ -1333,17 +1410,41 @@ export default function CommunityFeed() {
                     <button
                       type="button"
                       onClick={() => toggleComments(post.id)}
-                      className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
+                      className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
                     >
                       <MessageCircle className="h-4 w-4" />
                       Comentar
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleSharePost(post)}
+                      className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Compartir
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSharePostToFacebook(post)}
+                      className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-50 px-3 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-100"
+                    >
+                      <Globe2 className="h-4 w-4" />
+                      Facebook
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handlePreparePostForInstagram(post)}
+                      className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-pink-50 px-3 py-2 text-sm font-black text-pink-700 transition hover:bg-pink-100"
+                    >
+                      <Camera className="h-4 w-4" />
+                      Instagram
+                    </button>
                     {hasProfileLink ? (
                       <Link
                         href={profileHref}
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
+                        className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
                       >
-                        <Share2 className="h-4 w-4" />
+                        <BadgeCheck className="h-4 w-4" />
                         Ver perfil
                       </Link>
                     ) : null}
@@ -1352,7 +1453,7 @@ export default function CommunityFeed() {
                         href={post.whatsapp_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
+                        className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-emerald-50 px-3 py-2 text-sm font-black text-emerald-700 transition hover:bg-emerald-100"
                       >
                         <Send className="h-4 w-4" />
                         WhatsApp
@@ -1461,10 +1562,10 @@ export default function CommunityFeed() {
         </div>
       </div>
 
-      <aside className="hidden lg:block">
-        <div className="sticky top-20 space-y-3">
-		          {isAdminProfile ? (
-		            <details className="rounded-3xl border border-[#f0d8bd] bg-white p-4 shadow-sm">
+      {isAdminProfile ? (
+        <aside className="hidden lg:block">
+          <div className="sticky top-20 space-y-3">
+            <details className="rounded-3xl border border-[#f0d8bd] bg-white p-4 shadow-sm">
 	              <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
 	                <div className="flex items-center justify-between gap-3">
 	                  <div className="flex min-w-0 items-center gap-3">
@@ -1521,24 +1622,10 @@ export default function CommunityFeed() {
 	                  <p className="text-xs font-bold text-emerald-700">{adminProfileFeedback}</p>
 	                ) : null}
 	              </div>
-	            </details>
-	          ) : null}
-
-	          <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-[11px] font-black uppercase tracking-[0.16em] text-slate-400">Actividad real</p>
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <p className="text-2xl font-black text-slate-950">{posts.length}</p>
-                <p className="text-xs font-bold text-slate-500">posteos</p>
-              </div>
-              <div className="rounded-2xl bg-slate-100 p-3">
-                <p className="text-2xl font-black text-slate-950">{posts.filter((post) => post.media_items.length).length}</p>
-                <p className="text-xs font-bold text-slate-500">con media</p>
-              </div>
-            </div>
+            </details>
           </div>
-        </div>
-      </aside>
+        </aside>
+      ) : null}
 
       {isComposerOpen && (
         <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 px-4 py-6">
