@@ -236,6 +236,42 @@ type MasterItemAdminRow = {
   created_at?: string | null;
 };
 
+type LaborIndexPreviewItem = {
+  id: string;
+  name: string;
+  category?: string | null;
+  currentPrice: number;
+  suggestedPrice: number;
+  delta: number;
+};
+
+type LaborIndexData = {
+  index: {
+    sourceLabel: string;
+    sourceUrl: string;
+    downloadUrl: string;
+    seriesLabel: string;
+    periodLabel: string;
+    previousPeriodLabel: string;
+    publishedAtLabel: string;
+    latestIndex: number;
+    previousIndex: number;
+    monthlyPercent: number;
+    multiplier: number;
+    provisional: boolean;
+  };
+  totals: {
+    candidateCount: number;
+    currentTotal: number;
+    suggestedTotal: number;
+    deltaTotal: number;
+  };
+  preview: LaborIndexPreviewItem[];
+  auditAvailable: boolean;
+  alreadyApplied: boolean;
+  appliedAt?: string | null;
+};
+
 type IncomeZoneItem = {
   zone: string;
   total_amount: number;
@@ -2598,6 +2634,10 @@ export default function AdminPage() {
   const [laborUnitDrafts, setLaborUnitDrafts] = useState<Record<string, string>>({});
   const [laborSavingId, setLaborSavingId] = useState<string | null>(null);
   const [laborMessage, setLaborMessage] = useState('');
+  const [laborIndexData, setLaborIndexData] = useState<LaborIndexData | null>(null);
+  const [laborIndexLoading, setLaborIndexLoading] = useState(false);
+  const [laborIndexApplying, setLaborIndexApplying] = useState(false);
+  const [laborIndexError, setLaborIndexError] = useState('');
   const [roadmapUpdates, setRoadmapUpdates] = useState<RoadmapUpdateItem[]>([]);
   const [roadmapLoading, setRoadmapLoading] = useState(false);
   const [roadmapError, setRoadmapError] = useState('');
@@ -3094,6 +3134,59 @@ export default function AdminPage() {
       setLaborError(error?.message || 'No se pudieron cargar los valores.');
     } finally {
       setLaborLoading(false);
+    }
+  };
+
+  const loadLaborIndexPreview = async (token?: string) => {
+    if (!token) return;
+    setLaborIndexError('');
+    setLaborIndexLoading(true);
+    try {
+      const response = await fetch('/api/admin/labor-price-index', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo consultar INDEC.');
+      }
+      setLaborIndexData(data as LaborIndexData);
+    } catch (error: any) {
+      setLaborIndexError(error?.message || 'No se pudo consultar INDEC.');
+    } finally {
+      setLaborIndexLoading(false);
+    }
+  };
+
+  const applyLaborIndexUpdate = async () => {
+    if (!session?.access_token || !laborIndexData) return;
+    const confirmed = window.confirm(
+      `Aplicar el ajuste INDEC ${laborIndexData.index.periodLabel} a ${laborIndexData.totals.candidateCount} items activos de mano de obra?`
+    );
+    if (!confirmed) return;
+
+    setLaborIndexError('');
+    setLaborMessage('');
+    setLaborIndexApplying(true);
+    try {
+      const response = await fetch('/api/admin/labor-price-index', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ confirmPeriodLabel: laborIndexData.index.periodLabel }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo aplicar el ajuste INDEC.');
+      }
+      setLaborMessage(`Ajuste aplicado a ${data?.updatedCount || 0} items.`);
+      await loadLaborItems(session.access_token);
+      await loadLaborIndexPreview(session.access_token);
+    } catch (error: any) {
+      setLaborIndexError(error?.message || 'No se pudo aplicar el ajuste INDEC.');
+    } finally {
+      setLaborIndexApplying(false);
     }
   };
 
@@ -3992,6 +4085,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!session?.access_token || activeTab !== 'mano_obra') return;
     loadLaborItems(session.access_token);
+    loadLaborIndexPreview(session.access_token);
   }, [activeTab, session?.access_token]);
 
   useEffect(() => {
@@ -7664,12 +7758,124 @@ export default function AdminPage() {
                   </span>
                   <button
                     type="button"
-                    onClick={() => loadLaborItems(session.access_token)}
+                    onClick={() => {
+                      loadLaborItems(session.access_token);
+                      loadLaborIndexPreview(session.access_token);
+                    }}
                     className="rounded-full border border-slate-300 px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:text-slate-900"
                   >
                     Actualizar
                   </button>
                 </div>
+              </div>
+
+              <div className="mt-5 rounded-3xl border border-orange-200 bg-orange-50/70 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="max-w-2xl">
+                    <p className="text-[11px] uppercase tracking-[0.2em] text-orange-700">Actualizacion INDEC</p>
+                    <h4 className="mt-1 text-base font-semibold text-slate-950">Ajuste asistido de mano de obra</h4>
+                    <p className="mt-1 text-sm leading-6 text-slate-600">
+                      Trae el ultimo indice oficial de INDEC y prepara una vista previa antes de aplicar cambios en el
+                      catalogo.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => loadLaborIndexPreview(session.access_token)}
+                      disabled={laborIndexLoading}
+                      className="rounded-full border border-orange-300 bg-white px-4 py-2 text-xs font-semibold text-orange-700 transition hover:border-orange-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {laborIndexLoading ? 'Consultando...' : 'Traer INDEC'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={applyLaborIndexUpdate}
+                      disabled={
+                        laborIndexLoading ||
+                        laborIndexApplying ||
+                        !laborIndexData ||
+                        !laborIndexData.auditAvailable ||
+                        laborIndexData.alreadyApplied ||
+                        laborIndexData.totals.candidateCount === 0
+                      }
+                      className="rounded-full bg-slate-950 px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+                    >
+                      {laborIndexApplying
+                        ? 'Aplicando...'
+                        : laborIndexData && !laborIndexData.auditAvailable
+                          ? 'Preparacion pendiente'
+                          : 'Aplicar ajuste'}
+                    </button>
+                  </div>
+                </div>
+
+                {laborIndexError && (
+                  <div className="mt-3 rounded-2xl border border-amber-200 bg-white px-4 py-3 text-sm text-amber-700">
+                    {laborIndexError}
+                  </div>
+                )}
+
+                {laborIndexData && (
+                  <div className="mt-4 grid gap-3 md:grid-cols-4">
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Periodo</p>
+                      <p className="mt-1 text-sm font-semibold text-slate-900">{laborIndexData.index.periodLabel}</p>
+                      <p className="text-xs text-slate-500">Publicado {laborIndexData.index.publishedAtLabel}</p>
+                    </div>
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Variacion mensual</p>
+                      <p className="mt-1 text-lg font-bold text-orange-600">
+                        +{laborIndexData.index.monthlyPercent.toLocaleString('es-AR', {
+                          minimumFractionDigits: 1,
+                          maximumFractionDigits: 1,
+                        })}
+                        %
+                      </p>
+                      <p className="text-xs text-slate-500">Mano de obra ICC</p>
+                    </div>
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Items a revisar</p>
+                      <p className="mt-1 text-lg font-bold text-slate-950">{laborIndexData.totals.candidateCount}</p>
+                      <p className="text-xs text-slate-500">Activos con precio</p>
+                    </div>
+                    <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
+                      <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Estado</p>
+                      <p
+                        className={`mt-1 text-sm font-semibold ${
+                          laborIndexData.alreadyApplied ? 'text-emerald-700' : 'text-slate-900'
+                        }`}
+                      >
+                        {laborIndexData.alreadyApplied ? 'Ya aplicado' : 'Listo para revisar'}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        {laborIndexData.auditAvailable ? 'Con historial mensual' : 'Requiere migracion'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {laborIndexData && laborIndexData.preview.length > 0 && (
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-orange-100 bg-white">
+                    {laborIndexData.preview.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex flex-wrap items-center justify-between gap-2 border-b border-orange-50 px-4 py-3 last:border-b-0"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                          <p className="text-xs text-slate-500">{item.category || 'Mano de obra'}</p>
+                        </div>
+                        <div className="text-right text-sm">
+                          <p className="font-semibold text-slate-900">
+                            {formatCurrency(item.currentPrice)}{' -> '}{formatCurrency(item.suggestedPrice)}
+                          </p>
+                          <p className="text-xs font-semibold text-orange-600">+{formatCurrency(item.delta)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="mt-5 flex flex-wrap items-center gap-3">

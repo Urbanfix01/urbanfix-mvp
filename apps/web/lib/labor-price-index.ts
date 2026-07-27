@@ -3,10 +3,10 @@ export const laborPriceIndex = {
   activeLabel: 'Vigente UrbanFix',
   sourceLabel: 'ICC INDEC mano de obra',
   sourceUrl: 'https://www.indec.gob.ar/indec/web/Nivel4-Tema-3-5-33',
-  periodLabel: 'Mayo 2026',
-  publishedAtLabel: '17/06/2026',
-  accumulatedPercent: 15,
-  monthlyPercent: 3.5,
+  periodLabel: 'Junio 2026',
+  publishedAtLabel: '17/07/2026',
+  accumulatedPercent: 12.1,
+  monthlyPercent: 3.3,
 };
 
 export const getLaborPriceMultiplier = () => 1 + laborPriceIndex.accumulatedPercent / 100;
