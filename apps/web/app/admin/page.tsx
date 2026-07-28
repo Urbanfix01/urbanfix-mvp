@@ -186,6 +186,19 @@ type RoadmapUpdateItem = {
   feedback: RoadmapFeedbackItem[];
 };
 
+type RoadmapLaunchTask = {
+  key: string;
+  title: string;
+  description: string;
+  status: RoadmapStatus;
+  area: RoadmapArea;
+  priority: RoadmapPriority;
+  sector: RoadmapSector;
+  owner: string;
+  etaOffsetDays: number;
+  feedback: string;
+};
+
 type RoadmapSlaAlertRule = 'blocked_stale' | 'high_overdue' | 'stale_in_progress' | 'overdue_unassigned';
 
 type RoadmapSlaAlert = {
@@ -860,6 +873,86 @@ const ROADMAP_SENTIMENT_OPTIONS: { value: RoadmapSentiment; label: string }[] = 
   { value: 'neutral', label: 'Neutro' },
   { value: 'negative', label: 'Negativo' },
 ];
+
+const WORLD_LAUNCH_ROADMAP_TASKS: RoadmapLaunchTask[] = [
+  {
+    key: 'alcance-real',
+    title: 'Medir alcance real mundial',
+    description:
+      'Consolidar paises, ciudades, secciones visitadas y usuarios unicos para entender donde crece UrbanFix.',
+    status: 'in_progress',
+    area: 'ops',
+    priority: 'high',
+    sector: 'operativo',
+    owner: 'UrbanFix',
+    etaOffsetDays: 7,
+    feedback: 'Plan mundial: usar el resumen admin como tablero principal de alcance real.',
+  },
+  {
+    key: 'paises-ciudades',
+    title: 'Mapear paises y ciudades alcanzadas',
+    description: 'Ordenar el mapa y los rankings para detectar nuevas zonas con interes real.',
+    status: 'in_progress',
+    area: 'web',
+    priority: 'high',
+    sector: 'web',
+    owner: 'UrbanFix',
+    etaOffsetDays: 10,
+    feedback: 'Plan mundial: priorizar expansion por ubicacion real y paises activos.',
+  },
+  {
+    key: 'secciones-demanda',
+    title: 'Detectar secciones con mas demanda',
+    description: 'Medir que pantallas concentran visitas para reforzar precios, comunidad, vidriera y presupuestos.',
+    status: 'planned',
+    area: 'ops',
+    priority: 'high',
+    sector: 'funcionalidades',
+    owner: 'UrbanFix',
+    etaOffsetDays: 14,
+    feedback: 'Plan mundial: cruzar visitas por seccion con conversiones reales.',
+  },
+  {
+    key: 'conversion-registros',
+    title: 'Convertir visitas en registros',
+    description: 'Crear acciones para que visitantes internacionales pasen a cuentas de cliente o tecnico.',
+    status: 'planned',
+    area: 'web',
+    priority: 'high',
+    sector: 'clientes',
+    owner: 'UrbanFix',
+    etaOffsetDays: 21,
+    feedback: 'Plan mundial: convertir alcance en usuarios identificados.',
+  },
+  {
+    key: 'comunidad-vidriera',
+    title: 'Impulsar comunidad y vidriera',
+    description: 'Usar publicaciones, perfiles y mapa para que la plataforma muestre actividad real.',
+    status: 'planned',
+    area: 'web',
+    priority: 'medium',
+    sector: 'funcionalidades',
+    owner: 'UrbanFix',
+    etaOffsetDays: 28,
+    feedback: 'Plan mundial: conectar muro, perfiles y mapa para generar confianza.',
+  },
+  {
+    key: 'reporte-mensual',
+    title: 'Reporte mensual de crecimiento',
+    description: 'Imprimir y compartir un balance mensual con alcance, paises, secciones y proximas acciones.',
+    status: 'planned',
+    area: 'ops',
+    priority: 'medium',
+    sector: 'operativo',
+    owner: 'UrbanFix',
+    etaOffsetDays: 30,
+    feedback: 'Plan mundial: cerrar cada mes con lectura accionable para decidir prioridades.',
+  },
+];
+
+const WORLD_LAUNCH_ROADMAP_TITLE_SET = new Set(
+  WORLD_LAUNCH_ROADMAP_TASKS.map((item) => normalizeText(item.title))
+);
 
 const getRoadmapStatusLabel = (status: RoadmapStatus) =>
   ROADMAP_STATUS_OPTIONS.find((item) => item.value === status)?.label || status;
@@ -2679,9 +2772,11 @@ export default function AdminPage() {
   const [roadmapStatusFilter, setRoadmapStatusFilter] = useState<'all' | RoadmapStatus>('all');
   const [roadmapAreaFilter, setRoadmapAreaFilter] = useState<'all' | RoadmapArea>('all');
   const [roadmapSectorFilter, setRoadmapSectorFilter] = useState<'all' | RoadmapSector>('all');
-  const [roadmapPendingOnly, setRoadmapPendingOnly] = useState(false);
-  const [roadmapSortMode, setRoadmapSortMode] = useState<'recent' | 'work_priority' | 'eta'>('recent');
+  const [roadmapPendingOnly, setRoadmapPendingOnly] = useState(true);
+  const [roadmapSortMode, setRoadmapSortMode] = useState<'recent' | 'work_priority' | 'eta'>('work_priority');
+  const [roadmapScopeFilter, setRoadmapScopeFilter] = useState<'launch' | 'all'>('launch');
   const [roadmapSubmitting, setRoadmapSubmitting] = useState(false);
+  const [roadmapLaunchSeeding, setRoadmapLaunchSeeding] = useState(false);
   const [roadmapUpdatingId, setRoadmapUpdatingId] = useState<string | null>(null);
   const [roadmapBulkUpdating, setRoadmapBulkUpdating] = useState(false);
   const [roadmapSlaBatchApplying, setRoadmapSlaBatchApplying] = useState(false);
@@ -3366,6 +3461,67 @@ export default function AdminPage() {
       setRoadmapError(error?.message || 'No se pudo crear el item.');
     } finally {
       setRoadmapSubmitting(false);
+    }
+  };
+
+  const handleCreateWorldLaunchRoadmap = async () => {
+    if (!session?.access_token) return;
+    const existingTitles = new Set(roadmapUpdates.map((item) => normalizeText(item.title)));
+    const missingTasks = WORLD_LAUNCH_ROADMAP_TASKS.filter(
+      (task) => !existingTitles.has(normalizeText(task.title))
+    );
+
+    if (!missingTasks.length) {
+      setRoadmapError('');
+      setRoadmapMessage('El plan de lanzamiento mundial ya esta cargado.');
+      setRoadmapScopeFilter('launch');
+      setRoadmapPendingOnly(true);
+      setRoadmapSortMode('work_priority');
+      return;
+    }
+
+    setRoadmapError('');
+    setRoadmapMessage('');
+    setRoadmapLaunchSeeding(true);
+    try {
+      for (const task of missingTasks) {
+        const response = await fetch('/api/admin/roadmap', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            title: task.title,
+            description: task.description,
+            status: task.status,
+            area: task.area,
+            priority: task.priority,
+            sector: task.sector,
+            owner: task.owner,
+            eta_date: getIsoDateFromOffset(task.etaOffsetDays),
+            feedback_body: task.feedback,
+            feedback_sentiment: 'positive',
+            source_key: task.key,
+            source_branch: 'plan-lanzamiento-mundial',
+            source_files: ['admin/resumen', 'admin/roadmap'],
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data?.error || `No se pudo crear: ${task.title}`);
+        }
+      }
+
+      await loadRoadmap(session.access_token);
+      setRoadmapScopeFilter('launch');
+      setRoadmapPendingOnly(true);
+      setRoadmapSortMode('work_priority');
+      setRoadmapMessage(`Plan de lanzamiento mundial actualizado: ${missingTasks.length} tarea(s) nueva(s).`);
+    } catch (error: any) {
+      setRoadmapError(error?.message || 'No se pudo cargar el plan mundial.');
+    } finally {
+      setRoadmapLaunchSeeding(false);
     }
   };
 
@@ -4294,8 +4450,9 @@ export default function AdminPage() {
     setRoadmapError('');
     setRoadmapMessage('');
     setRoadmapSearch('');
-    setRoadmapPendingOnly(false);
-    setRoadmapSortMode('recent');
+    setRoadmapPendingOnly(true);
+    setRoadmapSortMode('work_priority');
+    setRoadmapScopeFilter('launch');
     setRoadmapBulkUpdating(false);
     setSelectedRoadmapIds([]);
     setFlowNodes(APP_WEB_FLOW_NODES.map((node) => ({ ...node })));
@@ -5767,6 +5924,9 @@ export default function AdminPage() {
   const filteredRoadmapUpdates = useMemo(() => {
     const query = normalizeText(roadmapSearch);
     return roadmapUpdates.filter((item) => {
+      if (roadmapScopeFilter === 'launch' && !WORLD_LAUNCH_ROADMAP_TITLE_SET.has(normalizeText(item.title))) {
+        return false;
+      }
       if (roadmapPendingOnly && item.status === 'done') return false;
       if (roadmapStatusFilter !== 'all' && item.status !== roadmapStatusFilter) return false;
       if (roadmapAreaFilter !== 'all' && item.area !== roadmapAreaFilter) return false;
@@ -5776,7 +5936,56 @@ export default function AdminPage() {
       const haystack = normalizeText([item.title, item.description || '', item.owner || '', feedbackText].join(' '));
       return haystack.includes(query);
     });
-  }, [roadmapUpdates, roadmapSearch, roadmapStatusFilter, roadmapAreaFilter, roadmapSectorFilter, roadmapPendingOnly]);
+  }, [
+    roadmapUpdates,
+    roadmapSearch,
+    roadmapStatusFilter,
+    roadmapAreaFilter,
+    roadmapSectorFilter,
+    roadmapPendingOnly,
+    roadmapScopeFilter,
+  ]);
+
+  const worldLaunchRoadmapItems = useMemo(
+    () =>
+      WORLD_LAUNCH_ROADMAP_TASKS.map((task) => {
+        const existing =
+          roadmapUpdates.find((item) => normalizeText(item.title) === normalizeText(task.title)) || null;
+        return {
+          ...task,
+          existing,
+          created: Boolean(existing),
+          effectiveStatus: existing?.status || task.status,
+          etaDate: existing?.eta_date || null,
+        };
+      }),
+    [roadmapUpdates]
+  );
+
+  const worldLaunchRoadmapMissingTasks = useMemo(
+    () => worldLaunchRoadmapItems.filter((item) => !item.created),
+    [worldLaunchRoadmapItems]
+  );
+
+  const worldLaunchRoadmapDoneCount = useMemo(
+    () => worldLaunchRoadmapItems.filter((item) => item.effectiveStatus === 'done').length,
+    [worldLaunchRoadmapItems]
+  );
+
+  const worldLaunchRoadmapOpenCount = useMemo(
+    () => worldLaunchRoadmapItems.filter((item) => item.effectiveStatus !== 'done').length,
+    [worldLaunchRoadmapItems]
+  );
+
+  const worldLaunchRoadmapProgress = useMemo(() => {
+    const score = worldLaunchRoadmapItems.reduce((total, item) => {
+      if (!item.created) return total;
+      if (item.effectiveStatus === 'done') return total + 1;
+      if (item.effectiveStatus === 'in_progress') return total + 0.5;
+      return total;
+    }, 0);
+    return Math.round((score / Math.max(1, WORLD_LAUNCH_ROADMAP_TASKS.length)) * 100);
+  }, [worldLaunchRoadmapItems]);
 
   const roadmapSelectedIdSet = useMemo(() => new Set(selectedRoadmapIds), [selectedRoadmapIds]);
 
@@ -5884,6 +6093,101 @@ export default function AdminPage() {
     : 0;
   const summaryAccountUsers = summaryGeo?.accountUsers || [];
   const summaryGeoZones = selectedSummaryMonth?.zones || summaryGeo?.zones || [];
+  const globalGrowthActionPlan = useMemo<
+    Array<{
+      step: string;
+      title: string;
+      detail: string;
+      status: 'done' | 'in_progress' | 'pending';
+      statusLabel: string;
+    }>
+  >(() => {
+    const statusFor = (
+      done: boolean,
+      inProgress: boolean
+    ): 'done' | 'in_progress' | 'pending' => {
+      if (done) return 'done';
+      if (inProgress) return 'in_progress';
+      return 'pending';
+    };
+
+    const hasTrafficSignal = summaryWebViews > 0 || summaryReachSessions > 0;
+    const hasGeoSignal = summaryReachCountries.length > 0 || summaryReachCities.length > 0;
+    const hasSectionSignal = summaryTopSections.length > 0;
+    const hasAccountSignal = summaryAccountSessions > 0;
+    const hasReachBase = hasTrafficSignal && hasGeoSignal;
+
+    return [
+      {
+        step: '01',
+        title: 'Medir alcance real',
+        detail: hasTrafficSignal
+          ? `${formatNumber(summaryWebViews)} visitas web y ${formatNumber(summaryReachSessions)} sesiones reales en ${summaryReachLabel}.`
+          : 'Esperando trafico real para iniciar el balance.',
+        status: statusFor(hasReachBase, hasTrafficSignal),
+        statusLabel: hasReachBase ? 'Activo' : hasTrafficSignal ? 'En curso' : 'Pendiente',
+      },
+      {
+        step: '02',
+        title: 'Mapear paises y ciudades',
+        detail: hasGeoSignal
+          ? `${formatNumber(summaryReachCountries.length)} pais(es) y ${formatNumber(summaryReachCities.length)} ciudad(es) detectadas.`
+          : 'Falta acumular ubicaciones reales de visitantes y cuentas.',
+        status: statusFor(hasGeoSignal, hasTrafficSignal),
+        statusLabel: hasGeoSignal ? 'Activo' : hasTrafficSignal ? 'En curso' : 'Pendiente',
+      },
+      {
+        step: '03',
+        title: 'Detectar secciones con mas demanda',
+        detail: hasSectionSignal
+          ? `${formatNumber(summaryTopSections.length)} seccion(es) con trafico medible para priorizar contenido.`
+          : 'Todavia no hay secciones con volumen suficiente para decidir foco.',
+        status: statusFor(hasSectionSignal, hasTrafficSignal),
+        statusLabel: hasSectionSignal ? 'Activo' : hasTrafficSignal ? 'En curso' : 'Pendiente',
+      },
+      {
+        step: '04',
+        title: 'Convertir visitas en registros',
+        detail: hasAccountSignal
+          ? `${formatNumber(summaryAccountSessions)} sesiones con cuenta para analizar conversion.`
+          : 'Pendiente: reforzar llamados a registrarse desde las paginas mas visitadas.',
+        status: statusFor(hasAccountSignal, hasTrafficSignal),
+        statusLabel: hasAccountSignal ? 'Activo' : hasTrafficSignal ? 'En curso' : 'Pendiente',
+      },
+      {
+        step: '05',
+        title: 'Impulsar comunidad y vidriera',
+        detail: 'Usar el muro, perfiles y publicaciones para demostrar actividad real por zona.',
+        status: statusFor(hasAccountSignal && hasSectionSignal, hasSectionSignal || hasAccountSignal),
+        statusLabel: hasAccountSignal && hasSectionSignal ? 'Activo' : hasSectionSignal || hasAccountSignal ? 'En curso' : 'Pendiente',
+      },
+      {
+        step: '06',
+        title: 'Reporte mensual de crecimiento',
+        detail: 'Cerrar cada mes con paises alcanzados, secciones fuertes y proximas acciones.',
+        status: statusFor(hasReachBase && hasSectionSignal && hasAccountSignal, hasReachBase || hasSectionSignal),
+        statusLabel: hasReachBase && hasSectionSignal && hasAccountSignal ? 'Activo' : hasReachBase || hasSectionSignal ? 'En curso' : 'Pendiente',
+      },
+    ];
+  }, [
+    summaryAccountSessions,
+    summaryReachCities.length,
+    summaryReachCountries.length,
+    summaryReachLabel,
+    summaryReachSessions,
+    summaryTopSections.length,
+    summaryWebViews,
+  ]);
+  const globalGrowthWeightedProgress = globalGrowthActionPlan.reduce((total, item) => {
+    if (item.status === 'done') return total + 1;
+    if (item.status === 'in_progress') return total + 0.5;
+    return total;
+  }, 0);
+  const globalGrowthProgress = Math.round((globalGrowthWeightedProgress / globalGrowthActionPlan.length) * 100);
+  const globalGrowthDoneCount = globalGrowthActionPlan.filter((item) => item.status === 'done').length;
+  const globalGrowthNextTask =
+    globalGrowthActionPlan.find((item) => item.status !== 'done') ||
+    globalGrowthActionPlan[globalGrowthActionPlan.length - 1];
   const handlePrintSummaryReachReport = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -7594,6 +7898,83 @@ export default function AdminPage() {
                       </div>
                     </div>
                   </article>
+
+                  <article className="mt-6 rounded-[30px] border border-[#eadff0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(42,15,53,0.08)]">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="max-w-2xl">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8b7c98]">
+                          Plan de accion mundial
+                        </p>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">
+                          Seguimiento para crecer con datos reales
+                        </h3>
+                        <p className="mt-2 text-sm leading-6 text-[#6c6177]">
+                          Prioridades para transformar alcance, secciones visitadas y registros en mas usuarios activos.
+                        </p>
+                      </div>
+
+                      <div className="min-w-[170px] rounded-[22px] border border-[#eadff0] bg-[#faf6fc] px-4 py-3 text-right">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Avance</p>
+                        <p className="mt-1 text-3xl font-black text-[#180f24]">{globalGrowthProgress}%</p>
+                        <p className="text-xs font-semibold text-[#6c6177]">
+                          {formatNumber(globalGrowthDoneCount)} de {formatNumber(globalGrowthActionPlan.length)} activos
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#f1edf4]">
+                      <div
+                        className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#0bbf86,#4b0b55)] transition-all"
+                        style={{ width: `${globalGrowthProgress}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-4 rounded-[22px] border border-[#ffd7a8] bg-[#fff8ef] px-4 py-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#b55a00]">Proximo foco</p>
+                      <p className="mt-1 text-sm font-semibold text-[#2a1733]">
+                        {globalGrowthNextTask?.title || 'Mantener el seguimiento mensual'}
+                      </p>
+                      <p className="mt-1 text-xs leading-5 text-[#6c6177]">
+                        {globalGrowthNextTask?.detail || 'Revisar el balance, ajustar acciones y volver a medir.'}
+                      </p>
+                    </div>
+
+                    <div className="mt-5 grid gap-3 lg:grid-cols-2">
+                      {globalGrowthActionPlan.map((task) => {
+                        const statusClass =
+                          task.status === 'done'
+                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                            : task.status === 'in_progress'
+                              ? 'border-amber-200 bg-amber-50 text-amber-700'
+                              : 'border-slate-200 bg-slate-50 text-slate-500';
+                        const stepClass =
+                          task.status === 'done'
+                            ? 'bg-emerald-600 text-white'
+                            : task.status === 'in_progress'
+                              ? 'bg-[#ff8f1f] text-white'
+                              : 'bg-slate-100 text-slate-500';
+
+                        return (
+                          <div key={task.step} className="rounded-[22px] border border-slate-100 bg-slate-50/70 p-4">
+                            <div className="flex items-start gap-3">
+                              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-2xl text-xs font-black ${stepClass}`}>
+                                {task.step}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <h4 className="text-sm font-semibold text-[#180f24]">{task.title}</h4>
+                                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${statusClass}`}>
+                                    {task.statusLabel}
+                                  </span>
+                                </div>
+                                <p className="mt-2 text-xs leading-5 text-[#6c6177]">{task.detail}</p>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </article>
                 </section>
               )}
 
@@ -9084,9 +9465,9 @@ export default function AdminPage() {
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
                   <p className={adminDashboardEyebrowClass}>Producto</p>
-                  <h3 className="text-lg font-semibold text-slate-900">Qué destrabar en el roadmap</h3>
+                  <h3 className="text-lg font-semibold text-slate-900">Roadmap de lanzamiento mundial</h3>
                   <p className="text-sm text-slate-500">
-                    El tablero prioriza bloqueos, ETA, owners sobrecargados y acciones inmediatas para mover entrega.
+                    Seguimiento de tareas activas para aumentar alcance real, registros y presencia global.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -9110,8 +9491,90 @@ export default function AdminPage() {
               </div>
 
               <p className="mt-3 text-xs text-slate-500">
-                La lectura inicial ya te muestra dónde intervenir hoy. El detalle analítico y la edición fina siguen disponibles más abajo.
+                El tablero queda enfocado en tareas vigentes. El historico y las tareas realizadas quedan ocultas por defecto para no mezclar prioridades.
               </p>
+
+              <div className="mt-5 rounded-[28px] border border-[#fed7aa] bg-white p-5 shadow-[0_18px_42px_rgba(31,10,46,0.07)]">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="max-w-3xl">
+                    <p className={adminDashboardEyebrowClass}>Plan actual</p>
+                    <h3 className="mt-1 text-2xl font-semibold text-[#180f24]">
+                      Plan de accion de lanzamiento mundial
+                    </h3>
+                    <p className="mt-2 text-sm leading-7 text-[#6c6177]">
+                      Enfoca el roadmap en alcance real, paises activos, secciones con demanda y conversion de visitas a registros.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-3 py-2 text-xs font-semibold text-[#432451]">
+                      Avance {worldLaunchRoadmapProgress}%
+                    </span>
+                    <span className="rounded-full border border-[#d1fae5] bg-[#ecfdf5] px-3 py-2 text-xs font-semibold text-[#047857]">
+                      {worldLaunchRoadmapDoneCount} resueltas
+                    </span>
+                    <span className="rounded-full border border-[#ffedd5] bg-[#fff7ed] px-3 py-2 text-xs font-semibold text-[#9a3412]">
+                      {worldLaunchRoadmapOpenCount} activas
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleCreateWorldLaunchRoadmap}
+                      disabled={roadmapLaunchSeeding}
+                      className="rounded-full bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#180f24] transition hover:bg-[#ff9f3a] disabled:cursor-wait disabled:opacity-70"
+                    >
+                      {roadmapLaunchSeeding
+                        ? 'Cargando plan...'
+                        : worldLaunchRoadmapMissingTasks.length
+                          ? `Crear tareas (${worldLaunchRoadmapMissingTasks.length})`
+                          : 'Plan cargado'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setRoadmapScopeFilter((prev) => (prev === 'launch' ? 'all' : 'launch'))}
+                      className="rounded-full border border-[#eadff0] bg-white px-4 py-2 text-xs font-semibold text-[#432451] transition hover:border-[#ff8f1f] hover:text-[#9a3412]"
+                    >
+                      {roadmapScopeFilter === 'launch' ? 'Ver historico' : 'Volver al plan mundial'}
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 h-2 overflow-hidden rounded-full bg-[#f3e8ff]">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#2a0338)]"
+                    style={{ width: `${worldLaunchRoadmapProgress}%` }}
+                  />
+                </div>
+                <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {worldLaunchRoadmapItems.map((task) => (
+                    <article key={task.key} className="rounded-2xl border border-[#eadff0] bg-[#fffdf9] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">
+                            {getRoadmapSectorLabel(task.sector)}
+                          </p>
+                          <h4 className="mt-2 text-sm font-semibold text-[#180f24]">{task.title}</h4>
+                        </div>
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-semibold ${
+                            task.created
+                              ? ROADMAP_STATUS_BADGE_CLASS[task.effectiveStatus]
+                              : 'border border-[#fed7aa] bg-[#fff7ed] text-[#9a3412]'
+                          }`}
+                        >
+                          {task.created ? getRoadmapStatusLabel(task.effectiveStatus) : 'Por crear'}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-xs leading-6 text-[#6c6177]">{task.description}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold">
+                        <span className="rounded-full border border-[#eadff0] bg-white px-2 py-1 text-[#432451]">
+                          {getRoadmapPriorityLabel(task.priority)}
+                        </span>
+                        <span className="rounded-full border border-[#eadff0] bg-white px-2 py-1 text-[#6c6177]">
+                          {task.etaDate ? formatShortDate(task.etaDate) : `${task.etaOffsetDays} dias`}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
 
               <div className="mt-6 grid gap-5 xl:grid-cols-[1.35fr_0.95fr]">
                 <div className={premiumPanelClass}>
@@ -9868,6 +10331,17 @@ export default function AdminPage() {
                       </select>
                       <button
                         type="button"
+                        onClick={() => setRoadmapScopeFilter((prev) => (prev === 'launch' ? 'all' : 'launch'))}
+                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                          roadmapScopeFilter === 'launch'
+                            ? 'border-[#ff8f1f] bg-[#fff7ed] text-[#9a3412]'
+                            : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                        }`}
+                      >
+                        {roadmapScopeFilter === 'launch' ? 'Plan mundial: ON' : 'Historico visible'}
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setRoadmapPendingOnly((prev) => !prev)}
                         className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
                           roadmapPendingOnly
@@ -9921,8 +10395,10 @@ export default function AdminPage() {
                           setRoadmapStatusFilter('all');
                           setRoadmapAreaFilter('all');
                           setRoadmapSectorFilter('all');
-                          setRoadmapPendingOnly(false);
-                          setRoadmapSortMode('recent');
+                          setRoadmapPendingOnly(true);
+                          setRoadmapSortMode('work_priority');
+                          setRoadmapScopeFilter('launch');
+                          setSelectedRoadmapIds([]);
                         }}
                         className="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-500 transition hover:border-slate-300 hover:text-slate-700"
                       >
