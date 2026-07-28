@@ -19,7 +19,7 @@ import {
   PUBLISHED_TECHNICIANS_SELECT_RICH,
   isMissingPublicProfileFieldError,
 } from '../../lib/public-profile-select';
-import { isPublicProfileVisible } from '../../lib/public-profile-validity';
+import { isPublicDirectoryProfileVisible } from '../../lib/public-profile-validity';
 import {
   DEFAULT_MATCH_RADIUS_KM,
   formatWorkingHoursLabel,
@@ -221,7 +221,7 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
   }
 
   const { data: profiles, error, usedFallback } = await fetchPublishedProfiles(supabase);
-  const safeProfiles = profiles.filter(isPublicProfileVisible);
+  const safeProfiles = profiles.filter(isPublicDirectoryProfileVisible);
   const zoneFilteredProfiles = zonaQueryNormalized
     ? safeProfiles.filter((profile) =>
         matchesArgentinaZoneQuery(

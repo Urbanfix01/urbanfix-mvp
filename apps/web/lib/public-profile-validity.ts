@@ -72,15 +72,25 @@ export const hasPublicSpecialty = (profile: PublicProfileVisibilityInput) =>
     return normalized && normalized !== 'general' && normalized !== 'servicios generales';
   });
 
-export const getPublicProfileMissingLabels = (profile: PublicProfileVisibilityInput) => {
+export const getPublicDirectoryMissingLabels = (profile: PublicProfileVisibilityInput) => {
   const missing: string[] = [];
   if (!hasPublicName(profile)) missing.push('nombre o negocio');
   if (!hasPublicContact(profile)) missing.push('WhatsApp');
   if (!hasPublicSpecialty(profile)) missing.push('rubro');
   if (!hasPublicWorkZone(profile)) missing.push('zona de trabajo');
+  return missing;
+};
+
+export const getPublicProfileMissingLabels = (profile: PublicProfileVisibilityInput) => {
+  const missing = getPublicDirectoryMissingLabels(profile);
   if (!hasPublicExactLocation(profile)) missing.push('ubicacion exacta');
   return missing;
 };
+
+export const isPublicDirectoryProfileVisible = (profile: PublicProfileVisibilityInput) =>
+  profile.access_granted === true &&
+  isProfilePublished(profile.profile_published) &&
+  getPublicDirectoryMissingLabels(profile).length === 0;
 
 export const isPublicProfileVisible = (profile: PublicProfileVisibilityInput) =>
   profile.access_granted === true &&

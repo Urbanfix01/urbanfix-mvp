@@ -8,7 +8,7 @@ import {
   toFiniteNumber,
 } from '@/app/api/_shared/marketplace';
 import { resolveArgentinaZoneCoords } from '@/lib/geo/argentina-zone-presets';
-import { isPublicProfileVisible } from '@/lib/public-profile-validity';
+import { isPublicDirectoryProfileVisible } from '@/lib/public-profile-validity';
 
 const ARGENTINA_CENTER = {
   lat: -38.416097,
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
   let missingGeo = 0;
   let availableNow = 0;
 
-  const visibleProfiles = (profilesRes.data || []).filter((row: any) => isPublicProfileVisible(row));
+  const visibleProfiles = (profilesRes.data || []).filter((row: any) => isPublicDirectoryProfileVisible(row));
 
   const technicians = visibleProfiles
     .map((row: any) => {
