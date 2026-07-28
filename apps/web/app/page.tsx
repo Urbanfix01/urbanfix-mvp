@@ -5,6 +5,10 @@ import FloatingWhatsappChannelButton from '../components/home/FloatingWhatsappCh
 import HomeAnimatedHero from '../components/home/HomeAnimatedHero';
 import HomeScrollReveal from '../components/home/HomeScrollReveal';
 import PublicTopNav from '../components/PublicTopNav';
+import {
+  AUGUST_2026_NEWSLETTER_INTRO,
+  AUGUST_2026_NEWSLETTER_TITLE,
+} from '../lib/newsletter-august-2026';
 
 const sora = Sora({
   subsets: ['latin'],
@@ -29,6 +33,71 @@ export default function HomePage() {
         <PublicTopNav activeHref="/" />
 
         <HomeAnimatedHero />
+
+        <section
+          id="novedades"
+          className="home-about-section border-t border-white/10 bg-[#21002f] px-5 py-16 text-white sm:px-8 sm:py-20"
+        >
+          <div className="home-about-section__content mx-auto max-w-5xl">
+            <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.06] shadow-[0_28px_90px_rgba(0,0,0,0.25)]">
+              <div className="grid gap-0 lg:grid-cols-[0.95fr_1.05fr]">
+                <div className="bg-gradient-to-br from-[#4b0a55] via-[#3a0649] to-[#22002f] p-7 sm:p-9">
+                  <p className="text-[0.72rem] font-extrabold uppercase tracking-[0.24em] text-[#ffbf7a]">
+                    Novedades UrbanFix
+                  </p>
+                  <h2 className="mt-4 text-3xl font-extrabold leading-tight tracking-normal sm:text-5xl">
+                    Informes publicos de la plataforma.
+                  </h2>
+                  <p className="mt-5 max-w-xl text-base leading-8 text-white/75 sm:text-lg">
+                    Compartimos avances, cambios importantes y mejoras para que clientes, tecnicos y empresas sepan
+                    que esta creciendo dentro de UrbanFix.
+                  </p>
+                </div>
+
+                <div className="p-7 sm:p-9">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="rounded-full bg-[#ff8f1f] px-3 py-1 text-xs font-extrabold uppercase tracking-[0.14em] text-[#21002f]">
+                      Informe Agosto 2026
+                    </span>
+                    <span className="rounded-full border border-white/20 px-3 py-1 text-xs font-bold text-white/70">
+                      Publico
+                    </span>
+                  </div>
+                  <h3 className="mt-5 text-2xl font-extrabold leading-tight sm:text-3xl">
+                    {AUGUST_2026_NEWSLETTER_TITLE}
+                  </h3>
+                  <p className="mt-4 text-base leading-8 text-white/72">
+                    {AUGUST_2026_NEWSLETTER_INTRO}
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {['Comunidad', 'Mapa', 'Perfiles', 'Valores'].map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-white/20 bg-white/[0.06] px-3 py-1 text-xs font-bold text-white/75"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+                    <a
+                      href="/novedades/agosto-2026"
+                      className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#ff8f1f] px-7 text-sm font-extrabold uppercase tracking-normal text-[#21002f] shadow-[0_18px_42px_rgba(255,143,31,0.24)] transition hover:bg-[#ffbf7a]"
+                    >
+                      Ver informe
+                    </a>
+                    <a
+                      href="/comunidad"
+                      className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/20 px-7 text-sm font-extrabold uppercase tracking-normal text-white transition hover:border-[#ff8f1f]/70 hover:text-[#ffbf7a]"
+                    >
+                      Ir a comunidad
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section
           id="que-es-urbanfix"

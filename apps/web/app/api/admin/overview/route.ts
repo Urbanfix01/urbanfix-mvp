@@ -135,16 +135,28 @@ type GeoZoneBucket = GeoBucket & {
   latitude: number;
   longitude: number;
 };
+type AnalyticsSectionBucket = {
+  key: string;
+  label: string;
+  views: number;
+  sessions: Set<string>;
+  accountSessions: Set<string>;
+  guestSessions: Set<string>;
+  paths: Set<string>;
+};
 type AnalyticsMonthlyReachBucket = {
   monthKey: string;
   label: string;
   accountUsers: Set<string>;
   knownUsers: Set<string>;
   sessions: Set<string>;
+  accountSessions: Set<string>;
+  knownSessions: Set<string>;
   views: number;
   countries: Map<string, GeoReachBucket>;
   cities: Map<string, GeoReachBucket>;
   zones: Map<string, GeoZoneBucket>;
+  sections: Map<string, AnalyticsSectionBucket>;
 };
 type AnalyticsAccountBucket = {
   userId: string;
@@ -313,7 +325,7 @@ const serializeGeoReachBuckets = (map: Map<string, GeoReachBucket>) =>
       uniqueSessions: item.sessions.size,
       uniqueAccounts: item.users.size,
     }))
-    .sort((a, b) => b.uniqueAccounts - a.uniqueAccounts || b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
+    .sort((a, b) => b.uniqueSessions - a.uniqueSessions || b.views - a.views || b.uniqueAccounts - a.uniqueAccounts || a.label.localeCompare(b.label))
     .slice(0, 24);
 
 const serializeGeoZones = (map: Map<string, GeoZoneBucket>) =>
@@ -329,8 +341,87 @@ const serializeGeoZones = (map: Map<string, GeoZoneBucket>) =>
       uniqueSessions: item.sessions.size,
       uniqueAccounts: item.users.size,
     }))
-    .sort((a, b) => b.uniqueAccounts - a.uniqueAccounts || b.uniqueSessions - a.uniqueSessions || b.views - a.views || a.label.localeCompare(b.label))
+    .sort((a, b) => b.uniqueSessions - a.uniqueSessions || b.views - a.views || b.uniqueAccounts - a.uniqueAccounts || a.label.localeCompare(b.label))
     .slice(0, 12);
+
+const normalizeAnalyticsPath = (value: any) => {
+  const raw = cleanGeoText(value) || '/';
+  const [pathname] = raw.split('?');
+  const normalized = pathname.replace(/\/+$/, '') || '/';
+  return normalized.toLowerCase();
+};
+
+const getAnalyticsPathQuery = (value: any) => {
+  const raw = cleanGeoText(value);
+  const queryIndex = raw.indexOf('?');
+  return queryIndex >= 0 ? raw.slice(queryIndex + 1).toLowerCase() : '';
+};
+
+const getAnalyticsSection = (path: any) => {
+  const pathname = normalizeAnalyticsPath(path);
+  const query = getAnalyticsPathQuery(path);
+
+  if (pathname === '/') return { key: 'home', label: 'Home' };
+  if (pathname.startsWith('/vidriera')) return { key: 'vidriera', label: 'Mapa de tecnicos' };
+  if (pathname.startsWith('/tecnico/')) return { key: 'perfil-tecnico', label: 'Perfiles de tecnicos' };
+  if (pathname.startsWith('/comunidad')) return { key: 'comunidad', label: 'Comunidad' };
+  if (pathname.startsWith('/novedades') || pathname.startsWith('/newsletter')) {
+    return { key: 'novedades', label: 'Novedades e informes' };
+  }
+  if (pathname.startsWith('/cliente')) return { key: 'portal-cliente', label: 'Portal cliente' };
+  if (pathname.startsWith('/admin')) return { key: 'admin', label: 'Panel administrativo' };
+  if (pathname.startsWith('/tecnicos')) {
+    if (query.includes('tab=precios')) return { key: 'valores-mano-obra', label: 'Valores mano de obra' };
+    if (query.includes('tab=presupuestos')) return { key: 'presupuestador', label: 'Presupuestador' };
+    if (query.includes('tab=lobby')) return { key: 'lobby-tecnico', label: 'Lobby tecnico' };
+    return { key: 'panel-tecnico', label: 'Panel tecnico' };
+  }
+  if (pathname.startsWith('/api')) return { key: 'procesos-internos', label: 'Procesos internos' };
+  return { key: 'otras-secciones', label: 'Otras secciones' };
+};
+
+const addAnalyticsSectionBucket = (
+  map: Map<string, AnalyticsSectionBucket>,
+  path: any,
+  sessionId?: string | null,
+  isAccountSession = false
+) => {
+  const section = getAnalyticsSection(path);
+  const current =
+    map.get(section.key) ||
+    {
+      key: section.key,
+      label: section.label,
+      views: 0,
+      sessions: new Set<string>(),
+      accountSessions: new Set<string>(),
+      guestSessions: new Set<string>(),
+      paths: new Set<string>(),
+    };
+  current.views += 1;
+  if (sessionId) {
+    current.sessions.add(sessionId);
+    if (isAccountSession) current.accountSessions.add(sessionId);
+    else current.guestSessions.add(sessionId);
+  }
+  const normalizedPath = normalizeAnalyticsPath(path);
+  if (normalizedPath) current.paths.add(normalizedPath);
+  map.set(section.key, current);
+};
+
+const serializeAnalyticsSections = (map: Map<string, AnalyticsSectionBucket>) =>
+  Array.from(map.values())
+    .map((item) => ({
+      key: item.key,
+      label: item.label,
+      views: item.views,
+      uniqueSessions: item.sessions.size,
+      accountSessions: item.accountSessions.size,
+      guestSessions: item.guestSessions.size,
+      paths: Array.from(item.paths).slice(0, 4),
+    }))
+    .sort((a, b) => b.views - a.views || b.uniqueSessions - a.uniqueSessions || a.label.localeCompare(b.label))
+    .slice(0, 8);
 
 const ANALYTICS_REACH_MONTHS = 12;
 
@@ -354,10 +445,13 @@ const createAnalyticsMonthlyReachBucket = (monthKey: string): AnalyticsMonthlyRe
   accountUsers: new Set<string>(),
   knownUsers: new Set<string>(),
   sessions: new Set<string>(),
+  accountSessions: new Set<string>(),
+  knownSessions: new Set<string>(),
   views: 0,
   countries: new Map<string, GeoReachBucket>(),
   cities: new Map<string, GeoReachBucket>(),
   zones: new Map<string, GeoZoneBucket>(),
+  sections: new Map<string, AnalyticsSectionBucket>(),
 });
 
 const serializeMonthlyReachBuckets = (map: Map<string, AnalyticsMonthlyReachBucket>) =>
@@ -370,7 +464,12 @@ const serializeMonthlyReachBuckets = (map: Map<string, AnalyticsMonthlyReachBuck
       knownAccountUsers: item.knownUsers.size,
       unknownAccountUsers: Math.max(0, item.accountUsers.size - item.knownUsers.size),
       sessions: item.sessions.size,
+      accountSessions: item.accountSessions.size,
+      guestSessions: Math.max(0, item.sessions.size - item.accountSessions.size),
+      knownSessions: item.knownSessions.size,
+      unknownSessions: Math.max(0, item.sessions.size - item.knownSessions.size),
       views: item.views,
+      topSections: serializeAnalyticsSections(item.sections),
       countriesReached: serializeGeoReachBuckets(item.countries),
       cities: serializeGeoReachBuckets(item.cities),
       zones: serializeGeoZones(item.zones),
@@ -581,6 +680,7 @@ export async function GET(request: NextRequest) {
     let analyticsGeo = {
       rangeDays: 30,
       rangeMonths: ANALYTICS_REACH_MONTHS,
+      totalViews: 0,
       totalSessions: 0,
       accountSessions: 0,
       guestSessions: 0,
@@ -606,6 +706,15 @@ export async function GET(request: NextRequest) {
       countries: [] as { label: string; views: number; uniqueSessions: number }[],
       cities: [] as { label: string; views: number; uniqueSessions: number }[],
       countriesReached: [] as { label: string; views: number; uniqueSessions: number; uniqueAccounts: number }[],
+      topSections: [] as {
+        key: string;
+        label: string;
+        views: number;
+        uniqueSessions: number;
+        accountSessions: number;
+        guestSessions: number;
+        paths: string[];
+      }[],
       monthlyReach: [] as {
         monthKey: string;
         label: string;
@@ -613,7 +722,20 @@ export async function GET(request: NextRequest) {
         knownAccountUsers: number;
         unknownAccountUsers: number;
         sessions: number;
+        accountSessions: number;
+        guestSessions: number;
+        knownSessions: number;
+        unknownSessions: number;
         views: number;
+        topSections: {
+          key: string;
+          label: string;
+          views: number;
+          uniqueSessions: number;
+          accountSessions: number;
+          guestSessions: number;
+          paths: string[];
+        }[];
         countriesReached: { label: string; views: number; uniqueSessions: number; uniqueAccounts: number }[];
         cities: { label: string; views: number; uniqueSessions: number; uniqueAccounts: number }[];
         zones: {
@@ -719,11 +841,13 @@ export async function GET(request: NextRequest) {
       const cityReachMap = new Map<string, GeoReachBucket>();
       const zoneMap = new Map<string, GeoZoneBucket>();
       const monthlyReachMap = new Map<string, AnalyticsMonthlyReachBucket>();
+      const sectionMap = new Map<string, AnalyticsSectionBucket>();
       const allSessions = new Set<string>();
       const accountSessions = new Set<string>();
       const knownSessions = new Set<string>();
       const accountUsersReached = new Set<string>();
       const accountUsersWithGeo = new Set<string>();
+      let totalWebViews = 0;
 
       for (let offset = ANALYTICS_REACH_MONTHS - 1; offset >= 0; offset -= 1) {
         const monthDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
@@ -744,16 +868,24 @@ export async function GET(request: NextRequest) {
         const userId = cleanGeoText(row?.user_id);
         const isAccountSession = Boolean(userId);
         if (isAccountSession && analyticsExcludedUserIds.has(userId)) return;
+        totalWebViews += 1;
         if (sessionId) allSessions.add(sessionId);
         if (sessionId && isAccountSession) accountSessions.add(sessionId);
 
-        const monthlyBucket = isAccountSession ? getMonthlyReachBucket(row?.created_at) : null;
+        const monthlyBucket = getMonthlyReachBucket(row?.created_at);
+        addAnalyticsSectionBucket(sectionMap, row?.path, sessionId, isAccountSession);
+        if (monthlyBucket) {
+          monthlyBucket.views += 1;
+          addAnalyticsSectionBucket(monthlyBucket.sections, row?.path, sessionId, isAccountSession);
+          if (sessionId) {
+            monthlyBucket.sessions.add(sessionId);
+            if (isAccountSession) monthlyBucket.accountSessions.add(sessionId);
+          }
+        }
         if (isAccountSession) {
           accountUsersReached.add(userId);
           if (monthlyBucket) {
             monthlyBucket.accountUsers.add(userId);
-            monthlyBucket.views += 1;
-            if (sessionId) monthlyBucket.sessions.add(sessionId);
           }
 
           const current =
@@ -780,8 +912,6 @@ export async function GET(request: NextRequest) {
           analyticsAccountMap.set(userId, current);
         }
 
-        if (!isAccountSession) return;
-
         const geo = row?.event_context?.geo || {};
         const countryInfo = normalizeAnalyticsCountry(geo.country);
         const country = countryInfo.label;
@@ -798,21 +928,24 @@ export async function GET(request: NextRequest) {
 
         if (hasGeo) {
           if (sessionId) knownSessions.add(sessionId);
-          accountUsersWithGeo.add(userId);
-          monthlyBucket?.knownUsers.add(userId);
+          if (sessionId) monthlyBucket?.knownSessions.add(sessionId);
+          if (isAccountSession) {
+            accountUsersWithGeo.add(userId);
+            monthlyBucket?.knownUsers.add(userId);
+          }
         }
         if (country) {
           const normalizedCountryKey = countryKey || normalizeGeoTextKey(country);
           addGeoBucket(countryMap, normalizedCountryKey, country, sessionId);
-          addGeoReachBucket(countryReachMap, normalizedCountryKey, country, userId, sessionId);
-          if (monthlyBucket) addGeoReachBucket(monthlyBucket.countries, normalizedCountryKey, country, userId, sessionId);
+          addGeoReachBucket(countryReachMap, normalizedCountryKey, country, isAccountSession ? userId : null, sessionId);
+          if (monthlyBucket) addGeoReachBucket(monthlyBucket.countries, normalizedCountryKey, country, isAccountSession ? userId : null, sessionId);
         }
         if (city) {
           const cityLabel = [city, region, country].filter(Boolean).join(', ');
           const cityKey = normalizeGeoTextKey(cityLabel);
           addGeoBucket(cityMap, cityKey, cityLabel, sessionId);
-          addGeoReachBucket(cityReachMap, cityKey, cityLabel, userId, sessionId);
-          if (monthlyBucket) addGeoReachBucket(monthlyBucket.cities, cityKey, cityLabel, userId, sessionId);
+          addGeoReachBucket(cityReachMap, cityKey, cityLabel, isAccountSession ? userId : null, sessionId);
+          if (monthlyBucket) addGeoReachBucket(monthlyBucket.cities, cityKey, cityLabel, isAccountSession ? userId : null, sessionId);
         }
         if (zoneLatitude !== null && zoneLongitude !== null) {
           const zoneLabel = [city, region, country].filter(Boolean).join(', ') || `${zoneLatitude.toFixed(2)}, ${zoneLongitude.toFixed(2)}`;
@@ -824,7 +957,7 @@ export async function GET(request: NextRequest) {
             city,
             latitude: zoneLatitude,
             longitude: zoneLongitude,
-            userId,
+            userId: isAccountSession ? userId : null,
             sessionId,
           };
           addGeoZone(zoneMap, zoneKey, zonePayload);
@@ -835,11 +968,12 @@ export async function GET(request: NextRequest) {
       analyticsGeo = {
         rangeDays: 30,
         rangeMonths: ANALYTICS_REACH_MONTHS,
+        totalViews: totalWebViews,
         totalSessions: allSessions.size,
         accountSessions: accountSessions.size,
         guestSessions: Math.max(0, allSessions.size - accountSessions.size),
         knownSessions: knownSessions.size,
-        unknownSessions: Math.max(0, accountSessions.size - knownSessions.size),
+        unknownSessions: Math.max(0, allSessions.size - knownSessions.size),
         accountUsersCount: accountUsersReached.size,
         knownAccountUsers: accountUsersWithGeo.size,
         unknownAccountUsers: Math.max(0, accountUsersReached.size - accountUsersWithGeo.size),
@@ -847,6 +981,7 @@ export async function GET(request: NextRequest) {
         countries: serializeGeoBuckets(countryMap),
         cities: serializeGeoBuckets(cityMap),
         countriesReached: serializeGeoReachBuckets(countryReachMap),
+        topSections: serializeAnalyticsSections(sectionMap),
         monthlyReach: serializeMonthlyReachBuckets(monthlyReachMap),
         zones: serializeGeoZones(zoneMap),
       };

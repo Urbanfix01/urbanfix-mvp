@@ -102,8 +102,6 @@ type AdminCommunityProfileDraft = {
   logoUrl: string;
 };
 
-type SocialShareTarget = 'facebook' | 'instagram';
-
 const ADMIN_COMMUNITY_PROFILE_STORAGE_KEY = 'urbanfix.community.adminProfile';
 const COMMUNITY_TUTORIAL_STORAGE_KEY = 'urbanfix.community.tutorialHidden';
 const DEFAULT_ADMIN_COMMUNITY_PROFILE: AdminCommunityProfileDraft = {
@@ -585,8 +583,6 @@ export default function CommunityFeed() {
   );
   const [adminProfileFeedback, setAdminProfileFeedback] = useState('');
   const [showCommunityTutorial, setShowCommunityTutorial] = useState(false);
-  const [socialSharePost, setSocialSharePost] = useState<CommunityPost | null>(null);
-  const [socialShareTarget, setSocialShareTarget] = useState<SocialShareTarget>('facebook');
   const postIdsKey = posts.map((post) => post.id).join('|');
 
   useEffect(() => {
@@ -1092,62 +1088,6 @@ export default function CommunityFeed() {
     setFeedback('Copiamos el texto y el enlace de la publicacion.');
   };
 
-  const openSocialShareDialog = (post: CommunityPost, target: SocialShareTarget) => {
-    setSocialSharePost(post);
-    setSocialShareTarget(target);
-  };
-
-  const handleCopySocialPostText = async (post: CommunityPost, target: SocialShareTarget) => {
-    const url = getCommunityPostShareUrl(post.id);
-    const text = buildCommunityPostShareText(post);
-    await copyTextToClipboard(`${text}\n\nVer en UrbanFix: ${url}`);
-    setFeedback(
-      target === 'instagram'
-        ? 'Copiamos el texto para Instagram. Ahora podes pegarlo al crear la publicacion.'
-        : 'Copiamos el texto para Facebook. Ahora podes pegarlo al compartir.'
-    );
-  };
-
-  const handleOpenFacebookComposer = async (post: CommunityPost) => {
-    if (typeof window === 'undefined') return;
-
-    const shareUrl = encodeURIComponent(getCommunityPostShareUrl(post.id));
-    const quote = encodeURIComponent(buildCommunityPostShareText(post));
-    const facebookWindow = window.open(
-      'about:blank',
-      '_blank',
-      'noopener,noreferrer,width=720,height=640'
-    );
-
-    await handleCopySocialPostText(post, 'facebook');
-
-    const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${shareUrl}&quote=${quote}`;
-    if (facebookWindow) {
-      facebookWindow.location.href = facebookUrl;
-    } else {
-      window.open(facebookUrl, '_blank', 'noopener,noreferrer,width=720,height=640');
-    }
-  };
-
-  const handleOpenInstagramComposer = async (post: CommunityPost) => {
-    const instagramWindow =
-      typeof window !== 'undefined' ? window.open('about:blank', '_blank', 'noopener,noreferrer') : null;
-
-    await handleCopySocialPostText(post, 'instagram');
-
-    if (instagramWindow) {
-      instagramWindow.location.href = 'https://www.instagram.com/';
-    } else if (typeof window !== 'undefined') {
-      window.open('https://www.instagram.com/', '_blank', 'noopener,noreferrer');
-    }
-
-    setFeedback(
-      instagramWindow
-        ? 'Copiamos el texto. Instagram se abre para que subas la imagen/video y pegues la descripcion.'
-        : 'Copiamos el texto para Instagram. Podes pegarlo al crear la publicacion.'
-    );
-  };
-
   const loadComments = async (postId: string) => {
     if (!hasSupabaseConfig) {
       setCommentFeedback((current) => ({
@@ -1254,19 +1194,6 @@ export default function CommunityFeed() {
 
     setCommentSubmitting((current) => ({ ...current, [postId]: false }));
   };
-
-  const socialShareMedia = socialSharePost?.media_items[0] || null;
-  const socialShareUrl = socialSharePost ? getCommunityPostShareUrl(socialSharePost.id) : '';
-  const socialShareText = socialSharePost ? buildCommunityPostShareText(socialSharePost) : '';
-  const socialShareCopy = socialSharePost ? `${socialShareText}\n\nVer en UrbanFix: ${socialShareUrl}` : '';
-  const socialShareTitle =
-    socialShareTarget === 'instagram' ? 'Preparar para Instagram' : 'Preparar para Facebook';
-  const socialShareActionLabel =
-    socialShareTarget === 'instagram' ? 'Copiar y abrir Instagram' : 'Copiar y abrir Facebook';
-  const socialShareNote =
-    socialShareTarget === 'instagram'
-      ? 'Instagram no permite completar el post desde el navegador. Te dejamos el texto listo para pegar y la imagen/video a mano.'
-      : 'Facebook abre el cuadro de compartir. Si no toma el texto automaticamente, ya queda copiado para pegarlo.';
 
   return (
     <section
@@ -1593,31 +1520,6 @@ export default function CommunityFeed() {
                       <Share2 className="h-4 w-4" />
                       Compartir
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => openSocialShareDialog(post, 'facebook')}
-                      className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-blue-50 px-3 py-2 text-sm font-black text-blue-700 transition hover:bg-blue-100"
-                    >
-                      <Globe2 className="h-4 w-4" />
-                      Facebook
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => openSocialShareDialog(post, 'instagram')}
-                      className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl bg-pink-50 px-3 py-2 text-sm font-black text-pink-700 transition hover:bg-pink-100"
-                    >
-                      <Camera className="h-4 w-4" />
-                      Instagram
-                    </button>
-                    {hasProfileLink ? (
-                      <Link
-                        href={profileHref}
-                        className="inline-flex min-w-[128px] flex-1 items-center justify-center gap-2 rounded-2xl px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-100"
-                      >
-                        <BadgeCheck className="h-4 w-4" />
-                        Ver perfil
-                      </Link>
-                    ) : null}
                     {post.whatsapp_url ? (
                       <Link
                         href={post.whatsapp_url}
@@ -1795,136 +1697,6 @@ export default function CommunityFeed() {
             </details>
           </div>
         </aside>
-      ) : null}
-
-      {socialSharePost ? (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 px-4 py-6">
-          <div className="max-h-[92vh] w-full max-w-xl overflow-hidden rounded-3xl bg-white text-slate-950 shadow-2xl">
-            <div className="relative border-b border-slate-100 px-5 py-4">
-              <p className="text-[10px] font-black uppercase tracking-[0.16em] text-[#b65b00]">
-                Publicacion preparada
-              </p>
-              <h2 className="mt-1 text-xl font-black">{socialShareTitle}</h2>
-              <button
-                type="button"
-                onClick={() => setSocialSharePost(null)}
-                className="absolute right-4 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-slate-100 text-slate-500 transition hover:bg-slate-200 hover:text-slate-950"
-                aria-label="Cerrar"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="max-h-[calc(92vh-76px)] overflow-y-auto p-4">
-              <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#2a0338] text-sm font-black text-white">
-                    {socialSharePost.author_avatar_url ? (
-                      <img
-                        src={socialSharePost.author_avatar_url}
-                        alt={socialSharePost.author_name}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      getInitials(socialSharePost.author_name)
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate text-sm font-black text-slate-950">{socialSharePost.author_name}</p>
-                      <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-slate-500">
-                        {postTypeMeta[socialSharePost.post_type].shortLabel}
-                      </span>
-                    </div>
-                    {socialSharePost.title ? (
-                      <h3 className="mt-2 text-lg font-black leading-tight text-slate-950">{socialSharePost.title}</h3>
-                    ) : null}
-                    <p className="mt-2 line-clamp-4 text-sm font-semibold leading-6 text-slate-600">
-                      {socialSharePost.body}
-                    </p>
-                  </div>
-                </div>
-
-                {socialShareMedia ? (
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-slate-200 bg-white">
-                    {socialShareMedia.type === 'image' ? (
-                      <img
-                        src={socialShareMedia.url}
-                        alt={socialShareMedia.name || socialSharePost.title || 'Imagen de publicacion'}
-                        className="max-h-[280px] w-full object-cover"
-                      />
-                    ) : (
-                      <video src={socialShareMedia.url} className="max-h-[280px] w-full object-cover" controls />
-                    )}
-                  </div>
-                ) : (
-                  <div className="mt-3 rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-5 text-center text-sm font-bold text-slate-500">
-                    Esta publicacion no tiene imagen/video. Podes compartir solo el texto y el enlace.
-                  </div>
-                )}
-
-                <textarea
-                  readOnly
-                  value={socialShareCopy}
-                  rows={6}
-                  className="mt-3 w-full resize-none rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold leading-6 text-slate-700 outline-none"
-                />
-              </div>
-
-              <div className="mt-4 grid gap-2 sm:grid-cols-2">
-                <button
-                  type="button"
-                  onClick={() => void handleCopySocialPostText(socialSharePost, socialShareTarget)}
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-                >
-                  <ClipboardList className="h-4 w-4" />
-                  Copiar texto
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    void copyTextToClipboard(socialShareUrl).then(() =>
-                      setFeedback('Copiamos el enlace de la publicacion.')
-                    )
-                  }
-                  className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-                >
-                  <Share2 className="h-4 w-4" />
-                  Copiar enlace
-                </button>
-              </div>
-
-              {socialShareMedia ? (
-                <a
-                  href={socialShareMedia.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-700 transition hover:bg-slate-50"
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  Abrir imagen/video
-                </a>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() =>
-                  void (socialShareTarget === 'instagram'
-                    ? handleOpenInstagramComposer(socialSharePost)
-                    : handleOpenFacebookComposer(socialSharePost))
-                }
-                className="mt-3 inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#ff8f1f] px-4 text-sm font-black text-[#2a0338] transition hover:bg-[#ffa748]"
-              >
-                {socialShareTarget === 'instagram' ? <Camera className="h-4 w-4" /> : <Globe2 className="h-4 w-4" />}
-                {socialShareActionLabel}
-              </button>
-
-              <p className="mt-3 rounded-2xl bg-slate-50 px-4 py-3 text-xs font-semibold leading-5 text-slate-500">
-                {socialShareNote}
-              </p>
-            </div>
-          </div>
-        </div>
       ) : null}
 
       {isComposerOpen && (

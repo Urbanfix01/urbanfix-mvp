@@ -22,6 +22,7 @@ import {
   MapPin,
   MessageSquareMore,
   Monitor,
+  Printer,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -245,6 +246,17 @@ type LaborIndexPreviewItem = {
   delta: number;
 };
 
+type LaborPriceUpdateAlerts = {
+  notificationCount?: number;
+  notificationError?: string | null;
+  emailConfigured?: boolean;
+  emailRecipientCount?: number;
+  emailSentCount?: number;
+  emailFailedCount?: number;
+  emailSkippedCount?: number;
+  emailError?: string | null;
+} | null;
+
 type LaborIndexData = {
   index: {
     sourceLabel: string;
@@ -382,6 +394,16 @@ type AnalyticsReachBucket = {
   uniqueAccounts?: number;
 };
 
+type AnalyticsSectionMetric = {
+  key: string;
+  label: string;
+  views: number;
+  uniqueSessions: number;
+  accountSessions: number;
+  guestSessions: number;
+  paths?: string[];
+};
+
 type AnalyticsMonthlyReach = {
   monthKey: string;
   label: string;
@@ -389,7 +411,12 @@ type AnalyticsMonthlyReach = {
   knownAccountUsers: number;
   unknownAccountUsers: number;
   sessions: number;
+  accountSessions?: number;
+  guestSessions?: number;
+  knownSessions?: number;
+  unknownSessions?: number;
   views: number;
+  topSections?: AnalyticsSectionMetric[];
   countriesReached?: AnalyticsReachBucket[];
   cities?: AnalyticsReachBucket[];
   zones?: AnalyticsGeoZone[];
@@ -434,6 +461,7 @@ type AdminOverview = {
     analyticsGeo?: {
       rangeDays: number;
       rangeMonths?: number;
+      totalViews?: number;
       totalSessions: number;
       accountSessions: number;
       guestSessions: number;
@@ -460,6 +488,7 @@ type AdminOverview = {
       countries: AnalyticsReachBucket[];
       cities: AnalyticsReachBucket[];
       countriesReached?: AnalyticsReachBucket[];
+      topSections?: AnalyticsSectionMetric[];
       zones?: AnalyticsGeoZone[];
     };
   };
@@ -610,7 +639,8 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
     layer.clearLayers();
 
     validZones.forEach((zone) => {
-      const reachCount = zone.uniqueAccounts ?? zone.uniqueSessions;
+      const accountCount = zone.uniqueAccounts ?? 0;
+      const reachCount = zone.uniqueSessions;
       const radius = Math.min(18, Math.max(7, 6 + reachCount * 2));
       const marker = L.circleMarker([zone.latitude, zone.longitude], {
         radius,
@@ -622,7 +652,9 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
       });
 
       marker.bindTooltip(
-        `<strong>${escapeMapText(zone.label)}</strong><br>${formatNumber(reachCount)} cuenta(s) &middot; ${formatNumber(zone.uniqueSessions)} sesi&oacute;n(es)`,
+        `<strong>${escapeMapText(zone.label)}</strong><br>${formatNumber(zone.uniqueSessions)} sesi&oacute;n(es)${
+          accountCount ? ` &middot; ${formatNumber(accountCount)} cuenta(s)` : ''
+        }`,
         { direction: 'top', offset: [0, -8], opacity: 0.95 }
       );
       marker.addTo(layer);
@@ -3180,7 +3212,22 @@ export default function AdminPage() {
       if (!response.ok) {
         throw new Error(data?.error || 'No se pudo aplicar el ajuste INDEC.');
       }
-      setLaborMessage(`Ajuste aplicado a ${data?.updatedCount || 0} items.`);
+      const alerts = data?.alerts as LaborPriceUpdateAlerts;
+      const alertParts: string[] = [];
+      if (alerts) {
+        alertParts.push(`${alerts.notificationCount || 0} notificaciones a tecnicos`);
+        if (alerts.emailConfigured === false) {
+          alertParts.push('mail pendiente de configurar');
+        } else {
+          alertParts.push(`${alerts.emailSentCount || 0} mails a tecnicos enviados`);
+        }
+        if (alerts.emailFailedCount) alertParts.push(`${alerts.emailFailedCount} mails con error`);
+        if (alerts.emailSkippedCount) alertParts.push(`${alerts.emailSkippedCount} mails omitidos por limite`);
+        if (alerts.notificationError) alertParts.push('notificaciones con error');
+      }
+      setLaborMessage(
+        `Ajuste aplicado a ${data?.updatedCount || 0} items${alertParts.length ? `. Avisos: ${alertParts.join(', ')}.` : '.'}`
+      );
       await loadLaborItems(session.access_token);
       await loadLaborIndexPreview(session.access_token);
     } catch (error: any) {
@@ -5820,17 +5867,44 @@ export default function AdminPage() {
       ? null
       : summaryMonthlyReach.find((item) => item.monthKey === analyticsGeoMonthFilter) || null;
   const summaryReachLabel = selectedSummaryMonth?.label || `últimos ${summaryGeo?.rangeMonths || 12} meses`;
+  const summaryWebViews = selectedSummaryMonth?.views ?? summaryGeo?.totalViews ?? 0;
+  const summaryWebSessions = selectedSummaryMonth?.sessions ?? summaryGeo?.totalSessions ?? 0;
+  const summaryAccountSessions = selectedSummaryMonth?.accountSessions ?? summaryGeo?.accountSessions ?? 0;
+  const summaryGuestSessions = selectedSummaryMonth?.guestSessions ?? summaryGeo?.guestSessions ?? 0;
+  const summaryWebKnownSessions = selectedSummaryMonth?.knownSessions ?? summaryGeo?.knownSessions ?? 0;
+  const summaryWebUnknownSessions = selectedSummaryMonth?.unknownSessions ?? summaryGeo?.unknownSessions ?? 0;
   const summaryReachAccountUsers = selectedSummaryMonth?.accountUsers ?? summaryGeo?.accountUsersCount ?? summaryGeo?.accountSessions ?? 0;
-  const summaryReachKnownUsers = selectedSummaryMonth?.knownAccountUsers ?? summaryGeo?.knownAccountUsers ?? summaryGeo?.knownSessions ?? 0;
-  const summaryReachUnknownUsers = selectedSummaryMonth?.unknownAccountUsers ?? summaryGeo?.unknownAccountUsers ?? summaryGeo?.unknownSessions ?? 0;
-  const summaryReachSessions = selectedSummaryMonth?.sessions ?? summaryGeo?.accountSessions ?? 0;
+  const summaryReachSessions = summaryWebSessions;
   const summaryReachCountries = selectedSummaryMonth?.countriesReached || summaryGeo?.countriesReached || summaryGeo?.countries || [];
   const summaryReachCities = selectedSummaryMonth?.cities || summaryGeo?.cities || [];
-  const summaryGeoCoverage = summaryReachAccountUsers
-    ? Math.round((summaryReachKnownUsers / summaryReachAccountUsers) * 100)
+  const summaryTopSections = selectedSummaryMonth?.topSections || summaryGeo?.topSections || [];
+  const summaryTopSectionMaxViews = Math.max(1, ...summaryTopSections.map((item) => item.views || 0));
+  const summaryGeoCoverage = summaryWebSessions
+    ? Math.round((summaryWebKnownSessions / summaryWebSessions) * 100)
     : 0;
   const summaryAccountUsers = summaryGeo?.accountUsers || [];
   const summaryGeoZones = selectedSummaryMonth?.zones || summaryGeo?.zones || [];
+  const handlePrintSummaryReachReport = () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+
+    const printClass = 'ufx-printing-admin-reach';
+    const previousTitle = document.title;
+
+    const cleanup = () => {
+      document.body.classList.remove(printClass);
+      document.title = previousTitle;
+      window.removeEventListener('afterprint', cleanup);
+    };
+
+    document.title = `UrbanFix - Reporte alcance - ${summaryReachLabel}`;
+    document.body.classList.add(printClass);
+    window.addEventListener('afterprint', cleanup, { once: true });
+
+    window.setTimeout(() => {
+      window.print();
+      window.setTimeout(cleanup, 1500);
+    }, 80);
+  };
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
   const roadmapCurrentCount = useMemo(
@@ -7076,16 +7150,23 @@ export default function AdminPage() {
             <>
               {activeTab === 'resumen' && (
                 <section className="mt-6">
-                  <article className="rounded-[30px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
+                  <article className="ufx-admin-reach-report rounded-[30px] border border-[#eadff0] bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(250,244,249,0.96))] p-5 shadow-[0_20px_45px_rgba(31,10,46,0.08)] lg:p-6">
+                    <div className="ufx-admin-print-heading hidden">
+                      <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">UrbanFix · Reporte administrativo</p>
+                      <h1 className="mt-2 text-2xl font-semibold text-[#180f24]">Alcance real de la plataforma</h1>
+                      <p className="mt-2 text-sm text-[#6c6177]">
+                        Periodo: {summaryReachLabel} · Emitido: {formatDateTime(new Date().toISOString())}
+                      </p>
+                    </div>
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="max-w-3xl">
                         <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Balance mensual</p>
-                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Cuentas alcanzadas por país</h3>
+                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Alcance real de la plataforma</h3>
                         <p className="mt-2 text-sm leading-7 text-[#6c6177]">
-                          El resumen cuenta usuarios únicos con sesión real en UrbanFix. No suma logins repetidos ni cuentas internas, y separa la navegación anónima para que el alcance mensual sea mas claro.
+                          El resumen combina visitas con cuenta y navegación anónima para ver desde dónde entran a UrbanFix y qué secciones usan más. Las cuentas propias quedan excluidas cuando la sesión está identificada.
                         </p>
                       </div>
-                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                      <div className="ufx-admin-print-hidden flex shrink-0 flex-wrap items-center justify-end gap-2">
                         {summaryMonthlyReach.length > 0 && (
                           <label className="flex items-center gap-2 rounded-2xl border border-[#eadff0] bg-white px-3 py-2 text-xs font-semibold text-[#432451] shadow-sm">
                             <span className="text-[10px] uppercase tracking-[0.16em] text-[#8b7c98]">Mes</span>
@@ -7111,6 +7192,14 @@ export default function AdminPage() {
                         >
                           Actualizar
                         </button>
+                        <button
+                          type="button"
+                          onClick={handlePrintSummaryReachReport}
+                          className="inline-flex items-center gap-2 rounded-2xl border border-[#ffb15a] bg-[#ff8f1f] px-4 py-2 text-xs font-semibold text-[#180f24] shadow-sm transition hover:bg-[#ffa64a]"
+                        >
+                          <Printer className="h-4 w-4" />
+                          Imprimir PDF
+                        </button>
                         <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#efe6f5] text-[#5b3a6e]">
                           <Globe2 className="h-5 w-5" />
                         </span>
@@ -7120,12 +7209,12 @@ export default function AdminPage() {
                     <div className="mt-4 rounded-[24px] border border-[#eadff0] bg-white px-3 py-3 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
                       <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
                         {[
-                          { label: 'Cuentas alcanzadas', value: formatNumber(summaryReachAccountUsers), tone: 'text-[#047857]' },
-                          { label: 'Con ubicación', value: formatNumber(summaryReachKnownUsers), tone: 'text-[#047857]' },
-                          { label: 'Sin ubicación', value: formatNumber(summaryReachUnknownUsers), tone: 'text-slate-600' },
-                          { label: 'Países alcanzados', value: formatNumber(summaryReachCountries.length), tone: 'text-[#5b3a6e]' },
-                          { label: 'Sesiones reales', value: formatNumber(summaryReachSessions), tone: 'text-slate-600' },
-                          { label: 'Cobertura', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
+                          { label: 'Visitas web', value: formatNumber(summaryWebViews), tone: 'text-[#5b3a6e]' },
+                          { label: 'Sesiones reales', value: formatNumber(summaryReachSessions), tone: 'text-slate-700' },
+                          { label: 'Anónimas', value: formatNumber(summaryGuestSessions), tone: 'text-slate-600' },
+                          { label: 'Con cuenta', value: formatNumber(summaryAccountSessions), tone: 'text-[#047857]' },
+                          { label: 'Países detectados', value: formatNumber(summaryReachCountries.length), tone: 'text-[#5b3a6e]' },
+                          { label: 'Cobertura geo', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
                         ].map((item) => (
                           <div key={item.label} className="rounded-2xl bg-[#faf8fb] px-3 py-2">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">{item.label}</p>
@@ -7136,16 +7225,16 @@ export default function AdminPage() {
                     </div>
 
                     <p className="mt-3 text-xs leading-6 text-[#6c6177]">
-                      {summaryReachAccountUsers
-                        ? `${formatNumber(summaryReachKnownUsers)} de ${formatNumber(summaryReachAccountUsers)} cuenta(s) únicas tienen ubicación aproximada en ${summaryReachLabel}. Las cuentas propias quedan excluidas del balance.`
-                        : `Todavía no hay cuentas reales registradas para ${summaryReachLabel}. Las visitas sin cuenta quedan fuera de este balance.`}
+                      {summaryReachSessions
+                        ? `${formatNumber(summaryWebKnownSessions)} de ${formatNumber(summaryReachSessions)} sesión(es) tienen ubicación aproximada en ${summaryReachLabel}. ${formatNumber(summaryWebUnknownSessions)} sesión(es) quedaron sin ubicación por privacidad o infraestructura.`
+                        : `Todavía no hay navegación real registrada para ${summaryReachLabel}.`}
                     </p>
 
                     <div className="mt-6 border-t border-[#eadff0] pt-6">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución por ubicación</p>
-                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Países alcanzados con la app</h3>
+                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Origen de las visitas reales</h3>
                         </div>
                         <MapPin className="h-5 w-5 text-[#ff8f1f]" />
                       </div>
@@ -7155,11 +7244,52 @@ export default function AdminPage() {
                       <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Secciones mas visitadas</p>
+                            <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Donde entra la gente</h4>
+                          </div>
+                          <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
+                            {formatNumber(summaryTopSections.length)} seccion(es)
+                          </span>
+                        </div>
+                        <div className="mt-3 space-y-2">
+                          {summaryTopSections.length === 0 && (
+                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
+                              Todavia no hay secciones con trafico suficiente para este balance.
+                            </p>
+                          )}
+                          {summaryTopSections.map((section) => {
+                            const width = Math.max(8, Math.round(((section.views || 0) / summaryTopSectionMaxViews) * 100));
+                            return (
+                              <div key={section.key} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="text-sm font-semibold text-slate-800">{section.label}</span>
+                                  <span className="text-xs font-semibold text-slate-500">
+                                    {formatNumber(section.views)} vista(s) · {formatNumber(section.uniqueSessions)} sesion(es)
+                                  </span>
+                                </div>
+                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+                                  <div
+                                    className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#4b0b55)]"
+                                    style={{ width: `${width}%` }}
+                                  />
+                                </div>
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  {formatNumber(section.accountSessions)} con cuenta · {formatNumber(section.guestSessions)} anonimas
+                                </p>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
                             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Cuentas reales identificadas</p>
                             <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Actividad con sesión iniciada</h4>
                           </div>
                           <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
-                            Top {formatNumber(summaryAccountUsers.length)}
+                            {formatNumber(summaryReachAccountUsers)} cuenta(s)
                           </span>
                         </div>
 
@@ -7221,18 +7351,18 @@ export default function AdminPage() {
 
                       <div className="mt-5 grid gap-4 md:grid-cols-2">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países alcanzados</p>
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países detectados</p>
                           <div className="mt-3 space-y-2">
                             {summaryReachCountries.length === 0 && (
                               <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                                Todavía no hay países asociados a cuentas reales.
+                                Todavía no hay países detectados en la navegación.
                               </p>
                             )}
                             {summaryReachCountries.map((item) => (
                               <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
                                 <span className="text-sm font-semibold text-slate-700">{item.label}</span>
                                 <span className="text-xs text-slate-500">
-                                  {formatNumber(item.uniqueAccounts ?? item.uniqueSessions)} cuenta(s)
+                                  {formatNumber(item.uniqueSessions)} sesión(es)
                                 </span>
                               </div>
                             ))}
@@ -7244,14 +7374,14 @@ export default function AdminPage() {
                           <div className="mt-3 space-y-2">
                             {summaryReachCities.length === 0 && (
                               <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                                Todavía no hay ciudades asociadas a cuentas reales.
+                                Todavía no hay ciudades detectadas en la navegación.
                               </p>
                             )}
                             {summaryReachCities.map((item) => (
                               <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
                                 <span className="text-sm font-semibold text-slate-700">{item.label}</span>
                                 <span className="text-xs text-slate-500">
-                                  {formatNumber(item.uniqueAccounts ?? item.uniqueSessions)} cuenta(s)
+                                  {formatNumber(item.uniqueSessions)} sesión(es)
                                 </span>
                               </div>
                             ))}
@@ -7777,6 +7907,9 @@ export default function AdminPage() {
                     <p className="mt-1 text-sm leading-6 text-slate-600">
                       Trae el ultimo indice oficial de INDEC y prepara una vista previa antes de aplicar cambios en el
                       catalogo.
+                    </p>
+                    <p className="mt-2 text-xs font-semibold text-orange-700">
+                      Automatizado: UrbanFix revisa INDEC todos los dias y solo aplica un periodo nuevo.
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

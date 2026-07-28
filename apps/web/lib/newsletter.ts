@@ -96,6 +96,7 @@ export const buildNewsletterHtml = (params: {
   const quickLinks = (params.quickLinks || []).filter((item) => item.label && item.url);
   const ctaLabel = String(params.ctaLabel || '').trim();
   const ctaUrl = normalizeNewsletterUrl(params.ctaUrl);
+  const brandLogoUrl = normalizeNewsletterUrl('/logo-ufx-main.png');
 
   const paragraphsHtml = params.paragraphs
     .map(
@@ -206,7 +207,16 @@ export const buildNewsletterHtml = (params: {
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" class="newsletter-card" bgcolor="#240432" style="max-width:640px;border:1px solid #5d3f77;border-radius:28px;overflow:hidden;background:#240432;box-shadow:0 24px 80px rgba(0,0,0,0.35);">
               <tr>
                 <td style="padding:32px 32px 12px;">
-                  <p class="newsletter-muted" style="margin:0 0 12px;font-size:11px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#ffd6a6;">UrbanFix newsletter</p>
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:0 0 18px;">
+                    <tr>
+                      <td style="padding:0 10px 0 0;vertical-align:middle;">
+                        <img src="${escapeHtml(brandLogoUrl)}" alt="" width="42" height="42" style="display:block;width:42px;height:42px;border:0;outline:none;text-decoration:none;border-radius:10px;" />
+                      </td>
+                      <td style="vertical-align:middle;font-size:0;line-height:1;">
+                        <span style="font-size:25px;line-height:1;font-weight:800;letter-spacing:-0.02em;color:#ffffff;">URBAN</span><span style="font-size:25px;line-height:1;font-weight:800;letter-spacing:-0.02em;color:#ff8f1f;">FIX</span>
+                      </td>
+                    </tr>
+                  </table>
                   <h1 style="margin:0;font-size:34px;line-height:1.08;color:#ffffff;">${title}</h1>
                 </td>
               </tr>
@@ -227,11 +237,11 @@ export const buildNewsletterHtml = (params: {
                 <td class="newsletter-footer" style="padding:24px 32px 32px;">
                   <div class="newsletter-rule" style="height:1px;background:#5d3f77;margin-bottom:16px;"></div>
                   <p class="newsletter-muted" style="margin:0 0 10px;font-size:12px;line-height:1.6;color:#d8c8e6;">
-                    Recibiste este correo por tu relación con UrbanFix.
+                    Recibiste este correo por tu relacion con UrbanFix.
                   </p>
                   <p class="newsletter-muted" style="margin:0;font-size:12px;line-height:1.6;color:#d8c8e6;">
                     Si no quieres seguir recibiendo novedades,
-                    <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#ffd6a6;text-decoration:underline;">darte de baja aquí</a>.
+                    <a href="${escapeHtml(params.unsubscribeUrl)}" style="color:#ffd6a6;text-decoration:underline;">darte de baja aqui</a>.
                   </p>
                 </td>
               </tr>

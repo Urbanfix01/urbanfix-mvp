@@ -1598,6 +1598,62 @@ header .header-view-option {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
+
+  body.ufx-printing-admin-reach {
+    background: #ffffff !important;
+  }
+
+  body.ufx-printing-admin-reach * {
+    visibility: hidden !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-reach-report,
+  body.ufx-printing-admin-reach .ufx-admin-reach-report * {
+    visibility: visible !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-reach-report {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    padding: 14mm !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-print-heading {
+    display: block !important;
+    margin-bottom: 18px !important;
+    padding-bottom: 12px !important;
+    border-bottom: 1px solid #eadff0 !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-print-hidden,
+  body.ufx-printing-admin-reach .ufx-admin-print-hidden *,
+  body.ufx-printing-admin-reach .ufx-admin-reach-report button,
+  body.ufx-printing-admin-reach .ufx-admin-reach-report .leaflet-control-container {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-reach-report .max-h-64 {
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-reach-report .leaflet-container {
+    min-height: 250px !important;
+  }
+
+  body.ufx-printing-admin-reach .ufx-admin-reach-report section,
+  body.ufx-printing-admin-reach .ufx-admin-reach-report article,
+  body.ufx-printing-admin-reach .ufx-admin-reach-report [class*='rounded-'] {
+    break-inside: avoid;
+  }
 }
 
 /* --- TECHNICIAN CLIENT HISTORY MAP --- */
