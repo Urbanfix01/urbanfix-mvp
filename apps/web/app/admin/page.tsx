@@ -5887,23 +5887,227 @@ export default function AdminPage() {
   const handlePrintSummaryReachReport = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
-    const printClass = 'ufx-printing-admin-reach';
-    const previousTitle = document.title;
+    const escapeHtml = (value: unknown) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 
-    const cleanup = () => {
-      document.body.classList.remove(printClass);
-      document.title = previousTitle;
-      window.removeEventListener('afterprint', cleanup);
+    const statCards = [
+      { label: 'Visitas web', value: formatNumber(summaryWebViews) },
+      { label: 'Sesiones reales', value: formatNumber(summaryReachSessions) },
+      { label: 'Anonimas', value: formatNumber(summaryGuestSessions) },
+      { label: 'Con cuenta', value: formatNumber(summaryAccountSessions) },
+      { label: 'Paises detectados', value: formatNumber(summaryReachCountries.length) },
+      { label: 'Cobertura geo', value: `${summaryGeoCoverage}%` },
+    ];
+
+    const renderEmpty = (label: string) => `<p class="empty">${escapeHtml(label)}</p>`;
+    const renderList = (
+      rows: Array<{ label: string; uniqueSessions?: number; views?: number; sessions?: number }>,
+      emptyLabel: string
+    ) =>
+      rows.length
+        ? rows
+            .map(
+              (item) => `
+                <div class="list-row">
+                  <span>${escapeHtml(item.label)}</span>
+                  <strong>${formatNumber(item.uniqueSessions ?? item.sessions ?? item.views ?? 0)}</strong>
+                </div>
+              `
+            )
+            .join('')
+        : renderEmpty(emptyLabel);
+
+    const sectionRows = summaryTopSections.length
+      ? summaryTopSections
+          .map((section) => {
+            const width = Math.max(8, Math.round(((section.views || 0) / summaryTopSectionMaxViews) * 100));
+            return `
+              <div class="section-row">
+                <div class="row-top">
+                  <strong>${escapeHtml(section.label)}</strong>
+                  <span>${formatNumber(section.views)} vistas / ${formatNumber(section.uniqueSessions)} sesiones</span>
+                </div>
+                <div class="bar"><span style="width:${width}%"></span></div>
+                <p>${formatNumber(section.accountSessions)} con cuenta / ${formatNumber(section.guestSessions)} anonimas</p>
+              </div>
+            `;
+          })
+          .join('')
+      : renderEmpty('Todavia no hay secciones con trafico suficiente para este balance.');
+
+    const accountRows = summaryAccountUsers.length
+      ? summaryAccountUsers
+          .map(
+            (account) => `
+              <div class="account-row">
+                <div>
+                  <strong>${escapeHtml(account.label)}</strong>
+                  <p>${escapeHtml(account.email || 'Sin email visible')}</p>
+                </div>
+                <div class="account-meta">
+                  <span>${formatNumber(account.sessions)} sesiones</span>
+                  <span>${formatNumber(account.views)} vistas</span>
+                  <span>${escapeHtml(formatDateTime(account.lastSeenAt))}</span>
+                </div>
+              </div>
+            `
+          )
+          .join('')
+      : renderEmpty('Todavia no hay cuentas reales identificadas para este balance.');
+
+    const logoUrl = `${window.location.origin}/logo-ufx-main.png`;
+    const printHtml = `
+      <!doctype html>
+      <html lang="es">
+        <head>
+          <meta charset="utf-8" />
+          <title>UrbanFix - Reporte de alcance</title>
+          <style>
+            @page { size: A4 portrait; margin: 12mm; }
+            * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { margin: 0; background: #fff; color: #180f24; font-family: Arial, sans-serif; }
+            .report { width: 100%; }
+            .header { border-bottom: 1px solid #eadff0; padding-bottom: 14px; margin-bottom: 18px; }
+            .brand { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+            .brand img { width: 130px; height: auto; display: block; }
+            .eyebrow { margin: 0 0 8px; color: #8b7c98; font-size: 10px; font-weight: 700; letter-spacing: 0.22em; text-transform: uppercase; }
+            h1 { margin: 0; font-size: 24px; line-height: 1.12; }
+            h2 { margin: 0 0 10px; font-size: 16px; }
+            p { margin: 0; }
+            .meta, .intro { margin-top: 8px; color: #6c6177; font-size: 12px; line-height: 1.55; }
+            .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 16px 0; }
+            .card { border: 1px solid #eadff0; border-radius: 14px; background: #faf8fb; padding: 10px; }
+            .card span { display: block; color: #8b7c98; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; }
+            .card strong { display: block; margin-top: 6px; font-size: 20px; }
+            .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+            .panel { break-inside: avoid; border: 1px solid #eadff0; border-radius: 16px; padding: 12px; background: #fff; }
+            .list-row, .account-row { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid #edf2f7; padding: 8px 0; font-size: 12px; }
+            .list-row:last-child, .account-row:last-child { border-bottom: 0; }
+            .list-row strong { white-space: nowrap; }
+            .section-row { border-bottom: 1px solid #edf2f7; padding: 9px 0; }
+            .section-row:last-child { border-bottom: 0; }
+            .row-top { display: flex; justify-content: space-between; gap: 10px; font-size: 12px; }
+            .row-top span, .section-row p, .account-row p, .account-meta { color: #6c6177; font-size: 11px; }
+            .bar { height: 7px; margin: 7px 0 4px; overflow: hidden; border-radius: 999px; background: #f1edf5; }
+            .bar span { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #ff8f1f, #4b0b55); }
+            .account-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; min-width: 130px; }
+            .empty { border: 1px dashed #d8cbe2; border-radius: 12px; color: #6c6177; font-size: 12px; padding: 10px; }
+            .note { margin-top: 14px; border-radius: 14px; background: #fff7ed; color: #9b4a00; font-size: 11px; line-height: 1.55; padding: 10px 12px; }
+          </style>
+        </head>
+        <body>
+          <main class="report">
+            <header class="header">
+              <div class="brand">
+                <img src="${escapeHtml(logoUrl)}" alt="UrbanFix" />
+              </div>
+              <p class="eyebrow">UrbanFix / Reporte administrativo</p>
+              <h1>Alcance real de la plataforma</h1>
+              <p class="meta">Periodo: ${escapeHtml(summaryReachLabel)} / Emitido: ${escapeHtml(formatDateTime(new Date().toISOString()))}</p>
+              <p class="intro">Reporte de visitas, sesiones, ubicaciones detectadas y secciones mas usadas para medir el alcance real de UrbanFix.</p>
+            </header>
+
+            <section class="grid">
+              ${statCards.map((item) => `<div class="card"><span>${escapeHtml(item.label)}</span><strong>${escapeHtml(item.value)}</strong></div>`).join('')}
+            </section>
+
+            <p class="note">
+              ${summaryReachSessions
+                ? `${formatNumber(summaryWebKnownSessions)} de ${formatNumber(summaryReachSessions)} sesiones tienen ubicacion aproximada en ${escapeHtml(summaryReachLabel)}. ${formatNumber(summaryWebUnknownSessions)} sesiones quedaron sin ubicacion por privacidad o infraestructura.`
+                : `Todavia no hay navegacion real registrada para ${escapeHtml(summaryReachLabel)}.`}
+            </p>
+
+            <section class="panel" style="margin-top:14px;">
+              <p class="eyebrow">Secciones mas visitadas</p>
+              <h2>Donde entra la gente</h2>
+              ${sectionRows}
+            </section>
+
+            <section class="two-cols">
+              <div class="panel">
+                <p class="eyebrow">Paises detectados</p>
+                <h2>Alcance por pais</h2>
+                ${renderList(summaryReachCountries, 'Todavia no hay paises detectados.')}
+              </div>
+              <div class="panel">
+                <p class="eyebrow">Ciudades detectadas</p>
+                <h2>Alcance por ciudad</h2>
+                ${renderList(summaryReachCities, 'Todavia no hay ciudades detectadas.')}
+              </div>
+            </section>
+
+            <section class="panel" style="margin-top:14px;">
+              <p class="eyebrow">Cuentas reales identificadas</p>
+              <h2>Actividad con sesion iniciada</h2>
+              ${accountRows}
+            </section>
+          </main>
+        </body>
+      </html>
+    `;
+
+    const openAndPrintPopup = () => {
+      const printWindow = window.open('', '_blank', 'width=960,height=920');
+      if (!printWindow) return false;
+      printWindow.document.open();
+      printWindow.document.write(printHtml);
+      printWindow.document.close();
+      window.setTimeout(() => {
+        try {
+          printWindow.focus();
+          printWindow.print();
+        } catch (error) {
+          console.error('No se pudo imprimir el reporte de alcance.', error);
+        }
+      }, 300);
+      return true;
     };
 
-    document.title = `UrbanFix - Reporte alcance - ${summaryReachLabel}`;
-    document.body.classList.add(printClass);
-    window.addEventListener('afterprint', cleanup, { once: true });
+    const openAndPrintIframe = () => {
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(iframe);
 
-    window.setTimeout(() => {
-      window.print();
-      window.setTimeout(cleanup, 1500);
-    }, 80);
+      const cleanup = () => {
+        if (iframe.parentNode) {
+          iframe.parentNode.removeChild(iframe);
+        }
+      };
+
+      iframe.onload = () => {
+        try {
+          const frameWindow = iframe.contentWindow;
+          if (!frameWindow) {
+            cleanup();
+            return;
+          }
+          frameWindow.focus();
+          frameWindow.print();
+          window.setTimeout(cleanup, 1200);
+        } catch (error) {
+          console.error('No se pudo imprimir el reporte de alcance.', error);
+          cleanup();
+        }
+      };
+
+      iframe.srcdoc = printHtml;
+    };
+
+    const popupOk = openAndPrintPopup();
+    if (!popupOk) {
+      openAndPrintIframe();
+    }
   };
 
   const roadmapOpenCount = Math.max(roadmapTotals.total - roadmapTotals.done, 0);
