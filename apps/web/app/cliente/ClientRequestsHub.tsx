@@ -19,6 +19,7 @@ import {
   syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
 import { getPasswordPolicyError, PASSWORD_POLICY_MESSAGE } from '../../lib/auth/password-policy';
+import { trackFunnelEvent } from '../../lib/analytics';
 import { buildMapLinks, buildOpenStreetMapEmbedUrl } from '../../lib/map-links';
 import { gremiosCatalog } from '../../lib/seo/gremios-data';
 
@@ -1708,6 +1709,9 @@ export default function ClientRequestsHub() {
           });
           if (profileError) throw profileError;
         }
+        trackFunnelEvent('client_registration_completed', {
+          session_started: Boolean(signUpData?.session),
+        });
         const welcomeSent = signUpData?.session?.access_token
           ? await notifyAccountWelcomeWhatsapp(signUpData.session.access_token, 'client_register')
           : false;
@@ -1930,6 +1934,12 @@ export default function ClientRequestsHub() {
       if (createdRequest.id) {
         setSelectedClientRequestId(createdRequest.id);
       }
+      trackFunnelEvent('client_request_published', {
+        category: form.category.trim(),
+        mode: form.mode,
+        matches_count: matchesCount,
+        radius_km: form.radiusKm,
+      });
       setRequestNotice(
         matchesCount > 0
           ? `Solicitud publicada. Encontramos ${matchesCount} técnico(s) cercano(s).`
@@ -4474,6 +4484,8 @@ export default function ClientRequestsHub() {
                                       href={`https://wa.me/${responseItem.phone.replace(/\D/g, '')}`}
                                       target="_blank"
                                       rel="noreferrer"
+                                      data-analytics-event="technician_whatsapp_contact"
+                                      data-analytics-location="client_request_response"
                                       className={clientPanelSecondaryButtonClass}
                                     >
                                       WhatsApp
@@ -4812,6 +4824,8 @@ export default function ClientRequestsHub() {
                                       href={`https://wa.me/${phoneDigits}`}
                                       target="_blank"
                                       rel="noreferrer"
+                                      data-analytics-event="technician_whatsapp_contact"
+                                      data-analytics-location="client_messages"
                                       className="rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                                     >
                                       WhatsApp
@@ -5030,6 +5044,8 @@ export default function ClientRequestsHub() {
                                 href={`https://wa.me/${phoneDigits}`}
                                 target="_blank"
                                 rel="noreferrer"
+                                data-analytics-event="technician_whatsapp_contact"
+                                data-analytics-location="nearby_technicians"
                                 className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-900"
                               >
                                 WhatsApp

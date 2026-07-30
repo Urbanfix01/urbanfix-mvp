@@ -1,4 +1,10 @@
 export const ANALYTICS_ENDPOINT = '/api/analytics/track';
+export const ANALYTICS_FUNNEL_EVENT = 'urbanfix:analytics-funnel';
+
+export type AnalyticsFunnelEventDetail = {
+  eventName: string;
+  eventContext?: Record<string, unknown>;
+};
 
 const SESSION_ID_KEY = 'ux_session_id';
 const SESSION_LAST_ACTIVITY_KEY = 'ux_session_last_activity';
@@ -70,4 +76,23 @@ export const getOrCreateAnalyticsSessionId = () => {
   }
 
   return createAnalyticsSessionId();
+};
+
+export const trackFunnelEvent = (
+  eventName: string,
+  eventContext?: Record<string, unknown>
+) => {
+  if (typeof window === 'undefined') return;
+
+  const normalizedEventName = String(eventName || '').trim().slice(0, 80);
+  if (!normalizedEventName) return;
+
+  window.dispatchEvent(
+    new CustomEvent<AnalyticsFunnelEventDetail>(ANALYTICS_FUNNEL_EVENT, {
+      detail: {
+        eventName: normalizedEventName,
+        eventContext: eventContext || {},
+      },
+    })
+  );
 };

@@ -16,6 +16,100 @@ const endOfDay = (value: Date) => {
 const getProfileLabel = (profile: any, fallback?: string) =>
   profile?.business_name || profile?.full_name || profile?.email || fallback || 'Sin perfil';
 
+const funnelEventLabels: Record<string, string> = {
+  technical_registration_completed: 'Registros técnicos',
+  client_registration_completed: 'Registros de clientes',
+  technical_profile_completed: 'Perfiles técnicos completados',
+  technical_profile_published: 'Perfiles visibles en el mapa',
+  client_request_published: 'Solicitudes publicadas',
+  quote_created: 'Presupuestos creados',
+  quote_sent: 'Presupuestos enviados',
+  technician_whatsapp_contact: 'Contactos por WhatsApp',
+  quote_approved: 'Presupuestos aprobados',
+  home_audience_tecnicos: 'Interés en trabajar como técnico',
+  home_audience_empresas: 'Interés de empresas',
+  home_audience_clientes: 'Interés en contratar',
+  home_open_guia_precios: 'Aperturas de valores de mano de obra',
+  home_register_start: 'Inicios de registro técnico',
+  home_register_start_from_empresas: 'Inicios de registro de empresa',
+  home_download_android_click: 'Intentos de descarga Android',
+};
+
+const funnelStepDefinitions = [
+  'technical_registration_completed',
+  'client_registration_completed',
+  'technical_profile_completed',
+  'technical_profile_published',
+  'client_request_published',
+  'quote_created',
+  'quote_sent',
+  'technician_whatsapp_contact',
+  'quote_approved',
+].map((key) => ({ key, label: funnelEventLabels[key] }));
+
+const funnelGroupDefinitions = [
+  {
+    key: 'registrations',
+    label: 'Registros y perfiles',
+    events: [
+      'technical_registration_completed',
+      'client_registration_completed',
+      'technical_profile_completed',
+      'technical_profile_published',
+    ],
+  },
+  {
+    key: 'demand',
+    label: 'Demanda de trabajos',
+    events: ['client_request_published'],
+  },
+  {
+    key: 'quotes',
+    label: 'Presupuestador',
+    events: ['quote_created', 'quote_sent', 'quote_approved'],
+  },
+  {
+    key: 'contacts',
+    label: 'Contacto con técnicos',
+    events: ['technician_whatsapp_contact'],
+  },
+];
+
+const funnelJourneyDefinitions = [
+  {
+    key: 'technical_activation',
+    label: 'Activación técnica',
+    description: 'Desde el registro hasta quedar visible para clientes.',
+    recommendation: 'Revisar el paso de publicación y la autorización para aparecer en el mapa.',
+    stages: [
+      { key: 'technical_registration_completed', label: 'Registro' },
+      { key: 'technical_profile_completed', label: 'Perfil completo' },
+      { key: 'technical_profile_published', label: 'Perfil visible' },
+    ],
+  },
+  {
+    key: 'client_demand',
+    label: 'Demanda de clientes',
+    description: 'Desde el alta del cliente hasta publicar una necesidad real.',
+    recommendation: 'Simplificar la creación del pedido y reforzar el llamado a publicar.',
+    stages: [
+      { key: 'client_registration_completed', label: 'Registro' },
+      { key: 'client_request_published', label: 'Solicitud publicada' },
+    ],
+  },
+  {
+    key: 'quote_cycle',
+    label: 'Ciclo del presupuesto',
+    description: 'Desde la creación del presupuesto hasta su aprobación.',
+    recommendation: 'Revisar el envío y el seguimiento posterior del presupuesto.',
+    stages: [
+      { key: 'quote_created', label: 'Creado' },
+      { key: 'quote_sent', label: 'Enviado' },
+      { key: 'quote_approved', label: 'Aprobado' },
+    ],
+  },
+];
+
 export async function GET(request: NextRequest) {
   if (!supabase) {
     return NextResponse.json({ error: 'Servicio no disponible.' }, { status: 503 });
@@ -318,29 +412,102 @@ export async function GET(request: NextRequest) {
     prevFunnelCounts.set(key, current);
   });
 
-  const funnelSteps = [
-    { key: 'home_audience_tecnicos', label: 'Audiencia: Tecnicos' },
-    { key: 'home_audience_empresas', label: 'Audiencia: Empresas' },
-    { key: 'home_audience_clientes', label: 'Audiencia: Clientes' },
-    { key: 'home_open_guia_precios', label: 'Apertura de guia de precios' },
-    { key: 'home_register_start', label: 'Registro tecnico desde home' },
-    { key: 'home_register_start_from_empresas', label: 'Registro tecnico desde empresas' },
-    { key: 'home_download_android_click', label: 'Click descarga Android' },
-  ];
+  const summarizeFunnelGroup = (
+    definition: (typeof funnelGroupDefinitions)[number],
+    counts: Map<string, { count: number; sessions: Set<string> }>
+  ) => {
+    const groupSessions = new Set<string>();
+    const count = definition.events.reduce((sum, eventName) => {
+      const stats = counts.get(eventName);
+      stats?.sessions.forEach((sessionId) => groupSessions.add(sessionId));
+      return sum + (stats?.count || 0);
+    }, 0);
+    return { count, sessions: groupSessions.size };
+  };
+
+  const summarizeJourney = (
+    definition: (typeof funnelJourneyDefinitions)[number],
+    counts: Map<string, { count: number; sessions: Set<string> }>,
+    previousCounts: Map<string, { count: number; sessions: Set<string> }>
+  ) => {
+    const stages = definition.stages.map((stage, index) => {
+      const count = counts.get(stage.key)?.count || 0;
+      const prevCount = previousCounts.get(stage.key)?.count || 0;
+      const previousStageCount =
+        index === 0 ? count : counts.get(definition.stages[index - 1].key)?.count || 0;
+      const stageRate =
+        index === 0
+          ? count > 0
+            ? 100
+            : 0
+          : previousStageCount > 0
+            ? Math.min(100, (count / previousStageCount) * 100)
+            : 0;
+
+      return {
+        key: stage.key,
+        label: stage.label,
+        count,
+        prevCount,
+        rate: stageRate,
+        dropOffRate: index === 0 ? 0 : Math.max(0, 100 - stageRate),
+      };
+    });
+
+    const firstCount = stages[0]?.count || 0;
+    const lastCount = stages[stages.length - 1]?.count || 0;
+    const prevFirstCount = stages[0]?.prevCount || 0;
+    const prevLastCount = stages[stages.length - 1]?.prevCount || 0;
+    const completionRate = firstCount > 0 ? Math.min(100, (lastCount / firstCount) * 100) : 0;
+    const prevCompletionRate =
+      prevFirstCount > 0 ? Math.min(100, (prevLastCount / prevFirstCount) * 100) : 0;
+    const weakestStage = stages
+      .slice(1)
+      .sort((a, b) => b.dropOffRate - a.dropOffRate)[0];
+
+    return {
+      key: definition.key,
+      label: definition.label,
+      description: definition.description,
+      recommendation: definition.recommendation,
+      stages,
+      completionRate,
+      prevCompletionRate,
+      dropOffRate: Math.max(0, 100 - completionRate),
+      hasData: firstCount > 0,
+      weakestStageKey: weakestStage?.key || null,
+      weakestStageLabel: weakestStage?.label || null,
+    };
+  };
 
   const funnel = {
     totalEvents: Array.from(funnelCounts.values()).reduce((sum, item) => sum + item.count, 0),
     prevTotalEvents: Array.from(prevFunnelCounts.values()).reduce((sum, item) => sum + item.count, 0),
-    steps: funnelSteps.map((step) => ({
+    groups: funnelGroupDefinitions.map((group) => {
+      const current = summarizeFunnelGroup(group, funnelCounts);
+      const previous = summarizeFunnelGroup(group, prevFunnelCounts);
+      return {
+        key: group.key,
+        label: group.label,
+        count: current.count,
+        prevCount: previous.count,
+        sessions: current.sessions,
+      };
+    }),
+    steps: funnelStepDefinitions.map((step) => ({
       key: step.key,
       label: step.label,
       count: funnelCounts.get(step.key)?.count || 0,
       prevCount: prevFunnelCounts.get(step.key)?.count || 0,
       sessions: funnelCounts.get(step.key)?.sessions.size || 0,
     })),
+    journeys: funnelJourneyDefinitions.map((journey) =>
+      summarizeJourney(journey, funnelCounts, prevFunnelCounts)
+    ),
     topEvents: Array.from(funnelCounts.entries())
       .map(([event_name, stats]) => ({
         event_name,
+        label: funnelEventLabels[event_name] || event_name,
         count: stats.count,
         sessions: stats.sessions.size,
         prevCount: prevFunnelCounts.get(event_name)?.count || 0,

@@ -87,9 +87,15 @@ const getAuthUser = async (request: NextRequest) => {
   const authHeader = request.headers.get('authorization') || '';
   const token = authHeader.replace('Bearer ', '').trim();
   if (!token || !supabase) return null;
-  const { data, error } = await supabase.auth.getUser(token);
-  if (error) return null;
-  return data?.user || null;
+
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error) return null;
+    return data?.user || null;
+  } catch {
+    // Analytics still records an anonymous session when auth verification is temporarily unavailable.
+    return null;
+  }
 };
 
 export async function POST(request: NextRequest) {

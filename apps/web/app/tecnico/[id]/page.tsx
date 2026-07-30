@@ -795,6 +795,8 @@ export default async function TechnicianPublicPage({ params }: { params: Promise
                               href={whatsappLink}
                               target="_blank"
                               rel="noreferrer noopener"
+                              data-analytics-event="technician_whatsapp_contact"
+                              data-analytics-location="public_technician_profile"
                               aria-label="Contactar por WhatsApp"
                               title="WhatsApp"
                               className="inline-flex h-10 w-full max-w-[230px] items-center justify-center gap-2 rounded-full bg-[#25d366] px-4 text-xs font-black text-[#052513] shadow-[0_18px_36px_-26px_rgba(37,211,102,0.9)] transition hover:-translate-y-0.5 hover:bg-[#31e477] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white/70 sm:w-auto sm:max-w-none"

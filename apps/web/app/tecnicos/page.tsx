@@ -69,6 +69,7 @@ import {
   syncAuthAccessTokenCookie,
 } from '../../lib/auth/post-auth';
 import { getPasswordPolicyError, PASSWORD_POLICY_MESSAGE } from '../../lib/auth/password-policy';
+import { trackFunnelEvent } from '../../lib/analytics';
 import {
   buildMasterItemChoiceLabel,
   canonicalizeMasterItemUnit,
@@ -9608,6 +9609,19 @@ export default function TechniciansPage() {
           selectedAccessProfile === 'empresa' ? 'empresa' : 'tecnico',
           'technical_profile_save'
         );
+        if (canSaveRequiredProfile) {
+          trackFunnelEvent('technical_profile_completed', {
+            published: effectiveProfilePublished,
+            location_visibility: locationVisibility,
+            access_granted: nextAccessGranted === true,
+          });
+          if (effectiveProfilePublished) {
+            trackFunnelEvent('technical_profile_published', {
+              location_visibility: locationVisibility,
+              access_granted: nextAccessGranted === true,
+            });
+          }
+        }
       }
       return true;
     } catch (error: any) {
@@ -10172,6 +10186,18 @@ export default function TechniciansPage() {
       setInfoMessage(postSaveMessage);
       lastSavedItemsSignatureRef.current = itemsSignature;
       lastSavedItemsCountRef.current = cleanedItems.length;
+      if (!isEditing) {
+        trackFunnelEvent('quote_created', {
+          status: nextStatus,
+          item_count: cleanedItems.length,
+        });
+      }
+      if (nextStatus === 'sent') {
+        trackFunnelEvent('quote_sent', {
+          created_now: !isEditing,
+          item_count: cleanedItems.length,
+        });
+      }
       return quoteId || null;
     } catch (error: any) {
       setFormError(error?.message || 'No pudimos guardar el presupuesto.');
@@ -10428,6 +10454,10 @@ export default function TechniciansPage() {
           },
         });
         if (error) throw error;
+        trackFunnelEvent('technical_registration_completed', {
+          access_profile: accessProfile,
+          session_started: Boolean(signUpData?.session),
+        });
         const welcomeSent = signUpData?.session?.access_token
           ? await notifyAccountWelcomeWhatsapp(signUpData.session.access_token, accessProfile, 'technical_register')
           : false;

@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { hasSupabaseConfig, supabase } from '../lib/supabase/supabase';
-import { ANALYTICS_ENDPOINT, getOrCreateAnalyticsSessionId, startNewAnalyticsSessionId } from '../lib/analytics';
+import {
+  ANALYTICS_ENDPOINT,
+  ANALYTICS_FUNNEL_EVENT,
+  type AnalyticsFunnelEventDetail,
+  getOrCreateAnalyticsSessionId,
+  startNewAnalyticsSessionId,
+} from '../lib/analytics';
 import { getStoredCountryPreference } from '../lib/country-preference';
 const HEARTBEAT_MS = 60000;
 
@@ -138,6 +144,22 @@ export default function AnalyticsTracker() {
     document.addEventListener('click', handleClick, true);
     return () => {
       document.removeEventListener('click', handleClick, true);
+    };
+  }, [authReady, authEventVersion, pathname]);
+
+  useEffect(() => {
+    if (!authReady) return;
+
+    const handleProgrammaticFunnelEvent = (event: Event) => {
+      const detail = (event as CustomEvent<AnalyticsFunnelEventDetail>).detail;
+      const eventName = String(detail?.eventName || '').trim().slice(0, 80);
+      if (!eventName) return;
+      sendFunnelEvent(eventName, detail?.eventContext || {});
+    };
+
+    window.addEventListener(ANALYTICS_FUNNEL_EVENT, handleProgrammaticFunnelEvent);
+    return () => {
+      window.removeEventListener(ANALYTICS_FUNNEL_EVENT, handleProgrammaticFunnelEvent);
     };
   }, [authReady, authEventVersion, pathname]);
 

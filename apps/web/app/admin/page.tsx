@@ -2907,8 +2907,29 @@ export default function AdminPage() {
     funnel?: {
       totalEvents: number;
       prevTotalEvents: number;
+      groups: { key: string; label: string; count: number; prevCount: number; sessions: number }[];
       steps: { key: string; label: string; count: number; prevCount: number; sessions: number }[];
-      topEvents: { event_name: string; count: number; sessions: number; prevCount: number }[];
+      journeys: {
+        key: string;
+        label: string;
+        description: string;
+        recommendation: string;
+        completionRate: number;
+        prevCompletionRate: number;
+        dropOffRate: number;
+        hasData: boolean;
+        weakestStageKey: string | null;
+        weakestStageLabel: string | null;
+        stages: {
+          key: string;
+          label: string;
+          count: number;
+          prevCount: number;
+          rate: number;
+          dropOffRate: number;
+        }[];
+      }[];
+      topEvents: { event_name: string; label: string; count: number; sessions: number; prevCount: number }[];
     };
     topScreens: ScreenMetric[];
     topRoutes: { path: string; views: number; total_minutes: number; avg_seconds: number }[];
@@ -6349,7 +6370,50 @@ export default function AdminPage() {
   const summaryReachCountries = selectedSummaryMonth?.countriesReached || summaryGeo?.countriesReached || summaryGeo?.countries || [];
   const summaryReachCities = selectedSummaryMonth?.cities || summaryGeo?.cities || [];
   const summaryTopSections = selectedSummaryMonth?.topSections || summaryGeo?.topSections || [];
-  const summaryTopSectionMaxViews = Math.max(1, ...summaryTopSections.map((item) => item.views || 0));
+  const summarySectionRanking = [...summaryTopSections]
+    .sort(
+      (a, b) =>
+        (b.uniqueSessions || 0) - (a.uniqueSessions || 0) ||
+        (b.views || 0) - (a.views || 0) ||
+        a.label.localeCompare(b.label)
+    )
+    .map((section, index) => {
+      const views = Math.max(0, Number(section.views || 0));
+      const uniqueSessions = Math.max(0, Number(section.uniqueSessions || 0));
+      const accountSessions = Math.max(0, Number(section.accountSessions || 0));
+      const guestSessions = Math.max(0, Number(section.guestSessions || 0));
+      const classifiedSessions = Math.max(1, accountSessions + guestSessions);
+      const accountShare = Math.min(100, Math.round((accountSessions / classifiedSessions) * 100));
+      const guestShare = Math.min(100, Math.round((guestSessions / classifiedSessions) * 100));
+      const demandShare = summaryReachSessions
+        ? Math.min(100, Math.round((uniqueSessions / summaryReachSessions) * 100))
+        : 0;
+      const viewsPerSession = uniqueSessions ? views / uniqueSessions : 0;
+      const opportunity =
+        guestShare >= 60
+          ? 'Captar registros'
+          : accountShare >= 60
+            ? 'Fidelizar cuentas'
+            : 'Equilibrar recorrido';
+
+      return {
+        ...section,
+        rank: index + 1,
+        views,
+        uniqueSessions,
+        accountSessions,
+        guestSessions,
+        accountShare,
+        guestShare,
+        demandShare,
+        viewsPerSession,
+        opportunity,
+      };
+    });
+  const summaryTopSectionMaxSessions = Math.max(
+    1,
+    ...summarySectionRanking.map((item) => item.uniqueSessions || 0)
+  );
   const summaryGeoCoverage = summaryWebSessions
     ? Math.round((summaryWebKnownSessions / summaryWebSessions) * 100)
     : 0;
@@ -6554,18 +6618,22 @@ export default function AdminPage() {
             .join('')
         : renderEmpty(emptyLabel);
 
-    const sectionRows = summaryTopSections.length
-      ? summaryTopSections
+    const sectionRows = summarySectionRanking.length
+      ? summarySectionRanking.slice(0, 5)
           .map((section) => {
-            const width = Math.max(8, Math.round(((section.views || 0) / summaryTopSectionMaxViews) * 100));
+            const width = Math.max(
+              8,
+              Math.round(((section.uniqueSessions || 0) / summaryTopSectionMaxSessions) * 100)
+            );
             return `
               <div class="section-row">
                 <div class="row-top">
-                  <strong>${escapeHtml(section.label)}</strong>
-                  <span>${formatNumber(section.views)} vistas / ${formatNumber(section.uniqueSessions)} sesiones</span>
+                  <strong>${section.rank}. ${escapeHtml(section.label)}</strong>
+                  <span>${formatNumber(section.uniqueSessions)} sesiones / ${formatNumber(section.views)} vistas</span>
                 </div>
                 <div class="bar"><span style="width:${width}%"></span></div>
-                <p>${formatNumber(section.accountSessions)} con cuenta / ${formatNumber(section.guestSessions)} anonimas</p>
+                <p>${section.demandShare}% del alcance / ${section.viewsPerSession.toFixed(1)} vistas por sesion / ${section.accountShare}% con cuenta</p>
+                <p><strong>Accion sugerida:</strong> ${escapeHtml(section.opportunity)}</p>
               </div>
             `;
           })
@@ -8372,36 +8440,48 @@ export default function AdminPage() {
                         <MapPin className="h-5 w-5 text-[#ff8f1f]" />
                       </div>
 
-                      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
+                      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.05fr)_minmax(420px,0.95fr)]">
                         <AdminGeoMap zones={summaryGeoZones} compact />
 
                         <div className="xl:border-l xl:border-[#eadff0] xl:pl-5">
                           <div className="flex items-center justify-between gap-2">
                             <div>
                               <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">
-                                Secciones principales
+                                Ranking de demanda
                               </p>
-                              <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Dónde entra la gente</h4>
+                              <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Qué secciones concentran audiencia</h4>
                             </div>
                             <span className="text-xs font-semibold text-[#6c6177]">
-                              Top {Math.min(3, summaryTopSections.length)}
+                              Top {Math.min(5, summarySectionRanking.length)}
                             </span>
                           </div>
 
                           <div className="mt-4 divide-y divide-[#eadff0]">
-                            {summaryTopSections.length === 0 && (
+                            {summarySectionRanking.length === 0 && (
                               <p className="py-4 text-sm leading-6 text-slate-500">
                                 Todavía no hay tráfico suficiente para identificar secciones principales.
                               </p>
                             )}
-                            {summaryTopSections.slice(0, 3).map((section) => {
-                              const width = Math.max(8, Math.round(((section.views || 0) / summaryTopSectionMaxViews) * 100));
+                            {summarySectionRanking.slice(0, 5).map((section) => {
+                              const width = Math.max(
+                                8,
+                                Math.round(
+                                  ((section.uniqueSessions || 0) / summaryTopSectionMaxSessions) * 100
+                                )
+                              );
                               return (
                                 <div key={section.key} className="py-4 first:pt-0">
                                   <div className="flex items-center justify-between gap-3">
-                                    <span className="text-sm font-semibold text-slate-800">{section.label}</span>
-                                    <span className="text-xs font-semibold text-slate-500">
-                                      {formatNumber(section.views)} vistas
+                                    <div className="flex min-w-0 items-center gap-3">
+                                      <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-[#f3edf6] text-xs font-black text-[#4b0b55]">
+                                        {section.rank}
+                                      </span>
+                                      <span className="truncate text-sm font-semibold text-slate-800">
+                                        {section.label}
+                                      </span>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-[#fff1df] px-2 py-1 text-[10px] font-semibold text-[#a65300]">
+                                      {section.opportunity}
                                     </span>
                                   </div>
                                   <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#f3edf6]">
@@ -8410,13 +8490,28 @@ export default function AdminPage() {
                                       style={{ width: `${width}%` }}
                                     />
                                   </div>
-                                  <p className="mt-1 text-[11px] text-slate-500">
-                                    {formatNumber(section.uniqueSessions)} sesiones únicas
-                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
+                                    <span>
+                                      <strong className="text-slate-700">{formatNumber(section.uniqueSessions)}</strong>{' '}
+                                      sesiones únicas
+                                    </span>
+                                    <span>{formatNumber(section.views)} vistas</span>
+                                    <span>{section.viewsPerSession.toFixed(1)} vistas/sesión</span>
+                                  </div>
+                                  <div className="mt-2 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.08em]">
+                                    <span className="text-[#5b3a6e]">{section.demandShare}% del alcance</span>
+                                    <span className="text-[#047857]">{section.accountShare}% con cuenta</span>
+                                    <span className="text-slate-500">{section.guestShare}% visitante</span>
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
+
+                          <p className="border-t border-[#eadff0] pt-4 text-[11px] leading-5 text-[#6c6177]">
+                            “Con cuenta” identifica audiencia autenticada; no equivale a una conversión de registro.
+                            La conversión directa se revisa en Actividad.
+                          </p>
 
                           <div className="mt-5 border-t border-[#eadff0] pt-5">
                             <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">
@@ -11981,7 +12076,7 @@ export default function AdminPage() {
                         downloadCsv(
                           'actividad_embudo.csv',
                           (activityData.funnel?.topEvents || []).map((item) => ({
-                            evento: item.event_name,
+                            evento: item.label || item.event_name,
                             eventos: item.count,
                             sesiones: item.sessions,
                             periodo_anterior: item.prevCount,
@@ -12065,11 +12160,13 @@ export default function AdminPage() {
                     <div className="mt-8 rounded-3xl border border-slate-200 bg-slate-50 p-5">
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <h4 className="text-lg font-semibold text-slate-900">Embudo de conversion web</h4>
-                          <p className="text-xs text-slate-500">Eventos clave de conversion y cambio de audiencia.</p>
+                          <h4 className="text-lg font-semibold text-slate-900">Conversiones reales por sección</h4>
+                          <p className="text-xs text-slate-500">
+                            Acciones confirmadas dentro de los recorridos de clientes y técnicos.
+                          </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Total eventos</p>
+                          <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Acciones confirmadas</p>
                           <p className="text-xl font-semibold text-slate-900">{formatNumber(activityData.funnel.totalEvents)}</p>
                           <p className={`text-xs ${getDeltaLabel(activityData.funnel.totalEvents, activityData.funnel.prevTotalEvents).tone}`}>
                             {getDeltaLabel(activityData.funnel.totalEvents, activityData.funnel.prevTotalEvents).text}
@@ -12078,11 +12175,34 @@ export default function AdminPage() {
                       </div>
 
                       <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                        {(activityData.funnel.groups || []).map((group) => (
+                          <article key={group.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
+                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                              {group.label}
+                            </p>
+                            <div className="mt-3 flex items-end justify-between gap-3">
+                              <p className="text-2xl font-semibold text-slate-900">{formatNumber(group.count)}</p>
+                              <p className="pb-1 text-[11px] text-slate-400">
+                                {formatNumber(group.sessions)} sesiones
+                              </p>
+                            </div>
+                            <p className={`mt-1 text-xs ${getDeltaLabel(group.count, group.prevCount).tone}`}>
+                              {getDeltaLabel(group.count, group.prevCount).text}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+
+                      <div className="mt-6 flex items-center justify-between">
+                        <h5 className="text-sm font-semibold text-slate-800">Hitos del recorrido</h5>
+                        <span className="text-xs text-slate-400">Operaciones completadas</span>
+                      </div>
+                      <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                         {activityData.funnel.steps.map((step) => (
                           <article key={step.key} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
                             <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">{step.label}</p>
                             <p className="mt-2 text-xl font-semibold text-slate-900">{formatNumber(step.count)}</p>
-                            <p className="text-xs text-slate-500">{formatNumber(step.sessions)} sesión(es)</p>
+                            <p className="text-xs text-slate-500">{formatNumber(step.sessions)} sesiones</p>
                             <p className={`mt-1 text-xs ${getDeltaLabel(step.count, step.prevCount).tone}`}>
                               {getDeltaLabel(step.count, step.prevCount).text}
                             </p>
@@ -12090,13 +12210,113 @@ export default function AdminPage() {
                         ))}
                       </div>
 
+                      <div className="mt-6 border-t border-slate-200 pt-6">
+                        <div className="flex flex-wrap items-end justify-between gap-2">
+                          <div>
+                            <h5 className="text-sm font-semibold text-slate-800">Recorridos y abandono</h5>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Avance operativo entre acciones confirmadas del período.
+                            </p>
+                          </div>
+                          <span className="text-xs text-slate-400">Comparado con el período anterior</span>
+                        </div>
+
+                        <div className="mt-4 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+                          {(activityData.funnel.journeys || []).map((journey) => {
+                            const rateDelta = journey.completionRate - journey.prevCompletionRate;
+                            const rateTone =
+                              rateDelta > 0.05
+                                ? 'text-emerald-600'
+                                : rateDelta < -0.05
+                                  ? 'text-rose-600'
+                                  : 'text-slate-400';
+
+                            return (
+                              <article key={journey.key} className="px-4 py-5">
+                                <div className="flex flex-wrap items-start justify-between gap-4">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-semibold text-slate-800">{journey.label}</p>
+                                    <p className="mt-1 text-xs text-slate-500">{journey.description}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-2xl font-semibold text-slate-900">
+                                      {journey.hasData ? `${journey.completionRate.toFixed(0)}%` : 'Sin base'}
+                                    </p>
+                                    {journey.hasData && (
+                                      <p className={`text-[11px] ${rateTone}`}>
+                                        {rateDelta > 0 ? '+' : ''}
+                                        {rateDelta.toFixed(0)} puntos
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div
+                                  className="mt-4 grid gap-2"
+                                  style={{
+                                    gridTemplateColumns: `repeat(${Math.max(1, journey.stages.length)}, minmax(0, 1fr))`,
+                                  }}
+                                >
+                                  {journey.stages.map((stage, index) => (
+                                    <div key={stage.key} className="min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span
+                                          className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                                            stage.count > 0
+                                              ? 'bg-slate-900 text-white'
+                                              : 'bg-slate-100 text-slate-400'
+                                          }`}
+                                        >
+                                          {index + 1}
+                                        </span>
+                                        <span className="truncate text-[11px] font-semibold text-slate-600">
+                                          {stage.label}
+                                        </span>
+                                      </div>
+                                      <p className="mt-2 text-lg font-semibold text-slate-900">
+                                        {formatNumber(stage.count)}
+                                      </p>
+                                      {index > 0 && journey.hasData && (
+                                        <p className="text-[10px] text-slate-400">
+                                          {stage.rate.toFixed(0)}% desde el paso anterior
+                                        </p>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+
+                                <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+                                  <div
+                                    className="h-full rounded-full bg-emerald-500 transition-[width]"
+                                    style={{ width: `${journey.hasData ? journey.completionRate : 0}%` }}
+                                  />
+                                </div>
+
+                                <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                  <p className="text-slate-500">
+                                    {journey.hasData
+                                      ? `Pérdida estimada: ${journey.dropOffRate.toFixed(0)}%`
+                                      : 'Todavía no hay una entrada registrada para medir este recorrido.'}
+                                  </p>
+                                  {journey.hasData && journey.dropOffRate > 0 && (
+                                    <p className="font-semibold text-amber-700">
+                                      Acción: {journey.recommendation}
+                                    </p>
+                                  )}
+                                </div>
+                              </article>
+                            );
+                          })}
+                        </div>
+                      </div>
+
                       <div className="mt-6 space-y-3">
                         <div className="flex items-center justify-between">
-                          <h5 className="text-sm font-semibold text-slate-800">Eventos mas frecuentes</h5>
+                          <h5 className="text-sm font-semibold text-slate-800">Acciones más frecuentes</h5>
                           <span className="text-xs text-slate-400">Top 12</span>
                         </div>
                         {activityData.funnel.topEvents.length === 0 && (
-                          <p className="text-sm text-slate-500">Todavía no hay eventos de embudo registrados.</p>
+                          <p className="text-sm text-slate-500">Todavía no hay conversiones registradas.</p>
                         )}
                         {activityData.funnel.topEvents.map((item) => (
                           <div
@@ -12104,11 +12324,11 @@ export default function AdminPage() {
                             className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-500"
                           >
                             <div>
-                              <p className="text-sm font-semibold text-slate-700">{item.event_name}</p>
-                              <p className="mt-1 text-[11px] text-slate-400">{item.sessions} sesión(es) unicas</p>
+                              <p className="text-sm font-semibold text-slate-700">{item.label || item.event_name}</p>
+                              <p className="mt-1 text-[11px] text-slate-400">{item.sessions} sesiones únicas</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-semibold text-slate-700">{formatNumber(item.count)} eventos</p>
+                              <p className="text-sm font-semibold text-slate-700">{formatNumber(item.count)} acciones</p>
                               <p className={`text-[11px] ${getDeltaLabel(item.count, item.prevCount).tone}`}>
                                 {getDeltaLabel(item.count, item.prevCount).text}
                               </p>

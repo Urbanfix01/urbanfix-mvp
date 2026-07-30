@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { hasSupabaseConfig, supabase, supabaseConfigError } from '../../../lib/supabase/supabase';
 import { useParams } from 'next/navigation';
 import { Manrope } from 'next/font/google';
+import { trackFunnelEvent } from '../../../lib/analytics';
 // ✅ IMPORTACIÓN LIMPIA
 import PDFExportButton from '../../../components/pdf/PDFExportButton';
 
@@ -213,6 +214,9 @@ export default function QuotePage() {
       } else {
         await fetchQuoteData(quote.id);
       }
+      trackFunnelEvent('quote_approved', {
+        has_client_request: Boolean(data?.client_request_id || quote?.client_request_id),
+      });
     } catch (err: any) {
       console.error('Error aprobando presupuesto:', err);
       alert(err?.message || 'No se pudo confirmar el presupuesto. Intenta nuevamente.');
