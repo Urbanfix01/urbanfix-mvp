@@ -128,6 +128,35 @@ type AdminNavGroupKey =
   | 'analitica'
   | 'planes'
   | 'configuracion';
+const ADMIN_TAB_KEYS = new Set<AdminTabKey>([
+  'resumen',
+  'planes',
+  'plan_cliente',
+  'plan_tecnico',
+  'plan_redes',
+  'plan_presupuestador',
+  'plan_valores_mo',
+  'plan_comunidad',
+  'plan_marcas',
+  'plan_eventos',
+  'tecnicos',
+  'clientes',
+  'empresas',
+  'facturacion',
+  'roadmap',
+  'bandeja',
+  'mensajes',
+  'actividad',
+  'mano_obra',
+  'solicitudes',
+  'demos',
+  'newsletter',
+  'flujo',
+]);
+
+const isAdminTabKey = (value: string | null): value is AdminTabKey =>
+  Boolean(value && ADMIN_TAB_KEYS.has(value as AdminTabKey));
+
 type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
 type FlowDiagramNodeShape = 'start' | 'process' | 'decision' | 'end';
 
@@ -2830,6 +2859,22 @@ export default function AdminPage() {
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
   const [openAdminNavGroup, setOpenAdminNavGroup] = useState<AdminNavGroupKey>('inicio');
   const [isMobileAdminNavOpen, setIsMobileAdminNavOpen] = useState(false);
+  const selectAdminTab = useCallback((nextTab: AdminTabKey, groupKey?: AdminNavGroupKey) => {
+    const normalizedTab = nextTab === 'planes' ? 'plan_cliente' : nextTab;
+    setActiveTab(normalizedTab);
+    if (groupKey) {
+      setOpenAdminNavGroup(groupKey);
+    }
+    setIsMobileAdminNavOpen(false);
+
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href);
+      if (url.searchParams.get('tab') !== normalizedTab) {
+        url.searchParams.set('tab', normalizedTab);
+        window.history.pushState({ ...window.history.state, adminTab: normalizedTab }, '', url.toString());
+      }
+    }
+  }, []);
   const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
   const [supportUsers, setSupportUsers] = useState<SupportUser[]>([]);
   const [supportSeedUsers, setSupportSeedUsers] = useState<SupportUser[]>([]);
@@ -2980,6 +3025,19 @@ export default function AdminPage() {
   const [isFlowFullscreen, setIsFlowFullscreen] = useState(false);
   const [flowProcessDialogNodeId, setFlowProcessDialogNodeId] = useState<string | null>(null);
   const flowCanvasRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const syncTabFromUrl = () => {
+      const requestedTab = new URLSearchParams(window.location.search).get('tab');
+      if (isAdminTabKey(requestedTab)) {
+        setActiveTab(requestedTab === 'planes' ? 'plan_cliente' : requestedTab);
+      }
+    };
+
+    syncTabFromUrl();
+    window.addEventListener('popstate', syncTabFromUrl);
+    return () => window.removeEventListener('popstate', syncTabFromUrl);
+  }, []);
 
   useEffect(() => {
     if (!hasSupabaseConfig) {
@@ -3361,7 +3419,7 @@ export default function AdminPage() {
     setSupportDraft('');
     setSupportError('');
     setMessageSearch('');
-    setActiveTab('mensajes');
+    selectAdminTab('mensajes');
     if (session?.access_token) {
       loadSupportMessages(session.access_token, account.userId);
     }
@@ -4677,7 +4735,7 @@ export default function AdminPage() {
   const handleOpenFlowNode = (node: AppWebFlowNode) => {
     setFlowProcessDialogNodeId(null);
     if (node.target.type === 'admin') {
-      setActiveTab(node.target.tab);
+      selectAdminTab(node.target.tab);
       return;
     }
     if (typeof window !== 'undefined') {
@@ -6851,12 +6909,7 @@ export default function AdminPage() {
     if (activeAdminNavGroup) {
       setOpenAdminNavGroup(activeAdminNavGroup.key);
     }
-  }, [activeAdminNavGroup]);
-  useEffect(() => {
-    if (activeTab === 'planes') {
-      setActiveTab('plan_cliente');
-    }
-  }, [activeTab]);
+  }, [activeAdminNavGroup?.key]);
   const adminSidebarFooterActions = useMemo(
     () => [
       {
@@ -7868,14 +7921,37 @@ export default function AdminPage() {
         <div className="relative z-10 mx-auto flex w-full max-w-none gap-6 px-4 pb-24 pt-8 sm:px-6 lg:pl-[106px]">
           <div className="hidden w-[78px] shrink-0 lg:block">
             <aside
-              onMouseEnter={() => setIsDesktopNavExpanded(true)}
-              onMouseLeave={() => setIsDesktopNavExpanded(false)}
               className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] [height:calc(100dvh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
                 isDesktopNavExpanded ? 'w-[304px]' : 'w-[78px]'
               }`}
             >
               <div className="flex w-full flex-col">
-                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 pb-2 pt-4' : 'px-2 pb-2 pt-4'}`}>
+                <div className={isDesktopNavExpanded ? 'px-3 pt-3' : 'px-2 pt-3'}>
+                  <button
+                    type="button"
+                    onClick={() => setIsDesktopNavExpanded((current) => !current)}
+                    aria-expanded={isDesktopNavExpanded}
+                    aria-label={isDesktopNavExpanded ? 'Contraer menu administrativo' : 'Expandir menu administrativo'}
+                    title={!isDesktopNavExpanded ? 'Abrir menu' : undefined}
+                    className={`flex h-10 items-center text-white transition hover:bg-white/10 ${
+                      isDesktopNavExpanded
+                        ? 'w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 text-left'
+                        : 'w-10 justify-center rounded-[14px]'
+                    }`}
+                  >
+                    <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10">
+                      <Menu className="h-4 w-4" />
+                    </span>
+                    {isDesktopNavExpanded && (
+                      <>
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">Menu administrador</span>
+                        <ChevronRight className="h-3.5 w-3.5 rotate-180 text-white/60" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 pb-2 pt-2' : 'px-2 pb-2 pt-2'}`}>
                   <div className="flex flex-col gap-1.5">
                     {adminNavGroups.map((group) => {
                       const Icon = group.icon;
@@ -7886,7 +7962,15 @@ export default function AdminPage() {
                           <button
                             type="button"
                             title={!isDesktopNavExpanded ? group.label : undefined}
-                            onClick={() => setOpenAdminNavGroup(group.key)}
+                            onClick={() => {
+                              setOpenAdminNavGroup(group.key);
+                              if (!isDesktopNavExpanded) {
+                                setIsDesktopNavExpanded(true);
+                              }
+                              if (group.children.length === 1) {
+                                selectAdminTab(group.children[0].key, group.key);
+                              }
+                            }}
                             aria-expanded={isGroupOpen}
                             className={`group relative flex items-center transition ${
                               isDesktopNavExpanded
@@ -7940,7 +8024,7 @@ export default function AdminPage() {
                                   <button
                                     key={child.key}
                                     type="button"
-                                    onClick={() => setActiveTab(child.key)}
+                                    onClick={() => selectAdminTab(child.key, group.key)}
                                     className={`group flex min-h-10 w-full items-center gap-2 rounded-r-[14px] rounded-l-none px-2.5 py-1.5 text-left transition ${
                                       childActive
                                         ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_14px_26px_-20px_rgba(255,132,0,0.92)]'
@@ -8075,47 +8159,70 @@ export default function AdminPage() {
 
             {isMobileAdminNavOpen && (
               <div className="mt-2 max-h-[68vh] overflow-y-auto rounded-[22px] border border-white/10 bg-[#22062f] px-3 py-4 text-white shadow-[0_28px_55px_-32px_rgba(23,8,35,0.92)]">
-                <div className="space-y-5">
+                <div className="space-y-1.5">
                   {adminNavGroups.map((group) => {
                     const GroupIcon = group.icon;
+                    const isGroupOpen = openAdminNavGroup === group.key;
+                    const isGroupActive = group.children.some((item) => activeTab === item.key);
                     return (
                       <section key={group.key}>
-                        <div className="mb-2 flex items-center gap-2 px-1">
-                          <GroupIcon className="h-3.5 w-3.5 text-[#ff8f1f]" />
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (group.children.length === 1) {
+                              selectAdminTab(group.children[0].key, group.key);
+                              return;
+                            }
+                            setOpenAdminNavGroup(group.key);
+                          }}
+                          aria-expanded={isGroupOpen}
+                          className={`flex min-h-[44px] w-full items-center gap-2 rounded-[14px] px-3 py-2 text-left transition ${
+                            isGroupActive
+                              ? 'bg-white/[0.12] text-white'
+                              : 'bg-white/[0.06] text-white/[0.78] hover:bg-white/[0.1] hover:text-white'
+                          }`}
+                        >
+                          <GroupIcon className={`h-4 w-4 shrink-0 ${isGroupActive ? 'text-[#ff8f1f]' : 'text-white/65'}`} />
+                          <span className="min-w-0 flex-1 text-[12px] font-semibold">
                             {group.label}
-                          </p>
+                          </span>
                           {group.badge > 0 && (
-                            <span className="ml-auto rounded-full bg-[#ef4444] px-2 py-0.5 text-[9px] font-bold text-white">
+                            <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[9px] font-bold text-white">
                               {group.badge}
                             </span>
                           )}
-                        </div>
-                        <div className="grid grid-cols-2 gap-1.5">
-                          {group.children.map((item) => {
-                            const Icon = item.icon;
-                            const isActive = activeTab === item.key;
-                            return (
-                              <button
-                                key={item.key}
-                                type="button"
-                                onClick={() => {
-                                  setActiveTab(item.key);
-                                  setIsMobileAdminNavOpen(false);
-                                }}
-                                className={`flex min-h-[42px] items-center gap-2 rounded-[14px] px-3 py-2 text-left transition ${
-                                  isActive
-                                    ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white'
-                                    : 'bg-white/[0.07] text-white/[0.78] hover:bg-white/[0.12] hover:text-white'
-                                }`}
-                              >
-                                <Icon className="h-4 w-4 shrink-0" />
-                                <span className="min-w-0 flex-1 text-[12px] font-semibold leading-4">{item.label}</span>
-                                {item.badge > 0 && <span className="h-2 w-2 shrink-0 rounded-full bg-[#ef4444]" />}
-                              </button>
-                            );
-                          })}
-                        </div>
+                          {group.children.length > 1 && (
+                            <ChevronDown
+                              className={`h-4 w-4 shrink-0 text-white/55 transition-transform ${
+                                isGroupOpen ? 'rotate-180' : ''
+                              }`}
+                            />
+                          )}
+                        </button>
+                        {isGroupOpen && group.children.length > 1 && (
+                          <div className="mt-1.5 grid gap-1.5 pl-3">
+                            {group.children.map((item) => {
+                              const Icon = item.icon;
+                              const isActive = activeTab === item.key;
+                              return (
+                                <button
+                                  key={item.key}
+                                  type="button"
+                                  onClick={() => selectAdminTab(item.key, group.key)}
+                                  className={`flex min-h-[42px] items-center gap-2 rounded-r-[14px] border-l px-3 py-2 text-left transition ${
+                                    isActive
+                                      ? 'border-[#ff8f1f] bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white'
+                                      : 'border-white/10 bg-white/[0.05] text-white/[0.78] hover:bg-white/[0.1] hover:text-white'
+                                  }`}
+                                >
+                                  <Icon className="h-4 w-4 shrink-0" />
+                                  <span className="min-w-0 flex-1 text-[12px] font-semibold leading-4">{item.label}</span>
+                                  {item.badge > 0 && <span className="h-2 w-2 shrink-0 rounded-full bg-[#ef4444]" />}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                       </section>
                     );
                   })}
@@ -8318,7 +8425,7 @@ export default function AdminPage() {
                             <div className="mt-3 grid gap-2">
                               <button
                                 type="button"
-                                onClick={() => setActiveTab('actividad')}
+                                onClick={() => selectAdminTab('actividad')}
                                 className="flex items-center justify-between gap-3 rounded-2xl bg-[#180f24] px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-[#321341]"
                               >
                                 Ver actividad completa
@@ -8326,7 +8433,7 @@ export default function AdminPage() {
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setActiveTab('tecnicos')}
+                                onClick={() => selectAdminTab('tecnicos')}
                                 className="flex items-center justify-between gap-3 rounded-2xl border border-[#d9c8e4] bg-white px-4 py-3 text-left text-sm font-semibold text-[#432451] transition hover:bg-[#faf6fc]"
                               >
                                 Revisar usuarios
@@ -8421,7 +8528,7 @@ export default function AdminPage() {
                     <div className="mt-4 space-y-2">
                       <button
                         type="button"
-                        onClick={() => setActiveTab('planes')}
+                        onClick={() => selectAdminTab('planes')}
                         className="w-full rounded-2xl border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/16"
                       >
                         Ver todos los planes
@@ -8432,7 +8539,7 @@ export default function AdminPage() {
                           setRoadmapScopeFilter('launch');
                           setRoadmapPendingOnly(true);
                           setRoadmapSortMode('work_priority');
-                          setActiveTab('roadmap');
+                          selectAdminTab('roadmap');
                         }}
                         className="w-full rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#180f24] transition hover:bg-[#ffa64a]"
                       >
@@ -9328,7 +9435,7 @@ export default function AdminPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => setActiveTab(track.tab)}
+                          onClick={() => selectAdminTab(track.tab)}
                           className="rounded-full bg-[#ff8f1f] px-3 py-2 text-[11px] font-semibold text-[#2a0338] shadow-[0_12px_24px_-18px_rgba(255,143,31,0.9)] transition hover:bg-[#ffad56]"
                         >
                           {track.nextAction}
@@ -11526,7 +11633,7 @@ export default function AdminPage() {
                     <button
                       key={item.key}
                       type="button"
-                      onClick={() => setActiveTab(item.tab)}
+                      onClick={() => selectAdminTab(item.tab)}
                       className="group flex min-h-36 items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
                     >
                       <div>
@@ -11555,7 +11662,7 @@ export default function AdminPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setActiveTab(
+                      selectAdminTab(
                         adminInboxStats.clientRequests > 0
                           ? 'solicitudes'
                           : adminInboxStats.demoRequests > 0
