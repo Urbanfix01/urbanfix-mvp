@@ -2947,6 +2947,9 @@ export default function AdminPage() {
   } | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
+  const [activityPlanCreatingKey, setActivityPlanCreatingKey] = useState<string | null>(null);
+  const [activityPlanMessage, setActivityPlanMessage] = useState('');
+  const [activityPlanError, setActivityPlanError] = useState('');
   const [presenceData, setPresenceData] = useState<PresenceData | null>(null);
   const [presenceLoading, setPresenceLoading] = useState(false);
   const [presenceError, setPresenceError] = useState('');
@@ -3734,6 +3737,82 @@ export default function AdminPage() {
       setRoadmapError(error?.message || 'No se pudo crear el item.');
     } finally {
       setRoadmapSubmitting(false);
+    }
+  };
+
+  const handleActivityPlanCreate = async (journey: {
+    key: string;
+    label: string;
+    description: string;
+    recommendation: string;
+    completionRate: number;
+    dropOffRate: number;
+    hasData: boolean;
+    weakestStageLabel: string | null;
+  }) => {
+    if (!session?.access_token || !journey.hasData) return;
+    const sourceKey = `activity-funnel:${journey.key}`;
+    const existing = roadmapUpdates.find((item) => item.source_key === sourceKey);
+    if (existing) {
+      setRoadmapSearch(existing.title);
+      setRoadmapScopeFilter('all');
+      setRoadmapPendingOnly(false);
+      selectAdminTab('roadmap', 'planes');
+      return;
+    }
+
+    const sector: RoadmapSector =
+      journey.key === 'technical_activation'
+        ? 'interfaz'
+        : journey.key === 'client_demand'
+          ? 'clientes'
+          : 'funcionalidades';
+    const priority: RoadmapPriority = journey.dropOffRate >= 50 ? 'high' : 'medium';
+    const title = `Mejorar conversión: ${journey.label}`;
+    const weakestStage = journey.weakestStageLabel
+      ? ` El mayor abandono se concentra antes de "${journey.weakestStageLabel}".`
+      : '';
+
+    setActivityPlanCreatingKey(journey.key);
+    setActivityPlanMessage('');
+    setActivityPlanError('');
+    try {
+      const response = await fetch('/api/admin/roadmap', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description: `${journey.description} Conversión actual: ${journey.completionRate.toFixed(
+            0
+          )}%. Abandono estimado: ${journey.dropOffRate.toFixed(0)}%.${weakestStage} Acción recomendada: ${
+            journey.recommendation
+          }`,
+          status: 'planned',
+          area: 'web',
+          priority,
+          sector,
+          owner: 'UrbanFix',
+          eta_date: getIsoDateFromOffset(priority === 'high' ? 14 : 21),
+          source_key: sourceKey,
+          source_files: ['admin/actividad', 'admin/planes-de-accion'],
+          feedback_body: 'Creado desde el reporte de Actividad para dar seguimiento al abandono detectado.',
+          feedback_sentiment: 'neutral',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo crear el plan de acción.');
+      }
+
+      await loadRoadmap(session.access_token);
+      setActivityPlanMessage(`Plan creado para ${journey.label}.`);
+    } catch (error: any) {
+      setActivityPlanError(error?.message || 'No se pudo crear el plan de acción.');
+    } finally {
+      setActivityPlanCreatingKey(null);
     }
   };
 
@@ -4571,7 +4650,7 @@ export default function AdminPage() {
   }, [activeTab, session?.access_token]);
 
   useEffect(() => {
-    if (!session?.access_token || activeTab !== 'roadmap') return;
+    if (!session?.access_token || (activeTab !== 'roadmap' && activeTab !== 'actividad')) return;
     loadRoadmap(session.access_token);
   }, [activeTab, session?.access_token]);
 
@@ -12221,6 +12300,18 @@ export default function AdminPage() {
                           <span className="text-xs text-slate-400">Comparado con el período anterior</span>
                         </div>
 
+                        {activityPlanMessage && (
+                          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-xs font-semibold text-emerald-700">
+                            <CheckCircle2 className="h-4 w-4 shrink-0" />
+                            {activityPlanMessage}
+                          </div>
+                        )}
+                        {activityPlanError && (
+                          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-semibold text-rose-700">
+                            {activityPlanError}
+                          </div>
+                        )}
+
                         <div className="mt-4 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
                           {(activityData.funnel.journeys || []).map((journey) => {
                             const rateDelta = journey.completionRate - journey.prevCompletionRate;
@@ -12230,6 +12321,10 @@ export default function AdminPage() {
                                 : rateDelta < -0.05
                                   ? 'text-rose-600'
                                   : 'text-slate-400';
+                            const existingPlan = roadmapUpdates.find(
+                              (item) => item.source_key === `activity-funnel:${journey.key}`
+                            );
+                            const isCreatingPlan = activityPlanCreatingKey === journey.key;
 
                             return (
                               <article key={journey.key} className="px-4 py-5">
@@ -12299,9 +12394,29 @@ export default function AdminPage() {
                                       : 'Todavía no hay una entrada registrada para medir este recorrido.'}
                                   </p>
                                   {journey.hasData && journey.dropOffRate > 0 && (
-                                    <p className="font-semibold text-amber-700">
-                                      Acción: {journey.recommendation}
-                                    </p>
+                                    <div className="flex flex-wrap items-center justify-end gap-3">
+                                      <p className="max-w-xl font-semibold text-amber-700">
+                                        Acción: {journey.recommendation}
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleActivityPlanCreate(journey)}
+                                        disabled={isCreatingPlan || roadmapLoading}
+                                        className="inline-flex min-h-9 items-center gap-2 rounded-full bg-slate-950 px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
+                                      >
+                                        {existingPlan ? (
+                                          <>
+                                            Ver plan
+                                            <ArrowRight className="h-3.5 w-3.5" />
+                                          </>
+                                        ) : (
+                                          <>
+                                            <ClipboardList className="h-3.5 w-3.5" />
+                                            {isCreatingPlan ? 'Creando...' : 'Crear plan'}
+                                          </>
+                                        )}
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
                               </article>
