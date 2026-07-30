@@ -26,6 +26,7 @@ import {
   MessageSquareMore,
   Monitor,
   Printer,
+  RefreshCw,
   Settings,
   ShieldCheck,
   Sparkles,
@@ -79,6 +80,14 @@ type SupportUser = {
   source?: 'conversation' | 'account';
 };
 
+type AdminInboxStats = {
+  clientRequests: number;
+  demoRequests: number;
+  loading: boolean;
+  error: string;
+  updatedAt: string | null;
+};
+
 type RoadmapStatus = 'planned' | 'in_progress' | 'done' | 'blocked';
 type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
 type RoadmapPriority = 'high' | 'medium' | 'low';
@@ -102,6 +111,7 @@ type AdminTabKey =
   | 'empresas'
   | 'facturacion'
   | 'roadmap'
+  | 'bandeja'
   | 'mensajes'
   | 'actividad'
   | 'mano_obra'
@@ -2777,6 +2787,7 @@ const ADMIN_TAB_ICONS: Record<AdminTabKey, React.ComponentType<{ className?: str
   empresas: Building2,
   facturacion: CreditCard,
   roadmap: GitBranch,
+  bandeja: ClipboardList,
   mensajes: MessageSquareMore,
   actividad: Activity,
   mano_obra: Hammer,
@@ -2826,6 +2837,13 @@ export default function AdminPage() {
   const [supportMessages, setSupportMessages] = useState<SupportMessage[]>([]);
   const [supportLoading, setSupportLoading] = useState(false);
   const [supportError, setSupportError] = useState('');
+  const [adminInboxStats, setAdminInboxStats] = useState<AdminInboxStats>({
+    clientRequests: 0,
+    demoRequests: 0,
+    loading: false,
+    error: '',
+    updatedAt: null,
+  });
   const [supportDraft, setSupportDraft] = useState('');
   const [supportSending, setSupportSending] = useState(false);
   const [messageSearch, setMessageSearch] = useState('');
@@ -3240,6 +3258,61 @@ export default function AdminPage() {
       setSupportError(error?.message || 'No se pudieron cargar las conversaciones.');
     } finally {
       setSupportLoading(false);
+    }
+  };
+
+  const loadAdminInboxStats = async (token?: string) => {
+    if (!token) return;
+    setAdminInboxStats((current) => ({ ...current, loading: true, error: '' }));
+
+    try {
+      const fetchAdminPayload = async (url: string, fallbackError: string) => {
+        const response = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload?.error || fallbackError);
+        }
+        return payload;
+      };
+
+      const [supportPayload, clientPayload, demoPayload] = await Promise.all([
+        fetchAdminPayload('/api/admin/support/users', 'No se pudieron cargar las conversaciones.'),
+        fetchAdminPayload('/api/admin/client-requests', 'No se pudieron cargar las solicitudes.'),
+        fetchAdminPayload('/api/admin/demo-requests', 'No se pudieron cargar las demos.'),
+      ]);
+
+      const nextSupportUsers: SupportUser[] = Array.isArray(supportPayload?.users)
+        ? supportPayload.users
+        : [];
+      const clientRequests = Array.isArray(clientPayload?.requests) ? clientPayload.requests : [];
+      const demoRequests = Array.isArray(demoPayload?.requests) ? demoPayload.requests : [];
+      const closedClientStatuses = new Set(['completed', 'cancelled']);
+
+      setSupportUsers(nextSupportUsers);
+      if (!activeSupportUserId && nextSupportUsers[0]) {
+        setActiveSupportUserId(nextSupportUsers[0].userId);
+      }
+      setAdminInboxStats({
+        clientRequests: clientRequests.filter(
+          (request: { status?: string | null }) =>
+            !closedClientStatuses.has(String(request?.status || '').trim().toLowerCase())
+        ).length,
+        demoRequests: demoRequests.filter(
+          (request: { status?: string | null }) =>
+            String(request?.status || '').trim().toLowerCase() === 'new'
+        ).length,
+        loading: false,
+        error: '',
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error: any) {
+      setAdminInboxStats((current) => ({
+        ...current,
+        loading: false,
+        error: error?.message || 'No se pudo actualizar la bandeja.',
+      }));
     }
   };
 
@@ -4394,7 +4467,13 @@ export default function AdminPage() {
     if (!session?.access_token) return;
     loadOverview(session.access_token);
     loadPlayMetrics(session.access_token);
+    loadAdminInboxStats(session.access_token);
   }, [session?.access_token]);
+
+  useEffect(() => {
+    if (!session?.access_token || activeTab !== 'bandeja') return;
+    loadAdminInboxStats(session.access_token);
+  }, [activeTab, session?.access_token]);
 
   useEffect(() => {
     if (!session?.access_token || activeTab !== 'mensajes') return;
@@ -5748,6 +5827,7 @@ export default function AdminPage() {
     { key: 'empresas', label: 'Empresas' },
     { key: 'facturacion', label: 'Facturación' },
     { key: 'mano_obra', label: 'Mano de obra' },
+    { key: 'bandeja', label: 'Bandeja operativa' },
     { key: 'solicitudes', label: 'Solicitudes' },
     { key: 'demos', label: 'Demos' },
     { key: 'newsletter', label: 'Newsletter' },
@@ -5985,6 +6065,8 @@ export default function AdminPage() {
   const technicianNavBadge = technicianQueueStats?.attention ?? filteredPendingAccess.length;
   const clientNavBadge = clientAccountStats?.attention ?? 0;
   const companyNavBadge = companyQueueStats?.attention ?? 0;
+  const adminInboxTotal =
+    supportUsers.length + adminInboxStats.clientRequests + adminInboxStats.demoRequests;
 
   const availableSupportUsers = useMemo(() => {
     const existingIds = new Set(supportUsers.map((user) => user.userId));
@@ -6629,20 +6711,29 @@ export default function AdminPage() {
             ? roadmapOpenCount
             : tab.key === 'planes'
               ? actionPlanOpenCount
-            : tab.key === 'mensajes'
-              ? supportUsers.length
-              : tab.key === 'tecnicos'
-                ? technicianNavBadge
-                : tab.key === 'clientes'
-                  ? clientNavBadge
-                  : tab.key === 'empresas'
-                    ? companyNavBadge
-                : 0,
+              : tab.key === 'bandeja'
+                ? adminInboxTotal
+                : tab.key === 'mensajes'
+                  ? supportUsers.length
+                  : tab.key === 'solicitudes'
+                    ? adminInboxStats.clientRequests
+                    : tab.key === 'demos'
+                      ? adminInboxStats.demoRequests
+                      : tab.key === 'tecnicos'
+                        ? technicianNavBadge
+                        : tab.key === 'clientes'
+                          ? clientNavBadge
+                          : tab.key === 'empresas'
+                            ? companyNavBadge
+                            : 0,
       })),
     [
       tabs,
       roadmapOpenCount,
       actionPlanOpenCount,
+      adminInboxStats.clientRequests,
+      adminInboxStats.demoRequests,
+      adminInboxTotal,
       supportUsers.length,
       technicianNavBadge,
       clientNavBadge,
@@ -6687,8 +6778,13 @@ export default function AdminPage() {
         key: 'bandeja',
         label: 'Bandeja',
         icon: ClipboardList,
-        badge: supportUsers.length,
-        children: [getItem('mensajes'), getItem('solicitudes'), getItem('demos')],
+        badge: adminInboxTotal,
+        children: [
+          getItem('bandeja', 'Resumen operativo'),
+          getItem('solicitudes'),
+          getItem('demos'),
+          getItem('mensajes'),
+        ],
       },
       {
         key: 'comunicacion',
@@ -6737,10 +6833,10 @@ export default function AdminPage() {
   }, [
     actionPlanNavChildren,
     adminNavItems,
+    adminInboxTotal,
     clientNavBadge,
     companyNavBadge,
     actionPlanOpenCount,
-    supportUsers.length,
     technicianNavBadge,
   ]);
   const activeAdminNavGroup = useMemo(
@@ -11354,6 +11450,124 @@ export default function AdminPage() {
                     })}
                   </div>
                 </div>
+              </div>
+            </section>
+          )}
+          {activeTab === 'bandeja' && (
+            <section className="mt-6">
+              <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-200 pb-5">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.2em] text-slate-400">Operacion</p>
+                  <h3 className="mt-1 text-xl font-semibold text-slate-900">Bandeja operativa</h3>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Pendientes reales de solicitudes, demos y soporte.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3">
+                  {adminInboxStats.updatedAt && (
+                    <span className="text-xs text-slate-400">
+                      Actualizada{' '}
+                      {new Date(adminInboxStats.updatedAt).toLocaleTimeString('es-AR', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => loadAdminInboxStats(session?.access_token)}
+                    disabled={adminInboxStats.loading}
+                    className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <RefreshCw className={`h-4 w-4 ${adminInboxStats.loading ? 'animate-spin' : ''}`} />
+                    Actualizar
+                  </button>
+                </div>
+              </div>
+
+              {adminInboxStats.error && (
+                <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {adminInboxStats.error}
+                </div>
+              )}
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-3">
+                {[
+                  {
+                    key: 'solicitudes',
+                    tab: 'solicitudes' as AdminTabKey,
+                    title: 'Solicitudes de clientes',
+                    value: adminInboxStats.clientRequests,
+                    helper: 'abiertas por gestionar',
+                    icon: ClipboardList,
+                    iconClass: 'bg-orange-100 text-orange-700',
+                  },
+                  {
+                    key: 'demos',
+                    tab: 'demos' as AdminTabKey,
+                    title: 'Solicitudes de demo',
+                    value: adminInboxStats.demoRequests,
+                    helper: 'nuevas por contactar',
+                    icon: FileCheck2,
+                    iconClass: 'bg-emerald-100 text-emerald-700',
+                  },
+                  {
+                    key: 'mensajes',
+                    tab: 'mensajes' as AdminTabKey,
+                    title: 'Conversaciones',
+                    value: supportUsers.length,
+                    helper: 'en seguimiento',
+                    icon: MessageSquareMore,
+                    iconClass: 'bg-violet-100 text-violet-700',
+                  },
+                ].map((item) => {
+                  const ItemIcon = item.icon;
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => setActiveTab(item.tab)}
+                      className="group flex min-h-36 items-start justify-between gap-4 rounded-lg border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-700">{item.title}</p>
+                        <p className="mt-4 text-3xl font-semibold text-slate-950">{formatNumber(item.value)}</p>
+                        <p className="mt-1 text-sm text-slate-500">{item.helper}</p>
+                      </div>
+                      <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${item.iconClass}`}>
+                        <ItemIcon className="h-5 w-5" />
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-y border-slate-200 py-4">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">
+                    {adminInboxTotal > 0 ? `${formatNumber(adminInboxTotal)} pendientes en total` : 'Bandeja al dia'}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Los contadores excluyen solicitudes cerradas o canceladas.
+                  </p>
+                </div>
+                {adminInboxTotal > 0 && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setActiveTab(
+                        adminInboxStats.clientRequests > 0
+                          ? 'solicitudes'
+                          : adminInboxStats.demoRequests > 0
+                            ? 'demos'
+                            : 'mensajes'
+                      )
+                    }
+                    className="rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                  >
+                    Atender siguiente
+                  </button>
+                )}
               </div>
             </section>
           )}
