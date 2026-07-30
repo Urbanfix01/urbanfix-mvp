@@ -9,6 +9,8 @@ import {
   BarChart3,
   Building2,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   CircleHelp,
   ClipboardList,
   CreditCard,
@@ -20,6 +22,7 @@ import {
   LogOut,
   Mail,
   MapPin,
+  Menu,
   MessageSquareMore,
   Monitor,
   Printer,
@@ -81,8 +84,19 @@ type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
 type RoadmapPriority = 'high' | 'medium' | 'low';
 type RoadmapSector = 'interfaz' | 'operativo' | 'clientes' | 'web' | 'app' | 'funcionalidades';
 type RoadmapSentiment = 'positive' | 'neutral' | 'negative';
+type ActionPlanTabKey =
+  | 'plan_cliente'
+  | 'plan_tecnico'
+  | 'plan_redes'
+  | 'plan_presupuestador'
+  | 'plan_valores_mo'
+  | 'plan_comunidad'
+  | 'plan_marcas'
+  | 'plan_eventos';
 type AdminTabKey =
   | 'resumen'
+  | 'planes'
+  | ActionPlanTabKey
   | 'tecnicos'
   | 'clientes'
   | 'empresas'
@@ -95,6 +109,15 @@ type AdminTabKey =
   | 'demos'
   | 'newsletter'
   | 'flujo';
+type AdminNavGroupKey =
+  | 'inicio'
+  | 'usuarios'
+  | 'operacion'
+  | 'bandeja'
+  | 'comunicacion'
+  | 'analitica'
+  | 'planes'
+  | 'configuracion';
 type FlowDiagramColumnId = 'captacion' | 'operacion' | 'control';
 type FlowDiagramNodeShape = 'start' | 'process' | 'decision' | 'end';
 
@@ -594,7 +617,7 @@ const escapeMapText = (value?: string | number | null) =>
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 
-function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
+function AdminGeoMap({ zones, compact = false }: { zones: AnalyticsGeoZone[]; compact?: boolean }) {
   const mapHostRef = useRef<HTMLDivElement | null>(null);
   const leafletRef = useRef<typeof import('leaflet') | null>(null);
   const mapRef = useRef<LeafletMap | null>(null);
@@ -686,8 +709,12 @@ function AdminGeoMap({ zones }: { zones: AnalyticsGeoZone[] }) {
   }, [zones, mapReady]);
 
   return (
-    <div className="mt-5 rounded-[26px] border border-slate-100 bg-[#f8fafc] p-3">
-      <div className="relative h-[360px] overflow-hidden rounded-[22px] border border-slate-200 bg-[#e8eef6] lg:h-[440px]">
+    <div className={`${compact ? '' : 'mt-5'} rounded-[26px] border border-slate-100 bg-[#f8fafc] p-3`}>
+      <div
+        className={`relative overflow-hidden rounded-[22px] border border-slate-200 bg-[#e8eef6] ${
+          compact ? 'h-[280px] lg:h-[320px]' : 'h-[360px] lg:h-[440px]'
+        }`}
+      >
         <div ref={mapHostRef} className="h-full w-full" />
         {(!mapReady || zones.length === 0) && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-white/72 px-6 text-center text-sm text-slate-500 backdrop-blur-[1px]">
@@ -2651,8 +2678,100 @@ const BILLING_RANGE_OPTIONS: { value: BillingRange; label: string }[] = [
   { value: 'ytd', label: 'YTD' },
 ];
 
+const ACTION_PLAN_TABS: Array<{
+  key: ActionPlanTabKey;
+  label: string;
+  title: string;
+  detail: string;
+  owner: string;
+  icon: React.ComponentType<{ className?: string }>;
+  checkpoints: string[];
+}> = [
+  {
+    key: 'plan_cliente',
+    label: 'Interfaz cliente',
+    title: 'Interfaz cliente',
+    detail: 'Pulir el recorrido para pedir trabajos, seguir presupuestos y encontrar tecnicos sin confusion.',
+    owner: 'Experiencia cliente',
+    icon: Users,
+    checkpoints: ['Ingreso claro como cliente', 'Pedido de trabajo simple', 'Seguimiento de presupuestos', 'Acceso directo a tecnicos cercanos'],
+  },
+  {
+    key: 'plan_tecnico',
+    label: 'Interfaz tecnico',
+    title: 'Interfaz tecnico',
+    detail: 'Ordenar registro, perfil, mapa, presupuestos y herramientas para que el tecnico opere desde un solo panel.',
+    owner: 'Operacion tecnico',
+    icon: Wrench,
+    checkpoints: ['Registro por pasos', 'Perfil publico completo', 'Herramientas de trabajo visibles', 'Configuracion de mapa y disponibilidad'],
+  },
+  {
+    key: 'plan_redes',
+    label: 'Redes sociales',
+    title: 'Redes sociales',
+    detail: 'Preparar piezas compartibles, novedades y contenido de precios para atraer usuarios desde canales externos.',
+    owner: 'Comunicacion',
+    icon: Sparkles,
+    checkpoints: ['Calendario de publicaciones', 'Piezas para precios actualizados', 'Contenido de comunidad', 'Medicion de entrada por canal'],
+  },
+  {
+    key: 'plan_presupuestador',
+    label: 'Presupuestador',
+    title: 'Presupuestador',
+    detail: 'Consolidar el armado de presupuestos con items seleccionados, edicion clara y base de precios confiable.',
+    owner: 'Producto tecnico',
+    icon: ClipboardList,
+    checkpoints: ['Seleccion multiple de items', 'Edicion dentro del presupuesto', 'Guardar sin errores', 'Resumen final claro para compartir'],
+  },
+  {
+    key: 'plan_valores_mo',
+    label: 'Valores MO',
+    title: 'Valores MO',
+    detail: 'Mantener la base de mano de obra actualizada, visual y preparada para ajustes mensuales.',
+    owner: 'Base de precios',
+    icon: Hammer,
+    checkpoints: ['Catalogo por rubro', 'Imagenes por item', 'Actualizacion mensual', 'Notificacion a tecnicos'],
+  },
+  {
+    key: 'plan_comunidad',
+    label: 'Comunidad',
+    title: 'Comunidad',
+    detail: 'Impulsar publicaciones de tecnicos, clientes y UrbanFix para mostrar actividad real dentro de la plataforma.',
+    owner: 'Muro UrbanFix',
+    icon: MessageSquareMore,
+    checkpoints: ['Publicaciones reales', 'Clientes publicando trabajos', 'Comentarios y me gusta', 'Filtros por ciudad y rubro'],
+  },
+  {
+    key: 'plan_marcas',
+    label: 'Patrocinadores / Marcas',
+    title: 'Patrocinadores / Marcas',
+    detail: 'Definir espacios para alianzas, marcas del rubro y beneficios que aporten valor al ecosistema UrbanFix.',
+    owner: 'Alianzas',
+    icon: Building2,
+    checkpoints: ['Mapa de rubros comerciales', 'Espacios patrocinables', 'Beneficios para tecnicos', 'Medicion de conversion'],
+  },
+  {
+    key: 'plan_eventos',
+    label: 'Eventos',
+    title: 'Eventos',
+    detail: 'Crear una agenda de acciones, lanzamientos y encuentros para activar comunidades por zona o rubro.',
+    owner: 'Crecimiento',
+    icon: Activity,
+    checkpoints: ['Agenda mensual', 'Lanzamientos por zona', 'Eventos por gremio', 'Seguimiento de asistentes'],
+  },
+];
+
 const ADMIN_TAB_ICONS: Record<AdminTabKey, React.ComponentType<{ className?: string }>> = {
   resumen: BarChart3,
+  planes: Globe2,
+  plan_cliente: Users,
+  plan_tecnico: Wrench,
+  plan_redes: Sparkles,
+  plan_presupuestador: ClipboardList,
+  plan_valores_mo: Hammer,
+  plan_comunidad: MessageSquareMore,
+  plan_marcas: Building2,
+  plan_eventos: Activity,
   tecnicos: Wrench,
   clientes: Users,
   empresas: Building2,
@@ -2698,6 +2817,8 @@ export default function AdminPage() {
   const [companyQueueStats, setCompanyQueueStats] = useState<TechnicianQueueStats | null>(null);
   const [clientAccountStats, setClientAccountStats] = useState<AudienceAccountStats | null>(null);
   const [isDesktopNavExpanded, setIsDesktopNavExpanded] = useState(false);
+  const [openAdminNavGroup, setOpenAdminNavGroup] = useState<AdminNavGroupKey>('inicio');
+  const [isMobileAdminNavOpen, setIsMobileAdminNavOpen] = useState(false);
   const [summaryBaseline, setSummaryBaseline] = useState<SummaryBaseline | null>(null);
   const [supportUsers, setSupportUsers] = useState<SupportUser[]>([]);
   const [supportSeedUsers, setSupportSeedUsers] = useState<SupportUser[]>([]);
@@ -5621,6 +5742,7 @@ export default function AdminPage() {
 
   const tabs = [
     { key: 'resumen', label: 'Resumen' },
+    { key: 'planes', label: 'Planes de accion' },
     { key: 'tecnicos', label: 'Técnicos' },
     { key: 'clientes', label: 'Clientes' },
     { key: 'empresas', label: 'Empresas' },
@@ -6168,6 +6290,62 @@ export default function AdminPage() {
         status: statusFor(hasReachBase && hasSectionSignal && hasAccountSignal, hasReachBase || hasSectionSignal),
         statusLabel: hasReachBase && hasSectionSignal && hasAccountSignal ? 'Activo' : hasReachBase || hasSectionSignal ? 'En curso' : 'Pendiente',
       },
+      {
+        step: '07',
+        title: 'Interfaz cliente',
+        detail: 'Pulir el recorrido para pedir trabajos, seguir presupuestos y encontrar tecnicos sin confusion.',
+        status: 'in_progress',
+        statusLabel: 'En curso',
+      },
+      {
+        step: '08',
+        title: 'Interfaz tecnico',
+        detail: 'Ordenar registro, perfil, mapa, presupuestos y herramientas para que el tecnico opere desde un solo panel.',
+        status: 'in_progress',
+        statusLabel: 'En curso',
+      },
+      {
+        step: '09',
+        title: 'Redes sociales',
+        detail: 'Preparar piezas compartibles, novedades y contenido de precios para atraer usuarios desde canales externos.',
+        status: 'pending',
+        statusLabel: 'Pendiente',
+      },
+      {
+        step: '10',
+        title: 'Presupuestador',
+        detail: 'Consolidar el armado de presupuestos con items seleccionados, edicion clara y base de precios confiable.',
+        status: 'in_progress',
+        statusLabel: 'En curso',
+      },
+      {
+        step: '11',
+        title: 'Valores MO',
+        detail: 'Mantener la base de mano de obra actualizada, visual y preparada para ajustes mensuales.',
+        status: 'in_progress',
+        statusLabel: 'En curso',
+      },
+      {
+        step: '12',
+        title: 'Comunidad',
+        detail: 'Impulsar publicaciones de tecnicos, clientes y UrbanFix para mostrar actividad real dentro de la plataforma.',
+        status: 'in_progress',
+        statusLabel: 'En curso',
+      },
+      {
+        step: '13',
+        title: 'Patrocinadores / Marcas',
+        detail: 'Definir espacios para alianzas, marcas del rubro y beneficios que aporten valor al ecosistema UrbanFix.',
+        status: 'pending',
+        statusLabel: 'Pendiente',
+      },
+      {
+        step: '14',
+        title: 'Eventos',
+        detail: 'Crear una agenda de acciones, lanzamientos y encuentros para activar comunidades por zona o rubro.',
+        status: 'pending',
+        statusLabel: 'Pendiente',
+      },
     ];
   }, [
     summaryAccountSessions,
@@ -6178,16 +6356,26 @@ export default function AdminPage() {
     summaryTopSections.length,
     summaryWebViews,
   ]);
-  const globalGrowthWeightedProgress = globalGrowthActionPlan.reduce((total, item) => {
-    if (item.status === 'done') return total + 1;
-    if (item.status === 'in_progress') return total + 0.5;
-    return total;
-  }, 0);
-  const globalGrowthProgress = Math.round((globalGrowthWeightedProgress / globalGrowthActionPlan.length) * 100);
-  const globalGrowthDoneCount = globalGrowthActionPlan.filter((item) => item.status === 'done').length;
-  const globalGrowthNextTask =
-    globalGrowthActionPlan.find((item) => item.status !== 'done') ||
-    globalGrowthActionPlan[globalGrowthActionPlan.length - 1];
+  const actionPlanDetailItems = useMemo(
+    () =>
+      ACTION_PLAN_TABS.map((plan) => {
+        const task = globalGrowthActionPlan.find((item) => item.title === plan.title);
+        const status = task?.status || 'pending';
+        return {
+          ...plan,
+          detail: task?.detail || plan.detail,
+          status,
+          statusLabel: task?.statusLabel || 'Pendiente',
+          progress: status === 'done' ? 100 : status === 'in_progress' ? 50 : 0,
+        };
+      }),
+    [globalGrowthActionPlan]
+  );
+  const actionPlanOpenCount = actionPlanDetailItems.filter((plan) => plan.status !== 'done').length;
+  const activeActionPlan = useMemo(
+    () => actionPlanDetailItems.find((plan) => plan.key === activeTab) || null,
+    [activeTab, actionPlanDetailItems]
+  );
   const handlePrintSummaryReachReport = () => {
     if (typeof window === 'undefined' || typeof document === 'undefined') return;
 
@@ -6419,6 +6607,17 @@ export default function AdminPage() {
     () => roadmapUpdates.filter((item) => item.is_current).length,
     [roadmapUpdates]
   );
+  const actionPlanNavChildren = useMemo(
+    () =>
+      actionPlanDetailItems.map((plan) => ({
+        key: plan.key,
+        label: plan.label,
+        icon: plan.icon,
+        detail: plan.statusLabel,
+        badge: plan.status === 'pending' ? 1 : 0,
+      })),
+    [actionPlanDetailItems]
+  );
   const adminNavItems = useMemo(
     () =>
       tabs.map((tab) => ({
@@ -6428,6 +6627,8 @@ export default function AdminPage() {
         badge:
           tab.key === 'roadmap'
             ? roadmapOpenCount
+            : tab.key === 'planes'
+              ? actionPlanOpenCount
             : tab.key === 'mensajes'
               ? supportUsers.length
               : tab.key === 'tecnicos'
@@ -6441,12 +6642,125 @@ export default function AdminPage() {
     [
       tabs,
       roadmapOpenCount,
+      actionPlanOpenCount,
       supportUsers.length,
       technicianNavBadge,
       clientNavBadge,
       companyNavBadge,
     ]
   );
+  const adminNavGroups = useMemo(() => {
+    const itemByKey = new Map<AdminTabKey, (typeof adminNavItems)[number]>(
+      adminNavItems.map((item) => [item.key, item])
+    );
+    const getItem = (key: AdminTabKey, label?: string) => {
+      const item = itemByKey.get(key);
+      if (!item) {
+        throw new Error(`Falta configurar el acceso administrativo: ${key}`);
+      }
+      return label ? { ...item, label } : item;
+    };
+
+    return [
+      {
+        key: 'inicio',
+        label: 'Inicio',
+        icon: BarChart3,
+        badge: 0,
+        children: [getItem('resumen', 'Resumen general')],
+      },
+      {
+        key: 'usuarios',
+        label: 'Usuarios',
+        icon: Users,
+        badge: technicianNavBadge + clientNavBadge + companyNavBadge,
+        children: [getItem('tecnicos'), getItem('clientes'), getItem('empresas')],
+      },
+      {
+        key: 'operacion',
+        label: 'Operación',
+        icon: Wrench,
+        badge: 0,
+        children: [getItem('mano_obra', 'Valores de mano de obra'), getItem('facturacion')],
+      },
+      {
+        key: 'bandeja',
+        label: 'Bandeja',
+        icon: ClipboardList,
+        badge: supportUsers.length,
+        children: [getItem('mensajes'), getItem('solicitudes'), getItem('demos')],
+      },
+      {
+        key: 'comunicacion',
+        label: 'Comunicación',
+        icon: Mail,
+        badge: 0,
+        children: [getItem('newsletter')],
+      },
+      {
+        key: 'analitica',
+        label: 'Analítica',
+        icon: Activity,
+        badge: 0,
+        children: [getItem('actividad', 'Actividad y alcance')],
+      },
+      {
+        key: 'planes',
+        label: 'Planes de acción',
+        icon: Globe2,
+        badge: actionPlanOpenCount,
+        children: [
+          ...actionPlanNavChildren,
+          getItem('roadmap', 'Seguimiento'),
+        ],
+      },
+      {
+        key: 'configuracion',
+        label: 'Configuración',
+        icon: Settings,
+        badge: 0,
+        children: [getItem('flujo', 'Flujo App/Web')],
+      },
+    ] satisfies Array<{
+      key: AdminNavGroupKey;
+      label: string;
+      icon: React.ComponentType<{ className?: string }>;
+      badge: number;
+      children: Array<{
+        key: AdminTabKey;
+        label: string;
+        icon: React.ComponentType<{ className?: string }>;
+        detail: string;
+        badge: number;
+      }>;
+    }>;
+  }, [
+    actionPlanNavChildren,
+    adminNavItems,
+    clientNavBadge,
+    companyNavBadge,
+    actionPlanOpenCount,
+    supportUsers.length,
+    technicianNavBadge,
+  ]);
+  const activeAdminNavGroup = useMemo(
+    () => adminNavGroups.find((group) => group.children.some((item) => item.key === activeTab)) || adminNavGroups[0],
+    [activeTab, adminNavGroups]
+  );
+  const activeAdminNavItem = useMemo(
+    () => activeAdminNavGroup?.children.find((item) => item.key === activeTab) || activeAdminNavGroup?.children[0],
+    [activeAdminNavGroup, activeTab]
+  );
+  useEffect(() => {
+    if (activeAdminNavGroup) {
+      setOpenAdminNavGroup(activeAdminNavGroup.key);
+    }
+  }, [activeAdminNavGroup]);
+  useEffect(() => {
+    if (activeTab === 'planes') {
+      setActiveTab('plan_cliente');
+    }
+  }, [activeTab]);
   const adminSidebarFooterActions = useMemo(
     () => [
       {
@@ -7461,66 +7775,101 @@ export default function AdminPage() {
               onMouseEnter={() => setIsDesktopNavExpanded(true)}
               onMouseLeave={() => setIsDesktopNavExpanded(false)}
               className={`fixed left-0 top-[57px] z-40 hidden h-[calc(100vh-57px)] [height:calc(100dvh-57px)] overflow-hidden border-r border-white/10 bg-[linear-gradient(180deg,#22062f_0%,#2a0338_48%,#1d0829_100%)] shadow-[inset_-1px_0_0_rgba(255,255,255,0.05)] transition-[width] duration-300 lg:flex ${
-                isDesktopNavExpanded ? 'w-[238px]' : 'w-[78px]'
+                isDesktopNavExpanded ? 'w-[304px]' : 'w-[78px]'
               }`}
             >
               <div className="flex w-full flex-col">
                 <nav className={`flex-1 overflow-y-auto ${isDesktopNavExpanded ? 'px-3 pb-2 pt-4' : 'px-2 pb-2 pt-4'}`}>
                   <div className="flex flex-col gap-1.5">
-                    {adminNavItems.map((item) => {
-                      const Icon = item.icon;
-                      const isActive = activeTab === item.key;
+                    {adminNavGroups.map((group) => {
+                      const Icon = group.icon;
+                      const isGroupActive = group.children.some((item) => activeTab === item.key);
+                      const isGroupOpen = openAdminNavGroup === group.key;
                       return (
-                        <button
-                          key={item.key}
-                          type="button"
-                          title={!isDesktopNavExpanded ? item.label : undefined}
-                          onClick={() => setActiveTab(item.key)}
-                          className={`group relative flex items-center transition ${
-                            isDesktopNavExpanded
-                              ? 'min-h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 py-1.5 text-left'
-                              : 'h-9 w-9 justify-center rounded-[14px]'
-                          } ${
-                            isActive
-                              ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92),inset_0_1px_0_rgba(255,255,255,0.18)]'
-                              : 'text-white hover:bg-white/10 hover:text-white'
-                          }`}
-                        >
-                          <span
-                            className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] transition ${
-                              isActive
-                                ? 'bg-white/16 text-white'
-                                : 'bg-white/10 text-white group-hover:bg-white/16 group-hover:text-white'
+                        <div key={group.key} className="space-y-1">
+                          <button
+                            type="button"
+                            title={!isDesktopNavExpanded ? group.label : undefined}
+                            onClick={() => setOpenAdminNavGroup(group.key)}
+                            aria-expanded={isGroupOpen}
+                            className={`group relative flex items-center transition ${
+                              isDesktopNavExpanded
+                                ? 'min-h-9 w-full gap-2.5 rounded-r-[16px] rounded-l-none px-3 py-1.5 text-left'
+                                : 'h-9 w-9 justify-center rounded-[14px]'
+                            } ${
+                              isGroupActive
+                                ? 'bg-white/[0.12] text-white shadow-[inset_3px_0_0_#ff8f1f]'
+                                : 'text-white hover:bg-white/10 hover:text-white'
                             }`}
                           >
-                            <Icon className="h-4 w-4" />
-                          </span>
-                          {isDesktopNavExpanded && (
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[13px] font-semibold">{item.label}</span>
-                              {item.detail && (
-                                <span
-                                  className={`mt-0.5 block truncate text-[10px] font-semibold ${
-                                    isActive ? 'text-white/85' : 'text-white/55'
-                                  }`}
-                                >
-                                  {item.detail}
-                                </span>
-                              )}
-                            </span>
-                          )}
-                          {item.badge > 0 && (
                             <span
-                              className={`rounded-full bg-[#ef4444] text-[10px] font-bold text-white shadow-sm ${
-                                isDesktopNavExpanded
-                                  ? 'px-2 py-0.5'
-                                  : 'absolute right-0 top-0 min-w-4 px-1 py-[1px]'
+                              className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] transition ${
+                                isGroupActive
+                                  ? 'bg-[#ff8f1f] text-[#2a0338]'
+                                  : 'bg-white/10 text-white group-hover:bg-white/[0.16] group-hover:text-white'
                               }`}
                             >
-                              {item.badge}
+                              <Icon className="h-4 w-4" />
                             </span>
-                          )}
-                        </button>
+                            {isDesktopNavExpanded && (
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-[13px] font-semibold">{group.label}</span>
+                              </span>
+                            )}
+                            {isDesktopNavExpanded &&
+                              (isGroupOpen ? (
+                                <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/60" />
+                              ) : (
+                                <ChevronRight className="h-3.5 w-3.5 shrink-0 text-white/60" />
+                              ))}
+                            {group.badge > 0 && (
+                              <span
+                                className={`rounded-full bg-[#ef4444] text-[10px] font-bold text-white shadow-sm ${
+                                  isDesktopNavExpanded
+                                    ? 'px-2 py-0.5'
+                                    : 'absolute right-0 top-0 min-w-4 px-1 py-[1px]'
+                                }`}
+                              >
+                                {group.badge}
+                              </span>
+                            )}
+                          </button>
+
+                          {isDesktopNavExpanded && isGroupOpen ? (
+                            <div className="ml-[42px] space-y-1 border-l border-white/10 pl-2">
+                              {group.children.map((child) => {
+                                const ChildIcon = child.icon;
+                                const childActive = activeTab === child.key;
+                                return (
+                                  <button
+                                    key={child.key}
+                                    type="button"
+                                    onClick={() => setActiveTab(child.key)}
+                                    className={`group flex min-h-10 w-full items-center gap-2 rounded-r-[14px] rounded-l-none px-2.5 py-1.5 text-left transition ${
+                                      childActive
+                                        ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_14px_26px_-20px_rgba(255,132,0,0.92)]'
+                                        : 'text-white/70 hover:bg-white/10 hover:text-white'
+                                    }`}
+                                  >
+                                    <ChildIcon className="h-3.5 w-3.5 shrink-0" />
+                                    <span className="min-w-0 flex-1 truncate text-[12px] font-semibold">{child.label}</span>
+                                    {group.key === 'planes' && child.detail ? (
+                                      <span
+                                        className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${
+                                          childActive ? 'bg-white/20 text-white' : 'bg-white/10 text-white/60'
+                                        }`}
+                                      >
+                                        {child.detail}
+                                      </span>
+                                    ) : child.badge > 0 ? (
+                                      <span className="h-2 w-2 rounded-full bg-[#ff8f1f]" />
+                                    ) : null}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          ) : null}
+                        </div>
                       );
                     })}
                   </div>
@@ -7548,7 +7897,7 @@ export default function AdminPage() {
                               : 'h-9 w-9 justify-center rounded-[14px]'
                           }`}
                         >
-                          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                          <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/[0.16] group-hover:text-white">
                             <Icon className="h-4 w-4" />
                           </span>
                           {isDesktopNavExpanded && (
@@ -7567,7 +7916,7 @@ export default function AdminPage() {
                           : 'h-9 w-9 justify-center rounded-[14px]'
                       }`}
                     >
-                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/16 group-hover:text-white">
+                      <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[12px] bg-white/10 text-white transition group-hover:bg-white/[0.16] group-hover:text-white">
                         <LockKeyhole className="h-4 w-4" />
                       </span>
                       {isDesktopNavExpanded && (
@@ -7598,48 +7947,122 @@ export default function AdminPage() {
           </div>
 
           <div className="min-w-0 flex-1 lg:pr-4">
-          <div className="mb-4 rounded-[28px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] p-2.5 shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)] backdrop-blur lg:hidden">
-            <div className="flex items-center gap-2 overflow-x-auto">
-              {adminNavItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => setActiveTab(item.key)}
-                    className={`shrink-0 rounded-full px-4 py-2 text-xs font-semibold transition sm:text-sm ${
-                      isActive
-                        ? 'bg-[linear-gradient(135deg,#ff9713,#ff7b00)] text-white shadow-[0_18px_32px_-20px_rgba(255,132,0,0.82)]'
-                        : 'bg-white/10 text-white/90 hover:bg-white/14 hover:text-white'
-                    }`}
-                  >
-                    <span className="inline-flex items-center gap-2">
-                      <Icon className="h-4 w-4" />
-                      {item.label}
-                      {item.badge > 0 && (
-                        <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-semibold text-white">
-                          {item.badge}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                onClick={handleOpenPasswordDialog}
-                className="shrink-0 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white/90 transition hover:bg-white/14 hover:text-white sm:text-sm"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <LockKeyhole className="h-4 w-4" />
-                  Cambiar contraseña
-                </span>
-              </button>
-              <span className="ml-auto hidden shrink-0 rounded-full bg-white/8 px-3 py-1 text-[10px] font-semibold text-white/58 sm:inline-flex">
-                {adminNavItems.length} módulos
+          <div className="relative mb-4 lg:hidden">
+            <button
+              type="button"
+              onClick={() => setIsMobileAdminNavOpen((current) => !current)}
+              aria-expanded={isMobileAdminNavOpen}
+              className="flex min-h-[58px] w-full items-center gap-3 rounded-[22px] border border-white/10 bg-[linear-gradient(180deg,#22062f,#2a0338)] px-4 py-3 text-left text-white shadow-[0_24px_44px_-34px_rgba(23,8,35,0.72)]"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-[#ff8f1f] text-[#2a0338]">
+                <Menu className="h-5 w-5" />
               </span>
-            </div>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                  {activeAdminNavGroup?.label || 'Panel administrativo'}
+                </span>
+                <span className="mt-0.5 block truncate text-sm font-semibold">
+                  {activeAdminNavItem?.label || activeTabLabel}
+                </span>
+              </span>
+              {activeAdminNavItem && activeAdminNavItem.badge > 0 && (
+                <span className="rounded-full bg-[#ef4444] px-2 py-0.5 text-[10px] font-bold text-white">
+                  {activeAdminNavItem.badge}
+                </span>
+              )}
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-white/60 transition-transform ${
+                  isMobileAdminNavOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {isMobileAdminNavOpen && (
+              <div className="mt-2 max-h-[68vh] overflow-y-auto rounded-[22px] border border-white/10 bg-[#22062f] px-3 py-4 text-white shadow-[0_28px_55px_-32px_rgba(23,8,35,0.92)]">
+                <div className="space-y-5">
+                  {adminNavGroups.map((group) => {
+                    const GroupIcon = group.icon;
+                    return (
+                      <section key={group.key}>
+                        <div className="mb-2 flex items-center gap-2 px-1">
+                          <GroupIcon className="h-3.5 w-3.5 text-[#ff8f1f]" />
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                            {group.label}
+                          </p>
+                          {group.badge > 0 && (
+                            <span className="ml-auto rounded-full bg-[#ef4444] px-2 py-0.5 text-[9px] font-bold text-white">
+                              {group.badge}
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {group.children.map((item) => {
+                            const Icon = item.icon;
+                            const isActive = activeTab === item.key;
+                            return (
+                              <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => {
+                                  setActiveTab(item.key);
+                                  setIsMobileAdminNavOpen(false);
+                                }}
+                                className={`flex min-h-[42px] items-center gap-2 rounded-[14px] px-3 py-2 text-left transition ${
+                                  isActive
+                                    ? 'bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white'
+                                    : 'bg-white/[0.07] text-white/[0.78] hover:bg-white/[0.12] hover:text-white'
+                                }`}
+                              >
+                                <Icon className="h-4 w-4 shrink-0" />
+                                <span className="min-w-0 flex-1 text-[12px] font-semibold leading-4">{item.label}</span>
+                                {item.badge > 0 && <span className="h-2 w-2 shrink-0 rounded-full bg-[#ef4444]" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-5 border-t border-white/10 pt-3">
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {adminSidebarFooterActions.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <a
+                          key={item.key}
+                          href={item.href}
+                          className="flex min-h-[42px] items-center gap-2 rounded-[14px] bg-white/[0.07] px-3 py-2 text-[12px] font-semibold text-white/[0.78] transition hover:bg-white/[0.12] hover:text-white"
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          {item.label}
+                        </a>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsMobileAdminNavOpen(false);
+                        handleOpenPasswordDialog();
+                      }}
+                      className="flex min-h-[42px] items-center gap-2 rounded-[14px] bg-white/[0.07] px-3 py-2 text-left text-[12px] font-semibold text-white/[0.78] transition hover:bg-white/[0.12] hover:text-white"
+                    >
+                      <LockKeyhole className="h-4 w-4 shrink-0" />
+                      Cambiar contraseña
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex min-h-[42px] items-center gap-2 rounded-[14px] bg-[#ff8f1f] px-3 py-2 text-left text-[12px] font-semibold text-[#2a0338] transition hover:bg-[#ffa64a]"
+                    >
+                      <LogOut className="h-4 w-4 shrink-0" />
+                      Cerrar sesión
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {overviewError && (
@@ -7715,12 +8138,11 @@ export default function AdminPage() {
                     </div>
 
                     <div className="mt-4 rounded-[24px] border border-[#eadff0] bg-white px-3 py-3 shadow-[0_12px_26px_rgba(31,10,46,0.05)]">
-                      <div className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
                         {[
                           { label: 'Visitas web', value: formatNumber(summaryWebViews), tone: 'text-[#5b3a6e]' },
                           { label: 'Sesiones reales', value: formatNumber(summaryReachSessions), tone: 'text-slate-700' },
-                          { label: 'Anónimas', value: formatNumber(summaryGuestSessions), tone: 'text-slate-600' },
-                          { label: 'Con cuenta', value: formatNumber(summaryAccountSessions), tone: 'text-[#047857]' },
+                          { label: 'Cuentas reales', value: formatNumber(summaryReachAccountUsers), tone: 'text-[#047857]' },
                           { label: 'Países detectados', value: formatNumber(summaryReachCountries.length), tone: 'text-[#5b3a6e]' },
                           { label: 'Cobertura geo', value: `${summaryGeoCoverage}%`, tone: 'text-[#a8651a]' },
                         ].map((item) => (
@@ -7741,242 +8163,191 @@ export default function AdminPage() {
                     <div className="mt-6 border-t border-[#eadff0] pt-6">
                       <div className="flex items-center justify-between gap-3">
                         <div>
-                          <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Distribución por ubicación</p>
-                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Origen de las visitas reales</h3>
+                          <p className="text-[11px] uppercase tracking-[0.22em] text-[#8b7c98]">Vista ejecutiva</p>
+                          <h3 className="mt-2 text-xl font-semibold text-[#180f24]">Origen y uso de la plataforma</h3>
                         </div>
                         <MapPin className="h-5 w-5 text-[#ff8f1f]" />
                       </div>
 
-                      <AdminGeoMap zones={summaryGeoZones} />
+                      <div className="mt-5 grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(300px,0.75fr)]">
+                        <AdminGeoMap zones={summaryGeoZones} compact />
 
-                      <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Secciones mas visitadas</p>
-                            <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Donde entra la gente</h4>
+                        <div className="xl:border-l xl:border-[#eadff0] xl:pl-5">
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">
+                                Secciones principales
+                              </p>
+                              <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Dónde entra la gente</h4>
+                            </div>
+                            <span className="text-xs font-semibold text-[#6c6177]">
+                              Top {Math.min(3, summaryTopSections.length)}
+                            </span>
                           </div>
-                          <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
-                            {formatNumber(summaryTopSections.length)} seccion(es)
-                          </span>
-                        </div>
-                        <div className="mt-3 space-y-2">
-                          {summaryTopSections.length === 0 && (
-                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                              Todavia no hay secciones con trafico suficiente para este balance.
-                            </p>
-                          )}
-                          {summaryTopSections.map((section) => {
-                            const width = Math.max(8, Math.round(((section.views || 0) / summaryTopSectionMaxViews) * 100));
-                            return (
-                              <div key={section.key} className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <span className="text-sm font-semibold text-slate-800">{section.label}</span>
-                                  <span className="text-xs font-semibold text-slate-500">
-                                    {formatNumber(section.views)} vista(s) · {formatNumber(section.uniqueSessions)} sesion(es)
-                                  </span>
-                                </div>
-                                <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
-                                  <div
-                                    className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#4b0b55)]"
-                                    style={{ width: `${width}%` }}
-                                  />
-                                </div>
-                                <p className="mt-1 text-[11px] text-slate-500">
-                                  {formatNumber(section.accountSessions)} con cuenta · {formatNumber(section.guestSessions)} anonimas
-                                </p>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
 
-                      <div className="mt-4 rounded-[22px] border border-[#eadff0] bg-white/82 p-3">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Cuentas reales identificadas</p>
-                            <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Actividad con sesión iniciada</h4>
-                          </div>
-                          <span className="rounded-full border border-[#eadff0] bg-[#faf6fc] px-2.5 py-1 text-[11px] font-semibold text-[#432451]">
-                            {formatNumber(summaryReachAccountUsers)} cuenta(s)
-                          </span>
-                        </div>
-
-                        <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                          {summaryAccountUsers.length === 0 && (
-                            <p className="rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                              Todavía no hay cuentas reales identificadas para este balance.
-                            </p>
-                          )}
-                          {summaryAccountUsers.map((account) => {
-                            const deviceMeta = getAccountDeviceMeta(account.deviceType);
-                            const DeviceIcon = deviceMeta.icon;
-                            const deviceLabel = account.deviceLabel || deviceMeta.label;
-                            const accountIsOnline = isOnlineWithinWindow(account.lastSeenAt);
-
-                            return (
-                              <div key={account.userId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-3 py-2">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="truncate text-sm font-semibold text-slate-800">{account.label}</p>
-                                    {accountIsOnline && (
-                                      <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700">
-                                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                                        Online
-                                      </span>
-                                    )}
+                          <div className="mt-4 divide-y divide-[#eadff0]">
+                            {summaryTopSections.length === 0 && (
+                              <p className="py-4 text-sm leading-6 text-slate-500">
+                                Todavía no hay tráfico suficiente para identificar secciones principales.
+                              </p>
+                            )}
+                            {summaryTopSections.slice(0, 3).map((section) => {
+                              const width = Math.max(8, Math.round(((section.views || 0) / summaryTopSectionMaxViews) * 100));
+                              return (
+                                <div key={section.key} className="py-4 first:pt-0">
+                                  <div className="flex items-center justify-between gap-3">
+                                    <span className="text-sm font-semibold text-slate-800">{section.label}</span>
+                                    <span className="text-xs font-semibold text-slate-500">
+                                      {formatNumber(section.views)} vistas
+                                    </span>
                                   </div>
-                                  <p className="mt-0.5 truncate text-xs text-slate-500">{account.email || 'Sin email visible'}</p>
-                                  {account.lastSignInAt && (
-                                    <p className="mt-0.5 truncate text-[11px] text-slate-400">Último login: {formatDateTime(account.lastSignInAt)}</p>
-                                  )}
-                                  {account.lastPath && <p className="mt-0.5 truncate text-[11px] text-slate-400">{account.lastPath}</p>}
+                                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-[#f3edf6]">
+                                    <div
+                                      className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#4b0b55)]"
+                                      style={{ width: `${width}%` }}
+                                    />
+                                  </div>
+                                  <p className="mt-1 text-[11px] text-slate-500">
+                                    {formatNumber(section.uniqueSessions)} sesiones únicas
+                                  </p>
                                 </div>
-                                <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 text-[11px] text-slate-500">
-                                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-semibold ${deviceMeta.className}`}>
-                                    <DeviceIcon className="h-3.5 w-3.5" />
-                                    <span>{deviceLabel}</span>
-                                    {account.deviceSessions ? (
-                                      <span className="text-[10px] font-semibold opacity-70">{formatNumber(account.deviceSessions)} ses.</span>
-                                    ) : null}
-                                  </span>
-                                  <span className="rounded-full bg-white px-2.5 py-1 font-semibold text-slate-700">{formatNumber(account.sessions)} sesión(es)</span>
-                                  <span>{formatNumber(account.views)} vista(s)</span>
-                                  <span>{formatDateTime(account.lastSeenAt)}</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => openSupportConversationFromAccount(account)}
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-[#ffb15a] bg-white px-3 py-1 font-semibold text-[#9b4a00] transition hover:border-[#ff8f1f] hover:bg-[#fff7ed]"
-                                  >
-                                    <MessageSquareMore className="h-3.5 w-3.5" />
-                                    Escribir
-                                  </button>
-                                </div>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="mt-5 grid gap-4 md:grid-cols-2">
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Países detectados</p>
-                          <div className="mt-3 space-y-2">
-                            {summaryReachCountries.length === 0 && (
-                              <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                                Todavía no hay países detectados en la navegación.
-                              </p>
-                            )}
-                            {summaryReachCountries.map((item) => (
-                              <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                                <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-                                <span className="text-xs text-slate-500">
-                                  {formatNumber(item.uniqueSessions)} sesión(es)
-                                </span>
-                              </div>
-                            ))}
+                              );
+                            })}
                           </div>
-                        </div>
 
-                        <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8b7c98]">Ciudades detectadas</p>
-                          <div className="mt-3 space-y-2">
-                            {summaryReachCities.length === 0 && (
-                              <p className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-500">
-                                Todavía no hay ciudades detectadas en la navegación.
-                              </p>
-                            )}
-                            {summaryReachCities.map((item) => (
-                              <div key={item.label} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
-                                <span className="text-sm font-semibold text-slate-700">{item.label}</span>
-                                <span className="text-xs text-slate-500">
-                                  {formatNumber(item.uniqueSessions)} sesión(es)
-                                </span>
-                              </div>
-                            ))}
+                          <div className="mt-5 border-t border-[#eadff0] pt-5">
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">
+                              Continuar análisis
+                            </p>
+                            <div className="mt-3 grid gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('actividad')}
+                                className="flex items-center justify-between gap-3 rounded-2xl bg-[#180f24] px-4 py-3 text-left text-sm font-semibold text-white transition hover:bg-[#321341]"
+                              >
+                                Ver actividad completa
+                                <ArrowRight className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setActiveTab('tecnicos')}
+                                className="flex items-center justify-between gap-3 rounded-2xl border border-[#d9c8e4] bg-white px-4 py-3 text-left text-sm font-semibold text-[#432451] transition hover:bg-[#faf6fc]"
+                              >
+                                Revisar usuarios
+                                <ArrowRight className="h-4 w-4" />
+                              </button>
+                            </div>
                           </div>
                         </div>
                       </div>
                     </div>
                   </article>
 
-                  <article className="mt-6 rounded-[30px] border border-[#eadff0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(42,15,53,0.08)]">
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="max-w-2xl">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8b7c98]">
-                          Plan de accion mundial
-                        </p>
-                        <h3 className="mt-2 text-xl font-semibold text-[#180f24]">
-                          Seguimiento para crecer con datos reales
-                        </h3>
-                        <p className="mt-2 text-sm leading-6 text-[#6c6177]">
-                          Prioridades para transformar alcance, secciones visitadas y registros en mas usuarios activos.
-                        </p>
-                      </div>
+                </section>
+              )}
 
-                      <div className="min-w-[170px] rounded-[22px] border border-[#eadff0] bg-[#faf6fc] px-4 py-3 text-right">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Avance</p>
-                        <p className="mt-1 text-3xl font-black text-[#180f24]">{globalGrowthProgress}%</p>
-                        <p className="text-xs font-semibold text-[#6c6177]">
-                          {formatNumber(globalGrowthDoneCount)} de {formatNumber(globalGrowthActionPlan.length)} activos
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#f1edf4]">
-                      <div
-                        className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#0bbf86,#4b0b55)] transition-all"
-                        style={{ width: `${globalGrowthProgress}%` }}
-                      />
-                    </div>
-
-                    <div className="mt-4 rounded-[22px] border border-[#ffd7a8] bg-[#fff8ef] px-4 py-3">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#b55a00]">Proximo foco</p>
-                      <p className="mt-1 text-sm font-semibold text-[#2a1733]">
-                        {globalGrowthNextTask?.title || 'Mantener el seguimiento mensual'}
+          {activeActionPlan && (
+            <section className="space-y-6">
+              <article className="rounded-[30px] border border-[#eadff0] bg-white/92 p-5 shadow-[0_18px_42px_rgba(42,15,53,0.08)]">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-[linear-gradient(135deg,#ff9c1a,#ff7b00)] text-white shadow-[0_18px_32px_-24px_rgba(255,132,0,0.92)]">
+                      <activeActionPlan.icon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-[#8b7c98]">
+                        Planes de accion
                       </p>
-                      <p className="mt-1 text-xs leading-5 text-[#6c6177]">
-                        {globalGrowthNextTask?.detail || 'Revisar el balance, ajustar acciones y volver a medir.'}
-                      </p>
+                      <h3 className="mt-2 text-2xl font-semibold text-[#180f24]">{activeActionPlan.title}</h3>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-[#6c6177]">{activeActionPlan.detail}</p>
+                    </div>
+                  </div>
+
+                  <div className="min-w-[170px] rounded-[22px] border border-[#eadff0] bg-[#faf6fc] px-4 py-3 text-right">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b7c98]">Avance</p>
+                    <p className="mt-1 text-3xl font-black text-[#180f24]">{activeActionPlan.progress}%</p>
+                    <p className="text-xs font-semibold text-[#6c6177]">{activeActionPlan.statusLabel}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 h-3 overflow-hidden rounded-full bg-[#f1edf4]">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,#ff8f1f,#0bbf86,#4b0b55)] transition-all"
+                    style={{ width: `${activeActionPlan.progress}%` }}
+                  />
+                </div>
+
+                <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_280px]">
+                  <div className="rounded-[24px] border border-[#eadff0] bg-[#faf8fb] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8b7c98]">
+                          Seguimiento
+                        </p>
+                        <h4 className="mt-1 text-sm font-semibold text-[#180f24]">Tareas del plan</h4>
+                      </div>
+                      <span className="rounded-full border border-[#ffd7a8] bg-white px-3 py-1.5 text-[11px] font-semibold text-[#9a4d00]">
+                        {activeActionPlan.owner}
+                      </span>
                     </div>
 
-                    <div className="mt-5 grid gap-3 lg:grid-cols-2">
-                      {globalGrowthActionPlan.map((task) => {
-                        const statusClass =
-                          task.status === 'done'
-                            ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                            : task.status === 'in_progress'
-                              ? 'border-amber-200 bg-amber-50 text-amber-700'
-                              : 'border-slate-200 bg-slate-50 text-slate-500';
-                        const stepClass =
-                          task.status === 'done'
-                            ? 'bg-emerald-600 text-white'
-                            : task.status === 'in_progress'
-                              ? 'bg-[#ff8f1f] text-white'
-                              : 'bg-slate-100 text-slate-500';
-
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      {activeActionPlan.checkpoints.map((checkpoint, index) => {
+                        const isMarked =
+                          activeActionPlan.status === 'done' ||
+                          (activeActionPlan.status === 'in_progress' && index === 0);
                         return (
-                          <div key={task.step} className="rounded-[22px] border border-slate-100 bg-slate-50/70 p-4">
+                          <div key={checkpoint} className="rounded-[20px] border border-white bg-white p-3 shadow-[0_10px_22px_rgba(31,10,46,0.04)]">
                             <div className="flex items-start gap-3">
-                              <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-2xl text-xs font-black ${stepClass}`}>
-                                {task.step}
+                              <span
+                                className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-xl text-xs font-black ${
+                                  isMarked ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-500'
+                                }`}
+                              >
+                                {index + 1}
                               </span>
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <h4 className="text-sm font-semibold text-[#180f24]">{task.title}</h4>
-                                  <span className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${statusClass}`}>
-                                    {task.statusLabel}
-                                  </span>
-                                </div>
-                                <p className="mt-2 text-xs leading-5 text-[#6c6177]">{task.detail}</p>
-                              </div>
+                              <p className="text-sm font-semibold leading-5 text-[#2a1733]">{checkpoint}</p>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  </article>
-                </section>
-              )}
+                  </div>
+
+                  <aside className="rounded-[24px] border border-[#eadff0] bg-[linear-gradient(160deg,#2a0338,#4b0b55)] p-4 text-white shadow-[0_16px_34px_rgba(42,3,56,0.2)]">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#ffd7a8]">
+                      Acciones
+                    </p>
+                    <h4 className="mt-2 text-lg font-semibold">Ordenar el seguimiento</h4>
+                    <p className="mt-2 text-xs leading-6 text-white/72">
+                      Esta pestaña separa el frente de trabajo para revisar decisiones, tareas y avance sin mezclarlo con otros planes.
+                    </p>
+                    <div className="mt-4 space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('planes')}
+                        className="w-full rounded-2xl border border-white/16 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/16"
+                      >
+                        Ver todos los planes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRoadmapScopeFilter('launch');
+                          setRoadmapPendingOnly(true);
+                          setRoadmapSortMode('work_priority');
+                          setActiveTab('roadmap');
+                        }}
+                        className="w-full rounded-2xl bg-[#ff8f1f] px-4 py-3 text-sm font-semibold text-[#180f24] transition hover:bg-[#ffa64a]"
+                      >
+                        Abrir roadmap mundial
+                      </button>
+                    </div>
+                  </aside>
+                </div>
+              </article>
+            </section>
+          )}
 
           {activeTab === 'facturacion' && (
             <>

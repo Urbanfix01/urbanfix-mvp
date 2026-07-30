@@ -537,16 +537,9 @@ export default function AdminTechniciansUnified({
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6688]">Revision operativa</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6688]">Gestion de usuarios</p>
             <h3 className="mt-1 text-2xl font-bold text-slate-950">{copy.title}</h3>
             <p className="mt-2 max-w-2xl text-sm text-slate-600">{copy.subtitle}</p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {['1. Revisar datos', '2. Confirmar ubicacion', '3. Aprobar y publicar'].map((step) => (
-                <span key={step} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700">
-                  {step}
-                </span>
-              ))}
-            </div>
           </div>
           <button
             type="button"
@@ -559,29 +552,44 @@ export default function AdminTechniciansUnified({
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-4 xl:grid-cols-8">
-        {[
-          { key: 'attention', label: 'Atencion', value: stats.attention, className: 'border-amber-300 bg-[#fffaf0] text-amber-900' },
-          { key: 'online', label: 'Online', value: stats.online, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
-          { key: 'ready', label: 'Listos', value: stats.ready, className: 'border-[#b8d8ff] bg-[#eef6ff] text-[#155391]' },
-          { key: 'review', label: 'Correccion', value: stats.review, className: 'border-amber-200 bg-amber-50 text-amber-800' },
-          { key: 'approved', label: 'Aprobados', value: stats.approved, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
-          { key: 'hidden', label: 'Ocultos', value: stats.hidden, className: 'border-orange-200 bg-orange-50 text-orange-800' },
-          { key: 'incomplete', label: 'Incompletos', value: stats.incomplete, className: 'border-slate-200 bg-slate-50 text-slate-700' },
-          { key: 'all', label: 'Total', value: stats.total, className: 'border-slate-200 bg-white text-slate-900' },
-        ].map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setFilterStatus(item.key as FilterStatus)}
-            className={`rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${item.className} ${
-              filterStatus === item.key ? 'ring-2 ring-slate-900/10' : ''
-            }`}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{item.label}</p>
-            <p className="mt-1 text-2xl font-bold">{item.value}</p>
-          </button>
-        ))}
+      <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label={`Vistas de ${copy.plural}`}>
+          {[
+            { key: 'attention', label: 'Requieren atencion', value: stats.attention },
+            { key: 'ready', label: 'Listos para aprobar', value: stats.ready },
+            { key: 'review', label: 'Correcciones', value: stats.review },
+            { key: 'approved', label: 'Aprobados', value: stats.approved },
+            { key: 'hidden', label: 'Ocultos', value: stats.hidden },
+            { key: 'incomplete', label: 'Incompletos', value: stats.incomplete },
+            { key: 'online', label: 'En linea', value: stats.online },
+            { key: 'all', label: 'Todos', value: stats.total },
+          ].map((item) => {
+            const selected = filterStatus === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setFilterStatus(item.key as FilterStatus)}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                  selected
+                    ? 'border-[#381047] bg-[#381047] text-white shadow-sm'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
+                }`}
+              >
+                <span>{item.label}</span>
+                <span
+                  className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] ${
+                    selected ? 'bg-white/15 text-white' : 'bg-white text-slate-600'
+                  }`}
+                >
+                  {item.value}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div>
@@ -651,7 +659,7 @@ export default function AdminTechniciansUnified({
                         </p>
                         <p className="mt-1 text-[11px] text-slate-400">
                           Actividad: {profileIsOnline ? 'online ahora' : formatDateTime(profile.last_seen_at)}
-                          {profile.last_seen_path ? ` · ${profile.last_seen_path}` : ''}
+                          {profile.last_seen_path ? ` - ${profile.last_seen_path}` : ''}
                         </p>
                         <p className="mt-2 text-xs font-medium text-slate-500">
                           {missing.length === 0 ? 'Datos clave completos.' : `Falta: ${missing.join(', ')}.`}

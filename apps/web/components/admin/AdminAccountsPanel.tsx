@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 
 type ManagedAudience = 'cliente' | 'empresa';
-type FilterStatus = 'all' | 'complete' | 'incomplete' | 'active' | 'online' | 'no_profile';
+type FilterStatus = 'all' | 'attention' | 'complete' | 'active' | 'online' | 'no_profile';
 
 export type AudienceAccountStats = {
   total: number;
@@ -199,7 +199,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>('attention');
   const [selectedId, setSelectedId] = useState('');
   const [actionLoadingId, setActionLoadingId] = useState('');
   const [convertCandidate, setConvertCandidate] = useState<AccountItem | null>(null);
@@ -239,8 +239,8 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
     return accounts
       .filter((account) => {
         const missing = getMissingLabels(account, audience);
+        if (filterStatus === 'attention') return missing.length > 0;
         if (filterStatus === 'complete') return missing.length === 0;
-        if (filterStatus === 'incomplete') return missing.length > 0;
         if (filterStatus === 'active') return isRecent(account.lastSignInAt || account.profile?.last_seen_at);
         if (filterStatus === 'online') return isOnline(account.profile?.last_seen_at);
         if (filterStatus === 'no_profile') return !account.profile;
@@ -437,9 +437,7 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
       <div className="rounded-[28px] border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6688]">
-              Revision de cuentas
-            </p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#7b6688]">Gestion de usuarios</p>
             <h3 className="mt-1 text-2xl font-bold text-slate-950">{copy.title}</h3>
             <p className="mt-2 max-w-3xl text-sm text-slate-600">{copy.subtitle}</p>
           </div>
@@ -454,27 +452,42 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-6">
-        {[
-          { key: 'online', label: 'Online', value: stats.online, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
-          { key: 'complete', label: 'Completos', value: stats.complete, className: 'border-emerald-200 bg-emerald-50 text-emerald-800' },
-          { key: 'incomplete', label: 'Incompletos', value: stats.incomplete, className: 'border-amber-200 bg-amber-50 text-amber-800' },
-          { key: 'active', label: 'Activos 30d', value: stats.active, className: 'border-blue-200 bg-blue-50 text-blue-800' },
-          { key: 'no_profile', label: 'Sin perfil', value: stats.noProfile, className: 'border-rose-200 bg-rose-50 text-rose-800' },
-          { key: 'all', label: 'Total', value: stats.total, className: 'border-slate-200 bg-white text-slate-900' },
-        ].map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            onClick={() => setFilterStatus(item.key as FilterStatus)}
-            className={`rounded-2xl border px-4 py-3 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${item.className} ${
-              filterStatus === item.key ? 'ring-2 ring-slate-900/10' : ''
-            }`}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{item.label}</p>
-            <p className="mt-1 text-2xl font-bold">{item.value}</p>
-          </button>
-        ))}
+      <div className="rounded-[24px] border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label={`Vistas de ${copy.plural}`}>
+          {[
+            { key: 'attention', label: 'Requieren atencion', value: stats.attention },
+            { key: 'complete', label: 'Completos', value: stats.complete },
+            { key: 'active', label: 'Activos 30 dias', value: stats.active },
+            { key: 'online', label: 'En linea', value: stats.online },
+            { key: 'no_profile', label: 'Sin perfil', value: stats.noProfile },
+            { key: 'all', label: 'Todos', value: stats.total },
+          ].map((item) => {
+            const selected = filterStatus === item.key;
+            return (
+              <button
+                key={item.key}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setFilterStatus(item.key as FilterStatus)}
+                className={`inline-flex min-h-10 items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold transition ${
+                  selected
+                    ? 'border-[#381047] bg-[#381047] text-white shadow-sm'
+                    : 'border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-white'
+                }`}
+              >
+                <span>{item.label}</span>
+                <span
+                  className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 py-0.5 text-[11px] ${
+                    selected ? 'bg-white/15 text-white' : 'bg-white text-slate-600'
+                  }`}
+                >
+                  {item.value}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <section className="rounded-[28px] border border-slate-200 bg-white p-4 shadow-sm">
@@ -539,11 +552,11 @@ export default function AdminAccountsPanel({ accessToken = null, audience, onSta
                         {phone || 'Sin WhatsApp'} - {location || 'Sin zona'}
                       </p>
                       <p className="mt-1 text-[11px] text-slate-400">
-                        Alta: {formatDateTime(account.createdAt)} · Ultimo ingreso: {formatDateTime(account.lastSignInAt)}
+                        Alta: {formatDateTime(account.createdAt)} - Ultimo ingreso: {formatDateTime(account.lastSignInAt)}
                       </p>
                       <p className="mt-1 text-[11px] text-slate-400">
                         Actividad: {accountIsOnline ? 'online ahora' : formatDateTime(account.profile?.last_seen_at)}
-                        {account.profile?.last_seen_path ? ` · ${account.profile.last_seen_path}` : ''}
+                        {account.profile?.last_seen_path ? ` - ${account.profile.last_seen_path}` : ''}
                       </p>
                       <p className="mt-2 text-xs font-medium text-slate-500">
                         {missing.length === 0 ? 'Datos clave completos.' : `Falta: ${missing.join(', ')}.`}
