@@ -4834,6 +4834,7 @@ export default function TechniciansPage() {
     | 'historial'
     | 'notificaciones'
   >('lobby');
+  const laborPricesViewTrackedRef = useRef(false);
   const [profilePanelTab, setProfilePanelTab] = useState<'editor' | 'preview'>('preview');
   const [profilePublicationFocus, setProfilePublicationFocus] = useState(false);
   const profilePublicationDetailsRef = useRef<HTMLDetailsElement | null>(null);
@@ -5014,6 +5015,12 @@ export default function TechniciansPage() {
       setProfilePublicationFocus(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (activeTab !== 'precios' || laborPricesViewTrackedRef.current) return;
+    laborPricesViewTrackedRef.current = true;
+    trackFunnelEvent('labor_prices_viewed');
+  }, [activeTab]);
 
   useEffect(() => {
     if (authMode !== 'register' || registrationStartTrackedRef.current) return;

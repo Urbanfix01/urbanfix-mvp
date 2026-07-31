@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 
 import { hasSupabaseConfig, supabase } from '../../lib/supabase/supabase';
+import { trackFunnelEvent } from '../../lib/analytics';
 import { buildTechnicianPath } from '../../lib/seo/technician-profile';
 import { parseGremioSpecialties } from '../../lib/seo/gremios-data';
 import { TECH_SPECIALTY_OPTIONS, TECH_SPECIALTY_SEARCH_ALIASES } from '../../lib/technician-specialties';
@@ -985,6 +986,10 @@ export default function CommunityFeed() {
       }
 
       setPosts((current) => [normalizePost(data, { [authorProfile.id]: authorProfile }), ...current]);
+      trackFunnelEvent('community_post_published', {
+        post_type: postType,
+        author_role: profile.role,
+      });
       setFeedback('Publicado.');
       resetComposer();
       setIsComposerOpen(false);
@@ -1052,6 +1057,7 @@ export default function CommunityFeed() {
         });
 
         if (error && String(error.code || '') !== '23505') throw error;
+        trackFunnelEvent('community_post_liked', { post_id: postId });
       }
 
       await refreshPostLikeCount(postId);
@@ -1190,6 +1196,7 @@ export default function CommunityFeed() {
           post.id === postId ? { ...post, comments_count: post.comments_count + 1 } : post
         )
       );
+      trackFunnelEvent('community_comment_published', { post_id: postId });
     }
 
     setCommentSubmitting((current) => ({ ...current, [postId]: false }));

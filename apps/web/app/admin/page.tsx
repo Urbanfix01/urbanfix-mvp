@@ -3034,6 +3034,30 @@ export default function AdminPage() {
         prevReturnRate: number;
       }[];
     };
+    sectionConversions?: {
+      measurement: string;
+      priorityKey: string | null;
+      journeys: {
+        key: string;
+        label: string;
+        description: string;
+        recommendation: string;
+        completionRate: number;
+        prevCompletionRate: number;
+        dropOffRate: number;
+        hasData: boolean;
+        weakestStageKey: string | null;
+        weakestStageLabel: string | null;
+        stages: {
+          key: string;
+          label: string;
+          count: number;
+          prevCount: number;
+          rate: number;
+          dropOffRate: number;
+        }[];
+      }[];
+    };
     funnel?: {
       totalEvents: number;
       prevTotalEvents: number;
@@ -6713,8 +6737,12 @@ export default function AdminPage() {
         .filter((item) => item.source_key?.startsWith('activity-funnel:'))
         .map((item) => [item.source_key, item])
     );
+    const journeys = [
+      ...(activityData?.sectionConversions?.journeys || []),
+      ...(activityData?.funnel?.journeys || []),
+    ];
 
-    return (activityData?.funnel?.journeys || [])
+    return journeys
       .filter((journey) => journey.hasData && journey.dropOffRate > 0)
       .map((journey) => {
         const plan = plansBySource.get(`activity-funnel:${journey.key}`) || null;
@@ -13177,6 +13205,104 @@ export default function AdminPage() {
                           </article>
                         ))}
                       </div>
+
+                      {activityData.sectionConversions && (
+                        <section className="mt-6 border-t border-slate-200 pt-6">
+                          <div className="flex flex-wrap items-end justify-between gap-3">
+                            <div>
+                              <h5 className="text-sm font-semibold text-slate-900">
+                                Dónde se pierde gente
+                              </h5>
+                              <p className="mt-1 text-xs text-slate-500">
+                                Visita a una sección y acción esperada dentro de la misma sesión.
+                              </p>
+                            </div>
+                            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                              {activityData.sectionConversions.measurement}
+                            </span>
+                          </div>
+
+                          <div className="mt-4 divide-y divide-slate-200 border-y border-slate-200 bg-white">
+                            {activityData.sectionConversions.journeys.map((journey) => {
+                              const isPriority =
+                                activityData.sectionConversions?.priorityKey === journey.key;
+                              const delta = getDeltaLabel(
+                                journey.completionRate,
+                                journey.prevCompletionRate
+                              );
+
+                              return (
+                                <article
+                                  key={`section-conversion-${journey.key}`}
+                                  className="grid gap-4 px-4 py-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(260px,0.9fr)_auto]"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <p className="text-sm font-semibold text-slate-900">
+                                        {journey.label}
+                                      </p>
+                                      {isPriority && journey.hasData && (
+                                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[10px] font-semibold text-amber-800">
+                                          Mayor oportunidad
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="mt-1 text-xs text-slate-500">
+                                      {journey.description}
+                                    </p>
+                                    <p className="mt-2 text-xs font-medium text-slate-700">
+                                      {journey.recommendation}
+                                    </p>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+                                    {journey.stages.map((stage, index) => (
+                                      <div key={stage.key} className="min-w-[92px]">
+                                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                                          {stage.label}
+                                        </p>
+                                        <p className="mt-1 text-lg font-semibold text-slate-900">
+                                          {formatNumber(stage.count)}
+                                        </p>
+                                        {index > 0 && journey.hasData && (
+                                          <p className="text-[11px] text-slate-500">
+                                            {stage.rate.toFixed(0)}% avanza
+                                          </p>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  <div className="min-w-[138px] xl:text-right">
+                                    {journey.hasData ? (
+                                      <>
+                                        <p className="text-xl font-semibold text-slate-900">
+                                          {journey.dropOffRate.toFixed(0)}% abandono
+                                        </p>
+                                        <p className="text-[11px] font-medium text-emerald-700">
+                                          {journey.completionRate.toFixed(0)}% convierte
+                                        </p>
+                                        <p className={`mt-1 text-[11px] ${delta.tone}`}>
+                                          {delta.text}
+                                        </p>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <p className="text-sm font-semibold text-slate-500">
+                                          Sin recorridos aún
+                                        </p>
+                                        <p className="mt-1 text-[11px] text-slate-400">
+                                          La medición comienza con nuevas visitas.
+                                        </p>
+                                      </>
+                                    )}
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+                        </section>
+                      )}
 
                       {activityOpportunities.length > 0 && (
                         <section className="mt-6 border-t border-slate-200 pt-6">

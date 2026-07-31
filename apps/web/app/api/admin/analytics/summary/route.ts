@@ -126,6 +126,10 @@ const funnelEventLabels: Record<string, string> = {
   quote_sent: 'Presupuestos enviados',
   technician_whatsapp_contact: 'Contactos por WhatsApp',
   quote_approved: 'Presupuestos aprobados',
+  labor_prices_viewed: 'Consultas de valores de mano de obra',
+  community_post_published: 'Publicaciones en comunidad',
+  community_comment_published: 'Comentarios en comunidad',
+  community_post_liked: 'Me gusta en comunidad',
   home_audience_tecnicos: 'Interés en trabajar como técnico',
   home_audience_empresas: 'Interés de empresas',
   home_audience_clientes: 'Interés en contratar',
@@ -147,6 +151,7 @@ const funnelStepDefinitions = [
   'quote_sent',
   'technician_whatsapp_contact',
   'quote_approved',
+  'community_post_published',
 ].map((key) => ({ key, label: funnelEventLabels[key] }));
 
 const funnelGroupDefinitions = [
@@ -181,6 +186,15 @@ const funnelGroupDefinitions = [
     key: 'contacts',
     label: 'Contacto con técnicos',
     events: ['technician_whatsapp_contact'],
+  },
+  {
+    key: 'community',
+    label: 'Comunidad',
+    events: [
+      'community_post_published',
+      'community_comment_published',
+      'community_post_liked',
+    ],
   },
 ];
 
@@ -249,6 +263,105 @@ const funnelJourneyDefinitions = [
       { key: 'quote_created', label: 'Creado' },
       { key: 'quote_sent', label: 'Enviado' },
       { key: 'quote_approved', label: 'Aprobado' },
+    ],
+  },
+];
+
+type SectionConversionStageDefinition = {
+  key: string;
+  label: string;
+  eventNames?: string[];
+  pathMatcher?: (path: string) => boolean;
+};
+
+type SectionConversionDefinition = {
+  key: string;
+  label: string;
+  description: string;
+  recommendation: string;
+  stages: SectionConversionStageDefinition[];
+};
+
+const parseAnalyticsPath = (rawPath: string) => {
+  const [pathname, rawSearch = ''] = String(rawPath || '').split('?');
+  return {
+    pathname: pathname || '/',
+    searchParams: new URLSearchParams(rawSearch),
+  };
+};
+
+const sectionConversionDefinitions: SectionConversionDefinition[] = [
+  {
+    key: 'prices_to_quote',
+    label: 'Valores MO a presupuesto',
+    description: 'Personas que consultan valores de mano de obra y luego crean un presupuesto.',
+    recommendation:
+      'Reforzar el acceso al presupuestador desde cada valor y conservar los ítems elegidos.',
+    stages: [
+      {
+        key: 'labor_prices_visited',
+        label: 'Visita valores MO',
+        eventNames: ['labor_prices_viewed', 'home_open_guia_precios'],
+        pathMatcher: (rawPath) => {
+          const { pathname, searchParams } = parseAnalyticsPath(rawPath);
+          return (
+            (pathname === '/tecnicos' && searchParams.get('tab') === 'precios') ||
+            (pathname === '/cliente' && searchParams.get('view') === 'precios')
+          );
+        },
+      },
+      {
+        key: 'quote_created_after_prices',
+        label: 'Crea presupuesto',
+        eventNames: ['quote_created'],
+      },
+    ],
+  },
+  {
+    key: 'marketplace_to_contact',
+    label: 'Mapa a contacto',
+    description: 'Personas que exploran el mapa, abren un perfil y contactan a un técnico.',
+    recommendation:
+      'Mejorar filtros, cercanía y disponibilidad para que el contacto sea el paso natural.',
+    stages: [
+      {
+        key: 'marketplace_visited',
+        label: 'Visita mapa',
+        pathMatcher: (rawPath) => parseAnalyticsPath(rawPath).pathname === '/vidriera',
+      },
+      {
+        key: 'technical_profile_visited',
+        label: 'Abre perfil',
+        pathMatcher: (rawPath) => parseAnalyticsPath(rawPath).pathname.startsWith('/tecnico/'),
+      },
+      {
+        key: 'technician_contacted',
+        label: 'Contacta',
+        eventNames: ['technician_whatsapp_contact'],
+      },
+    ],
+  },
+  {
+    key: 'community_to_participation',
+    label: 'Comunidad a participación',
+    description: 'Personas que visitan el muro y realizan una acción dentro de la comunidad.',
+    recommendation:
+      'Mostrar contenido relevante desde el inicio y simplificar publicar, comentar o dar Me gusta.',
+    stages: [
+      {
+        key: 'community_visited',
+        label: 'Visita comunidad',
+        pathMatcher: (rawPath) => parseAnalyticsPath(rawPath).pathname === '/comunidad',
+      },
+      {
+        key: 'community_participated',
+        label: 'Participa',
+        eventNames: [
+          'community_post_published',
+          'community_comment_published',
+          'community_post_liked',
+        ],
+      },
     ],
   },
 ];
@@ -762,6 +875,8 @@ export async function GET(request: NextRequest) {
   const prevFunnelCounts = new Map<string, { count: number; sessions: Set<string> }>();
 
   (funnelEvents || []).forEach((event: any) => {
+    const eventUserId = String(event.user_id || '').trim();
+    if (eventUserId && excludedRetentionUserIds.has(eventUserId)) return;
     const key = (event.event_name || 'unknown').toString().slice(0, 80);
     if (!key) return;
     const current = funnelCounts.get(key) || { count: 0, sessions: new Set<string>() };
@@ -771,6 +886,8 @@ export async function GET(request: NextRequest) {
   });
 
   (prevFunnelEvents || []).forEach((event: any) => {
+    const eventUserId = String(event.user_id || '').trim();
+    if (eventUserId && excludedRetentionUserIds.has(eventUserId)) return;
     const key = (event.event_name || 'unknown').toString().slice(0, 80);
     if (!key) return;
     const current = prevFunnelCounts.get(key) || { count: 0, sessions: new Set<string>() };
@@ -894,6 +1011,160 @@ export async function GET(request: NextRequest) {
     return result;
   };
 
+  type SessionTimeMap = Map<string, number>;
+
+  const isExcludedAnalyticsRow = (row: any) => {
+    const rowUserId = String(row?.user_id || '').trim();
+    return Boolean(rowUserId && excludedRetentionUserIds.has(rowUserId));
+  };
+
+  const collectStageSessionTimes = (
+    pageRows: any[],
+    funnelRows: any[],
+    stage: SectionConversionStageDefinition
+  ) => {
+    const sessionTimes: SessionTimeMap = new Map();
+    const registerTime = (row: any) => {
+      if (isExcludedAnalyticsRow(row)) return;
+      const sessionId = String(row?.session_id || '').trim();
+      const createdAt = new Date(row?.created_at || '').getTime();
+      if (!sessionId || !Number.isFinite(createdAt)) return;
+      const previousTime = sessionTimes.get(sessionId);
+      if (previousTime === undefined || createdAt < previousTime) {
+        sessionTimes.set(sessionId, createdAt);
+      }
+    };
+
+    if (stage.pathMatcher) {
+      pageRows.forEach((row) => {
+        if (row?.event_type !== 'page_view') return;
+        if (stage.pathMatcher?.(String(row?.path || ''))) registerTime(row);
+      });
+    }
+
+    if (stage.eventNames?.length) {
+      const eventNames = new Set(stage.eventNames);
+      funnelRows.forEach((row) => {
+        if (eventNames.has(String(row?.event_name || ''))) registerTime(row);
+      });
+    }
+
+    return sessionTimes;
+  };
+
+  const advanceSessionTimes = (previous: SessionTimeMap, candidates: SessionTimeMap) => {
+    const advanced: SessionTimeMap = new Map();
+    previous.forEach((previousTime, sessionId) => {
+      const candidateTime = candidates.get(sessionId);
+      if (candidateTime !== undefined && candidateTime >= previousTime) {
+        advanced.set(sessionId, candidateTime);
+      }
+    });
+    return advanced;
+  };
+
+  const summarizeSectionConversion = (
+    definition: SectionConversionDefinition,
+    pageRows: any[],
+    funnelRows: any[],
+    previousPageRows: any[],
+    previousFunnelRows: any[]
+  ) => {
+    let currentProgress: SessionTimeMap | null = null;
+    let previousProgress: SessionTimeMap | null = null;
+    let priorStageCount = 0;
+
+    const stages = definition.stages.map((stage, index) => {
+      const currentCandidates = collectStageSessionTimes(pageRows, funnelRows, stage);
+      const previousCandidates = collectStageSessionTimes(
+        previousPageRows,
+        previousFunnelRows,
+        stage
+      );
+      currentProgress =
+        index === 0 || currentProgress === null
+          ? currentCandidates
+          : advanceSessionTimes(currentProgress, currentCandidates);
+      previousProgress =
+        index === 0 || previousProgress === null
+          ? previousCandidates
+          : advanceSessionTimes(previousProgress, previousCandidates);
+
+      const count = currentProgress.size;
+      const prevCount = previousProgress.size;
+      const previousStageCount = index === 0 ? count : priorStageCount;
+      const rate =
+        index === 0
+          ? count > 0
+            ? 100
+            : 0
+          : previousStageCount > 0
+            ? Math.min(100, (count / previousStageCount) * 100)
+            : 0;
+      priorStageCount = count;
+
+      return {
+        key: stage.key,
+        label: stage.label,
+        count,
+        prevCount,
+        rate,
+        dropOffRate: index === 0 ? 0 : Math.max(0, 100 - rate),
+      };
+    });
+
+    const firstStage = stages[0];
+    const lastStage = stages[stages.length - 1];
+    const completionRate =
+      firstStage?.count > 0
+        ? Math.min(100, ((lastStage?.count || 0) / firstStage.count) * 100)
+        : 0;
+    const prevCompletionRate =
+      firstStage?.prevCount > 0
+        ? Math.min(100, ((lastStage?.prevCount || 0) / firstStage.prevCount) * 100)
+        : 0;
+    const weakestStage = stages
+      .slice(1)
+      .sort((a, b) => b.dropOffRate - a.dropOffRate)[0];
+
+    return {
+      key: definition.key,
+      label: definition.label,
+      description: definition.description,
+      recommendation: definition.recommendation,
+      stages,
+      completionRate,
+      prevCompletionRate,
+      dropOffRate: Math.max(0, 100 - completionRate),
+      hasData: Boolean(firstStage?.count),
+      weakestStageKey: weakestStage?.key || null,
+      weakestStageLabel: weakestStage?.label || null,
+    };
+  };
+
+  const sectionConversionJourneys = sectionConversionDefinitions.map((definition) =>
+    summarizeSectionConversion(
+      definition,
+      events || [],
+      funnelEvents || [],
+      prevEvents || [],
+      prevFunnelEvents || []
+    )
+  );
+  const prioritySectionConversion =
+    sectionConversionJourneys
+      .filter((journey) => journey.hasData)
+      .sort(
+        (a, b) =>
+          b.dropOffRate - a.dropOffRate ||
+          (b.stages[0]?.count || 0) - (a.stages[0]?.count || 0)
+      )[0] || null;
+  const sectionConversions = {
+    measurement: 'Misma sesión y orden real',
+    priorityKey: prioritySectionConversion?.key || null,
+    journeys: sectionConversionJourneys,
+  };
+
   const buildRegistrationRole = (
     key: 'technical' | 'client',
     label: string,
@@ -1005,6 +1276,7 @@ export async function GET(request: NextRequest) {
     topRoutes,
     topUsers,
     funnel,
+    sectionConversions,
     registrationConversion,
     retention,
     sectionRetention,

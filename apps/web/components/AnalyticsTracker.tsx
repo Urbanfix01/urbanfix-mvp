@@ -15,6 +15,12 @@ import {
 import { getStoredCountryPreference } from '../lib/country-preference';
 const HEARTBEAT_MS = 60000;
 
+const getCurrentPath = (fallbackPathname: string | null) => {
+  if (typeof window === 'undefined') return fallbackPathname || '/';
+  const currentPathname = window.location.pathname || fallbackPathname || '/';
+  return `${currentPathname}${window.location.search || ''}`;
+};
+
 export default function AnalyticsTracker() {
   const pathname = usePathname();
   const [accessToken, setAccessToken] = useState<string | null>(null);
@@ -90,13 +96,11 @@ export default function AnalyticsTracker() {
   };
 
   const sendFunnelEvent = (eventName: string, eventContext?: Record<string, unknown>) => {
-    const nextPath =
-      typeof window !== 'undefined' ? window.location.pathname || pathname || '/' : pathname || '/';
     sendEvent({
       event_type: 'funnel',
       event_name: eventName,
       event_context: eventContext || {},
-      path: nextPath,
+      path: getCurrentPath(pathname),
     });
   };
 
@@ -115,9 +119,10 @@ export default function AnalyticsTracker() {
     if (lastPathRef.current) {
       flushDuration();
     }
-    lastPathRef.current = pathname || '/';
+    const currentPath = getCurrentPath(pathname);
+    lastPathRef.current = currentPath;
     startTimeRef.current = now;
-    sendEvent({ event_type: 'page_view', path: pathname || '/' });
+    sendEvent({ event_type: 'page_view', path: currentPath });
   }, [authReady, authEventVersion, pathname]);
 
   useEffect(() => {
