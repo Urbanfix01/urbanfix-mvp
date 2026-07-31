@@ -89,6 +89,38 @@ type AdminInboxStats = {
   updatedAt: string | null;
 };
 
+type VercelAnalyticsData = {
+  configured: boolean;
+  status: 'ready' | 'not_configured' | 'error';
+  message?: string;
+  missing?: string[];
+  range?: { start: string; end: string; days: number };
+  selectedPath?: string | null;
+  totals?: {
+    all: { pageviews: number; visitors: number };
+    public: { pageviews: number; visitors: number };
+  };
+  series?: { date: string; pageviews: number; visitors: number }[];
+  topPages?: { path: string; pageviews: number; visitors: number }[];
+  countries?: { code: string; pageviews: number; visitors: number }[];
+  devices?: { type: string; pageviews: number; visitors: number }[];
+  excludedPaths?: string[];
+  notes?: {
+    productionOnly: boolean;
+    anonymous: boolean;
+    visitorWindow: string;
+  };
+};
+
+const getVercelCountryLabel = (code: string) => {
+  if (!/^[A-Za-z]{2}$/.test(code)) return code;
+  try {
+    return new Intl.DisplayNames(['es'], { type: 'region' }).of(code.toUpperCase()) || code;
+  } catch {
+    return code;
+  }
+};
+
 type RoadmapStatus = 'planned' | 'in_progress' | 'done' | 'blocked';
 type RoadmapArea = 'web' | 'mobile' | 'backend' | 'ops';
 type RoadmapPriority = 'high' | 'medium' | 'low';
@@ -3155,6 +3187,9 @@ export default function AdminPage() {
   } | null>(null);
   const [activityLoading, setActivityLoading] = useState(false);
   const [activityError, setActivityError] = useState('');
+  const [vercelActivityData, setVercelActivityData] = useState<VercelAnalyticsData | null>(null);
+  const [vercelActivityLoading, setVercelActivityLoading] = useState(false);
+  const [vercelActivityError, setVercelActivityError] = useState('');
   const [activityPlanCreatingKey, setActivityPlanCreatingKey] = useState<string | null>(null);
   const [activityPlanMessage, setActivityPlanMessage] = useState('');
   const [activityPlanError, setActivityPlanError] = useState('');
@@ -3690,6 +3725,33 @@ export default function AdminPage() {
       setActivityError(error?.message || 'No se pudo cargar la actividad.');
     } finally {
       setActivityLoading(false);
+    }
+  };
+
+  const loadVercelActivity = async () => {
+    if (!session?.access_token) return;
+    setVercelActivityError('');
+    setVercelActivityLoading(true);
+    try {
+      const params = new URLSearchParams({ days: String(activityRange) });
+      if (activityStart) params.set('start', activityStart);
+      if (activityEnd) params.set('end', activityEnd);
+      if (activityPath.trim()) params.set('path', activityPath.trim());
+      const response = await fetch(`/api/admin/analytics/vercel?${params.toString()}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = (await response.json().catch(() => ({}))) as VercelAnalyticsData & { error?: string };
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo consultar Vercel Analytics.');
+      }
+      setVercelActivityData(data);
+    } catch (error: unknown) {
+      setVercelActivityData(null);
+      setVercelActivityError(
+        error instanceof Error ? error.message : 'No se pudo consultar Vercel Analytics.'
+      );
+    } finally {
+      setVercelActivityLoading(false);
     }
   };
 
@@ -5099,6 +5161,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (!session?.access_token || activeTab !== 'actividad') return;
     loadActivity();
+    loadVercelActivity();
   }, [
     activeTab,
     session?.access_token,
@@ -12933,6 +12996,7 @@ export default function AdminPage() {
                     type="button"
                     onClick={() => {
                       loadActivity();
+                      loadVercelActivity();
                       loadPresence();
                     }}
                     className="rounded-full bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
@@ -12960,6 +13024,188 @@ export default function AdminPage() {
                   Cargando actividad...
                 </div>
               )}
+
+              <section className="mt-6 border-y border-slate-200 py-6">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-950 text-white">
+                      <BarChart3 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        Fuente externa
+                      </p>
+                      <h4 className="text-base font-semibold text-slate-900">Vercel Web Analytics</h4>
+                      <p className="mt-1 max-w-2xl text-sm text-slate-500">
+                        Tráfico anónimo de producción, leído desde la misma fuente agregada del panel de Vercel.
+                      </p>
+                    </div>
+                  </div>
+                  {vercelActivityData?.status === 'ready' && vercelActivityData.range && (
+                    <span className="text-xs font-semibold text-slate-500">
+                      {formatShortDate(vercelActivityData.range.start)} -{' '}
+                      {formatShortDate(vercelActivityData.range.end)}
+                    </span>
+                  )}
+                </div>
+
+                {vercelActivityLoading && (
+                  <div className="mt-5 flex items-center gap-3 text-sm text-slate-500">
+                    <RefreshCw className="h-4 w-4 animate-spin" />
+                    Consultando Vercel...
+                  </div>
+                )}
+
+                {vercelActivityError && (
+                  <div className="mt-5 border-l-2 border-rose-400 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                    {vercelActivityError}
+                  </div>
+                )}
+
+                {!vercelActivityLoading && vercelActivityData?.status === 'not_configured' && (
+                  <div className="mt-5 border-l-2 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    <p className="font-semibold">La lectura de Vercel todavía no está habilitada.</p>
+                    <p className="mt-1">
+                      Agrega en la configuración segura del proyecto las variables indicadas y vuelve a desplegar.
+                    </p>
+                    {vercelActivityData.missing && vercelActivityData.missing.length > 0 && (
+                      <p className="mt-2 font-mono text-xs">{vercelActivityData.missing.join(' · ')}</p>
+                    )}
+                  </div>
+                )}
+
+                {!vercelActivityLoading &&
+                  vercelActivityData?.status === 'ready' &&
+                  vercelActivityData.totals && (
+                    <>
+                      <div className="mt-6 grid divide-y divide-slate-200 border-y border-slate-200 sm:grid-cols-2 sm:divide-x sm:divide-y-0 xl:grid-cols-5">
+                        <div className="px-4 py-4 first:pl-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Visitantes Vercel
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(vercelActivityData.totals.all.visitors)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Total de producción</p>
+                        </div>
+                        <div className="px-4 py-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Vistas Vercel
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(vercelActivityData.totals.all.pageviews)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Total de producción</p>
+                        </div>
+                        <div className="px-4 py-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Vistas públicas
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(vercelActivityData.totals.public.pageviews)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Sin admin, API ni acceso</p>
+                        </div>
+                        <div className="px-4 py-4">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Sesiones UrbanFix
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(activityData?.totals.uniqueSessions || 0)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Sesión persistente de la app</p>
+                        </div>
+                        <div className="px-4 py-4 last:pr-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                            Tráfico interno
+                          </p>
+                          <p className="mt-2 text-2xl font-semibold text-slate-900">
+                            {formatNumber(
+                              Math.max(
+                                0,
+                                vercelActivityData.totals.all.pageviews -
+                                  vercelActivityData.totals.public.pageviews
+                              )
+                            )}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">Vistas admin, API o acceso</p>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 grid gap-5 lg:grid-cols-[1.15fr_1fr_0.85fr]">
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <h5 className="text-sm font-semibold text-slate-800">Páginas públicas más vistas</h5>
+                            <span className="text-xs text-slate-400">Vercel</span>
+                          </div>
+                          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+                            {(vercelActivityData.topPages || []).slice(0, 6).map((page) => (
+                              <div key={page.path} className="flex items-center justify-between gap-4 py-3 text-xs">
+                                <span className="min-w-0 truncate font-semibold text-slate-700">{page.path}</span>
+                                <span className="shrink-0 text-slate-500">
+                                  {formatNumber(page.pageviews)} vistas · {formatNumber(page.visitors)} visitantes
+                                </span>
+                              </div>
+                            ))}
+                            {(vercelActivityData.topPages || []).length === 0 && (
+                              <p className="py-3 text-sm text-slate-500">No hay páginas para este filtro.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <h5 className="text-sm font-semibold text-slate-800">Países alcanzados</h5>
+                            <Globe2 className="h-4 w-4 text-slate-400" />
+                          </div>
+                          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+                            {(vercelActivityData.countries || []).slice(0, 6).map((country) => (
+                              <div key={country.code} className="flex items-center justify-between gap-4 py-3 text-xs">
+                                <span className="font-semibold text-slate-700">
+                                  {getVercelCountryLabel(country.code)}
+                                </span>
+                                <span className="text-slate-500">{formatNumber(country.visitors)} visitantes</span>
+                              </div>
+                            ))}
+                            {(vercelActivityData.countries || []).length === 0 && (
+                              <p className="py-3 text-sm text-slate-500">No hay países para este filtro.</p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex items-center justify-between gap-3">
+                            <h5 className="text-sm font-semibold text-slate-800">Dispositivos</h5>
+                            <Monitor className="h-4 w-4 text-slate-400" />
+                          </div>
+                          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+                            {(vercelActivityData.devices || []).slice(0, 5).map((device) => (
+                              <div key={device.type} className="flex items-center justify-between gap-4 py-3 text-xs">
+                                <span className="font-semibold capitalize text-slate-700">{device.type}</span>
+                                <span className="text-slate-500">{formatNumber(device.visitors)}</span>
+                              </div>
+                            ))}
+                            {(vercelActivityData.devices || []).length === 0 && (
+                              <p className="py-3 text-sm text-slate-500">No hay dispositivos para este filtro.</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-5 flex items-start gap-3 border-l-2 border-sky-400 bg-sky-50 px-4 py-3 text-sm text-sky-950">
+                        <CircleHelp className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p>
+                          No se espera una coincidencia 1 a 1. Vercel cuenta visitantes anónimos con identidad diaria
+                          y excluye bots; UrbanFix conserva una sesión para medir registros, presupuestos y contactos.
+                          La comparación correcta es por el mismo periodo, ruta y tendencia.
+                          {activityUserId
+                            ? ' El filtro por cuenta solo afecta UrbanFix porque Vercel no identifica usuarios.'
+                            : ''}
+                        </p>
+                      </div>
+                    </>
+                  )}
+              </section>
 
               {!activityLoading && activityData && (
                 <>
