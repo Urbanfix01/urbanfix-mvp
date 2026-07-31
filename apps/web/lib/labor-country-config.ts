@@ -13,8 +13,10 @@ type LaborCountrySettings = {
   pendingLabel: string;
 };
 
-const getNormalizedCountry = (country?: string | null) =>
-  normalizeCountryPreference(country) || DEFAULT_COUNTRY_NAME;
+const getNormalizedCountry = (country?: string | null) => {
+  const requestedCountry = String(country || '').trim();
+  return normalizeCountryPreference(requestedCountry) || requestedCountry || DEFAULT_COUNTRY_NAME;
+};
 
 export const getLaborCountrySettings = (country?: string | null): LaborCountrySettings => {
   const normalizedCountry = getNormalizedCountry(country);

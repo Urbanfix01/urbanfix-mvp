@@ -4,6 +4,7 @@ import { Sora } from 'next/font/google';
 import PublicTechniciansMap, { type PublicTechnicianMapPoint } from '../../components/public/PublicTechniciansMap';
 import ProfileLikeButton from '../../components/profile/ProfileLikeButton';
 import PublicTopNav from '../../components/PublicTopNav';
+import VidrieraSearchAnalytics from '../../components/vidriera/VidrieraSearchAnalytics';
 import { createAnonClient, getServiceRoleClient } from '../../lib/supabase/server';
 import {
   getArgentinaZoneSearchOptions,
@@ -331,6 +332,13 @@ export default async function VidrieraPage({ searchParams }: VidrieraPageProps) 
     <div className={sora.className}>
       <main className="min-h-screen overflow-x-hidden bg-[#21002f] text-white">
         <PublicTopNav activeHref="/vidriera" sticky showNavigationLinks />
+        <VidrieraSearchAnalytics
+          zone={zonaQuery}
+          guild={activeGremio?.title || ''}
+          specialty={specialtyQuery}
+          resultCount={filteredProfiles.length}
+          zoneResultCount={zoneFilteredProfiles.length}
+        />
 
         <div className="px-3 pb-4 pt-3 sm:px-4 lg:px-6">
           {error && (

@@ -137,6 +137,7 @@ const funnelEventLabels: Record<string, string> = {
   home_register_start: 'Inicios de registro técnico',
   home_register_start_from_empresas: 'Inicios de registro de empresa',
   home_download_android_click: 'Intentos de descarga Android',
+  marketplace_search_performed: 'Búsquedas filtradas en el mapa',
 };
 
 const funnelStepDefinitions = [
@@ -440,7 +441,7 @@ export async function GET(request: NextRequest) {
 
   let funnelQuery = supabase
     .from('analytics_events')
-    .select('event_name, created_at, session_id, user_id, path')
+    .select('event_name, event_context, created_at, session_id, user_id, path')
     .eq('event_type', 'funnel')
     .gte('created_at', startDate.toISOString())
     .lte('created_at', endDate.toISOString())
@@ -449,7 +450,7 @@ export async function GET(request: NextRequest) {
 
   let prevFunnelQuery = supabase
     .from('analytics_events')
-    .select('event_name, created_at, session_id, user_id, path')
+    .select('event_name, event_context, created_at, session_id, user_id, path')
     .eq('event_type', 'funnel')
     .gte('created_at', prevStart.toISOString())
     .lte('created_at', prevEnd.toISOString())
@@ -481,6 +482,35 @@ export async function GET(request: NextRequest) {
       /event_name|event_context|column.*does not exist|schema cache/i.test(funnelMessage);
     if (!isSchemaLag) {
       return NextResponse.json({ error: funnelMessage }, { status: 500 });
+    }
+
+    let fallbackFunnelQuery = supabase
+      .from('analytics_events')
+      .select('event_name, created_at, session_id, user_id, path')
+      .eq('event_type', 'funnel')
+      .gte('created_at', startDate.toISOString())
+      .lte('created_at', endDate.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(50000);
+    let fallbackPrevFunnelQuery = supabase
+      .from('analytics_events')
+      .select('event_name, created_at, session_id, user_id, path')
+      .eq('event_type', 'funnel')
+      .gte('created_at', prevStart.toISOString())
+      .lte('created_at', prevEnd.toISOString())
+      .order('created_at', { ascending: true })
+      .limit(50000);
+
+    fallbackFunnelQuery = applyFilters(fallbackFunnelQuery);
+    fallbackPrevFunnelQuery = applyFilters(fallbackPrevFunnelQuery);
+
+    const [fallbackCurrent, fallbackPrevious] = await Promise.all([
+      fallbackFunnelQuery,
+      fallbackPrevFunnelQuery,
+    ]);
+    if (!fallbackCurrent.error && !fallbackPrevious.error) {
+      funnelEvents = fallbackCurrent.data || [];
+      prevFunnelEvents = fallbackPrevious.data || [];
     }
   } else {
     funnelEvents = funnelData || [];
@@ -1165,6 +1195,149 @@ export async function GET(request: NextRequest) {
     journeys: sectionConversionJourneys,
   };
 
+  const normalizeDemandKey = (value: unknown) =>
+    String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase()
+      .slice(0, 180);
+  const readDemandText = (value: unknown) => String(value || '').trim().slice(0, 180);
+  const readDemandNumber = (value: unknown) => {
+    if (value === null || value === undefined || value === '') return null;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+  const summarizeMarketplaceDemand = (sourceEvents: any[]) => {
+    const searches = new Set<string>();
+    const noResultSearches = new Set<string>();
+    const specialtyGaps = new Map<
+      string,
+      { key: string; label: string; searches: Set<string>; zones: Set<string> }
+    >();
+    const zoneGaps = new Map<
+      string,
+      { key: string; label: string; searches: Set<string>; specialties: Set<string> }
+    >();
+
+    sourceEvents.forEach((event, index) => {
+      if (event?.event_name !== 'marketplace_search_performed') return;
+      const eventUserId = String(event.user_id || '').trim();
+      if (eventUserId && excludedRetentionUserIds.has(eventUserId)) return;
+
+      const context =
+        event?.event_context &&
+        typeof event.event_context === 'object' &&
+        !Array.isArray(event.event_context)
+          ? (event.event_context as Record<string, unknown>)
+          : {};
+      const zone = readDemandText(context.zone);
+      const guild = readDemandText(context.guild);
+      const specialty = readDemandText(context.specialty);
+      const specialtyLabel = specialty || guild;
+      const resultCount = readDemandNumber(context.result_count);
+      const zoneResultCount = readDemandNumber(context.zone_result_count);
+      const sessionId = String(
+        event.session_id || `event-${event.created_at || index}`
+      ).trim();
+      const searchKey = [
+        sessionId,
+        normalizeDemandKey(zone),
+        normalizeDemandKey(guild),
+        normalizeDemandKey(specialty),
+      ].join('|');
+
+      searches.add(searchKey);
+
+      const hasNoResults =
+        resultCount !== null ? resultCount <= 0 : context.has_results === false;
+      if (hasNoResults) {
+        noResultSearches.add(searchKey);
+        const specialtyKey = normalizeDemandKey(specialtyLabel);
+        if (specialtyKey) {
+          const current = specialtyGaps.get(specialtyKey) || {
+            key: specialtyKey,
+            label: specialtyLabel,
+            searches: new Set<string>(),
+            zones: new Set<string>(),
+          };
+          current.searches.add(searchKey);
+          if (zone) current.zones.add(zone);
+          specialtyGaps.set(specialtyKey, current);
+        }
+      }
+
+      const zoneKey = normalizeDemandKey(zone);
+      if (zoneKey && zoneResultCount !== null && zoneResultCount <= 0) {
+        const current = zoneGaps.get(zoneKey) || {
+          key: zoneKey,
+          label: zone,
+          searches: new Set<string>(),
+          specialties: new Set<string>(),
+        };
+        current.searches.add(searchKey);
+        if (specialtyLabel) current.specialties.add(specialtyLabel);
+        zoneGaps.set(zoneKey, current);
+      }
+    });
+
+    return {
+      totalSearches: searches.size,
+      noResultSearches: noResultSearches.size,
+      specialtyGaps,
+      zoneGaps,
+    };
+  };
+
+  const currentMarketplaceDemand = summarizeMarketplaceDemand(funnelEvents || []);
+  const previousMarketplaceDemand = summarizeMarketplaceDemand(prevFunnelEvents || []);
+  const marketplaceDemand = {
+    measurement: 'Combinaciones únicas de filtros por sesión',
+    totalSearches: currentMarketplaceDemand.totalSearches,
+    prevTotalSearches: previousMarketplaceDemand.totalSearches,
+    noResultSearches: currentMarketplaceDemand.noResultSearches,
+    prevNoResultSearches: previousMarketplaceDemand.noResultSearches,
+    noResultRate:
+      currentMarketplaceDemand.totalSearches > 0
+        ? Math.min(
+            100,
+            (currentMarketplaceDemand.noResultSearches /
+              currentMarketplaceDemand.totalSearches) *
+              100
+          )
+        : 0,
+    prevNoResultRate:
+      previousMarketplaceDemand.totalSearches > 0
+        ? Math.min(
+            100,
+            (previousMarketplaceDemand.noResultSearches /
+              previousMarketplaceDemand.totalSearches) *
+              100
+          )
+        : 0,
+    specialtyGaps: Array.from(currentMarketplaceDemand.specialtyGaps.values())
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        searches: item.searches.size,
+        prevSearches:
+          previousMarketplaceDemand.specialtyGaps.get(item.key)?.searches.size || 0,
+        zones: Array.from(item.zones).slice(0, 4),
+      }))
+      .sort((a, b) => b.searches - a.searches || a.label.localeCompare(b.label, 'es'))
+      .slice(0, 8),
+    zoneGaps: Array.from(currentMarketplaceDemand.zoneGaps.values())
+      .map((item) => ({
+        key: item.key,
+        label: item.label,
+        searches: item.searches.size,
+        prevSearches: previousMarketplaceDemand.zoneGaps.get(item.key)?.searches.size || 0,
+        specialties: Array.from(item.specialties).slice(0, 4),
+      }))
+      .sort((a, b) => b.searches - a.searches || a.label.localeCompare(b.label, 'es'))
+      .slice(0, 8),
+  };
+
   const buildRegistrationRole = (
     key: 'technical' | 'client',
     label: string,
@@ -1277,6 +1450,7 @@ export async function GET(request: NextRequest) {
     topUsers,
     funnel,
     sectionConversions,
+    marketplaceDemand,
     registrationConversion,
     retention,
     sectionRetention,

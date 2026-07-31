@@ -46,6 +46,7 @@ import AdminDemoRequestsPanel from '../../components/admin/AdminDemoRequestsPane
 import AdminNewsletterPanel from '../../components/admin/AdminNewsletterPanel';
 import AdminAccountsPanel, { type AudienceAccountStats } from '../../components/admin/AdminAccountsPanel';
 import AdminTechniciansUnified, { type TechnicianQueueStats } from '../../components/admin/AdminTechniciansUnified';
+import { ACTIVE_LABOR_COUNTRY, getLaborCountrySettings } from '../../lib/labor-country-config';
 import { buildMasterItemChoiceLabel, compactTechnicalNotesText } from '../../lib/master-items';
 import { getPasswordPolicyError } from '../../lib/auth/password-policy';
 
@@ -777,6 +778,36 @@ const normalizeText = (value?: string | null) =>
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase();
+
+const getLaborCountryRoadmapSourceKey = (country: string) => {
+  const token = normalizeText(country)
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return `labor-country-base:${token || 'sin-pais'}`;
+};
+
+const LABOR_COUNTRY_VALIDATION_CRITERIA = [
+  {
+    label: 'Fuente local',
+    detail: 'Referencia publica o sectorial identificada, vigente y trazable.',
+  },
+  {
+    label: 'Moneda y periodo',
+    detail: 'Moneda, impuestos y frecuencia de actualizacion definidos.',
+  },
+  {
+    label: 'Muestra de rubros',
+    detail: 'Rubros iniciales y precios contrastados con una muestra local.',
+  },
+  {
+    label: 'Aprobacion',
+    detail: 'Responsable, fecha de publicacion y revision siguiente acordados.',
+  },
+] as const;
+
+const isKnownCountryLabel = (country: string) =>
+  !['', 'no disponible', 'sin pais', 'desconocido', 'unknown'].includes(normalizeText(country).trim());
 
 const buildSummaryBaseline = (overview: AdminOverview): SummaryBaseline => ({
   setAt: new Date().toISOString(),
@@ -2766,10 +2797,10 @@ const ACTION_PLAN_TABS: Array<{
     key: 'plan_valores_mo',
     label: 'Valores MO',
     title: 'Valores MO',
-    detail: 'Mantener la base de mano de obra actualizada, visual y preparada para ajustes mensuales.',
+    detail: 'Mantener la base de mano de obra actualizada y extenderla por pais sin presentar INDEC como referencia global.',
     owner: 'Base de precios',
     icon: Hammer,
-    checkpoints: ['Catalogo por rubro', 'Imagenes por item', 'Actualizacion mensual', 'Notificacion a tecnicos'],
+    checkpoints: ['Catalogo argentino por rubro', 'Referencia INDEC mensual', 'Priorizar paises segun audiencia', 'Crear bases locales validadas'],
   },
   {
     key: 'plan_comunidad',
@@ -3058,6 +3089,29 @@ export default function AdminPage() {
         }[];
       }[];
     };
+    marketplaceDemand?: {
+      measurement: string;
+      totalSearches: number;
+      prevTotalSearches: number;
+      noResultSearches: number;
+      prevNoResultSearches: number;
+      noResultRate: number;
+      prevNoResultRate: number;
+      specialtyGaps: {
+        key: string;
+        label: string;
+        searches: number;
+        prevSearches: number;
+        zones: string[];
+      }[];
+      zoneGaps: {
+        key: string;
+        label: string;
+        searches: number;
+        prevSearches: number;
+        specialties: string[];
+      }[];
+    };
     funnel?: {
       totalEvents: number;
       prevTotalEvents: number;
@@ -3151,6 +3205,8 @@ export default function AdminPage() {
   const [roadmapFeedbackSavingId, setRoadmapFeedbackSavingId] = useState<string | null>(null);
   const [roadmapFeedbackDrafts, setRoadmapFeedbackDrafts] = useState<Record<string, string>>({});
   const [roadmapFeedbackSentiments, setRoadmapFeedbackSentiments] = useState<Record<string, RoadmapSentiment>>({});
+  const [laborCountryPlanCreating, setLaborCountryPlanCreating] = useState<string | null>(null);
+  const [laborCountryPlanError, setLaborCountryPlanError] = useState('');
   const [roadmapForm, setRoadmapForm] = useState<{
     title: string;
     description: string;
@@ -3891,6 +3947,74 @@ export default function AdminPage() {
       setRoadmapError(error?.message || 'No se pudo crear el item.');
     } finally {
       setRoadmapSubmitting(false);
+    }
+  };
+
+  const handleLaborCountryPlanCreate = async (countryItem: {
+    country: string;
+    uniqueSessions?: number;
+    views?: number;
+    roadmapPriority: RoadmapPriority;
+  }) => {
+    if (!session?.access_token) return;
+
+    const sourceKey = getLaborCountryRoadmapSourceKey(countryItem.country);
+    const title = `Crear base local de mano de obra: ${countryItem.country}`;
+    const existing = roadmapUpdates.find(
+      (item) => item.source_key === sourceKey || normalizeText(item.title) === normalizeText(title)
+    );
+    if (existing) {
+      setRoadmapSearch(existing.title);
+      setRoadmapScopeFilter('all');
+      setRoadmapPendingOnly(false);
+      selectAdminTab('roadmap', 'planes');
+      return;
+    }
+
+    setLaborCountryPlanCreating(countryItem.country);
+    setLaborCountryPlanError('');
+    try {
+      const sessions = Math.max(0, Number(countryItem.uniqueSessions || 0));
+      const views = Math.max(0, Number(countryItem.views || 0));
+      const etaOffset = countryItem.roadmapPriority === 'high' ? 14 : countryItem.roadmapPriority === 'medium' ? 21 : 30;
+      const response = await fetch('/api/admin/roadmap', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title,
+          description: `${countryItem.country} registra ${sessions} sesion(es) y ${views} vista(s) en ${summaryReachLabel}. Validar antes de publicar: ${LABOR_COUNTRY_VALIDATION_CRITERIA.map(
+            (criterion) => `${criterion.label}: ${criterion.detail}`
+          ).join(' | ')}`,
+          status: 'planned',
+          area: 'ops',
+          priority: countryItem.roadmapPriority,
+          sector: 'funcionalidades',
+          owner: 'Base de precios',
+          eta_date: getIsoDateFromOffset(etaOffset),
+          source_key: sourceKey,
+          source_files: ['admin/planes-de-accion/valores-mo', 'admin/roadmap'],
+          feedback_body:
+            'Tarea creada desde Valores MO por audiencia internacional detectada. No publicar valores hasta validar la referencia local.',
+          feedback_sentiment: 'neutral',
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || 'No se pudo crear la tarea para este pais.');
+      }
+
+      await loadRoadmap(session.access_token);
+      setRoadmapSearch(title);
+      setRoadmapScopeFilter('all');
+      setRoadmapPendingOnly(false);
+      selectAdminTab('roadmap', 'planes');
+    } catch (error: any) {
+      setLaborCountryPlanError(error?.message || 'No se pudo crear la tarea para este pais.');
+    } finally {
+      setLaborCountryPlanCreating(null);
     }
   };
 
@@ -6864,6 +6988,92 @@ export default function AdminPage() {
     : 0;
   const summaryAccountUsers = summaryGeo?.accountUsers || [];
   const summaryGeoZones = selectedSummaryMonth?.zones || summaryGeo?.zones || [];
+  const laborCountryCoverage = useMemo(() => {
+    const sortedCountries = [...summaryReachCountries]
+        .map((item) => {
+          const settings = getLaborCountrySettings(item.label);
+          const sourceKey = getLaborCountryRoadmapSourceKey(settings.country);
+          const roadmapTask = roadmapUpdates.find(
+            (roadmapItem) =>
+              roadmapItem.source_key === sourceKey ||
+              normalizeText(roadmapItem.title) === normalizeText(`Crear base local de mano de obra: ${settings.country}`)
+          );
+          return {
+            ...item,
+            country: settings.country,
+            pricingAvailable: settings.laborPricingAvailable,
+            statusLabel: settings.laborPricingAvailable ? 'Oficial INDEC / ARS' : 'Base local pendiente',
+            roadmapTask,
+          };
+        })
+        .filter((item) => isKnownCountryLabel(item.country))
+        .sort(
+          (a, b) =>
+            (b.uniqueSessions || 0) - (a.uniqueSessions || 0) ||
+            (b.views || 0) - (a.views || 0) ||
+            a.country.localeCompare(b.country)
+        );
+
+    let pendingRank = 0;
+    return sortedCountries.map((item) => {
+      if (item.pricingAvailable) {
+        return {
+          ...item,
+          roadmapPriority: null,
+          priorityLabel: 'Base activa',
+          nextStep: 'Mantener referencia INDEC mensual',
+          readinessCompleted: 4,
+        };
+      }
+
+      pendingRank += 1;
+      const roadmapPriority: RoadmapPriority = pendingRank <= 2 ? 'high' : pendingRank <= 4 ? 'medium' : 'low';
+      const readinessCompleted =
+        1 + Number(Boolean(item.roadmapTask)) + Number(item.roadmapTask?.status === 'done');
+      return {
+        ...item,
+        roadmapPriority,
+        priorityLabel:
+          roadmapPriority === 'high' ? 'Prioridad alta' : roadmapPriority === 'medium' ? 'Prioridad media' : 'En observacion',
+        nextStep:
+          item.roadmapTask?.status === 'done'
+            ? 'Tarea validada; falta habilitar la base local'
+            : 'Validar fuente, moneda y rubros locales',
+        readinessCompleted,
+      };
+    });
+  }, [roadmapUpdates, summaryReachCountries]);
+  const laborCountriesReady = laborCountryCoverage.filter((item) => item.pricingAvailable).length;
+  const laborInternationalBasesReady = laborCountryCoverage.filter(
+    (item) => item.country !== ACTIVE_LABOR_COUNTRY && item.pricingAvailable
+  ).length;
+  const laborCountriesPending = laborCountryCoverage.length - laborCountriesReady;
+  const laborCountryRoadmapTasks = laborCountryCoverage.filter((item) => Boolean(item.roadmapTask)).length;
+  const laborCountryOpenTasks = laborCountryCoverage.filter(
+    (item) => item.roadmapTask && item.roadmapTask.status !== 'done'
+  ).length;
+  const laborCountryResolvedTasks = laborCountryCoverage.filter(
+    (item) => item.roadmapTask?.status === 'done'
+  ).length;
+  const laborNextCountry = laborCountryCoverage.find((item) => !item.pricingAvailable) || null;
+  const laborNextCountryStages = laborNextCountry
+    ? (() => {
+        const stages = [
+          { label: 'Audiencia real', done: true },
+          { label: 'Tarea creada', done: Boolean(laborNextCountry.roadmapTask) },
+          { label: 'Fuente validada', done: laborNextCountry.roadmapTask?.status === 'done' },
+          { label: 'Base activa', done: laborNextCountry.pricingAvailable },
+        ];
+        const activeIndex = stages.findIndex((stage) => !stage.done);
+        return stages.map((stage, index) => ({
+          ...stage,
+          active: index === activeIndex,
+        }));
+      })()
+    : [];
+  const laborPendingSessions = laborCountryCoverage
+    .filter((item) => !item.pricingAvailable)
+    .reduce((total, item) => total + Math.max(0, Number(item.uniqueSessions || 0)), 0);
   const globalGrowthActionPlan = useMemo<
     Array<{
       step: string;
@@ -7009,16 +7219,36 @@ export default function AdminPage() {
     () =>
       ACTION_PLAN_TABS.map((plan) => {
         const task = globalGrowthActionPlan.find((item) => item.title === plan.title);
-        const status = task?.status || 'pending';
+        let status = task?.status || 'pending';
+        let statusLabel = task?.statusLabel || 'Pendiente';
+        let completedCheckpoints = plan.checkpoints.map((_, index) =>
+          status === 'done' || (status === 'in_progress' && index === 0)
+        );
+
+        if (plan.key === 'plan_valores_mo') {
+          completedCheckpoints = [
+            laborCountriesReady > 0,
+            laborCountriesReady > 0,
+            laborCountriesPending > 0,
+            laborInternationalBasesReady > 0,
+          ];
+          const completedCount = completedCheckpoints.filter(Boolean).length;
+          status = completedCount === completedCheckpoints.length ? 'done' : completedCount > 0 ? 'in_progress' : 'pending';
+          statusLabel = `${completedCount}/${completedCheckpoints.length} hitos`;
+        }
+
         return {
           ...plan,
           detail: task?.detail || plan.detail,
           status,
-          statusLabel: task?.statusLabel || 'Pendiente',
-          progress: status === 'done' ? 100 : status === 'in_progress' ? 50 : 0,
+          statusLabel,
+          completedCheckpoints,
+          progress: Math.round(
+            (completedCheckpoints.filter(Boolean).length / Math.max(1, completedCheckpoints.length)) * 100
+          ),
         };
       }),
-    [globalGrowthActionPlan]
+    [globalGrowthActionPlan, laborCountriesPending, laborCountriesReady, laborInternationalBasesReady]
   );
   const actionPlanOpenCount = actionPlanDetailItems.filter((plan) => plan.status !== 'done').length;
   const activeActionPlan = useMemo(
@@ -9020,6 +9250,279 @@ export default function AdminPage() {
                   />
                 </div>
 
+                {activeActionPlan.key === 'plan_valores_mo' && (
+                  <section className="mt-6 border-t border-[#eadff0] pt-6">
+                    <div className="flex flex-wrap items-end justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-[#8b7c98]">
+                          Cobertura internacional
+                        </p>
+                        <h4 className="mt-1 text-lg font-semibold text-[#180f24]">
+                          Referencias de precios por pais
+                        </h4>
+                        <p className="mt-2 max-w-3xl text-sm leading-6 text-[#6c6177]">
+                          Argentina usa la actualizacion oficial de INDEC. Los demas paises se priorizan por audiencia real y permanecen sin precios hasta contar con una base local validada.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => selectAdminTab('mano_obra')}
+                        className="inline-flex min-h-10 items-center gap-2 rounded-2xl bg-[#180f24] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#321341]"
+                      >
+                        <Hammer className="h-4 w-4" />
+                        Abrir valores MO
+                      </button>
+                    </div>
+
+                    <div className="mt-5 grid border-y border-[#eadff0] bg-white sm:grid-cols-2 sm:divide-x sm:divide-[#eadff0] xl:grid-cols-4">
+                      <div className="px-4 py-4">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">
+                          Paises detectados
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-[#180f24]">
+                          {formatNumber(laborCountryCoverage.length)}
+                        </p>
+                        <p className="text-[11px] text-[#6c6177]">con audiencia en el periodo</p>
+                      </div>
+                      <div className="border-t border-[#eadff0] px-4 py-4 sm:border-t-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">
+                          Bases activas
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-emerald-700">
+                          {formatNumber(laborCountriesReady)}
+                        </p>
+                        <p className="text-[11px] text-[#6c6177]">
+                          {formatNumber(laborInternationalBasesReady)} base(s) local(es) fuera de Argentina
+                        </p>
+                      </div>
+                      <div className="border-t border-[#eadff0] px-4 py-4 sm:border-t-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">
+                          Oportunidad exterior
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-[#a65300]">
+                          {formatNumber(laborPendingSessions)}
+                        </p>
+                        <p className="text-[11px] text-[#6c6177]">
+                          sesiones en {formatNumber(laborCountriesPending)} pais(es) pendientes
+                        </p>
+                      </div>
+                      <div className="border-t border-[#eadff0] px-4 py-4 sm:border-t-0">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#8b7c98]">
+                          Seguimiento
+                        </p>
+                        <p className="mt-1 text-2xl font-semibold text-[#180f24]">
+                          {formatNumber(laborCountryRoadmapTasks)}
+                        </p>
+                        <p className="text-[11px] text-[#6c6177]">
+                          {formatNumber(laborCountryOpenTasks)} abierta(s) · {formatNumber(laborCountryResolvedTasks)} resuelta(s)
+                        </p>
+                      </div>
+                    </div>
+
+                    {laborNextCountry && (
+                      <div className="mt-5 flex flex-col gap-4 border-y border-[#ffd7a8] bg-[#fffaf3] px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="min-w-0 lg:flex-1">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#9a4d00]">
+                            Proxima base recomendada
+                          </p>
+                          <div className="mt-1 flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <h5 className="text-lg font-semibold text-[#180f24]">{laborNextCountry.country}</h5>
+                            <span className="text-xs font-semibold text-[#6c6177]">
+                              {formatNumber(laborNextCountry.uniqueSessions || 0)} sesiones ·{' '}
+                              {formatNumber(laborNextCountry.views || 0)} vistas
+                            </span>
+                          </div>
+                          <p className="mt-2 text-sm text-[#4f4359]">{laborNextCountry.nextStep}</p>
+                          <ol
+                            className="mt-3 grid max-w-3xl gap-2 sm:grid-cols-2 xl:grid-cols-4"
+                            aria-label={`${laborNextCountry.readinessCompleted} de 4 requisitos completos`}
+                          >
+                            {laborNextCountryStages.map((stage, index) => (
+                              <li key={stage.label} className="flex min-w-0 items-center gap-2">
+                                <span
+                                  className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
+                                    stage.done
+                                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                                      : stage.active
+                                        ? 'border-[#ff8a1f] bg-[#fff1df] text-[#9a4d00]'
+                                        : 'border-[#ded5e4] bg-white text-[#9a8fa3]'
+                                  }`}
+                                >
+                                  {stage.done ? <CheckCircle2 className="h-3.5 w-3.5" /> : index + 1}
+                                </span>
+                                <span
+                                  className={`truncate text-[11px] font-semibold ${
+                                    stage.done
+                                      ? 'text-emerald-700'
+                                      : stage.active
+                                        ? 'text-[#9a4d00]'
+                                        : 'text-[#8b7c98]'
+                                  }`}
+                                >
+                                  {stage.label}
+                                </span>
+                              </li>
+                            ))}
+                          </ol>
+
+                          <details className="group mt-3 max-w-3xl border-t border-[#ead6c2] pt-3">
+                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-[#4f4359]">
+                              Criterios para validar la base
+                              <ChevronDown className="h-4 w-4 shrink-0 transition group-open:rotate-180" />
+                            </summary>
+                            <ol className="mt-3 grid gap-x-5 sm:grid-cols-2">
+                              {LABOR_COUNTRY_VALIDATION_CRITERIA.map((criterion, index) => (
+                                <li
+                                  key={criterion.label}
+                                  className="flex gap-3 border-t border-[#eee2d6] py-3 first:border-t-0 sm:[&:nth-child(2)]:border-t-0"
+                                >
+                                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-[10px] font-bold text-[#9a4d00]">
+                                    {index + 1}
+                                  </span>
+                                  <span className="min-w-0">
+                                    <span className="block text-xs font-semibold text-[#2a1733]">{criterion.label}</span>
+                                    <span className="mt-0.5 block text-[11px] leading-4 text-[#6c6177]">
+                                      {criterion.detail}
+                                    </span>
+                                  </span>
+                                </li>
+                              ))}
+                            </ol>
+                          </details>
+                        </div>
+
+                        {laborNextCountry.roadmapPriority && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!laborNextCountry.roadmapPriority) return;
+                              void handleLaborCountryPlanCreate({
+                                country: laborNextCountry.country,
+                                uniqueSessions: laborNextCountry.uniqueSessions,
+                                views: laborNextCountry.views,
+                                roadmapPriority: laborNextCountry.roadmapPriority,
+                              });
+                            }}
+                            disabled={laborCountryPlanCreating === laborNextCountry.country}
+                            className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#180f24] px-4 text-xs font-semibold text-white transition hover:bg-[#321341] disabled:cursor-wait disabled:opacity-60"
+                          >
+                            {laborCountryPlanCreating === laborNextCountry.country ? (
+                              <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ArrowRight className="h-3.5 w-3.5" />
+                            )}
+                            {laborNextCountry.roadmapTask?.status === 'done'
+                              ? 'Revisar habilitacion'
+                              : laborNextCountry.roadmapTask
+                                ? 'Abrir tarea'
+                                : 'Crear tarea'}
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {laborCountryPlanError && (
+                      <p className="mt-4 border-l-4 border-rose-400 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">
+                        {laborCountryPlanError}
+                      </p>
+                    )}
+
+                    <div className="mt-5 divide-y divide-[#eadff0] border-y border-[#eadff0] bg-white">
+                      {laborCountryCoverage.length === 0 && (
+                        <p className="px-4 py-5 text-sm text-[#6c6177]">
+                          Todavia no hay paises con trafico suficiente para priorizar una nueva base local.
+                        </p>
+                      )}
+                      {laborCountryCoverage.slice(0, 8).map((item, index) => (
+                        <article
+                          key={`${item.country}-${index}`}
+                          className="grid gap-3 px-4 py-4 lg:grid-cols-[minmax(0,1fr)_110px_160px_150px] lg:items-center"
+                        >
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[#180f24]">{item.country}</p>
+                            <p className="mt-1 text-[11px] text-[#6c6177]">
+                              {formatNumber(item.views || 0)} vistas en {summaryReachLabel}
+                            </p>
+                            <p className="mt-1 text-[11px] font-medium text-[#4f4359]">{item.nextStep}</p>
+                            <div className="mt-3 flex max-w-sm items-center gap-3">
+                              <div className="flex flex-1 gap-1" aria-hidden="true">
+                                {[0, 1, 2, 3].map((stepIndex) => (
+                                  <span
+                                    key={stepIndex}
+                                    className={`h-1.5 flex-1 rounded-full ${
+                                      stepIndex < item.readinessCompleted ? 'bg-emerald-500' : 'bg-[#ebe5ef]'
+                                    }`}
+                                  />
+                                ))}
+                              </div>
+                              <span className="shrink-0 text-[10px] font-semibold text-[#6c6177]">
+                                {item.readinessCompleted}/4 requisitos
+                              </span>
+                            </div>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8b7c98]">
+                              Sesiones
+                            </p>
+                            <p className="mt-1 text-sm font-semibold text-[#180f24]">
+                              {formatNumber(item.uniqueSessions || 0)}
+                            </p>
+                          </div>
+                          <div className="space-y-1.5">
+                            <span
+                              className={`block w-fit rounded-full border px-3 py-1.5 text-[10px] font-semibold ${
+                                item.pricingAvailable
+                                  ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                  : item.roadmapPriority === 'high'
+                                    ? 'border-rose-200 bg-rose-50 text-rose-700'
+                                    : 'border-amber-200 bg-amber-50 text-amber-700'
+                              }`}
+                            >
+                              {item.priorityLabel}
+                            </span>
+                            {item.roadmapTask && (
+                              <span
+                                className={`block w-fit rounded-full px-2.5 py-1 text-[10px] font-semibold ${ROADMAP_STATUS_BADGE_CLASS[item.roadmapTask.status]}`}
+                              >
+                                Roadmap: {getRoadmapStatusLabel(item.roadmapTask.status)}
+                              </span>
+                            )}
+                            <p className="text-[10px] text-[#8b7c98]">{item.statusLabel}</p>
+                          </div>
+                          {item.pricingAvailable || !item.roadmapPriority ? (
+                            <span className="inline-flex min-h-10 items-center justify-center rounded-xl border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700">
+                              Base operativa
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => void handleLaborCountryPlanCreate({
+                                country: item.country,
+                                uniqueSessions: item.uniqueSessions,
+                                views: item.views,
+                                roadmapPriority: item.roadmapPriority,
+                              })}
+                              disabled={laborCountryPlanCreating === item.country}
+                              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-xl bg-[#180f24] px-3 text-xs font-semibold text-white transition hover:bg-[#321341] disabled:cursor-wait disabled:opacity-60"
+                            >
+                              {laborCountryPlanCreating === item.country ? (
+                                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                              ) : (
+                                <ArrowRight className="h-3.5 w-3.5" />
+                              )}
+                              {item.roadmapTask?.status === 'done'
+                                ? 'Revisar base'
+                                : item.roadmapTask
+                                  ? 'Ver tarea'
+                                  : 'Crear tarea'}
+                            </button>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+
                 <div className="mt-5 grid gap-4 xl:grid-cols-[1fr_280px]">
                   <div className="rounded-[24px] border border-[#eadff0] bg-[#faf8fb] p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -9036,9 +9539,7 @@ export default function AdminPage() {
 
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       {activeActionPlan.checkpoints.map((checkpoint, index) => {
-                        const isMarked =
-                          activeActionPlan.status === 'done' ||
-                          (activeActionPlan.status === 'in_progress' && index === 0);
+                        const isMarked = activeActionPlan.completedCheckpoints[index];
                         return (
                           <div key={checkpoint} className="rounded-[20px] border border-white bg-white p-3 shadow-[0_10px_22px_rgba(31,10,46,0.04)]">
                             <div className="flex items-start gap-3">
@@ -13303,6 +13804,171 @@ export default function AdminPage() {
                           </div>
                         </section>
                       )}
+
+                      {activityData.marketplaceDemand && (() => {
+                        const demand = activityData.marketplaceDemand;
+                        const rateDelta = demand.noResultRate - demand.prevNoResultRate;
+                        const hasDemandGaps =
+                          demand.specialtyGaps.length > 0 || demand.zoneGaps.length > 0;
+
+                        return (
+                          <section className="mt-6 border-t border-slate-200 pt-6">
+                            <div className="flex flex-wrap items-end justify-between gap-3">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <MapPin className="h-4 w-4 text-orange-500" />
+                                  <h5 className="text-sm font-semibold text-slate-900">
+                                    Demanda sin cobertura
+                                  </h5>
+                                </div>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Rubros y zonas que las personas buscaron sin encontrar técnicos.
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-3">
+                                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  {demand.measurement}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => selectAdminTab('plan_tecnico', 'planes')}
+                                  className="inline-flex min-h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-[11px] font-semibold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                                >
+                                  <Wrench className="h-3.5 w-3.5" />
+                                  Abrir plan técnico
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="mt-4 grid border-y border-slate-200 bg-white sm:grid-cols-3 sm:divide-x sm:divide-slate-200">
+                              <div className="px-4 py-4">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  Búsquedas filtradas
+                                </p>
+                                <p className="mt-1 text-2xl font-semibold text-slate-900">
+                                  {formatNumber(demand.totalSearches)}
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  {getDeltaLabel(demand.totalSearches, demand.prevTotalSearches).text}
+                                </p>
+                              </div>
+                              <div className="border-t border-slate-200 px-4 py-4 sm:border-t-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  Sin resultados
+                                </p>
+                                <p className="mt-1 text-2xl font-semibold text-slate-900">
+                                  {formatNumber(demand.noResultSearches)}
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  de {formatNumber(demand.totalSearches)} búsquedas
+                                </p>
+                              </div>
+                              <div className="border-t border-slate-200 px-4 py-4 sm:border-t-0">
+                                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+                                  Demanda no cubierta
+                                </p>
+                                <p className="mt-1 text-2xl font-semibold text-slate-900">
+                                  {demand.noResultRate.toFixed(0)}%
+                                </p>
+                                <p
+                                  className={`text-[11px] font-medium ${
+                                    rateDelta > 0
+                                      ? 'text-rose-600'
+                                      : rateDelta < 0
+                                        ? 'text-emerald-700'
+                                        : 'text-slate-500'
+                                  }`}
+                                >
+                                  {rateDelta > 0 ? '+' : ''}
+                                  {rateDelta.toFixed(0)} pp vs. período anterior
+                                </p>
+                              </div>
+                            </div>
+
+                            {hasDemandGaps ? (
+                              <div className="mt-4 grid gap-5 lg:grid-cols-2">
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <Wrench className="h-4 w-4 text-slate-600" />
+                                    <h6 className="text-xs font-semibold text-slate-800">
+                                      Rubros buscados sin resultados
+                                    </h6>
+                                  </div>
+                                  <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200 bg-white">
+                                    {demand.specialtyGaps.length > 0 ? (
+                                      demand.specialtyGaps.map((item) => (
+                                        <article
+                                          key={`specialty-gap-${item.key}`}
+                                          className="flex items-start justify-between gap-4 px-3 py-3"
+                                        >
+                                          <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {item.label}
+                                            </p>
+                                            <p className="mt-1 truncate text-[11px] text-slate-500">
+                                              {item.zones.length > 0
+                                                ? item.zones.join(' · ')
+                                                : 'Zona no informada'}
+                                            </p>
+                                          </div>
+                                          <span className="shrink-0 text-sm font-semibold text-slate-900">
+                                            {formatNumber(item.searches)}
+                                          </span>
+                                        </article>
+                                      ))
+                                    ) : (
+                                      <p className="px-3 py-4 text-xs text-slate-500">
+                                        No hay faltantes por rubro en este período.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="flex items-center gap-2">
+                                    <MapPin className="h-4 w-4 text-slate-600" />
+                                    <h6 className="text-xs font-semibold text-slate-800">
+                                      Zonas buscadas sin técnicos
+                                    </h6>
+                                  </div>
+                                  <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200 bg-white">
+                                    {demand.zoneGaps.length > 0 ? (
+                                      demand.zoneGaps.map((item) => (
+                                        <article
+                                          key={`zone-gap-${item.key}`}
+                                          className="flex items-start justify-between gap-4 px-3 py-3"
+                                        >
+                                          <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-slate-900">
+                                              {item.label}
+                                            </p>
+                                            <p className="mt-1 truncate text-[11px] text-slate-500">
+                                              {item.specialties.length > 0
+                                                ? item.specialties.join(' · ')
+                                                : 'Todos los rubros'}
+                                            </p>
+                                          </div>
+                                          <span className="shrink-0 text-sm font-semibold text-slate-900">
+                                            {formatNumber(item.searches)}
+                                          </span>
+                                        </article>
+                                      ))
+                                    ) : (
+                                      <p className="px-3 py-4 text-xs text-slate-500">
+                                        No hay zonas completamente descubiertas en este período.
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="mt-4 border-y border-slate-200 bg-white px-4 py-5 text-xs text-slate-500">
+                                Todavía no hay búsquedas sin cobertura registradas. La medición comienza con las próximas búsquedas de la vidriera.
+                              </div>
+                            )}
+                          </section>
+                        );
+                      })()}
 
                       {activityOpportunities.length > 0 && (
                         <section className="mt-6 border-t border-slate-200 pt-6">
